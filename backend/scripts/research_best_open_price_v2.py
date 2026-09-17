@@ -8,6 +8,7 @@ production-hardening belongs to a later publication phase, not this one.
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence
 
@@ -125,6 +126,13 @@ def build_v2_row(
     # -- the generic/legacy names mean RIP, per the backward-compatibility
     # requirement). ---
     financial_price_cents = financial_threshold.get("priceCents")
+    # Same formula pattern as the RIP gap fields above, computed against the
+    # Financial threshold instead of the RIP threshold.
+    if financial_price_cents is not None and current_price_cents:
+        financial_price_gap_dollars = (current_price_cents - financial_price_cents) / 100.0
+        financial_price_gap_percent = (current_price_cents - financial_price_cents) / current_price_cents
+    else:
+        financial_price_gap_dollars = financial_price_gap_percent = None
     row.update({
         "financialBestOpenPrice": (financial_price_cents / 100.0) if financial_price_cents is not None else None,
         "financialBestOpenPriceCents": financial_price_cents,
@@ -138,6 +146,8 @@ def build_v2_row(
         "financialThresholdOverallRipV12Score": financial_threshold.get("overallRipV12Score"),
         "financialThresholdChanceToRecoverCapital": financial_threshold.get("chanceToRecoverCapital"),
         "financialThresholdActualCommittedCapital": financial_threshold.get("actualCommittedCapital"),
+        "financialPriceGapDollars": financial_price_gap_dollars,
+        "financialPriceGapPercent": financial_price_gap_percent,
     })
 
     return row
@@ -184,6 +194,7 @@ def run(
 
     ordered = sorted(source_rows, key=lambda r: int(r["budget_rank_v12"]))
     if product_ids is not None:
+        product_ids = [str(pid) for pid in product_ids]
         missing = [pid for pid in product_ids if pid not in source_by_id]
         if missing:
             raise RuntimeError(f"requested product_ids not in cohort: {missing}")
@@ -210,7 +221,22 @@ def run(
         # execute_product() as-is would construct and run a single V1 engine
         # internally, defeating that shared-construction requirement.
         run_id = str(product["calculation_run_id"])
-        artifact = load_pack_outcome_artifact(client, run_id)
+        # Bounded retry, mirroring research_best_open_price_bucket2.py's
+        # execute_product() exactly: a single transient artifact-fetch
+        # failure (this project's Pokemon TCG API provider has documented
+        # ~50% random 500s) must not abort the entire cohort run.
+        artifact_error = None
+        for attempt in range(3):
+            try:
+                artifact = load_pack_outcome_artifact(client, run_id)
+                artifact_error = None
+                break
+            except Exception as exc:  # bounded retry; final exception remains fail-closed
+                artifact_error = exc
+                if attempt < 2:
+                    time.sleep(attempt + 1)
+        if artifact_error is not None:
+            raise artifact_error
         random_count = int(product.get("random_pack_count") or product["pack_count"])
         base = build_stage1_distributions_cached(artifact, random_count, run_id)
 

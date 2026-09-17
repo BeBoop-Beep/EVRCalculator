@@ -15,11 +15,13 @@ import inspect
 
 import pytest
 
+from backend.db.services.best_open_price_authority import SOURCE_VERSIONS
 from backend.scripts.research_best_open_price_bucket0 import (
     _verify_v12_parity,
     validate_financial_only_rank_reconstructs,
     validate_rank_column_contiguous,
 )
+import backend.scripts.research_best_open_price_v2 as research_best_open_price_v2
 from backend.scripts.research_best_open_price_v2 import build_v2_row, run
 
 
@@ -262,3 +264,82 @@ def test_run_fails_closed_on_current_v12_score_parity_failure():
     }]
     with pytest.raises(RuntimeError, match="V12 parity failed"):
         _verify_v12_parity(rows, label="rip")
+
+
+def test_run_itself_fails_closed_before_any_expensive_work(monkeypatch):
+    """Actually calls run() (not just the validators it wraps) with a stub
+    client and a monkeypatched _load_source returning a deliberately-bad-rank
+    fixture (duplicate financial_only_rank), and asserts run() raises
+    RuntimeError before _load_exact_source_products -- the expensive,
+    per-cohort artifact-loading step -- is ever reached. This proves run()
+    genuinely wires up its fail-closed guards in the right order, rather than
+    merely calling the same validators in isolation as the tests above do."""
+    valid_snapshot = {
+        **SOURCE_VERSIONS,
+        "id": "snapshot-1",
+        "published_at": "2026-01-01T00:00:00+00:00",
+        "market_date": "2026-01-01",
+        "pinned_price_as_of": "2026-01-01",
+        "cohort_fingerprint": "fp-1",
+        "full_market_budget": "100.00",
+        "eligible_cohort_count": "2",
+        "ranked_under_v12_authority": True,
+    }
+    # Duplicate financial_only_rank -> validate_rank_column_contiguous must
+    # raise RuntimeError before the per-product loop / artifact loading.
+    bad_source_rows = [
+        {"sealed_product_id": "a", "budget_rank_v12": 1, "financial_only_rank": 1},
+        {"sealed_product_id": "b", "budget_rank_v12": 2, "financial_only_rank": 1},
+    ]
+    all_rows = list(bad_source_rows)
+
+    def fake_load_source(client, snapshot_id):
+        return valid_snapshot, bad_source_rows, all_rows
+
+    def should_not_be_reached(*args, **kwargs):
+        raise AssertionError("should not be reached")
+
+    monkeypatch.setattr(research_best_open_price_v2, "_load_source", fake_load_source)
+    monkeypatch.setattr(
+        research_best_open_price_v2, "_load_exact_source_products", should_not_be_reached
+    )
+
+    with pytest.raises(RuntimeError, match="contiguous"):
+        research_best_open_price_v2.run(
+            client=object(),
+            source_snapshot_id="snapshot-1",
+            expected_source_authority_fingerprint="anything",
+        )
+
+
+def test_build_v2_row_populates_financial_price_gap_fields():
+    """Minor #4: financialPriceGapDollars/financialPriceGapPercent use the
+    same formula pattern as the RIP gap fields but against the Financial
+    threshold's priceCents."""
+    rip_threshold = _threshold(14068, 9, 50.0, 80.0, 0.3, 1266.12)
+    financial_threshold = _threshold(14500, 10, 90.0, 40.0, 0.5, 1450.0)
+    dual_result = {
+        "ripResult": _search_result("exact", rip_threshold, 2, "rip-bench"),
+        "financialResult": _search_result("exact", financial_threshold, 1, "fin-bench"),
+        "diagnostics": {},
+    }
+    current_price_cents = 15000
+    row = build_v2_row(
+        dual_result, source_row={"sealed_product_id": "p1", "financial_only_rank": 1, "budget_rank_v12": 2},
+        current_price_cents=current_price_cents,
+    )
+    expected_gap_dollars = (current_price_cents - 14500) / 100.0
+    expected_gap_percent = (current_price_cents - 14500) / current_price_cents
+    assert row["financialPriceGapDollars"] == pytest.approx(expected_gap_dollars)
+    assert row["financialPriceGapPercent"] == pytest.approx(expected_gap_percent)
+
+
+def test_build_v2_row_financial_price_gap_fields_are_none_without_current_price():
+    dual_result = {
+        "ripResult": _search_result("unresolved_extreme_quantity", None, 2, None),
+        "financialResult": _search_result("unresolved_extreme_quantity", None, 2, None),
+        "diagnostics": {},
+    }
+    row = build_v2_row(dual_result, source_row={"sealed_product_id": "p1", "financial_only_rank": 2, "budget_rank_v12": 2})
+    assert row["financialPriceGapDollars"] is None
+    assert row["financialPriceGapPercent"] is None

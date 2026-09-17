@@ -528,6 +528,20 @@ class DualBestOpenPriceSearch:
         # One quantity-level memo shared by BOTH engines: whichever search
         # touches a given physical quantity first builds it; the other reuses
         # the same PreparedCanonicalCandidate object.
+        #
+        # Deliberately unbounded (unlike each ExactBestOpenPriceSearch's own
+        # bounded max_cached_quantities LRU): the RIP search always runs to
+        # completion before the Financial search starts (see below), so for
+        # sharing to actually pay off, this memo must still hold every
+        # quantity the RIP search touched by the time the Financial search
+        # begins -- a small LRU here would silently evict exactly the entries
+        # the second search needs, defeating the reuse this design exists to
+        # provide. Watch diagnostics["uniqueQuantitiesConstructed"] before any
+        # large-cohort (e.g. full 138-product) run; if it proves large in
+        # practice, a bound could be added later, but that would trade away
+        # cache-sharing benefit to do it -- there is no way to size a cap
+        # responsibly without a real large-cohort run, which is not available
+        # in this environment, so no cap is added here.
         quantity_cache: Dict[int, PreparedCanonicalCandidate] = {}
         shared_prepare_quantity = self._shared_prepare_quantity(quantity_cache)
         shared_prepare_quantities = self._shared_prepare_quantities(quantity_cache)
