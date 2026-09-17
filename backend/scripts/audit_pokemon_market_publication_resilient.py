@@ -6,8 +6,11 @@ only hardens its I/O path for scheduled/offline execution:
 * every PostgREST execute is retried only when the shared data-service classifier
   says the failure is transient, with a fresh service-role client per attempt;
 * the very large Cards snapshot is read metadata-first, and ``cards_json`` is
-  fetched only for the exceptional rows whose compact metadata cannot establish
-  their own market date.
+  fetched only for exceptional rows whose compact metadata cannot establish
+  their own market date;
+* the Set Page snapshot is projected down to only the metadata/summary fields the
+  audit actually consumes, instead of fetching the full page payload for the
+  entire daily cohort.
 
 No verdict is weakened. If a surface is stale, malformed, or missing, the
 canonical audit still fails closed exactly as before.
@@ -26,9 +29,23 @@ from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_ret
 
 logger = logging.getLogger(__name__)
 _ORIGINAL_LOAD_ROWS = core._load_rows
+
 _CARDS_TABLE = "pokemon_set_cards_snapshot_latest"
 _CARDS_HEAVY_COLUMNS = "set_id,payload_json,cards_json,card_count,updated_at"
 _CARDS_META_COLUMNS = "set_id,payload_meta:payload_json->meta,card_count,updated_at"
+
+_PAGES_TABLE = "pokemon_set_page_snapshot_latest"
+_PAGES_HEAVY_COLUMNS = (
+    "set_id,payload_json,title_card_json,market_summary_json,as_of,updated_at"
+)
+_PAGES_COMPACT_COLUMNS = (
+    "set_id,"
+    "payload_meta:payload_json->meta,"
+    "payload_summary:payload_json->summary,"
+    "payload_set_value:payload_json->setValue,"
+    "title_card_json,market_summary_json,as_of,updated_at"
+)
+_PAGES_COMPACT_CHUNK_SIZE = 50
 
 
 class _RetryingQuery:
@@ -106,6 +123,24 @@ def _meta_market_date(row: Dict[str, Any]) -> Optional[str]:
     return core.cards_snapshot_market_date(synthetic)
 
 
+def _compact_page_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Rehydrate only the payload paths the canonical page audit reads."""
+
+    payload: Dict[str, Any] = {}
+    meta = row.get("payload_meta")
+    if isinstance(meta, dict):
+        payload["meta"] = meta
+    summary = row.get("payload_summary")
+    if isinstance(summary, dict):
+        payload["summary"] = summary
+    if row.get("payload_set_value") is not None:
+        payload["setValue"] = row.get("payload_set_value")
+
+    synthetic = dict(row)
+    synthetic["payload_json"] = payload
+    return synthetic
+
+
 def _runtime_load_rows(
     client: Any,
     table: str,
@@ -115,7 +150,18 @@ def _runtime_load_rows(
     chunk_size: int = 200,
     **filters: Any,
 ) -> Dict[str, Dict[str, Any]]:
-    """Keep canonical chunk semantics, but slim the Cards snapshot read."""
+    """Keep canonical semantics while reducing known oversized JSON reads."""
+
+    if table == _PAGES_TABLE and "payload_json" in columns:
+        compact = _ORIGINAL_LOAD_ROWS(
+            client,
+            table,
+            _PAGES_COMPACT_COLUMNS,
+            set_ids,
+            chunk_size=max(1, min(chunk_size, _PAGES_COMPACT_CHUNK_SIZE)),
+            **filters,
+        )
+        return {set_id: _compact_page_row(row) for set_id, row in compact.items()}
 
     if table != _CARDS_TABLE or "cards_json" not in columns:
         return _ORIGINAL_LOAD_ROWS(
@@ -184,6 +230,43 @@ def run_market_publication_audit(
         core._load_rows = previous_loader
 
 
+def _queue_alerts(report: core.MarketAuditReport, args: Any) -> None:
+    """Preserve the canonical audit's alert side effects without affecting verdicts."""
+
+    if args.sets or not report.market_date:
+        return
+    try:
+        from backend.alerts.pipeline_alerts import (
+            alert_market_audit,
+            alert_market_pipeline_complete_if_ready,
+            alert_simulation_stage,
+        )
+
+        failing = [row.canonical_key or row.set_id or "unknown" for row in report.failed_rows]
+        alert_market_audit(
+            market_date=report.market_date,
+            passed=report.passed,
+            failing_surfaces=failing,
+            expected_date=report.market_date,
+            error=report.error,
+        )
+        if args.phase == core.PHASE_FULL:
+            alert_simulation_stage(
+                market_date=report.market_date,
+                state="complete" if report.passed else "publication_failed",
+                set_count=len(report.rows),
+                final_audit_status="PASS" if report.passed else "FAIL",
+            )
+        elif args.phase == core.PHASE_POST_SCRAPE:
+            alert_market_pipeline_complete_if_ready(
+                create_service_role_client(),
+                market_date=report.market_date,
+                audit_passed=report.passed,
+            )
+    except Exception:  # pragma: no cover - verdict never depends on alerting
+        logger.exception("%s failed to queue publication audit alert", core.AUDIT_TAG)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = core.build_parser().parse_args(argv)
     report = run_market_publication_audit(
@@ -191,42 +274,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         canonical_keys=args.sets,
         phase=args.phase,
     )
-
-    # Preserve the canonical alerting contract. Targeted --set diagnostics remain
-    # operator probes and never claim the whole daily pipeline passed or failed.
-    if not args.sets and report.market_date:
-        try:
-            from backend.alerts.pipeline_alerts import (
-                alert_market_audit,
-                alert_market_pipeline_complete_if_ready,
-                alert_simulation_stage,
-            )
-
-            failing = [row.canonical_key or row.set_id or "unknown" for row in report.failed_rows]
-            alert_market_audit(
-                market_date=report.market_date,
-                passed=report.passed,
-                failing_surfaces=failing,
-                expected_date=report.market_date,
-                error=report.error,
-            )
-            if args.phase == core.PHASE_FULL:
-                alert_simulation_stage(
-                    market_date=report.market_date,
-                    state="complete" if report.passed else "publication_failed",
-                    set_count=len(report.rows),
-                    final_audit_status="PASS" if report.passed else "FAIL",
-                )
-            elif args.phase == core.PHASE_POST_SCRAPE:
-                # Alert helper only needs the regular service-role client for its
-                # own lightweight read/write bookkeeping.
-                alert_market_pipeline_complete_if_ready(
-                    create_service_role_client(),
-                    market_date=report.market_date,
-                    audit_passed=report.passed,
-                )
-        except Exception:  # pragma: no cover - verdict never depends on alerting
-            logger.exception("%s failed to queue publication audit alert", core.AUDIT_TAG)
+    _queue_alerts(report, args)
 
     if args.as_json:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
