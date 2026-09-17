@@ -17,7 +17,10 @@ import hashlib
 import json
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-from backend.calculations.evr.best_open_price import BEST_OPEN_PRICE_METHOD_VERSION
+from backend.calculations.evr.best_open_price import (
+    BEST_OPEN_PRICE_METHOD_VERSION,
+    BEST_OPEN_PRICE_V2_METHOD_VERSION,
+)
 from backend.db.services.best_open_price_authority import source_binding_matches
 
 RPC_NAME = "publish_budget_product_best_open_price_snapshot"
@@ -129,6 +132,72 @@ def build_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
         "bracket_refinements": engine_row.get("bracketRefinements", 0),
         "monotonicity_fallback_count": engine_row.get("fallbackCount", 0),
         "search_wall_seconds": engine_row.get("searchWallSeconds", 0.0),
+    }
+
+
+def build_v2_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
+    """Pure projection of one V2 engine result row (``build_v2_row()``
+    output, ``backend/scripts/research_best_open_price_v2.py``) into the
+    snake_case wire format the V2 RPC branch expects. No scoring, no
+    recomputation -- every value here is a direct read/rename from the
+    engine row, matching ``build_row_payload``'s (V1) style exactly.
+    """
+    assert engine_row.get("methodVersion") == BEST_OPEN_PRICE_V2_METHOD_VERSION
+    return {
+        # Identity fields (same meaning as V1).
+        "sealed_product_id": engine_row["sealedProductId"],
+        "set_id": engine_row["setId"],
+        "product_family": engine_row.get("productFamily"),
+        "source_calculation_run_id": engine_row.get("sourceCalculationRunId"),
+        # Current-state fields (same meaning as V1).
+        "current_market_price": engine_row["currentMarketPrice"],
+        "current_quantity": engine_row["currentQuantity"],
+        "current_budget_rank": engine_row["currentBudgetRank"],
+        "current_overall_rip_v12_score": engine_row.get("currentOverallRipV12Score"),
+        "current_financial_rip_v4_score": engine_row.get("currentFinancialRipV4Score"),
+        "current_collector_appeal_score": engine_row.get("currentCollectorAppealScore"),
+        "current_chase_accessibility_raw": engine_row.get("currentChaseAccessibilityRaw"),
+        "current_chance_to_recover_capital": engine_row.get("currentChanceToRecoverCapital"),
+        "current_actual_committed_capital": engine_row["currentActualCommittedCapital"],
+        # V2 Financial current-state addition.
+        "current_financial_only_rank": engine_row["currentFinancialOnlyRank"],
+        # Generic + RIP-aliased threshold/benchmark fields (unchanged meaning
+        # from V1).
+        "status": engine_row["status"],
+        "best_open_price": engine_row["bestOpenPrice"],
+        "threshold_quantity": engine_row["thresholdQuantity"],
+        "price_gap_dollars": engine_row["priceGapDollars"],
+        "price_gap_percent": engine_row.get("priceGapPercent"),
+        "benchmark_sealed_product_id": engine_row["benchmarkSealedProductId"],
+        "benchmark_overall_rip_v12_score": engine_row["benchmarkOverallRipV12Score"],
+        "benchmark_financial_rip_v4_score": engine_row.get("benchmarkFinancialRipV4Score"),
+        "benchmark_chance_to_recover_capital": engine_row.get("benchmarkChanceToRecoverCapital"),
+        "benchmark_actual_committed_capital": engine_row.get("benchmarkActualCommittedCapital"),
+        # Diagnostics (same meaning as V1, from the RIP search's counters).
+        "candidate_price_evaluations": engine_row.get("candidatePriceEvaluations", 0),
+        "bracket_expansions": engine_row.get("bracketExpansions", 0),
+        "bracket_refinements": engine_row.get("bracketRefinements", 0),
+        "monotonicity_fallback_count": engine_row.get("fallbackCount", 0),
+        "search_wall_seconds": engine_row.get("searchWallSeconds", 0.0),
+        # V2 Financial fields (explicit financial* names only -- no generic
+        # alias, per the backward-compatibility requirement).
+        "financial_status": engine_row["financialStatus"],
+        "financial_best_open_price": engine_row["financialBestOpenPrice"],
+        "financial_threshold_quantity": engine_row["financialThresholdQuantity"],
+        "financial_price_gap_dollars": engine_row["financialPriceGapDollars"],
+        "financial_price_gap_percent": engine_row.get("financialPriceGapPercent"),
+        "financial_benchmark_sealed_product_id": engine_row["financialBenchmarkSealedProductId"],
+        "financial_benchmark_financial_rip_v4_score": engine_row.get("financialBenchmarkFinancialRipV4Score"),
+        "financial_benchmark_overall_rip_v12_score": engine_row.get("financialBenchmarkOverallRipV12Score"),
+        # Threshold evidence (both axes, verbatim).
+        "threshold_financial_rip_v4_score": engine_row.get("ripThresholdFinancialRipV4Score"),
+        "threshold_overall_rip_v12_score": engine_row["ripThresholdOverallRipV12Score"],
+        "threshold_chance_to_recover_capital": engine_row.get("ripThresholdChanceToRecoverCapital"),
+        "threshold_actual_committed_capital": engine_row["ripThresholdActualCommittedCapital"],
+        "financial_threshold_financial_rip_v4_score": engine_row.get("financialThresholdFinancialRipV4Score"),
+        "financial_threshold_overall_rip_v12_score": engine_row["financialThresholdOverallRipV12Score"],
+        "financial_threshold_chance_to_recover_capital": engine_row.get("financialThresholdChanceToRecoverCapital"),
+        "financial_threshold_actual_committed_capital": engine_row["financialThresholdActualCommittedCapital"],
     }
 
 

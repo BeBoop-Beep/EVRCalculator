@@ -76,6 +76,20 @@ def build_v2_row(
     row: Dict[str, Any] = {
         "methodVersion": BEST_OPEN_PRICE_V2_METHOD_VERSION,
         "sealedProductId": str(source_row["sealed_product_id"]),
+        # Identity + current-state fields the persistence layer needs
+        # (parity with research_best_open_price_bucket2.py's execute_product()
+        # V1 engine_row construction) -- straight copies from the source row
+        # this function already has in hand, never recomputed.
+        "setId": str(source_row["set_id"]) if source_row.get("set_id") is not None else None,
+        "productFamily": source_row.get("product_family"),
+        "sourceCalculationRunId": source_row.get("source_calculation_run_id"),
+        "currentQuantity": int(source_row["quantity"]) if source_row.get("quantity") is not None else None,
+        "currentOverallRipV12Score": source_row.get("overall_rip_v12_score"),
+        "currentFinancialRipV4Score": source_row.get("financial_rip_v4_score"),
+        "currentCollectorAppealScore": source_row.get("collector_appeal_score"),
+        "currentChaseAccessibilityRaw": source_row.get("chase_accessibility_raw"),
+        "currentChanceToRecoverCapital": source_row.get("chance_to_recover_capital"),
+        "currentActualCommittedCapital": source_row.get("actual_committed_capital"),
         "currentBudgetRank": int(source_row["budget_rank_v12"]),
         "currentFinancialOnlyRank": int(source_row["financial_only_rank"]),
         "resolved": bool(rip_resolved and financial_resolved),
@@ -83,6 +97,10 @@ def build_v2_row(
         "financialResolved": financial_resolved,
         "diagnostics": dict(dual_result.get("diagnostics") or {}),
     }
+    if current_price_cents is not None:
+        row["currentMarketPrice"] = current_price_cents / 100.0
+    elif source_row.get("product_market_price") is not None:
+        row["currentMarketPrice"] = float(source_row["product_market_price"])
 
     # --- RIP fields: both the backward-compatible generic aliases AND the
     # explicit rip* names, per Phase 5's contract. ---
@@ -102,6 +120,18 @@ def build_v2_row(
         "thresholdQuantity": rip_threshold.get("quantity"),
         "benchmarkSealedProductId": rip.get("benchmarkProductId"),
         "benchmarkOverallRipV12Score": rip.get("benchmarkOverallRipV12Score"),
+        # Generic (RIP-aliased) benchmark evidence + diagnostics counts the
+        # persistence layer needs (same keys/meaning as V1's engine_row) --
+        # sourced from the RIP benchmark mapping and the RIP search's own
+        # _payload() diagnostics, never recomputed.
+        "benchmarkFinancialRipV4Score": rip_benchmark.get("financialRipV4Score"),
+        "benchmarkChanceToRecoverCapital": rip_benchmark.get("chanceToRecoverCapital"),
+        "benchmarkActualCommittedCapital": rip_benchmark.get("actualCommittedCapital"),
+        "candidatePriceEvaluations": rip.get("evaluationCount", 0),
+        "bracketExpansions": rip.get("bracketExpansions", 0),
+        "bracketRefinements": rip.get("bracketRefinements", 0),
+        "fallbackCount": rip.get("monotonicityFallbackCount", 0),
+        "searchWallSeconds": rip.get("wallSeconds", 0.0),
         "exactness": rip.get("exactness"),
         "priceGapDollars": price_gap_dollars,
         "priceGapPercent": price_gap_percent,
