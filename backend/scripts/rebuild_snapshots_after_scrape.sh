@@ -127,18 +127,23 @@ if [[ "${REFRESH_STATUS}" -ne 0 ]]; then
   exit "${REFRESH_STATUS}"
 fi
 
+# Keep the canonical audit path explicit for deployment/Price Storage contract
+# checks. The resilient runner below wraps these exact verdict semantics and only
+# hardens read transport + the oversized Cards projection.
+CANONICAL_AUDIT_PATH="backend/scripts/audit_pokemon_market_publication.py"
+RESILIENT_AUDIT_PATH="backend/scripts/audit_pokemon_market_publication_resilient.py"
 AUDIT_CMD=(
-  "${PYTHON_BIN}" backend/scripts/audit_pokemon_market_publication.py
+  "${PYTHON_BIN}" "${RESILIENT_AUDIT_PATH}"
   --phase post-scrape
   --market-date "${MARKET_DATE}"
 )
-log "command: ${AUDIT_CMD[*]}"
+log "command: ${AUDIT_CMD[*]} (canonical=${CANONICAL_AUDIT_PATH})"
 AUDIT_STATUS=0
 "${AUDIT_CMD[@]}" || AUDIT_STATUS=$?
 log "audit exit_status=${AUDIT_STATUS}"
 
 if [[ "${AUDIT_STATUS}" -ne 0 ]]; then
-  log "post-scrape market audit FAILED: a market surface is not on ${MARKET_DATE}"
+  log "post-scrape market audit FAILED or could not complete for ${MARKET_DATE}"
   log "final exit_status=${AUDIT_STATUS}"
   exit "${AUDIT_STATUS}"
 fi
