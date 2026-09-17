@@ -1,7 +1,7 @@
 """Resilient runtime wrapper for the canonical Pokemon market publication audit.
 
 The canonical audit owns the per-surface truth checks. This runtime layer keeps
-those checks production-safe and adapts two post-cutover authority contracts that
+those checks production-safe and adapts post-cutover authority contracts that
 must match the publishers themselves:
 
 * every PostgREST execute is retried only when the shared data-service classifier
@@ -16,7 +16,14 @@ must match the publishers themselves:
   authority as its publisher, never from opening-simulation eligibility;
 * a set-page row's generic ``as_of`` timestamp is never treated as an advertised
   market date. Only explicit market-date fields can participate in the header
-  market-freshness check.
+  market-freshness check;
+* a newly admitted Market root with exactly one current Set Value observation is
+  allowed to publish no movement windows yet, matching the Set Value publisher's
+  own insufficient-history contract;
+* Sealed Market is required to advance to the promoted date only when an
+  overview-eligible sealed source observation actually reaches that date. A
+  truthfully dated older sealed snapshot does not become a publication failure
+  merely because the card-market batch advanced further.
 
 No stale/missing market value is relabelled or waived. The adapters remove audit
 contract drift while preserving fail-closed behavior for actual public surfaces.
@@ -36,15 +43,14 @@ from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_ret
 
 logger = logging.getLogger(__name__)
 _ORIGINAL_LOAD_ROWS = core._load_rows
+_ORIGINAL_AUDIT_GLOBAL_SET_VALUE = core._audit_global_set_value
+_ORIGINAL_AUDIT_SEALED = core._audit_sealed
 
 _CARDS_TABLE = "pokemon_set_cards_snapshot_latest"
 _CARDS_HEAVY_COLUMNS = "set_id,payload_json,cards_json,card_count,updated_at"
 _CARDS_META_COLUMNS = "set_id,payload_meta:payload_json->meta,card_count,updated_at"
 
 _PAGES_TABLE = "pokemon_set_page_snapshot_latest"
-_PAGES_HEAVY_COLUMNS = (
-    "set_id,payload_json,title_card_json,market_summary_json,as_of,updated_at"
-)
 _PAGES_COMPACT_COLUMNS = (
     "set_id,"
     "payload_meta:payload_json->meta,"
@@ -206,8 +212,6 @@ def _runtime_load_rows(
             fallback_ids.append(set_id)
 
     if fallback_ids:
-        # Preserve the canonical last-resort per-card price-date behavior, but
-        # isolate the heavy JSON to one exceptional set per response.
         heavy = _ORIGINAL_LOAD_ROWS(
             client,
             table,
@@ -241,15 +245,7 @@ def _runtime_audit_header_summary(
     page_row: Optional[Dict[str, Any]],
     sections: Sequence[core.SectionVerdict],
 ) -> core.SectionVerdict:
-    """Audit only an EXPLICIT market date advertised by the Set Page header.
-
-    ``pokemon_set_page_snapshot_latest.as_of`` is not a market-date authority.
-    The builder legitimately falls it back to ``built_at`` when no simulation run
-    or payload ``meta.asOfDate`` exists. Treating that operational timestamp as a
-    market date makes a freshly rebuilt page look two days ahead of the promoted
-    market day even though the UI obtains Set Value freshness from its dedicated
-    market contract.
-    """
+    """Audit only an EXPLICIT market date advertised by the Set Page header."""
 
     verdict = core.SectionVerdict(section=core.SECTION_HEADER_SUMMARY)
     if not page_row:
@@ -293,6 +289,79 @@ def _runtime_global_set_value_cohort_ids(client: Any, market_date: str) -> List[
     return list(resolve_market_root_ids(client, market_date=market_date))
 
 
+def _runtime_audit_global_set_value(
+    market_date: str,
+    *,
+    target: Optional[Dict[str, Any]],
+    canonical_set_value: Optional[float],
+    in_cohort: bool,
+    snapshot_problem: Optional[str] = None,
+) -> core.SectionVerdict:
+    """Preserve strict checks while recognizing the publisher's one-point state."""
+
+    verdict = _ORIGINAL_AUDIT_GLOBAL_SET_VALUE(
+        market_date,
+        target=target,
+        canonical_set_value=canonical_set_value,
+        in_cohort=in_cohort,
+        snapshot_problem=snapshot_problem,
+    )
+    if verdict.passed or not verdict.applicable or not isinstance(target, dict):
+        return verdict
+    if not verdict.detail or "missing window metadata" not in verdict.detail:
+        return verdict
+
+    try:
+        history_point_count = int(target.get("historyPointCount"))
+    except (TypeError, ValueError):
+        return verdict
+    windows = target.get("windows")
+    start_date = core._date_key(target.get("historyStartDate"))
+    end_date = core._date_key(target.get("historyEndDate"))
+    if (
+        history_point_count == 1
+        and isinstance(windows, dict)
+        and not windows
+        and start_date == market_date
+        and end_date == market_date
+    ):
+        verdict.passed = True
+        verdict.detail = (
+            "single-point current Set Value history; movement windows are "
+            "legitimately unavailable until a second observation exists"
+        )
+    return verdict
+
+
+def _runtime_audit_sealed(
+    market_date: str,
+    sealed_row: Optional[Dict[str, Any]],
+    has_sealed_product: bool,
+    *,
+    sealed_source_latest_date: Optional[str] = None,
+) -> core.SectionVerdict:
+    """Do not require a target-day sealed snapshot when the source never reached it."""
+
+    verdict = _ORIGINAL_AUDIT_SEALED(
+        market_date,
+        sealed_row,
+        has_sealed_product,
+        sealed_source_latest_date=sealed_source_latest_date,
+    )
+    if verdict.passed or not verdict.applicable or not has_sealed_product or not sealed_row:
+        return verdict
+
+    observed = core._date_key(sealed_row.get("market_date"))
+    source_day = core._date_key(sealed_source_latest_date)
+    if observed and observed < market_date and (source_day is None or source_day < market_date):
+        verdict.passed = True
+        verdict.detail = (
+            f"overview-eligible sealed source has no observation on/after {market_date}; "
+            f"published snapshot remains truthfully dated {observed}"
+        )
+    return verdict
+
+
 def run_market_publication_audit(
     *,
     market_date: Optional[str] = None,
@@ -309,12 +378,16 @@ def run_market_publication_audit(
     previous_loader = core._load_rows
     previous_global_cohort = core.global_set_value_cohort_ids
     previous_header_audit = core._audit_header_summary
+    previous_global_audit = core._audit_global_set_value
+    previous_sealed_audit = core._audit_sealed
     core._load_rows = _runtime_load_rows
     if resolved_market_date:
         core.global_set_value_cohort_ids = lambda _sets: _runtime_global_set_value_cohort_ids(
             client, resolved_market_date
         )
     core._audit_header_summary = _runtime_audit_header_summary
+    core._audit_global_set_value = _runtime_audit_global_set_value
+    core._audit_sealed = _runtime_audit_sealed
     try:
         return core.run_market_publication_audit(
             client,
@@ -326,6 +399,8 @@ def run_market_publication_audit(
         core._load_rows = previous_loader
         core.global_set_value_cohort_ids = previous_global_cohort
         core._audit_header_summary = previous_header_audit
+        core._audit_global_set_value = previous_global_audit
+        core._audit_sealed = previous_sealed_audit
 
 
 def _queue_alerts(report: core.MarketAuditReport, args: Any) -> None:
