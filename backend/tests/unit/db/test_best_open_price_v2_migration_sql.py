@@ -25,7 +25,7 @@ def test_migration_is_mirrored_into_supabase_directory():
     assert MIGRATION.read_text(encoding="utf-8") == SUPABASE_MIRROR.read_text(encoding="utf-8")
 
 
-def test_eighteen_new_nullable_columns_present():
+def test_seventeen_new_nullable_columns_present():
     for column in (
         "current_financial_only_rank integer",
         "financial_status text",
@@ -154,10 +154,16 @@ def test_v2_threshold_reconciliation_uses_tolerance_not_exact_equality():
 
 
 def test_v2_branch_has_no_rip_money_columns():
+    import re
+
     v2_branch = SQL.split(
         "elsif v_method_version = "
         "'budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12' then"
     )[1]
+    # Guard against any "rip_*" column name (e.g. rip_best_open_price,
+    # rip_threshold_quantity), not just the three literal substrings
+    # originally spot-checked.
+    assert re.search(r"add column\s+rip_", SQL) is None
     for stale in ("rip_price", "rip_money", "rip_dollars"):
         assert stale not in v2_branch
 
@@ -195,6 +201,50 @@ def test_rpc_grants_are_service_role_only():
 
 def test_rpc_is_security_definer_with_safe_search_path():
     assert "language plpgsql security definer set search_path = pg_catalog, public, extensions, pg_temp" in SQL
+
+
+def test_financial_status_invariant_constraint_mirrors_v1_status_invariant():
+    # Same three-branch OR, same strict comparisons per status value as
+    # V1's status-invariant CHECK, but for financial_status/
+    # financial_best_open_price/financial_price_gap_dollars, tolerant of
+    # NULL for historical/non-financial rows.
+    assert "add constraint budget_best_open_v2_financial_status_invariant" in SQL
+    assert "financial_status is null" in SQL
+    assert (
+        "financial_status = 'resolved_below_market'\n"
+        "          and financial_best_open_price < current_market_price and financial_price_gap_dollars > 0"
+    ) in SQL
+    assert (
+        "financial_status = 'current_number_one_with_headroom'\n"
+        "          and financial_best_open_price >= current_market_price and financial_price_gap_dollars <= 0"
+    ) in SQL
+    assert (
+        "financial_status = 'resolved_at_market'\n"
+        "          and financial_best_open_price = current_market_price and financial_price_gap_dollars = 0"
+    ) in SQL
+
+
+def test_v2_branch_requires_financial_status_non_null():
+    v2_branch = SQL.split(
+        "elsif v_method_version = "
+        "'budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12' then"
+    )[1]
+    assert "financial_status is required on every best-open price v2 row" in v2_branch
+    assert "x->>'financial_status' is null" in v2_branch
+
+
+def test_v2_branch_requires_both_overall_rip_v12_threshold_scores_non_null():
+    v2_branch = SQL.split(
+        "elsif v_method_version = "
+        "'budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12' then"
+    )[1]
+    # Both threshold_overall_rip_v12_score and
+    # financial_threshold_overall_rip_v12_score must be in the
+    # required-non-null/finite numeric field array, matching the brief's
+    # Step 4.7 "non-null, finite" requirement for all four fields per set.
+    required_block = v2_branch.split("missing or non-finite numeric source/threshold evidence")[0]
+    assert "'threshold_overall_rip_v12_score'" in required_block
+    assert "'financial_threshold_overall_rip_v12_score'" in required_block
 
 
 def test_does_not_touch_the_already_applied_v1_migration_files():

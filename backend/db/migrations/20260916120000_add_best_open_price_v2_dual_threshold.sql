@@ -81,7 +81,23 @@ ALTER TABLE public.budget_product_best_open_price_rows
     OR (current_financial_only_rank <> 1 AND financial_best_open_price <= current_market_price)
   ),
   ADD CONSTRAINT budget_best_open_v2_not_self_financial_benchmark
-  CHECK (financial_benchmark_sealed_product_id IS NULL OR sealed_product_id <> financial_benchmark_sealed_product_id);
+  CHECK (financial_benchmark_sealed_product_id IS NULL OR sealed_product_id <> financial_benchmark_sealed_product_id),
+  -- Mirrors V1's status-invariant CHECK (same three-branch OR, same strict
+  -- </>/= comparisons per status value) for the Financial-only side,
+  -- guarded so historical/non-financial rows (financial_status NULL) stay
+  -- valid.
+  ADD CONSTRAINT budget_best_open_v2_financial_status_invariant
+  CHECK (
+    financial_status IS NULL
+    OR (
+      (financial_status = 'resolved_below_market'
+          AND financial_best_open_price < current_market_price AND financial_price_gap_dollars > 0)
+      OR (financial_status = 'current_number_one_with_headroom'
+          AND financial_best_open_price >= current_market_price AND financial_price_gap_dollars <= 0)
+      OR (financial_status = 'resolved_at_market'
+          AND financial_best_open_price = current_market_price AND financial_price_gap_dollars = 0)
+    )
+  );
 
 -- ---------------------------------------------------------------------
 -- CREATE OR REPLACE the publication RPC to branch on
@@ -552,6 +568,15 @@ BEGIN
             RAISE EXCEPTION 'current_financial_only_rank is required on every Best-Open Price V2 row';
         END IF;
 
+        -- financial_status is required on every V2 row (parity with V1's
+        -- NOT NULL status column) -- a V2 publish must never omit it.
+        IF EXISTS (
+            SELECT 1 FROM jsonb_array_elements(p_rows) AS x
+            WHERE x->>'financial_status' IS NULL
+        ) THEN
+            RAISE EXCEPTION 'financial_status is required on every Best-Open Price V2 row';
+        END IF;
+
         IF EXISTS (
             SELECT 1 FROM jsonb_array_elements(p_rows) AS x
             CROSS JOIN unnest(ARRAY[
@@ -567,10 +592,10 @@ BEGIN
                 'financial_best_open_price','financial_threshold_quantity',
                 'financial_price_gap_dollars','financial_price_gap_percent',
                 'financial_benchmark_financial_rip_v4_score',
-                'threshold_financial_rip_v4_score','threshold_chance_to_recover_capital',
-                'threshold_actual_committed_capital',
-                'financial_threshold_financial_rip_v4_score','financial_threshold_chance_to_recover_capital',
-                'financial_threshold_actual_committed_capital'
+                'threshold_financial_rip_v4_score','threshold_overall_rip_v12_score',
+                'threshold_chance_to_recover_capital','threshold_actual_committed_capital',
+                'financial_threshold_financial_rip_v4_score','financial_threshold_overall_rip_v12_score',
+                'financial_threshold_chance_to_recover_capital','financial_threshold_actual_committed_capital'
             ]) AS f(name)
             WHERE x->>f.name IS NULL OR (x->>f.name)::NUMERIC::TEXT IN ('NaN','Infinity','-Infinity')
         ) THEN RAISE EXCEPTION 'missing or non-finite numeric source/threshold evidence'; END IF;
