@@ -11,13 +11,16 @@ already-reviewed Task 2 validators directly.
 """
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
 from backend.scripts.research_best_open_price_bucket0 import (
+    _verify_v12_parity,
     validate_financial_only_rank_reconstructs,
     validate_rank_column_contiguous,
 )
-from backend.scripts.research_best_open_price_v2 import build_v2_row
+from backend.scripts.research_best_open_price_v2 import build_v2_row, run
 
 
 def _threshold(price_cents, quantity, financial_v4, overall_v12, chance, capital):
@@ -133,6 +136,84 @@ def test_build_v2_row_benchmark_fields_default_to_none_without_raw_benchmarks():
     row = build_v2_row(dual_result, source_row={"sealed_product_id": "p1", "financial_only_rank": 2, "budget_rank_v12": 2})
     assert row["ripBenchmarkFinancialRipV4Score"] is None
     assert row["financialBenchmarkFinancialRipV4Score"] is None
+
+
+def test_build_v2_row_populates_price_gap_fields():
+    """Mirrors research_best_open_price_bucket2.py's execute_product() exactly:
+    gap_dollars = (current_cents - threshold_cents) / 100.0
+    gap_percent = (current_cents - threshold_cents) / current_cents."""
+    rip_threshold = _threshold(14068, 9, 50.0, 80.0, 0.3, 1266.12)
+    dual_result = {
+        "ripResult": _search_result("exact", rip_threshold, 2, "rip-bench"),
+        "financialResult": _search_result("exact", _threshold(14000, 9, 60.0, 70.0, 0.35, 1260.0), 2, "fin-bench"),
+        "diagnostics": {},
+    }
+    current_price_cents = 15000
+    row = build_v2_row(
+        dual_result, source_row={"sealed_product_id": "p1", "financial_only_rank": 2, "budget_rank_v12": 2},
+        current_price_cents=current_price_cents,
+    )
+    expected_gap_dollars = (current_price_cents - 14068) / 100.0
+    expected_gap_percent = (current_price_cents - 14068) / current_price_cents
+    assert row["priceGapDollars"] == pytest.approx(expected_gap_dollars)
+    assert row["priceGapPercent"] == pytest.approx(expected_gap_percent)
+    assert row["ripPriceGapDollars"] == pytest.approx(expected_gap_dollars)
+    assert row["ripPriceGapPercent"] == pytest.approx(expected_gap_percent)
+
+
+def test_build_v2_row_derives_current_price_cents_from_source_row_when_not_passed():
+    rip_threshold = _threshold(14068, 9, 50.0, 80.0, 0.3, 1266.12)
+    dual_result = {
+        "ripResult": _search_result("exact", rip_threshold, 2, "rip-bench"),
+        "financialResult": _search_result("exact", _threshold(14000, 9, 60.0, 70.0, 0.35, 1260.0), 2, "fin-bench"),
+        "diagnostics": {},
+    }
+    row = build_v2_row(
+        dual_result,
+        source_row={
+            "sealed_product_id": "p1", "financial_only_rank": 2, "budget_rank_v12": 2,
+            "product_market_price": 150.0,
+        },
+    )
+    assert row["priceGapDollars"] == pytest.approx((15000 - 14068) / 100.0)
+    assert row["priceGapPercent"] == pytest.approx((15000 - 14068) / 15000)
+
+
+def test_build_v2_row_price_gap_fields_are_none_without_current_price():
+    dual_result = {
+        "ripResult": _search_result("unresolved_extreme_quantity", None, 2, None),
+        "financialResult": _search_result("unresolved_extreme_quantity", None, 2, None),
+        "diagnostics": {},
+    }
+    row = build_v2_row(dual_result, source_row={"sealed_product_id": "p1", "financial_only_rank": 2, "budget_rank_v12": 2})
+    assert row["priceGapDollars"] is None
+    assert row["priceGapPercent"] is None
+    assert row["ripPriceGapDollars"] is None
+    assert row["ripPriceGapPercent"] is None
+
+
+def test_run_calls_rip_axis_v12_parity_verification_before_per_product_loop():
+    """run() must call _verify_v12_parity (the RIP-axis fail-closed guard,
+    equivalent to validate_financial_only_rank_reconstructs on the Financial
+    axis) on the whole source snapshot before any per-product search work.
+
+    run() cannot be exercised end-to-end in this environment (no live
+    Supabase client / pack-outcome artifacts), so this asserts the call is
+    present, in the right place, by inspecting run()'s source -- the same
+    limitation and approach already used for run()'s general untestability
+    elsewhere in this file."""
+    source = inspect.getsource(run)
+    parity_call_index = source.index("_verify_v12_parity(")
+    loop_index = source.index("for source in ordered:")
+    assert parity_call_index != -1
+    assert parity_call_index < loop_index, (
+        "_verify_v12_parity must be called before the per-product loop, "
+        "not interleaved with expensive per-product search work"
+    )
+    # Also confirm it is called with the *whole* source snapshot (all_rows),
+    # not just the Full Market cohort subset (source_rows) -- matching
+    # research_best_open_price_bucket2.py's own call site.
+    assert "_verify_v12_parity(all_rows" in source
 
 
 def test_run_fails_closed_on_missing_financial_only_rank():

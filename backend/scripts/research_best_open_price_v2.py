@@ -8,7 +8,6 @@ production-hardening belongs to a later publication phase, not this one.
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence
 
@@ -18,8 +17,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.calculations.evr.best_open_price import (
     BEST_OPEN_PRICE_V2_METHOD_VERSION,
-    COMPARISON_AUTHORITY_FINANCIAL_V4,
-    COMPARISON_AUTHORITY_OVERALL_V12,
     DualBestOpenPriceSearch,
     PreparedCanonicalCandidate,
 )
@@ -36,6 +33,7 @@ from backend.scripts.research_best_open_price_bucket0 import (
     _historical_authority,
     _load_exact_source_products,
     _load_source,
+    _verify_v12_parity,
     validate_financial_only_rank_reconstructs,
     validate_rank_column_contiguous,
 )
@@ -47,6 +45,7 @@ def build_v2_row(
     source_row: Mapping[str, Any],
     rip_benchmark: Optional[Mapping[str, Any]] = None,
     financial_benchmark: Optional[Mapping[str, Any]] = None,
+    current_price_cents: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Assemble one V2 result row from a DualBestOpenPriceSearch.search() output.
 
@@ -70,6 +69,8 @@ def build_v2_row(
     financial_resolved = financial.get("status") == "exact"
     rip_benchmark = rip_benchmark or {}
     financial_benchmark = financial_benchmark or {}
+    if current_price_cents is None and source_row.get("product_market_price") is not None:
+        current_price_cents = int(round(float(source_row["product_market_price"]) * 100))
 
     row: Dict[str, Any] = {
         "methodVersion": BEST_OPEN_PRICE_V2_METHOD_VERSION,
@@ -85,6 +86,14 @@ def build_v2_row(
     # --- RIP fields: both the backward-compatible generic aliases AND the
     # explicit rip* names, per Phase 5's contract. ---
     rip_price_cents = rip_threshold.get("priceCents")
+    # Mirrors research_best_open_price_bucket2.py's execute_product() exactly:
+    # gap_dollars = (current_cents - threshold_cents) / 100.0
+    # gap_percent = (current_cents - threshold_cents) / current_cents
+    if rip_price_cents is not None and current_price_cents:
+        price_gap_dollars = (current_price_cents - rip_price_cents) / 100.0
+        price_gap_percent = (current_price_cents - rip_price_cents) / current_price_cents
+    else:
+        price_gap_dollars = price_gap_percent = None
     row.update({
         "bestOpenPrice": (rip_price_cents / 100.0) if rip_price_cents is not None else None,
         "bestOpenPriceCents": rip_price_cents,
@@ -93,6 +102,8 @@ def build_v2_row(
         "benchmarkSealedProductId": rip.get("benchmarkProductId"),
         "benchmarkOverallRipV12Score": rip.get("benchmarkOverallRipV12Score"),
         "exactness": rip.get("exactness"),
+        "priceGapDollars": price_gap_dollars,
+        "priceGapPercent": price_gap_percent,
 
         "ripBestOpenPrice": (rip_price_cents / 100.0) if rip_price_cents is not None else None,
         "ripBestOpenPriceCents": rip_price_cents,
@@ -106,6 +117,8 @@ def build_v2_row(
         "ripThresholdOverallRipV12Score": rip_threshold.get("overallRipV12Score"),
         "ripThresholdChanceToRecoverCapital": rip_threshold.get("chanceToRecoverCapital"),
         "ripThresholdActualCommittedCapital": rip_threshold.get("actualCommittedCapital"),
+        "ripPriceGapDollars": price_gap_dollars,
+        "ripPriceGapPercent": price_gap_percent,
     })
 
     # --- Financial fields: explicit financial* names only (no generic alias
@@ -146,11 +159,18 @@ def run(
     explicitly "engine + in-memory contract only, does not publish", so
     checkpointing an unpublished research artifact is out of scope (YAGNI).
     """
-    snapshot, source_rows, _all_rows = _load_source(client, source_snapshot_id)
+    snapshot, source_rows, all_rows = _load_source(client, source_snapshot_id)
     validate_source(snapshot)
     validate_rank_column_contiguous(source_rows, "budget_rank_v12")
     validate_rank_column_contiguous(source_rows, "financial_only_rank")
     validate_financial_only_rank_reconstructs(source_rows)
+    # RIP-axis fail-closed guard, equivalent to the Financial-axis
+    # validate_financial_only_rank_reconstructs() check above: reconstructs
+    # overall_rip_v12_score from its components and raises on any mismatch,
+    # before any expensive per-product search work runs. Mirrors
+    # research_best_open_price_bucket2.py's run(), which calls this on the
+    # whole source snapshot before proceeding.
+    _verify_v12_parity(all_rows, label="V2 whole source snapshot")
 
     authority = _historical_authority(snapshot, source_rows)
     if authority["fingerprint"] != expected_source_authority_fingerprint:
@@ -245,6 +265,7 @@ def run(
         result = dual.search()
         rows_out.append(build_v2_row(
             result, source_row=source, rip_benchmark=rip_benchmark, financial_benchmark=financial_benchmark,
+            current_price_cents=int(round(float(source["product_market_price"]) * 100)),
         ))
 
     attempted = len(rows_out)
