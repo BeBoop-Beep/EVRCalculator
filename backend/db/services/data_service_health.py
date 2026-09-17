@@ -18,10 +18,12 @@ import httpx
 # volume are the observed source, and they recover without intervention.
 TRANSIENT_POSTGREST_CODES = frozenset({"PGRST002", "57014"})
 # 520 is Cloudflare's "unknown error" from the origin and sits alongside the 521
-# and 522 already listed here; omitting it classified a Supabase edge failure as
-# permanent and skipped the retry entirely. 530 is Cloudflare's generic 1xxx
-# transport status and can surface for transient origin/DNS failures such as
-# error 1018 ("Could not find host").
+# and 522 already listed here. 525 is Cloudflare's "SSL handshake failed" between
+# the edge and the Supabase origin; the Sep-16 production incident showed the
+# same request family succeeding immediately before/after, so it is transport
+# instability rather than a deterministic SQL failure. 530 is Cloudflare's
+# generic 1xxx transport status and can surface for transient origin/DNS failures
+# such as error 1018 ("Could not find host").
 #
 # 429 and 500 are additive. 429 is a pure rate signal and says nothing about the
 # request's validity. 500 is the harder call: PostgREST returns 500 for genuine
@@ -31,7 +33,7 @@ TRANSIENT_POSTGREST_CODES = frozenset({"PGRST002", "57014"})
 # a constraint violation, a bad UUID cast or an undefined column all arrive with
 # one, and none of them will ever be retried regardless of the HTTP status the
 # edge happened to attach.
-TRANSIENT_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504, 520, 521, 522, 530})
+TRANSIENT_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504, 520, 521, 522, 525, 530})
 
 # A Postgres SQLSTATE is exactly five alphanumerics; a PostgREST error code is
 # `PGRST` plus three digits. HTTP statuses are three digits, so the length check
@@ -177,6 +179,7 @@ def classify_data_service_error(exc: BaseException) -> DataServiceFailure:
         "eof occurred",
         "bad record mac",
         "sslv3_alert_bad_record_mac",
+        "ssl handshake failed",
     )
     if any(token in rendered for token in transient_text):
         return DataServiceFailure(True, first_code, first_status, type(exc).__name__)
