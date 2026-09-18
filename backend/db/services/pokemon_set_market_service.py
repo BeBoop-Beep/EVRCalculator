@@ -1630,9 +1630,12 @@ def _public_market_card(
         or _to_optional_str((variant or {}).get("image_small_url"))
         or _to_optional_str((variant or {}).get("image_large_url"))
     )
+    variant_id = _to_optional_str((variant or {}).get("id"))
     return {
         "cardId": _to_optional_str(card.get("id")),
         "card_id": _to_optional_str(card.get("id")),
+        "cardVariantId": variant_id,
+        "card_variant_id": variant_id,
         "setId": _to_optional_str(card.get("set_id")),
         "set_id": _to_optional_str(card.get("set_id")),
         "name": _to_optional_str(card.get("name")),
