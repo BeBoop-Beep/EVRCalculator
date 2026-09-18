@@ -530,16 +530,18 @@ def _tmp_lock() -> str:
 
 def test_no_stale_caches_refreshes_prepared_generation_when_unscoped_commit():
     rows = [_row("fp-current", "2026-09-17", status="ready")]
+    client = Client()
     with patch.object(worker, "discover_maintained_caches", return_value=rows), \
          patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
          patch.object(worker, "refresh_prepared_if_current",
                       return_value={"status": "refreshed", "targetMarketDate": "2026-09-17"}) as refresh:
         result = worker.run_prewarm(
-            client=Client(), commit=True, lock=worker.FileLock(_tmp_lock())
+            client=client, commit=True, lock=worker.FileLock(_tmp_lock())
         )
 
-    refresh.assert_called_once_with(Client.__mro__[0] if False else refresh.call_args.args[0],
-                                    target_market_date="2026-09-17", commit=True)
+    refresh.assert_called_once_with(
+        client, target_market_date="2026-09-17", commit=True
+    )
     assert result["preparedRefresh"]["status"] == "refreshed"
     assert result["failed"] == 0
 
