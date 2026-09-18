@@ -1182,10 +1182,10 @@ class _MaterializedCoverageClient:
 
 @pytest.mark.parametrize(("start", "end", "expected"), [
     ("2026-05-30", "2026-09-06", "v2_daily"),
-    ("2026-04-07", "2026-05-30", "interval_fallback"),
-    ("2026-04-07", "2026-09-06", "interval_fallback"),
+    ("2026-04-07", "2026-05-29", "interval_fallback"),
+    ("2026-04-07", "2026-09-06", "hybrid"),
 ])
-def test_materialized_route_is_v2_daily_or_interval_only(start, end, expected):
+def test_materialized_route_selects_daily_interval_or_hybrid(start, end, expected):
     route, boundary = svc.resolve_materialized_history_route(
         _MaterializedCoverageClient(), ["set-a"], start_date=start, end_date=end,
     )
@@ -1228,3 +1228,100 @@ def test_an_unrelated_database_error_still_propagates():
         pass
     else:  # pragma: no cover
         raise AssertionError("expected the original error to propagate")
+
+
+
+def test_hybrid_query_uses_interval_through_boundary_then_daily_from_boundary(monkeypatch):
+    calls = []
+
+    def fake_loader(client, set_ids, *, start_date, end_date, rpc_name,
+                    include_latest_basket=True, **kwargs):
+        calls.append((rpc_name, start_date, end_date, include_latest_basket))
+        if rpc_name == svc.V2_INTERVAL_FALLBACK_RPC:
+            return ([
+                {"marketDate": "2026-05-29", "constituentCount": 1,
+                 "eligibleUniverseCount": 1, "basketValue": 90,
+                 "commonCount": 1, "commonCurrentValue": 90,
+                 "commonPreviousValue": 80},
+                {"marketDate": "2026-05-30", "constituentCount": 1,
+                 "eligibleUniverseCount": 1, "basketValue": 100,
+                 "commonCount": 1, "commonCurrentValue": 100,
+                 "commonPreviousValue": 90},
+            ], [])
+        return ([
+            {"marketDate": "2026-05-30", "constituentCount": 1,
+             "eligibleUniverseCount": 1, "basketValue": 100,
+             "commonCount": 0, "commonCurrentValue": 0,
+             "commonPreviousValue": 0},
+            {"marketDate": "2026-05-31", "constituentCount": 1,
+             "eligibleUniverseCount": 1, "basketValue": 110,
+             "commonCount": 1, "commonCurrentValue": 110,
+             "commonPreviousValue": 100},
+        ], [{
+            "cardVariantId": "variant-ah-sir-0",
+            "canonicalCardId": "ah-sir-0",
+            "setId": "set-ah",
+            "marketPrice": 110.0,
+            "marketDate": "2026-05-31",
+            "rank": 1,
+        }])
+
+    monkeypatch.setattr(
+        svc, "resolve_scope_history_bounds",
+        lambda *_args, **_kwargs: ("2026-05-29", "2026-05-31"),
+    )
+    monkeypatch.setattr(
+        svc, "resolve_materialized_history_route",
+        lambda *_args, **_kwargs: ("hybrid", "2026-05-30"),
+    )
+    monkeypatch.setattr(svc, "load_filtered_daily_cohort_rows", fake_loader)
+    monkeypatch.setattr(
+        svc, "build_query_series_from_cohorts",
+        lambda cohort_rows, basket_rows, *_args, **_kwargs: {
+            "asOf": cohort_rows[-1]["marketDate"],
+            "trend": [[row["marketDate"], row["basketValue"]] for row in cohort_rows],
+            "currentConstituents": basket_rows,
+            "reconciliation": {"eligibleUniverseCount": 1},
+        },
+    )
+
+    result = svc.run_market_explorer_query(
+        FakeClient(),
+        mode=MODE_ALL,
+        set_ids=["set-ah"],
+        start_date="2026-05-29",
+        end_date="2026-05-31",
+    )
+
+    assert calls == [
+        (svc.V2_INTERVAL_FALLBACK_RPC, "2026-05-29", "2026-05-30", False),
+        (svc.V2_DAILY_PROJECTION_RPC, "2026-05-30", "2026-05-31", True),
+    ]
+    assert result["diagnostics"]["executionEngine"] == "hybrid"
+    assert [row[0] for row in result["trend"]] == [
+        "2026-05-29", "2026-05-30", "2026-05-31"
+    ]
+
+
+def test_hybrid_keeps_interval_boundary_row_for_chain_continuity(monkeypatch):
+    interval = [
+        {"marketDate": "2026-05-30", "constituentCount": 1,
+         "eligibleUniverseCount": 1, "basketValue": 100,
+         "commonCount": 1, "commonCurrentValue": 100,
+         "commonPreviousValue": 90},
+    ]
+    daily = [
+        {"marketDate": "2026-05-30", "constituentCount": 1,
+         "eligibleUniverseCount": 1, "basketValue": 100,
+         "commonCount": 0, "commonCurrentValue": 0,
+         "commonPreviousValue": 0},
+        {"marketDate": "2026-05-31", "constituentCount": 1,
+         "eligibleUniverseCount": 1, "basketValue": 110,
+         "commonCount": 1, "commonCurrentValue": 110,
+         "commonPreviousValue": 100},
+    ]
+    combined = interval + [
+        row for row in daily if row["marketDate"] != "2026-05-30"
+    ]
+    assert combined[0]["commonPreviousValue"] == 90
+    assert [row["marketDate"] for row in combined] == ["2026-05-30", "2026-05-31"]
