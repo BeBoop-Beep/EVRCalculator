@@ -486,7 +486,7 @@ def resolve_materialized_history_route(
         if any(not value for value in retained):
             return "interval_fallback", None
         boundary = max(retained)
-            if str(start_date)[:10] >= boundary:
+        if str(start_date)[:10] >= boundary:
             return "v2_daily", boundary
         if str(end_date)[:10] >= boundary:
             return "hybrid", boundary
