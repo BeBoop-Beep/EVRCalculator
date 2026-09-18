@@ -375,7 +375,7 @@ def check_set_page_generation(
     resolved_client = client if client is not None else _default_client()
     pointer = _one_row(
         resolved_client.table("pokemon_set_page_snapshot_current_generation")
-        .select("scope,generation_id,activated_at,updated_at")
+        .select("scope,generation_id,activated_at")
         .eq("scope", scope)
     )
     if not pointer or not pointer.get("generation_id"):
@@ -391,8 +391,8 @@ def check_set_page_generation(
     generation = _one_row(
         resolved_client.table("pokemon_set_page_snapshot_generations")
         .select(
-            "id,scope,status,expected_set_count,completed_set_count,validation_passed,"
-            "validation_error,generation_fingerprint,published_at,completed_at,updated_at"
+            "id,status,expected_set_count,completed_set_count,validation_passed,"
+            "validation_json,diagnostics_json,built_at,validated_at,published_at,created_at"
         )
         .eq("id", generation_id)
     )
@@ -423,15 +423,15 @@ def check_set_page_generation(
         completed_count = -1
 
     observed = {
-        "scope": generation.get("scope"),
+        "scope": pointer.get("scope"),
         "generation_id": generation_id,
+        "activated_at": pointer.get("activated_at"),
         "status": generation.get("status"),
         "validation_passed": generation.get("validation_passed"),
         "published_at": generation.get("published_at"),
         "expected_set_count": expected_count,
         "completed_set_count": completed_count,
         "generation_row_count": row_count,
-        "generation_fingerprint": generation.get("generation_fingerprint"),
     }
     expected = {
         "scope": scope,
@@ -442,7 +442,7 @@ def check_set_page_generation(
         "row_count_equals_expected": True,
     }
 
-    if generation.get("scope") != scope:
+    if pointer.get("scope") != scope:
         code = "setpage_generation_scope_mismatch"
     elif generation.get("status") != "published":
         code = "setpage_generation_not_published"
