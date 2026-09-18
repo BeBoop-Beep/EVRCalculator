@@ -423,6 +423,8 @@ def test_top_market_cards_use_latest_market_prices_not_simulation(monkeypatch):
 
     assert [card["name"] for card in payload["cards"]] == ["Beta", "Alpha"]
     assert payload["cards"][0]["cardId"] == "canonical-2"
+    assert payload["cards"][0]["cardVariantId"] == "variant-2"
+    assert payload["cards"][0]["card_variant_id"] == "variant-2"
     assert payload["cards"][0]["estimatedMarketPrice"] == 125.75
     assert payload["cards"][0]["priceUpdatedAt"] == "2026-06-16T12:00:00+00:00"
     assert payload["cards"][0]["source"] == "TCGPLAYER"

@@ -279,9 +279,14 @@ def _rankable_set_targets(payload: Mapping[str, Any]) -> Sequence[Mapping[str, A
     rankable = []
     for row in targets:
         block = row.get("setRipV1") if isinstance(row, dict) else None
+        if not isinstance(block, dict) or block.get("rankable") is False:
+            continue
+        score_value = block.get("publicScore")
+        if score_value is None:
+            score_value = block.get("score")
         try:
-            rank = int((block or {}).get("rank"))
-            score = float((block or {}).get("score"))
+            rank = int(block.get("rank"))
+            score = float(score_value)
         except (TypeError, ValueError):
             continue
         if rank > 0 and score >= 0 and row.get("target_id") and row.get("name"):
@@ -365,11 +370,17 @@ def check_rankings_lens(
         rows = rows if isinstance(rows, list) else []
         sample = [row.get("eraName") for row in rows[:_SAMPLE_LIMIT] if isinstance(row, dict)]
     else:
-        families = payload.get("productFamilyRankings")
+        product_rankings = payload.get("productFamilyRankings")
         rows = []
-        if isinstance(families, dict):
+        if isinstance(product_rankings, dict):
+            families = product_rankings.get("families")
+            if not isinstance(families, dict):
+                # Backward-compatible with the pre-tier-projection shape.
+                families = product_rankings
             for family_key, family in families.items():
-                family_rows = family.get("rows") if isinstance(family, dict) else []
+                family_rows = []
+                if isinstance(family, dict):
+                    family_rows = family.get("products") or family.get("rows") or []
                 for row in family_rows if isinstance(family_rows, list) else []:
                     rows.append(row)
                     if len(sample) < _SAMPLE_LIMIT:
@@ -445,10 +456,10 @@ def check_representative_set_page(
     """Probe the current public #1-ranked set page without hardcoding a set id."""
     key = "public.setpage.representative"
     rankings_probe = _probe_json(
-        base_url, "/explore/rankings/homepage-summary?limit=1",
+        base_url, "/explore/rankings/homepage-summary?limit=60",
         http_get=http_get, timeout_seconds=timeout_seconds,
     )
-    expected = {"ranking_source_available": True, "status_code": 200, "summary_present": True}
+    expected = {"ranking_source_available": True, "status_code": 200, "public_set_identity_present": True}
     generic = _probe_contract_failure(
         context, check_key=key, authority="representative-set",
         probe=rankings_probe, prefix="public_setpage_source", expected=expected,
@@ -461,7 +472,8 @@ def check_representative_set_page(
             context, check_key=key, authority="representative-set",
             failure_code="public_setpage_source_empty", probe=rankings_probe, expected=expected,
         )
-    set_id = str(rankable[0].get("target_id"))
+    top_ranked = min(rankable, key=lambda row: int((row.get("setRipV1") or {}).get("rank")))
+    set_id = str(top_ranked.get("target_id"))
     path = f"/tcgs/pokemon/sets/{quote(set_id, safe='')}/page"
     probe = _probe_json(base_url, path, http_get=http_get, timeout_seconds=timeout_seconds)
     generic = _probe_contract_failure(
@@ -471,12 +483,29 @@ def check_representative_set_page(
     if generic:
         return generic
     payload = probe["payload"]
-    summary = payload.get("summary")
-    if not isinstance(summary, dict):
+    target = payload.get("target") if isinstance(payload.get("target"), dict) else {}
+    set_block = payload.get("set") if isinstance(payload.get("set"), dict) else {}
+    observed_ids = {
+        str(value)
+        for value in (
+            target.get("id"),
+            target.get("target_id"),
+            target.get("set_id"),
+            set_block.get("id"),
+            set_block.get("target_id"),
+            set_block.get("set_id"),
+        )
+        if value not in (None, "")
+    }
+    if set_id not in observed_ids:
         return _http_failure(
             context, check_key=key, authority=set_id,
-            failure_code="public_setpage_summary_missing", probe=probe, expected=expected,
-            observed={"set_id": set_id},
+            failure_code="public_setpage_identity_missing", probe=probe, expected=expected,
+            observed={
+                "set_id": set_id,
+                "target_present": bool(target),
+                "set_present": bool(set_block),
+            },
         )
     return CheckResult.healthy(
         key,
@@ -485,8 +514,7 @@ def check_representative_set_page(
         observed={
             "status_code": 200,
             "set_id": set_id,
-            "summary_present": True,
-            "top_hit_count": len(payload.get("top_hits") or []),
+            "public_set_identity_present": True,
             "elapsed_ms": probe["elapsed_ms"],
         },
         checked_at=context.now,
