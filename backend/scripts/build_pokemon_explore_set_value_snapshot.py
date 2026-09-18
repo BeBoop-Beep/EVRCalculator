@@ -145,17 +145,57 @@ def _load_sets(client, *, market_date: str):
 
 
 def _load_canonical_histories(client, set_ids, *, through_date: str):
-    """Canonical parent/subset Set Value history plus current-day authority overlay.
+    """Load the Set Value history that the Market page actually displays.
 
-    Historical points retain strict per-day canonical certification. Before the
-    global cutover, only explicitly activated rollout rows may overlay the
-    current day, preserving the old contract. After the cutover, every root in
-    the shared Market authority may use its exact-date materialized Standard Set
-    Value. That row can contain last-trustworthy component observations while
-    retaining their real source dates; no price is fabricated or relabelled.
+    PRE-CUTOVER keeps the historical certified-root contract plus the explicitly
+    activated rollout row for the current day.
+
+    POST-CUTOVER the published Market Set Value is sourced from
+    pokemon_set_value_daily_history Standard rows. The history used for
+    deltas/charts must come from that SAME authority across the full available
+    range; mixing a certified-root historical series with only a current-day
+    Standard overlay can collapse partially-covered sets to one point and can
+    introduce a false discontinuity when the two authorities differ.
+
+    Reads are explicitly paged with a deterministic (snapshot_date, set_id)
+    order so PostgREST row caps cannot silently truncate broad Market cohorts.
     """
     grouped = defaultdict(list)
     limit_date = str(through_date)[:10]
+    post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE
+
+    if post_cutover:
+        page_size = 1000
+        for offset in range(0, len(set_ids), 100):
+            batch = set_ids[offset:offset + 100]
+            start = 0
+            while True:
+                response = (
+                    client.table("pokemon_set_value_daily_history")
+                    .select("set_id,snapshot_date,set_value,source")
+                    .in_("set_id", batch)
+                    .eq("value_scope", "standard")
+                    .lte("snapshot_date", limit_date)
+                    .order("snapshot_date", desc=False)
+                    .order("set_id", desc=False)
+                    .range(start, start + page_size - 1)
+                    .execute()
+                )
+                rows = list(response.data or [])
+                for row in rows:
+                    grouped[str(row.get("set_id"))].append({
+                        "set_id": row.get("set_id"),
+                        "snapshot_date": row.get("snapshot_date"),
+                        "set_value": row.get("set_value"),
+                    })
+                if len(rows) < page_size:
+                    break
+                start += page_size
+
+        for rows in grouped.values():
+            rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
+        return grouped
+
     for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
         batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
         response = client.rpc(
@@ -177,19 +217,17 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 "set_value": row.get("set_value"),
             })
 
-    post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE
     for offset in range(0, len(set_ids), 100):
         batch = set_ids[offset:offset + 100]
-        query = (
+        rows = list((
             client.table("pokemon_set_value_daily_history")
             .select("set_id,snapshot_date,set_value,source")
             .in_("set_id", batch)
             .eq("snapshot_date", limit_date)
             .eq("value_scope", "standard")
-        )
-        if not post_cutover:
-            query = query.eq("source", ROLLOUT_STANDARD_SOURCE)
-        rows = list(query.execute().data or [])
+            .eq("source", ROLLOUT_STANDARD_SOURCE)
+            .execute()
+        ).data or [])
         for row in rows:
             set_id = str(row.get("set_id"))
             grouped[set_id] = [
@@ -206,7 +244,6 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
     for rows in grouped.values():
         rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
     return grouped
-
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
     sets = _load_sets(client, market_date=market_date)
