@@ -71,6 +71,7 @@ DEFAULT_MIN_AVAILABLE_MEMORY_MB = 512.0
 DEFAULT_MIN_AVAILABLE_MEMORY_PERCENT = 25.0
 DEFAULT_MAX_LOAD_PER_CPU = 1.5
 DEFAULT_FAILURE_COOLDOWN_SECONDS = 900.0
+PREPARED_REFRESH_RPC = "refresh_pokemon_market_explorer_prepared_directory_if_current_v1"
 
 
 # --- Host resource metrics (stdlib only; never crashes off-Linux) ------------
@@ -320,6 +321,32 @@ def select_stale_caches(
     return eligible + cooling_down_by_oldest_failure_first
 
 
+# --- Prepared Explorer handoff ------------------------------------------------
+
+def refresh_prepared_if_current(client: Any, *, target_market_date: str, commit: bool) -> dict[str, Any]:
+    """Publish one coherent prepared generation, or fail closed without replacing it."""
+    if not commit:
+        return {"status": "skipped", "reason": "dry_run"}
+    try:
+        response = client.rpc(
+            PREPARED_REFRESH_RPC,
+            {"p_required_market_date": str(target_market_date)[:10]},
+        ).execute()
+        data = response.data if response else None
+        payload = data[0] if isinstance(data, list) and data else data
+        return {
+            "status": "refreshed",
+            "targetMarketDate": str(target_market_date)[:10],
+            "result": payload,
+        }
+    except Exception as exc:  # noqa: BLE001 - fail closed, caller records failure
+        return {
+            "status": "failed",
+            "targetMarketDate": str(target_market_date)[:10],
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 # --- Worker summary -----------------------------------------------------------
 
 @dataclass
@@ -336,6 +363,7 @@ class PrewarmSummary:
     coolingDown: list[str] = None  # type: ignore[assignment]
     stopReason: Optional[str] = None
     reports: list[dict[str, Any]] = None  # type: ignore[assignment]
+    preparedRefresh: Optional[dict[str, Any]] = None
     elapsedSeconds: float = 0.0
 
     def __post_init__(self) -> None:
@@ -405,6 +433,12 @@ def run_prewarm(
 
         if not stale:
             summary.stopReason = "no_stale_caches"
+            if commit and not only_set_ids and not skip_fingerprints:
+                summary.preparedRefresh = refresh_prepared_if_current(
+                    client, target_market_date=target, commit=True
+                )
+                if summary.preparedRefresh.get("status") == "failed":
+                    summary.failed += 1
             summary.elapsedSeconds = round(time.monotonic() - started, 3)
             return asdict(summary)
 
@@ -443,6 +477,31 @@ def run_prewarm(
             summary.stopReason = "max_caches_reached" if remaining or summary.attempted >= max_caches else "completed"
 
         summary.deferred = [str(row.get("query_fingerprint") or "") for row in remaining]
+
+        # Only the unscoped unattended worker owns the prepared-generation handoff.
+        # Re-read after builds: a successful final cache advance should immediately
+        # be able to publish the coherent prepared generation in the same invocation.
+        if commit and not only_set_ids and not skip_fingerprints and summary.failed == 0:
+            rows_after = discover_maintained_caches(client)
+            stale_after = select_stale_caches(
+                rows_after,
+                target_market_date=target,
+                now=now,
+                failure_cooldown_seconds=failure_cooldown_seconds,
+            )
+            if not stale_after:
+                summary.preparedRefresh = refresh_prepared_if_current(
+                    client, target_market_date=target, commit=True
+                )
+                if summary.preparedRefresh.get("status") == "failed":
+                    summary.failed += 1
+            else:
+                summary.preparedRefresh = {
+                    "status": "deferred",
+                    "reason": "maintained_caches_still_stale",
+                    "staleCount": len(stale_after),
+                }
+
         summary.elapsedSeconds = round(time.monotonic() - started, 3)
         return asdict(summary)
     finally:
