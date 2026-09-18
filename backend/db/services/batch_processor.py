@@ -275,6 +275,10 @@ class BatchProcessor(ABC):
                         if code not in existing_codes:
                             existing_codes.append(code)
         
+            # Subclass hook runs while the parent persistence session is still
+            # active so derived/coalesced follow-up work reuses the same client.
+            self._after_price_shipping(results_accumulator)
+
         # Check for discrepancies
         if prices_shipped != prices_expected:
             discrepancy = prices_expected - prices_shipped
@@ -284,6 +288,10 @@ class BatchProcessor(ABC):
         
         return prices_expected, prices_shipped, all_errors
     
+    def _after_price_shipping(self, results_accumulator):
+        """Optional subclass hook for coalesced post-shipping derived work."""
+        return None
+
     @abstractmethod
     def _process_batch_worker(self, batch_data, batch_id):
         """
