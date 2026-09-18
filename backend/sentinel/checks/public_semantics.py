@@ -459,7 +459,7 @@ def check_representative_set_page(
         base_url, "/explore/rankings/homepage-summary?limit=60",
         http_get=http_get, timeout_seconds=timeout_seconds,
     )
-    expected = {"ranking_source_available": True, "status_code": 200, "summary_present": True}
+    expected = {"ranking_source_available": True, "status_code": 200, "public_set_identity_present": True}
     generic = _probe_contract_failure(
         context, check_key=key, authority="representative-set",
         probe=rankings_probe, prefix="public_setpage_source", expected=expected,
@@ -483,12 +483,29 @@ def check_representative_set_page(
     if generic:
         return generic
     payload = probe["payload"]
-    summary = payload.get("summary")
-    if not isinstance(summary, dict):
+    target = payload.get("target") if isinstance(payload.get("target"), dict) else {}
+    set_block = payload.get("set") if isinstance(payload.get("set"), dict) else {}
+    observed_ids = {
+        str(value)
+        for value in (
+            target.get("id"),
+            target.get("target_id"),
+            target.get("set_id"),
+            set_block.get("id"),
+            set_block.get("target_id"),
+            set_block.get("set_id"),
+        )
+        if value not in (None, "")
+    }
+    if set_id not in observed_ids:
         return _http_failure(
             context, check_key=key, authority=set_id,
-            failure_code="public_setpage_summary_missing", probe=probe, expected=expected,
-            observed={"set_id": set_id},
+            failure_code="public_setpage_identity_missing", probe=probe, expected=expected,
+            observed={
+                "set_id": set_id,
+                "target_present": bool(target),
+                "set_present": bool(set_block),
+            },
         )
     return CheckResult.healthy(
         key,
@@ -497,8 +514,7 @@ def check_representative_set_page(
         observed={
             "status_code": 200,
             "set_id": set_id,
-            "summary_present": True,
-            "top_hit_count": len(payload.get("top_hits") or []),
+            "public_set_identity_present": True,
             "elapsed_ms": probe["elapsed_ms"],
         },
         checked_at=context.now,
