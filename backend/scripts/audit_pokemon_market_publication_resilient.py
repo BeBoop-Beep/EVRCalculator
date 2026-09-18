@@ -60,6 +60,7 @@ _CARDS_META_COLUMNS = (
 )
 
 _PAGES_TABLE = "pokemon_set_page_snapshot_latest"
+_PAGES_HEAVY_COLUMNS = "set_id,payload_json,title_card_json,market_summary_json,as_of,updated_at"
 _PAGES_COMPACT_COLUMNS = (
     "set_id,"
     "snapshot_market_as_of_date:payload_json->meta->snapshot->>marketAsOfDate,"
