@@ -208,7 +208,7 @@ def test_representative_set_page_uses_current_public_top_ranked_set():
             ],
             "meta": {},
         }),
-        page_url: _Response(payload={"summary": {"id": "set-1"}, "top_hits": [{"id": "card-1"}]}),
+        page_url: _Response(payload={"target": {"id": "set-1", "target_id": "set-1"}, "set": {}, "meta": {}}),
     })
     result = check_representative_set_page(CTX, base_url=BASE, http_get=getter)
     assert result.outcome == CheckOutcome.HEALTHY
@@ -216,13 +216,13 @@ def test_representative_set_page_uses_current_public_top_ranked_set():
     assert [call[0] for call in getter.calls] == [rankings_url, page_url]
 
 
-def test_representative_set_page_missing_summary_fails():
+def test_representative_set_page_missing_public_identity_fails():
     getter = _getter({
         f"{BASE}/explore/rankings/homepage-summary?limit=60": _Response(payload={"targets": [_set_target()], "meta": {}}),
-        f"{BASE}/tcgs/pokemon/sets/set-1/page": _Response(payload={"top_hits": []}),
+        f"{BASE}/tcgs/pokemon/sets/set-1/page": _Response(payload={"target": {}, "set": {}, "meta": {}}),
     })
     result = check_representative_set_page(CTX, base_url=BASE, http_get=getter)
-    assert result.failure_code == "public_setpage_summary_missing"
+    assert result.failure_code == "public_setpage_identity_missing"
 
 
 def test_non_200_and_non_json_are_not_healthy():
