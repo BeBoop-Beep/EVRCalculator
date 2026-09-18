@@ -213,6 +213,26 @@ class BatchProcessor(ABC):
                                 results_accumulator.get('transport_retry_count', 0)
                                 + int(ship_result.get('transport_retry_count', 0))
                             )
+                            changed_variant_ids = ship_result.get('changed_variant_ids') or []
+                            if changed_variant_ids:
+                                pending = results_accumulator.setdefault(
+                                    '_changed_variant_ids_for_set_value_refresh', []
+                                )
+                                seen = set(pending)
+                                for variant_id in changed_variant_ids:
+                                    token = str(variant_id)
+                                    if token not in seen:
+                                        pending.append(token)
+                                        seen.add(token)
+                            changed_start_date = ship_result.get('changed_start_date')
+                            if changed_start_date:
+                                current_start = results_accumulator.get(
+                                    '_changed_start_date_for_set_value_refresh'
+                                )
+                                if not current_start or str(changed_start_date) < str(current_start):
+                                    results_accumulator[
+                                        '_changed_start_date_for_set_value_refresh'
+                                    ] = str(changed_start_date)
                         else:
                             batch_shipped = int(ship_result)
                             batch_covered = batch_shipped
