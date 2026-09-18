@@ -16,6 +16,7 @@ from backend.db.repositories.card_variant_prices_repository import (
     insert_card_variant_price,
     insert_card_variant_prices_batch,
     insert_card_variant_prices_batch_with_stats,
+    refresh_pokemon_set_value_history_for_variants,
 )
 from backend.db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
 from backend.db.services.batch_processor import BatchProcessor
@@ -459,9 +460,28 @@ class CardsService(BatchProcessor):
         """
         reset_transport_retry_count()
         started = time.perf_counter()
-        result = insert_card_variant_prices_batch_with_stats(price_batch)
+        result = insert_card_variant_prices_batch_with_stats(
+            price_batch,
+            defer_set_value_refresh=True,
+        )
         result['price_persistence_ms'] = round((time.perf_counter() - started) * 1000, 3)
         result['transport_retry_count'] = get_transport_retry_count()
+        return result
+
+    def ship_results_sequentially(self, batch_results, results_accumulator):
+        """Ship price chunks normally, then refresh Set Value history once per set scrape."""
+        result = super().ship_results_sequentially(batch_results, results_accumulator)
+        variant_ids = results_accumulator.pop(
+            '_changed_variant_ids_for_set_value_refresh', []
+        )
+        start_date = results_accumulator.pop(
+            '_changed_start_date_for_set_value_refresh', None
+        )
+        if variant_ids and start_date:
+            refresh_pokemon_set_value_history_for_variants(
+                variant_ids,
+                start_date,
+            )
         return result
     
     def _prepare_card_data(self, card_key, card_id, card_list):
