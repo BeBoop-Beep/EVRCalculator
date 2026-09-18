@@ -47,18 +47,36 @@ _ORIGINAL_AUDIT_GLOBAL_SET_VALUE = core._audit_global_set_value
 _ORIGINAL_AUDIT_SEALED = core._audit_sealed
 
 _CARDS_TABLE = "pokemon_set_cards_snapshot_latest"
-_CARDS_HEAVY_COLUMNS = "set_id,payload_json,cards_json,card_count,updated_at"
-_CARDS_META_COLUMNS = "set_id,payload_meta:payload_json->meta,card_count,updated_at"
+_CARDS_HEAVY_COLUMNS = "set_id,cards_json,card_count,updated_at"
+_CARDS_META_COLUMNS = (
+    "set_id,"
+    "pricing_latest_market_date:payload_json->meta->pricingContract->>latestMarketDate,"
+    "snapshot_market_as_of_date:payload_json->meta->snapshot->>marketAsOfDate,"
+    "snapshot_movement_as_of_date:payload_json->meta->snapshot->>movementAsOfDate,"
+    "meta_market_as_of_date:payload_json->meta->>marketAsOfDate,"
+    "payload_latest_market_date:payload_json->>latestMarketDate,"
+    "payload_market_date:payload_json->>marketDate,"
+    "card_count,updated_at"
+)
 
 _PAGES_TABLE = "pokemon_set_page_snapshot_latest"
 _PAGES_COMPACT_COLUMNS = (
     "set_id,"
-    "payload_meta:payload_json->meta,"
-    "payload_summary:payload_json->summary,"
-    "payload_set_value:payload_json->setValue,"
-    "title_card_json,market_summary_json,as_of,updated_at"
+    "snapshot_market_as_of_date:payload_json->meta->snapshot->>marketAsOfDate,"
+    "snapshot_movement_as_of_date:payload_json->meta->snapshot->>movementAsOfDate,"
+    "meta_as_of_date:payload_json->meta->>asOfDate,"
+    "payload_summary_set_value:payload_json->summary->>setValue,"
+    "payload_set_value:payload_json->>setValue,"
+    "market_latest_market_date:market_summary_json->>latestMarketDate,"
+    "market_market_date:market_summary_json->>marketDate,"
+    "market_set_value:market_summary_json->>setValue,"
+    "market_set_value_snake:market_summary_json->>set_value,"
+    "market_latest_set_value:market_summary_json->>latestSetValue,"
+    "title_market_as_of_date:title_card_json->>marketAsOfDate,"
+    "title_as_of_date:title_card_json->>asOfDate,"
+    "updated_at"
 )
-_PAGES_COMPACT_CHUNK_SIZE = 50
+_PAGES_COMPACT_CHUNK_SIZE = 100
 
 
 class _RetryingQuery:
@@ -135,28 +153,64 @@ class RetryingServiceRoleClient:
 
 
 def _meta_market_date(row: Dict[str, Any]) -> Optional[str]:
-    meta = row.get("payload_meta")
-    if not isinstance(meta, dict):
-        return None
-    synthetic = {"payload_json": {"meta": meta}}
-    return core.cards_snapshot_market_date(synthetic)
+    for key in (
+        "pricing_latest_market_date",
+        "snapshot_market_as_of_date",
+        "snapshot_movement_as_of_date",
+        "meta_market_as_of_date",
+        "payload_latest_market_date",
+        "payload_market_date",
+    ):
+        resolved = core._date_key(row.get(key))
+        if resolved:
+            return resolved
+    return None
 
 
 def _compact_page_row(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Rehydrate only the payload paths the canonical page audit reads."""
+    """Rehydrate only the scalar payload paths the canonical page audit reads."""
+
+    snapshot: Dict[str, Any] = {}
+    if row.get("snapshot_market_as_of_date") is not None:
+        snapshot["marketAsOfDate"] = row.get("snapshot_market_as_of_date")
+    if row.get("snapshot_movement_as_of_date") is not None:
+        snapshot["movementAsOfDate"] = row.get("snapshot_movement_as_of_date")
+
+    meta: Dict[str, Any] = {}
+    if snapshot:
+        meta["snapshot"] = snapshot
+    if row.get("meta_as_of_date") is not None:
+        meta["asOfDate"] = row.get("meta_as_of_date")
 
     payload: Dict[str, Any] = {}
-    meta = row.get("payload_meta")
-    if isinstance(meta, dict):
+    if meta:
         payload["meta"] = meta
-    summary = row.get("payload_summary")
-    if isinstance(summary, dict):
-        payload["summary"] = summary
+    if row.get("payload_summary_set_value") is not None:
+        payload["summary"] = {"setValue": row.get("payload_summary_set_value")}
     if row.get("payload_set_value") is not None:
         payload["setValue"] = row.get("payload_set_value")
 
+    market_summary: Dict[str, Any] = {}
+    for source_key, target_key in (
+        ("market_latest_market_date", "latestMarketDate"),
+        ("market_market_date", "marketDate"),
+        ("market_set_value", "setValue"),
+        ("market_set_value_snake", "set_value"),
+        ("market_latest_set_value", "latestSetValue"),
+    ):
+        if row.get(source_key) is not None:
+            market_summary[target_key] = row.get(source_key)
+
+    title_card: Dict[str, Any] = {}
+    if row.get("title_market_as_of_date") is not None:
+        title_card["marketAsOfDate"] = row.get("title_market_as_of_date")
+    if row.get("title_as_of_date") is not None:
+        title_card["asOfDate"] = row.get("title_as_of_date")
+
     synthetic = dict(row)
     synthetic["payload_json"] = payload
+    synthetic["market_summary_json"] = market_summary
+    synthetic["title_card_json"] = title_card
     return synthetic
 
 
@@ -204,11 +258,15 @@ def _runtime_load_rows(
     rows: Dict[str, Dict[str, Any]] = {}
     fallback_ids: List[str] = []
     for set_id, row in compact.items():
-        meta = row.get("payload_meta") if isinstance(row.get("payload_meta"), dict) else {}
+        market_date = _meta_market_date(row)
         synthetic = dict(row)
-        synthetic["payload_json"] = {"meta": meta}
+        synthetic["payload_json"] = (
+            {"marketDate": market_date}
+            if market_date is not None
+            else {}
+        )
         rows[set_id] = synthetic
-        if _meta_market_date(row) is None:
+        if market_date is None:
             fallback_ids.append(set_id)
 
     if fallback_ids:
