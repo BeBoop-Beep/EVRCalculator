@@ -1,5 +1,6 @@
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -141,3 +142,94 @@ def test_check_only_never_invokes_detector(monkeypatch):
     )
     monkeypatch.setattr("sys.argv", ["create_daily_scrape_batch.py", "--check-only"])
     assert script.main() == 0
+
+
+
+def test_create_batch_retries_transient_statement_timeout_then_succeeds():
+    calls = []
+    sleeps = []
+
+    def create_fn(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise RuntimeError(
+                "{'message': 'canceling statement due to statement timeout', 'code': '57014'}"
+            )
+        return {
+            "id": 54,
+            "market_date": kwargs["market_date"],
+            "status": "running",
+            "expected_set_count": 165,
+            "queued_set_count": 165,
+        }
+
+    batch = script.create_batch(
+        "2026-09-18",
+        "scheduled",
+        create_fn=create_fn,
+        sleep_fn=sleeps.append,
+    )
+
+    assert batch["id"] == 54
+    assert len(calls) == 2
+    assert sleeps == [5]
+
+
+def test_create_batch_does_not_retry_non_transient_failure():
+    calls = []
+
+    def create_fn(**kwargs):
+        calls.append(kwargs)
+        raise RuntimeError("cohort validation failed")
+
+    with pytest.raises(RuntimeError, match="cohort validation failed"):
+        script.create_batch(
+            "2026-09-18",
+            "scheduled",
+            create_fn=create_fn,
+            sleep_fn=lambda delay: pytest.fail("non-transient failure must not sleep"),
+        )
+
+    assert len(calls) == 1
+
+
+def test_ensure_existing_batch_is_a_noop_before_preflight(monkeypatch, capsys):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script, "_market_date_iso", lambda timezone_name: "2026-09-18")
+    monkeypatch.setattr(
+        script,
+        "existing_batch",
+        lambda market_date: {"id": 54, "market_date": market_date, "status": "running"},
+    )
+    monkeypatch.setattr(
+        script,
+        "run_runtime_preflight",
+        lambda: pytest.fail("ensure existing batch must not run preflight"),
+    )
+    monkeypatch.setattr(
+        script,
+        "create_batch",
+        lambda *_args, **_kwargs: pytest.fail("ensure existing batch must not create"),
+    )
+    monkeypatch.setattr("sys.argv", ["create_daily_scrape_batch.py", "--ensure"])
+
+    assert script.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "market_date": "2026-09-18",
+        "status": "already_exists",
+        "batch_id": 54,
+        "batch_status": "running",
+    }
+
+
+def test_checked_in_cron_has_bounded_ensure_batch_recovery_window():
+    repo_root = Path(__file__).resolve().parents[4]
+    cron = (repo_root / "infra/oracle/tcgplayer-scraper-pokemon.crontab").read_text(
+        encoding="utf-8"
+    )
+
+    assert "/tmp/pokemon-batch-create.lock" in cron
+    assert "15-55/10 1 * * *" in cron
+    assert "5-55/10 2 * * *" in cron
+    assert "--ensure --trigger-source scheduled --skip-new-set-detection" in cron
