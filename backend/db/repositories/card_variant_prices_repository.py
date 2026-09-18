@@ -139,40 +139,65 @@ def _refresh_canonical_prices(variant_ids: List[str]) -> None:
         raise last_error
 
 
-def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str, Any]]) -> None:
+def _changed_price_refresh_metadata(price_rows: List[Dict[str, Any]]) -> Tuple[List[str], Optional[str]]:
     changed_rows = [row for row in price_rows if row.get("card_variant_id")]
     if not changed_rows:
-        return
-
-    variant_ids = sorted({str(row.get("card_variant_id")) for row in changed_rows if row.get("card_variant_id")})
+        return [], None
+    variant_ids = sorted({
+        str(row.get("card_variant_id"))
+        for row in changed_rows
+        if row.get("card_variant_id")
+    })
     captured_dates = [
         _captured_date(row.get("captured_at"))
         for row in changed_rows
         if row.get("captured_at")
     ]
-    start_date = min(captured_dates) if captured_dates else datetime.now(timezone.utc).date().isoformat()
+    start_date = (
+        min(captured_dates)
+        if captured_dates
+        else datetime.now(timezone.utc).date().isoformat()
+    )
+    return variant_ids, start_date
 
+
+def refresh_pokemon_set_value_history_for_variants(
+    variant_ids: List[str],
+    start_date: str,
+) -> None:
+    """Refresh derived Set Value history once for an already-coalesced variant set."""
+    clean_ids = sorted({str(value) for value in variant_ids if value})
+    if not clean_ids:
+        return
     try:
         run_supabase_with_transient_retry(
             lambda client, _attempt: client.rpc(
                 "refresh_pokemon_set_value_daily_history_for_variants",
-                {"p_card_variant_ids": variant_ids, "p_start_date": start_date},
+                {"p_card_variant_ids": clean_ids, "p_start_date": start_date},
             ).execute(),
             operation_name="refresh_pokemon_set_value_daily_history_for_variants",
         )
     except Exception as exc:
         logger.warning(
-            "Unable to refresh pokemon_set_value_daily_history for %s changed card variant price row(s): %s",
-            len(changed_rows),
+            "Unable to refresh pokemon_set_value_daily_history for %s changed card variant(s): %s",
+            len(clean_ids),
             exc,
         )
+
+
+def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str, Any]]) -> None:
+    variant_ids, start_date = _changed_price_refresh_metadata(price_rows)
+    if not variant_ids or not start_date:
+        return
+
+    refresh_pokemon_set_value_history_for_variants(variant_ids, start_date)
 
     try:
         _refresh_canonical_prices(variant_ids)
     except Exception as exc:
         logger.warning(
             "Unable to refresh canonical Pokemon selected prices for %s changed card variant price row(s): %s",
-            len(changed_rows),
+            len(price_rows),
             exc,
         )
 
@@ -405,7 +430,11 @@ def insert_card_variant_prices_batch(price_rows: List[Dict[str, Any]]) -> List[i
     return stats["inserted_ids"]
 
 
-def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+def insert_card_variant_prices_batch_with_stats(
+    price_rows: List[Dict[str, Any]],
+    *,
+    defer_set_value_refresh: bool = False,
+) -> Dict[str, Any]:
     """
     Batch insert card prices with same-day duplicate suppression across all price fields.
 
@@ -504,7 +533,20 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
         price_write_ops += chunk_writes
         skipped_existing_duplicates += len(initial_existing) - chunk_updates
 
-    _refresh_pokemon_set_value_history_for_price_rows(changed_rows)
+    changed_variant_ids, changed_start_date = _changed_price_refresh_metadata(changed_rows)
+    if changed_variant_ids:
+        if not defer_set_value_refresh and changed_start_date:
+            refresh_pokemon_set_value_history_for_variants(
+                changed_variant_ids, changed_start_date
+            )
+        try:
+            _refresh_canonical_prices(changed_variant_ids)
+        except Exception as exc:
+            logger.warning(
+                "Unable to refresh canonical Pokemon selected prices for %s changed card variant price row(s): %s",
+                len(changed_rows),
+                exc,
+            )
 
     return {
         "attempted_rows": len(price_rows),
@@ -517,4 +559,6 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
         "db_batch_operations": db_ops,
         "price_read_operations": price_read_ops,
         "price_write_operations": price_write_ops,
+        "changed_variant_ids": changed_variant_ids,
+        "changed_start_date": changed_start_date,
     }
