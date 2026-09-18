@@ -236,11 +236,22 @@ def test_complete_warm_path_observes_real_repository_api_calls(
     assert len(observed("card_variant_price_observations", "UPDATE")) == 0
     assert all(event[2] <= 100 for event in observed(
         "card_variant_price_observations", "INSERT"))
-    assert len([event for event in events if event[1] == "RPC"]) == price_chunks * 2
+    rpc_events = [event for event in events if event[1] == "RPC"]
+    set_value_refreshes = [
+        event for event in rpc_events
+        if event[0] == "refresh_pokemon_set_value_daily_history_for_variants"
+    ]
+    canonical_refreshes = [
+        event for event in rpc_events
+        if event[0] == "refresh_pokemon_canonical_card_market_prices_latest_for_variant"
+    ]
+    assert len(set_value_refreshes) == 1
+    assert len(canonical_refreshes) == price_chunks
+    assert len(rpc_events) == price_chunks + 1
     assert len(constructions) == 2  # one worker context, one parent shipping context
     expected_table_executes = expected_chunks * 2 + price_chunks * 2
     assert len([event for event in events if event[1] != "RPC"]) == expected_table_executes
-    assert len(events) == expected_table_executes + price_chunks * 2
+    assert len(events) == expected_table_executes + price_chunks + 1
 
 
 def test_mapped_identity_variant_mismatch_fails_closed(monkeypatch):
