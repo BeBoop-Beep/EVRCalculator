@@ -488,6 +488,8 @@ def resolve_materialized_history_route(
         boundary = max(retained)
         if str(start_date)[:10] >= boundary:
             return "v2_daily", boundary
+        if str(end_date)[:10] >= boundary:
+            return "hybrid", boundary
         return "interval_fallback", boundary
     except Exception:
         return "interval_fallback", None
@@ -1299,10 +1301,37 @@ def run_market_explorer_query(
         "v2_daily": V2_DAILY_PROJECTION_RPC,
         "interval_fallback": V2_INTERVAL_FALLBACK_RPC,
     }
-    cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
-        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
-        rpc_name=rpc_by_engine[execution_engine], **load_kwargs,
-    )
+    if execution_engine == "hybrid":
+        if not bridge_date:
+            raise MarketExplorerQueryUnavailable(
+                "hybrid Market Explorer route is missing its retention boundary"
+            )
+        interval_rows, _ = load_filtered_daily_cohort_rows(
+            client,
+            scope_set_ids,
+            start_date=effective_start,
+            end_date=bridge_date,
+            rpc_name=V2_INTERVAL_FALLBACK_RPC,
+            include_latest_basket=False,
+            **load_kwargs,
+        )
+        daily_rows, basket_rows = load_filtered_daily_cohort_rows(
+            client,
+            scope_set_ids,
+            start_date=bridge_date,
+            end_date=effective_end,
+            rpc_name=V2_DAILY_PROJECTION_RPC,
+            **load_kwargs,
+        )
+        cohort_rows = interval_rows + [
+            row for row in daily_rows
+            if str(row.get("marketDate") or "")[:10] != str(bridge_date)[:10]
+        ]
+    else:
+        cohort_rows, basket_rows = load_filtered_daily_cohort_rows(
+            client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+            rpc_name=rpc_by_engine[execution_engine], **load_kwargs,
+        )
     if not cohort_rows:
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
     for row in basket_rows:
