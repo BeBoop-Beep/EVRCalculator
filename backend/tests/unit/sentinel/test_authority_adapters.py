@@ -340,6 +340,30 @@ class _AuditReport:
         return dict(self.payload)
 
 
+def test_post_scrape_audit_default_uses_resilient_runtime(monkeypatch):
+    calls = []
+
+    def resilient_audit(*, phase):
+        calls.append(phase)
+        return _AuditReport({
+            "market_date": "2026-09-11",
+            "phase": phase,
+            "passed": True,
+            "set_count": 165,
+            "failed_set_count": 0,
+            "failed_sets": [],
+            "failed_by_section": {},
+        })
+
+    monkeypatch.setattr(
+        "backend.scripts.audit_pokemon_market_publication_resilient.run_market_publication_audit",
+        resilient_audit,
+    )
+    result = check_post_scrape_publication_audit(CTX, client=object())
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert calls == ["post-scrape"]
+
+
 def test_post_scrape_audit_healthy_and_failure_are_compact():
     healthy = check_post_scrape_publication_audit(
         CTX,
