@@ -468,9 +468,8 @@ class CardsService(BatchProcessor):
         result['transport_retry_count'] = get_transport_retry_count()
         return result
 
-    def ship_results_sequentially(self, batch_results, results_accumulator):
-        """Ship price chunks normally, then refresh Set Value history once per set scrape."""
-        result = super().ship_results_sequentially(batch_results, results_accumulator)
+    def _after_price_shipping(self, results_accumulator):
+        """Refresh Set Value history once after all price chunks for this set ship."""
         variant_ids = results_accumulator.pop(
             '_changed_variant_ids_for_set_value_refresh', []
         )
@@ -482,7 +481,6 @@ class CardsService(BatchProcessor):
                 variant_ids,
                 start_date,
             )
-        return result
     
     def _prepare_card_data(self, card_key, card_id, card_list):
         """
