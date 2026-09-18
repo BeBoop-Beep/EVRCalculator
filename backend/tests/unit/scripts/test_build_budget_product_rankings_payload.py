@@ -52,6 +52,8 @@ def _row(pid, budget, budget_type, rank, *, full_market=None):
         "overallRipV10Score": 42.0,
         "chanceToRecoverCapital": 0.25,
         "expectedValue": 225.0,
+        "medianValue": 200.0,
+        "topOneOutcomeValueShare": 0.15,
     }
     if full_market:
         row.update({
@@ -111,7 +113,15 @@ def _rpc_row_columns() -> list:
     block = sql[sql.index("INSERT INTO public.budget_product_ranking_rows ("):]
     columns = block[block.index("(") + 1: block.index(")")]
     columns = re.sub(r"--[^\n]*", "", columns)
-    return [c.strip() for c in columns.split(",") if c.strip() and c.strip() != "snapshot_id"] + ["expected_value"]
+    # `expected_value`, and now `median_value` / `top1_outcome_value_share`,
+    # are populated by a follow-up UPDATE inside the publish RPC (see
+    # `20260825154658_expose_budget_product_strategy_expected_value.sql` and
+    # `20260915233000_add_budget_opening_profile_strategy_metrics.sql`), not
+    # by this base migration's INSERT column list — so they are appended
+    # here rather than parsed out of this specific INSERT statement.
+    return [c.strip() for c in columns.split(",") if c.strip() and c.strip() != "snapshot_id"] + [
+        "expected_value", "median_value", "top1_outcome_value_share",
+    ]
 
 
 def test_every_rpc_row_column_is_emitted_by_the_builder():

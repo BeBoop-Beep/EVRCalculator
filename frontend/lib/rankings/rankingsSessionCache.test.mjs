@@ -27,3 +27,25 @@ test("card fingerprints are stable and include every query field", () => {
   assert.match(canonicalCardQueryKey(left), /page=2/);
   assert.match(canonicalCardQueryKey(left), /search=mew/);
 });
+
+test("Full Market availability expires even when source market date is unchanged", async () => {
+  let now=0; const cache=createRankingsSessionCache("same-source",{now:()=>now});
+  await cache.request("products:full_market",async()=>({bestOpenPrice:{available:false}}));
+  now=60_001;
+  assert.equal(cache.peek("products:full_market"),undefined);
+  assert.equal((await cache.request("products:full_market",async()=>({bestOpenPrice:{available:true}}))).bestOpenPrice.available,true);
+});
+test("late superseded requests cannot overwrite a forced refresh", async () => {
+  const cache=createRankingsSessionCache("same-source"); let finishOld;
+  const old=cache.request("products:budget:full_market",()=>new Promise(resolve=>{finishOld=resolve;}));
+  await Promise.resolve();
+  await cache.request("products:budget:full_market",async()=>"new",{force:true});
+  finishOld("old"); await old;
+  assert.equal(cache.peek("products:budget:full_market"),"new");
+});
+test("an in-flight response cannot repopulate a cleared auth cache", async () => {
+  const cache=createRankingsSessionCache("paid"); let finish;
+  const request=cache.request("products:full_market",()=>new Promise(resolve=>{finish=resolve;}));
+  await Promise.resolve(); cache.clear(); finish("paid-data"); await request;
+  assert.equal(cache.peek("products:full_market"),undefined);
+});

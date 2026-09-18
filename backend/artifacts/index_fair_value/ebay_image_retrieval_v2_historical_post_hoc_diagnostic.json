@@ -1,0 +1,119 @@
+{
+  "label": "NON_CERTIFYING_HISTORICAL_POST_HOC_DIAGNOSTIC",
+  "verifier_manifest_version": "ebay_image_retrieval_verifier_v2_freeze_manifest_v1",
+  "verifier_source_sha256": "f72f5d964f792815bf92ef5f24cda7d8f9d83c2d1bcdb64ea0ebd9fcf252d446",
+  "results": {
+    "D5-0054": {
+      "catastrophic_false_accept": {
+        "image_identity_state": "MISMATCH",
+        "method_version": "ebay_image_retrieval_verifier_v2",
+        "model_version": "facebook/dinov2-small",
+        "canonical_image_available": true,
+        "listing_image_available": true,
+        "card_region_detected": true,
+        "target_card_id": "TARGET-Kyurem165",
+        "target_rank": 162,
+        "target_similarity": 0.2599948048591614,
+        "top1_card_id": "svp-132",
+        "top1_similarity": 0.5733590722084045,
+        "top2_similarity": 0.5644100904464722,
+        "target_vs_top1_gap": 0.31336426734924316,
+        "top1_vs_top2_margin": 0.008948981761932373,
+        "verification_reason": "another_identity_clearly_preferred_over_target"
+      },
+      "sibling_true_accept_row": "D5-0056",
+      "sibling_true_accept_result": {
+        "image_identity_state": "MATCH",
+        "method_version": "ebay_image_retrieval_verifier_v2",
+        "model_version": "facebook/dinov2-small",
+        "canonical_image_available": true,
+        "listing_image_available": true,
+        "card_region_detected": false,
+        "target_card_id": "TARGET-Kyurem165",
+        "target_rank": 1,
+        "target_similarity": 0.8169662952423096,
+        "top1_card_id": "TARGET-Kyurem165",
+        "top1_similarity": 0.8169662952423096,
+        "top2_similarity": 0.6008793711662292,
+        "target_vs_top1_gap": 0.0,
+        "top1_vs_top2_margin": 0.21608692407608032,
+        "verification_reason": "target_rank1_with_sufficient_margin"
+      }
+    },
+    "D5-0224": {
+      "catastrophic_false_accept": {
+        "image_identity_state": "MISMATCH",
+        "method_version": "ebay_image_retrieval_verifier_v2",
+        "model_version": "facebook/dinov2-small",
+        "canonical_image_available": true,
+        "listing_image_available": true,
+        "card_region_detected": false,
+        "target_card_id": "TARGET-Mewtwo231",
+        "target_rank": 110,
+        "target_similarity": 0.2742949426174164,
+        "top1_card_id": "ex15-93",
+        "top1_similarity": 0.5639317035675049,
+        "top2_similarity": 0.5379594564437866,
+        "target_vs_top1_gap": 0.2896367609500885,
+        "top1_vs_top2_margin": 0.02597224712371826,
+        "verification_reason": "another_identity_clearly_preferred_over_target"
+      },
+      "sibling_true_accept_row": "D5-0219",
+      "sibling_true_accept_result": {
+        "image_identity_state": "MATCH",
+        "method_version": "ebay_image_retrieval_verifier_v2",
+        "model_version": "facebook/dinov2-small",
+        "canonical_image_available": true,
+        "listing_image_available": true,
+        "card_region_detected": true,
+        "target_card_id": "TARGET-Mewtwo231",
+        "target_rank": 1,
+        "target_similarity": 0.8359673619270325,
+        "top1_card_id": "TARGET-Mewtwo231",
+        "top1_similarity": 0.8359673619270325,
+        "top2_similarity": 0.6524254083633423,
+        "target_vs_top1_gap": 0.0,
+        "top1_vs_top2_margin": 0.18354195356369019,
+        "verification_reason": "target_rank1_with_sufficient_margin"
+      }
+    },
+    "D5-0378": {
+      "catastrophic_false_accept": {
+        "image_identity_state": "MISMATCH",
+        "method_version": "ebay_image_retrieval_verifier_v2",
+        "model_version": "facebook/dinov2-small",
+        "canonical_image_available": true,
+        "listing_image_available": true,
+        "card_region_detected": false,
+        "target_card_id": "TARGET-Grafaiai223",
+        "target_rank": 33,
+        "target_similarity": 0.34320467710494995,
+        "top1_card_id": "me2pt5-290",
+        "top1_similarity": 0.4791805148124695,
+        "top2_similarity": 0.47846153378486633,
+        "target_vs_top1_gap": 0.13597583770751953,
+        "top1_vs_top2_margin": 0.0007189810276031494,
+        "verification_reason": "another_identity_clearly_preferred_over_target"
+      },
+      "sibling_true_accept_row": "D5-0375",
+      "sibling_true_accept_result": {
+        "image_identity_state": "MATCH",
+        "method_version": "ebay_image_retrieval_verifier_v2",
+        "model_version": "facebook/dinov2-small",
+        "canonical_image_available": true,
+        "listing_image_available": true,
+        "card_region_detected": true,
+        "target_card_id": "TARGET-Grafaiai223",
+        "target_rank": 1,
+        "target_similarity": 0.8421077728271484,
+        "top1_card_id": "TARGET-Grafaiai223",
+        "top1_similarity": 0.8421077728271484,
+        "top2_similarity": 0.7437112927436829,
+        "target_vs_top1_gap": 0.0,
+        "top1_vs_top2_margin": 0.09839648008346558,
+        "verification_reason": "target_rank1_with_sufficient_margin"
+      }
+    }
+  },
+  "note": "Informational only. Never certifies IMAGE-v2 and must never be used to re-tune thresholds after freeze."
+}

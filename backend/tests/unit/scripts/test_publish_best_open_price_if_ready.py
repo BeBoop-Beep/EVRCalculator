@@ -1,0 +1,362 @@
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+from backend.scripts import publish_best_open_price_if_ready as publisher
+from backend.db.services.best_open_price_authority import SOURCE_VERSIONS
+
+
+SOURCE = {
+    "id": "source-snapshot",
+    "published_at": "2026-09-14T12:00:00+00:00",
+    "market_date": "2026-09-14",
+    "cohort_fingerprint": "cohort-fp",
+    "eligible_cohort_count": 2,
+    "full_market_budget": 1350,
+    "ranking_method_version": publisher.BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
+    "allocation_method_version": publisher.ALLOCATION_METHOD_VERSION,
+    "comparison_scope_version": "scope-v1",
+    "financial_rip_version": "financial-v4",
+    "overall_rip_version": "overall-v12",
+    "collector_appeal_version": "collector-v5",
+    "chase_accessibility_version": "chase-v1",
+    "chase_accessibility_transform_version": "chase-transform-v1",
+    "ranked_under_v12_authority": True,
+}
+SOURCE.update(SOURCE_VERSIONS)
+SOURCE['pinned_price_as_of'] = SOURCE['market_date']
+
+
+
+def engine_row(pid="p1", rank=1, status="current_number_one_with_headroom"):
+    return {
+        "sealedProductId": pid,
+        "setId": f"set-{pid}",
+        "productFamily": "booster_box",
+        "sourceCalculationRunId": f"run-{pid}",
+        "currentMarketPrice": 100.0,
+        "currentQuantity": 13,
+        "currentBudgetRank": rank,
+        "currentOverallRipV12Score": 90.0 if rank == 1 else 85.0,
+        "currentFinancialRipV4Score": 80.0,
+        "currentCollectorAppealScore": 70.0,
+        "currentChaseAccessibilityRaw": 0.02,
+        "currentChanceToRecoverCapital": 0.25,
+        "currentActualCommittedCapital": 1300.0,
+        "status": status,
+        "bestOpenPrice": 110.0 if rank == 1 else 90.0,
+        "thresholdQuantity": 12 if rank == 1 else 15,
+        "priceGapDollars": -10.0 if rank == 1 else 10.0,
+        "priceGapPercent": -0.1 if rank == 1 else 0.1,
+        "benchmarkSealedProductId": "p2" if pid == "p1" else "p1",
+        "benchmarkOverallRipV12Score": 85.0 if rank == 1 else 90.0,
+        "benchmarkFinancialRipV4Score": 80.0,
+        "benchmarkChanceToRecoverCapital": 0.25,
+        "benchmarkActualCommittedCapital": 1300.0,
+        "candidatePriceEvaluations": 10,
+        "bracketExpansions": 2,
+        "bracketRefinements": 3,
+        "fallbackCount": 0,
+        "searchWallSeconds": 1.0,
+        "exactness": {
+            "thresholdWins": True,
+            "nextPriceCents": 11001,
+            "nextPriceWins": False,
+            "oneCentMaximal": True,
+        },
+    }
+
+
+def engine_result():
+    rows = [engine_row("p1", 1), engine_row("p2", 2, "resolved_below_market")]
+    for row in rows:
+        row["bestOpenPriceCents"] = round(row["bestOpenPrice"] * 100)
+        row["exactness"]["nextPriceCents"] = row["bestOpenPriceCents"] + 1
+    return {
+        "status": "complete", "methodVersion": publisher.BEST_OPEN_PRICE_METHOD_VERSION,
+        "source": {"snapshotId": SOURCE["id"], "cohortFingerprint": SOURCE["cohort_fingerprint"],
+                   "publishedAt": SOURCE["published_at"], "fullMarketBudget": SOURCE["full_market_budget"], "sourceContentFingerprint": publisher.source_content_fingerprint(SOURCE, source_rows()),
+                   "authorityUnchangedAtCompletion": True},
+        "products": rows,
+        "cohortAnalysis": {
+            "attempted": 2,
+            "resolved": 2,
+            "unresolved": 0,
+            "statusCounts": {"current_number_one_with_headroom": 1, "resolved_below_market": 1},
+            "discountPercentiles": {"p50": 0.1},
+        },
+        "timings": {"totalWallSeconds": 60.0},
+        "lru": {"hits": 1, "misses": 2, "evictions": 0},
+        "constructionMode": "independent_single_q_flat_stream_batch_v1",
+        "quantityBatchSize": 24,
+    }
+
+
+def source_rows_for(rows):
+    return [{
+        'sealed_product_id': row['sealedProductId'], 'set_id': row['setId'],
+        'product_family': row['productFamily'], 'source_calculation_run_id': row['sourceCalculationRunId'],
+        'product_market_price': row['currentMarketPrice'], 'quantity': row['currentQuantity'],
+        'budget_rank_v12': row['currentBudgetRank'], 'overall_rip_v12_score': row['currentOverallRipV12Score'],
+        'financial_rip_v4_score': row['currentFinancialRipV4Score'], 'collector_appeal_score': row['currentCollectorAppealScore'],
+        'chase_accessibility_raw': row['currentChaseAccessibilityRaw'], 'chance_to_recover_capital': row['currentChanceToRecoverCapital'],
+        'actual_committed_capital': row['currentActualCommittedCapital'],
+    } for row in rows]
+
+
+def source_rows():
+    return source_rows_for([engine_row('p1', 1), engine_row('p2', 2, 'resolved_below_market')])
+
+
+class Lock:
+    def __init__(self, allowed=True):
+        self.allowed = allowed
+        self.released = False
+
+    def acquire(self):
+        return self.allowed
+
+    def release(self):
+        self.released = True
+
+
+def install_source(monkeypatch, *, already_current=False, historical_exists=False):
+    monkeypatch.setattr(publisher, "resolve_source_identity", lambda *_a, **_k: dict(SOURCE))
+    monkeypatch.setattr(publisher, "_already_current", lambda *_a, **_k: already_current)
+    monkeypatch.setattr(
+        publisher,
+        "already_published_for_identity",
+        lambda *_a, **_k: historical_exists,
+    )
+    monkeypatch.setattr(
+        publisher,
+        "_load_source",
+        lambda *_a, **_k: (dict(SOURCE), source_rows(), []),
+    )
+    monkeypatch.setattr(
+        publisher,
+        "_historical_authority",
+        lambda *_a, **_k: {"fingerprint": "authority-fp", "rawBySet": {}},
+    )
+
+
+def test_default_lock_path_uses_os_temp_directory():
+    assert publisher.DEFAULT_LOCK_PATH.parent == Path(tempfile.gettempdir())
+    assert publisher.DEFAULT_LOCK_PATH.name == "budget_product_best_open_price_daily.lock"
+
+
+def test_publication_lock_is_nonblocking_and_reusable(tmp_path):
+    path = tmp_path / "best-open.lock"
+    first = publisher.PublicationFileLock(path)
+    second = publisher.PublicationFileLock(path)
+    assert first.acquire() is True
+    try:
+        assert second.acquire() is False
+    finally:
+        first.release()
+    assert second.acquire() is True
+    second.release()
+
+
+def test_checkpoint_namespace_changes_when_same_snapshot_id_is_republished():
+    t1 = publisher._checkpoint_path(Path("checkpoints"), SOURCE)
+    t2_source = dict(SOURCE, published_at="2026-09-14T13:00:00+00:00")
+    t2 = publisher._checkpoint_path(Path("checkpoints"), t2_source)
+    assert t1 != t2
+    assert SOURCE["id"] in t1.name
+    assert SOURCE["id"] in t2.name
+
+
+def test_already_current_is_fast_noop_before_engine(monkeypatch, tmp_path):
+    install_source(monkeypatch, already_current=True)
+    called = []
+
+    def engine(*_a, **_k):
+        called.append(True)
+        raise AssertionError("engine must not run")
+
+    code, report = publisher.run(
+        commit=True, client=object(), checkpoint_dir=tmp_path, lock=Lock(), engine_runner=engine,
+    )
+    assert code == 0
+    assert report["status"] == "ALREADY_CURRENT"
+    assert called == []
+
+
+def test_recurring_run_pins_current_source_uses_exact_batch24_and_skips_replay(monkeypatch, tmp_path):
+    install_source(monkeypatch)
+    observed = {}
+
+    def engine(path, **kwargs):
+        observed["path"] = path
+        observed.update(kwargs)
+        return engine_result()
+
+    monkeypatch.setattr(publisher, "verify_no_drift", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        publisher,
+        "build_payload_from_engine_result",
+        lambda _source, rows, **_k: {"snapshot": {"source_budget_snapshot_id": SOURCE["id"]}, "rows": [dict(row, sealed_product_id=row["sealedProductId"]) for row in rows], "contentFingerprint": "content-fp"},
+    )
+
+    code, report = publisher.run(
+        commit=False, client=object(), checkpoint_dir=tmp_path, lock=Lock(), engine_runner=engine,
+    )
+
+    assert code == 0
+    assert report["status"] == "READY_DRY_RUN"
+    assert observed["quantity_batch_size"] == 24
+    assert observed["run_determinism"] is False
+    assert observed["source_snapshot_id"] == SOURCE["id"]
+    assert observed["expected_source_authority_fingerprint"] == "authority-fp"
+    assert SOURCE["id"] in str(observed["path"])
+
+
+def test_invalid_exactness_blocks_before_publish(monkeypatch, tmp_path):
+    install_source(monkeypatch)
+    bad = engine_result()
+    bad["products"][1]["exactness"]["nextPriceWins"] = True
+    bad["products"][1]["exactness"]["oneCentMaximal"] = False
+    published = []
+    monkeypatch.setattr(publisher, "verify_no_drift", lambda *_a, **_k: None)
+    monkeypatch.setattr(publisher, "publish_snapshot", lambda *_a, **_k: published.append(True))
+
+    code, report = publisher.run(
+        commit=True, client=object(), checkpoint_dir=tmp_path, lock=Lock(),
+        engine_runner=lambda *_a, **_k: bad,
+    )
+
+    assert code == 1
+    assert report["status"] == "VALIDATION_FAILED"
+    assert "P*+1 cent maximality failed" in report["failureReason"]
+    assert published == []
+
+
+def test_source_drift_after_expensive_build_blocks_publish(monkeypatch, tmp_path):
+    install_source(monkeypatch)
+    published = []
+
+    def drift(*_a, **_k):
+        raise RuntimeError("source budget ranking authority drifted during computation")
+
+    monkeypatch.setattr(publisher, "verify_no_drift", drift)
+    monkeypatch.setattr(publisher, "publish_snapshot", lambda *_a, **_k: published.append(True))
+
+    code, report = publisher.run(
+        commit=True, client=object(), checkpoint_dir=tmp_path, lock=Lock(),
+        engine_runner=lambda *_a, **_k: engine_result(),
+    )
+
+    assert code == 1
+    assert report["status"] == "SOURCE_DRIFT"
+    assert published == []
+
+
+def test_happy_commit_publishes_atomically_then_reads_back_same_authority(monkeypatch, tmp_path):
+    install_source(monkeypatch)
+    monkeypatch.setattr(publisher, "verify_no_drift", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        publisher,
+        "build_payload_from_engine_result",
+        lambda _source, rows, **_k: {"snapshot": {"source_budget_snapshot_id": SOURCE["id"]}, "rows": [dict(row, sealed_product_id=row["sealedProductId"]) for row in rows], "contentFingerprint": "content-fp"},
+    )
+    published = []
+
+    def publish(_client, snapshot, rows):
+        published.append((snapshot, rows))
+        return "bop-new"
+
+    monkeypatch.setattr(publisher, "publish_snapshot", publish)
+    monkeypatch.setattr(
+        publisher,
+        "load_best_open_price_ranking",
+        lambda _client: {
+            "available": True,
+            "snapshotId": "bop-new",
+            "sourceBudgetSnapshotId": SOURCE["id"],
+            "sourceBudgetPublishedAt": SOURCE["published_at"],
+            "sourceCohortFingerprint": SOURCE["cohort_fingerprint"],
+            "rows": published[0][1],
+            "resolvedCount": 2,
+            "unresolvedCount": 0,
+        },
+    )
+    lock = Lock()
+    code, report = publisher.run(
+        commit=True, client=object(), checkpoint_dir=tmp_path, lock=lock,
+        engine_runner=lambda *_a, **_k: engine_result(),
+    )
+
+    assert code == 0
+    assert report["status"] == "PUBLISHED"
+    assert report["bestOpenSnapshotId"] == "bop-new"
+    assert len(published) == 1
+    assert len(published[0][1]) == 2
+    assert lock.released is True
+
+
+def test_second_concurrent_run_is_refused_without_source_or_engine_work(tmp_path):
+    code, report = publisher.run(
+        commit=True,
+        client=object(),
+        checkpoint_dir=tmp_path,
+        lock=Lock(allowed=False),
+        engine_runner=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not run")),
+    )
+    assert code == 3
+    assert report["status"] == "ALREADY_RUNNING"
+
+
+def test_validate_engine_result_accepts_canonical_ieee754_committed_capital_tail():
+    """Regression for the 140.68 x 9 case: quantity * float(price) leaves a
+    ~1e-13 IEEE-754 tail (9 * 140.68 -> 1266.1200000000001). The validator
+    must reconcile against backend.calculations.evr.budget_normalized_product_ranking.
+    whole_unit_allocation() -- the same operation order the canonical Budget
+    Ranking allocator uses -- not an independently reimplemented Decimal
+    computation, or it rejects 26/138 real Full Market rows as unresolved.
+    """
+    # Create an IEEE-754 tail value that will fail the committed capital reconciliation
+    # Use 140.68 * 9 which produces 1266.1200000000001 (float tail)
+    price = 140.68
+    quantity = 9
+    canonical_tail = price * quantity
+    # Sanity check: verify we have the IEEE-754 tail
+    assert str(canonical_tail) == "1266.1200000000001"
+
+    # Use a copy of SOURCE to avoid mutating shared state
+    source = dict(SOURCE)
+
+    # Create row1 with price/quantity/capital matching the 140.68 × 9 canonical case
+    row1 = engine_row("p1", 1)
+    row1.update({
+        "currentMarketPrice": price,
+        "currentQuantity": quantity,
+        "thresholdQuantity": quantity,  # Must match for whole-unit allocation check
+        "currentActualCommittedCapital": canonical_tail,  # Float with IEEE-754 tail
+        "bestOpenPrice": price,  # Rank 1 with price == current (resolved_at_market)
+        "priceGapDollars": 0.0,  # Price gap = current - best = 140.68 - 140.68 = 0
+        "priceGapPercent": 0.0,  # Percent gap = 0%
+        "status": "resolved_at_market",
+    })
+
+    # Row2 uses defaults but updates benchmark to match row1's modified values
+    row2 = engine_row("p2", 2, "resolved_below_market")
+    row2.update({
+        "benchmarkActualCommittedCapital": canonical_tail,  # Match row1's canonical tail
+    })
+
+    rows = [row1, row2]
+    for r in rows:
+        r["bestOpenPriceCents"] = round(r["bestOpenPrice"] * 100)
+        r["exactness"]["nextPriceCents"] = r["bestOpenPriceCents"] + 1
+
+    engine = engine_result()
+    engine["products"] = rows
+    engine["source"]["sourceContentFingerprint"] = publisher.source_content_fingerprint(
+        source, source_rows_for(rows),
+    )
+    source["_source_content_fingerprint"] = engine["source"]["sourceContentFingerprint"]
+
+    errors = publisher.validate_engine_result(engine, source, source_rows_for(rows))
+    assert errors == []

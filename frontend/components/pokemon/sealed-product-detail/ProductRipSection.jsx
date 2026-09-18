@@ -265,6 +265,65 @@ export function ProductRipSection({ detail }) {
   );
 }
 
+/**
+ * Opening Profile Bucket 2 — four-metric summary strip.
+ *
+ * Canonical labels/sources (do not substitute):
+ *  - Average Return: primary = totalValueToCostRatio (the same
+ *    expectedValue/productMarketCost ratio product_family_rankings_service.py
+ *    calls modeledReturnRatio/modeledReturnPercent), secondary = expectedValue
+ *    formatted as "$X average value".
+ *  - Typical Opening: medianValue.
+ *  - Covers Cost: chanceToRecoverCost.
+ *  - Top 1% Value Share: topOneOutcomeValueShare, sourced upstream ONLY from
+ *    financial_rip_v3_payload.distributionDisclosures.jackpotValueShare
+ *    (pokemon_sealed_product_detail_service.py) - never top1EvShare. This is a
+ *    concentration measure, not a probability; it intentionally carries no
+ *    green/red good/bad styling.
+ */
+export function ProductOpeningProfileSummary({ rip }) {
+  const averageReturnPercent = percent(rip.totalValueToCostRatio);
+  const averageReturnValue = finite(rip.expectedValue) === null
+    ? null
+    : `${money(rip.expectedValue)} average value`;
+  return (
+    <dl
+      data-four-metric-summary
+      className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      <div data-summary-metric="average-return" className="rounded-xl border border-[var(--border-subtle)] bg-white/[.025] p-4">
+        <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.07em] text-[var(--text-secondary)]">
+          Average Return
+          <InfoPopover text="Modeled expected value divided by current product price. Not an observed or historical outcome." />
+        </dt>
+        <dd className="mt-2 text-xl font-semibold tabular-nums">{averageReturnPercent}</dd>
+        {averageReturnValue ? <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{averageReturnValue}</p> : null}
+      </div>
+      <div data-summary-metric="typical-opening" className="rounded-xl border border-[var(--border-subtle)] bg-white/[.025] p-4">
+        <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.07em] text-[var(--text-secondary)]">
+          Typical Opening
+          <InfoPopover text="The median modeled opening result across simulated outcomes." />
+        </dt>
+        <dd className="mt-2 text-xl font-semibold tabular-nums">{money(rip.medianValue)}</dd>
+      </div>
+      <div data-summary-metric="covers-cost" className="rounded-xl border border-[var(--border-subtle)] bg-white/[.025] p-4">
+        <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.07em] text-[var(--text-secondary)]">
+          Covers Cost
+          <InfoPopover text="Modeled probability that the opening's gross market value reaches or exceeds the product's current market price." />
+        </dt>
+        <dd className="mt-2 text-xl font-semibold tabular-nums">{percent(rip.chanceToRecoverCost)}</dd>
+      </div>
+      <div data-summary-metric="top-one-value-share" className="rounded-xl border border-[var(--border-subtle)] bg-white/[.025] p-4">
+        <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.07em] text-[var(--text-secondary)]">
+          Top 1% Value Share
+          <InfoPopover text="Modeled share of this product's total simulated value concentrated in its top 1% of outcomes. A concentration measure, not a probability of any single outcome." />
+        </dt>
+        <dd className="mt-2 text-xl font-semibold tabular-nums">{percent(rip.topOneOutcomeValueShare)}</dd>
+      </div>
+    </dl>
+  );
+}
+
 export const SUPPORTING_OUTCOMES = [
   [
     "Chance to Recover Cost",
@@ -447,6 +506,7 @@ export function ProductOpeningProfile({ rip, currentPrice }) {
       <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
         What does opening this product actually look like?
       </p>
+      <ProductOpeningProfileSummary rip={rip} />
       <OutcomeRangeRail rip={rip} currentPrice={currentPrice} />
       <dl
         data-supporting-outcome-metrics

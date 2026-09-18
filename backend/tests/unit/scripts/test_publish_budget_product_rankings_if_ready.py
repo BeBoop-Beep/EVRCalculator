@@ -326,6 +326,7 @@ def _commit_ready_setup(monkeypatch, *, v12_report, v12_results):
         "budget_rank": 1, "budget_cohort_size": 1, "financial_only_rank": 1,
         "financial_rip_v4_score": 55.0, "overall_rip_v10_score": 56.0, "collector_appeal_score": 60.0,
         "source_calculation_run_id": "r1", "price_as_of": "2026-09-03",
+        "median_value": 24.0, "top1_outcome_value_share": 0.12,
     }]
 
     import backend.scripts.build_budget_normalized_product_rankings as build_mod
@@ -427,3 +428,52 @@ def test_default_run_attaches_v12_canonical_validation_when_v12_is_canonical(mon
     assert report["v12_canonical_validation"] == v12_report
     # never mutates the V10-shaped commit payload
     assert report.get("row_count") == 0
+
+
+def test_post_publish_verifier_uses_exact_rpc_materialized_payload(monkeypatch):
+    """The read-back verifier must compare against the exact payload sent to
+    the publication RPC. Under canonical V12 this must be the V12-merged
+    snapshot/rows, never the earlier V10 substrate."""
+    v12_report = {"passed": True, "mode": "v12_explicit_validation_only"}
+    v12_results = {
+        "budgets": {
+            "standard_band:25": {
+                "rows": [_v12_ranked_row()],
+            }
+        }
+    }
+    v10_snapshot, v10_rows = _commit_ready_setup(
+        monkeypatch,
+        v12_report=v12_report,
+        v12_results=v12_results,
+    )
+
+    captured = {}
+
+    def verify(_client, snapshot_id, snapshot, rows):
+        captured["snapshot_id"] = snapshot_id
+        captured["snapshot"] = copy.deepcopy(snapshot)
+        captured["rows"] = copy.deepcopy(rows)
+        return []
+
+    monkeypatch.setattr(wrapper, "verify_persisted_snapshot", verify)
+
+    client = _FakeCommitClient(
+        "44444444-4444-4444-4444-444444444444",
+        dict(v10_snapshot, ranked_under_v12_authority=True),
+        v10_rows,
+    )
+
+    code, report = wrapper.run(commit=True, client=client)
+
+    assert code == 0
+    assert report["status"] == "PUBLISHED"
+    assert len(client.rpc_calls) == 1
+
+    _, rpc_payload = client.rpc_calls[0]
+
+    assert captured["snapshot"] == rpc_payload["p_snapshot"]
+    assert captured["rows"] == rpc_payload["p_rows"]
+    assert captured["snapshot"]["ranked_under_v12_authority"] is True
+    assert captured["snapshot"]["overall_rip_version"] == EXPECTED_OVERALL_RIP_V12_VERSION
+    assert captured["snapshot"]["overall_rip_v12_version"] == EXPECTED_OVERALL_RIP_V12_VERSION

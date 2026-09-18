@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DarkSelect from "@/components/ui/DarkSelect";
+import InfoPopover from "@/components/ui/InfoPopover";
 import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
@@ -16,7 +17,12 @@ import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { getTierTone } from "@/lib/explore/interpretationTone";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
-import { normalizeOverallProductResult, sortProductRankingRows } from "./rankingsProductLensModel.mjs";
+import {
+  defaultProductSortDirection,
+  normalizeOverallProductResult,
+  sortProductRankingRows,
+  resolveProductSort,
+} from "./rankingsProductLensModel.mjs";
 import {
   chaseAccessibilityDisplay,
   CHASE_ACCESSIBILITY_HELP,
@@ -35,6 +41,7 @@ const FAMILY_ORDER = [
 ];
 const SORTS = [
   { value: "overallRipLeaderScore", label: "RIP Score" },
+  { value: "bestOpenPriceGapPercent", label: "Closest to #1", bestOpenOnly: true },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -43,6 +50,7 @@ const SORTS = [
   { value: "chanceToRecoverCost", label: "Chance to Recover Cost" },
   { value: "alphabetical", label: "Alphabetical A–Z" },
 ];
+const BEST_OPEN_HELP = "Best-Open Price is the highest price at which this product would rank #1 against the current published Full Market cohort. Whole units are compared within the fixed Full Market budget; this is not a single-unit ranking. Other products remain at their published prices.";
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -69,6 +77,34 @@ function recovery(value) {
   if (n === null) return "Unavailable";
   const probability = n > 1 ? n / 100 : n;
   return `${(probability * 100).toFixed(1)}%`;
+}
+
+function sourceDateLabel(value) {
+  if (!value) return null;
+  const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
+  }).format(parsed);
+}
+
+function bestOpenPresentation(row) {
+  const threshold = numeric(row?.bestOpenPrice);
+  const gap = numeric(row?.bestOpenPriceGapPercent);
+  if (threshold === null) return null;
+  if (row?.bestOpenPriceStatus === "current_number_one_with_headroom") {
+    return {
+      threshold: `Best-Open ${money.format(threshold)}`,
+      context: gap === null ? "Ranks #1 at this price" : `#1 at threshold · +${(Math.abs(gap) * 100).toFixed(1)}% headroom`,
+    };
+  }
+  if (row?.bestOpenPriceStatus === "resolved_at_market") {
+    return { threshold: `Best-Open ${money.format(threshold)}`, context: "At the #1 threshold now" };
+  }
+  return {
+    threshold: `Best-Open ${money.format(threshold)}`,
+    context: gap === null ? "Price needed to reach #1" : `↓ ${(gap * 100).toFixed(1)}% to #1`,
+  };
 }
 
 function FormatStrength({ row }) {
@@ -98,7 +134,7 @@ function FormatStrength({ row }) {
   );
 }
 
-function ProductRows({ rows, overall, entitled }) {
+function ProductRows({ rows, overall, entitled, showBestOpenPrice }) {
   if (!rows.length) {
     return <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">No products match the current filters.</p>;
   }
@@ -133,7 +169,11 @@ function ProductRows({ rows, overall, entitled }) {
               <th scope="col">Financial RIP</th>
               <th scope="col" data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
               <th scope="col">Collector Appeal</th>
-              <th scope="col">{overall ? "Unit Price" : "Market Price"}</th>
+              <th scope="col">
+                {showBestOpenPrice ? (
+                  <span className="inline-flex items-center gap-1">Price / Best-Open <InfoPopover text={BEST_OPEN_HELP} /></span>
+                ) : overall ? "Unit Price" : "Market Price"}
+              </th>
               <th scope="col">Expected Value</th><th scope="col">Chance to Recover Cost</th><th scope="col">Format Strength</th>
             </tr>
           </thead>
@@ -142,6 +182,7 @@ function ProductRows({ rows, overall, entitled }) {
               const rank = overall ? row?.budgetRank : row?.familyRank;
               const price = overall ? row?.unitPrice : row?.marketPrice;
               const href = buildSealedProductHref(row) || "#";
+              const bestOpen = showBestOpenPrice ? bestOpenPresentation(row) : null;
               return (
                 <tr key={row?.sealedProductId} className={styles.row}>
                   <td className={styles.numeric}>{entitled ? `#${rank ?? "—"}` : <PremiumMetricLock />}</td>
@@ -162,7 +203,15 @@ function ProductRows({ rows, overall, entitled }) {
                     ) : <PremiumMetricLock />}
                   </td>
                   <td className={styles.numeric}>{entitled && numeric(row?.collectorAppealScore) !== null ? `${formatPublicRipScore(row.collectorAppealScore)} / 10` : entitled ? "Unavailable" : <PremiumMetricLock />}</td>
-                  <td className={styles.numeric}>{numeric(price) === null ? "Unavailable" : money.format(price)}</td>
+                  <td className={styles.numeric}>
+                    <span className="block">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
+                    {bestOpen ? (
+                      <span data-best-open-price className="mt-1 block text-[10px] font-normal leading-4 text-[var(--text-secondary)]">
+                        <span className="block font-semibold text-[var(--text-primary)]">{bestOpen.threshold}</span>
+                        <span className="block">{bestOpen.context}</span>
+                      </span>
+                    ) : null}
+                  </td>
                   <td className={styles.numeric}>{entitled ? (numeric(row?.expectedValue) === null ? "Unavailable" : money.format(row.expectedValue)) : <PremiumMetricLock />}</td>
                   <td className={styles.numeric}>{entitled ? recovery(row?.chanceToRecoverCost) : <PremiumMetricLock />}</td>
                   <td>{entitled ? <FormatStrength row={row} /> : <PremiumMetricLock />}</td>
@@ -178,12 +227,18 @@ function ProductRows({ rows, overall, entitled }) {
           const price = overall ? row?.unitPrice : row?.marketPrice;
           const href = buildSealedProductHref(row) || "#";
           const chase = chaseAccessibilityDisplay(row?.chaseAccessibility);
+          const bestOpen = showBestOpenPrice ? bestOpenPresentation(row) : null;
           return (
             <Link key={row?.sealedProductId} href={href} className={`${styles.mobileRow} grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5`}>
               <b className="text-right text-xs">{entitled ? `#${rank ?? "—"}` : "🔒"}</b>
               <div className="min-w-0">
                 <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} />
                 <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
+                {bestOpen ? (
+                  <span data-best-open-price-mobile className="mt-1 block text-[10px] leading-4 text-[var(--text-secondary)]">
+                    <span className="font-semibold text-[var(--text-primary)]">{bestOpen.threshold}</span> · {bestOpen.context}
+                  </span>
+                ) : null}
                 {/*
                   Peer supporting scores beneath RIP Score.
                 */}
@@ -209,7 +264,7 @@ function LoadingPanel() {
 }
 
 export default function RankingsProductLensClient({ sessionCache }) {
-  const { canViewRankingsIntelligence, authStatus, requestKey } = useRankingsAccess();
+  const { canViewRankingsIntelligence, canViewBestOpenPrice, authStatus, requestKey } = useRankingsAccess();
   const entitled = canViewRankingsIntelligence;
   const [state, setState] = useState({ status: "idle", productFamilyRankings: null, overallProductRankings: null });
   const [retryNonce, setRetryNonce] = useState(0);
@@ -230,7 +285,7 @@ export default function RankingsProductLensClient({ sessionCache }) {
 
   useEffect(() => {
     if (authStatus !== "resolved") return undefined;
-    const cached = sessionCache?.peek("products:full_market");
+    const cached = retryNonce === 0 && sessionCache?.peek("products:full_market");
     if (cached) {
       setState(cached.state);
       setOverallResult(cached.overallResult);
@@ -296,22 +351,31 @@ export default function RankingsProductLensClient({ sessionCache }) {
     setSortDirection(entitled ? "desc" : "asc");
   };
 
-  const selectBudget = (next) => {
+  const selectBudget = (next, { force = false } = {}) => {
     budgetRequest.current?.abort();
+    if (next !== "full_market" && sortKey === "bestOpenPriceGapPercent") {
+      setSortKey(entitled ? "overallRipLeaderScore" : "alphabetical");
+      setSortDirection(entitled ? "desc" : "asc");
+    }
     setBudgetKey(next);
     setOverallResult((current) => ({ ...(current || {}), status: "loading" }));
     const controller = new AbortController();
     budgetRequest.current = controller;
-    const identityAtRequest = requestKey;
-    const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", signal: controller.signal })
-      .then((response) => response.json())
-      .then((payload) => normalizeOverallProductResult(payload));
-    (sessionCache ? sessionCache.request(`products:${next}`, load) : load())
+    // The cache may share an in-flight request with the next selection.
+    // Do not cancel that shared fetch when abandoning only this subscriber.
+    const isCurrentRequest = () => budgetRequest.current === controller && !controller.signal.aborted;
+    const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", ...(sessionCache ? {} : { signal: controller.signal }) })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.message || "Unable to load this opening budget");
+        return normalizeOverallProductResult(payload);
+      });
+    (sessionCache ? sessionCache.request(`products:budget:${next}`, load, { force }) : load())
       .then((nextResult) => {
-        if (!controller.signal.aborted && identityAtRequest === requestKey) setOverallResult(nextResult);
+        if (isCurrentRequest()) setOverallResult(nextResult);
       })
       .catch((error) => {
-        if (error.name !== "AbortError" && identityAtRequest === requestKey) setOverallResult(normalizeOverallProductResult(null));
+        if (error.name !== "AbortError" && isCurrentRequest()) setOverallResult(normalizeOverallProductResult(null));
       });
   };
 
@@ -322,17 +386,31 @@ export default function RankingsProductLensClient({ sessionCache }) {
 
   const overall = view === "allProducts";
   const selectedFamily = overall ? null : families[view];
+  const bestOpenAvailable = Boolean(
+    overall
+    && budgetKey === "full_market"
+    && entitled
+    && canViewBestOpenPrice
+    && overallResult?.status !== "loading"
+    && overallResult?.bestOpenPrice?.available === true
+  );
   const sourceRows = overall ? (overallResult?.rows || []) : (selectedFamily?.products || []);
-  const rows = sortProductRankingRows(sourceRows, query, sortKey, sortDirection, overall);
+  const effectiveSort = resolveProductSort(sortKey, sortDirection, bestOpenAvailable, entitled);
+  const rows = sortProductRankingRows(sourceRows, query, effectiveSort.key, effectiveSort.direction, overall);
   const budgetOptions = (overallResult?.availableBudgets || []).map((entry) => ({
     value: entry?.type === "full_market" ? "full_market" : String(entry?.value),
     label: entry?.label,
   }));
-  const sortOptions = SORTS.map((option) => ({
-    ...option,
-    label: overall && option.value === "marketPrice" ? "Unit Price" : option.label,
-    disabled: !entitled && option.value !== "alphabetical",
-  }));
+  const sortOptions = SORTS
+    .filter((option) => !option.bestOpenOnly || bestOpenAvailable)
+    .map((option) => ({
+      ...option,
+      label: overall && option.value === "marketPrice" ? "Unit Price" : option.label,
+      disabled: !entitled && option.value !== "alphabetical",
+    }));
+  const bestOpenSourceDate = bestOpenAvailable
+    ? sourceDateLabel(overallResult?.bestOpenPrice?.sourceMarketDate)
+    : null;
 
   return (
     <>
@@ -347,18 +425,22 @@ export default function RankingsProductLensClient({ sessionCache }) {
           <div>
             <h2 className="font-semibold text-[var(--text-primary)]">{overall ? "Best Products to Rip" : familyLabel(selectedFamily?.label)}</h2>
             <p className="text-xs text-[var(--text-secondary)]">{overall ? `${overallResult?.cohortSize || rows.length} products ranked` : `${selectedFamily?.count || rows.length} products in this format`}</p>
+            {overall && budgetKey === "full_market" && canViewBestOpenPrice && !bestOpenAvailable && overallResult?.status !== "loading" ? <button type="button" onClick={() => selectBudget("full_market", { force: true })} className="mt-1 text-xs text-[var(--accent)] underline">Refresh Best-Open availability</button> : null}
+            {bestOpenSourceDate ? <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Best-Open uses published Full Market prices as of {bestOpenSourceDate}.</p> : null}
           </div>
           <TableSearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products or sets..." ariaLabel="Search products or sets" containerClassName="md:justify-self-center" />
           <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row md:justify-self-end">
             {overall && budgetOptions.length ? <DarkSelect ariaLabel="Opening Budget" value={budgetKey} onChange={selectBudget} options={budgetOptions} className="w-full md:min-w-[15rem]" triggerVariant="budget" eyebrow="Opening Budget" /> : null}
-            <SortMenuButton ariaLabel="Sort products" value={sortKey} onChange={(next) => {
+            <SortMenuButton ariaLabel="Sort products" value={effectiveSort.key} onChange={(next) => {
               if (!entitled && next !== "alphabetical") return;
-              if (next === sortKey) setSortDirection((current) => current === "desc" ? "asc" : "desc");
-              else { setSortKey(next); setSortDirection(next === "alphabetical" ? "asc" : "desc"); }
+              setSortKey(next);
+              setSortDirection(next === effectiveSort.key
+                ? (effectiveSort.direction === "desc" ? "asc" : "desc")
+                : defaultProductSortDirection(next));
             }} options={sortOptions} />
           </div>
         </div>
-        {overallResult?.status === "loading" && overall ? <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Loading this budget…</p> : <ProductRows rows={rows} overall={overall} entitled={entitled} />}
+        {overallResult?.status === "loading" && overall ? <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Loading this budget…</p> : <ProductRows rows={rows} overall={overall} entitled={entitled} showBestOpenPrice={bestOpenAvailable} />}
       </section>
     </>
   );

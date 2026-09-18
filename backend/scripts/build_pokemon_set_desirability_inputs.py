@@ -55,6 +55,17 @@ FALLBACK_SOURCE = "tcgplayer_cards_fallback"
 FALLBACK_MATCH_METHOD = "name_exact_or_alias"
 UPSERT_BATCH_SIZE = 250
 
+# A catalog-only set never supports the opening simulation model, so its canonical
+# rows must not silently inherit pokemon_canonical_cards' opening_eligible=true
+# default -- that would make them look approved for a simulation this catalog never
+# runs. Applied to both the fallback and authoritative-refresh row builders below,
+# since catalog_only is a property of the SET, not of the canonical row's source.
+CATALOG_ONLY_ELIGIBILITY_REASON = (
+    "Catalog/market identity synced from a scraped catalog-only set (card and price "
+    "data present); not an approved opening identity because this set does not "
+    "support the opening simulation model."
+)
+
 CARD_SUFFIX_RE = re.compile(r"\b(ex|gx|vmax|vstar|v|break|lv\.?\s*x|star|prime|legend)\b", flags=re.IGNORECASE)
 STANDALONE_EX_RE = re.compile(r"\bex\b", flags=re.IGNORECASE)
 TRAINER_LIKE_KEYWORDS = (
@@ -99,6 +110,15 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--commit", action="store_true", help="Write changes to Supabase")
 
     parser.add_argument("--hit-policy-version", default=HIT_POLICY_VERSION)
+    parser.add_argument(
+        "--canonical-only", action="store_true",
+        help=(
+            "Stop after canonical-card synchronization: no desirability links, hit "
+            "summaries, component scores, or opening desirability are built. Use for "
+            "a narrow catalog-card sync (e.g. right after a catalog-only set's scrape) "
+            "without triggering the full desirability/opening pipeline."
+        ),
+    )
     parser.add_argument("--log-level", default="INFO")
     return parser
 
@@ -119,6 +139,7 @@ def main() -> int:
         process_all=bool(args.all),
         dry_run=dry_run,
         hit_policy_version=args.hit_policy_version,
+        canonical_only=bool(args.canonical_only),
     )
     print(json.dumps(report, indent=2, sort_keys=True))
     status = str(report.get("status") or "")
@@ -131,6 +152,7 @@ def build_set_desirability_inputs_report(
     process_all: bool,
     dry_run: bool,
     hit_policy_version: str = HIT_POLICY_VERSION,
+    canonical_only: bool = False,
 ) -> Dict[str, Any]:
     client = get_supabase_client()
     registry = build_valid_set_key_registry()
@@ -154,6 +176,30 @@ def build_set_desirability_inputs_report(
     set_reports: List[Dict[str, Any]] = []
     for set_row in sets:
         set_reports.append(_process_single_set(client=client, set_row=set_row, dry_run=dry_run))
+
+    canonical_fallback_summary = {
+        "rows_seen_in_cards": sum(int(r.get("cards_rows") or 0) for r in set_reports),
+        "rows_preexisting_canonical": sum(int(r.get("preexisting_canonical_rows") or 0) for r in set_reports),
+        "rows_missing_before": sum(int(r.get("rows_missing_before") or 0) for r in set_reports),
+        "rows_upsert_planned": sum(int(r.get("rows_upsert_planned") or 0) for r in set_reports),
+        "rows_upserted": sum(int(r.get("rows_upserted") or 0) for r in set_reports),
+        "rows_skipped_missing_required": sum(int(r.get("rows_skipped_missing_required") or 0) for r in set_reports),
+    }
+
+    if canonical_only:
+        # Narrow path: canonical-card synchronization only. Deliberately never calls
+        # _build_links/_build_summaries/_build_components/_build_opening below.
+        return {
+            "status": "dry_run" if dry_run else "committed",
+            "mode": "canonical_only",
+            "dry_run": dry_run,
+            "requested_set_key": set_key,
+            "resolved_set_key": resolved_set_key,
+            "hit_policy_version": hit_policy_version,
+            "sets_processed": len(set_reports),
+            "canonical_fallback": canonical_fallback_summary,
+            "set_reports": set_reports,
+        }
 
     selected_set_ids = [str(row.get("id")) for row in sets if row.get("id") is not None]
     selected_set_key = resolved_set_key if resolved_set_key else None
@@ -194,14 +240,7 @@ def build_set_desirability_inputs_report(
         "resolved_set_key": resolved_set_key,
         "hit_policy_version": hit_policy_version,
         "sets_processed": len(set_reports),
-        "canonical_fallback": {
-            "rows_seen_in_cards": sum(int(r.get("cards_rows") or 0) for r in set_reports),
-            "rows_preexisting_canonical": sum(int(r.get("preexisting_canonical_rows") or 0) for r in set_reports),
-            "rows_missing_before": sum(int(r.get("rows_missing_before") or 0) for r in set_reports),
-            "rows_upsert_planned": sum(int(r.get("rows_upsert_planned") or 0) for r in set_reports),
-            "rows_upserted": sum(int(r.get("rows_upserted") or 0) for r in set_reports),
-            "rows_skipped_missing_required": sum(int(r.get("rows_skipped_missing_required") or 0) for r in set_reports),
-        },
+        "canonical_fallback": canonical_fallback_summary,
         "set_reports": set_reports,
         "links_report": links_report,
         "hit_summaries_report": summaries_report,
@@ -312,6 +351,7 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
                     "match_method": FALLBACK_MATCH_METHOD,
                     "matched_pokedex_number": matched_reference.get("pokedex_number") if matched_reference else None,
                 },
+                **catalog_only_eligibility_overrides(set_row),
             }
         )
 
@@ -354,6 +394,24 @@ def canonical_set_needs_authoritative_refresh(rows: List[Dict[str, Any]]) -> boo
     return not rows or any(canonical_row_needs_authoritative_refresh(row) for row in rows)
 
 
+def catalog_only_eligibility_overrides(set_row: Dict[str, Any]) -> Dict[str, Any]:
+    """Explicit eligibility fields for a catalog-only set's canonical rows.
+
+    Returns {} for a normal (non catalog-only) set, leaving the table's ordinary
+    defaults in place. For a catalog-only set, returns the fields that must be
+    written explicitly rather than left to those defaults.
+    """
+    if not set_row.get("catalog_only"):
+        return {}
+    return {
+        "catalog_role": "main",
+        "set_value_eligible": True,
+        "opening_eligible": False,
+        "canonical_review_status": "approved",
+        "eligibility_reason": CATALOG_ONLY_ELIGIBILITY_REASON,
+    }
+
+
 def _refresh_authoritative_canonical_cards(
     *, client: Any, set_row: Dict[str, Any], dry_run: bool,
 ) -> Dict[str, Any]:
@@ -374,11 +432,15 @@ def _refresh_authoritative_canonical_cards(
         api_set = fetch_authoritative_api_set(api_set_id)
         api_cards = fetch_authoritative_cards(api_set_id)
         printed_total = canonical_optional_int(api_set.get("printedTotal"))
+        overrides = catalog_only_eligibility_overrides(set_row)
         rows = [
-            build_authoritative_canonical_row(
-                local_set_id=set_id, api_set_id=api_set_id,
-                api_printed_total=printed_total, card=card,
-            )
+            {
+                **build_authoritative_canonical_row(
+                    local_set_id=set_id, api_set_id=api_set_id,
+                    api_printed_total=printed_total, card=card,
+                ),
+                **overrides,
+            }
             for card in api_cards
         ]
     except Exception as exc:
@@ -563,7 +625,7 @@ def _opening_signature(*, set_id: Any, scoring_version: Any, source_v2_component
 
 
 def _list_sets(client: Any, *, set_key: Optional[str], process_all: bool) -> List[Dict[str, Any]]:
-    query = client.table("sets").select("id,name,canonical_key,pokemon_api_set_id").order("name")
+    query = client.table("sets").select("id,name,canonical_key,pokemon_api_set_id,catalog_only").order("name")
     if set_key:
         query = query.eq("canonical_key", set_key)
     elif not process_all:

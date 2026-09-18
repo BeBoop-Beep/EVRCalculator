@@ -349,11 +349,13 @@ FINGERPRINT = "cohort"
 
 
 def index_row(index_key, day, value, basket):
+    constituents = [{"setId": set_id, "includedCardCount": 10} for set_id in ("s1", "s2", "s3")]
     return {"index_key": index_key, "market_date": day, "normalized_index_value": value,
             "basket_value": basket, "set_count": 3,
             "card_count": 30 if index_key == "raw" else 30,
             "cohort_fingerprint": FINGERPRINT,
-            "source_generation_fingerprint": f"{index_key}-{day}"}
+            "source_generation_fingerprint": f"{index_key}-{day}",
+            "constituents_json": constituents}
 
 
 HISTORY = (

@@ -1,0 +1,339 @@
+{
+  "label": "HISTORICAL_POST_HOC_NON_CERTIFYING",
+  "gallery_coverage": {
+    "requested_target_count": 70,
+    "target_identities_present_in_gallery": 70,
+    "missing_target_identities": [],
+    "visual_coverage_percentage": 100.0
+  },
+  "results": {
+    "V4": {
+      "metrics": {
+        "total_rows": 420,
+        "definitive_rows": 420,
+        "uncertain_rows": 0,
+        "combined_state_counts": {
+          "TEXT_MATCH_IMAGE_UNVERIFIED": 88,
+          "REJECTED_TEXT": 187,
+          "VERIFIED_MATCH": 115,
+          "TEXT_AMBIGUOUS_NOT_PROMOTED": 17,
+          "REJECTED_IMAGE_CONTRADICTION": 13
+        },
+        "accepted_count": 115,
+        "true_accepts": 115,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.96767577,
+          1.0
+        ],
+        "accepted_recall": 0.46370968,
+        "cards_with_true_accept": 48,
+        "cards_total": 70,
+        "card_coverage": 0.68571429,
+        "catastrophic_combined_false_accepts": [],
+        "catastrophic_combined_false_accept_count": 0
+      },
+      "diagnostic_gates": {
+        "accepted_precision": {
+          "status": "PASS",
+          "observed": 1.0
+        },
+        "wilson_lower": {
+          "status": "FAIL",
+          "observed": 0.96767577
+        },
+        "coverage": {
+          "status": "FAIL",
+          "observed": 0.68571429
+        },
+        "catastrophic": {
+          "status": "PASS",
+          "observed": 0
+        }
+      },
+      "failure_matrix": [
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "VERIFIED_MATCH",
+          "count": 115
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "UNVERIFIED",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 97
+        },
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "TEXT_MATCH_IMAGE_UNVERIFIED",
+          "count": 88
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MISMATCH",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 46
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MATCH",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 24
+        },
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "MISMATCH",
+          "human_label": "YES",
+          "combined_state": "REJECTED_IMAGE_CONTRADICTION",
+          "count": 13
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "REJECTED_TEXT",
+          "count": 11
+        },
+        {
+          "text_state": "MEDIUM_CONFIDENCE",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 9
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "REJECTED_TEXT",
+          "count": 6
+        },
+        {
+          "text_state": "MEDIUM_CONFIDENCE",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 3
+        },
+        {
+          "text_state": "MEDIUM_CONFIDENCE",
+          "image_state": "MATCH",
+          "human_label": "NO",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 2
+        },
+        {
+          "text_state": "AMBIGUOUS",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 1
+        },
+        {
+          "text_state": "AMBIGUOUS",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 1
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MISMATCH",
+          "human_label": "YES",
+          "combined_state": "REJECTED_TEXT",
+          "count": 1
+        },
+        {
+          "text_state": "AMBIGUOUS",
+          "image_state": "MISMATCH",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 1
+        },
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "MISMATCH",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 1
+        },
+        {
+          "text_state": "MEDIUM_CONFIDENCE",
+          "image_state": "UNVERIFIED",
+          "human_label": "NO",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 1
+        }
+      ]
+    },
+    "V5": {
+      "metrics": {
+        "total_rows": 417,
+        "definitive_rows": 416,
+        "uncertain_rows": 1,
+        "combined_state_counts": {
+          "TEXT_MATCH_IMAGE_UNVERIFIED": 99,
+          "VERIFIED_MATCH": 107,
+          "REJECTED_TEXT": 177,
+          "REJECTED_IMAGE_CONTRADICTION": 15,
+          "TEXT_AMBIGUOUS_NOT_PROMOTED": 18
+        },
+        "accepted_count": 107,
+        "true_accepts": 107,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.96534276,
+          1.0
+        ],
+        "accepted_recall": 0.42460317,
+        "cards_with_true_accept": 44,
+        "cards_total": 70,
+        "card_coverage": 0.62857143,
+        "catastrophic_combined_false_accepts": [],
+        "catastrophic_combined_false_accept_count": 0
+      },
+      "diagnostic_gates": {
+        "accepted_precision": {
+          "status": "PASS",
+          "observed": 1.0
+        },
+        "wilson_lower": {
+          "status": "FAIL",
+          "observed": 0.96534276
+        },
+        "coverage": {
+          "status": "FAIL",
+          "observed": 0.62857143
+        },
+        "catastrophic": {
+          "status": "PASS",
+          "observed": 0
+        }
+      },
+      "failure_matrix": [
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "VERIFIED_MATCH",
+          "count": 107
+        },
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "TEXT_MATCH_IMAGE_UNVERIFIED",
+          "count": 99
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "UNVERIFIED",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 91
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MISMATCH",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 47
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MATCH",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 18
+        },
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "MISMATCH",
+          "human_label": "YES",
+          "combined_state": "REJECTED_IMAGE_CONTRADICTION",
+          "count": 15
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "REJECTED_TEXT",
+          "count": 9
+        },
+        {
+          "text_state": "MEDIUM_CONFIDENCE",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 7
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "REJECTED_TEXT",
+          "count": 5
+        },
+        {
+          "text_state": "REJECTED",
+          "image_state": "MISMATCH",
+          "human_label": "YES",
+          "combined_state": "REJECTED_TEXT",
+          "count": 4
+        },
+        {
+          "text_state": "MEDIUM_CONFIDENCE",
+          "image_state": "MATCH",
+          "human_label": "NO",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 4
+        },
+        {
+          "text_state": "HIGH_CONFIDENCE",
+          "image_state": "MISMATCH",
+          "human_label": "NO",
+          "combined_state": "REJECTED_TEXT",
+          "count": 3
+        },
+        {
+          "text_state": "AMBIGUOUS",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 3
+        },
+        {
+          "text_state": "MEDIUM_CONFIDENCE",
+          "image_state": "UNVERIFIED",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 2
+        },
+        {
+          "text_state": "AMBIGUOUS",
+          "image_state": "MATCH",
+          "human_label": "NO",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 1
+        },
+        {
+          "text_state": "AMBIGUOUS",
+          "image_state": "MATCH",
+          "human_label": "YES",
+          "combined_state": "TEXT_AMBIGUOUS_NOT_PROMOTED",
+          "count": 1
+        }
+      ]
+    }
+  },
+  "note": "Historical post-hoc diagnostic only. Never certifies COMBINED-IDENTITY-v1, D3-v5, or IMAGE-v2, and must never be used to re-tune any threshold in any layer."
+}

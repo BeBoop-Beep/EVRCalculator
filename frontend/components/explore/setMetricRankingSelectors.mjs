@@ -4,9 +4,20 @@ import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
 
 const number = (value) => value === null || value === undefined || value === "" || !Number.isFinite(Number(value)) ? null : Number(value);
 
+// Top 1% Value Share is sourced EXCLUSIVELY from
+// `financialRipV4.distributionDisclosures.jackpotValueShare` — the fraction
+// (0-1) the top 1% of simulated outcomes contribute to total modeled value.
+// Never `depthAndRobustness.top1EvShare` (a different, card-attribution
+// concept) and never any per-set/N+1 read: this reads the same bulk-cohort
+// target object every other field on this row already reads.
+function readTopOneOutcomeValueShare(target) {
+  const block = target?.financialRipV4 || {};
+  return number(block.distributionDisclosures?.jackpotValueShare);
+}
+
 export function readFinancialSetRanking(target) {
   const block = target?.financialRipV4 || {};
-  return { publicScore: number(block.leaderNormalizedScore), rank: number(block.rank), cohortSize: number(block.cohortSize ?? block.rankedSetCount), tier: block.tier || null, status: block.status || null, statusReason: block.statusReason || null, typicalOpening: readTypicalOpening(target), modelBreakEven: readModelBreakEven(target), modeledReturnPercent: readModeledReturnPercent(target), chanceToBeatCost: normalizeProbability(target?.prob_profit) };
+  return { publicScore: number(block.leaderNormalizedScore), rank: number(block.rank), cohortSize: number(block.cohortSize ?? block.rankedSetCount), tier: block.tier || null, status: block.status || null, statusReason: block.statusReason || null, typicalOpening: readTypicalOpening(target), modelBreakEven: readModelBreakEven(target), modeledReturnPercent: readModeledReturnPercent(target), chanceToBeatCost: normalizeProbability(target?.prob_profit), topOneOutcomeValueShare: readTopOneOutcomeValueShare(target) };
 }
 
 export function readSetCollectorAppealRanking(target) {

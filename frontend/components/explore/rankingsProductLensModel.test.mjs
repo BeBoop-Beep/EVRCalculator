@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { buildSealedProductHref } from "../../lib/pokemon/sealedProductRoutes.mjs";
-import { normalizeOverallProductResult, sortProductRankingRows } from "./rankingsProductLensModel.mjs";
+import {
+  defaultProductSortDirection,
+  normalizeOverallProductResult,
+  sortProductRankingRows,
+} from "./rankingsProductLensModel.mjs";
 
 const productClientSource = fs.readFileSync(new URL("./RankingsProductLensClient.jsx", import.meta.url), "utf8");
 
@@ -50,6 +54,34 @@ test("chaseAccessibilityValue sorts by the nested set-level authority block and 
   );
 });
 
+test("Closest to #1 defaults ascending and sorts leader then smallest required discount", () => {
+  const rows = [
+    { sealedProductId: "far", budgetRank: 8, bestOpenPriceStatus: "resolved_below_market", bestOpenPriceGapPercent: 0.2031 },
+    { sealedProductId: "leader", budgetRank: 1, bestOpenPriceStatus: "current_number_one_with_headroom", bestOpenPriceGapPercent: -0.1299 },
+    { sealedProductId: "closest", budgetRank: 2, bestOpenPriceStatus: "resolved_below_market", bestOpenPriceGapPercent: 0.092 },
+    { sealedProductId: "next", budgetRank: 3, bestOpenPriceStatus: "resolved_below_market", bestOpenPriceGapPercent: 0.124 },
+    { sealedProductId: "unavailable", budgetRank: 99, bestOpenPriceStatus: null, bestOpenPriceGapPercent: null },
+  ];
+  assert.equal(defaultProductSortDirection("bestOpenPriceGapPercent"), "asc");
+  assert.deepEqual(
+    sortProductRankingRows(rows, "", "bestOpenPriceGapPercent", "asc", true).map((row) => row.sealedProductId),
+    ["leader", "closest", "next", "far", "unavailable"],
+  );
+});
+
+test("Closest to #1 can be reversed without coercing unavailable rows to zero", () => {
+  const rows = [
+    { sealedProductId: "leader", bestOpenPriceStatus: "current_number_one_with_headroom", bestOpenPriceGapPercent: -0.1 },
+    { sealedProductId: "near", bestOpenPriceStatus: "resolved_below_market", bestOpenPriceGapPercent: 0.1 },
+    { sealedProductId: "far", bestOpenPriceStatus: "resolved_below_market", bestOpenPriceGapPercent: 0.5 },
+    { sealedProductId: "none", bestOpenPriceGapPercent: null },
+  ];
+  assert.deepEqual(
+    sortProductRankingRows(rows, "", "bestOpenPriceGapPercent", "desc", true).map((row) => row.sealedProductId),
+    ["far", "near", "leader", "none"],
+  );
+});
+
 test("Budget Products UI consumes backend generic fields without V10 authority logic", () => {
   assert.match(productClientSource, /row\?\.budgetRank/);
   assert.match(productClientSource, /row\?\.overallRipLeaderScore/);
@@ -75,4 +107,10 @@ test("an invalid successful-looking wrapper cannot become an empty ready table",
   assert.deepEqual(normalizeOverallProductResult({ status: "available", data: result }), {
     available: false, reason: "publication_unavailable", rows: [], availableBudgets: [],
   });
+});
+
+test("unavailable Best-Open sorting falls back to ordinary ranking without hiding rows", async () => {
+  const {resolveProductSort}=await import("./rankingsProductLensModel.mjs");
+  assert.deepEqual(resolveProductSort("bestOpenPriceGapPercent","asc",false,true),{key:"overallRipLeaderScore",direction:"desc"});
+  assert.deepEqual(resolveProductSort("bestOpenPriceGapPercent","asc",true,true),{key:"bestOpenPriceGapPercent",direction:"asc"});
 });

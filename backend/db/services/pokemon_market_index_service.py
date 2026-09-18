@@ -246,6 +246,53 @@ def read_index_history(
     return [row for row in rows if str(row.get("market_date"))[:10] in accepted]
 
 
+def _validate_constituents(raw: Mapping[str, Any], chase: Mapping[str, Any]) -> None:
+    """Fail-closed constituent-level check, replacing the fixed set_count*10 basket rule.
+
+    The complete structural Market authority now includes canonical sets that
+    are only partially priced (e.g. a set with 7 priced cards total), so
+    Top10's basket is legitimately smaller than 10 * eligibleSetCount. What
+    must still hold, per set, is `top10Count == min(rawCount, 10)` - never a
+    fixed constant. Every check here is fail-closed: any missing/duplicate/
+    inconsistent constituent raises rather than silently averaging out.
+    """
+    error = "current raw/top10 cohort or chase count disagrees"
+    raw_constituents = raw.get("constituents_json") or []
+    chase_constituents = chase.get("constituents_json") or []
+    if not raw_constituents or not chase_constituents:
+        raise PokemonMarketIndexUnavailable(error)
+
+    def _by_set_id(constituents: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for item in constituents:
+            set_id = item.get("setId")
+            if not set_id:
+                raise PokemonMarketIndexUnavailable(error)
+            set_id = str(set_id)
+            if set_id in counts:
+                raise PokemonMarketIndexUnavailable(error)
+            try:
+                count = int(item["includedCardCount"])
+            except (KeyError, TypeError, ValueError):
+                raise PokemonMarketIndexUnavailable(error)
+            if count <= 0:
+                raise PokemonMarketIndexUnavailable(error)
+            counts[set_id] = count
+        return counts
+
+    raw_counts = _by_set_id(raw_constituents)
+    chase_counts = _by_set_id(chase_constituents)
+    if set(raw_counts) != set(chase_counts):
+        raise PokemonMarketIndexUnavailable(error)
+    if sum(raw_counts.values()) != int(raw["card_count"]):
+        raise PokemonMarketIndexUnavailable(error)
+    if sum(chase_counts.values()) != int(chase["card_count"]):
+        raise PokemonMarketIndexUnavailable(error)
+    for set_id, raw_count in raw_counts.items():
+        if chase_counts[set_id] != min(raw_count, 10):
+            raise PokemonMarketIndexUnavailable(error)
+
+
 def build_market_overview(
     history: Sequence[Mapping[str, Any]], *, market_date: str,
     sealed_market: Mapping[str, Any] | None = None,
@@ -288,15 +335,24 @@ def build_market_overview(
     # Top 10 is an upper bound, not a promise that every set contributes ten
     # priced cards. The canonical Set Value SQL ranks available priced cards
     # and keeps price_rank <= 10, so a thin/partially-priced set can legitimately
-    # contribute 1..10 cards. Require one positive Top-10 contribution per set,
-    # cap the aggregate at ten per set, and when persisted constituents are
-    # present reconcile the aggregate exactly back to those per-set counts.
+    # contribute 1..10 cards. Require one positive Top-10 contribution per set
+    # and cap the aggregate at ten per set.
     if (chase_set_count <= 0
             or chase_card_count < chase_set_count
             or chase_card_count > chase_set_count * 10):
         raise PokemonMarketIndexUnavailable("current top10 chase card count is invalid")
+    raw_constituents = raw.get("constituents_json")
     chase_constituents = chase.get("constituents_json")
-    if isinstance(chase_constituents, list) and chase_constituents:
+    if (isinstance(raw_constituents, list) and raw_constituents
+            and isinstance(chase_constituents, list) and chase_constituents):
+        # When both sides carry persisted constituent evidence, retain the
+        # stricter develop-side reconciliation: same set membership, exact
+        # aggregate sums, and top10Count == min(rawCount, 10) per set.
+        _validate_constituents(raw, chase)
+    elif isinstance(chase_constituents, list) and chase_constituents:
+        # Recent production/VM rows may expose Top-10 constituents without a
+        # matching Raw constituent payload. Preserve the newer main-side
+        # resilience fix while still reconciling every available Top-10 count.
         if len(chase_constituents) != chase_set_count:
             raise PokemonMarketIndexUnavailable("current top10 constituent count disagrees")
         constituent_card_count = 0

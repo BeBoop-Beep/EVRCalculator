@@ -605,6 +605,14 @@ def to_publication_payload(results: Dict[str, Any]) -> tuple:
                 "collector_appeal_score": row["collectorAppealScore"],
                 "chance_to_recover_capital": row.get("chanceToRecoverCapital"),
                 "expected_value": row["expectedValue"],
+                # Exact q-unit strategy distribution values, computed by
+                # `score_budget_strategy` — threaded through verbatim, never
+                # recomputed here. `top1_outcome_value_share` is the outcome
+                # distribution's `jackpotValueShare`, never the unrelated
+                # card-attribution `top1EvShare` metric (see
+                # `score_budget_strategy`'s docstring).
+                "median_value": row["medianValue"],
+                "top1_outcome_value_share": row["topOneOutcomeValueShare"],
                 "product_market_price": row["productMarketPrice"],
                 "price_as_of": row.get("priceAsOf"),
                 "full_market_anchor": row.get("fullMarketAnchor"),
@@ -633,6 +641,53 @@ V12_ROW_PUBLICATION_FIELDS = (
     "budget_rank_v12",
     "budget_cohort_size_v12",
 )
+
+
+def _is_finite_number(value: Any) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return number == number and number not in (float("inf"), float("-inf"))
+
+
+def validate_publication_payload_rows(rows: List[Dict[str, Any]]) -> None:
+    """Fail fast, in Python, BEFORE the RPC call boundary.
+
+    Mirrors (and precedes) the migration's own
+    `publish_budget_product_ranking_snapshot` SQL guard on `median_value` /
+    `top1_outcome_value_share` — that SQL check is defense in depth, this is
+    the primary gate. Every ranked row published through this builder must
+    carry both fields from the exact q-unit strategy distribution; historical
+    rows predating this contract are NEVER produced by this code path (they
+    only exist as already-published legacy data the reader must tolerate).
+    """
+    for row in rows:
+        median = row.get("median_value")
+        if median is None:
+            raise ValueError(
+                "publication row sealed_product_id=%s target_budget=%s is missing median_value"
+                % (row.get("sealed_product_id"), row.get("target_budget"))
+            )
+        if not _is_finite_number(median) or float(median) < 0:
+            raise ValueError(
+                "publication row sealed_product_id=%s target_budget=%s has an invalid "
+                "median_value=%r (must be a finite number >= 0)"
+                % (row.get("sealed_product_id"), row.get("target_budget"), median)
+            )
+
+        share = row.get("top1_outcome_value_share")
+        if share is None:
+            raise ValueError(
+                "publication row sealed_product_id=%s target_budget=%s is missing "
+                "top1_outcome_value_share" % (row.get("sealed_product_id"), row.get("target_budget"))
+            )
+        if not _is_finite_number(share) or not (0.0 <= float(share) <= 1.0):
+            raise ValueError(
+                "publication row sealed_product_id=%s target_budget=%s has an invalid "
+                "top1_outcome_value_share=%r (must be a finite number in [0, 1])"
+                % (row.get("sealed_product_id"), row.get("target_budget"), share)
+            )
 
 
 def merge_v12_publication_fields(
@@ -729,6 +784,7 @@ def publish_rankings(
     unchanged V10 publication path.
     """
     snapshot, rows = materialized_payload or materialize_publication_payload(results, v12_results)
+    validate_publication_payload_rows(rows)
     response = client.rpc(
         "publish_budget_product_ranking_snapshot",
         {"p_snapshot": snapshot, "p_rows": rows},
@@ -741,6 +797,7 @@ def materialize_publication_payload(results: Dict[str, Any], v12_results: Option
     snapshot, rows = to_publication_payload(results)
     if v12_results is not None:
         snapshot, rows = merge_v12_publication_fields(snapshot, rows, v12_results)
+    validate_publication_payload_rows(rows)
     return snapshot, rows
 
 

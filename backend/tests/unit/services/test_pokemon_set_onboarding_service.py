@@ -4,6 +4,7 @@ from subprocess import CompletedProcess
 
 import pytest
 
+from backend.services.pokemon_onboarding_git_service import GitSettings
 from backend.services.pokemon_set_onboarding_service import (
     OnboardingEngine, STEP_ORDER, validate_pull_rates_manifest,
 )
@@ -103,6 +104,76 @@ def test_simulation_requires_new_run_and_details():
         db_client=object(),
     )
     assert engine.run_step(_job("simulation")).kind == "advance"
+
+
+def _pr_git_settings(tmp_path: Path) -> GitSettings:
+    return GitSettings(mode="pr", worktree_dir=tmp_path / "worktrees", base_branch="main")
+
+
+def _forbidden_runner(command, **kwargs):
+    raise AssertionError(f"dry-run must not execute git/gh commands, got: {command}")
+
+
+def test_dry_run_source_registration_never_touches_git():
+    job = _job("source_registration", {
+        "steps": {"metadata_resolution": {"pokemon_api_set": {"id": "1", "name": "Future Set"}}},
+    })
+    engine = OnboardingEngine(
+        execute=False, command_runner=_forbidden_runner,
+        git_settings=GitSettings(mode="pr", worktree_dir=Path("/tmp/onboarding-worktrees")),
+    )
+    outcome = engine.run_step(job)
+    assert outcome.evidence.get("dry_run") is True
+    assert outcome.error_code is None
+
+
+def test_dry_run_awaiting_source_deploy_never_touches_git(tmp_path: Path):
+    job = _job("awaiting_source_deploy", {})
+    job["era_folder"] = "otherEra"
+    job["source_pr_url"] = "https://github.com/example/repo/pull/1"
+    engine = OnboardingEngine(
+        execute=False, command_runner=_forbidden_runner, git_settings=_pr_git_settings(tmp_path),
+    )
+    outcome = engine.run_step(job)
+    assert outcome.kind == "wait"
+    assert outcome.evidence.get("dry_run") is True
+
+
+def test_dry_run_pull_model_source_never_touches_git(tmp_path: Path):
+    rates_path = tmp_path / "rates.json"
+    rates_path.write_text(json.dumps({
+        "provenance": {"source_urls": ["https://source"]}, "captured_date": "2026-08-01",
+        "rarity_denominators": {"rare": 10}, "slot_assumptions": {
+            "rare_slot_probabilities": {"rare": 1.0},
+        }, "product_type": "standard_booster",
+        "collation_compatibility_approved": True,
+        "pack_state_overrides": {},
+        "validation": {
+            "no_pack_odds_scaling_error": True, "valid_pack_state_override": True,
+            "supported_product_collation": True, "all_required_rarities_classified": True,
+        },
+    }), encoding="utf-8")
+    job = _job("pull_model_source", {"steps": {"rarity_census": {"rarity_census": {"rare": 1}}}})
+    job["era_folder"] = "otherEra"
+    engine = OnboardingEngine(
+        execute=False, command_runner=_forbidden_runner, pull_rates_file=rates_path,
+        git_settings=_pr_git_settings(tmp_path),
+    )
+    outcome = engine.run_step(job)
+    assert outcome.evidence.get("dry_run") is True
+    assert outcome.error_code is None
+
+
+def test_dry_run_awaiting_pull_model_deploy_never_touches_git(tmp_path: Path):
+    job = _job("awaiting_pull_model_deploy", {"steps": {"rarity_census": {"rarity_census": {"rare": 1}}}})
+    job["era_folder"] = "otherEra"
+    job["source_pr_url"] = "https://github.com/example/repo/pull/2"
+    engine = OnboardingEngine(
+        execute=False, command_runner=_forbidden_runner, git_settings=_pr_git_settings(tmp_path),
+    )
+    outcome = engine.run_step(job)
+    assert outcome.kind == "wait"
+    assert outcome.evidence.get("dry_run") is True
 
 
 def test_stale_simulation_run_is_insufficient():

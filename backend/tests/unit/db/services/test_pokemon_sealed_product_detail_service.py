@@ -76,6 +76,10 @@ def fixture_data(modeled=True, image="large.png", p1_set_ev_representativeness=N
             "pack_count": 36, "random_pack_count": 36, "guaranteed_component_count": 1,
             "guaranteed_component_market_value": 20, "accessory_value_included": False,
             "composition_version": "stage2", "composition_id": "composition", "distribution_model_version": "model",
+            "financial_rip_v3_payload": {
+                "distributionDisclosures": {"jackpotValueShare": 0.0555},
+                "depthAndRobustness": {"top1EvShare": 0.999},
+            },
         }, {"sealed_product_id": "p1", "calculation_run_id": "run-stale", "expected_value": 999}] if modeled else []),
     }
 
@@ -100,6 +104,9 @@ def prepared_product(product_id, name, price, family, history=None):
 
 @pytest.fixture(autouse=True)
 def current_publication(monkeypatch):
+    monkeypatch.setattr(service, "load_best_open_price_product", lambda *_a, **_k: {
+        "available": False, "reason": "no_published_snapshot", "row": None,
+    })
     monkeypatch.setattr(service, "_rankings_publication_identity_mismatches", lambda _payload: [])
 
 
@@ -126,6 +133,28 @@ def test_published_run_is_exact_and_canonical_v10_v4_fields_win():
     assert rip["collectorAppealTier"] == "A"
     assert rip["entertainmentCost"]["expectedValue"] == 80
     assert rip["entertainmentCost"]["entertainmentCost"] == 40  # guaranteed value was not added twice
+
+
+def test_rip_contract_exposes_top1_outcome_value_share_from_same_focal_row():
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(fixture_data()))
+    rip = payload["rip"]
+    # Must come from distributionDisclosures.jackpotValueShare, NEVER the
+    # card-attribution depthAndRobustness.top1EvShare on the same payload.
+    assert rip["topOneOutcomeValueShare"] == 0.0555
+
+
+def test_detail_fields_selects_financial_rip_v3_payload():
+    assert "financial_rip_v3_payload" in service.DETAIL_FIELDS
+
+
+def test_detail_payload_does_not_issue_extra_query_per_comparison_row():
+    """Same-set comparison rows come from the cached rankings snapshot, never
+    a per-row simulation_sealed_product_results query. The focal-product
+    query is issued exactly once regardless of comparison cohort size."""
+    client = Client(fixture_data())
+    service.get_pokemon_sealed_product_detail_payload("p1", client)
+    detail_query_count = sum(1 for name in client.queries if name == "simulation_sealed_product_results")
+    assert detail_query_count == 1
 
 
 def test_set_ev_representativeness_inherits_from_the_same_run_published_ranking_row():
@@ -345,6 +374,39 @@ def test_comparisons_are_bounded_exclude_current_and_same_family_never_crosses_f
     assert payload["comparisons"]["sameSet"][0]["href"] == "/sealed-products/p2"
 
 
+def test_comparison_row_carries_bucket2_surface4_metrics_from_the_same_ranking_row():
+    """Bucket 2 Surface 4: This Set / Same Format comparison rows must expose
+    Average Return, Typical Opening, Covers Cost and Top 1% Value Share
+    sourced from the SAME already-fetched published ranking row every other
+    comparison field already reads - no second query, never top1EvShare."""
+    candidate_ranking = {
+        **ranking("p2"),
+        "modeledReturnPercent": 62.5,
+        "medianValue": 70,
+        "chanceToRecoverCost": 0.25,
+        "topOneOutcomeValueShare": 0.0555,
+    }
+    row = service._comparison_row(
+        {"id": "p2", "name": "Alpha Elite Trainer Box", "product_type": "box"},
+        "booster_box", {"currentPrice": 50, "marketDate": "2026-08-28"}, candidate_ranking,
+    )
+    assert row["modeledReturnPercent"] == 62.5
+    assert row["typicalOpening"] == 70
+    assert row["chanceToRecoverCost"] == 0.25
+    assert row["topOneOutcomeValueShare"] == 0.0555
+
+
+def test_comparison_row_without_a_published_ranking_stays_unavailable_not_zero():
+    row = service._comparison_row(
+        {"id": "p2", "name": "Alpha Elite Trainer Box", "product_type": "box"},
+        "booster_box", {"currentPrice": 50, "marketDate": "2026-08-28"}, None,
+    )
+    assert row["modeledReturnPercent"] is None
+    assert row["typicalOpening"] is None
+    assert row["chanceToRecoverCost"] is None
+    assert row["topOneOutcomeValueShare"] is None
+
+
 def test_unknown_product_is_404():
     with pytest.raises(service.PokemonSealedProductDetailError) as caught:
         service.get_pokemon_sealed_product_detail_payload("missing", Client(fixture_data()))
@@ -456,3 +518,57 @@ def test_H_bounded_query_count_one_additional_chase_read():
     service.get_pokemon_sealed_product_detail_payload("p1", client)
     chase_reads = [q for q in client.executed if q[0] == "pokemon_set_chase_accessibility_snapshot_latest"]
     assert len(chase_reads) == 1
+
+
+# --- Best-Open Price V2 dual-field contract, nested inside the existing
+# Plus-gated `rip["bestOpenPrice"]` envelope (no new gating added here) -----
+
+
+def test_best_open_price_contract_v2_exposes_rip_and_financial_fields(monkeypatch):
+    monkeypatch.setattr(service, "load_best_open_price_product", lambda *_a, **_k: {
+        "available": True, "reason": None,
+        "row": {
+            "best_open_price": 145.0, "status": "exact",
+            "price_gap_dollars": 5.0, "price_gap_percent": 0.03,
+            "threshold_quantity": 9, "current_market_price": 145.0, "current_budget_rank": 2,
+            "financial_best_open_price": 150.0, "financial_status": "exact",
+            "financial_price_gap_dollars": 10.0, "financial_price_gap_percent": 0.06,
+        },
+        "sourceMarketDate": "2026-08-28", "sourceFullMarketBudget": 1400,
+        "sourceEligibleCohortCount": 2, "sourceBudgetSnapshotId": "snap-1",
+        "methodVersion": "budget_product_best_open_price_full_market_v2_dual_financial_v4_overall_v12",
+    })
+    contract = service._best_open_price_contract(object(), "p1")
+    assert contract["bestOpenPrice"] == contract["ripBestOpenPrice"] == 145.0
+    assert contract["financialBestOpenPrice"] == 150.0
+    assert contract["financialBestOpenPriceStatus"] == "exact"
+    assert contract["financialBestOpenPriceGapDollars"] == 10.0
+    assert contract["financialBestOpenPriceGapPercent"] == 0.06
+
+
+def test_best_open_price_contract_v1_never_exposes_financial_fields(monkeypatch):
+    monkeypatch.setattr(service, "load_best_open_price_product", lambda *_a, **_k: {
+        "available": True, "reason": None,
+        "row": {
+            "best_open_price": 100.0, "status": "exact",
+            "price_gap_dollars": 1.0, "price_gap_percent": 0.01,
+            "threshold_quantity": 12, "current_market_price": 100.0, "current_budget_rank": 1,
+        },
+        "sourceMarketDate": "2026-08-28", "sourceFullMarketBudget": 1400,
+        "sourceEligibleCohortCount": 2, "sourceBudgetSnapshotId": "snap-1",
+        "methodVersion": "budget_product_best_open_price_full_market_v1",
+    })
+    contract = service._best_open_price_contract(object(), "p1")
+    assert contract["bestOpenPrice"] == 100.0
+    assert "financialBestOpenPrice" not in contract or contract["financialBestOpenPrice"] is None
+
+
+def test_best_open_price_contract_rides_inside_plus_gated_rip_envelope():
+    """The nesting site `rip["bestOpenPrice"] = _best_open_price_contract(...)`
+    is the ONLY place this contract is attached -- it inherits whatever
+    entitlement gating already wraps the `rip` envelope, with no separate
+    gating logic added for the V2 fields."""
+    import inspect
+
+    source = inspect.getsource(service)
+    assert 'rip["bestOpenPrice"] = _best_open_price_contract(' in source

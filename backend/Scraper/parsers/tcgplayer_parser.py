@@ -1,6 +1,6 @@
 from ..helpers.card_helper import (clean_price_value, process_card, clean_condition,
     normalize_condition, parse_tcgplayer_printing, determine_special_type,
-    build_external_variant_key)
+    build_external_variant_key, classify_raw_card_row)
 from ..helpers.sealed_price_helper import parse_sealed_prices
 
 
@@ -86,9 +86,11 @@ class TCGPlayerParser:
         card_data = {}
         dropped_no_market = 0
         dropped_invalid = 0
-        
+        dropped_other_code_card = 0
+        dropped_other_missing_required = 0
+
         for card in selected_cards:
-            
+
             product_name, card_dict = process_card(card, self.pull_rate_mapping)
 
             # Skip invalid cards
@@ -97,6 +99,13 @@ class TCGPlayerParser:
                     dropped_no_market += 1
                 else:
                     dropped_invalid += 1
+                    # Reason breakdown only, via the same classifier process_card
+                    # already applied -- this never changes what gets accepted.
+                    reason = classify_raw_card_row(card)
+                    if reason == "code_card":
+                        dropped_other_code_card += 1
+                    elif reason == "missing_required_field":
+                        dropped_other_missing_required += 1
                 continue
             card_dict['variantCollectionAuthority'] = (
                 'MARKET_ONLY_AMBIGUOUS_VARIANT'
@@ -134,6 +143,8 @@ class TCGPlayerParser:
             f"kept={len(cards)} "
             f"dropped_no_market_price={dropped_no_market} "
             f"dropped_other={dropped_invalid} "
+            f"dropped_other_code_card={dropped_other_code_card} "
+            f"dropped_other_missing_required={dropped_other_missing_required} "
             f"source_variant_groups={len(variant_groups)} "
             f"rejected_ambiguous_variants={len(ambiguous_variant_groups)} "
             f"rejected_missing_nm_variants={len(missing_nm_variant_groups)}"
@@ -147,6 +158,8 @@ class TCGPlayerParser:
             "source_variant_groups": len(variant_groups),
             "accepted_variant_groups": len(selected_cards),
             "payload_cards": len(cards),
+            "dropped_other_code_card": dropped_other_code_card,
+            "dropped_other_missing_required": dropped_other_missing_required,
             "ambiguous_variant_groups": sorted(ambiguous_variant_groups),
             "missing_nm_variant_groups": sorted(missing_nm_variant_groups),
             "external_variant_identity_unavailable": sorted(unavailable_external_variant_groups),

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from backend.services import pokemon_new_set_discovery_service as service
+from backend.services.tcgplayer_set_catalog_service import PRODUCT_TYPE_CARDS
 
 # Stand-in for the production evidence: historical/inactive catalog products that the
 # provider still returns (Base Set, EX/XY era, promos, Trainer Kits, Jumbo Cards).
@@ -35,7 +36,12 @@ def empty_root(tmp_path: Path) -> Path:
 
 def _wire_provider(monkeypatch, aggregations, resolved=None):
     resolved = RESOLVED_IDS if resolved is None else resolved
-    monkeypatch.setattr(service, "fetch_global_set_aggregations", lambda *_a, **_k: aggregations)
+
+    def fake_aggregations(_requester, _cache, product_type_names=None):
+        source = (product_type_names or [PRODUCT_TYPE_CARDS])[0]
+        return aggregations if source == PRODUCT_TYPE_CARDS else []
+
+    monkeypatch.setattr(service, "fetch_global_set_aggregations", fake_aggregations)
     monkeypatch.setattr(
         service, "validate_candidate_set_id",
         lambda _requester, _cache, name, *_a, **_k: (resolved.get(name), 0.99, "stable"),
@@ -55,6 +61,13 @@ def _wire_store(monkeypatch, stored: dict):
     monkeypatch.setattr(
         service.jobs, "upsert_discovery",
         lambda row: stored.__setitem__(row["source_set_id"], row) or row,
+    )
+    monkeypatch.setattr(
+        service.jobs, "reconcile_discovery_v2",
+        lambda **kwargs: stored.__setitem__(kwargs["source_set_id"], {
+            "source_set_id": kwargs["source_set_id"], "source_set_name": kwargs["source_set_name"],
+            "status": kwargs["candidate_status"], "metadata_json": kwargs["discovery_json"],
+        }) or {"disposition": "inserted"},
     )
 
 

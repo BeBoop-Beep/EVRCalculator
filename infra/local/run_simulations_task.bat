@@ -3,8 +3,8 @@ REM ============================================================================
 REM Windows Task Scheduler entry point for the daily simulation + publication.
 REM
 REM The scheduled job intentionally runs from the active local checkout at
-REM D:\EVRCalculator. This repository uses one active development branch at a
-REM time and that branch changes as work advances, so the scheduler must never
+REM D:\EVRCalculator. This repository uses one active development branch at
+REM a time and that branch changes as work advances, so the scheduler must never
 REM pin a branch name, switch branches, stash, reset, or require a second
 REM hard-coded worktree.
 REM
@@ -13,6 +13,10 @@ REM state, Python environment, and publication result on every invocation. Those
 REM Git values are diagnostics only; they are not reasons to refuse a scheduled
 REM run. Real startup failures (missing repo/venv) and simulation/publication
 REM failures still propagate a non-zero exit code.
+REM
+REM Best-Open runs inside run_simulations.sh after that invocation's Budget
+REM Ranking verdict. This entrypoint stays thin so manual and scheduled runs
+REM use the same lifecycle and unrelated audit failures cannot skip thresholds.
 REM ============================================================================
 
 setlocal

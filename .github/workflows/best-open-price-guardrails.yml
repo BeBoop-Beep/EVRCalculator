@@ -1,0 +1,125 @@
+name: Best-Open Price Guardrails
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'backend/**/*best_open*'
+      - 'backend/db/services/budget_product_ranking_service.py'
+      - 'backend/db/services/public_overall_product_rankings_service.py'
+      - 'backend/db/services/pokemon_sealed_product_detail_service.py'
+      - 'backend/domain/access/index_plan_access.py'
+      - 'frontend/**/BestOpen*'
+      - 'frontend/**/bestOpen*'
+      - 'frontend/components/explore/RankingsProductLensClient.jsx'
+      - 'frontend/components/explore/rankingsProductLensModel*'
+      - 'frontend/components/pokemon/sealed-product-detail/**'
+      - 'frontend/lib/rankings/rankingsSessionCache*'
+      - 'infra/local/run_simulations*'
+      - 'infra/local/run_best_open_price.sh'
+      - 'supabase/migrations/*best_open*'
+      - '.github/workflows/best-open-price-guardrails.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'backend/**/*best_open*'
+      - 'backend/db/services/budget_product_ranking_service.py'
+      - 'backend/db/services/public_overall_product_rankings_service.py'
+      - 'backend/db/services/pokemon_sealed_product_detail_service.py'
+      - 'backend/domain/access/index_plan_access.py'
+      - 'frontend/**/BestOpen*'
+      - 'frontend/**/bestOpen*'
+      - 'frontend/components/explore/RankingsProductLensClient.jsx'
+      - 'frontend/components/explore/rankingsProductLensModel*'
+      - 'frontend/components/pokemon/sealed-product-detail/**'
+      - 'frontend/lib/rankings/rankingsSessionCache*'
+      - 'infra/local/run_simulations*'
+      - 'infra/local/run_best_open_price.sh'
+      - 'supabase/migrations/*best_open*'
+      - '.github/workflows/best-open-price-guardrails.yml'
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install pinned computation runtime and test dependencies
+        run: python -m pip install -q pytest numpy==2.4.3 pandas==2.2.3 scipy psutil supabase==2.28.3 python-dotenv==1.2.2
+      - name: Execute affected Python regressions and real shell gating
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess, sys
+          paths = sorted({str(p) for p in Path('backend/tests/unit').rglob('test_*.py') if any(t in p.name for t in ('best_open', 'budget_normalized_product_ranking', 'budget_product_ranking', 'financial_rip_v3', 'financial_rip_v4', 'overall_rip_v12'))})
+          paths += ['backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py', 'backend/tests/unit/db/services/test_public_overall_product_rankings_service.py']
+          raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', '-q', *paths]))
+          PY
+          bash -n infra/local/run_simulations.sh
+          bash -n infra/local/run_best_open_price.sh
+          git diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Product UI models, cache races, access and presentation contracts
+        working-directory: frontend
+        run: node --test lib/rankings/*.test.mjs components/explore/rankingsProductLensModel.test.mjs components/explore/BestOpenPriceRankings.contract.test.mjs lib/access/bestOpenPriceAccess.test.mjs components/pokemon/sealed-product-detail/*.test.mjs
+  windows-lock:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -q pytest numpy==2.4.3 pandas==2.2.3 psutil supabase==2.28.3 python-dotenv==1.2.2
+      - name: Native Windows lock kill/recovery and publisher tests
+        run: python -m pytest -q backend/tests/unit/scripts/test_best_open_process_lock.py backend/tests/unit/scripts/test_publish_best_open_price_if_ready.py
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-test-only
+          POSTGRES_DB: best_open_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d best_open_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      BEST_OPEN_TEST_DATABASE_URL: postgresql://postgres:isolated-test-only@127.0.0.1:5432/best_open_test
+      BEST_OPEN_ACK_DISPOSABLE: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -q pytest 'psycopg[binary]'
+      - name: Apply mirrored migrations and run real concurrent RPC tests
+        run: |
+          cmp supabase/migrations/20260914225000_harden_best_open_publication_review.sql backend/db/migrations/20260914225000_harden_best_open_publication_review.sql
+          python -m pytest -q backend/tests/integration/test_best_open_publication_postgres.py
+      - name: Apply mirrored V2 migration and run V2 RPC tests
+        run: |
+          cmp supabase/migrations/20260916120000_add_best_open_price_v2_dual_threshold.sql backend/db/migrations/20260916120000_add_best_open_price_v2_dual_threshold.sql
+          python -m pytest -q backend/tests/integration/test_best_open_publication_v2_postgres.py

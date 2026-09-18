@@ -116,6 +116,7 @@ def test_market_overview_extension_does_not_change_raw_or_top10():
             "index_key": key, "market_date": "2026-01-01", "basket_value": basket,
             "normalized_index_value": 100, "set_count": 1, "card_count": cards,
             "cohort_fingerprint": "same", "source_generation_fingerprint": key,
+            "constituents_json": [{"setId": "s1", "includedCardCount": cards}],
         })
     baseline = build_market_overview(history, market_date="2026-01-01")
     sealed = build_global_sealed_market(

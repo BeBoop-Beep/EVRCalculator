@@ -692,18 +692,30 @@ function ComparisonMobileRow({
         : "—",
     ],
     [
+      "Average Return",
+      product.modeledReturnPercent === null
+        ? "—"
+        : `${Number(product.modeledReturnPercent).toFixed(1)}%`,
+    ],
+    [
       "Typical Back",
       valueBackPct === null
         ? money(product.typicalOpening)
         : `${valueBackPct}% · ${money(product.typicalOpening)} typical`,
     ],
-    ["Entertainment Cost", perPack === null ? "—" : money(perPack)],
     [
-      "Recover Cost",
+      "Covers Cost",
       product.chanceToRecoverCost === null
         ? "—"
         : probability(product.chanceToRecoverCost),
     ],
+    [
+      "Top 1% Value Share",
+      product.topOneOutcomeValueShare === null
+        ? "—"
+        : probability(product.topOneOutcomeValueShare),
+    ],
+    ["Entertainment Cost", perPack === null ? "—" : money(perPack)],
   ];
   return (
     <article
@@ -800,21 +812,30 @@ function ComparisonTableRow({
       </td>
       <td className="text-center">
         <LockedValue canView={canView}>
-          <RipScoreBadge
-            score={familyRankInfo?.overallRipLeaderScore}
-            tier={familyRankInfo?.publicTier}
-            compact
-          />
+          <div className="flex flex-col items-center gap-1">
+            <RipScoreBadge
+              score={familyRankInfo?.overallRipLeaderScore}
+              tier={familyRankInfo?.publicTier}
+              compact
+            />
+            <RipTierMark tier={familyRankInfo?.publicTier} />
+          </div>
         </LockedValue>
       </td>
-      <td className="text-center">
-        <LockedValue canView={canView}>
-          <RipTierMark tier={familyRankInfo?.publicTier} />
-        </LockedValue>
-      </td>
-      <td className={rankingStyles.numeric}>{money(product.marketPrice)}</td>
       <td className={rankingStyles.numeric}>
-        {pricePerPack === null ? "—" : money(pricePerPack)}
+        <span>
+          {money(product.marketPrice)}
+          <small className="block text-[10px] font-normal text-[var(--text-secondary)]">
+            {pricePerPack === null ? "—" : `${money(pricePerPack)} / pack`}
+          </small>
+        </span>
+      </td>
+      <td className={rankingStyles.numeric}>
+        <LockedValue canView={canView}>
+          {product.modeledReturnPercent === null
+            ? "—"
+            : `${Number(product.modeledReturnPercent).toFixed(1)}%`}
+        </LockedValue>
       </td>
       <td className={rankingStyles.numeric}>
         <LockedValue canView={canView}>
@@ -832,14 +853,21 @@ function ComparisonTableRow({
       </td>
       <td className={rankingStyles.numeric}>
         <LockedValue canView={canView}>
-          {perPack === null ? "—" : money(perPack)}
+          {product.chanceToRecoverCost === null
+            ? "—"
+            : probability(product.chanceToRecoverCost)}
         </LockedValue>
       </td>
       <td className={rankingStyles.numeric}>
         <LockedValue canView={canView}>
-          {product.chanceToRecoverCost === null
+          {product.topOneOutcomeValueShare === null
             ? "—"
-            : probability(product.chanceToRecoverCost)}
+            : probability(product.topOneOutcomeValueShare)}
+        </LockedValue>
+      </td>
+      <td className={rankingStyles.numeric}>
+        <LockedValue canView={canView}>
+          {perPack === null ? "—" : money(perPack)}
         </LockedValue>
       </td>
     </tr>
@@ -1327,12 +1355,13 @@ export default function RipDecisionPage({
               <colgroup>
                 <col className="w-[7rem]" />
                 <col className="w-[16rem]" />
-                <col className="w-[5rem]" />
-                <col className="w-[4rem]" />
-                <col span="2" className="w-[6.25rem]" />
-                <col className="w-[8rem]" />
+                <col className="w-[6.25rem]" />
+                <col className="w-[6.25rem]" />
+                <col className="w-[6.25rem]" />
                 <col className="w-[8rem]" />
                 <col className="w-[6.25rem]" />
+                <col className="w-[6.25rem]" />
+                <col className="w-[8rem]" />
               </colgroup>
               <caption className="sr-only">
                 Sealed-product opening economics for {setName || "this set"}
@@ -1346,38 +1375,38 @@ export default function RipDecisionPage({
                   </th>
                   <th scope="col">Product</th>
                   <th scope="col">
-                    <RankedProductHeader text="How close this product's RIP Score performance is to the strongest eligible product of the same type.">
+                    <RankedProductHeader text="How close this product's RIP Score performance is to the strongest eligible product of the same type." info={<PublicRipTierInfo />}>
                       RIP Score
                     </RankedProductHeader>
                   </th>
                   <th scope="col">
-                    <RankedProductHeader info={<PublicRipTierInfo />}>
-                      Tier
+                    <RankedProductHeader text="Current product market price, with the price per included pack.">
+                      Price
                     </RankedProductHeader>
                   </th>
                   <th scope="col">
-                    <RankedProductHeader text="The current tracked market price used for this product's RIP calculations.">
-                      Market Price
-                    </RankedProductHeader>
-                  </th>
-                  <th scope="col">
-                    <RankedProductHeader text="Current product market price divided by its included pack count.">
-                      $ / Pack
+                    <RankedProductHeader text="Modeled expected value divided by current product price. Not an observed or historical outcome.">
+                      Average Return
                     </RankedProductHeader>
                   </th>
                   <th scope="col">
                     <RankedProductHeader text="The modeled typical opening value, shown with the share of current product price typically returned.">
-                      Typical Back
+                      Typical Opening
+                    </RankedProductHeader>
+                  </th>
+                  <th scope="col">
+                    <RankedProductHeader text="The modeled probability that an opening returns at least the product's current market price.">
+                      Covers Cost
+                    </RankedProductHeader>
+                  </th>
+                  <th scope="col">
+                    <RankedProductHeader text="Modeled share of this product's total simulated value concentrated in its top 1% of outcomes. A concentration measure, not a probability of any single outcome.">
+                      Top 1% Value Share
                     </RankedProductHeader>
                   </th>
                   <th scope="col">
                     <RankedProductHeader text={ENTERTAINMENT_COST_HELP}>
                       Entertainment Cost
-                    </RankedProductHeader>
-                  </th>
-                  <th scope="col">
-                    <RankedProductHeader text="The modeled probability that an opening returns at least the product's current market price.">
-                      Recover Cost
                     </RankedProductHeader>
                   </th>
                 </tr>

@@ -87,16 +87,20 @@ notify_slack() {
   if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
     local message="$1"
 
-    python - "$message" <<'PY' | curl -sS -X POST -H 'Content-type: application/json' --data @- "$SLACK_WEBHOOK_URL" >/dev/null
+    if ! python - "$message" <<'PY' | curl -sS -X POST -H 'Content-type: application/json' --data @- "$SLACK_WEBHOOK_URL" >/dev/null
 import json
 import sys
 
 print(json.dumps({"text": sys.argv[1]}))
 PY
+    then
+      echo "[notification] Slack delivery failed; publication verdict unchanged" >&2
+    fi
 
   else
     echo "SLACK_WEBHOOK_URL is not set; skipping Slack notification."
   fi
+  return 0
 }
 
 HOSTNAME_VALUE=$(hostname)
@@ -404,7 +408,8 @@ BUDGET_RANKING_EXIT=0
 BUDGET_RANKING_STATUS="NOT_RUN"
 BUDGET_RANKING_DETAIL=""
 BUDGET_RANKING_SLACK_LINE=""
-BUDGET_RANKING_REPORT="logs/budget_product_ranking_publication.json"
+BUDGET_RANKING_REPORT=$(mktemp logs/budget_product_ranking_invocation.XXXXXX.json)
+trap 'rm -f "$PUBLICATION_INVOCATION_LOG" "$BUDGET_RANKING_REPORT"' EXIT
 # Budget Ranking owns its readiness gates. Attempt it after the opening workflow
 # regardless of unrelated Market/leaderboard audit outcomes; report each result
 # independently and preserve the last-known-good ranking on a failed gate.
@@ -453,6 +458,25 @@ Log: logs/run_simulations.log"
   fi
 fi
 
+# Best-Open depends on the Budget Ranking verdict, not unrelated Market audits.
+# This block runs on both direct shell invocation and the existing Windows task.
+# NO_NEW_AUTHORITY is intentionally included: it repairs a missed/failed prior
+# Best-Open build without rebuilding an already-current base ranking.
+BEST_OPEN_EXIT=0
+if [ "$BUDGET_RANKING_EXIT" -eq 0 ]; then
+  case "$BUDGET_RANKING_STATUS" in
+    PUBLISHED|NO_NEW_AUTHORITY)
+      bash ./infra/local/run_best_open_price.sh || BEST_OPEN_EXIT=$?
+      ;;
+    *)
+      echo "[best-open] skipped: Budget Ranking status=$BUDGET_RANKING_STATUS" >> logs/run_simulations.log
+      ;;
+  esac
+fi
+if [ -s "$BUDGET_RANKING_REPORT" ]; then
+  cp "$BUDGET_RANKING_REPORT" logs/budget_product_ranking_publication.json
+fi
+
 # The ONLY success notification. It requires publication exit 0 AND BOTH final
 # audits, so "completed" means the published rows actually reached the promoted
 # market date AND the leaderboard is on the canonical contract — not merely that
@@ -464,7 +488,7 @@ fi
 # is how a green Slack message accompanied a leaderboard published under a
 # superseded scoring contract.
 if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ] && [ "$PUBLIC_RIP_AUDIT_EXIT" -eq 0 ]; then
-  if [ "$BUDGET_RANKING_EXIT" -eq 0 ]; then
+  if [ "$BUDGET_RANKING_EXIT" -eq 0 ] && [ "$BEST_OPEN_EXIT" -eq 0 ]; then
   CURRENT_HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || true)
   if [ -z "$PUBLICATION_HEAD_SHA" ] || [ "$CURRENT_HEAD_SHA" != "$PUBLICATION_HEAD_SHA" ]; then
     echo "[publication-checkout] REFUSED SUCCESS: HEAD changed start=${PUBLICATION_HEAD_SHA:-unknown} current=${CURRENT_HEAD_SHA:-unknown}" | tee -a logs/run_simulations.log
@@ -499,6 +523,6 @@ if [ "$PUBLICATION_FAILED" -ne 0 ] || [ "$PUBLICATION_DEFERRED" -ne 0 ] \
    || [ "$AUDIT_EXIT" -ne 0 ] || [ "$PUBLIC_RIP_AUDIT_EXIT" -ne 0 ]; then
   exit 1
 fi
-if [ "$BUDGET_RANKING_EXIT" -ne 0 ]; then
+if [ "$BUDGET_RANKING_EXIT" -ne 0 ] || [ "$BEST_OPEN_EXIT" -ne 0 ]; then
   exit 1
 fi

@@ -51,7 +51,7 @@ function target(i, overrides = {}) {
     overallRipV8: { relativeScore: 90 - i, rank: i, cohortSize: 22, tier: "S", absoluteScore: 70 - i },
     overallRipV10: { relativeScore: 90 - i, leaderNormalizedScore: 90 - i, rank: i, cohortSize: 22, tier: "S", absoluteScore: 70 - i },
     financialRipV3: { relativeScore: 80 - i, rank: i, cohortSize: 22, tier: "A", absoluteScore: 60 - i },
-    financialRipV4: { relativeScore: 80 - i, leaderNormalizedScore: 80 - i, rank: i, cohortSize: 22, tier: "A", absoluteScore: 60 - i },
+    financialRipV4: { relativeScore: 80 - i, leaderNormalizedScore: 80 - i, rank: i, cohortSize: 22, tier: "A", absoluteScore: 60 - i, distributionDisclosures: { jackpotValueShare: 0.2 + i / 100 }, depthAndRobustness: { top1EvShare: 0.9 + i / 100 } },
     universalSetDesirability: { score: 70 - i, rank: i, rankedSetCount: 135 },
 
     publicRipContractV8: {
@@ -157,6 +157,18 @@ test("the heavy blocks the client never reads are dropped, including contract au
   assert.equal("audit" in projected.publicRipContractV8, false, "contract audit still shipped");
   assert.equal("overallRip" in projected.publicRipContractV8, true);
   assert.equal("collectorAppeal" in projected.publicRipContractV8, true);
+});
+
+test("financialRipV4.distributionDisclosures.jackpotValueShare (Top 1% Value Share source) survives projection for every row, and the depthAndRobustness decoy never crosses the boundary", () => {
+  const projected = projectRankingsTargets(COHORT);
+  COHORT.forEach((full, i) => {
+    assert.equal(
+      projected[i].financialRipV4.distributionDisclosures.jackpotValueShare,
+      full.financialRipV4.distributionDisclosures.jackpotValueShare,
+      `row ${i} jackpotValueShare`
+    );
+    assert.equal("depthAndRobustness" in projected[i].financialRipV4, false, `row ${i} decoy leaked`);
+  });
 });
 
 test("the projection is materially smaller", () => {

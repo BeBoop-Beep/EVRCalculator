@@ -1,12 +1,14 @@
 """Service-role PRIVATE persistence/read service for Best-Open Price results.
 
-SERVICE-ROLE ONLY. No public projection exists in this module by design --
-Bucket 3A is persistence + atomic publication only, with no frontend/API
-exposure. Scoring logic lives exclusively in
-``backend.calculations.evr.best_open_price``; this module never computes a
-threshold, it only builds a deterministic publish payload from already-
-validated engine results, calls the publication RPC, and reads back the
-latest snapshot with the stale-read rule enforced.
+SERVICE-ROLE ONLY. The raw persistence objects remain private. Public/UI
+presentation, when needed, is assembled by narrow paid read models from this
+already-prepared authority; this module never computes a threshold and never
+exposes the private store directly.
+
+Scoring logic lives exclusively in ``backend.calculations.evr.best_open_price``;
+this module only builds deterministic publish payloads from already-validated
+engine results, calls the atomic publication RPC, and reads back the latest
+snapshot with the stale-source rule enforced.
 """
 
 from __future__ import annotations
@@ -15,7 +17,11 @@ import hashlib
 import json
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-from backend.calculations.evr.best_open_price import BEST_OPEN_PRICE_METHOD_VERSION
+from backend.calculations.evr.best_open_price import (
+    BEST_OPEN_PRICE_METHOD_VERSION,
+    BEST_OPEN_PRICE_V2_METHOD_VERSION,
+)
+from backend.db.services.best_open_price_authority import source_binding_matches
 
 RPC_NAME = "publish_budget_product_best_open_price_snapshot"
 
@@ -103,9 +109,9 @@ def build_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
         "current_quantity": engine_row["currentQuantity"],
         "current_budget_rank": engine_row["currentBudgetRank"],
         "current_overall_rip_v12_score": engine_row.get("currentOverallRipV12Score"),
-        # Raw source + benchmark evidence (see migration
-        # 20260913220000): enough to reproduce the canonical comparison
-        # even if budget_product_ranking_rows is later replaced/mutated.
+        # Raw source + benchmark evidence (see the Best-Open persistence
+        # migration): enough to reproduce the canonical comparison even if
+        # budget_product_ranking_rows is later replaced/mutated.
         "current_financial_rip_v4_score": engine_row.get("currentFinancialRipV4Score"),
         "current_collector_appeal_score": engine_row.get("currentCollectorAppealScore"),
         "current_chase_accessibility_raw": engine_row.get("currentChaseAccessibilityRaw"),
@@ -126,6 +132,72 @@ def build_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
         "bracket_refinements": engine_row.get("bracketRefinements", 0),
         "monotonicity_fallback_count": engine_row.get("fallbackCount", 0),
         "search_wall_seconds": engine_row.get("searchWallSeconds", 0.0),
+    }
+
+
+def build_v2_row_payload(engine_row: Mapping[str, Any]) -> Dict[str, Any]:
+    """Pure projection of one V2 engine result row (``build_v2_row()``
+    output, ``backend/scripts/research_best_open_price_v2.py``) into the
+    snake_case wire format the V2 RPC branch expects. No scoring, no
+    recomputation -- every value here is a direct read/rename from the
+    engine row, matching ``build_row_payload``'s (V1) style exactly.
+    """
+    assert engine_row.get("methodVersion") == BEST_OPEN_PRICE_V2_METHOD_VERSION
+    return {
+        # Identity fields (same meaning as V1).
+        "sealed_product_id": engine_row["sealedProductId"],
+        "set_id": engine_row["setId"],
+        "product_family": engine_row.get("productFamily"),
+        "source_calculation_run_id": engine_row.get("sourceCalculationRunId"),
+        # Current-state fields (same meaning as V1).
+        "current_market_price": engine_row["currentMarketPrice"],
+        "current_quantity": engine_row["currentQuantity"],
+        "current_budget_rank": engine_row["currentBudgetRank"],
+        "current_overall_rip_v12_score": engine_row.get("currentOverallRipV12Score"),
+        "current_financial_rip_v4_score": engine_row.get("currentFinancialRipV4Score"),
+        "current_collector_appeal_score": engine_row.get("currentCollectorAppealScore"),
+        "current_chase_accessibility_raw": engine_row.get("currentChaseAccessibilityRaw"),
+        "current_chance_to_recover_capital": engine_row.get("currentChanceToRecoverCapital"),
+        "current_actual_committed_capital": engine_row["currentActualCommittedCapital"],
+        # V2 Financial current-state addition.
+        "current_financial_only_rank": engine_row["currentFinancialOnlyRank"],
+        # Generic + RIP-aliased threshold/benchmark fields (unchanged meaning
+        # from V1).
+        "status": engine_row["status"],
+        "best_open_price": engine_row["bestOpenPrice"],
+        "threshold_quantity": engine_row["thresholdQuantity"],
+        "price_gap_dollars": engine_row["priceGapDollars"],
+        "price_gap_percent": engine_row.get("priceGapPercent"),
+        "benchmark_sealed_product_id": engine_row["benchmarkSealedProductId"],
+        "benchmark_overall_rip_v12_score": engine_row["benchmarkOverallRipV12Score"],
+        "benchmark_financial_rip_v4_score": engine_row.get("benchmarkFinancialRipV4Score"),
+        "benchmark_chance_to_recover_capital": engine_row.get("benchmarkChanceToRecoverCapital"),
+        "benchmark_actual_committed_capital": engine_row.get("benchmarkActualCommittedCapital"),
+        # Diagnostics (same meaning as V1, from the RIP search's counters).
+        "candidate_price_evaluations": engine_row.get("candidatePriceEvaluations", 0),
+        "bracket_expansions": engine_row.get("bracketExpansions", 0),
+        "bracket_refinements": engine_row.get("bracketRefinements", 0),
+        "monotonicity_fallback_count": engine_row.get("fallbackCount", 0),
+        "search_wall_seconds": engine_row.get("searchWallSeconds", 0.0),
+        # V2 Financial fields (explicit financial* names only -- no generic
+        # alias, per the backward-compatibility requirement).
+        "financial_status": engine_row["financialStatus"],
+        "financial_best_open_price": engine_row["financialBestOpenPrice"],
+        "financial_threshold_quantity": engine_row["financialThresholdQuantity"],
+        "financial_price_gap_dollars": engine_row["financialPriceGapDollars"],
+        "financial_price_gap_percent": engine_row.get("financialPriceGapPercent"),
+        "financial_benchmark_sealed_product_id": engine_row["financialBenchmarkSealedProductId"],
+        "financial_benchmark_financial_rip_v4_score": engine_row.get("financialBenchmarkFinancialRipV4Score"),
+        "financial_benchmark_overall_rip_v12_score": engine_row.get("financialBenchmarkOverallRipV12Score"),
+        # Threshold evidence (both axes, verbatim).
+        "threshold_financial_rip_v4_score": engine_row.get("ripThresholdFinancialRipV4Score"),
+        "threshold_overall_rip_v12_score": engine_row["ripThresholdOverallRipV12Score"],
+        "threshold_chance_to_recover_capital": engine_row.get("ripThresholdChanceToRecoverCapital"),
+        "threshold_actual_committed_capital": engine_row["ripThresholdActualCommittedCapital"],
+        "financial_threshold_financial_rip_v4_score": engine_row.get("financialThresholdFinancialRipV4Score"),
+        "financial_threshold_overall_rip_v12_score": engine_row["financialThresholdOverallRipV12Score"],
+        "financial_threshold_chance_to_recover_capital": engine_row.get("financialThresholdChanceToRecoverCapital"),
+        "financial_threshold_actual_committed_capital": engine_row["financialThresholdActualCommittedCapital"],
     }
 
 
@@ -170,6 +242,43 @@ def _live_budget_source_identity(client: Any, ranking_method_version: str, alloc
     return snapshots[0] if snapshots else None
 
 
+def _source_binding_reason(client: Any, snapshot: Mapping[str, Any]) -> Optional[str]:
+    """Return an unavailable reason when the prepared threshold source is no
+    longer the exact live Budget Ranking authority. This intentionally checks
+    the same immutable publication identity for cohort and single-product
+    readers so detail pages can never outlive the Rankings authority."""
+    live_source = _live_budget_source_identity(
+        client, snapshot["ranking_method_version"], snapshot["allocation_method_version"],
+    )
+    if live_source is None:
+        return "no_live_budget_ranking_source"
+    if not source_binding_matches(live_source, snapshot):
+        return "stale_source_publication"
+    return None
+
+
+def _snapshot_metadata(snapshot: Mapping[str, Any]) -> Dict[str, Any]:
+    """Presentation-safe publication metadata.
+
+    The source binding is validated before these fields are exposed.
+    """
+    source_market_date = snapshot.get("source_market_date")
+    return {
+        "snapshotId": str(snapshot["id"]),
+        "methodVersion": snapshot.get("best_open_price_method_version"),
+        "builtAt": snapshot.get("built_at"),
+        "publishedAt": snapshot.get("published_at"),
+        "sourceBudgetSnapshotId": str(snapshot["source_budget_snapshot_id"]),
+        "sourceBudgetPublishedAt": snapshot.get("source_budget_published_at"),
+        "sourceMarketDate": str(source_market_date) if source_market_date is not None else None,
+        "sourceCohortFingerprint": snapshot.get("source_cohort_fingerprint"),
+        "sourceFullMarketBudget": snapshot.get("source_full_market_budget"),
+        "sourceEligibleCohortCount": snapshot.get("source_eligible_cohort_count"),
+        "resolvedCount": snapshot.get("resolved_count"),
+        "unresolvedCount": snapshot.get("unresolved_count"),
+    }
+
+
 def load_best_open_price_ranking(
     client: Any, *, best_open_price_method_version: str = BEST_OPEN_PRICE_METHOD_VERSION,
 ) -> Dict[str, Any]:
@@ -182,36 +291,87 @@ def load_best_open_price_ranking(
     if snapshot is None:
         return {"available": False, "reason": "no_published_snapshot", "rows": []}
 
-    live_source = _live_budget_source_identity(
-        client, snapshot["ranking_method_version"], snapshot["allocation_method_version"],
-    )
-    if live_source is None:
-        return {"available": False, "reason": "no_live_budget_ranking_source", "rows": []}
-
-    if (
-        str(live_source["id"]) != str(snapshot["source_budget_snapshot_id"])
-        or str(live_source["published_at"]) != str(snapshot["source_budget_published_at"])
-        or str(live_source["market_date"]) != str(snapshot["source_market_date"])
-        or str(live_source["cohort_fingerprint"]) != str(snapshot["source_cohort_fingerprint"])
-    ):
-        return {"available": False, "reason": "stale_source_publication", "rows": []}
+    binding_reason = _source_binding_reason(client, snapshot)
+    if binding_reason:
+        return {"available": False, "reason": binding_reason, "rows": []}
 
     rows = _rows(
         client.table("budget_product_best_open_price_rows").select("*")
         .eq("snapshot_id", str(snapshot["id"]))
         .execute()
     )
-    if len(rows) != snapshot["resolved_count"]:
+    # resolved + unresolved = source eligible count is enforced by the DB
+    # snapshot CHECK constraint. The read path only needs to prove that no
+    # unresolved products were published and that all declared resolved rows
+    # are physically present; the public Rankings join separately reconciles
+    # exact product IDs against the live Full Market cohort.
+    if (
+        int(snapshot.get("unresolved_count") or 0) != 0
+        or len(rows) != int(snapshot.get("resolved_count") or 0)
+        or len(rows) != int(snapshot.get("source_eligible_cohort_count") or 0)
+        or len({str(row.get("sealed_product_id")) for row in rows}) != len(rows)
+    ):
         return {"available": False, "reason": "incomplete_snapshot_rows", "rows": []}
 
     return {
         "available": True,
         "reason": None,
-        "snapshotId": str(snapshot["id"]),
-        "builtAt": snapshot["built_at"],
-        "publishedAt": snapshot["published_at"],
-        "sourceBudgetSnapshotId": str(snapshot["source_budget_snapshot_id"]),
-        "resolvedCount": snapshot["resolved_count"],
-        "unresolvedCount": snapshot["unresolved_count"],
+        **_snapshot_metadata(snapshot),
         "rows": rows,
+    }
+
+
+def load_best_open_price_product(
+    client: Any,
+    sealed_product_id: str,
+    *,
+    best_open_price_method_version: str = BEST_OPEN_PRICE_METHOD_VERSION,
+) -> Dict[str, Any]:
+    """Bounded single-product reader for Product Detail.
+
+    The threshold remains tied to the exact Full Market publication that built
+    it; the caller may separately display a newer live market price, but this
+    reader never silently reinterprets the historical threshold against a newer
+    cohort. Only one prepared row is transferred after the two small authority
+    pointer reads.
+    """
+    snapshot = load_latest_snapshot(client, best_open_price_method_version=best_open_price_method_version)
+    if snapshot is None:
+        return {"available": False, "reason": "no_published_snapshot", "row": None}
+
+    binding_reason = _source_binding_reason(client, snapshot)
+    if binding_reason:
+        return {"available": False, "reason": binding_reason, "row": None}
+
+    # The schema-level snapshot CHECK already proves resolved + unresolved =
+    # source eligible count. Product Detail only needs the stronger public rule
+    # that this publication has zero unresolved products before one row is read.
+    if (int(snapshot.get("unresolved_count") or 0) != 0
+        or int(snapshot.get("resolved_count") or 0) != int(snapshot.get("source_eligible_cohort_count") or 0)):
+        return {"available": False, "reason": "incomplete_snapshot_rows", "row": None}
+
+    # Generic (V1) columns plus the V2 Financial-axis columns. V1 rows simply
+    # have every financial_* column NULL at the DB level (the additive V2
+    # migration only ever adds nullable columns) -- selecting them here never
+    # fabricates a value, it just passes through whatever the row already has.
+    rows = _rows(
+        client.table("budget_product_best_open_price_rows")
+        .select(
+            "sealed_product_id,current_market_price,current_budget_rank,status,best_open_price,"
+            "threshold_quantity,price_gap_dollars,price_gap_percent,"
+            "current_financial_only_rank,financial_status,financial_best_open_price,"
+            "financial_threshold_quantity,financial_price_gap_dollars,financial_price_gap_percent"
+        )
+        .eq("snapshot_id", str(snapshot["id"]))
+        .eq("sealed_product_id", str(sealed_product_id))
+        .limit(1).execute()
+    )
+    if not rows:
+        return {"available": False, "reason": "product_not_in_current_full_market", "row": None}
+
+    return {
+        "available": True,
+        "reason": None,
+        **_snapshot_metadata(snapshot),
+        "row": rows[0],
     }

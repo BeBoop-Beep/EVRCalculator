@@ -1,0 +1,31 @@
+{
+  "version": "ebay_image_retrieval_verifier_v2_freeze_manifest_v1",
+  "method_version": "ebay_image_retrieval_verifier_v2",
+  "model_version": "facebook/dinov2-small",
+  "model_license": "Apache-2.0",
+  "preprocessing_version": "dinov2_small_default_processor_v1",
+  "verifier_source_sha256": "f72f5d964f792815bf92ef5f24cda7d8f9d83c2d1bcdb64ea0ebd9fcf252d446",
+  "thresholds": {
+    "MATCH_MIN_SIMILARITY_FLOOR": 0.75,
+    "MATCH_MIN_MARGIN_OVER_RUNNER_UP": 0.05,
+    "MISMATCH_MIN_TOP1_ADVANTAGE_OVER_TARGET": 0.05
+  },
+  "canonical_image_authority": "Pokemon TCG API (images.pokemontcg.io), same authority as pokemon_canonical_cards.image_large_url",
+  "development_dataset_fingerprint": "c59f103b87f623c793ec960d85d1e906b78e3d1d6378f195e70a49001e6e3060",
+  "development_gallery_size": 165,
+  "development_gallery_excludes_consumed_target_names": true,
+  "development_benchmark_result_summary": {
+    "top1_accuracy": 0.941414,
+    "top3_accuracy": 0.99798,
+    "top5_accuracy": 0.99798,
+    "false_target_match_rate": 0.0,
+    "false_target_match_pairs": 3600
+  },
+  "frozen_at": "2026-09-14T18:56:33.017518+00:00",
+  "production_authority": false,
+  "shadow_research_only": true,
+  "certified_against_new_blind": false,
+  "consumed_blind_rows_used_for_tuning": false,
+  "remediation_note": "Superseded an earlier freeze whose gallery incidentally included card sv10-231 (one of the four consumed target identities) under a broad Mewtwo ex family fetch; removed and re-frozen.",
+  "manifest_fingerprint": "125e17d4dfbb32c38ae7de2c3db205dd3e83d341d51c55ab1359bbc05e1106cb"
+}

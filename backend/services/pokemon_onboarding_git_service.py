@@ -70,20 +70,65 @@ class GitAdapter:
                  f"origin/{self.settings.base_branch}"],
                 self.production_checkout,
             )
+        else:
+            # Resuming into an existing worktree: confirm it is actually the branch
+            # this canonical_key/phase maps to before reusing it, rather than silently
+            # committing/pushing onto whatever happens to be checked out there.
+            current = self._run(["git", "rev-parse", "--abbrev-ref", "HEAD"], worktree).stdout.strip()
+            if current != branch:
+                raise GitSafetyError(
+                    f"existing worktree {worktree} is on branch {current!r}, expected {branch!r}"
+                )
         return worktree, branch
 
     def commit_expected_files(self, worktree: Path, paths: Sequence[Path], message: str) -> str:
         expected = sorted(str(path.relative_to(worktree)).replace("\\", "/") for path in paths)
         status = self._run(["git", "status", "--porcelain"], worktree).stdout.splitlines()
         actual = sorted(line[3:].replace("\\", "/") for line in status if len(line) >= 4)
+        if not actual:
+            # Nothing pending: either generation hasn't touched the worktree yet, or an
+            # earlier interrupted attempt already committed exactly these files. Only
+            # treat the latter as success -- verify HEAD's own changed files match
+            # expected exactly before reusing it, so a resume never silently accepts an
+            # unrelated commit that happens to leave the worktree clean.
+            head_files = sorted(
+                line for line in self._run(
+                    ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"], worktree,
+                ).stdout.splitlines() if line
+            )
+            if head_files == expected:
+                return self._run(["git", "rev-parse", "HEAD"], worktree).stdout.strip()
+            raise GitSafetyError(
+                f"no pending changes to commit and HEAD does not match expected files; "
+                f"expected={expected}, head_files={head_files}"
+            )
         if actual != expected:
             raise GitSafetyError(f"unexpected worktree changes; expected={expected}, actual={actual}")
         self._run(["git", "add", "--", *expected], worktree)
         self._run(["git", "commit", "-m", message], worktree)
         return self._run(["git", "rev-parse", "HEAD"], worktree).stdout.strip()
 
+    def _find_existing_pr(self, branch: str, worktree: Path) -> Optional[dict]:
+        try:
+            result = self._run(
+                ["gh", "pr", "list", "--head", branch, "--state", "open",
+                 "--json", "url,number", "--limit", "1"],
+                worktree,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return None
+        import json
+        rows = json.loads(result.stdout or "[]")
+        return rows[0] if rows else None
+
     def push_and_open_pr(self, worktree: Path, branch: str, title: str) -> dict:
         self._run(["git", "push", "-u", "origin", branch], worktree)
+        existing = self._find_existing_pr(branch, worktree)
+        if existing:
+            return {
+                "status": "source_pr_open", "source_pr_url": existing["url"],
+                "source_pr_number": existing.get("number"),
+            }
         try:
             result = self._run(
                 ["gh", "pr", "create", "--base", self.settings.base_branch,

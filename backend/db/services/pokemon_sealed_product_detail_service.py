@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 from urllib.parse import quote
 
+from backend.calculations.evr.best_open_price import (
+    BEST_OPEN_PRICE_METHOD_VERSION, BEST_OPEN_PRICE_V2_METHOD_VERSION,
+)
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.budget_product_best_open_price_service import load_best_open_price_product
 from backend.db.services.pokemon_public_snapshot_service import (
     DEFAULT_RANKINGS_SCOPE,
     _rankings_publication_identity_mismatches,
@@ -30,6 +34,7 @@ SAME_SET_LIMIT = 10
 DETAIL_FIELDS = (
     "calculation_run_id,sealed_product_id,product_family,product_market_cost,price_as_of,"
     "expected_value,median_value,p05_value,p95_value,p99_value,chance_to_recover_cost,"
+    "financial_rip_v3_payload,"
     "expected_loss_when_losing,median_loss_when_losing,total_value_to_cost_ratio,pack_count,"
     "random_pack_count,guaranteed_component_count,guaranteed_component_market_value,"
     "accessory_value_included,composition_version,composition_id,distribution_model_version"
@@ -151,6 +156,75 @@ def _prepared_markets(snapshot: Optional[Mapping[str, Any]]) -> Dict[str, Dict[s
             if product_id:
                 indexed[product_id] = _prepared_market_contract(product)
     return indexed
+
+
+def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, Any]:
+    """Presentation-safe Best-Open contract for one Product Detail page.
+
+    The persisted threshold is deliberately kept separate from the page's
+    potentially newer live market price. ``sourceUnitPrice`` and
+    ``sourceMarketDate`` describe the exact Full Market publication used by
+    the threshold engine; the frontend may show the current tracked market
+    price beside them but must not silently re-score the threshold against a
+    newer cohort.
+    """
+    # CURRENT-authority selection: a current, complete, source-matched V2
+    # publication is always attempted first; V1 is used only when it
+    # independently passes the exact same currentness/completeness rule
+    # `load_best_open_price_product` enforces for either method version. A
+    # stale V1 publication must never mask a valid current V2 one.
+    try:
+        prepared = load_best_open_price_product(
+            client, sealed_product_id, best_open_price_method_version=BEST_OPEN_PRICE_V2_METHOD_VERSION,
+        )
+        if not prepared.get("available"):
+            prepared = load_best_open_price_product(
+                client, sealed_product_id, best_open_price_method_version=BEST_OPEN_PRICE_METHOD_VERSION,
+            )
+    except Exception:
+        return {"available": False, "reason": "prepared_read_failed"}
+    if not prepared.get("available"):
+        return {"available": False, "reason": prepared.get("reason") or "prepared_unavailable"}
+    row = prepared.get("row") or {}
+    contract = {
+        "available": True,
+        "reason": None,
+        "bestOpenPrice": row.get("best_open_price"),
+        "status": row.get("status"),
+        "priceGapDollars": row.get("price_gap_dollars"),
+        "priceGapPercent": row.get("price_gap_percent"),
+        "thresholdQuantity": row.get("threshold_quantity"),
+        "sourceUnitPrice": row.get("current_market_price"),
+        "sourceBudgetRank": row.get("current_budget_rank"),
+        "sourceMarketDate": prepared.get("sourceMarketDate"),
+        "sourceFullMarketBudget": prepared.get("sourceFullMarketBudget"),
+        "sourceCohortSize": prepared.get("sourceEligibleCohortCount"),
+        "sourceBudgetSnapshotId": prepared.get("sourceBudgetSnapshotId"),
+        "methodVersion": prepared.get("methodVersion"),
+    }
+    # `ripBestOpenPrice*`/`financialBestOpenPrice*` are V2-only response-shape
+    # additions (Finding 2). Attaching them unconditionally broke the V1
+    # historical exact-shape contract (see
+    # test_best_open_price_product_detail.py::
+    # test_product_detail_best_open_contract_preserves_dated_ranking_source),
+    # so they are gated on the selected publication's `methodVersion`, not
+    # merely on field presence -- a V1 row's shape stays byte-identical to
+    # the historical contract, and Financial fields are never fabricated.
+    if prepared.get("methodVersion") == BEST_OPEN_PRICE_V2_METHOD_VERSION:
+        contract.update({
+            "ripBestOpenPrice": row.get("best_open_price"),
+            "ripBestOpenPriceStatus": row.get("status"),
+            "ripBestOpenPriceGapDollars": row.get("price_gap_dollars"),
+            "ripBestOpenPriceGapPercent": row.get("price_gap_percent"),
+        })
+        if row.get("financial_best_open_price") is not None:
+            contract.update({
+                "financialBestOpenPrice": row.get("financial_best_open_price"),
+                "financialBestOpenPriceStatus": row.get("financial_status"),
+                "financialBestOpenPriceGapDollars": row.get("financial_price_gap_dollars"),
+                "financialBestOpenPriceGapPercent": row.get("financial_price_gap_percent"),
+            })
+    return contract
 
 
 def _chase_accessibility_contract(
@@ -333,6 +407,7 @@ def _rip_contract(
         "overallRipVersion": None, "financialRipVersion": None, "collectorAppealVersion": None,
         "expectedValue": None, "medianValue": None, "p05Value": None,
         "p95Value": None, "p99Value": None, "chanceToRecoverCost": None,
+        "topOneOutcomeValueShare": None,
         "expectedLossWhenLosing": None, "medianLossWhenLosing": None,
         "totalValueToCostRatio": None,
         "entertainmentCost": None, "composition": None,
@@ -393,6 +468,11 @@ def _rip_contract(
         "p95Value": detail.get("p95_value"),
         "p99Value": detail.get("p99_value"),
         "chanceToRecoverCost": detail.get("chance_to_recover_cost"),
+        # Top 1% Value Share — from the SAME focal product's own calculation
+        # run (this `detail` row), never the card-attribution top1EvShare.
+        "topOneOutcomeValueShare": (
+            (detail.get("financial_rip_v3_payload") or {}).get("distributionDisclosures") or {}
+        ).get("jackpotValueShare"),
         "expectedLossWhenLosing": detail.get("expected_loss_when_losing"),
         "medianLossWhenLosing": detail.get("median_loss_when_losing"),
         "totalValueToCostRatio": detail.get("total_value_to_cost_ratio"),
@@ -438,6 +518,13 @@ def _comparison_row(
         "familySize": (ranking.get("familySize") or ranking.get("familyCohortSize")) if ranking else None,
         "overallRipLeaderScore": ranking.get("overallRipLeaderScore") if ranking else None,
         "publicTier": ranking.get("publicTier") if ranking else None,
+        # Bucket 2 Surface 4: already present on this SAME already-fetched
+        # published-rankings row (product_family_rankings_service.py); no new
+        # query. Never top1EvShare.
+        "modeledReturnPercent": ranking.get("modeledReturnPercent") if ranking else None,
+        "typicalOpening": ranking.get("medianValue") if ranking else None,
+        "chanceToRecoverCost": ranking.get("chanceToRecoverCost") if ranking else None,
+        "topOneOutcomeValueShare": ranking.get("topOneOutcomeValueShare") if ranking else None,
     }
 
 
@@ -501,6 +588,11 @@ def get_pokemon_sealed_product_detail_payload(product_id: str, client: Any = Non
         )
         detail = details[0] if details else None
     rip = _rip_contract(ranking, detail, family, set_id=set_id, client=active)
+    # Best-Open is cross-format Full Market intelligence, not the within-format
+    # Product RIP rank. It rides inside the already Plus-gated RIP envelope so
+    # Basic responses cannot receive it, while the frontend renders it as its
+    # own separate card rather than pretending it is a same-format metric.
+    rip["bestOpenPrice"] = _best_open_price_contract(active, canonical_product_id)
     if not publication["current"] and family in COMPARABLE_FAMILIES:
         rip["reason"] = "current_rankings_publication_unavailable"
 

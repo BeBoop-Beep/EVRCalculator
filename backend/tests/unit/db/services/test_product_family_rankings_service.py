@@ -426,3 +426,28 @@ def test_canonical_overall_rip_version_flip_to_v12_excludes_wrong_version_rows(m
     result = build(monkeypatch, rows_in)
     products = result["families"]["booster_box"]["products"]
     assert [p["sealedProductId"] for p in products] == ["v12-ready"]
+
+
+def test_project_exposes_top1_outcome_value_share_from_financial_rip_v3_payload():
+    """Top 1% Value Share must come from the SAME product's own persisted
+    distribution disclosure, never the card-attribution top1EvShare."""
+    r = row(
+        "p1",
+        financial_rip_v3_payload={
+            "distributionDisclosures": {"jackpotValueShare": 0.0417},
+            "depthAndRobustness": {"top1EvShare": 0.999},
+        },
+    )
+    projected = service._project(r, {}, 1, 1)
+    assert projected["topOneOutcomeValueShare"] == 0.0417
+
+
+def test_project_top1_outcome_value_share_none_when_payload_missing():
+    r = row("p1")
+    r.pop("financial_rip_v3_payload", None)
+    projected = service._project(r, {}, 1, 1)
+    assert projected["topOneOutcomeValueShare"] is None
+
+
+def test_result_fields_selects_financial_rip_v3_payload_for_the_jackpot_disclosure():
+    assert "financial_rip_v3_payload" in service.RESULT_FIELDS

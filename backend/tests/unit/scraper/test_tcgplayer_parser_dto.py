@@ -245,3 +245,71 @@ class TestCardDTOWithEditionAndPrintingType:
         assert dto.name == 'Pikachu'
         assert dto.edition is None
         assert dto.printing_type is None
+
+
+class TestTCGPlayerParserDroppedOtherBreakdown:
+    """dropped_other reason breakdown (code_card vs missing_required) must not change
+    what parse_cards accepts -- only add diagnostic visibility into why a row with a
+    market price present was still rejected."""
+
+    @pytest.fixture
+    def parser(self):
+        return TCGPlayerParser({"Common": 1}, set_name="First Partner Collection 2026")
+
+    def test_three_code_card_rows_all_drop_with_code_card_reason(self, parser):
+        raw_data = {
+            "result": [
+                {"productName": "Code Card - First Partner Illustration Collection (Series 1)",
+                 "rarity": "Code Card", "condition": "Near Mint", "marketPrice": 0.08,
+                 "number": "", "printing": "Normal"},
+                {"productName": "Code Card - First Partner Illustration Collection (Series 2)",
+                 "rarity": "Code Card", "condition": "Near Mint", "marketPrice": 0.16,
+                 "number": "", "printing": "Normal"},
+                {"productName": "Code Card - First Partner Illustration Collection (Series 3)",
+                 "rarity": "Code Card", "condition": "Near Mint", "marketPrice": 0.07,
+                 "number": "", "printing": "Normal"},
+            ]
+        }
+
+        cards = parser.parse_cards(raw_data)
+
+        assert cards == []
+        report = parser.last_card_parse_report
+        assert report["raw_rows"] == 3
+        assert report["payload_cards"] == 0
+        assert report["dropped_other_code_card"] == 3
+        assert report["dropped_other_missing_required"] == 0
+
+    def test_mixed_code_card_and_real_card_rows(self, parser):
+        raw_data = {
+            "result": [
+                {"productName": "Code Card - Some Collection", "rarity": "Code Card",
+                 "condition": "Near Mint", "marketPrice": 0.08, "number": "", "printing": "Normal"},
+                {"productName": "Pikachu - 025/128", "rarity": "Common",
+                 "condition": "Near Mint", "marketPrice": 4.99, "number": "025/128",
+                 "printing": "Normal"},
+            ]
+        }
+
+        cards = parser.parse_cards(raw_data)
+
+        assert len(cards) == 1
+        report = parser.last_card_parse_report
+        assert report["payload_cards"] == 1
+        assert report["dropped_other_code_card"] == 1
+        assert report["dropped_other_missing_required"] == 0
+
+    def test_missing_required_field_rows_are_counted_separately_from_code_cards(self, parser):
+        raw_data = {
+            "result": [
+                {"productName": None, "rarity": "Common", "condition": "Near Mint",
+                 "marketPrice": 4.99, "number": "001/128", "printing": "Normal"},
+            ]
+        }
+
+        cards = parser.parse_cards(raw_data)
+
+        assert cards == []
+        report = parser.last_card_parse_report
+        assert report["dropped_other_code_card"] == 0
+        assert report["dropped_other_missing_required"] == 1

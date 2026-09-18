@@ -20,8 +20,11 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
 )
 from backend.db.services.budget_product_ranking_authority import (
     AUTHORITY_RESOLVER_VERSION,
+    EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+    EXPECTED_CHASE_ACCESSIBILITY_VERSION,
     EXPECTED_COLLECTOR_APPEAL_VERSION,
     EXPECTED_FINANCIAL_RIP_VERSION,
+    EXPECTED_OVERALL_RIP_V12_VERSION,
     EXPECTED_OVERALL_RIP_VERSION,
     VALIDATED_PRODUCT_FAMILIES,
 )
@@ -135,15 +138,30 @@ def resolve_budget_ranking_readiness(
 
     common = {"promoted_market_date": str(promoted_market_date)}
     if latest_snapshot:
+        # The publication store supports both historical V10 authority and
+        # canonical V12 authority. Validate the latest snapshot against the
+        # authority it explicitly declares rather than forcing every latest
+        # snapshot back through the old V10-only contract.
+        latest_is_v12 = latest_snapshot.get("ranked_under_v12_authority") is True
         expected_latest = {
             "ranking_method_version": BUDGET_NORMALIZED_RANKING_METHOD_VERSION,
             "allocation_method_version": ALLOCATION_METHOD_VERSION,
             "comparison_scope_version": BUDGET_COMPARISON_SCOPE_VERSION,
             "full_market_rounding_rule_version": FULL_MARKET_ROUNDING_RULE_VERSION,
             "financial_rip_version": EXPECTED_FINANCIAL_RIP_VERSION,
-            "overall_rip_version": EXPECTED_OVERALL_RIP_VERSION,
+            "overall_rip_version": (
+                EXPECTED_OVERALL_RIP_V12_VERSION
+                if latest_is_v12 else EXPECTED_OVERALL_RIP_VERSION
+            ),
             "collector_appeal_version": EXPECTED_COLLECTOR_APPEAL_VERSION,
         }
+        if latest_is_v12:
+            expected_latest.update({
+                "overall_rip_v12_version": EXPECTED_OVERALL_RIP_V12_VERSION,
+                "chase_accessibility_version": EXPECTED_CHASE_ACCESSIBILITY_VERSION,
+                "chase_accessibility_transform_version": EXPECTED_CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
+                "ranked_under_v12_authority": True,
+            })
         drift = {key: {"expected": value, "found": latest_snapshot.get(key)}
                  for key, value in expected_latest.items()
                  if key in latest_snapshot and latest_snapshot.get(key) != value}

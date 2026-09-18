@@ -199,26 +199,56 @@ def clean_price_value(price_str):
     except ValueError:
         return None
 
+def classify_raw_card_row(card):
+    """
+    Classify one raw TCGplayer priceguide row against the same validity gate
+    process_card enforces, without doing any of process_card's downstream
+    parsing/normalization work.
+
+    This is the single source of truth for "is this raw row processable" --
+    both process_card and any external consumer that needs to distinguish raw
+    provider rows from processable ones (e.g. catalog recheck evidence) must
+    call this rather than re-deriving the rule.
+
+    Returns one of:
+        "processable"            -- passes the same gate process_card applies
+        "code_card"               -- rejected: product name identifies a code card
+        "missing_required_field"  -- rejected: product name, condition, or market
+                                      price is missing/falsy
+    """
+    product_name = clean_product_name(card.get('productName'), remove_special_patterns=True)
+    condition = clean_condition(card.get('condition'))
+    market_price = card.get('marketPrice')
+
+    if not (product_name and condition and market_price):
+        return "missing_required_field"
+
+    if "code card" in product_name.lower():
+        return "code_card"
+
+    return "processable"
+
+
 def process_card(card, pull_rate_mapping):
     """
     Process a single card from raw TCGPlayer data
-    
+
     Args:
         card: Raw card dictionary from TCGPlayer API
         pull_rate_mapping: Dictionary mapping rarities to pull rates
-        
+
     Returns:
         Tuple of (product_name, card_dict) if valid, or (None, None) if card should be skipped
     """
     # First pass: clean product name but keep special patterns for detection
     product_name_raw = clean_product_name(card.get('productName'), remove_special_patterns=False)
-    
+
     # Get rarity for special type detection
     rarity = card.get('rarity')
-    
+
     # Determine special type before removing it from the name (check both name and rarity)
     special_type = determine_special_type(product_name_raw, rarity)
-    
+
     # Second pass: clean product name and remove special patterns
     product_name = clean_product_name(card.get('productName'), remove_special_patterns=True)
     condition = clean_condition(card.get('condition'))
@@ -227,12 +257,10 @@ def process_card(card, pull_rate_mapping):
     market_price = card.get('marketPrice')
     # rarity already extracted above for special type detection
 
-    # Validation: skip cards with missing required fields
-    if not (product_name and condition and market_price):
-        return None, None
-    
-    # Skip code cards
-    if "code card" in product_name.lower():
+    # Validation: skip cards that don't pass the shared classification gate
+    # (missing required fields, or identified as a code card). This must stay
+    # in lockstep with classify_raw_card_row -- it IS that gate, not a copy.
+    if classify_raw_card_row(card) != "processable":
         return None, None
 
     # Determine pull rate and normalized rarity

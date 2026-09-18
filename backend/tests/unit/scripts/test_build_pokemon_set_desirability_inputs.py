@@ -232,3 +232,197 @@ def test_authoritative_refresh_falls_back_cleanly_when_provider_is_not_ready(mon
     )
     assert result["status"] == "unavailable_using_fallback"
     assert result["rows_upserted"] == 0
+
+
+# --- Catalog-only canonical sync (narrow path) -----------------------------------
+
+_CATALOG_SET_ROW = {
+    "id": "set-catalog-1", "name": "ME: 30th Celebration",
+    "canonical_key": "me30thCelebration", "pokemon_api_set_id": None, "catalog_only": True,
+}
+_NORMAL_SET_ROW = {
+    "id": "set-normal-1", "name": "Some Normal Set",
+    "canonical_key": "someNormalSet", "pokemon_api_set_id": None, "catalog_only": False,
+}
+
+
+def _trainer_card(card_id: str, number: str, name: str = "Ultra Ball") -> dict:
+    # "ball" matches TRAINER_LIKE_KEYWORDS, so this classifies without needing a
+    # pokemon_reference lookup fixture.
+    return {"id": card_id, "name": name, "rarity": "Common", "card_number": number,
+            "pokemon_tcg_api_id": None, "image_small_url": None, "image_large_url": None}
+
+
+def _wire_process_single_set(monkeypatch, *, cards, canonical_rows):
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda _client, _set_id: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: canonical_rows)
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: [])
+    monkeypatch.setattr(
+        combined, "_refresh_authoritative_canonical_cards",
+        lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
+    )
+
+
+def test_catalog_only_fallback_rows_carry_explicit_eligibility_fields(monkeypatch):
+    captured_rows = []
+    _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "001/120")], canonical_rows=[])
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured_rows.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_CATALOG_SET_ROW, dry_run=False)
+
+    assert len(captured_rows) == 1
+    row = captured_rows[0]
+    assert row["opening_eligible"] is False
+    assert row["set_value_eligible"] is True
+    assert row["catalog_role"] == "main"
+    assert row["canonical_review_status"] == "approved"
+    assert "opening simulation" in row["eligibility_reason"]
+
+
+def test_non_catalog_set_rows_omit_eligibility_overrides_and_use_table_defaults(monkeypatch):
+    captured_rows = []
+    _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "001/120")], canonical_rows=[])
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured_rows.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_NORMAL_SET_ROW, dry_run=False)
+
+    assert len(captured_rows) == 1
+    row = captured_rows[0]
+    for field in ("catalog_role", "set_value_eligible", "opening_eligible",
+                  "canonical_review_status", "eligibility_reason"):
+        assert field not in row
+
+
+def test_authoritative_canonical_row_is_preserved_even_for_a_catalog_only_set(monkeypatch):
+    """An existing pokemon_tcg_api-sourced row must never be replaced by a fallback
+    row just because the set is catalog-only."""
+    existing_authoritative = {
+        "id": "canon-1", "set_id": "set-catalog-1", "pokemon_tcg_api_card_id": "me5-1",
+        "name": "Ultra Ball", "number": "001", "source": "pokemon_tcg_api",
+    }
+    captured_rows = []
+    _wire_process_single_set(
+        monkeypatch, cards=[_trainer_card("c1", "001/120")], canonical_rows=[existing_authoritative],
+    )
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured_rows.extend(rows) or len(rows),
+    )
+
+    result = combined._process_single_set(client=object(), set_row=_CATALOG_SET_ROW, dry_run=False)
+
+    assert result["rows_upsert_planned"] == 0
+    assert captured_rows == []
+
+
+def test_rerun_is_idempotent_for_catalog_only_fallback_rows(monkeypatch):
+    _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "001/120")], canonical_rows=[])
+    first_rows = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: first_rows.extend(rows) or len(rows),
+    )
+    combined._process_single_set(client=object(), set_row=_CATALOG_SET_ROW, dry_run=False)
+
+    second_rows = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: second_rows.extend(rows) or len(rows),
+    )
+    combined._process_single_set(client=object(), set_row=_CATALOG_SET_ROW, dry_run=False)
+
+    assert first_rows == second_rows
+
+
+def test_canonical_only_mode_stops_before_downstream_builders(monkeypatch):
+    monkeypatch.setattr(combined, "get_supabase_client", lambda: object())
+    monkeypatch.setattr(combined, "build_valid_set_key_registry", lambda: {})
+    monkeypatch.setattr(
+        combined, "normalize_set_key_filter",
+        lambda raw, registry: {"resolved_set_key_filter": raw},
+    )
+    monkeypatch.setattr(
+        combined, "_list_sets",
+        lambda client, *, set_key, process_all: [dict(_CATALOG_SET_ROW)],
+    )
+    monkeypatch.setattr(
+        combined, "_process_single_set",
+        lambda **kwargs: {
+            "cards_rows": 120, "preexisting_canonical_rows": 0, "rows_upsert_planned": 120,
+            "rows_missing_before": 120, "rows_upserted": 0, "rows_skipped_missing_required": 0,
+        },
+    )
+    called = []
+    for name in ("_build_links", "_build_summaries", "_build_components", "_build_opening"):
+        monkeypatch.setattr(
+            combined, name,
+            (lambda label: lambda **kwargs: called.append(label) or {})(name),
+        )
+
+    report = combined.build_set_desirability_inputs_report(
+        set_key="me30thCelebration", process_all=False, dry_run=True, canonical_only=True,
+    )
+
+    assert called == []
+    assert report["mode"] == "canonical_only"
+    assert report["status"] == "dry_run"
+    assert "links_report" not in report
+    assert "opening_desirability_report" not in report
+    assert report["canonical_fallback"]["rows_upsert_planned"] == 120
+
+
+def test_canonical_only_dry_run_matches_expected_me30th_celebration_shape(monkeypatch):
+    """Locks in the exact dry-run numbers reported for the me30thCelebration canary:
+    120 scraped cards, 0 preexisting canonical rows, 120 rows planned for upsert."""
+    monkeypatch.setattr(combined, "get_supabase_client", lambda: object())
+    monkeypatch.setattr(combined, "build_valid_set_key_registry", lambda: {})
+    monkeypatch.setattr(
+        combined, "normalize_set_key_filter",
+        lambda raw, registry: {"resolved_set_key_filter": raw},
+    )
+    monkeypatch.setattr(
+        combined, "_list_sets",
+        lambda client, *, set_key, process_all: [dict(_CATALOG_SET_ROW)],
+    )
+    cards = [_trainer_card(f"c{i}", f"{i:03d}/120") for i in range(120)]
+    _wire_process_single_set(monkeypatch, cards=cards, canonical_rows=[])
+
+    report = combined.build_set_desirability_inputs_report(
+        set_key="me30thCelebration", process_all=False, dry_run=True, canonical_only=True,
+    )
+
+    assert report["canonical_fallback"]["rows_seen_in_cards"] == 120
+    assert report["canonical_fallback"]["rows_preexisting_canonical"] == 0
+    assert report["canonical_fallback"]["rows_upsert_planned"] == 120
+    assert report["set_reports"][0]["rows_upserted"] == 0  # dry-run: no DB writes
+
+
+def test_full_pipeline_mode_still_invokes_downstream_builders(monkeypatch):
+    """Non-canonical-only behavior (the existing full pipeline) is unchanged."""
+    monkeypatch.setattr(combined, "get_supabase_client", lambda: object())
+    monkeypatch.setattr(combined, "build_valid_set_key_registry", lambda: {})
+    monkeypatch.setattr(
+        combined, "_list_sets",
+        lambda client, *, set_key, process_all: [dict(_NORMAL_SET_ROW)],
+    )
+    monkeypatch.setattr(combined, "_process_single_set", lambda **kwargs: {"cards_rows": 0})
+    called = []
+    for name in ("_build_links", "_build_summaries", "_build_components", "_build_opening"):
+        monkeypatch.setattr(
+            combined, name,
+            (lambda label: lambda **kwargs: called.append(label) or {})(name),
+        )
+
+    report = combined.build_set_desirability_inputs_report(
+        set_key=None, process_all=True, dry_run=True, canonical_only=False,
+    )
+
+    assert called == ["_build_links", "_build_summaries", "_build_components", "_build_opening"]
+    assert "mode" not in report
+    assert "links_report" in report

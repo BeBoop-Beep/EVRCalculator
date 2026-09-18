@@ -674,6 +674,130 @@ def test_unranked_daily_projection_aggregates_broad_set_batches_exactly():
     ]
 
 
+def test_unranked_interval_fallback_aggregates_broad_set_batches_exactly():
+    """Extends the exact disjoint-set batching (already proven above for
+    DAILY_PROJECTION_RPC) to V2_INTERVAL_FALLBACK_RPC. Unlike the daily
+    projection combiner, ranks here are RPC-local per batch and CANNOT be
+    concatenated: after unioning constituents the merged basket must be
+    re-ranked by market_price DESC, card_variant_id tie-break.
+    """
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append(payload)
+            ordinal = len(calls)
+            return _RpcResult([{
+                "market_date": "2026-09-06",
+                "constituent_count": ordinal,
+                "eligible_universe_count": ordinal + 10,
+                "basket_value": ordinal * 100,
+                "common_count": ordinal + 20,
+                "common_current_value": ordinal * 90,
+                "common_previous_value": ordinal * 80,
+                "current_constituents": [{
+                    "card_variant_id": f"variant-{ordinal}",
+                    "canonical_card_id": f"card-{ordinal}",
+                    "set_id": payload["p_set_ids"][0],
+                    "market_price": ordinal * 10,
+                    "market_date": "2026-09-06",
+                    "rank": 1,
+                }],
+            }])
+
+    cohorts, basket = svc.load_filtered_daily_cohort_rows(
+        Client(), [f"set-{index}" for index in range(12)],
+        start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+        rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+    )
+
+    assert [len(call["p_set_ids"]) for call in calls] == [5, 5, 2]
+    assert cohorts == [{
+        "marketDate": "2026-09-06", "constituentCount": 6,
+        "eligibleUniverseCount": 36, "basketValue": 600.0,
+        "commonCount": 66, "commonCurrentValue": 540.0,
+        "commonPreviousValue": 480.0,
+    }]
+    # No duplicates, none missing: exactly the 3 constituents the 3 batches
+    # produced, re-ranked highest price first (card 3 = $30, card 2 = $20,
+    # card 1 = $10) rather than left in batch-arrival order.
+    assert [row["cardVariantId"] for row in basket] == [
+        "variant-3", "variant-2", "variant-1",
+    ]
+    assert [row["rank"] for row in basket] == [1, 2, 3]
+
+
+def test_interval_fallback_merge_rank_tie_break_is_card_variant_id():
+    """Equal-priced constituents from different batches must resolve their
+    rank order deterministically by card_variant_id, never by batch arrival
+    order (which would make the merged rank nondeterministic)."""
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append(payload)
+            # Every batch prices its one card at $10, so the tie-break is the
+            # only thing that can order them. Two batches (set batch size 5
+            # over 7 sets), keyed by arrival order.
+            variant = "variant-b" if len(calls) == 1 else "variant-a"
+            return _RpcResult([{
+                "market_date": "2026-09-06",
+                "constituent_count": 1,
+                "eligible_universe_count": 1,
+                "basket_value": 10,
+                "common_count": 0,
+                "common_current_value": 0,
+                "common_previous_value": 0,
+                "current_constituents": [{
+                    "card_variant_id": variant,
+                    "canonical_card_id": f"card-{variant}",
+                    "set_id": payload["p_set_ids"][0],
+                    "market_price": 10,
+                    "market_date": "2026-09-06",
+                    "rank": 1,
+                }],
+            }])
+
+    cohorts, basket = svc.load_filtered_daily_cohort_rows(
+        Client(), [f"set-{index}" for index in range(7)],
+        start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+        rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+    )
+
+    assert [row["cardVariantId"] for row in basket] == ["variant-a", "variant-b"]
+    assert [row["rank"] for row in basket] == [1, 2]
+
+
+def test_ranked_interval_fallback_keeps_complete_scope_in_one_statement():
+    """Top-N interval fallback queries must still rank over the complete
+    filtered universe inside one SQL statement -- batching is reserved for
+    unranked (top_n is None) queries only."""
+    calls = _recorded_chunk_spans(
+        svc.V2_INTERVAL_FALLBACK_RPC, 12, start_date="2026-09-06",
+        end_date="2026-09-06", top_n=10,
+    )
+    assert calls == [("2026-09-06", "2026-09-06")]
+
+
+def test_narrow_interval_fallback_scope_is_not_batched():
+    """A scope at or below the batch threshold must still be a single RPC
+    call -- single-batch behaviour is unchanged by the new batching path."""
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append(payload)
+            return _RpcResult([])
+
+    svc.load_filtered_daily_cohort_rows(
+        Client(), ["set-0", "set-1", "set-2", "set-3", "set-4"],
+        start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+        rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+    )
+    assert len(calls) == 1
+    assert calls[0]["p_set_ids"] == ["set-0", "set-1", "set-2", "set-3", "set-4"]
+
+
 def test_ranked_daily_projection_keeps_complete_scope_in_one_statement():
     calls = _recorded_chunk_spans(
         svc.DAILY_PROJECTION_RPC, 41, start_date="2026-09-06",

@@ -284,6 +284,12 @@ class OnboardingEngine:
                     {"operator_action": "Enable POKEMON_ONBOARDING_GIT_MODE=pr and configure an isolated worktree."},
                     "source_pr_pending",
                 )
+            if not self.execute:
+                return StepOutcome(
+                    "advance", step,
+                    {"dry_run": True, "planned_action": "prepare_worktree+commit+push_and_open_pr",
+                     "pokemon_api_set": api_set},
+                )
             adapter = GitAdapter(REPO_ROOT, self.git_settings, runner=self.command_runner)
             canonical = __import__(
                 "backend.scripts.bootstrap_pokemon_set_configs", fromlist=["normalize_set_key"]
@@ -317,6 +323,13 @@ class OnboardingEngine:
             if not config.exists():
                 pr_url = job.get("source_pr_url")
                 if pr_url and not self.no_git and self.git_settings.mode == "pr":
+                    if not self.execute:
+                        return StepOutcome(
+                            "wait", step,
+                            {"dry_run": True, "planned_action": "reconcile_pr_and_optional_deploy",
+                             "source_pr_url": pr_url},
+                            "awaiting_source_deploy",
+                        )
                     result = GitAdapter(REPO_ROOT, self.git_settings, runner=self.command_runner).reconcile_pr_and_optional_deploy(str(pr_url))
                     if result.get("status") != "deployed":
                         return StepOutcome("wait", step, result, str(result["status"]))
@@ -385,6 +398,12 @@ class OnboardingEngine:
                      "operator_action": "Enable Git PR mode to create the isolated pull-model source PR."},
                     "pull_model_source_pending",
                 )
+            if not self.execute:
+                return StepOutcome(
+                    "advance", step,
+                    {"dry_run": True, "planned_action": "prepare_worktree+commit+push_and_open_pr",
+                     "manifest": manifest},
+                )
             adapter = GitAdapter(REPO_ROOT, self.git_settings, runner=self.command_runner)
             worktree, branch = adapter.prepare_worktree(key, phase="pull-model")
             census = metadata.get("steps", {}).get("rarity_census", {}).get("rarity_census", {})
@@ -412,6 +431,13 @@ class OnboardingEngine:
             census = metadata.get("steps", {}).get("rarity_census", {}).get("rarity_census", {})
             pr_url = job.get("source_pr_url")
             if pr_url and not self.no_git and self.git_settings.mode == "pr":
+                if not self.execute:
+                    return StepOutcome(
+                        "wait", step,
+                        {"dry_run": True, "planned_action": "reconcile_pr_and_optional_deploy",
+                         "source_pr_url": pr_url},
+                        "awaiting_pull_model_deploy",
+                    )
                 result = GitAdapter(REPO_ROOT, self.git_settings, runner=self.command_runner).reconcile_pr_and_optional_deploy(str(pr_url))
                 if result.get("status") != "deployed" and self.git_settings.auto_deploy:
                     return StepOutcome("wait", step, result, str(result["status"]))

@@ -7,7 +7,7 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[3]
 MIGRATIONS = BACKEND / "db" / "migrations"
-MIGRATION = MIGRATIONS / "20260913220000_create_budget_product_best_open_price_store.sql"
+MIGRATION = MIGRATIONS / "20260914184759_create_budget_product_best_open_price_store.sql"
 SUPABASE_MIRROR = BACKEND.parent / "supabase" / "migrations" / MIGRATION.name
 
 

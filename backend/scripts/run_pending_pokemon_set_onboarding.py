@@ -7,7 +7,7 @@ import json
 import os
 import socket
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict
 
@@ -20,6 +20,13 @@ from backend.db.repositories import pokemon_set_onboarding_repository as reposit
 from backend.scripts.run_pokemon_set_scrape import _load_backend_env
 from backend.services.pokemon_set_onboarding_service import OnboardingEngine, STEP_ORDER
 from backend.services.pokemon_onboarding_heartbeat import LeaseHeartbeat
+
+# Hard ceiling on --max-jobs: this runner claims and advances at most one step per job
+# per invocation (no internal retry/advance loop), so distinct-jobs-per-invocation is
+# the only knob that controls how long a single run can take. Keep it small enough that
+# a mistaken or malicious --max-jobs value can't turn one invocation into an unbounded
+# drain of the whole queue.
+MAX_JOBS_CEILING = 25
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -60,7 +67,7 @@ def main() -> int:
     engine = OnboardingEngine(
         execute=args.commit, no_git=args.no_git, pull_rates_file=args.pull_rates_file,
     )
-    max_jobs = max(1, args.max_jobs)
+    max_jobs = min(MAX_JOBS_CEILING, max(1, args.max_jobs))
     if args.dry_run:
         # Read-only by contract: do not claim, heartbeat, requeue, or update anything.
         jobs = [repository.get_job(args.job_id)] if args.job_id else repository.list_jobs(
@@ -70,7 +77,11 @@ def main() -> int:
         for job in [row for row in jobs if row]:
             outcome = engine.run_step(job)
             results.append({"job_id": job["id"], "current_step": job["current_step"], "outcome": outcome.__dict__})
-        print(json.dumps({"mode": "dry_run", "jobs": results}, indent=2, default=str))
+        bounds = {
+            "max_jobs": max_jobs, "max_jobs_ceiling": MAX_JOBS_CEILING,
+            "jobs_processed": len(results), "bound_reached": len(results) >= max_jobs,
+        }
+        print(json.dumps({"mode": "dry_run", "bounds": bounds, "jobs": results}, indent=2, default=str))
         return 0
 
     results = []
@@ -82,23 +93,27 @@ def main() -> int:
         candidate_ids = [
             str(row["id"]) for row in repository.list_jobs(
                 include_waiting=True, include_manual_review=args.force_retry, limit=max_jobs,
+                due_only=True,
             )
         ]
     else:
         candidate_ids = [None] * max_jobs
 
+    claimed_count = 0
     for candidate_id in candidate_ids[:max_jobs]:
-        job = repository.claim_next(
+        job = repository.claim_next_v2(
             args.worker_id, max(60, args.lease_seconds), job_id=candidate_id,
-            force_retry=args.force_retry or args.resume_all,
+            include_waiting=args.resume_all, force_retry=args.force_retry,
         )
         if not job:
             continue
+        claimed_count += 1
         original_step = str(job["current_step"])
+        lease_token = job["lease_token"]
         try:
             with LeaseHeartbeat(
-                lambda: repository.heartbeat(
-                    str(job["id"]), args.worker_id, max(60, args.lease_seconds),
+                lambda: repository.heartbeat_v2(
+                    str(job["id"]), args.worker_id, lease_token, max(60, args.lease_seconds),
                 ),
                 lease_seconds=max(60, args.lease_seconds),
             ) as supervisor:
@@ -111,9 +126,9 @@ def main() -> int:
                 exit_code = 2
                 continue
             if supervisor.failure:
-                repository.release_for_retry(
-                    str(job["id"]), args.worker_id, code="heartbeat_failed",
-                    message=str(supervisor.failure),
+                repository.release_for_retry_v2(
+                    str(job["id"]), args.worker_id, lease_token, original_step,
+                    code="heartbeat_failed", message=str(supervisor.failure),
                 )
                 results.append({
                     "job_id": job["id"], "step": original_step,
@@ -125,8 +140,8 @@ def main() -> int:
             common = {
                 "metadata_json": metadata, "last_error_code": outcome.error_code,
                 "last_error_message": outcome.evidence.get("error"),
-                "worker_id": None, "lease_expires_at": None, "heartbeat_at": None,
             }
+            # Waiting transitions require an explicit future next_attempt_at.
             source_fields = {
                 key: outcome.evidence[key] for key in (
                     "canonical_key", "era_folder", "source_branch", "source_commit_sha",
@@ -137,26 +152,31 @@ def main() -> int:
                 fields = {**common, **source_fields, "status": "ready", "current_step": outcome.step,
                           "next_attempt_at": datetime.now(timezone.utc).isoformat()}
             elif outcome.kind == "wait":
-                fields = {**common, **source_fields, "status": "waiting", "current_step": outcome.step}
+                fields = {**common, **source_fields, "status": "waiting", "current_step": outcome.step,
+                          "next_attempt_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}
             elif outcome.kind == "manual_review":
                 fields = {**common, "status": "manual_review", "current_step": outcome.step}
             elif outcome.kind == "complete":
                 fields = {**common, "status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}
             else:
-                repository.release_for_retry(
-                    str(job["id"]), args.worker_id, code=outcome.error_code or "step_failed",
+                repository.release_for_retry_v2(
+                    str(job["id"]), args.worker_id, lease_token, original_step,
+                    code=outcome.error_code or "step_failed",
                     message=outcome.evidence.get("error", outcome.error_code or "step failed"),
                 )
                 fields = None
                 exit_code = 2
             if fields is not None:
-                repository.update_claimed(str(job["id"]), args.worker_id, fields)
+                repository.transition_v2(
+                    str(job["id"]), args.worker_id, lease_token, original_step, fields, strict=True,
+                )
             results.append({"job_id": job["id"], "step": original_step, "outcome": outcome.__dict__})
             if args.through_step == original_step:
                 break
         except Exception as exc:
-            repository.release_for_retry(
-                str(job["id"]), args.worker_id, code="unhandled_worker_error", message=str(exc),
+            repository.release_for_retry_v2(
+                str(job["id"]), args.worker_id, lease_token, original_step,
+                code="unhandled_worker_error", message=str(exc),
             )
             queue_alert(
                 "pokemon_set_onboarding_failed", "Pokemon set onboarding worker failed", str(exc),
@@ -165,7 +185,15 @@ def main() -> int:
             )
             results.append({"job_id": job["id"], "error": str(exc)})
             exit_code = 2
-    print(json.dumps({"mode": "commit", "jobs": results}, indent=2, default=str))
+    bounds = {
+        "max_jobs": max_jobs, "max_jobs_ceiling": MAX_JOBS_CEILING,
+        "candidates_considered": len(candidate_ids[:max_jobs]), "jobs_claimed": claimed_count,
+        # bound_reached=True means this invocation stopped because it hit its own
+        # distinct-job cap, not because the queue is drained; a caller must not read a
+        # clean exit_code here as "onboarding pipeline complete."
+        "bound_reached": claimed_count >= max_jobs,
+    }
+    print(json.dumps({"mode": "commit", "bounds": bounds, "jobs": results}, indent=2, default=str))
     return exit_code
 
 

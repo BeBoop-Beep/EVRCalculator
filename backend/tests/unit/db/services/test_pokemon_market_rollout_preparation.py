@@ -42,18 +42,20 @@ class Query:
 
 
 class Client:
-    """Fake client for both the frozen root authority and legacy rollout path."""
+    """Fake client for authority sync, frozen root authority and legacy rollout."""
 
     def __init__(
         self,
         *,
         response=None,
+        authority_response=None,
         materialized=False,
         incomplete_after_rpc=False,
         authority_rows=None,
         era_rows=None,
         set_rows=None,
         history=None,
+        index_rows=None,
     ):
         self.roots = [{
             "set_id": "root", "release_date": "2020-01-01",
@@ -64,7 +66,7 @@ class Client:
             "deactivated_market_date": None, "enabled": True,
         }]
         self.era_rows = era_rows if era_rows is not None else [
-            {"era_id": ERA_A, "activated_market_date": "2026-09-09", "enabled": True},
+            {"era_id": ERA_A, "activated_market_date": LEGACY_DAY, "enabled": True},
         ]
         self.set_rows = set_rows if set_rows is not None else [
             {"id": "root", "era_id": ERA_A, "release_date": "2020-01-01",
@@ -72,9 +74,15 @@ class Client:
              "ready_for_daily_scrape": True},
         ]
         self.history = list(history or [])
+        self.index_rows = list(index_rows or [])
         self.response = response or {
             "status": "complete", "marketDate": DAY, "candidateDate": DAY,
             "rolloutRootCount": 1, "standardRowsUpserted": 1, "top10RowsUpserted": 1,
+        }
+        self.authority_response = authority_response or {
+            "status": "complete", "marketDate": DAY, "rowsActivated": 0,
+            "structuralRootCount": 1, "activeAuthorityRootCount": 1,
+            "missingStructuralRootCount": 0, "structuralFingerprint": "fp",
         }
         self.rpc_calls = []
         self.incomplete_after_rpc = incomplete_after_rpc
@@ -98,6 +106,8 @@ class Client:
             return Query(self.era_rows)
         if name == prep.SETS_TABLE:
             return Query(self.set_rows)
+        if name == prep.MARKET_INDEX_TABLE:
+            return Query(self.index_rows)
         return Query(self.history)
 
     def rpc(self, name, payload):
@@ -123,10 +133,14 @@ def _generic_pair(root):
     ]
 
 
-def test_commit_prepares_and_reconciles_candidate_write_receipt():
+def test_commit_syncs_authority_then_prepares_and_reconciles_candidate_write_receipt():
     client = Client()
     result = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
-    assert client.rpc_calls == [(prep.CANDIDATE_PREPARATION_RPC, {"p_market_date": DAY})]
+    assert client.rpc_calls == [
+        (prep.AUTHORITY_SYNC_RPC, {"p_market_date": DAY}),
+        (prep.CANDIDATE_PREPARATION_RPC, {"p_market_date": DAY}),
+    ]
+    assert result["authoritySync"]["structuralRootCount"] == 1
     assert result["expectedRootCount"] == 1
     assert result["candidateWrites"]["standardCandidateCount"] == 1
     assert result["candidateWrites"]["top10CandidateCount"] == 1
@@ -140,6 +154,22 @@ def test_dry_run_is_read_only_and_reports_preparation_required():
     assert client.rpc_calls == []
     assert result["candidatePreparationRequired"] is True
     assert result["rpcInvoked"] is False
+
+
+@pytest.mark.parametrize("change,match", [
+    ({"status": "blocked"}, "did not complete"),
+    ({"marketDate": "2026-09-12"}, "wrong marketDate"),
+    ({"structuralRootCount": 0}, "empty structural cohort"),
+    ({"missingStructuralRootCount": 1}, "left structural roots missing"),
+    ({"activeAuthorityRootCount": 0}, "active count is below structural count"),
+])
+def test_bad_authority_sync_response_fails_closed(change, match):
+    response = dict(Client().authority_response)
+    response.update(change)
+    with pytest.raises(RuntimeError, match=match):
+        prep.prepare_market_rollout_candidate(
+            Client(authority_response=response), DAY, commit=True,
+        )
 
 
 @pytest.mark.parametrize("change,match", [
@@ -163,16 +193,22 @@ def test_partial_candidate_writes_are_allowed_across_larger_authority_cohort():
         {"set_id": "root-2", "activated_market_date": "2026-09-10",
          "deactivated_market_date": None, "enabled": True},
     ]
-    client = Client(authority_rows=authority, history=_generic_pair("root-2"))
+    authority_sync = dict(
+        Client().authority_response,
+        structuralRootCount=1,
+        activeAuthorityRootCount=2,
+    )
+    client = Client(
+        authority_rows=authority,
+        authority_response=authority_sync,
+        history=_generic_pair("root-2"),
+    )
     result = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
 
     assert result["rolloutRootCount"] == 1
     assert result["expectedRootCount"] == 2
     assert result["candidateWrites"]["standardCandidateCount"] == 1
     assert result["candidateWrites"]["top10CandidateCount"] == 1
-    # Generic current-day rows are intentionally not accepted by the stricter
-    # provenance diagnostic. The subsequent Market Date Quality gate owns full
-    # authority-cohort valuation completeness and may accept those rows there.
     assert result["materialization"]["ready"] is False
     assert result["materialization"]["rootCount"] == 2
 
@@ -195,15 +231,15 @@ def test_candidate_standard_receipt_mismatch_fails_closed():
         prep.prepare_market_rollout_candidate(Client(response=response), DAY, commit=True)
 
 
-def test_unprepared_historical_date_is_rejected_by_rpc_response():
-    response = dict(Client().response, marketDate=DAY, candidateDate=DAY)
+def test_unprepared_historical_date_is_rejected_by_authority_sync_response():
+    authority = dict(Client().authority_response, marketDate=DAY)
     with pytest.raises(RuntimeError, match="wrong marketDate"):
         prep.prepare_market_rollout_candidate(
-            Client(response=response), "2026-09-12", commit=True,
+            Client(authority_response=authority), "2026-09-12", commit=True,
         )
 
 
-def test_candidate_preparation_retry_is_idempotent():
+def test_candidate_preparation_retry_is_idempotent_before_finalized_index_exists():
     client = Client()
     first = prep.prepare_market_rollout_candidate(client, DAY, commit=True)
     second = prep.prepare_market_rollout_candidate(client, DAY, commit=True)

@@ -119,6 +119,41 @@ test("Opening Outcome Profile keeps value milestones primary and only two suppor
   assert.doesNotMatch(rip, /histogram|density|smoothed/i);
 });
 
+test("Opening Outcome Profile four-metric summary uses canonical Bucket 2 field sources and labels", () => {
+  assert.match(rip, /data-four-metric-summary/);
+  assert.match(rip, /<ProductOpeningProfileSummary rip=\{rip\} \/>/);
+  assert.ok(
+    rip.indexOf("<ProductOpeningProfileSummary") <
+      rip.indexOf("<OutcomeRangeRail"),
+  );
+  for (const label of [
+    "Average Return",
+    "Typical Opening",
+    "Covers Cost",
+    "Top 1% Value Share",
+  ])
+    assert.match(rip, new RegExp(label));
+  assert.match(rip, /percent\(rip\.totalValueToCostRatio\)/);
+  assert.match(rip, /money\(rip\.expectedValue\)/);
+  assert.match(rip, /average value/);
+  assert.match(rip, /money\(rip\.medianValue\)/);
+  assert.match(rip, /percent\(rip\.chanceToRecoverCost\)/);
+  assert.match(rip, /percent\(rip\.topOneOutcomeValueShare\)/);
+  assert.doesNotMatch(rip, /rip\.top1EvShare/);
+  assert.doesNotMatch(rip, /modelBreakEven/);
+  assert.match(rip, /data-summary-metric="average-return"/);
+  assert.match(rip, /data-summary-metric="typical-opening"/);
+  assert.match(rip, /data-summary-metric="covers-cost"/);
+  assert.match(rip, /data-summary-metric="top-one-value-share"/);
+  // No good/bad color class ever applied purely from the concentration
+  // measure - the block only carries the same neutral border/bg classes as
+  // every other summary tile.
+  assert.doesNotMatch(
+    rip,
+    /top-one-value-share"[\s\S]{0,400}(?:text-red|text-green|text-emerald|text-rose)/,
+  );
+});
+
 test("composition is summarized instead of dumping redundant raw fields", () => {
   assert.match(rip, /productCompositionSummary\(composition\)/);
   assert.match(rip, /data-product-composition/);

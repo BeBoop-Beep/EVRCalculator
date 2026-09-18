@@ -23,15 +23,19 @@ FINGERPRINT = deterministic_fingerprint(["cohort"])
 
 
 def index_row(index_key, day, value, basket, *, sets=3, cards=30):
+    per_set = cards // sets
+    constituents = [{"setId": f"s{i}", "includedCardCount": per_set if index_key == "raw" else min(per_set, 10)}
+                     for i in range(sets)]
     return {
         "index_key": index_key,
         "market_date": day,
         "normalized_index_value": value,
         "basket_value": basket,
         "set_count": sets,
-        "card_count": cards if index_key == "raw" else sets * 10,
+        "card_count": cards if index_key == "raw" else sets * min(per_set, 10),
         "cohort_fingerprint": FINGERPRINT,
         "source_generation_fingerprint": f"{index_key}-{day}",
+        "constituents_json": constituents,
     }
 
 

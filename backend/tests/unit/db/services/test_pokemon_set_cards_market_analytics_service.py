@@ -6,6 +6,8 @@ so the index/breadth mathematics is pinned independently of live market data.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from backend.db.services.pokemon_set_cards_market_analytics_service import (
@@ -472,3 +474,60 @@ def test_loader_rejects_inverted_range():
 
 def test_cards_analytics_names_the_single_reusable_constituent_authority():
     assert service.CARD_CONSTITUENT_RPC == "get_pokemon_cards_daily_constituents"
+
+
+# ---------------------------------------------------------------------------
+# Loader chunking (the 7-day hard client-side width cap)
+# ---------------------------------------------------------------------------
+
+
+def test_loader_caps_chunk_width_for_a_low_cards_per_day_set():
+    """HGSS Black Star Promos-shaped set: ~29 rows/day would size a ~31-day
+    request under the 900-row budget alone (900 // 29 == 31). That width is
+    what produced the ~18.7s production RPC call crossing the 30s statement
+    timeout. The hard cap must keep every request to 7 days wide regardless.
+    """
+    rows_by_date = _rows_by_date(45, 29)
+    client = _FakeClient(rows_by_date)
+    rows = load_card_constituent_rows("set-1", "2026-06-01", "2026-07-15", client=client)
+
+    for start, end in client.calls:
+        width_days = (date.fromisoformat(end) - date.fromisoformat(start)).days + 1
+        assert width_days <= service._RPC_MAX_CHUNK_DAYS
+
+    # All dates/rows still returned exactly once despite the narrower chunks.
+    assert len(rows) == 45 * 29
+    assert len({(row["market_date"], row["canonical_card_id"]) for row in rows}) == 45 * 29
+
+
+def test_loader_newest_day_probe_still_runs_first_under_the_cap():
+    rows_by_date = _rows_by_date(10, 29)
+    client = _FakeClient(rows_by_date)
+    load_card_constituent_rows("set-1", "2026-06-01", "2026-06-10", client=client)
+    # The probe call is always the single newest day, issued before the walk.
+    assert client.calls[0] == ("2026-06-10", "2026-06-10")
+
+
+def test_loader_response_cap_halving_still_intact_under_the_width_cap():
+    """The 7-day cap only lowers the ceiling; the existing halve-on-truncation
+    behavior for a response that still hits the 1000-row cap within that
+    width must remain unchanged.
+    """
+    rows_by_date = _rows_by_date(8, 400)
+    client = _FakeClient(rows_by_date)
+    rows = load_card_constituent_rows("set-1", "2026-06-01", "2026-06-08", client=client)
+    assert len(rows) == 3200
+    for start, end in client.calls:
+        width_days = (date.fromisoformat(end) - date.fromisoformat(start)).days + 1
+        assert width_days <= service._RPC_MAX_CHUNK_DAYS
+
+
+def test_loader_existing_uncapped_budget_case_still_returns_all_rows():
+    rows_by_date = _rows_by_date(20, 200)  # 4000 rows, cap is 1000
+    client = _FakeClient(rows_by_date)
+    rows = load_card_constituent_rows("set-1", "2026-06-01", "2026-06-20", client=client)
+    assert len(rows) == 4000
+    assert len(client.calls) > 1
+    for start, end in client.calls:
+        width_days = (date.fromisoformat(end) - date.fromisoformat(start)).days + 1
+        assert width_days <= service._RPC_MAX_CHUNK_DAYS

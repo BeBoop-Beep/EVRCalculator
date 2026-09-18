@@ -7,6 +7,8 @@ import gc
 import hashlib
 import json
 import math
+import os
+import tempfile
 import sys
 import time
 from collections import Counter, defaultdict
@@ -32,7 +34,13 @@ from backend.calculations.evr.sealed_product_distribution import (
     single_q_parity_batch_width,
 )
 from backend.db.services.pack_outcome_artifact_service import load_pack_outcome_artifact
-from backend.scripts.build_budget_normalized_product_rankings import build_stage1_distributions_cached
+from backend.db.services.best_open_price_authority import (
+    EXECUTION_CONTRACT_VERSION, source_content_fingerprint, finite_decimal, validate_source, cents,
+)
+from backend.scripts.build_budget_normalized_product_rankings import (
+    build_stage1_distributions_cached,
+    cohort_fingerprint,
+)
 from backend.scripts.pokemon_snapshot_builders import get_client
 from backend.scripts.research_best_open_price_bucket0 import (
     _comparator_row,
@@ -40,6 +48,7 @@ from backend.scripts.research_best_open_price_bucket0 import (
     _historical_authority,
     _load_exact_source_products,
     _load_source,
+    _verify_v12_parity,
 )
 from backend.scripts.research_best_open_price_bucket1 import (
     EXPECTED_AUTHORITY_FINGERPRINT,
@@ -111,35 +120,97 @@ def _cohort_analysis(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "rankDiscountCorrelation": (
             round(float(np.corrcoef(
                 [row["currentBudgetRank"] for row in resolved if row["currentBudgetRank"] != 1], discounts
-            )[0, 1]), 6) if len(discounts) > 1 else None
+            )[0, 1]), 6) if len(discounts) > 1 and np.std(discounts) > 0 else None
         ),
     }
 
 
 def _write_checkpoint(path: Path, payload: Mapping[str, Any]) -> float:
+    """Never truncate the last good resume point before its replacement is ready."""
     started = time.perf_counter()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=path.name + ".", suffix=".tmp", delete=False) as handle:
+            temporary = Path(handle.name)
+            json.dump(payload, handle, indent=2, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return time.perf_counter() - started
 
 
-def run(output: Path, *, quantity_batch_size: int = 0,
-        reference_path: Path | None = None,
-        product_ids: Sequence[str] | None = None,
-        run_determinism: bool = True) -> dict[str, Any]:
+def _checkpoint_manifest(snapshot, source_rows, product_ids, batch_size):
+    return {"executionVersion": EXECUTION_CONTRACT_VERSION,
+            "methodVersion": BEST_OPEN_PRICE_METHOD_VERSION,
+            "sourceContentFingerprint": source_content_fingerprint(snapshot, source_rows),
+            "numpyVersion": np.__version__, "quantityBatchSize": batch_size,
+            "productIds": sorted(product_ids)}
+
+
+def _check_published_strategy(candidate, source, benchmark):
+    """Reconstruct the source strategy before trusting ANY counterfactual result."""
+    observed = candidate.evaluate(round(float(source["product_market_price"]) * 100), benchmark)
+    for key, source_key in (("financialRipV4Score", "financial_rip_v4_score"),
+                            ("overallRipV12Score", "overall_rip_v12_score"),
+                            ("chanceToRecoverCapital", "chance_to_recover_capital"),
+                            ("actualCommittedCapital", "actual_committed_capital")):
+        if abs(finite_decimal(observed.get(key)) - finite_decimal(source.get(source_key))) > finite_decimal("1e-12"):
+            raise RuntimeError(f"published strategy parity failed: {source['sealed_product_id']} {key}")
+    if observed["wins"] != (int(source["budget_rank_v12"]) == 1):
+        raise RuntimeError("published strategy comparator parity failed")
+
+
+def run(
+    output: Path,
+    *,
+    quantity_batch_size: int = 0,
+    reference_path: Path | None = None,
+    product_ids: Sequence[str] | None = None,
+    run_determinism: bool = True,
+    source_snapshot_id: str = SOURCE_SNAPSHOT_ID,
+    expected_source_authority_fingerprint: str | None = EXPECTED_AUTHORITY_FINGERPRINT,
+    expected_source_content_fingerprint: str | None = None,
+    client: Any = None,
+    reuse_complete: bool = False,
+) -> dict[str, Any]:
+    """Execute the validated exact engine against one explicit V12 Full Market source.
+
+    Research defaults remain pinned to the original Bucket-2 authority. The
+    production prepared-data wrapper supplies the CURRENT published snapshot ID
+    and its freshly reconstructed source-authority fingerprint, which reuses
+    the identical search/scoring implementation without carrying the historical
+    Sep-8 identity into future daily publications.
+    """
     total_started = time.perf_counter()
     timings = Counter()
-    client = get_client()
+    client = client or get_client()
     t = time.perf_counter()
-    snapshot, source_rows, _ = _load_source(client, SOURCE_SNAPSHOT_ID)
+    snapshot, source_rows, all_source_rows = _load_source(client, source_snapshot_id)
+    validate_source(snapshot)
+    _verify_v12_parity(all_source_rows, label="whole source snapshot")
+    content_fingerprint = source_content_fingerprint(snapshot, source_rows)
+    if expected_source_content_fingerprint is not None and content_fingerprint != expected_source_content_fingerprint:
+        raise RuntimeError("source Full Market values changed before engine start")
     authority = _historical_authority(snapshot, source_rows)
-    if authority["fingerprint"] != EXPECTED_AUTHORITY_FINGERPRINT:
+    expected_fingerprint = expected_source_authority_fingerprint or authority["fingerprint"]
+    if authority["fingerprint"] != expected_fingerprint:
         raise RuntimeError("Bucket 2 source-authority fingerprint mismatch")
     products = _load_exact_source_products(client, source_rows, str(snapshot["pinned_price_as_of"]))
+    reconstructed_cohort_fingerprint = cohort_fingerprint(products, str(snapshot["pinned_price_as_of"]))
+    if reconstructed_cohort_fingerprint != str(snapshot.get("cohort_fingerprint") or ""):
+        raise RuntimeError("pinned cohort fingerprint does not match the published source snapshot")
     timings["sourceAuthorityLoadingSeconds"] += time.perf_counter() - t
     baseline_memory = _memory()
     source_by_id = {str(row["sealed_product_id"]): row for row in source_rows}
     product_by_id = {str(row["sealed_product_id"]): row for row in products}
+    if set(source_by_id) != set(product_by_id):
+        raise RuntimeError("pinned cohort SKU identities do not exactly match Full Market rows")
     ordered = sorted(products, key=lambda row: int(source_by_id[str(row["sealed_product_id"])]["budget_rank_v12"]))
     if product_ids:
         selected = set(product_ids)
@@ -147,7 +218,7 @@ def run(output: Path, *, quantity_batch_size: int = 0,
         if len(ordered) != len(selected):
             raise RuntimeError("one or more requested product IDs are outside the authority cohort")
     budget = float(snapshot["full_market_budget"])
-    budget_cents = int(round(budget * 100))
+    budget_cents = cents(snapshot["full_market_budget"])
     results: list[dict[str, Any]] = []
     memory_samples: list[dict[str, Any]] = []
     optimized = quantity_batch_size > 0
@@ -155,8 +226,30 @@ def run(output: Path, *, quantity_batch_size: int = 0,
     if reference_path is not None:
         reference_payload = json.loads(reference_path.read_text(encoding="utf-8"))
         reference_rows = {row["sealedProductId"]: row for row in reference_payload["products"]}
+    manifest = _checkpoint_manifest(snapshot, source_rows,
+                                    [str(p["sealed_product_id"]) for p in ordered], quantity_batch_size)
+    checkpoint = None
     if output.exists():
-        checkpoint = json.loads(output.read_text(encoding="utf-8"))
+        try:
+            checkpoint = json.loads(output.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            # Preserve the invalid file for diagnosis; never let one interrupted
+            # write permanently block every future scheduled invocation.
+            output.replace(output.with_name(output.name + f".invalid-{time.time_ns()}"))
+        if checkpoint is not None and checkpoint.get("checkpointManifest") != manifest:
+            output.replace(output.with_name(output.name + f".incompatible-{time.time_ns()}"))
+            checkpoint = None
+    if checkpoint is not None:
+        resumed_rows = checkpoint.get("products") or []
+        resumed_ids = [str(row.get("sealedProductId") or "") for row in resumed_rows]
+        if len(resumed_ids) != len(set(resumed_ids)) or not set(resumed_ids) <= set(manifest["productIds"]):
+            raise RuntimeError("invalid checkpoint product membership")
+        if reuse_complete and checkpoint.get("status") == "complete":
+            if set(resumed_ids) != set(manifest["productIds"]):
+                raise RuntimeError("completed checkpoint is incomplete")
+            # The caller still validates every row and rechecks source identity
+            # before the atomic RPC. No result is copied to a different source.
+            return checkpoint
         if checkpoint.get("status") == "running":
             if checkpoint.get("sourceAuthorityFingerprint") != authority["fingerprint"]:
                 raise RuntimeError("checkpoint source-authority fingerprint mismatch")
@@ -234,7 +327,7 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             )
             preparation_seconds += time.perf_counter() - started
             return PreparedCanonicalCandidate(
-                pid, quantity, prepared, float(product["collector_appeal_score"]),
+                pid, quantity, prepared, float(source["collector_appeal_score"]),
                 float(authority["rawBySet"][str(product["set_id"])]), budget,
             )
 
@@ -266,7 +359,7 @@ def run(output: Path, *, quantity_batch_size: int = 0,
                 )
                 preparation_seconds += time.perf_counter() - started
                 prepared_batch[quantity] = PreparedCanonicalCandidate(
-                    pid, quantity, prepared, float(product["collector_appeal_score"]),
+                    pid, quantity, prepared, float(source["collector_appeal_score"]),
                     float(authority["rawBySet"][str(product["set_id"])]), budget,
                 )
             return prepared_batch
@@ -277,10 +370,11 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             current_quantity=int(source["quantity"]), current_rank=int(source["budget_rank_v12"]),
             benchmark=benchmark, prepare_quantity=factory,
             source_authority_fingerprint=authority["fingerprint"],
-            expected_source_authority_fingerprint=EXPECTED_AUTHORITY_FINGERPRINT,
+            expected_source_authority_fingerprint=expected_fingerprint,
             prepare_quantities=batch_factory if optimized else None,
             quantity_batch_size=effective_batch_size,
         )
+        _check_published_strategy(engine._candidate(int(source["quantity"])), source, benchmark)
         search_started = time.perf_counter()
         try:
             searched = engine.search()
@@ -292,9 +386,10 @@ def run(output: Path, *, quantity_batch_size: int = 0,
         peak = _memory()
         threshold = searched.get("threshold")
         current_cents = engine.current_price_cents
+        current_rank = engine.current_rank
         if threshold:
             threshold_cents = int(threshold["priceCents"])
-            status = _status(engine.current_rank, current_cents, threshold_cents)
+            status = _status(current_rank, current_cents, threshold_cents)
             gap_dollars = (current_cents - threshold_cents) / 100.0
             gap_percent = (current_cents - threshold_cents) / current_cents
             threshold_quantity = int(threshold["quantity"])
@@ -304,7 +399,7 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             gap_dollars = gap_percent = threshold_quantity = None
         if threshold and budget_cents // threshold_cents != threshold_quantity:
             raise RuntimeError(f"threshold quantity mismatch for {pid}")
-        if engine.current_rank != 1 and threshold_cents is not None and threshold_cents > current_cents:
+        if current_rank != 1 and threshold_cents is not None and threshold_cents > current_cents:
             raise RuntimeError(f"non-leader threshold above market for {pid}")
         cleanup_started = time.perf_counter()
         engine.clear()
@@ -326,8 +421,13 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             "setId": str(product["set_id"]), "productFamily": product.get("product_family"),
             "sourceCalculationRunId": run_id,
             "currentMarketPrice": current_cents / 100.0,
-            "currentBudgetRank": engine.current_rank if 'engine' in locals() else int(source["budget_rank_v12"]),
+            "currentBudgetRank": current_rank,
             "currentOverallRipV12Score": float(source["overall_rip_v12_score"]),
+            "currentFinancialRipV4Score": source.get("financial_rip_v4_score"),
+            "currentCollectorAppealScore": source.get("collector_appeal_score"),
+            "currentChaseAccessibilityRaw": source.get("chase_accessibility_raw"),
+            "currentChanceToRecoverCapital": source.get("chance_to_recover_capital"),
+            "currentActualCommittedCapital": source.get("actual_committed_capital"),
             "bestOpenPrice": threshold_cents / 100.0 if threshold_cents is not None else None,
             "bestOpenPriceCents": threshold_cents, "status": status,
             "priceGapDollars": gap_dollars, "priceGapPercent": gap_percent,
@@ -341,6 +441,9 @@ def run(output: Path, *, quantity_batch_size: int = 0,
             "benchmarkSealedProductId": str(competitor["sealed_product_id"]),
             "benchmarkProductName": product_by_id[str(competitor["sealed_product_id"])].get("product_name"),
             "benchmarkOverallRipV12Score": float(competitor["overall_rip_v12_score"]),
+            "benchmarkFinancialRipV4Score": competitor.get("financial_rip_v4_score"),
+            "benchmarkChanceToRecoverCapital": competitor.get("chance_to_recover_capital"),
+            "benchmarkActualCommittedCapital": competitor.get("actual_committed_capital"),
             "quantitiesConstructed": searched.get("physicalQuantitiesConstructed", []),
             "candidatePriceEvaluations": searched.get("evaluationCount", 0),
             "bracketExpansions": searched.get("bracketExpansions", 0),
@@ -400,7 +503,8 @@ def run(output: Path, *, quantity_batch_size: int = 0,
                                "beforeRssBytes": row["memory"]["before"]["rssBytes"],
                                "peakBoundaryRssBytes": row["memory"]["peakBoundary"]["rssBytes"],
                                "afterCleanupRssBytes": row["memory"]["afterCleanup"]["rssBytes"]})
-        checkpoint = {"status": "running", "completed": index, "total": len(ordered),
+        checkpoint = {"status": "running", "checkpointManifest": manifest,
+                      "completed": index, "total": len(ordered),
                       "optimized": optimized, "quantityBatchSize": quantity_batch_size,
                       "sourceAuthorityFingerprint": authority["fingerprint"], "products": results}
         timings["artifactSerializationSeconds"] += _write_checkpoint(output, checkpoint)
@@ -435,14 +539,14 @@ def run(output: Path, *, quantity_batch_size: int = 0,
                               "originalSeconds": original["searchWallSeconds"],
                               "replaySeconds": replay["searchWallSeconds"]})
 
-    end_snapshot, end_rows, _ = _load_source(client, SOURCE_SNAPSHOT_ID)
+    end_snapshot, end_rows, _ = _load_source(client, source_snapshot_id)
     end_authority = _historical_authority(end_snapshot, end_rows)
-    if end_authority["fingerprint"] != authority["fingerprint"]:
+    if (end_authority["fingerprint"] != authority["fingerprint"]
+        or source_content_fingerprint(end_snapshot, end_rows) != content_fingerprint):
         raise RuntimeError("Bucket 2 source authority changed during execution")
     analysis = _cohort_analysis(results)
     final_memory = _memory()
     total_seconds = time.perf_counter() - total_started
-    measured_phase_total = sum(timings.values())
     timing_payload = dict(timings)
     timing_payload["totalWallSeconds"] = total_seconds
     timing_payload["phasePercentOfWall"] = {
@@ -459,9 +563,12 @@ def run(output: Path, *, quantity_batch_size: int = 0,
     }
     payload = {
         "status": "complete", "methodVersion": BEST_OPEN_PRICE_METHOD_VERSION,
+        "checkpointManifest": manifest,
         "constructionMode": ("independent_single_q_flat_stream_batch_v1" if optimized else "legacy_single_q"),
         "quantityBatchSize": quantity_batch_size,
-        "source": {"snapshotId": SOURCE_SNAPSHOT_ID, "cohortFingerprint": snapshot["cohort_fingerprint"],
+        "source": {"snapshotId": source_snapshot_id, "publishedAt": snapshot["published_at"],
+                   "sourceContentFingerprint": content_fingerprint,
+                   "cohortFingerprint": snapshot["cohort_fingerprint"],
                    "historicalSourceAuthorityFingerprint": authority["fingerprint"],
                    "authorityUnchangedAtCompletion": True, "fullMarketBudget": budget},
         "products": results, "cohortAnalysis": analysis, "timings": timing_payload,
@@ -490,10 +597,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--reference", type=Path)
     parser.add_argument("--only-product-id", action="append")
     parser.add_argument("--skip-determinism", action="store_true")
+    parser.add_argument("--source-snapshot-id", default=SOURCE_SNAPSHOT_ID)
+    parser.add_argument("--expected-source-authority-fingerprint")
     args = parser.parse_args(argv)
-    result = run(args.output, quantity_batch_size=args.quantity_batch_size,
-                 reference_path=args.reference, product_ids=args.only_product_id,
-                 run_determinism=not args.skip_determinism)
+    expected = args.expected_source_authority_fingerprint
+    if args.source_snapshot_id == SOURCE_SNAPSHOT_ID and expected is None:
+        expected = EXPECTED_AUTHORITY_FINGERPRINT
+    result = run(
+        args.output,
+        quantity_batch_size=args.quantity_batch_size,
+        reference_path=args.reference,
+        product_ids=args.only_product_id,
+        run_determinism=not args.skip_determinism,
+        source_snapshot_id=args.source_snapshot_id,
+        expected_source_authority_fingerprint=expected,
+    )
     print(json.dumps({"output": str(args.output), "analysis": result["cohortAnalysis"],
                       "timings": result["timings"], "lru": result["lru"]}, indent=2))
     return 0

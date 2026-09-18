@@ -34,6 +34,7 @@ FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency"
 FEATURE_CARD_COLLECTOR_APPEAL = "card_collector_appeal"
 FEATURE_MARKET_BREADTH = "market_breadth"
 FEATURE_PRODUCT_RIP = "product_rip"
+FEATURE_BEST_OPEN_PRICE = "best_open_price"
 FEATURE_PACK_ECONOMICS = "pack_economics"
 FEATURE_ACQUISITION_MILESTONES = "acquisition_milestones"
 FEATURE_SET_RIP_ANALYTICS = "set_rip_analytics"
@@ -60,6 +61,7 @@ _PLUS_FEATURES = frozenset({
     FEATURE_MARKET_EXPLORER_ADVANCED_RANKING,
     FEATURE_MARKET_BREADTH,
     FEATURE_PRODUCT_RIP,
+    FEATURE_BEST_OPEN_PRICE,
     FEATURE_PACK_ECONOMICS,
     FEATURE_ACQUISITION_MILESTONES,
     FEATURE_SET_RIP_ANALYTICS,
@@ -337,13 +339,32 @@ _PLUS_PRODUCT_RANKING_FIELDS = _BASE_PRODUCT_RANKING_FIELDS | frozenset({
     # at the same Plus tier as Financial RIP/Collector Appeal above; contains
     # no Premium Product Chase field (no `oBudget`, no `ECE`).
     "chaseAccessibility",
+    # Opening Profile Bucket 1 (compact explanatory opening metrics): Average
+    # Return (modeledReturnRatio/modeledReturnPercent), Typical Opening
+    # (medianValue), Covers Cost (chanceToRecoverCost, already above) and Top
+    # 1% Value Share (topOneOutcomeValueShare, sourced ONLY from
+    # financial_rip_v3_payload.distributionDisclosures.jackpotValueShare —
+    # never the card-attribution top1EvShare metric). Budget-strategy rows
+    # additionally carry averageReturn (expected_value / actual committed
+    # capital, never target budget or one-unit price).
+    "modeledReturnRatio", "modeledReturnPercent", "medianValue",
+    "topOneOutcomeValueShare", "averageReturn",
+})
+_BEST_OPEN_PRICE_PRODUCT_RANKING_FIELDS = frozenset({
+    "bestOpenPrice", "bestOpenPriceStatus", "bestOpenPriceGapDollars", "bestOpenPriceGapPercent",
+})
+_BEST_OPEN_PRICE_META_FIELDS = frozenset({
+    "available", "reason", "snapshotId", "methodVersion", "sourceMarketDate", "sourceBudgetSnapshotId",
 })
 
 
 def project_product_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
     plus = has_index_feature_access(plan, FEATURE_PRODUCT_RIP)
+    best_open = has_index_feature_access(plan, FEATURE_BEST_OPEN_PRICE)
     fields = _PLUS_PRODUCT_RANKING_FIELDS if plus else _BASE_PRODUCT_RANKING_FIELDS
-    return {
+    if best_open:
+        fields = fields | _BEST_OPEN_PRICE_PRODUCT_RANKING_FIELDS
+    result = {
         "available": bool(payload.get("available")),
         "reason": payload.get("reason"),
         "selectedBudget": payload.get("selectedBudget"),
@@ -352,6 +373,10 @@ def project_product_rankings_response(payload: Mapping[str, Any], plan: Any) -> 
         "rows": [_pick(row, fields) for row in payload.get("rows", []) if isinstance(row, Mapping)],
         **({"authority": payload.get("authority") or {}} if plus else {}),
     }
+    best_open_meta = payload.get("bestOpenPrice")
+    if best_open and isinstance(best_open_meta, Mapping):
+        result["bestOpenPrice"] = _pick(best_open_meta, _BEST_OPEN_PRICE_META_FIELDS)
+    return result
 
 
 def project_product_family_rankings_response(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:
@@ -617,6 +642,10 @@ def project_sealed_product_detail_response(payload: Mapping[str, Any], plan: Any
     result = _pick(payload, frozenset({"set", "product", "market", "meta"}))
     if has_index_feature_access(plan, FEATURE_PRODUCT_RIP):
         result.update(_pick(payload, frozenset({"rip", "comparisons"})))
+        if isinstance(result.get("rip"), Mapping):
+            result["rip"] = dict(result["rip"])
+            if not has_index_feature_access(plan, FEATURE_BEST_OPEN_PRICE):
+                result["rip"].pop("bestOpenPrice", None)
     return result
 
 
