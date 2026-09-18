@@ -60,6 +60,15 @@ def _set_target(set_id="set-1", rank=1, score=91.2):
     }
 
 
+def _public_set_target(set_id="set-1", rank=1, score=91.2):
+    return {
+        "target_type": "set",
+        "target_id": set_id,
+        "name": "Test Set",
+        "setRipV1": {"rank": rank, "publicScore": score, "tier": "S", "rankable": True},
+    }
+
+
 def test_backend_health_requires_ok_and_build():
     getter = _getter({f"{BASE}/health": _Response(payload={"status": "ok", "build": "abc123"})})
     result = check_backend_health(CTX, base_url=BASE, http_get=getter)
@@ -126,7 +135,9 @@ def test_homepage_rankings_empty_or_unrankable_fails():
 
 
 def test_sets_rankings_lens_nonempty():
-    payload = {"targets": [_set_target()], "meta": {"snapshot": {"marketDate": "2026-09-11"}}}
+    # The live anonymous/Base sets lens exposes the narrow public contract:
+    # publicScore, not the legacy/full-payload score field.
+    payload = {"targets": [_public_set_target()], "meta": {"snapshot": {"marketDate": "2026-09-11"}}}
     getter = _getter({f"{BASE}/explore/rankings/lens/sets?limit=60": _Response(payload=payload)})
     result = check_rankings_lens(CTX, base_url=BASE, lens="sets", http_get=getter)
     assert result.outcome == CheckOutcome.HEALTHY
@@ -144,8 +155,10 @@ def test_eras_rankings_lens_nonempty():
 def test_products_rankings_lens_nonempty():
     payload = {
         "productFamilyRankings": {
-            "booster_box": {"rows": [{"sealedProductId": "p-1", "productName": "Box"}]},
-            "elite_trainer_box": {"rows": []},
+            "families": {
+                "booster_box": {"products": [{"sealedProductId": "p-1", "productName": "Box"}]},
+                "elite_trainer_box": {"products": []},
+            }
         },
         "meta": {},
     }
@@ -159,7 +172,7 @@ def test_each_rankings_lens_fails_when_semantically_empty():
     cases = {
         "sets": {"targets": [], "meta": {}},
         "eras": {"eraSetStrengthV1": {"eras": []}, "meta": {}},
-        "products": {"productFamilyRankings": {"booster_box": {"rows": []}}, "meta": {}},
+        "products": {"productFamilyRankings": {"families": {"booster_box": {"products": []}}}, "meta": {}},
     }
     for lens, payload in cases.items():
         getter = _getter({f"{BASE}/explore/rankings/lens/{lens}?limit=60": _Response(payload=payload)})
@@ -184,10 +197,17 @@ def test_tcg_directory_empty_or_missing_pokemon_fails():
 
 
 def test_representative_set_page_uses_current_public_top_ranked_set():
-    rankings_url = f"{BASE}/explore/rankings/homepage-summary?limit=1"
+    rankings_url = f"{BASE}/explore/rankings/homepage-summary?limit=60"
     page_url = f"{BASE}/tcgs/pokemon/sets/set-1/page"
     getter = _getter({
-        rankings_url: _Response(payload={"targets": [_set_target()], "meta": {}}),
+        rankings_url: _Response(payload={
+            "targets": [
+                {"target_type": "set", "target_id": "set-0", "name": "Unranked", "setRipV1": {"rankable": False}},
+                _set_target("set-2", rank=2, score=88.0),
+                _set_target("set-1", rank=1, score=91.2),
+            ],
+            "meta": {},
+        }),
         page_url: _Response(payload={"summary": {"id": "set-1"}, "top_hits": [{"id": "card-1"}]}),
     })
     result = check_representative_set_page(CTX, base_url=BASE, http_get=getter)
@@ -198,7 +218,7 @@ def test_representative_set_page_uses_current_public_top_ranked_set():
 
 def test_representative_set_page_missing_summary_fails():
     getter = _getter({
-        f"{BASE}/explore/rankings/homepage-summary?limit=1": _Response(payload={"targets": [_set_target()], "meta": {}}),
+        f"{BASE}/explore/rankings/homepage-summary?limit=60": _Response(payload={"targets": [_set_target()], "meta": {}}),
         f"{BASE}/tcgs/pokemon/sets/set-1/page": _Response(payload={"top_hits": []}),
     })
     result = check_representative_set_page(CTX, base_url=BASE, http_get=getter)
