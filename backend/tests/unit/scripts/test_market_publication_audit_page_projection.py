@@ -19,12 +19,10 @@ def test_compact_page_loader_preserves_the_fields_the_canonical_audit_reads(monk
         return {
             "set-1": {
                 "set_id": "set-1",
-                "payload_meta": {"snapshot": {"marketAsOfDate": DATE}},
-                "payload_summary": {"setValue": 123.45},
-                "payload_set_value": 123.45,
-                "title_card_json": {},
-                "market_summary_json": {"setValue": 123.45},
-                "as_of": DATE,
+                "snapshot_market_as_of_date": DATE,
+                "payload_summary_set_value": "123.45",
+                "payload_set_value": "123.45",
+                "market_set_value": "123.45",
                 "updated_at": f"{DATE}T12:00:00Z",
             }
         }
