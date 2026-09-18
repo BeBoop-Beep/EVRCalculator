@@ -283,16 +283,23 @@ def test_publication_gate_unavailable_and_bypass_fail_closed():
 def _generation_client(*, expected=7, completed=7, row_count=7, status="published", validation=True):
     generation_id = "11111111-1111-1111-1111-111111111111"
     return _Client({
-        "pokemon_set_page_snapshot_current_generation": [{"scope": "pokemon", "generation_id": generation_id}],
+        "pokemon_set_page_snapshot_current_generation": [{
+            "scope": "pokemon",
+            "generation_id": generation_id,
+            "activated_at": "2026-09-11T03:55:00Z",
+        }],
         "pokemon_set_page_snapshot_generations": [{
             "id": generation_id,
-            "scope": "pokemon",
             "status": status,
             "expected_set_count": expected,
             "completed_set_count": completed,
             "validation_passed": validation,
+            "validation_json": {"passed": validation},
+            "diagnostics_json": {},
+            "built_at": "2026-09-11T03:50:00Z",
+            "validated_at": "2026-09-11T03:54:00Z",
             "published_at": "2026-09-11T03:54:56Z" if status == "published" else None,
-            "generation_fingerprint": "fp",
+            "created_at": "2026-09-11T03:50:00Z",
         }],
         "pokemon_set_page_snapshot_generation_rows": [
             {"generation_id": generation_id, "set_id": f"set-{i}"} for i in range(row_count)
@@ -304,6 +311,13 @@ def test_set_generation_uses_dynamic_expected_count_not_magic_number():
     result = check_set_page_generation(CTX, client=_generation_client(expected=7, completed=7, row_count=7))
     assert result.outcome == CheckOutcome.HEALTHY
     assert result.observed["expected_set_count"] == 7
+
+
+def test_set_generation_observed_scope_comes_from_current_pointer():
+    result = check_set_page_generation(CTX, client=_generation_client())
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert result.observed["scope"] == "pokemon"
+    assert result.observed["activated_at"] == "2026-09-11T03:55:00Z"
 
 
 def test_set_generation_detects_completion_and_row_count_mismatch():
@@ -324,6 +338,30 @@ class _AuditReport:
 
     def to_dict(self):
         return dict(self.payload)
+
+
+def test_post_scrape_audit_default_uses_resilient_runtime(monkeypatch):
+    calls = []
+
+    def resilient_audit(*, phase):
+        calls.append(phase)
+        return _AuditReport({
+            "market_date": "2026-09-11",
+            "phase": phase,
+            "passed": True,
+            "set_count": 165,
+            "failed_set_count": 0,
+            "failed_sets": [],
+            "failed_by_section": {},
+        })
+
+    monkeypatch.setattr(
+        "backend.scripts.audit_pokemon_market_publication_resilient.run_market_publication_audit",
+        resilient_audit,
+    )
+    result = check_post_scrape_publication_audit(CTX, client=object())
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert calls == ["post-scrape"]
 
 
 def test_post_scrape_audit_healthy_and_failure_are_compact():
