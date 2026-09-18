@@ -481,13 +481,18 @@ def check_post_scrape_publication_audit(
 ) -> CheckResult:
     """Adapt the existing heavy post-scrape publication audit without duplicating it."""
     if audit_runner is None:
-        from backend.scripts.audit_pokemon_market_publication import (
-            PHASE_POST_SCRAPE,
+        from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
+        from backend.scripts.audit_pokemon_market_publication_resilient import (
             run_market_publication_audit,
         )
 
-        audit_runner = lambda resolved_client: run_market_publication_audit(
-            resolved_client, phase=PHASE_POST_SCRAPE
+        # Use the repository's existing read-only resilient audit wrapper. It
+        # preserves the canonical audit rules while replaying transient
+        # Supabase/PostgREST failures (including Cloudflare 521) with a fresh
+        # service-role client. The injected audit_runner contract remains
+        # client-shaped for focused unit tests and alternate authorities.
+        audit_runner = lambda _resolved_client: run_market_publication_audit(
+            phase=PHASE_POST_SCRAPE
         )
     resolved_client = client if client is not None else _default_client()
     report = audit_runner(resolved_client)
