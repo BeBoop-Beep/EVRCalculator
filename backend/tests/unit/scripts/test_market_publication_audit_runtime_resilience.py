@@ -21,7 +21,7 @@ def test_compact_card_loader_avoids_heavy_json_when_meta_has_market_date(monkeyp
             return {
                 "set-1": {
                     "set_id": "set-1",
-                    "payload_meta": {"pricingContract": {"latestMarketDate": DATE}},
+                    "pricing_latest_market_date": DATE,
                     "card_count": 1,
                 }
             }
@@ -48,12 +48,11 @@ def test_compact_card_loader_fetches_heavy_json_only_for_missing_meta_date(monke
         calls.append((columns, list(set_ids), chunk_size))
         assert table == "pokemon_set_cards_snapshot_latest"
         if columns == runtime._CARDS_META_COLUMNS:
-            return {"set-1": {"set_id": "set-1", "payload_meta": {}, "card_count": 1}}
+            return {"set-1": {"set_id": "set-1", "card_count": 1}}
         if columns == runtime._CARDS_HEAVY_COLUMNS:
             return {
                 "set-1": {
                     "set_id": "set-1",
-                    "payload_json": {"meta": {}},
                     "cards_json": [{"id": "c1", "priceUpdatedAt": DATE}],
                     "card_count": 1,
                 }
