@@ -11,6 +11,7 @@ from backend.db.services.pokemon_market_rollout_cohort import (
 )
 from backend.domain.pokemon.market_index import MARKET_INDEX_METHODOLOGY_VERSION
 
+AUTHORITY_SYNC_RPC = "sync_pokemon_market_root_authority_v1"
 CANDIDATE_PREPARATION_RPC = "prepare_pokemon_market_candidate_rollout_set_values_v1"
 # Deliberately NOT queried on the current-day candidate/materialization path:
 # this valuation-backed view scans get_pokemon_market_root_set_card_prices_latest_v1(NULL)
