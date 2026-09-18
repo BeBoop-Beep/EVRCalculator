@@ -34,6 +34,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from backend.db.services.data_service_health import is_transient_data_service_error
+
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
@@ -1249,12 +1251,33 @@ def _load_rows(
     by_set: Dict[str, Dict[str, Any]] = {}
     if not set_ids:
         return by_set
-    for start in range(0, len(set_ids), chunk_size):
-        query = client.table(table).select(columns).in_("set_id", list(set_ids[start:start + chunk_size]))
+
+    def _read_chunk(chunk_ids: Sequence[str]) -> List[Dict[str, Any]]:
+        query = client.table(table).select(columns).in_("set_id", list(chunk_ids))
         for key, value in filters.items():
             query = query.eq(key, value)
-        result = query.execute()
-        for row in list((result.data if result else []) or []):
+        try:
+            result = query.execute()
+            return list((result.data if result else []) or [])
+        except Exception as exc:
+            if not is_transient_data_service_error(exc) or len(chunk_ids) <= 1:
+                raise
+            midpoint = max(1, len(chunk_ids) // 2)
+            left = list(chunk_ids[:midpoint])
+            right = list(chunk_ids[midpoint:])
+            logger.warning(
+                "%s transient read failure table=%s chunk_size=%s; retrying as %s+%s",
+                AUDIT_TAG,
+                table,
+                len(chunk_ids),
+                len(left),
+                len(right),
+            )
+            return _read_chunk(left) + _read_chunk(right)
+
+    for start in range(0, len(set_ids), chunk_size):
+        chunk_ids = list(set_ids[start:start + chunk_size])
+        for row in _read_chunk(chunk_ids):
             set_id = _to_text(row.get("set_id"))
             if set_id and set_id not in by_set:
                 by_set[set_id] = row
