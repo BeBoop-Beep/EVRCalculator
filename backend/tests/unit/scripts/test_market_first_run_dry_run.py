@@ -56,3 +56,99 @@ def test_commit_candidate_reads_authoritative_persisted_index_when_not_injected(
         def table(self, _name): return Query()
     builder.build(client=Client(), market_date=day, commit=False)
     assert reads == [True]
+
+
+
+def test_post_cutover_dashboard_read_omits_heavy_set_value_history_blob(monkeypatch):
+    day = "2026-09-18"
+    sets = [{"id": "set-a", "canonical_key": "a", "name": "Alpha", "market_scope": "standard"}]
+    canonical = {
+        "set-a": [
+            {"set_id": "set-a", "snapshot_date": "2026-09-17", "set_value": 100},
+            {"set_id": "set-a", "snapshot_date": day, "set_value": 101},
+        ]
+    }
+    selected = []
+
+    monkeypatch.setattr(builder, "_load_sets", lambda *_a, **_k: sets)
+    monkeypatch.setattr(builder, "_load_canonical_histories", lambda *_a, **_k: canonical)
+    monkeypatch.setattr(builder, "_attach_initial_selected_set_movers", lambda *_a, **_k: None)
+
+    class Query:
+        def select(self, fields):
+            selected.append(fields)
+            return self
+        def eq(self, *_a):
+            return self
+        def in_(self, *_a):
+            return self
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "set_id": "set-a",
+                "window_key": "365d",
+                "latest_market_date": day,
+                "cardsMarket": {},
+            }])
+
+    class Client:
+        def table(self, name):
+            assert name == "pokemon_set_market_dashboard_snapshot_latest"
+            return Query()
+
+    builder.build(
+        client=Client(),
+        market_date=day,
+        commit=False,
+        market_overview={},
+    )
+
+    assert len(selected) == 1
+    assert "cardsMarket:payload_json->cardsMarket" in selected[0]
+    assert "set_value_histories_json" not in selected[0]
+
+
+def test_pre_cutover_dashboard_read_preserves_legacy_set_value_history_blob(monkeypatch):
+    day = "2026-08-17"
+    sets = [{"id": "set-a", "canonical_key": "a", "name": "Alpha"}]
+    canonical = {
+        "set-a": [
+            {"set_id": "set-a", "snapshot_date": "2026-08-16", "set_value": 100},
+            {"set_id": "set-a", "snapshot_date": day, "set_value": 101},
+        ]
+    }
+    selected = []
+
+    monkeypatch.setattr(builder, "_load_sets", lambda *_a, **_k: sets)
+    monkeypatch.setattr(builder, "_load_canonical_histories", lambda *_a, **_k: canonical)
+    monkeypatch.setattr(builder, "_attach_initial_selected_set_movers", lambda *_a, **_k: None)
+
+    class Query:
+        def select(self, fields):
+            selected.append(fields)
+            return self
+        def eq(self, *_a):
+            return self
+        def in_(self, *_a):
+            return self
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "set_id": "set-a",
+                "window_key": "365d",
+                "latest_market_date": day,
+                "set_value_histories_json": {"standard": []},
+            }])
+
+    class Client:
+        def table(self, name):
+            assert name == "pokemon_set_market_dashboard_snapshot_latest"
+            return Query()
+
+    builder.build(
+        client=Client(),
+        market_date=day,
+        commit=False,
+        market_overview={},
+    )
+
+    assert len(selected) == 1
+    assert "set_value_histories_json" in selected[0]
