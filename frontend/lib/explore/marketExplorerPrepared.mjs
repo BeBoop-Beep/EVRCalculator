@@ -18,7 +18,7 @@ export function buildPreparedSeries(rows = [], history = []) {
     const end = row.comparison_as_of;
     const changes = {
       "7D": change(row.return_7d_pct, startFor(end, 7), end), "30D": change(row.return_30d_pct, startFor(end, 30), end),
-      "90D": change(row.return_90d_pct, startFor(end, 90), end), "1Y": change(row.return_1y_pct, startFor(end, 365), end),
+      "90D": change(row.return_90d_pct, startFor(end, 90), end), "3M": change(row.return_90d_pct, startFor(end, 90), end), "1Y": change(row.return_1y_pct, startFor(end, 365), end),
       SinceTracking: change(null),
     };
     const color = resolveSeriesIdentityColor(row.market_key, row.market_key);
