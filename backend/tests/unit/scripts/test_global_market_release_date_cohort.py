@@ -5,22 +5,51 @@ from backend.scripts.build_pokemon_explore_set_value_snapshot import _load_sets
 
 
 class Query:
-    def __init__(self, rows): self.rows = rows
-    def select(self, *_a): return self
-    def in_(self, *_a): return self
-    def execute(self): return SimpleNamespace(data=self.rows)
+    def __init__(self, rows):
+        self.rows = list(rows)
+    def select(self, *_a):
+        return self
+    def in_(self, column, values):
+        allowed = set(values)
+        self.rows = [row for row in self.rows if row.get(column) in allowed]
+        return self
+    def eq(self, column, value):
+        self.rows = [row for row in self.rows if row.get(column) == value]
+        return self
+    def order(self, column, desc=False):
+        self.rows = sorted(
+            self.rows,
+            key=lambda row: (row.get(column) is None, row.get(column)),
+            reverse=desc,
+        )
+        return self
+    def execute(self):
+        return SimpleNamespace(data=self.rows)
 
 
 class Client:
     def __init__(self):
-        self.sets = [{"id": "current", "canonical_key": "current", "name": "Current", "era_id": "era",
-                      "release_date": "2026-08-17", "supports_opening_simulation": True},
-                     {"id": "future", "canonical_key": "future", "name": "Future", "era_id": "era",
-                      "release_date": "2026-08-18", "supports_opening_simulation": True},
-                     {"id": "unknown", "canonical_key": "unknown", "name": "Unknown", "era_id": "era",
-                      "release_date": None, "supports_opening_simulation": True}]
+        self.legacy_rows = [
+            {"set_id": "current", "canonical_key": "current", "set_name": "Current", "era_name": "Scarlet & Violet",
+             "release_date": "2026-08-17", "market_scope": "standard", "canonical_market_date": "2026-08-17",
+             "market_publication_ready": True},
+            {"set_id": "unknown", "canonical_key": "unknown", "set_name": "Unknown", "era_name": "Scarlet & Violet",
+             "release_date": None, "market_scope": "standard", "canonical_market_date": "2026-08-17",
+             "market_publication_ready": True},
+            {"set_id": "current", "canonical_key": "current", "set_name": "Current", "era_name": "Scarlet & Violet",
+             "release_date": "2026-08-17", "market_scope": "standard", "canonical_market_date": "2026-08-18",
+             "market_publication_ready": True},
+            {"set_id": "future", "canonical_key": "future", "set_name": "Future", "era_name": "Scarlet & Violet",
+             "release_date": "2026-08-18", "market_scope": "standard", "canonical_market_date": "2026-08-18",
+             "market_publication_ready": True},
+            {"set_id": "unknown", "canonical_key": "unknown", "set_name": "Unknown", "era_name": "Scarlet & Violet",
+             "release_date": None, "market_scope": "standard", "canonical_market_date": "2026-08-18",
+             "market_publication_ready": True},
+        ]
     def table(self, name):
-        return Query(self.sets if name == "sets" else [{"id": "era", "name": "Scarlet & Violet"}])
+        if name == builder.MARKET_READY_VIEW:
+            return Query(self.legacy_rows)
+        return Query([])
 
 
 def test_future_supported_public_set_enters_only_on_release_date():
