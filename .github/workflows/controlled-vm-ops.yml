@@ -30,7 +30,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set)"
+              r"vm-op:\s*(status|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -44,7 +44,7 @@ jobs:
           set_id = set_id or ""
           request_id = request_id or ""
 
-          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set"} and not market_date:
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
@@ -170,6 +170,116 @@ jobs:
                 --set-id "$VM_SET_ID" \
                 --commit \
                 --market-date "$VM_MARKET_DATE"
+              ;;
+
+            repair-cards-market-errors)
+              cd "$REPO"
+              IDS_FILE="/tmp/evr-cards-market-error-ids.txt"
+              RESULTS_FILE="/tmp/evr-cards-market-repair-results.txt"
+              : > "$RESULTS_FILE"
+
+              "$PY" - <<'PY' > "$IDS_FILE"
+from backend.db.clients.supabase_client import create_service_role_client
+
+client = create_service_role_client()
+rows = list((
+    client.table("pokemon_set_market_dashboard_snapshot_latest")
+    .select("set_id,latest_market_date,payload_json")
+    .eq("window_key", "365d")
+    .gte("latest_market_date", "2026-09-18")
+    .execute()
+).data or [])
+
+for row in rows:
+    cards = (row.get("payload_json") or {}).get("cardsMarket") or {}
+    if cards.get("reason") == "error":
+        print(row["set_id"])
+PY
+
+              TOTAL="$(grep -c . "$IDS_FILE" || true)"
+              echo "cards-market error cohort size=$TOTAL"
+
+              SUCCESS=0
+              FAILED=0
+              INDEX=0
+
+              while IFS= read -r SET_ID; do
+                [ -n "$SET_ID" ] || continue
+                INDEX=$((INDEX + 1))
+                echo "===== cards-market repair $INDEX/$TOTAL set_id=$SET_ID ====="
+
+                set +e
+                "$PY" backend/scripts/build_pokemon_market_dashboard_snapshots.py \
+                  --set-id "$SET_ID" \
+                  --commit \
+                  --market-date "$VM_MARKET_DATE"
+                CMD_STATUS=$?
+                set -e
+
+                VERIFY="$("$PY" - "$SET_ID" <<'PY'
+import sys
+from backend.db.clients.supabase_client import create_service_role_client
+
+set_id = sys.argv[1]
+client = create_service_role_client()
+rows = list((
+    client.table("pokemon_set_market_dashboard_snapshot_latest")
+    .select("payload_json,latest_market_date")
+    .eq("set_id", set_id)
+    .eq("window_key", "365d")
+    .limit(1)
+    .execute()
+).data or [])
+
+row = rows[0] if rows else {}
+cards = (row.get("payload_json") or {}).get("cardsMarket") or {}
+print("ok" if cards.get("available") is True and isinstance(cards.get("marketIndex"), dict) else "failed")
+PY
+)"
+
+                if [ "$CMD_STATUS" -eq 0 ] && [ "$VERIFY" = "ok" ]; then
+                  SUCCESS=$((SUCCESS + 1))
+                  echo "$SET_ID ok" >> "$RESULTS_FILE"
+                else
+                  FAILED=$((FAILED + 1))
+                  echo "$SET_ID failed cmd_status=$CMD_STATUS verify=$VERIFY" >> "$RESULTS_FILE"
+                fi
+
+                sleep 1
+              done < "$IDS_FILE"
+
+              echo "===== cards-market repair summary ====="
+              echo "total=$TOTAL success=$SUCCESS failed=$FAILED"
+              cat "$RESULTS_FILE"
+
+              "$PY" - <<'PY'
+from backend.db.clients.supabase_client import create_service_role_client
+
+client = create_service_role_client()
+rows = list((
+    client.table("pokemon_set_market_dashboard_snapshot_latest")
+    .select("set_id,latest_market_date,payload_json")
+    .eq("window_key", "365d")
+    .gte("latest_market_date", "2026-09-18")
+    .execute()
+).data or [])
+
+errors = []
+available = 0
+for row in rows:
+    cards = (row.get("payload_json") or {}).get("cardsMarket") or {}
+    if cards.get("available") is True and isinstance(cards.get("marketIndex"), dict):
+        available += 1
+    elif cards.get("reason") == "error":
+        errors.append(row["set_id"])
+
+print({
+    "currentRows": len(rows),
+    "cardsMarketAvailable": available,
+    "remainingErrors": len(errors),
+    "remainingErrorSetIds": errors,
+})
+PY
               ;;
 
             *)
