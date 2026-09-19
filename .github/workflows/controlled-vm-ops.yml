@@ -30,7 +30,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main|pytest-cards-market|set-market-snapshot|explorer-prewarm-one|market-dashboard-set)"
+              r"vm-op:\s*(status|sync-main|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -108,6 +108,24 @@ jobs:
               SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
               SUPABASE_ANON_KEY="test-anon-key" \
               PYTHONPATH="/tmp/evr-pytest-deps:$REPO" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_set_cards_market_analytics_service.py \
+                -q
+              ;;
+
+            pytest-cards-market-pr239)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-vmops-pr239"
+              git fetch origin fix/cards-market-adaptive-timeout-split-20260919
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" dc2b9f68d72014c7ab1c3d46372eef53c2fc26c3
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
               "$PY" -m pytest \
                 backend/tests/unit/db/services/test_pokemon_set_cards_market_analytics_service.py \
                 -q
