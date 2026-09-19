@@ -9,7 +9,9 @@ import numpy as np
 
 from backend.calculations.evr.financial_rip_v3 import PreparedFinancialRipDistribution
 from backend.calculations.evr.financial_rip_v4 import build_financial_rip_v4
-from backend.calculations.evr.financial_rip_v4_config import FINANCIAL_RIP_V4_WEIGHTS
+from backend.calculations.evr.financial_rip_v4_config import (
+    FINANCIAL_RIP_V4_VERSION, FINANCIAL_RIP_V4_WEIGHTS,
+)
 
 CANDIDATE_ID = "FINANCIAL_RIP_V5_CANDIDATE"
 COMPONENT_KEY = "shortfall_resilience"
@@ -50,15 +52,42 @@ def score_financial_rip_v5_candidate(
     min_simulation_count: int = 10000,
 ) -> dict[str, Any]:
     """Score from outcomes only; the V4 payload alone is insufficient."""
+    return score_financial_rip_v5_candidate_with_control(
+        values, pack_cost, chase_metrics=chase_metrics, session_data=session_data,
+        min_simulation_count=min_simulation_count,
+    )[1]
+
+
+def score_financial_rip_v5_candidate_with_control(
+    values: Sequence[float] | PreparedFinancialRipDistribution,
+    pack_cost: float,
+    *,
+    chase_metrics: Mapping[str, Any] | None = None,
+    session_data: Mapping[str, Any] | None = None,
+    min_simulation_count: int = 10000,
+    control_payload: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Research companion returning the unchanged V4 control and V5 payload."""
     prepared = values if isinstance(values, PreparedFinancialRipDistribution) else PreparedFinancialRipDistribution.prepare(values)
-    control = build_financial_rip_v4(prepared, pack_cost, chase_metrics=chase_metrics,
-                                     session_data=session_data, min_simulation_count=min_simulation_count)
+    control = (dict(control_payload) if control_payload is not None else
+               build_financial_rip_v4(prepared, pack_cost, chase_metrics=chase_metrics,
+                                      session_data=session_data,
+                                      min_simulation_count=min_simulation_count))
+    if control_payload is not None and (
+        control.get("scoreVersion") != FINANCIAL_RIP_V4_VERSION
+        or control.get("packCost") != round(float(pack_cost), 4)
+    ):
+        raise ValueError(
+            "supplied V4 control does not match candidate cost and version: "
+            f"version={control.get('scoreVersion')!r}, cost={control.get('packCost')!r}, "
+            f"expectedCost={round(float(pack_cost), 4)!r}"
+        )
     result = {**control, "scoreVersion": CANDIDATE_ID, "configVersion": CANDIDATE_ID,
               "researchOnly": True}
     if control["status"] != "ready":
-        return result
+        return control, result
     if prepared.minimum_base + prepared.value_offset < 0:
-        return {"scoreVersion": CANDIDATE_ID, "researchOnly": True,
+        return control, {"scoreVersion": CANDIDATE_ID, "researchOnly": True,
                 "status": "unavailable", "statusReason": "negative_outcome_value",
                 "rankable": False, "score": None}
     sr = shortfall_resilience_prepared(prepared, float(pack_cost))
@@ -75,7 +104,7 @@ def score_financial_rip_v5_candidate(
     result["score"] = round(sum(components[key]["score"] * weight for key, weight in WEIGHTS.items()), 4)
     result["audit"] = {"candidateId": CANDIDATE_ID, "weights": dict(WEIGHTS),
                        "sourceControlVersion": control["scoreVersion"]}
-    return result
+    return control, result
 
 
 def project_financial_rip_v5_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:

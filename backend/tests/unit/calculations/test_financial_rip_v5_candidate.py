@@ -5,6 +5,7 @@ from backend.calculations.evr.financial_rip_v3 import PreparedFinancialRipDistri
 from backend.calculations.evr.financial_rip_v4 import build_financial_rip_v4
 from backend.calculations.evr.financial_rip_v5_candidate import (
     WEIGHTS, project_financial_rip_v5_from_payload, score_financial_rip_v5_candidate,
+    score_financial_rip_v5_candidate_with_control,
     shortfall_resilience_direct, shortfall_resilience_prepared,
 )
 
@@ -33,6 +34,15 @@ def test_v4_isolation_five_components_and_reconstruction():
                                             for key, weight in WEIGHTS.items()), 4)
     assert "shortfall_resilience" in candidate["components"]
     assert "loss_resilience" not in candidate["components"]
+
+
+@pytest.mark.parametrize("cost", [.25, 1, 2.75, 10])
+def test_companion_returns_exact_frozen_v4_and_v5_payloads(cost):
+    values = np.random.default_rng(621).choice([0, .2, .6, 1, 3, 15], 10001)
+    prepared = PreparedFinancialRipDistribution.prepare(values)
+    control, candidate = score_financial_rip_v5_candidate_with_control(prepared, cost)
+    assert control == build_financial_rip_v4(prepared, cost)
+    assert candidate == score_financial_rip_v5_candidate(prepared, cost)
 
 
 @pytest.mark.parametrize("win_probability", [.3, .5, .7, .9])

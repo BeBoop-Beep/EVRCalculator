@@ -64,13 +64,40 @@ class _RssSampler:
         try:
             import psutil
             process = psutil.Process()
+            read_rss = lambda: int(process.memory_info().rss)
         except (ImportError, OSError):
-            return
+            try:
+                import ctypes
+                from ctypes import wintypes
+
+                class Counters(ctypes.Structure):
+                    _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                                ("PeakWorkingSetSize", ctypes.c_size_t),
+                                ("WorkingSetSize", ctypes.c_size_t),
+                                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                                ("PagefileUsage", ctypes.c_size_t),
+                                ("PeakPagefileUsage", ctypes.c_size_t)]
+
+                def read_rss() -> int:
+                    value = Counters()
+                    value.cb = ctypes.sizeof(value)
+                    ctypes.windll.kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+                    ctypes.windll.psapi.GetProcessMemoryInfo.argtypes = [
+                        ctypes.c_void_p, ctypes.POINTER(Counters), wintypes.DWORD]
+                    handle = ctypes.windll.kernel32.GetCurrentProcess()
+                    if not ctypes.windll.psapi.GetProcessMemoryInfo(handle, ctypes.byref(value), value.cb):
+                        raise OSError("GetProcessMemoryInfo failed")
+                    return int(value.PeakWorkingSetSize)
+            except (ImportError, AttributeError, OSError):
+                return
 
         def sample() -> None:
             while not self._stop.wait(0.25):
                 try:
-                    rss = int(process.memory_info().rss)
+                    rss = read_rss()
                 except OSError:
                     return
                 self.peak_rss_bytes = rss if self.peak_rss_bytes is None else max(
@@ -94,7 +121,7 @@ def _threshold_cents(row: dict[str, Any], axis: str) -> int | None:
     return int(value) if value is not None else None
 
 
-def _validate(result: dict[str, Any]) -> dict[str, Any]:
+def _validate(result: dict[str, Any], *, maximum_resident: int = 1) -> dict[str, Any]:
     products = list(result.get("products") or [])
     by_id = {str(row["sealedProductId"]): row for row in products}
     if set(by_id) != set(FROZEN_THRESHOLDS):
@@ -168,9 +195,9 @@ def _validate(result: dict[str, Any]) -> dict[str, Any]:
     if not all_matched:
         failures = [row for row in rows if not row["matchedFrozenThresholds"]]
         raise RuntimeError(f"fused threshold parity failed: {failures}")
-    if max_resident_quantities > 1:
+    if max_resident_quantities > maximum_resident:
         raise RuntimeError(
-            f"fused streaming retained {max_resident_quantities} shared quantities; expected <= 1"
+            f"fused streaming retained {max_resident_quantities} shared quantities; expected <= {maximum_resident}"
         )
     if any(row["scoreCacheEvictions"] != 0 for row in rows):
         raise RuntimeError("fused search unexpectedly reported score-cache evictions")
@@ -199,6 +226,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=EXPECTED_AUTHORITY_FINGERPRINT,
     )
     parser.add_argument("--max-quantity-to-construct", type=int, default=4096)
+    parser.add_argument("--enable-quantity-prefetch", action="store_true")
     args = parser.parse_args(argv)
 
     # Keep the validated Phase-10 cohort orchestration/source guards exactly as
@@ -215,12 +243,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             expected_source_authority_fingerprint=args.expected_source_authority_fingerprint,
             product_ids=list(FROZEN_THRESHOLDS),
             max_quantity_to_construct=args.max_quantity_to_construct,
+            enable_quantity_prefetch=args.enable_quantity_prefetch,
         )
     finally:
         wall_seconds = time.perf_counter() - started
         sampler.stop()
 
-    validation = _validate(result)
+    validation = _validate(result, maximum_resident=8 if args.enable_quantity_prefetch else 1)
     payload = {
         "phase": "BEST_OPEN_PRICE_V2_PHASE10B_FUSED_STREAMING",
         "readOnly": True,

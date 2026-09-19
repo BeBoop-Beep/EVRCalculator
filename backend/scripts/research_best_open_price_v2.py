@@ -10,7 +10,7 @@ from __future__ import annotations
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -190,6 +190,9 @@ def run(
     expected_source_authority_fingerprint: str,
     product_ids: Optional[Sequence[str]] = None,
     max_quantity_to_construct: int = 4096,
+    skip_product_ids: Optional[set[str]] = None,
+    checkpoint_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    enable_quantity_prefetch: bool = False,
 ) -> Dict[str, Any]:
     """Per-cohort V2 engine entry point.
 
@@ -234,6 +237,8 @@ def run(
     rows_out = []
     for source in ordered:
         pid = str(source["sealed_product_id"])
+        if skip_product_ids and pid in skip_product_ids:
+            continue
         product = product_by_id[pid]
         rip_competitor = _competitor(source, source_rows)
         rip_benchmark = _comparator_row(rip_competitor, budget)
@@ -317,12 +322,23 @@ def run(
             source_authority_fingerprint=authority["fingerprint"],
             expected_source_authority_fingerprint=expected_source_authority_fingerprint,
             max_quantity_to_construct=max_quantity_to_construct,
+            **({"enable_quantity_prefetch": True} if enable_quantity_prefetch else {}),
         )
+        if enable_quantity_prefetch:
+            from backend.calculations.evr.sealed_product_distribution import single_q_parity_batch_width
+            dual.quantity_batch_size = single_q_parity_batch_width(
+                len(base), requested_width=8,
+                maximum_quantity=max_quantity_to_construct,
+            )
+            dual.rng_outcome_count = len(base)
         result = dual.search()
-        rows_out.append(build_v2_row(
+        row = build_v2_row(
             result, source_row=source, rip_benchmark=rip_benchmark, financial_benchmark=financial_benchmark,
             current_price_cents=int(round(float(source["product_market_price"]) * 100)),
-        ))
+        )
+        rows_out.append(row)
+        if checkpoint_callback is not None:
+            checkpoint_callback(row)
 
     attempted = len(rows_out)
     rip_resolved = sum(1 for r in rows_out if r["ripResolved"])
