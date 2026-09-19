@@ -306,19 +306,16 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
 
     dashboards = []
     post_cutover = str(market_date)[:10] >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE
-    dashboard_fields = (
-        "set_id,window_key,latest_market_date,updated_at,"
-        "cardsMarket:payload_json->cardsMarket"
-        if post_cutover
-        else
-        "set_id,window_key,set_value_histories_json,latest_market_date,updated_at,"
-        "cardsMarket:payload_json->cardsMarket"
-    )
-    for offset in range(0, len(set_ids), 20):
-        result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
-            .select(dashboard_fields)
-            .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
-        dashboards.extend(result.data or [])
+    if not post_cutover:
+        dashboard_fields = (
+            "set_id,window_key,set_value_histories_json,latest_market_date,updated_at,"
+            "cardsMarket:payload_json->cardsMarket"
+        )
+        for offset in range(0, len(set_ids), 20):
+            result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
+                .select(dashboard_fields)
+                .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
+            dashboards.extend(result.data or [])
 
     histories = _load_canonical_histories(client, set_ids, through_date=market_date)
 
