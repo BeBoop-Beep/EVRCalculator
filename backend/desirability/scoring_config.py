@@ -554,6 +554,47 @@ def overall_rip_v12_required_chase_accessibility_version() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Overall RIP V14 - 86% Financial V5 + 4% Chase Accessibility + 10% Collector V5
+# ---------------------------------------------------------------------------
+# REGISTERED, NOT CANONICAL. V14 is a controlled substitution of Financial V4 by
+# Financial V5 (Shortfall Resilience) in the V12 formula: 86/4/10, Chase
+# Accessibility V1 and Collector Appeal V5 are unchanged. V12 and V13 keep their
+# meanings. Nothing below changes ``CANONICAL_*``; activation is the separate,
+# explicitly authorised cutover step and must edit those switches in ONE place.
+# (V13 = Financial V4 + Chase V1 + Collector V7, superseded; never reused.)
+from backend.calculations.evr.financial_rip_v5_config import (  # noqa: E402
+    FINANCIAL_RIP_V5_VERSION as FINANCIAL_RIP_V5_VERSION,
+    FINANCIAL_RIP_V5_WEIGHTS as FINANCIAL_RIP_V5_WEIGHTS,
+)
+
+OVERALL_RIP_V14_VERSION = (
+    "overall_rip_v14_86_financial_v5_04_chase_accessibility_v1_10_collector_appeal_v5"
+)
+OVERALL_RIP_V14_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V12_WEIGHTS)
+OVERALL_RIP_V14_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V14_WEIGHTS["financial_rip"] * weight
+        for component, weight in FINANCIAL_RIP_V5_WEIGHTS.items()
+    },
+    "chase_accessibility": OVERALL_RIP_V14_WEIGHTS["chase_accessibility"],
+    "collector_appeal": OVERALL_RIP_V14_WEIGHTS["collector_appeal"],
+}
+OVERALL_RIP_V14_REQUIRED_FINANCIAL_VERSION = FINANCIAL_RIP_V5_VERSION
+assert OVERALL_RIP_V14_WEIGHTS == {
+    "financial_rip": 0.86, "chase_accessibility": 0.04, "collector_appeal": 0.10,
+}, "Overall RIP V14 must keep the approved 86/4/10 weights"
+
+
+def overall_rip_v14_required_collector_appeal_version() -> str:
+    """Collector Appeal V5 - the V14 cutover deliberately does NOT adopt V7."""
+    return overall_rip_v12_required_collector_appeal_version()
+
+
+def overall_rip_v14_required_chase_accessibility_version() -> str:
+    return overall_rip_v12_required_chase_accessibility_version()
+
+
+# ---------------------------------------------------------------------------
 # Overall RIP sensitivity weights (RESEARCH ONLY - never production)
 # ---------------------------------------------------------------------------
 # The Collector Appeal shares the read-only validation tool reports against the
