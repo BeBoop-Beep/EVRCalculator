@@ -1,6 +1,6 @@
 {
-  "operation": "status",
+  "operation": "pytest-cards-market-pr239",
   "market_date": "",
   "set_id": "",
-  "request_id": "bootstrap-002"
+  "request_id": "pr239-validation-001"
 }
