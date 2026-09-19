@@ -30,7 +30,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set)"
+              r"vm-op:\s*(status|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -97,6 +97,24 @@ jobs:
                 exit 3
               fi
               git fetch origin main
+              git switch --detach origin/main
+              git status --short
+              git log -1 --oneline
+              ;;
+
+            sync-main-preserve-payload-debug)
+              cd "$REPO"
+              git fetch origin main
+              DIRTY_PATHS="$(git status --porcelain | sed -E 's/^.. //')"
+              if [ -n "$DIRTY_PATHS" ] && [ "$DIRTY_PATHS" != "payload_debug.json" ]; then
+                echo "Refusing safe sync: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+              if [ -n "$DIRTY_PATHS" ] && ! git diff --quiet HEAD..origin/main -- payload_debug.json; then
+                echo "Refusing safe sync: origin/main changes payload_debug.json."
+                exit 3
+              fi
               git switch --detach origin/main
               git status --short
               git log -1 --oneline
