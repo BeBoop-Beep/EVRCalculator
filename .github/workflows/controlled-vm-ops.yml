@@ -11,62 +11,56 @@ permissions:
   contents: read
 
 concurrency:
-  group: index-production-vm-ops
+  group: index-production-vm-ops-v2
   cancel-in-progress: false
 
 jobs:
   vm-ops:
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
     timeout-minutes: 120
+    env:
+      VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
     steps:
-      - name: Checkout control request
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
       - name: Validate request
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, re, sys
+          import os, re
 
-          path = ".vm-ops/request.json"
-          with open(path, "r", encoding="utf-8") as handle:
-              request = json.load(handle)
+          message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
+          match = re.fullmatch(
+              r"vm-op:\s*(status|sync-main|pytest-cards-market|set-market-snapshot|explorer-prewarm-one|market-dashboard-set)"
+              r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
+              r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
+              r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
+              message,
+          )
+          if not match:
+              raise SystemExit(f"invalid controlled VM request message: {message!r}")
 
-          allowed = {
-              "status",
-              "sync-main",
-              "pytest-cards-market",
-              "set-market-snapshot",
-              "explorer-prewarm-one",
-              "market-dashboard-set",
-          }
-
-          op = str(request.get("operation") or "")
-          if op not in allowed:
-              raise SystemExit(f"unsupported operation: {op!r}")
-
-          market_date = str(request.get("market_date") or "")
-          set_id = str(request.get("set_id") or "")
-
-          if market_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", market_date):
-              raise SystemExit("market_date must be YYYY-MM-DD")
-          if set_id and not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", set_id):
-              raise SystemExit("set_id contains unsupported characters")
+          op, market_date, set_id, request_id = match.groups()
+          market_date = market_date or ""
+          set_id = set_id or ""
+          request_id = request_id or ""
 
           if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
 
-          env_path = os.environ["GITHUB_ENV"]
-          with open(env_path, "a", encoding="utf-8") as env:
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write(f"VM_OPERATION={op}\n")
               env.write(f"VM_MARKET_DATE={market_date}\n")
               env.write(f"VM_SET_ID={set_id}\n")
-          print(json.dumps({"operation": op, "market_date": market_date, "set_id": set_id}, sort_keys=True))
+              env.write(f"VM_REQUEST_ID={request_id}\n")
+
+          print({
+              "operation": op,
+              "market_date": market_date,
+              "set_id": set_id,
+              "request_id": request_id,
+          })
           PY
 
       - name: Execute approved operation
@@ -83,11 +77,14 @@ jobs:
           case "$VM_OPERATION" in
             status)
               cd "$REPO"
+              echo "== request =="
+              echo "request_id=$VM_REQUEST_ID"
               echo "== git =="
               git status --short
               git log -1 --oneline
               echo "== host =="
-              uname -a
+              hostname
+              uname -m
               free -h
               df -h /
               ;;
