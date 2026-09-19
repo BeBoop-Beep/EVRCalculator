@@ -10,6 +10,7 @@ COMPARISON_RPC = "get_pokemon_market_explorer_prepared_comparison_v1"
 HISTORY_RPC = "get_pokemon_market_explorer_prepared_history_v1"
 SCREEN_RPC = "get_pokemon_market_explorer_prepared_screen_v1"
 CONTEXT_RPC = "get_pokemon_market_explorer_set_context_ranking_v1"
+CONSTITUENTS_RPC = "get_pokemon_market_explorer_prepared_constituents_v2"
 MAX_MARKETS = 25
 DIRECTORY_CACHE_TTL_SECONDS = 30.0
 _directory_cache_lock = Lock()
@@ -68,4 +69,14 @@ def read_prepared_screen(client: Any, screen_key: str, asset: str | None, limit:
 
 def read_set_context_ranking(client: Any, set_id: str, ranking: str, timeframe: str, limit: int, as_of: str | None) -> dict[str, Any]:
     data = client.rpc(CONTEXT_RPC, {"p_set_id": set_id, "p_ranking": ranking, "p_timeframe": timeframe, "p_limit": limit, "p_as_of": as_of}).execute().data
+    return dict(data or {})
+
+
+def read_prepared_constituents(client: Any, market_key: str, generation_id: str, after_rank: int, limit: int) -> dict[str, Any]:
+    if not market_key or not generation_id or after_rank < 0 or not 1 <= limit <= 100:
+        raise ValueError("Invalid prepared constituent page request")
+    data = client.rpc(CONSTITUENTS_RPC, {
+        "p_market_key": market_key, "p_generation_id": generation_id,
+        "p_after_rank": after_rank, "p_limit": limit,
+    }).execute().data
     return dict(data or {})

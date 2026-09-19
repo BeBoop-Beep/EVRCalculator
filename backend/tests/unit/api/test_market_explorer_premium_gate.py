@@ -98,6 +98,14 @@ def test_full_prepared_snapshot_is_server_gated_to_plus_and_never_public():
     assert "status_code=403" in snapshot
 
 
+def test_prepared_constituents_are_plus_gated_and_do_not_execute_custom_queries():
+    route = _function_source("get_market_explorer_prepared_constituents")
+    assert route.index("_require_authenticated_user_id") < route.index("read_prepared_constituents")
+    assert route.index("has_index_plus_access") < route.index("read_prepared_constituents")
+    assert "normalize_query_spec" not in route
+    assert "PersistentMarketExplorerCache" not in route
+
+
 def test_exact_instrument_discovery_is_plus_but_execution_remains_spec_gated():
     search = _function_source("get_market_explorer_instrument_search")
     query = _function_source("post_market_explorer_query")

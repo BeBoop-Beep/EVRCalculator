@@ -25,6 +25,7 @@ export function buildPreparedSeries(rows = [], history = []) {
     return {
       key: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
       marketType: row.market_type, setId: row.set_id, eraId: row.era_id, parentEraId: row.parent_era_id,
+      generationId: row.generation_id, preparedSeriesKey: row.prepared_series_key,
       available: true, historyAvailable: row.history_available, basketValue: row.comparison_value,
       browseValue: row.current_value, sourceAsOf: row.source_as_of, comparisonAsOf: end,
       indexValue: row.comparison_index_value, historyStartDate: row.history_start_date,

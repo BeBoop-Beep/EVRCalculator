@@ -35,5 +35,6 @@ export async function GET(request) {
   query.delete("kind");
   if (kind === "screen") return forward(request, `/market/explorer/prepared-screen?${query.toString()}`);
   if (kind === "ranking") return forward(request, `/market/explorer/set-context-ranking?${query.toString()}`);
+  if (kind === "constituents") return forward(request, `/market/explorer/prepared-constituents?${query.toString()}`);
   return NextResponse.json({ message: "Unsupported prepared read" }, { status: 400 });
 }

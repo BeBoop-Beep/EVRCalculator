@@ -5,7 +5,37 @@ import {
   buildConstituentPageRequest,
   CONSTITUENT_PAGE_MAX_LIMIT,
   parseConstituentPageResponse,
+  fetchPreparedConstituentPage,
 } from "./marketExplorerConstituentPaging.mjs";
+
+test("prepared page uses published market and generation identity, then preserves the cursor", async () => {
+  const original = globalThis.fetch;
+  let requested;
+  globalThis.fetch = async (url) => {
+    requested = new URL(url, "http://localhost");
+    return { ok: true, json: async () => ({ marketKey: "set:151", generationId: "generation-a",
+      availability: "available", rows: [{ rank: 6, cardVariantId: "variant-6" }],
+      totalCount: 207, nextCursor: 6, priceAsOf: "2026-09-18" }) };
+  };
+  try {
+    const page = await fetchPreparedConstituentPage({ marketKey: "set:151", generationId: "generation-a" }, { limit: 5, afterRank: 5 });
+    assert.equal(requested.searchParams.get("kind"), "constituents");
+    assert.equal(requested.searchParams.get("generationId"), "generation-a");
+    assert.equal(requested.searchParams.get("afterRank"), "5");
+    assert.deepEqual(page.rows.map((row) => row.rank), [6]);
+    assert.equal(page.totalCount, 207);
+    assert.equal(page.nextCursor, 6);
+  } finally { globalThis.fetch = original; }
+});
+
+test("prepared generation mismatch is surfaced for the hook to reset paging", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, json: async () => ({ code: "GENERATION_MISMATCH", message: "Restart paging" }) });
+  try {
+    await assert.rejects(fetchPreparedConstituentPage({ marketKey: "set:151", generationId: "old" }),
+      (error) => error.code === "GENERATION_MISMATCH");
+  } finally { globalThis.fetch = original; }
+});
 
 test("the page request carries the spec verbatim plus bounded limit/afterRank", () => {
   const spec = { asset: "cards", mode: "all", eraIds: [], setIds: [] };

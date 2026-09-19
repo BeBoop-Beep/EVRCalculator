@@ -82,6 +82,27 @@ const rowIds = (renderer) =>
 const findByTestAttr = (renderer, attr) =>
   renderer.root.findAll((node) => node.props?.[attr] !== undefined)[0];
 
+test("prepared 151 preview and expanded view share a generation-pinned page", async () => {
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(new URL(url, "http://localhost"));
+    return { ok: true, json: async () => ({ availability: "available", generationId: "generation-a",
+      rows: rowsFor(1, 6), nextCursor: null, totalCount: 6, priceAsOf: "2026-09-18" }) };
+  };
+  const series = { key: "set:151", label: "Scarlet and Violet 151", group: "card",
+    marketType: "set", generationId: "generation-a", available: true };
+  const renderer = await mount({ selectedSeries: [series], activeSeriesId: series.key, mode: "preview" });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].searchParams.get("marketKey"), series.key);
+  assert.equal(calls[0].searchParams.get("generationId"), series.generationId);
+  assert.equal(rowIds(renderer).length, 5);
+  await flush(renderer, () => renderer.update(
+    <MarketExplorerConstituents selectedSeries={[series]} activeSeriesId={series.key} mode="expanded" />
+  ));
+  assert.equal(calls.length, 1);
+  assert.equal(rowIds(renderer).length, 6);
+});
+
 test("a query-built market never renders from its (empty, summary-mode) embedded array — it pages", async () => {
   const calls = [];
   globalThis.fetch = async (url, init) => {
