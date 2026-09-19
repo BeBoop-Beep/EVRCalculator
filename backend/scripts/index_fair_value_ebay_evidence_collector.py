@@ -437,7 +437,8 @@ def pricing_eligibility(target: Mapping[str, Any], listing: Mapping[str, Any]) -
     return {"eligibility_status": status, "identity_qualified": identity_ok,
             "identity_state": identity.get("identity_state"), "identity_reason": identity.get("reason"),
             "identity_matcher_version": pricing_matcher.MATCHER_VERSION,
-            "language_state": language.language_state, "language_method_version": language.method_version}
+            "language_state": language.language_state, "language_reason": language.reason,
+            "eligibility_reason": status, "language_method_version": language.method_version}
 
 
 # --------------------------------------------------------------------------
