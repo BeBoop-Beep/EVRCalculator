@@ -181,3 +181,33 @@ test("switching the inspected market re-fetches for the new spec and drops the s
   // The stale first-market page must never appear once the target moved on.
   assert.equal(rowIds(renderer).length, 2);
 });
+
+test("preview and expanded modes share one query page and retain appended rows", async () => {
+  let calls = 0;
+  globalThis.fetch = async (_url, init) => {
+    calls += 1;
+    const afterRank = JSON.parse(init.body).afterRank;
+    return afterRank === 0
+      ? pageResponse({ items: rowsFor(1, 100), nextCursor: 100, total: 250 })
+      : pageResponse({ items: rowsFor(101, 100), nextCursor: 200, total: 250 });
+  };
+  const series = globalAllRawQuery();
+  const props = { selectedSeries: [series], activeSeriesId: series.key };
+  const renderer = await mount({ ...props, mode: "preview" });
+  assert.equal(calls, 1);
+  assert.equal(rowIds(renderer).length, 5);
+  assert.match(JSON.stringify(renderer.toJSON()), /250/);
+  assert.equal(findByTestAttr(renderer, "data-market-constituents-load-more"), undefined);
+
+  await flush(renderer, () => renderer.update(<MarketExplorerConstituents {...props} mode="expanded" />));
+  assert.equal(calls, 1);
+  assert.equal(rowIds(renderer).length, 100);
+  await flush(renderer, () => findByTestAttr(renderer, "data-market-constituents-load-more").props.onClick());
+  assert.equal(calls, 2);
+  assert.equal(rowIds(renderer).length, 200);
+  await flush(renderer, () => renderer.update(<MarketExplorerConstituents {...props} mode="preview" />));
+  assert.equal(rowIds(renderer).length, 5);
+  await flush(renderer, () => renderer.update(<MarketExplorerConstituents {...props} mode="expanded" />));
+  assert.equal(calls, 2);
+  assert.equal(rowIds(renderer).length, 200);
+});

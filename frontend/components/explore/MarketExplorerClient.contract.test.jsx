@@ -238,7 +238,7 @@ const BASIC_USER = Object.freeze({ id: "u-basic", index_plan: null });
 
 function renderCollapsed(
   value = overview, searchParams = {}, sealedSegments = SEALED_SERIES, cardSegments = CARD_SERIES,
-  user = PREMIUM_USER,
+  user = PREMIUM_USER, initialStateOverride = null,
 ) {
   let renderer;
   TestRenderer.act(() => {
@@ -250,7 +250,7 @@ function renderCollapsed(
         reconciliation: RECONCILIATION,
         cardReconciliation: CARD_RECONCILIATION,
         topChaseSegmentStatus: CHASE_STATUS,
-        initialState: resolveInitialExplorerState(value, searchParams, sealedSegments, cardSegments),
+        initialState: initialStateOverride || resolveInitialExplorerState(value, searchParams, sealedSegments, cardSegments),
         user,
       })
     );
@@ -1166,7 +1166,7 @@ test("hiding an active market drops it from Market Comparison Analysis but keeps
   assert.ok(picker.includes("raw") || picker.length <= 1);
 });
 
-test("the lower-page section order is Active Markets, then Comparison Detail, then Constituents, then Methodology", () => {
+test("Constituents follows Active Markets in the main workspace, before Comparison Detail", () => {
   const renderer = render();
   const orderedNodes = renderer.root.findAll((node) =>
     node.props?.["data-market-explorer-active-markets"] !== undefined
@@ -1176,12 +1176,52 @@ test("the lower-page section order is Active Markets, then Comparison Detail, th
   );
   const markers = orderedNodes.map((node) => Object.keys(node.props).find((key) => key.startsWith("data-market-explorer-")));
   assert.ok(markers.indexOf("data-market-explorer-active-markets") < markers.indexOf("data-market-explorer-details"));
-  assert.ok(markers.indexOf("data-market-explorer-details") < markers.indexOf("data-market-explorer-constituents"));
+  assert.ok(markers.indexOf("data-market-explorer-constituents") < markers.indexOf("data-market-explorer-details"));
   assert.ok(markers.indexOf("data-market-explorer-constituents") < markers.indexOf("data-market-explorer-methodology"));
   const methodology = renderer.root.findAll(
     (node) => node.props?.["data-market-explorer-methodology"] !== undefined
   )[0];
   assert.ok(methodology, "Methodology must render");
+});
+
+test("workspace mode preserves chart, selection, visibility, timeframe, and chart view", () => {
+  const withComposition = SEALED_SERIES.map((series) => ["sealed:boosterBox", "sealed:packs"].includes(series.key)
+    ? { ...series, currentConstituents: { idField: "sealedProductId", totalCount: 1,
+      isComplete: true, topConstituents: [{ rank: 1, sealedProductId: `${series.key}-1`,
+        productName: series.label, setName: "Test Set", marketPrice: 100 }] } }
+    : series);
+  const renderer = renderCollapsed(overview, {}, withComposition, CARD_SERIES, PREMIUM_USER,
+    { assetUniverse: [], sealedFamilyIds: ["sealed:boosterBox", "sealed:packs"], segmentIds: [], timeframe: "7D" });
+  const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0].props;
+  const chart = renderer.root.find((node) => node.type?.name === "MarketExplorerChart");
+  const activeKeys = workspace()["data-market-explorer-series"];
+  const detailKey = workspace()["data-market-explorer-detail-series"];
+  click(renderer, "data-market-chart-view", "index");
+  click(renderer, "data-market-window-value", "30D");
+  click(renderer, "data-market-explorer-active-visibility", "sealed:packs");
+  const visibleSeries = chart.props.selectedSeries.map((series) => series.key);
+  assert.equal(workspace()["data-market-explorer-mode"], "chart");
+  assert.equal(findAll(renderer, "data-market-constituents-mode")[0].props["data-market-constituents-mode"], "preview");
+  assert.ok(findAll(renderer, "data-market-constituents-see-more").length,
+    JSON.stringify({ activeKeys, detailKey, availability: findAll(renderer, "data-market-explorer-constituents")[0]?.props["data-market-constituents-availability"] }));
+  TestRenderer.act(() => findAll(renderer, "data-market-constituents-see-more")[0].props.onClick());
+  assert.equal(workspace()["data-market-explorer-mode"], "constituents");
+  assert.match(findAll(renderer, "data-market-explorer-graph")[0].props.className, /hidden/);
+  assert.equal(renderer.root.find((node) => node.type?.name === "MarketExplorerChart"), chart);
+  assert.equal(findAll(renderer, "data-market-chart-view").find((node) => node.props["data-market-chart-view"] === "index").props["aria-pressed"], true);
+  assert.equal(findAll(renderer, "data-market-explorer-constituents").length, 1);
+  TestRenderer.act(() => findAll(renderer, "data-market-constituents-back")[0].props.onClick());
+  assert.equal(workspace()["data-market-explorer-mode"], "chart");
+  assert.equal(workspace()["data-market-explorer-series"], activeKeys);
+  assert.equal(workspace()["data-market-explorer-detail-series"], detailKey);
+  assert.equal(workspace()["data-market-explorer-timeframe"], "30D");
+  assert.deepEqual(renderer.root.find((node) => node.type?.name === "MarketExplorerChart").props.selectedSeries.map((series) => series.key), visibleSeries);
+  assert.equal(findAll(renderer, "data-market-chart-view").find((node) => node.props["data-market-chart-view"] === "index").props["aria-pressed"], true);
+  TestRenderer.act(() => findAll(renderer, "data-market-constituents-see-more")[0].props.onClick());
+  click(renderer, "data-market-explorer-active-inspect", "sealed:packs");
+  assert.equal(workspace()["data-market-explorer-mode"], "constituents");
+  assert.equal(workspace()["data-market-explorer-detail-series"], "sealed:packs");
+  assert.equal(workspace()["data-market-explorer-series"], activeKeys);
 });
 
 test("Methodology explains Per-Set Chase vs. Global Top 10 and Screens vs. the Builder", () => {

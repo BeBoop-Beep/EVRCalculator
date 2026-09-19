@@ -49,3 +49,13 @@ test("chart toolbar keeps the primary toggle left and responsive timeframes righ
   assert.match(toggle, /bg-cyan-400\/15/);
   assert.match(windows, /min-w-max flex-nowrap/);
 });
+
+test("one constituent workspace replaces the chart presentation without unmounting either owner", async () => {
+  const source = await read("./MarketExplorerClient.jsx");
+  assert.equal(source.match(/<MarketExplorerConstituents\s/g)?.length, 1);
+  assert.equal(source.match(/<MarketExplorerChart\s/g)?.length, 1);
+  assert.match(source, /data-market-explorer-mode=\{workspaceMode\}/);
+  assert.match(source, /aria-hidden=\{workspaceMode === "constituents"\}/);
+  assert.match(source, /mode=\{workspaceMode === "chart" \? "preview" : "expanded"\}/);
+  assert.ok(source.indexOf("<MarketExplorerConstituents") < source.indexOf("<MarketExplorerDetails"));
+});

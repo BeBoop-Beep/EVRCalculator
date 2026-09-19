@@ -105,6 +105,7 @@ export default function MarketExplorerClient({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState("chart");
   const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
   const [loadedPreparedSeries, setLoadedPreparedSeries] = useState([]);
 
@@ -309,6 +310,7 @@ export default function MarketExplorerClient({
       data-market-explorer-series={selectedSeriesIds.join(",")}
       data-market-explorer-timeframe={timeframe || ""}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
+      data-market-explorer-mode={workspaceMode}
       data-market-explorer-access-mode={accessMode}
       className="grid min-w-0 gap-3 desk:grid-cols-[minmax(19rem,22rem)_minmax(0,1fr)] desk:items-start desk:gap-4"
     >
@@ -411,7 +413,7 @@ export default function MarketExplorerClient({
             timeframe={timeframe}
           />
         </div>
-        <div data-market-explorer-graph className="order-2 min-w-0">
+        <div data-market-explorer-graph aria-hidden={workspaceMode === "constituents"} className={`order-2 min-w-0 ${workspaceMode === "constituents" ? "hidden" : "block"}`}>
           <MarketExplorerChart
             overview={overview}
             selectedSeries={visibleSeries}
@@ -423,6 +425,12 @@ export default function MarketExplorerClient({
             onClearGraph={clearGraph}
           />
         </div>
+        <div data-market-explorer-constituents-workspace className="order-2 min-w-0 border-t border-[var(--border-subtle)]">
+          <MarketExplorerConstituents selectedSeries={selectedSeries} activeSeriesId={activeDetailSeriesId}
+            onSelectSeries={setRequestedDetailSeriesId} onEditSeries={beginEdit}
+            mode={workspaceMode === "chart" ? "preview" : "expanded"} onSeeMore={() => setWorkspaceMode("constituents")}
+            onBackToChart={() => setWorkspaceMode("chart")} />
+        </div>
 
       {/* 3 — the advanced lane, collapsed and sitting directly beneath the
              workspace it feeds rather than stranded below unrelated content. */}
@@ -432,10 +440,7 @@ export default function MarketExplorerClient({
              queries used to render their own duplicate row, which showed the
              same markets twice and let the two disagree. Their one unique
              contribution, the index level, moved onto the chip. */}
-      {/* ACCEPTED LOWER-PAGE ORDER: Comparison Detail -> Current Constituents
-          -> Selected Set Analysis (Set markets only) -> Methodology. These are
-          full-width research sections; no desktop split or empty non-Set
-          placeholder belongs in this workspace. */}
+      {/* Comparison Detail follows the chart or expanded constituent workspace. */}
       <div data-market-explorer-compare-results className="order-4 border-t border-[var(--border-subtle)]">
         <MarketExplorerDetails
           // VISIBLE, not merely active: comparison reflects what the chart is
@@ -449,8 +454,6 @@ export default function MarketExplorerClient({
           onInspect={setRequestedDetailSeriesId}
           timeframe={timeframe}
         />
-        <MarketExplorerConstituents selectedSeries={selectedSeries} activeSeriesId={activeDetailSeriesId}
-          onSelectSeries={setRequestedDetailSeriesId} onEditSeries={beginEdit} />
         {activeDetailMarket?.marketType === "set" ? (
           <MarketExplorerContextRanking market={activeDetailMarket} timeframe={timeframe}
             canUse={canComparePreparedMarkets} onUpgrade={() => setCompareUpgradeVisible(true)} />
