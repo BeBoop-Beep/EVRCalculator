@@ -1,6 +1,6 @@
 {
-  "operation": "sync-main-preserve-payload-debug",
-  "market_date": "",
-  "set_id": "",
-  "request_id": "sync-main-e9ba5098"
+  "operation": "market-dashboard-set",
+  "market_date": "2026-09-18",
+  "set_id": "42a3740d-4778-4857-9c28-e116f34b51f3",
+  "request_id": "repair-neo-destiny-001"
 }
