@@ -61,7 +61,7 @@ def test_commit_candidate_reads_authoritative_persisted_index_when_not_injected(
 
 
 
-def test_post_cutover_dashboard_read_omits_heavy_set_value_history_blob(monkeypatch):
+def test_post_cutover_skips_dashboard_table_entirely(monkeypatch):
     day = "2026-09-18"
     sets = [{
         "id": "set-a",
@@ -76,44 +76,24 @@ def test_post_cutover_dashboard_read_omits_heavy_set_value_history_blob(monkeypa
             {"set_id": "set-a", "snapshot_date": day, "set_value": 101},
         ]
     }
-    selected = []
 
     monkeypatch.setattr(builder, "_load_sets", lambda *_a, **_k: sets)
     monkeypatch.setattr(builder, "_load_canonical_histories", lambda *_a, **_k: canonical)
     monkeypatch.setattr(builder, "_attach_initial_selected_set_movers", lambda *_a, **_k: None)
 
-    class Query:
-        def select(self, fields):
-            selected.append(fields)
-            return self
-        def eq(self, *_a):
-            return self
-        def in_(self, *_a):
-            return self
-        def execute(self):
-            return SimpleNamespace(data=[{
-                "set_id": "set-a",
-                "window_key": "365d",
-                "latest_market_date": day,
-                "cardsMarket": {},
-            }])
-
     class Client:
         def table(self, name):
-            assert name == "pokemon_set_market_dashboard_snapshot_latest"
-            return Query()
+            raise AssertionError(f"post-cutover build must not read dashboard table: {name}")
 
-    builder.build(
+    row = builder.build(
         client=Client(),
         market_date=day,
         commit=False,
         market_overview={},
     )
 
-    assert len(selected) == 1
-    assert "cardsMarket:payload_json->cardsMarket" in selected[0]
-    assert "set_value_histories_json" not in selected[0]
-
+    assert row["payload_json"]["sets"][0]["setId"] == "set-a"
+    assert row["payload_json"]["sets"][0]["historyPointCount"] == 2
 
 def test_pre_cutover_dashboard_read_preserves_legacy_set_value_history_blob(monkeypatch):
     day = "2026-08-17"
