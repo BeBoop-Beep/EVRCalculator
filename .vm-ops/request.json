@@ -1,6 +1,6 @@
 {
-  "operation": "status",
-  "market_date": "",
+  "operation": "repair-cards-market-errors",
+  "market_date": "2026-09-18",
   "set_id": "",
-  "request_id": "pause-cards-market-repair-001"
+  "request_id": "repair-cards-market-batch5-001"
 }
