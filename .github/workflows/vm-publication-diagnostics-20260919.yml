@@ -15,49 +15,20 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect active publication process
+      - name: Read live publication log
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
-          echo "=== HOST ==="
+          echo "=== HOST/TIME ==="
           hostname
           date
           echo
-          echo "=== REPO ==="
-          git rev-parse HEAD
-          git status --short || true
+          echo "=== PROCESS ==="
+          ps -p 112194 -o pid,ppid,etime,time,%cpu,%mem,state,wchan:32,args || true
           echo
-          echo "=== PUBLICATION PROCESS TREE ==="
-          ps -eo user,pid,ppid,etime,time,%cpu,%mem,state,wchan:32,args | grep -E '112179|112194|rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo
-          echo "=== CHILDREN ==="
-          pgrep -a -P 112194 || true
-          echo
-          echo "=== FILE DESCRIPTORS ==="
-          for fd in 0 1 2; do
-            printf 'fd%s=' "$fd"
-            readlink "/proc/112194/fd/$fd" 2>/dev/null || echo unavailable
-          done
-          echo
-          echo "=== PROC STATUS ==="
-          grep -E '^(State|VmRSS|VmSize|Threads|voluntary_ctxt_switches|nonvoluntary_ctxt_switches):' /proc/112194/status 2>/dev/null || true
-          echo
-          echo "=== PROC IO ==="
-          cat /proc/112194/io 2>/dev/null || true
-          echo
-          echo "=== ACTIVE NETWORK ==="
-          ss -tpn 2>/dev/null | grep -E 'pid=112194|zwxzxuuawalvwioadhmf|:443' | tail -30 || true
-          echo
-          echo "=== RECENT LOG FILES ==="
-          find backend/logs -maxdepth 1 -type f -mmin -20 -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' 2>/dev/null | sort | tail -30 || true
+          echo "=== PUBLICATION LOG STAT ==="
+          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
           echo
           echo "=== PUBLICATION LOG TAIL ==="
-          tail -100 backend/logs/rebuild_snapshots_after_scrape.cron.log 2>/dev/null || true
-          echo
-          echo "=== REFRESH LOG CANDIDATES ==="
-          for p in backend/logs/*refresh* backend/logs/*snapshot* backend/logs/*publication*; do
-            [ -f "$p" ] || continue
-            echo "--- $p ---"
-            tail -30 "$p" 2>/dev/null || true
-          done
+          tail -220 publication.log 2>/dev/null || true
