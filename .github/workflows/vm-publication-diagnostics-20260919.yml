@@ -15,20 +15,31 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Read live publication log
+      - name: Measure live Sep 19 publication
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
-          echo "=== HOST/TIME ==="
-          hostname
+          echo "=== TIME ==="
           date
           echo
           echo "=== PROCESS ==="
-          ps -p 112194 -o pid,ppid,etime,time,%cpu,%mem,state,wchan:32,args || true
+          ps -p 112194 -o pid,ppid,etime,time,%cpu,%mem,state,args || true
           echo
-          echo "=== PUBLICATION LOG STAT ==="
-          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
-          echo
-          echo "=== PUBLICATION LOG TAIL ==="
-          tail -220 publication.log 2>/dev/null || true
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
+          echo "current_run_start_line=${START:-missing}"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/current-publication-section.log
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/current-publication-section.log || true)"
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/current-publication-section.log || true)"
+            echo "unique_price_refresh_sets=$(grep -oE 'refreshed pokemon_canonical_card_market_prices_latest set_id=[0-9a-f-]+' /tmp/current-publication-section.log | sed 's/.*set_id=//' | sort -u | wc -l)"
+            echo "snapshot_retry_lines=$(grep -c 'snapshot operation retry' /tmp/current-publication-section.log || true)"
+            echo "cards_analytics_unavailable=$(grep -c 'cards market analytics unavailable' /tmp/current-publication-section.log || true)"
+            echo "builder_failure_lines=$(grep -Eci 'FAILED|failed_sets|global_failed|Traceback' /tmp/current-publication-section.log || true)"
+            echo
+            echo "=== START MARKER ==="
+            head -12 /tmp/current-publication-section.log
+            echo
+            echo "=== LIVE TAIL ==="
+            tail -80 /tmp/current-publication-section.log
+          fi
