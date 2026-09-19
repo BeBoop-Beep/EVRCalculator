@@ -433,6 +433,39 @@ class _FakeClient:
         return _FakeQuery(rows[: self.cap])
 
 
+class _StatementTimeoutError(Exception):
+    code = "57014"
+
+
+class _TimeoutOnWideRangeClient:
+    """Raises SQLSTATE 57014 whenever a requested window exceeds max_days."""
+
+    def __init__(self, rows_by_date, max_days):
+        self.rows_by_date = rows_by_date
+        self.max_days = max_days
+        self.calls = []
+
+    def rpc(self, name, params):
+        assert name == "get_pokemon_cards_daily_constituents"
+        start, end = params["p_start_date"], params["p_end_date"]
+        self.calls.append((start, end))
+        width = (date.fromisoformat(end) - date.fromisoformat(start)).days + 1
+        if width > self.max_days:
+            raise _StatementTimeoutError("canceling statement due to statement timeout (57014)")
+        rows = [
+            row
+            for market_date, day_rows in sorted(self.rows_by_date.items())
+            if start <= market_date <= end
+            for row in day_rows
+        ]
+        return _FakeQuery(rows)
+
+
+class _AlwaysTimeoutClient:
+    def rpc(self, _name, _params):
+        raise _StatementTimeoutError("canceling statement due to statement timeout (57014)")
+
+
 def _rows_by_date(day_count, cards_per_day):
     return {
         f"2026-06-{day:02d}": [
@@ -466,6 +499,28 @@ def test_loader_rejects_a_single_day_larger_than_one_response():
     with pytest.raises(PokemonSetCardsMarketAnalyticsError):
         load_card_constituent_rows("set-1", "2026-06-01", "2026-06-03", client=client)
 
+
+def test_loader_splits_wide_chunk_after_statement_timeout():
+    rows_by_date = _rows_by_date(10, 50)
+    client = _TimeoutOnWideRangeClient(rows_by_date, max_days=3)
+
+    rows = load_card_constituent_rows(
+        "set-1", "2026-06-01", "2026-06-10", client=client
+    )
+
+    assert len(rows) == 10 * 50
+    # Probe succeeds on one day; first 7-day history chunk times out, then the
+    # loader retries a smaller 3-day shape and continues at that safer width.
+    assert client.calls[0] == ("2026-06-10", "2026-06-10")
+    assert ("2026-06-01", "2026-06-07") in client.calls
+    assert ("2026-06-01", "2026-06-03") in client.calls
+
+
+def test_loader_propagates_statement_timeout_when_single_day_is_smallest_shape():
+    with pytest.raises(_StatementTimeoutError):
+        load_card_constituent_rows(
+            "set-1", "2026-06-01", "2026-06-01", client=_AlwaysTimeoutClient()
+        )
 
 def test_loader_rejects_inverted_range():
     with pytest.raises(PokemonSetCardsMarketAnalyticsError):
