@@ -1,24 +1,87 @@
+CREATE TABLE IF NOT EXISTS public.pokemon_market_explorer_card_current_metadata (
+    card_variant_id uuid PRIMARY KEY,
+    canonical_card_id uuid NOT NULL,
+    legacy_card_id uuid NOT NULL,
+    set_id uuid NOT NULL,
+    card_name text NOT NULL,
+    card_number text,
+    rarity text,
+    edition text,
+    printing_type text,
+    special_type text,
+    image_url text,
+    identity_basis text NOT NULL,
+    refreshed_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pokemon_market_explorer_card_current_metadata_set
+    ON public.pokemon_market_explorer_card_current_metadata(set_id, card_variant_id);
+CREATE INDEX IF NOT EXISTS idx_pokemon_market_explorer_card_current_metadata_set_canonical
+    ON public.pokemon_market_explorer_card_current_metadata(set_id, canonical_card_id, card_variant_id);
+
+ALTER TABLE public.pokemon_market_explorer_card_current_metadata ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.pokemon_market_explorer_card_current_metadata FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.pokemon_market_explorer_card_current_metadata TO service_role;
+
+CREATE OR REPLACE FUNCTION public.refresh_pokemon_market_explorer_card_current_metadata(p_set_ids uuid[] DEFAULT NULL::uuid[])
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path TO 'public','pg_temp'
+SET statement_timeout TO '300s'
+AS $function$
+DECLARE
+    v_scope uuid[];
+    v_deleted bigint := 0;
+    v_inserted bigint := 0;
+BEGIN
+    IF p_set_ids IS NULL OR cardinality(p_set_ids)=0 THEN
+        SELECT array_agg(s.id ORDER BY s.id)
+          INTO v_scope
+          FROM public.sets s
+         WHERE NOT coalesce(s.catalog_only,false);
+    ELSE
+        SELECT array_agg(s.id ORDER BY s.id)
+          INTO v_scope
+          FROM public.sets s
+         WHERE s.id = ANY(p_set_ids)
+           AND NOT coalesce(s.catalog_only,false);
+    END IF;
+
+    IF v_scope IS NULL OR cardinality(v_scope)=0 THEN
+        RAISE EXCEPTION 'no non-catalog-only Market Explorer set scope resolved';
+    END IF;
+
+    DELETE FROM public.pokemon_market_explorer_card_current_metadata m
+     WHERE m.set_id = ANY(v_scope);
+    GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+    INSERT INTO public.pokemon_market_explorer_card_current_metadata(
+        card_variant_id, canonical_card_id, legacy_card_id, set_id,
+        card_name, card_number, rarity, edition, printing_type, special_type,
+        image_url, identity_basis, refreshed_at
+    )
+    SELECT a.card_variant_id, a.canonical_card_id, a.legacy_card_id, a.set_id,
+           a.card_name, a.card_number, a.rarity, a.edition, a.printing_type,
+           a.special_type, a.image_url, a.identity_basis, clock_timestamp()
+      FROM public.get_pokemon_canonical_card_variant_authority(v_scope) a;
+    GET DIAGNOSTICS v_inserted = ROW_COUNT;
+
+    RETURN jsonb_build_object('deletedRows',v_deleted,'insertedRows',v_inserted,'setCount',cardinality(v_scope));
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.refresh_pokemon_market_explorer_card_current_metadata(uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.refresh_pokemon_market_explorer_card_current_metadata(uuid[]) TO service_role;
+
+SELECT public.refresh_pokemon_market_explorer_card_current_metadata(NULL::uuid[]);
+
 CREATE OR REPLACE FUNCTION public.get_pokemon_market_explorer_filtered_cohort_daily_candidate(
-  p_set_ids uuid[],
-  p_start_date date,
-  p_end_date date,
-  p_card_ids uuid[] DEFAULT NULL::uuid[],
-  p_segment_ids text[] DEFAULT NULL::text[],
-  p_pokemon_ids bigint[] DEFAULT NULL::bigint[],
-  p_price_segment_ids text[] DEFAULT NULL::text[],
-  p_release_age_cohort_ids text[] DEFAULT NULL::text[],
-  p_top_n integer DEFAULT NULL::integer
+    p_set_ids uuid[], p_start_date date, p_end_date date,
+    p_card_ids uuid[] DEFAULT NULL::uuid[], p_segment_ids text[] DEFAULT NULL::text[],
+    p_pokemon_ids bigint[] DEFAULT NULL::bigint[], p_price_segment_ids text[] DEFAULT NULL::text[],
+    p_release_age_cohort_ids text[] DEFAULT NULL::text[], p_top_n integer DEFAULT NULL::integer
 )
-RETURNS TABLE(
-  market_date date,
-  constituent_count bigint,
-  eligible_universe_count bigint,
-  basket_value numeric,
-  common_count bigint,
-  common_current_value numeric,
-  common_previous_value numeric,
-  current_constituents jsonb
-)
+RETURNS TABLE(market_date date, constituent_count bigint, eligible_universe_count bigint, basket_value numeric, common_count bigint, common_current_value numeric, common_previous_value numeric, current_constituents jsonb)
 LANGUAGE sql
 STABLE
 SET search_path TO ''
@@ -44,17 +107,16 @@ dates AS MATERIALIZED (
     AND q.market_date BETWEEN p_start_date AND p_end_date
 ),
 static_variants AS MATERIALIZED (
-  SELECT o.card_variant_id
-  FROM public.pokemon_card_variant_market_price_intervals o
-  WHERE o.valid_to IS NULL
-    AND o.set_id = ANY(p_set_ids)
-    AND (p_card_ids IS NULL OR cardinality(p_card_ids) = 0 OR o.canonical_card_id = ANY(p_card_ids))
-    AND (p_segment_ids IS NULL OR cardinality(p_segment_ids) = 0 OR public.market_explorer_rarity_segment(o.rarity) = ANY(p_segment_ids))
+  SELECT m.card_variant_id
+  FROM public.pokemon_market_explorer_card_current_metadata m
+  WHERE m.set_id = ANY(p_set_ids)
+    AND (p_card_ids IS NULL OR cardinality(p_card_ids) = 0 OR m.canonical_card_id = ANY(p_card_ids))
+    AND (p_segment_ids IS NULL OR cardinality(p_segment_ids) = 0 OR public.market_explorer_rarity_segment(m.rarity) = ANY(p_segment_ids))
     AND (
       p_pokemon_ids IS NULL OR cardinality(p_pokemon_ids) = 0 OR EXISTS (
         SELECT 1
         FROM public.pokemon_card_desirability_links l
-        WHERE l.pokemon_canonical_card_id = o.canonical_card_id
+        WHERE l.pokemon_canonical_card_id = m.canonical_card_id
           AND l.pokemon_reference_id = ANY(p_pokemon_ids)
       )
     )
@@ -142,16 +204,16 @@ payload AS MATERIALIZED (
     jsonb_agg(
       jsonb_build_object(
         'card_variant_id', l.card_variant_id,
-        'canonical_card_id', o.canonical_card_id,
-        'legacy_card_id', o.legacy_card_id,
-        'set_id', o.set_id,
-        'card_name', o.card_name,
-        'card_number', o.card_number,
-        'rarity', o.rarity,
-        'edition', o.edition,
-        'printing_type', o.printing_type,
-        'special_type', o.special_type,
-        'image_url', o.image_url,
+        'canonical_card_id', m.canonical_card_id,
+        'legacy_card_id', m.legacy_card_id,
+        'set_id', m.set_id,
+        'card_name', m.card_name,
+        'card_number', m.card_number,
+        'rarity', m.rarity,
+        'edition', m.edition,
+        'printing_type', m.printing_type,
+        'special_type', m.special_type,
+        'image_url', m.image_url,
         'market_date', l.market_date,
         'market_price', l.market_price,
         'rank', l.final_rank
@@ -160,10 +222,9 @@ payload AS MATERIALIZED (
     '[]'::jsonb
   ) AS body
   FROM latest l
-  JOIN public.pokemon_card_variant_market_price_intervals o
-    ON o.card_variant_id = l.card_variant_id
-   AND o.valid_to IS NULL
-   AND o.set_id = ANY(p_set_ids)
+  JOIN public.pokemon_market_explorer_card_current_metadata m
+    ON m.card_variant_id = l.card_variant_id
+   AND m.set_id = ANY(p_set_ids)
 )
 SELECT s.market_date,
        s.constituent_count,

@@ -71,7 +71,7 @@ DEFAULT_MIN_AVAILABLE_MEMORY_MB = 512.0
 DEFAULT_MIN_AVAILABLE_MEMORY_PERCENT = 25.0
 DEFAULT_MAX_LOAD_PER_CPU = 1.5
 DEFAULT_FAILURE_COOLDOWN_SECONDS = 900.0
-PREPARED_REFRESH_RPC = "refresh_pokemon_market_explorer_prepared_directory_if_current_v1"
+PREPARED_REFRESH_RPC = "refresh_pokemon_market_explorer_prepared_if_current_v1"
 
 
 # --- Host resource metrics (stdlib only; never crashes off-Linux) ------------
