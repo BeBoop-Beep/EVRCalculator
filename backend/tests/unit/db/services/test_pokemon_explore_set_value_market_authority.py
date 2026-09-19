@@ -130,3 +130,36 @@ def test_current_malformed_optional_market_index_is_omitted_not_authoritative():
     assert "marketIndex" not in published
     assert result["_diagnostics"]["missingMarketIndexSetIds"] == ["set-1"]
     assert result["_diagnostics"]["invalidOptionalMarketIndexSetIds"] == ["set-1"]
+
+
+
+def test_partial_history_publishes_all_windows_and_recent_daily_trend():
+    """A set with less history than the requested long windows still renders
+    every control using the first available observation as the baseline."""
+    rows = _history(days=40)
+    target = rows[-1]["snapshot_date"]
+
+    result = build_global_set_value_row(
+        [_market_set()],
+        [],
+        {"set-1": rows},
+        target_market_date=target,
+    )
+
+    published = result["payload_json"]["sets"][0]
+    assert set(published["windows"]) == {
+        "1D", "7D", "30D", "3M", "6M", "1Y", "lifetime"
+    }
+    assert published["windows"]["1D"]["startDate"] == rows[-2]["snapshot_date"]
+    assert published["windows"]["7D"]["coverage"] == "full"
+    assert published["windows"]["30D"]["coverage"] == "full"
+
+    for key in ("3M", "6M", "1Y", "lifetime"):
+        assert published["windows"][key]["startDate"] == rows[0]["snapshot_date"]
+        assert published["windows"][key]["isSinceFirstAvailable"] is True
+
+    assert published["historyStartDate"] == rows[0]["snapshot_date"]
+    assert published["historyEndDate"] == target
+    assert published["historyPointCount"] == 40
+    assert len(published["recentDailyTrend"]) == 30
+    assert published["recentDailyTrend"][-1] == [target, rows[-1]["set_value"]]

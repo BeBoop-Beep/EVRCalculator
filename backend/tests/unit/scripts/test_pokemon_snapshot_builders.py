@@ -1040,6 +1040,97 @@ def test_legacy_top_chase_observation_fallback_is_paginated():
     assert histories["legacy-variant"][-1]["date"] == "2026-07-27"
 
 
+def test_mixed_top_chase_histories_merge_canonical_and_legacy_fallback():
+    selected_variant = "selected-variant"
+    legacy_variant = "legacy-variant"
+    selected_condition = "selected-condition"
+    near_mint = pokemon_snapshot_builders.TOP_CHASE_NEAR_MINT_CONDITION_ID
+
+    canonical_context = {
+        "variant_ids": [selected_variant],
+        "variant_to_canonical_id": {
+            selected_variant: "canonical-a",
+            legacy_variant: "canonical-b",
+        },
+        "display_key_to_canonical_id": {
+            "display-a": "canonical-a",
+            legacy_variant: "canonical-b",
+        },
+        "condition_by_variant": {selected_variant: selected_condition},
+    }
+    cards = [
+        {"cardId": "canonical-a", "cardVariantId": "display-a"},
+        {"cardId": "canonical-b", "cardVariantId": legacy_variant},
+    ]
+    rows_by_variant = {
+        selected_variant: [
+            {
+                "id": 1,
+                "card_variant_id": selected_variant,
+                "condition_id": selected_condition,
+                "captured_at": "2026-09-16T12:00:00+00:00",
+                "market_price": 10.0,
+            },
+            {
+                "id": 2,
+                "card_variant_id": selected_variant,
+                "condition_id": selected_condition,
+                "captured_at": "2026-09-17T12:00:00+00:00",
+                "market_price": 11.0,
+            },
+        ],
+        legacy_variant: [
+            {
+                "id": 3,
+                "card_variant_id": legacy_variant,
+                "condition_id": near_mint,
+                "captured_at": "2026-09-16T12:00:00+00:00",
+                "market_price": 1.02,
+            },
+            {
+                "id": 4,
+                "card_variant_id": legacy_variant,
+                "condition_id": near_mint,
+                "captured_at": "2026-09-17T12:00:00+00:00",
+                "market_price": 1.01,
+            },
+        ],
+    }
+    queried_variants = []
+
+    def read_observations(query):
+        variant_values = next(
+            values for field, values in query.in_filters if field == "card_variant_id"
+        )
+        queried_variants.append(tuple(variant_values))
+        return [
+            row
+            for variant_id in variant_values
+            for row in rows_by_variant.get(variant_id, [])
+        ]
+
+    histories = pokemon_snapshot_builders._load_top_chase_histories_from_observations(
+        _Client({"card_variant_price_observations": read_observations}),
+        set_id="mixed-set",
+        cards=cards,
+        variant_ids=[selected_variant, legacy_variant],
+        latest_date_key="2026-09-17",
+        days=365,
+        canonical_context=canonical_context,
+    )
+
+    assert [point["date"] for point in histories["display-a"]] == [
+        "2026-09-16",
+        "2026-09-17",
+    ]
+    assert [point["date"] for point in histories[legacy_variant]] == [
+        "2026-09-16",
+        "2026-09-17",
+    ]
+    assert histories[legacy_variant][-1]["marketPrice"] == 1.01
+    assert queried_variants == [(selected_variant,), (legacy_variant,)]
+
+
 def test_build_market_dashboard_snapshot_row_preserves_top_chase_price_history(monkeypatch):
     history = [
         {"date": "2026-06-01", "marketPrice": 10.0, "sourceDate": "2026-06-01", "isCarriedForward": False},

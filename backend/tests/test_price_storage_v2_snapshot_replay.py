@@ -81,11 +81,15 @@ class SnapshotReplayTests(unittest.TestCase):
         # The old research-only override hook must not become a second serving path.
         self.assertNotIn("current_standard_overrides",source)
         self.assertNotIn("PRICE_STORAGE_V2_SCOPED",source)
-        # Post-cutover the V2 all-roots finalizer has already projected the exact
-        # current day into the existing history reader before this builder runs.
+        # Post-cutover Set Market history must come from the same Standard
+        # history authority that supplies the visible current Set Value, while
+        # the legacy certified-root path remains available before cutover.
         self.assertIn('client.table("pokemon_set_value_daily_history")',source)
         self.assertIn("post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE",source)
-        self.assertIn("if not post_cutover:",source)
+        self.assertIn("if post_cutover:",source)
+        self.assertIn('eq("value_scope", "standard")',source)
+        self.assertIn("CANONICAL_HISTORY_RPC",source)
+        self.assertIn('eq("source", ROLLOUT_STANDARD_SOURCE)',source)
 
 
 if __name__ == "__main__":

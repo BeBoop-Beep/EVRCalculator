@@ -182,24 +182,43 @@ class MemoryStateStore:
 
 
 class SupabaseStateStore:
-    """Service-role persistence for Sentinel's dedicated tables only."""
+    """Service-role persistence for Sentinel's dedicated tables only.
+
+    Production instances can supply a fresh-client factory so transient
+    Supabase/PostgREST failures are retried without reusing a failed connection
+    pool. Tests and explicitly injected clients keep the direct deterministic
+    behavior by leaving the factory unset.
+    """
 
     persistent = True
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: Any, *, client_factory: Any = None) -> None:
         self.client = client
+        self.client_factory = client_factory
+
+    def _run(self, operation_name: str, operation):
+        if self.client_factory is None:
+            return operation(self.client)
+        from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
+
+        return run_snapshot_operation_with_retry(
+            operation,
+            operation_name=f"sentinel-state:{operation_name}",
+            client_factory=self.client_factory,
+        )
 
     def get_check_state(self, check_key: str) -> Optional[CheckState]:
-        rows = list(
-            (
-                self.client.table("sentinel_check_state")
+        result = self._run(
+            "get_check_state",
+            lambda client: (
+                client.table("sentinel_check_state")
                 .select("*")
                 .eq("check_key", check_key)
                 .limit(1)
                 .execute()
-            ).data
-            or []
+            ),
         )
+        rows = list(result.data or [])
         if not rows:
             return None
         row = rows[0]
@@ -236,10 +255,13 @@ class SupabaseStateStore:
             "runner_build_sha": state.runner_build_sha,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        (
-            self.client.table("sentinel_check_state")
-            .upsert(payload, on_conflict="check_key")
-            .execute()
+        self._run(
+            "save_check_state",
+            lambda client: (
+                client.table("sentinel_check_state")
+                .upsert(payload, on_conflict="check_key")
+                .execute()
+            ),
         )
 
     def _incident_from_row(self, row: Dict[str, Any]) -> IncidentRecord:
@@ -269,33 +291,35 @@ class SupabaseStateStore:
         )
 
     def get_incident(self, incident_id: str) -> Optional[IncidentRecord]:
-        rows = list(
-            (
-                self.client.table("sentinel_incidents")
+        result = self._run(
+            "get_incident",
+            lambda client: (
+                client.table("sentinel_incidents")
                 .select("*")
                 .eq("id", incident_id)
                 .limit(1)
                 .execute()
-            ).data
-            or []
+            ),
         )
+        rows = list(result.data or [])
         return self._incident_from_row(rows[0]) if rows else None
 
     def get_open_incident_by_fingerprint(
         self, fingerprint: str
     ) -> Optional[IncidentRecord]:
-        rows = list(
-            (
-                self.client.table("sentinel_incidents")
+        result = self._run(
+            "get_open_incident_by_fingerprint",
+            lambda client: (
+                client.table("sentinel_incidents")
                 .select("*")
                 .eq("fingerprint", fingerprint)
                 .in_("status", [status.value for status in _OPEN_INCIDENT_STATUSES])
                 .order("last_seen_at", desc=True)
                 .limit(1)
                 .execute()
-            ).data
-            or []
+            ),
         )
+        rows = list(result.data or [])
         return self._incident_from_row(rows[0]) if rows else None
 
     def upsert_incident(self, incident: IncidentRecord) -> None:
@@ -322,25 +346,30 @@ class SupabaseStateStore:
             "ai_triage_status": incident.ai_triage_status,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        (
-            self.client.table("sentinel_incidents")
-            .upsert(payload, on_conflict="id")
-            .execute()
+        self._run(
+            "upsert_incident",
+            lambda client: (
+                client.table("sentinel_incidents")
+                .upsert(payload, on_conflict="id")
+                .execute()
+            ),
         )
 
     def resolve_incident(self, incident_id: str, resolved_at: datetime) -> None:
-        (
-            self.client.table("sentinel_incidents")
-            .update(
-                {
-                    "status": IncidentStatus.RESOLVED.value,
-                    "resolved_at": resolved_at.isoformat(),
-                    "last_seen_at": resolved_at.isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-            .eq("id", incident_id)
-            .execute()
+        payload = {
+            "status": IncidentStatus.RESOLVED.value,
+            "resolved_at": resolved_at.isoformat(),
+            "last_seen_at": resolved_at.isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._run(
+            "resolve_incident",
+            lambda client: (
+                client.table("sentinel_incidents")
+                .update(payload)
+                .eq("id", incident_id)
+                .execute()
+            ),
         )
 
     def _recovery_from_row(self, row: Dict[str, Any]) -> RecoveryAttemptRecord:
@@ -361,18 +390,19 @@ class SupabaseStateStore:
     def get_latest_recovery_attempt(
         self, incident_id: str, runbook: str
     ) -> Optional[RecoveryAttemptRecord]:
-        rows = list(
-            (
-                self.client.table("sentinel_recovery_attempts")
+        result = self._run(
+            "get_latest_recovery_attempt",
+            lambda client: (
+                client.table("sentinel_recovery_attempts")
                 .select("*")
                 .eq("incident_id", incident_id)
                 .eq("runbook", runbook)
                 .order("attempt_number", desc=True)
                 .limit(1)
                 .execute()
-            ).data
-            or []
+            ),
         )
+        rows = list(result.data or [])
         return self._recovery_from_row(rows[0]) if rows else None
 
     def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None:
@@ -389,10 +419,13 @@ class SupabaseStateStore:
             "attempt_number": attempt.attempt_number,
             "cooldown_until": _iso(attempt.cooldown_until),
         }
-        (
-            self.client.table("sentinel_recovery_attempts")
-            .upsert(payload, on_conflict="id")
-            .execute()
+        self._run(
+            "save_recovery_attempt",
+            lambda client: (
+                client.table("sentinel_recovery_attempts")
+                .upsert(payload, on_conflict="id")
+                .execute()
+            ),
         )
 
     def record_heartbeat(
@@ -409,10 +442,13 @@ class SupabaseStateStore:
             "metadata": metadata,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        (
-            self.client.table("sentinel_component_heartbeats")
-            .upsert(payload, on_conflict="component,host")
-            .execute()
+        self._run(
+            "record_heartbeat",
+            lambda client: (
+                client.table("sentinel_component_heartbeats")
+                .upsert(payload, on_conflict="component,host")
+                .execute()
+            ),
         )
 
 
@@ -421,6 +457,9 @@ def build_state_store(state_writes_enabled: bool) -> SentinelStateStore:
         return NoopStateStore()
     # Import lazily so observation-only/unit-test imports never initialize the
     # production Supabase client as a side effect.
-    from backend.db.clients.supabase_client import supabase
+    from backend.db.clients.supabase_client import create_service_role_client, supabase
 
-    return SupabaseStateStore(supabase)
+    return SupabaseStateStore(
+        supabase,
+        client_factory=create_service_role_client,
+    )

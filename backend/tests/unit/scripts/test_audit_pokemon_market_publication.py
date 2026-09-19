@@ -511,6 +511,37 @@ class _SimulatedChunkFailure(Exception):
     """Raised by _FailingQuery to simulate a chunk-level read failure."""
 
 
+class _SimulatedTransientTimeout(Exception):
+    """Structured Postgres statement timeout used by the adaptive split test."""
+
+    code = "57014"
+
+
+class _AdaptiveTimeoutClient(_FakeClient):
+    def __init__(self, set_ids, *, max_chunk_size):
+        super().__init__({
+            "pokemon_set_market_dashboard_snapshot_latest": [
+                {"set_id": sid, "top_chase_cards_json": []} for sid in set_ids
+            ],
+        })
+        self.max_chunk_size = max_chunk_size
+
+    def table(self, name):
+        return _AdaptiveTimeoutQuery(self, name)
+
+
+class _AdaptiveTimeoutQuery(_FakeQuery):
+    def execute(self):
+        values = list(self.in_values or [])
+        if values and len(values) > self.db.max_chunk_size:
+            self.db.reads.append(self.table_name)
+            self.db.record_in_call(self.table_name, values)
+            raise _SimulatedTransientTimeout(
+                f"canceling statement due to statement timeout for {len(values)} ids"
+            )
+        return super().execute()
+
+
 class _FailingSecondChunkClient(_FakeClient):
     """A fake client that fails on the Nth .execute() call for a given table."""
 
@@ -1350,6 +1381,29 @@ def test_heavy_json_table_reads_use_bounded_chunks_below_full_cohort():
     assert len(in_calls) == 3  # 25 sets / 10 per request -> 3 requests
     assert all(len(call_args) <= 10 for call_args in in_calls)
     assert set(rows.keys()) == set(set_ids)  # full coverage, merged deterministically
+
+
+def test_transient_statement_timeout_adaptively_splits_heavy_chunk():
+    """A structured 57014 timeout must shrink only the failing chunk and still
+    return the complete cohort without weakening non-transient fail-closed behavior."""
+    from backend.scripts import audit_pokemon_market_publication as audit
+
+    set_ids = [f"set-{i}" for i in range(10)]
+    client = _AdaptiveTimeoutClient(set_ids, max_chunk_size=3)
+
+    rows = audit._load_rows(
+        client,
+        "pokemon_set_market_dashboard_snapshot_latest",
+        "set_id,top_chase_cards_json",
+        set_ids,
+        chunk_size=10,
+    )
+
+    in_calls = client.calls_for("pokemon_set_market_dashboard_snapshot_latest", "in_")
+    assert in_calls[0] == set_ids
+    assert any(len(values) < 10 for values in in_calls[1:])
+    assert all(len(values) <= 5 for values in in_calls[1:])
+    assert set(rows) == set(set_ids)
 
 
 def test_missing_sets_still_detected_across_chunked_reads():

@@ -31,7 +31,9 @@ from backend.db.services.canonical_market_overview import (
 )
 from backend.db.services.pokemon_market_rollout_cohort import (
     MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
+    MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE,
     resolve_market_root_cohort,
+    resolve_market_root_ids,
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
@@ -120,13 +122,62 @@ def _load_sets(client, *, market_date: str):
     """Set Market roots aligned with the global Market authority.
 
     Sep 8 and earlier retain the already-published Set Market cohort verbatim.
-    Sep 9+ uses the shared root resolver, including structurally valid prior-
-    basket continuity roots that must not disappear because of same-day
-    freshness policy.
+    Sep 9 preserves the canonical transition resolver exactly as published.
+    Sep 10+ membership comes from the frozen authority table via the lightweight
+    membership-only resolver. Display metadata is then read directly from
+    sets/eras; the heavyweight annotation view is deliberately avoided because
+    certification is annotation, not membership, and that view is a known
+    statement-timeout risk for broad 155-set publication builds.
     """
     day = str(market_date)[:10]
     if day < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
         return _legacy_load_sets(client, market_date=day)
+
+    if day >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        set_ids = resolve_market_root_ids(client, market_date=day)
+        if not set_ids:
+            raise RuntimeError(f"pokemon_market_root_authority has no active members for {day}")
+
+        set_rows = []
+        for offset in range(0, len(set_ids), 100):
+            set_rows.extend(
+                dict(row)
+                for row in (
+                    client.table("sets")
+                    .select(
+                        "id,name,canonical_key,era_id,release_date,logo_image_url,"
+                        "symbol_image_url,catalog_only,parent_opening_set_id"
+                    )
+                    .in_("id", set_ids[offset:offset + 100])
+                    .execute().data or []
+                )
+            )
+
+        by_id = {str(row.get("id")): row for row in set_rows if row.get("id")}
+        era_ids = sorted({str(row.get("era_id")) for row in set_rows if row.get("era_id")})
+        era_names = {
+            str(row.get("id")): str(row.get("name") or "")
+            for row in (
+                client.table("eras").select("id,name").in_("id", era_ids).execute().data or []
+            )
+        } if era_ids else {}
+
+        return [
+            {
+                "id": set_id,
+                "name": (by_id.get(set_id) or {}).get("name"),
+                "canonical_key": (by_id.get(set_id) or {}).get("canonical_key"),
+                "era": era_names.get(str((by_id.get(set_id) or {}).get("era_id"))),
+                "release_date": (by_id.get(set_id) or {}).get("release_date"),
+                "logo_image_url": (by_id.get(set_id) or {}).get("logo_image_url"),
+                "symbol_image_url": (by_id.get(set_id) or {}).get("symbol_image_url"),
+                "market_scope": "standard",
+                "market_publication_ready": True,
+                "market_current_certification_status": None,
+            }
+            for set_id in set_ids
+        ]
+
     return [
         {
             "id": row.get("id"),
@@ -138,24 +189,63 @@ def _load_sets(client, *, market_date: str):
             "symbol_image_url": row.get("symbol_image_url"),
             "market_scope": "standard",
             "market_publication_ready": True,
-            "current_certification_status": row.get("market_current_certification_status"),
+            "market_current_certification_status": row.get("market_current_certification_status"),
         }
         for row in resolve_market_root_cohort(client, market_date=day)
     ]
 
-
 def _load_canonical_histories(client, set_ids, *, through_date: str):
-    """Canonical parent/subset Set Value history plus current-day authority overlay.
+    """Load the Set Value history that the Market page actually displays.
 
-    Historical points retain strict per-day canonical certification. Before the
-    global cutover, only explicitly activated rollout rows may overlay the
-    current day, preserving the old contract. After the cutover, every root in
-    the shared Market authority may use its exact-date materialized Standard Set
-    Value. That row can contain last-trustworthy component observations while
-    retaining their real source dates; no price is fabricated or relabelled.
+    PRE-CUTOVER keeps the historical certified-root contract plus the explicitly
+    activated rollout row for the current day.
+
+    POST-CUTOVER the published Market Set Value is sourced from
+    pokemon_set_value_daily_history Standard rows. The history used for
+    deltas/charts must come from that SAME authority across the full available
+    range; mixing a certified-root historical series with only a current-day
+    Standard overlay can collapse partially-covered sets to one point and can
+    introduce a false discontinuity when the two authorities differ.
+
+    Reads are explicitly paged with a deterministic (snapshot_date, set_id)
+    order so PostgREST row caps cannot silently truncate broad Market cohorts.
     """
     grouped = defaultdict(list)
     limit_date = str(through_date)[:10]
+    post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE
+
+    if post_cutover:
+        page_size = 1000
+        for offset in range(0, len(set_ids), 100):
+            batch = set_ids[offset:offset + 100]
+            start = 0
+            while True:
+                response = (
+                    client.table("pokemon_set_value_daily_history")
+                    .select("set_id,snapshot_date,set_value,source")
+                    .in_("set_id", batch)
+                    .eq("value_scope", "standard")
+                    .lte("snapshot_date", limit_date)
+                    .order("snapshot_date", desc=False)
+                    .order("set_id", desc=False)
+                    .range(start, start + page_size - 1)
+                    .execute()
+                )
+                rows = list(response.data or [])
+                for row in rows:
+                    grouped[str(row.get("set_id"))].append({
+                        "set_id": row.get("set_id"),
+                        "snapshot_date": row.get("snapshot_date"),
+                        "set_value": row.get("set_value"),
+                    })
+                if len(rows) < page_size:
+                    break
+                start += page_size
+
+        for rows in grouped.values():
+            rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
+        return grouped
+
     for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
         batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
         response = client.rpc(
@@ -177,19 +267,17 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 "set_value": row.get("set_value"),
             })
 
-    post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE
     for offset in range(0, len(set_ids), 100):
         batch = set_ids[offset:offset + 100]
-        query = (
+        rows = list((
             client.table("pokemon_set_value_daily_history")
             .select("set_id,snapshot_date,set_value,source")
             .in_("set_id", batch)
             .eq("snapshot_date", limit_date)
             .eq("value_scope", "standard")
-        )
-        if not post_cutover:
-            query = query.eq("source", ROLLOUT_STANDARD_SOURCE)
-        rows = list(query.execute().data or [])
+            .eq("source", ROLLOUT_STANDARD_SOURCE)
+            .execute()
+        ).data or [])
         for row in rows:
             set_id = str(row.get("set_id"))
             grouped[set_id] = [
@@ -207,7 +295,6 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
         rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
     return grouped
 
-
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
     sets = _load_sets(client, market_date=market_date)
     set_ids = [str(row["id"]) for row in sets]
@@ -218,11 +305,17 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         )
 
     dashboards = []
-    for offset in range(0, len(set_ids), 20):
-        result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
-            .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at,cardsMarket:payload_json->cardsMarket")
-            .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
-        dashboards.extend(result.data or [])
+    post_cutover = str(market_date)[:10] >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE
+    if not post_cutover:
+        dashboard_fields = (
+            "set_id,window_key,set_value_histories_json,latest_market_date,updated_at,"
+            "cardsMarket:payload_json->cardsMarket"
+        )
+        for offset in range(0, len(set_ids), 20):
+            result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
+                .select(dashboard_fields)
+                .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
+            dashboards.extend(result.data or [])
 
     histories = _load_canonical_histories(client, set_ids, through_date=market_date)
 

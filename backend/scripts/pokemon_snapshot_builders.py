@@ -2944,6 +2944,7 @@ def _load_top_chase_histories_from_observations(
     canonical_context = dict(canonical_context or {})
 
     canonical_variant_ids = list(canonical_context.get("variant_ids") or [])
+    canonical_histories: Dict[str, List[Dict[str, Any]]] = {}
     if canonical_variant_ids:
         try:
             canonical_condition_by_variant = dict(canonical_context.get("condition_by_variant") or {})
@@ -2955,29 +2956,53 @@ def _load_top_chase_histories_from_observations(
                 start_date=start_date,
                 end_date=end_date,
             )
-            histories = _compact_top_chase_canonical_observation_rows(
+            canonical_histories = _compact_top_chase_canonical_observation_rows(
                 observation_rows,
                 variant_to_canonical_id=dict(canonical_context.get("variant_to_canonical_id") or {}),
                 display_key_to_canonical_id=dict(canonical_context.get("display_key_to_canonical_id") or {}),
                 condition_by_variant=canonical_condition_by_variant,
             )
-            if histories:
+            if canonical_histories:
                 logger.info(
                     "[pokemon-snapshot] canonical top chase histories set_id=%s cards=%s variants=%s",
                     set_id,
-                    len(histories),
+                    len(canonical_histories),
                     len(canonical_variant_ids),
                 )
-                return histories
         except Exception as exc:
             if is_transient_data_service_error(exc):
                 raise
             logger.warning("canonical top chase observation history load failed set_id=%s", set_id, exc_info=True)
 
+    # Canonical selected-price histories can legitimately cover only part of a
+    # mixed Top Chase cohort. Preserve the display variant on fallback cards and
+    # load legacy/simulation history only for cards the canonical path did not
+    # cover. Returning immediately on the first canonical history used to drop
+    # valid fallback history for mixed-identity sets such as Celebrations.
+    missing_variant_ids: List[str] = []
+    seen_missing: set[str] = set()
+    for card in list(cards or []):
+        display_key = first_non_empty(
+            card.get("cardVariantId"), card.get("card_variant_id"),
+            card.get("cardId"), card.get("card_id"), card.get("id"),
+        )
+        variant_id = first_non_empty(card.get("cardVariantId"), card.get("card_variant_id"))
+        if variant_id and str(display_key or "") not in canonical_histories and variant_id not in seen_missing:
+            seen_missing.add(variant_id)
+            missing_variant_ids.append(variant_id)
+    if not cards:
+        missing_variant_ids = [
+            variant_id for variant_id in variant_ids
+            if variant_id not in set(canonical_variant_ids)
+        ]
+
+    if not missing_variant_ids:
+        return canonical_histories
+
     try:
         observation_rows = _load_paginated_top_chase_observation_rows(
             client,
-            variant_ids=variant_ids,
+            variant_ids=missing_variant_ids,
             condition_ids=[TOP_CHASE_NEAR_MINT_CONDITION_ID],
             start_date=start_date,
             end_date=end_date,
@@ -3011,11 +3036,12 @@ def _load_top_chase_histories_from_observations(
             "is_observed": True,
         }
 
-    return {
+    fallback_histories = {
         variant_id: [points[date_key] for date_key in sorted(points.keys())]
         for variant_id, points in points_by_variant_date.items()
         if points
     }
+    return {**fallback_histories, **canonical_histories}
 
 
 def _history_by_card(cards: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
