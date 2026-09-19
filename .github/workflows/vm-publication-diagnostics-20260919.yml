@@ -15,37 +15,49 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect production VM publication
+      - name: Inspect active publication process
         shell: bash
         run: |
           set -u
+          cd /home/ubuntu/repos/EVRCalculator
           echo "=== HOST ==="
           hostname
           date
           echo
-          echo "=== PRODUCTION REPO ==="
-          cd /home/ubuntu/repos/EVRCalculator
-          printf 'head='
+          echo "=== REPO ==="
           git rev-parse HEAD
-          printf 'branch='
-          git branch --show-current || true
-          echo "status:"
           git status --short || true
           echo
-          echo "=== PUBLICATION PROCESSES ==="
-          ps -ef | grep -E 'publish_post_scrape_if_needed|rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|build_pokemon_set_market_snapshots|build_pokemon_market_dashboard_snapshots' | grep -v grep || true
+          echo "=== PUBLICATION PROCESS TREE ==="
+          ps -eo user,pid,ppid,etime,time,%cpu,%mem,state,wchan:32,args | grep -E '112179|112194|rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
           echo
-          echo "=== LOCK ==="
-          ls -l /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || echo "lock-file-not-present"
-          if command -v lslocks >/dev/null 2>&1; then
-            lslocks | grep -E 'pokemon-post-scrape-publication|COMMAND|python|bash' || true
-          fi
-          if command -v fuser >/dev/null 2>&1; then
-            fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          fi
+          echo "=== CHILDREN ==="
+          pgrep -a -P 112194 || true
+          echo
+          echo "=== FILE DESCRIPTORS ==="
+          for fd in 0 1 2; do
+            printf 'fd%s=' "$fd"
+            readlink "/proc/112194/fd/$fd" 2>/dev/null || echo unavailable
+          done
+          echo
+          echo "=== PROC STATUS ==="
+          grep -E '^(State|VmRSS|VmSize|Threads|voluntary_ctxt_switches|nonvoluntary_ctxt_switches):' /proc/112194/status 2>/dev/null || true
+          echo
+          echo "=== PROC IO ==="
+          cat /proc/112194/io 2>/dev/null || true
+          echo
+          echo "=== ACTIVE NETWORK ==="
+          ss -tpn 2>/dev/null | grep -E 'pid=112194|zwxzxuuawalvwioadhmf|:443' | tail -30 || true
+          echo
+          echo "=== RECENT LOG FILES ==="
+          find backend/logs -maxdepth 1 -type f -mmin -20 -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' 2>/dev/null | sort | tail -30 || true
           echo
           echo "=== PUBLICATION LOG TAIL ==="
-          tail -160 backend/logs/rebuild_snapshots_after_scrape.cron.log 2>/dev/null || true
+          tail -100 backend/logs/rebuild_snapshots_after_scrape.cron.log 2>/dev/null || true
           echo
-          echo "=== DISPATCHER LOG TAIL ==="
-          tail -60 backend/logs/cron_dispatcher.log 2>/dev/null || true
+          echo "=== REFRESH LOG CANDIDATES ==="
+          for p in backend/logs/*refresh* backend/logs/*snapshot* backend/logs/*publication*; do
+            [ -f "$p" ] || continue
+            echo "--- $p ---"
+            tail -30 "$p" 2>/dev/null || true
+          done
