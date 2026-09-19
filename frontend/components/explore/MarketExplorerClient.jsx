@@ -358,12 +358,12 @@ export default function MarketExplorerClient({
           <h2 id="explore-markets-zone-heading" className={styles.explorerZoneTitle}>Browse Markets</h2>
           <p className={styles.explorerZoneDescription}>Browse published Set, Era, and curated markets.</p>
         </div>
-        <MarketExplorerBrowse directory={preparedDirectory} directoryStatus={preparedDirectoryStatus} activeKeys={preparedActiveKeys}
+        <MarketExplorerBrowse directory={preparedDirectory} directoryStatus={preparedDirectoryStatus} activeKeys={preparedLoadError ? [] : preparedActiveKeys}
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared} onBuild={() => setBuilderOpen(true)} />
         <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
-          <MarketExplorerRarityMarkets directory={preparedDirectory} activeKeys={preparedActiveKeys} onSelect={selectPrepared} />
-          <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys}
+          <MarketExplorerRarityMarkets directory={preparedDirectory} activeKeys={preparedLoadError ? [] : preparedActiveKeys} onSelect={selectPrepared} />
+          <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedLoadError ? [] : preparedActiveKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
         </div>
         <div data-market-explorer-sidebar-section="filter" className="border-t border-[var(--border-subtle)] px-3 py-3">

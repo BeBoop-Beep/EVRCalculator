@@ -1193,7 +1193,17 @@ test("a failed prepared selection remains visible with one-request retry", async
   const calls = [];
   globalThis.fetch = async (url) => {
     calls.push(url);
-    return { ok: false, json: async () => ({ message: "Prepared market unavailable" }) };
+    if (calls.length === 1) return { ok: false, json: async () => ({ message: "Prepared market unavailable" }) };
+    return { ok: true, json: async () => ({
+      markets: [{ market_key: "set:151", market_type: "set", label: "Scarlet and Violet 151",
+        comparison_as_of: "2026-09-18", comparison_index_value: 101, comparison_value: 100,
+        current_value: 100, history_start_date: "2026-09-17", history_available: true,
+        return_7d_pct: 1 }],
+      history: [
+        { market_key: "set:151", market_date: "2026-09-17", index_value: 100 },
+        { market_key: "set:151", market_date: "2026-09-18", index_value: 101 },
+      ],
+    }) };
   };
   try {
     const directory = [{ market_key: "set:151", label: "Scarlet and Violet 151", market_type: "set", parent_era_id: "scarlet-violet", current_value: 100 }];
@@ -1202,11 +1212,15 @@ test("a failed prepared selection remains visible with one-request retry", async
     await TestRenderer.act(async () => { click(renderer, "data-prepared-market", "set:151"); });
     assert.equal(findAll(renderer, "data-market-explorer-prepared-error").length, 1);
     assert.match(pageText(renderer), /Selected market data is temporarily unavailable/);
+    assert.equal(findAll(renderer, "data-prepared-market")[0].props["aria-pressed"], false);
     assert.equal(calls.filter((url) => url === "/api/market/explorer/prepared").length, 1);
     const retry = findAll(renderer, "data-market-explorer-prepared-error")[0]
       .findAll((node) => node.type === "button", { deep: true })[0];
     await TestRenderer.act(async () => { retry.props.onClick(); });
     assert.equal(calls.filter((url) => url === "/api/market/explorer/prepared").length, 2);
+    assert.equal(findAll(renderer, "data-market-explorer-prepared-error").length, 0);
+    assert.equal(findAll(renderer, "data-prepared-market")[0].props["aria-pressed"], true);
+    assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 1);
   } finally {
     globalThis.fetch = original;
     globalThis.requestAnimationFrame = originalAnimationFrame;
