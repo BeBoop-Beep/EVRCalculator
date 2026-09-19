@@ -8,7 +8,9 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
   const source = await read("./MarketExplorerClient.jsx");
   assert.match(source, />Market Explorer<\/h1>/);
   assert.match(source, /data-market-explorer-workspace/);
-  assert.match(source, /desk:grid-cols-\[minmax\(19rem,22rem\)_minmax\(0,1fr\)\]/);
+  assert.match(source, /desk:grid-cols-\[minmax\(21rem,24rem\)_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(source.slice(source.indexOf('data-market-explorer-zone="compare"'),
+    source.indexOf('aria-labelledby="compare-markets-zone-heading"')), /set-glass-surface/);
   assert.match(source, /data-market-explorer-sidebar/);
   assert.match(source, /data-market-explorer-mobile-tools/);
   assert.match(source, /desk:hidden/);

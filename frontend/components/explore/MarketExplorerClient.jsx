@@ -312,7 +312,7 @@ export default function MarketExplorerClient({
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-mode={workspaceMode}
       data-market-explorer-access-mode={accessMode}
-      className="grid min-w-0 gap-3 desk:grid-cols-[minmax(19rem,22rem)_minmax(0,1fr)] desk:items-start desk:gap-4"
+      className="grid min-w-0 gap-3 desk:grid-cols-[minmax(21rem,24rem)_minmax(0,1fr)] desk:items-start desk:gap-4"
     >
       <header data-market-explorer-product-header className="px-1 pb-2 pt-1 desk:col-span-2">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">Market Explorer</h1>
@@ -380,7 +380,7 @@ export default function MarketExplorerClient({
       <section
         data-market-explorer-analysis
         data-market-explorer-zone="compare"
-        className={`order-2 flex min-w-0 flex-col ${styles.explorerZone} ${styles.explorerZonePrimary} ${styles.surfaceQuiet} set-glass-surface desk:order-none desk:col-start-2`}
+        className={`order-2 flex min-w-0 flex-col ${styles.explorerZonePrimary} ${styles.surfaceQuiet} desk:order-none desk:col-start-2`}
         aria-labelledby="compare-markets-zone-heading"
       >
         <div className="sr-only">
