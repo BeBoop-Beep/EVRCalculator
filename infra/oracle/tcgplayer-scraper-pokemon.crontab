@@ -5,7 +5,11 @@
 
 # Daily scrape lifecycle
 0 1 * * * cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/reconcile_stale_scrape_jobs.py --commit >> /home/ubuntu/repos/EVRCalculator/backend/logs/reconcile_stale_scrape_jobs.log 2>&1
-5 1 * * * cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/create_daily_scrape_batch.py --trigger-source scheduled >> /home/ubuntu/repos/EVRCalculator/backend/logs/create_daily_scrape_batch.log 2>&1
+5 1 * * * /usr/bin/flock -n /tmp/pokemon-batch-create.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/create_daily_scrape_batch.py --trigger-source scheduled' >> /home/ubuntu/repos/EVRCalculator/backend/logs/create_daily_scrape_batch.log 2>&1
+# Bounded recovery window: if the 1:05 create hit a transient DB/Supabase failure,
+# ensure the batch exists every 10 minutes through 2:55. Existing batches are a no-op.
+15-55/10 1 * * * /usr/bin/flock -n /tmp/pokemon-batch-create.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/create_daily_scrape_batch.py --ensure --trigger-source scheduled --skip-new-set-detection' >> /home/ubuntu/repos/EVRCalculator/backend/logs/create_daily_scrape_batch.log 2>&1
+5-55/10 2 * * * /usr/bin/flock -n /tmp/pokemon-batch-create.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/create_daily_scrape_batch.py --ensure --trigger-source scheduled --skip-new-set-detection' >> /home/ubuntu/repos/EVRCalculator/backend/logs/create_daily_scrape_batch.log 2>&1
 * * * * * /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/run_next_scrape_job.py' >> /home/ubuntu/repos/EVRCalculator/backend/logs/cron_dispatcher.log 2>&1
 0 6 * * * cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> /home/ubuntu/repos/EVRCalculator/backend/logs/rebuild_snapshots_after_scrape.cron.log 2>&1
 

@@ -523,3 +523,95 @@ def test_summary_contains_required_keys():
 def _tmp_lock() -> str:
     return os.path.join(tempfile.gettempdir(),
                          f"market_explorer_cache_prewarm_test_{os.getpid()}_{id(object())}.lock")
+
+
+
+# --- Prepared generation handoff ---------------------------------------------
+
+def test_no_stale_caches_refreshes_prepared_generation_when_unscoped_commit():
+    rows = [_row("fp-current", "2026-09-17", status="ready")]
+    client = Client()
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "refreshed", "targetMarketDate": "2026-09-17"}) as refresh:
+        result = worker.run_prewarm(
+            client=client, commit=True, lock=worker.FileLock(_tmp_lock())
+        )
+
+    refresh.assert_called_once_with(
+        client, target_market_date="2026-09-17", commit=True
+    )
+    assert result["preparedRefresh"]["status"] == "refreshed"
+    assert result["failed"] == 0
+
+
+def test_final_stale_cache_advance_triggers_prepared_generation_handoff():
+    stale_row = _row("fp-last", "2026-09-15", status="ready")
+    current_row = _row("fp-last", "2026-09-17", status="ready")
+    discoveries = [[stale_row], [current_row]]
+
+    with patch.object(worker, "discover_maintained_caches", side_effect=discoveries), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "refreshed", "targetMarketDate": "2026-09-17"}) as refresh:
+        result = worker.run_prewarm(
+            client=Client(), commit=True, lock=worker.FileLock(_tmp_lock()), guard=_ok_guard
+        )
+
+    assert result["advanced"] == 1
+    assert result["preparedRefresh"]["status"] == "refreshed"
+    assert refresh.call_count == 1
+
+
+def test_prepared_generation_remains_deferred_while_any_cache_is_stale():
+    rows_before = [_row("fp-a", "2026-09-15"), _row("fp-b", "2026-09-15")]
+    rows_after = [_row("fp-a", "2026-09-17"), _row("fp-b", "2026-09-15")]
+
+    with patch.object(worker, "discover_maintained_caches",
+                      side_effect=[rows_before, rows_after]), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()), \
+         patch.object(worker, "refresh_prepared_if_current") as refresh:
+        result = worker.run_prewarm(
+            client=Client(), commit=True, max_caches=1,
+            lock=worker.FileLock(_tmp_lock()), guard=_ok_guard
+        )
+
+    refresh.assert_not_called()
+    assert result["preparedRefresh"] == {
+        "status": "deferred",
+        "reason": "maintained_caches_still_stale",
+        "staleCount": 1,
+    }
+
+
+def test_scoped_prewarm_never_owns_global_prepared_handoff():
+    rows = [_row("fp-a", "2026-09-17", set_ids=["set-a"])]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "refresh_prepared_if_current") as refresh:
+        result = worker.run_prewarm(
+            client=Client(), commit=True, only_set_ids=["set-a"],
+            lock=worker.FileLock(_tmp_lock())
+        )
+
+    refresh.assert_not_called()
+    assert result["preparedRefresh"] is None
+
+
+def test_prepared_refresh_failure_is_a_hard_worker_failure():
+    rows = [_row("fp-current", "2026-09-17", status="ready")]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "failed", "error": "watermark mismatch"}):
+        result = worker.run_prewarm(
+            client=Client(), commit=True, lock=worker.FileLock(_tmp_lock())
+        )
+
+    assert result["failed"] == 1
+    assert result["preparedRefresh"]["status"] == "failed"
