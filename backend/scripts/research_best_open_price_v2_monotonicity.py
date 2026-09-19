@@ -76,6 +76,43 @@ NON_LR_COMPONENTS = (
 LR_BOUND_SLACK_POINTS = 1e-3
 
 
+# Numbers below are asserted by
+# backend/tests/unit/calculations/test_best_open_price_v2_monotonicity.py and were
+# produced by the real canonical scorer over tiny synthetic outcome vectors.
+SYNTHETIC_EVIDENCE: Dict[str, Any] = {
+    "fixtures": {
+        "REBOUND": "100 outcomes: values 1,2,3,4 once each, 10 x95, 12 x1; q=1, target 100",
+        "PLATEAU": "100 outcomes all worth 10.0; q=1, target 100",
+    },
+    "financialScoreRisesWithPrice": [
+        {"fixture": "REBOUND", "fromCents": 200, "toCents": 201, "from": 85.8908, "to": 86.1992},
+        {"fixture": "REBOUND", "fromCents": 300, "toCents": 301, "from": 80.489, "to": 82.9319},
+        {"fixture": "REBOUND", "fromCents": 400, "toCents": 401, "from": 78.676, "to": 79.2028,
+         "overallFrom": 76.5075, "overallTo": 76.9606, "lossResilienceFrom": 55.0, "lossResilienceTo": 58.6409,
+         "trueWinFrom": 0.97, "trueWinTo": 0.96},
+    ],
+    "financialPredicatePatterns": {
+        "controlWL": {"benchmarkFinancial": 76.0, "windowCents": [401, 519], "pattern": "W L"},
+        "oneCentIslandLWL": {"benchmarkFinancial": 82.9319, "windowCents": [260, 400], "winners": [301]},
+        "separatedRangesWLWL": {"benchmarkFinancial": 82.9319, "windowCents": [250, 400], "pattern": "W L W L"},
+        "reboundWLW": {"benchmarkFinancial": 82.7, "windowCents": [250, 305], "pattern": "W L W"},
+        "scoreRiseWithoutPredicateChange": {"benchmarkFinancial": 70.0, "windowCents": [250, 400], "pattern": "W"},
+    },
+    "overallTieBreakHigherPriceWins": {
+        "fixture": "PLATEAU", "pricesCents": [1, 2, 3, 4],
+        "identicalHeadlineAtCents": [1, 2, 3], "headline": {"financial": 100.0, "overall": 94.8462, "trueWin": 1.0},
+        "overallVerdicts": [False, False, True, False], "financialVerdicts": [True, True, True, False],
+        "benchmarkCapital": 0.025, "note": "capital closeness |capital - target| decreases with price",
+    },
+    "authorityDisagreement": {
+        "financialMonotoneOverallNot": "PLATEAU: Financial 'W L', Overall 'L W L'",
+        "overallMonotoneFinancialNot": "REBOUND window [260,400]: Financial 'L W L', Overall 'W'",
+    },
+    "quantityBoundaryReversal": {"budgetCents": 1000, "q3": [251, 333], "q2": [334, 500], "pattern": "L W"},
+    "notFound": [],
+}
+
+
 # ---------------------------------------------------------------------------
 # Row model
 # ---------------------------------------------------------------------------
@@ -1017,6 +1054,70 @@ def summarize(products: Sequence[Mapping[str, Any]], *, control_path: Path = FRO
                     if len(q_stats["examples"]) < 10:
                         q_stats["examples"].append({"sealedProductId": p["sealedProductId"], "axis": axis, **summary})
     out["qLevel"] = q_stats
+    import hashlib
+    out["provenance"] = {
+        "sourceSnapshotId": SOURCE_SNAPSHOT_ID, "authorityFingerprint": EXPECTED_AUTHORITY_FINGERPRINT,
+        "marketDate": "2026-09-14", "fullMarketBudgetCents": 130000,
+        "controlArtifact": str(control_path).replace("\\", "/"),
+        "controlArtifactSha256": hashlib.sha256(control_path.read_bytes()).hexdigest(),
+        "rawSweepArtifacts": "logs/mono_raw_*.jsonl (local, gitignored; regenerate with the runner)",
+    }
+    cases: List[Dict[str, Any]] = []
+    for p in products:
+        for axis in AXES:
+            analysis = p["analysis"][axis]
+            legal = p["legal"][axis]
+            if analysis["lossToWinTransitions"] or analysis["oneCentIslands"]:
+                cases.append({
+                    "kind": "quantity_boundary_separated_winning_ranges",
+                    "sealedProductId": p["sealedProductId"], "axis": axis, "pattern": analysis["pattern"],
+                    "frozenThresholdCents": legal["frozenThresholdCents"], "frozenQuantity": legal["frozenQuantity"],
+                    "lossToWin": analysis["lossToWinExamples"][:2],
+                    "oneCentIslandPrices": analysis["oneCentIslandPrices"],
+                    "boundaryQuantityEqualsThresholdQuantity": bool(
+                        analysis["lossToWinExamples"]
+                        and analysis["lossToWinExamples"][0]["toQuantity"] == legal["frozenQuantity"]),
+                    "currentPriceCents": p["currentPriceCents"],
+                })
+            if analysis["withinQuantityUpwardSteps"] and p["sealedProductId"] in ADVERSARIAL_PRODUCTS:
+                cases.append({
+                    "kind": "within_quantity_score_rebound", "sealedProductId": p["sealedProductId"], "axis": axis,
+                    "withinQuantityUpwardSteps": analysis["withinQuantityUpwardSteps"],
+                    "predicateDownClosedWithinQuantity": analysis["lossToWinTransitions"]
+                    == analysis["quantityBoundaryLossToWin"],
+                    "examples": [e for e in analysis["upwardScoreStepExamples"] if not e["quantityBoundary"]][:2],
+                })
+        for entry in p["branchAndBound"]:
+            if entry.get("tieBandCents"):
+                cases.append({"kind": "financial_score_equals_benchmark_band", "sealedProductId": p["sealedProductId"],
+                              **{k: entry[k] for k in ("axis", "quantity", "low", "high", "tieBandCents",
+                                                       "exhaustiveTop", "bnbTop")}})
+    out["reproducingRealCases"] = cases
+    within_violations = sum(
+        a["lossToWinTransitions"] - a["quantityBoundaryLossToWin"] for p in products for a in p["analysis"].values())
+    out["withinFixedQuantity"] = {
+        "intervalsSwept": out["scope"]["quantityIntervalsSwept"],
+        "lossToWinTransitionsInsideAQuantityInterval": within_violations,
+        "scoreReboundsInsideAQuantityInterval": anomalies["allSweptCents"]["financial"]["withinQuantityUpwardSteps"],
+        "thresholdsWithTrueWinAboveOneHalf": sum(
+            1 for p in products for axis in AXES
+            if (p["legal"][axis].get("atThreshold") or {}).get("trueWin", 0) > 0.5),
+        "maxTrueWinAtAnyThreshold": max(
+            ((p["legal"][axis].get("atThreshold") or {}).get("trueWin") or 0.0)
+            for p in products for axis in AXES),
+    }
+    sound = (totals["falsePrunes"] == 0 and totals["boundViolations"] == 0 and totals["mismatches"] == 0
+             and not out["thresholdMismatches"])
+    unrestricted_monotone = all(
+        anomalies["allSweptCents"][axis]["sweepsNotDownClosed"] == 0 for axis in AXES)
+    if not sound:
+        token = "NO_CERTIFIED_SEARCH_SPACE_REDUCTION_FOUND"
+    elif unrestricted_monotone:
+        token = "CERTIFIED_SEARCH_SPACE_REDUCTION_SUPPORTED"
+    else:
+        token = "PARTIAL_CERTIFIED_SEARCH_SPACE_REDUCTION_SUPPORTED"
+    out["decisionToken"] = token
+    out["syntheticEvidence"] = SYNTHETIC_EVIDENCE
     out["quantityBoundary"] = {axis: {
         "upwardScoreSteps": anomalies["allSweptCents"][axis]["quantityBoundaryUpwardSteps"],
         "lossToWin": anomalies["allSweptCents"][axis]["quantityBoundaryLossToWin"],
