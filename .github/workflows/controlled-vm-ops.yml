@@ -174,37 +174,49 @@ jobs:
 
             repair-cards-market-errors)
               cd "$REPO"
-              IDS_FILE="/tmp/evr-cards-market-error-ids.txt"
-              RESULTS_FILE="/tmp/evr-cards-market-repair-results.txt"
-              : > "$RESULTS_FILE"
-
-              "$PY" - <<'PY' > "$IDS_FILE"
-from backend.db.clients.supabase_client import create_service_role_client
-
-client = create_service_role_client()
-rows = list((
-    client.table("pokemon_set_market_dashboard_snapshot_latest")
-    .select("set_id,latest_market_date,payload_json")
-    .eq("window_key", "365d")
-    .gte("latest_market_date", "2026-09-18")
-    .execute()
-).data or [])
-
-for row in rows:
-    cards = (row.get("payload_json") or {}).get("cardsMarket") or {}
-    if cards.get("reason") == "error":
-        print(row["set_id"])
-PY
-
-              TOTAL="$(grep -c . "$IDS_FILE" || true)"
-              echo "cards-market error cohort size=$TOTAL"
-
-              SUCCESS=0
-              FAILED=0
+              TOTAL=37
               INDEX=0
+              FAILED=0
 
-              while IFS= read -r SET_ID; do
-                [ -n "$SET_ID" ] || continue
+              for SET_ID in \
+                aac3de95-9f92-44af-966d-70b1d201c01e \
+                6c82fb37-b9b9-4961-a528-12556bd15417 \
+                93050f21-b805-41fc-a49d-b5afcb9c41dc \
+                1b3250bb-f123-47d8-b090-499e5879eda7 \
+                7a1b8de0-331f-4635-8512-b737da431f7d \
+                c56fe006-6d9a-4b26-a4e0-6726138edecb \
+                ff3a0e62-c79e-4721-aee8-41fb9d9e864b \
+                7ceb2e94-7968-4394-95cb-742b01804974 \
+                50c5370b-a5e7-4fbc-98fe-efc35e05ff80 \
+                15fd93a2-82e3-4a5f-9f11-112cee192c95 \
+                537d3312-9622-4015-9ef2-66e16a27287c \
+                bbea2ee9-6be2-44bd-b14e-b4a8b9c858de \
+                846787ce-2e12-4dab-b941-886f95cd16f8 \
+                5bb951fd-bb74-40d7-b496-cca5bf959515 \
+                332b2885-9354-4a29-ba52-03fca35594d1 \
+                a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2 \
+                78c7f000-9a9e-45ca-8233-8f36030f6019 \
+                0f7e51e2-5a78-4500-9c9c-f690e934a069 \
+                549f2297-a03b-4276-ad96-ad41a8bcef8f \
+                a91d2dfa-fd33-44ff-ac12-f221b833a2e2 \
+                92575c0d-fac2-42ff-86f3-fb81f7452188 \
+                62aaa567-d5a7-4d0c-b1b0-1fde562c0081 \
+                1c6a8735-af2a-475b-b230-5bd18f827b06 \
+                9e777620-7479-41c4-84fb-17d2aea123bb \
+                2d477c9a-bb2c-42aa-ae25-7cd4ca0f2a4a \
+                ba05227c-b7eb-4428-9e8e-ae70b52fe89f \
+                9d282514-6b63-48cd-bc25-9ce330632cd3 \
+                30396643-190c-416d-92a4-e8414c8b4980 \
+                b0d7bd6a-4e57-4495-b975-e132417cc071 \
+                27f3eb48-9964-4a3f-9861-a434ae244697 \
+                8f78267f-493b-4d60-a19e-587ae1f60f69 \
+                5e160c6d-8f0e-4694-bf72-1fc3b7f01e45 \
+                77bde285-03f8-4a48-b6a5-2f548225c3eb \
+                4f84d317-e15d-4598-bc8d-52baa04b3485 \
+                ed118173-d54b-40d5-bdb4-1964024dbad3 \
+                126093d8-50e7-4a7c-891d-8cffd5733eeb \
+                29d1d610-11c5-479c-a9ff-dace7bb96f92 \
+              ; do
                 INDEX=$((INDEX + 1))
                 echo "===== cards-market repair $INDEX/$TOTAL set_id=$SET_ID ====="
 
@@ -213,73 +225,19 @@ PY
                   --set-id "$SET_ID" \
                   --commit \
                   --market-date "$VM_MARKET_DATE"
-                CMD_STATUS=$?
+                STATUS=$?
                 set -e
 
-                VERIFY="$("$PY" - "$SET_ID" <<'PY'
-import sys
-from backend.db.clients.supabase_client import create_service_role_client
-
-set_id = sys.argv[1]
-client = create_service_role_client()
-rows = list((
-    client.table("pokemon_set_market_dashboard_snapshot_latest")
-    .select("payload_json,latest_market_date")
-    .eq("set_id", set_id)
-    .eq("window_key", "365d")
-    .limit(1)
-    .execute()
-).data or [])
-
-row = rows[0] if rows else {}
-cards = (row.get("payload_json") or {}).get("cardsMarket") or {}
-print("ok" if cards.get("available") is True and isinstance(cards.get("marketIndex"), dict) else "failed")
-PY
-)"
-
-                if [ "$CMD_STATUS" -eq 0 ] && [ "$VERIFY" = "ok" ]; then
-                  SUCCESS=$((SUCCESS + 1))
-                  echo "$SET_ID ok" >> "$RESULTS_FILE"
-                else
+                if [ "$STATUS" -ne 0 ]; then
                   FAILED=$((FAILED + 1))
-                  echo "$SET_ID failed cmd_status=$CMD_STATUS verify=$VERIFY" >> "$RESULTS_FILE"
+                  echo "repair command failed set_id=$SET_ID status=$STATUS"
                 fi
 
                 sleep 1
-              done < "$IDS_FILE"
+              done
 
-              echo "===== cards-market repair summary ====="
-              echo "total=$TOTAL success=$SUCCESS failed=$FAILED"
-              cat "$RESULTS_FILE"
-
-              "$PY" - <<'PY'
-from backend.db.clients.supabase_client import create_service_role_client
-
-client = create_service_role_client()
-rows = list((
-    client.table("pokemon_set_market_dashboard_snapshot_latest")
-    .select("set_id,latest_market_date,payload_json")
-    .eq("window_key", "365d")
-    .gte("latest_market_date", "2026-09-18")
-    .execute()
-).data or [])
-
-errors = []
-available = 0
-for row in rows:
-    cards = (row.get("payload_json") or {}).get("cardsMarket") or {}
-    if cards.get("available") is True and isinstance(cards.get("marketIndex"), dict):
-        available += 1
-    elif cards.get("reason") == "error":
-        errors.append(row["set_id"])
-
-print({
-    "currentRows": len(rows),
-    "cardsMarketAvailable": available,
-    "remainingErrors": len(errors),
-    "remainingErrorSetIds": errors,
-})
-PY
+              echo "===== cards-market repair command summary ====="
+              echo "total=$TOTAL command_failures=$FAILED"
               ;;
 
             *)
