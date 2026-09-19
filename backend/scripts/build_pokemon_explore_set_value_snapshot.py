@@ -31,7 +31,9 @@ from backend.db.services.canonical_market_overview import (
 )
 from backend.db.services.pokemon_market_rollout_cohort import (
     MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
+    MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE,
     resolve_market_root_cohort,
+    resolve_market_root_ids,
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
@@ -120,13 +122,62 @@ def _load_sets(client, *, market_date: str):
     """Set Market roots aligned with the global Market authority.
 
     Sep 8 and earlier retain the already-published Set Market cohort verbatim.
-    Sep 9+ uses the shared root resolver, including structurally valid prior-
-    basket continuity roots that must not disappear because of same-day
-    freshness policy.
+    Sep 9 preserves the canonical transition resolver exactly as published.
+    Sep 10+ membership comes from the frozen authority table via the lightweight
+    membership-only resolver. Display metadata is then read directly from
+    sets/eras; the heavyweight annotation view is deliberately avoided because
+    certification is annotation, not membership, and that view is a known
+    statement-timeout risk for broad 155-set publication builds.
     """
     day = str(market_date)[:10]
     if day < MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
         return _legacy_load_sets(client, market_date=day)
+
+    if day >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE:
+        set_ids = resolve_market_root_ids(client, market_date=day)
+        if not set_ids:
+            raise RuntimeError(f"pokemon_market_root_authority has no active members for {day}")
+
+        set_rows = []
+        for offset in range(0, len(set_ids), 100):
+            set_rows.extend(
+                dict(row)
+                for row in (
+                    client.table("sets")
+                    .select(
+                        "id,name,canonical_key,era_id,release_date,logo_image_url,"
+                        "symbol_image_url,catalog_only,parent_opening_set_id"
+                    )
+                    .in_("id", set_ids[offset:offset + 100])
+                    .execute().data or []
+                )
+            )
+
+        by_id = {str(row.get("id")): row for row in set_rows if row.get("id")}
+        era_ids = sorted({str(row.get("era_id")) for row in set_rows if row.get("era_id")})
+        era_names = {
+            str(row.get("id")): str(row.get("name") or "")
+            for row in (
+                client.table("eras").select("id,name").in_("id", era_ids).execute().data or []
+            )
+        } if era_ids else {}
+
+        return [
+            {
+                "id": set_id,
+                "name": (by_id.get(set_id) or {}).get("name"),
+                "canonical_key": (by_id.get(set_id) or {}).get("canonical_key"),
+                "era": era_names.get(str((by_id.get(set_id) or {}).get("era_id"))),
+                "release_date": (by_id.get(set_id) or {}).get("release_date"),
+                "logo_image_url": (by_id.get(set_id) or {}).get("logo_image_url"),
+                "symbol_image_url": (by_id.get(set_id) or {}).get("symbol_image_url"),
+                "market_scope": "standard",
+                "market_publication_ready": True,
+                "market_current_certification_status": None,
+            }
+            for set_id in set_ids
+        ]
+
     return [
         {
             "id": row.get("id"),
@@ -138,11 +189,10 @@ def _load_sets(client, *, market_date: str):
             "symbol_image_url": row.get("symbol_image_url"),
             "market_scope": "standard",
             "market_publication_ready": True,
-            "current_certification_status": row.get("market_current_certification_status"),
+            "market_current_certification_status": row.get("market_current_certification_status"),
         }
         for row in resolve_market_root_cohort(client, market_date=day)
     ]
-
 
 def _load_canonical_histories(client, set_ids, *, through_date: str):
     """Load the Set Value history that the Market page actually displays.
