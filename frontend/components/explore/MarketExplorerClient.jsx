@@ -111,6 +111,8 @@ export default function MarketExplorerClient({
   const backToChartRef = useRef(null);
   const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
   const [loadedPreparedSeries, setLoadedPreparedSeries] = useState([]);
+  const [preparedLoadError, setPreparedLoadError] = useState(false);
+  const [preparedRetry, setPreparedRetry] = useState(0);
 
   useEffect(() => {
     if (previousWorkspaceMode.current === workspaceMode) return;
@@ -231,7 +233,8 @@ export default function MarketExplorerClient({
   }, [clearAllQueries, clearAllSelection, initialPreparedKey]);
 
   useEffect(() => {
-    if (!preparedActiveKeys.length) { setLoadedPreparedSeries([]); return; }
+    if (!preparedActiveKeys.length) { setLoadedPreparedSeries([]); setPreparedLoadError(false); return; }
+    setPreparedLoadError(false);
     const controller = new AbortController();
     fetch("/api/market/explorer/prepared", {
       method: "POST", credentials: "include", cache: "no-store", signal: controller.signal,
@@ -241,9 +244,10 @@ export default function MarketExplorerClient({
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.message || "Prepared comparison unavailable");
       setLoadedPreparedSeries(buildPreparedSeries(payload.markets, payload.history));
-    }).catch((error) => { if (error?.name !== "AbortError") setLoadedPreparedSeries([]); });
+      setPreparedLoadError(false);
+    }).catch((error) => { if (error?.name !== "AbortError") { setLoadedPreparedSeries([]); setPreparedLoadError(true); } });
     return () => controller.abort();
-  }, [preparedActiveKeys]);
+  }, [preparedActiveKeys, preparedRetry]);
 
   // A hand-authored legacy URL can contain several prepared selections. The
   // Basic contract still resolves to one workspace market on first paint.
@@ -407,6 +411,10 @@ export default function MarketExplorerClient({
           </div>
         </div>
         <div data-market-explorer-active-strip className="order-1 min-w-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
+          {preparedLoadError ? <div role="alert" data-market-explorer-prepared-error className="m-3 rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-xs text-[var(--text-primary)]">
+            <p>Selected market data is temporarily unavailable. Your selection is saved.</p>
+            <button type="button" onClick={() => setPreparedRetry((value) => value + 1)} className="mt-2 min-h-10 rounded-md border border-amber-400/50 px-3 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">Retry market data</button>
+          </div> : null}
           <MarketExplorerActiveMarkets
             series={selectedSeries}
             activeSeriesId={activeDetailSeriesId}

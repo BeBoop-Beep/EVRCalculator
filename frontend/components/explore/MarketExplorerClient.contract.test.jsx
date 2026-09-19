@@ -1186,6 +1186,33 @@ test("Constituents follows Active Markets in the main workspace, before Comparis
   assert.ok(methodology, "Methodology must render");
 });
 
+test("a failed prepared selection remains visible with one-request retry", async () => {
+  const original = globalThis.fetch;
+  const originalAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => { callback(); return 1; };
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    return { ok: false, json: async () => ({ message: "Prepared market unavailable" }) };
+  };
+  try {
+    const directory = [{ market_key: "set:151", label: "Scarlet and Violet 151", market_type: "set", parent_era_id: "scarlet-violet", current_value: 100 }];
+    const renderer = renderCollapsed(overview, {}, SEALED_SERIES, CARD_SERIES, BASIC_USER, null, directory);
+    click(renderer, "data-market-directory-category", "sets");
+    await TestRenderer.act(async () => { click(renderer, "data-prepared-market", "set:151"); });
+    assert.equal(findAll(renderer, "data-market-explorer-prepared-error").length, 1);
+    assert.match(pageText(renderer), /Selected market data is temporarily unavailable/);
+    assert.equal(calls.filter((url) => url === "/api/market/explorer/prepared").length, 1);
+    const retry = findAll(renderer, "data-market-explorer-prepared-error")[0]
+      .findAll((node) => node.type === "button", { deep: true })[0];
+    await TestRenderer.act(async () => { retry.props.onClick(); });
+    assert.equal(calls.filter((url) => url === "/api/market/explorer/prepared").length, 2);
+  } finally {
+    globalThis.fetch = original;
+    globalThis.requestAnimationFrame = originalAnimationFrame;
+  }
+});
+
 test("one visible line uses published direction and two visible lines keep identity colors", () => {
   const renderer = render();
   const strokes = () => Object.fromEntries(findAll(renderer, "data-market-performance-series")
