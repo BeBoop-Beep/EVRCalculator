@@ -30,7 +30,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors)"
+              r"vm-op:\s*(status|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -238,6 +238,15 @@ jobs:
 
               echo "===== cards-market repair command summary ====="
               echo "total=$TOTAL command_failures=$FAILED"
+              ;;
+
+            refresh-explorer-and-audit)
+              cd "$REPO"
+              echo "===== refresh prepared Explorer ====="
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); print(c.rpc("refresh_pokemon_market_explorer_prepared_directory_v1", {}).execute().data)'
+
+              echo "===== final Explorer audit ====="
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); d=list((c.table("pokemon_market_explorer_prepared_directory_v1").select("market_type,comparison_as_of,source_as_of,history_available,history_point_count").execute()).data or []); h=list((c.table("pokemon_market_explorer_prepared_history_v1").select("market_date").order("market_date", desc=True).limit(1).execute()).data or []); m=list((c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date,payload_json").eq("window_key","365d").gte("latest_market_date","2026-09-18").execute()).data or []); sets=[r for r in d if r.get("market_type")=="set"]; errors=[r for r in m if ((r.get("payload_json") or {}).get("cardsMarket") or {}).get("reason")=="error"]; print({"directoryRows":len(d),"setRows":len(sets),"setsWithHistory":sum(1 for r in sets if r.get("history_available") is True),"setsWithoutHistory":sum(1 for r in sets if r.get("history_available") is not True),"comparisonAsOf":sorted({str(r.get("comparison_as_of")) for r in d if r.get("comparison_as_of")}),"sourceAsOf":sorted({str(r.get("source_as_of")) for r in d if r.get("source_as_of")}),"maxPreparedHistoryDate":(h[0].get("market_date") if h else None),"remainingDashboardErrors":len(errors)})'
               ;;
 
             *)
