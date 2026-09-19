@@ -25,6 +25,22 @@
 
 export const CONSTITUENT_PAGE_ENDPOINT = "/api/market/explorer/query/constituents";
 
+export async function fetchPreparedConstituentPage(identity, { limit = 100, afterRank = 0 } = {}) {
+  const query = new URLSearchParams({ kind: "constituents", marketKey: identity.marketKey,
+    generationId: identity.generationId, limit: String(limit), afterRank: String(afterRank) });
+  const response = await fetch(`/api/market/explorer/prepared?${query}`, { credentials: "include" });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(payload?.message || payload?.availabilityReason || "Unable to load prepared constituents");
+    error.code = payload?.code;
+    throw error;
+  }
+  if (payload.availability === "unavailable") throw new Error(payload.availabilityReason || "Prepared constituents are unavailable");
+  return { rows: Array.isArray(payload.rows) ? payload.rows : [], nextCursor: payload.nextCursor,
+    totalCount: payload.totalCount || 0, asOf: payload.priceAsOf, generationId: payload.generationId,
+    availability: payload.availability, availabilityReason: payload.availabilityReason };
+}
+
 /** Fetch one page. Isolated so the hook's loading state never blocks on, or
  *  gets blocked by, the main market-summary fetch — they are separate
  *  requests to separate endpoints and must be allowed to resolve out of

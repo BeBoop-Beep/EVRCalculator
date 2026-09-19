@@ -137,14 +137,28 @@ def build_financial_rip_v5(
     chase_metrics: Mapping[str, Any] = None,
     session_data: Mapping[str, Any] = None,
     min_simulation_count: int = FINANCIAL_RIP_V3_MIN_SIMULATION_COUNT,
+    control_payload: Mapping[str, Any] = None,
 ) -> Dict[str, Any]:
-    """Authoritative Financial RIP V5 result from an exact outcome vector/distribution."""
+    """Authoritative Financial RIP V5 result from an exact outcome vector/distribution.
+
+    ``control_payload`` lets a caller that already holds the V4 result for the SAME
+    distribution and cost (e.g. the V3-then-project chain the ranking and Best-Open
+    engines run) avoid recomputing it. It must be a V4 payload at this cost.
+    """
     prepared = (values if isinstance(values, PreparedFinancialRipDistribution)
                 else PreparedFinancialRipDistribution.prepare(values))
-    control = build_financial_rip_v4(
-        prepared, pack_cost, chase_metrics=chase_metrics, session_data=session_data,
-        min_simulation_count=min_simulation_count,
-    )
+    if control_payload is not None:
+        control = dict(control_payload)
+        if (control.get("scoreVersion") != FINANCIAL_RIP_V4_VERSION
+                or control.get("packCost") != round(float(pack_cost), 4)):
+            raise ValueError(
+                "supplied V4 control does not match V5 cost/version: "
+                f"version={control.get('scoreVersion')!r}, cost={control.get('packCost')!r}")
+    else:
+        control = build_financial_rip_v4(
+            prepared, pack_cost, chase_metrics=chase_metrics, session_data=session_data,
+            min_simulation_count=min_simulation_count,
+        )
     if control.get("status") != STATUS_READY:
         return _unavailable(str(control.get("statusReason") or "v4_control_unavailable"),
                             str(control.get("statusDetail") or ""))

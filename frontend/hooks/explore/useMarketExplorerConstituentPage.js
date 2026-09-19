@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   appendConstituentPage,
   fetchConstituentPage,
+  fetchPreparedConstituentPage,
   CONSTITUENT_PAGE_DEFAULT_LIMIT,
 } from "@/lib/explore/marketExplorerConstituentPaging.mjs";
 
-const IDLE = { rows: [], totalCount: 0, nextCursor: null, asOf: null };
+const IDLE = { rows: [], totalCount: 0, nextCursor: null, asOf: null, availability: null, availabilityReason: null };
 
 /**
  * Incrementally loaded constituents for ONE query-built market, keyed by its
@@ -40,7 +41,9 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
     setStatus(appending ? "loadingMore" : "loading");
     setError(null);
     try {
-      const page = await fetchConstituentPage(spec, { limit, afterRank });
+      const page = spec.marketKey
+        ? await fetchPreparedConstituentPage(spec, { limit, afterRank })
+        : await fetchConstituentPage(spec, { limit, afterRank });
       // The inspected market moved on while this page was in flight; drop it
       // rather than mixing two markets' rows in one table.
       if (requestSpecRef.current !== specKey) return;
@@ -49,10 +52,13 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
         totalCount: page.totalCount,
         nextCursor: page.nextCursor,
         asOf: page.asOf,
+        availability: page.availability || "available",
+        availabilityReason: page.availabilityReason || null,
       }));
       setStatus("ready");
     } catch (exc) {
       if (requestSpecRef.current !== specKey) return;
+      if (exc?.code === "GENERATION_MISMATCH") setState(IDLE);
       setError(exc instanceof Error ? exc.message : "Unable to load constituents");
       setStatus("error");
     }
@@ -78,6 +84,8 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
     rows: state.rows,
     totalCount: state.totalCount,
     asOf: state.asOf,
+    availability: state.availability,
+    availabilityReason: state.availabilityReason,
     hasMore: state.nextCursor !== null,
     isLoading: status === "loading",
     isLoadingMore: status === "loadingMore",

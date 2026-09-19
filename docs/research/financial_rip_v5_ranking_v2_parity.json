@@ -1,0 +1,18 @@
+{
+  "snapshotId": "0e65fb6d-ff33-4331-99d5-d6a214ecc712",
+  "cohortFingerprint": "e18fb00cd41f1646579b082164c80b0da3db2e1831dec9428c6fd4d82ac689ce",
+  "products": 138,
+  "rankingMethodVersion": "budget_product_ranking_v2",
+  "mismatchCount": 0,
+  "mismatches": [],
+  "perProductEquality": true,
+  "checks": [
+    "financialV5Score",
+    "overallV14Score",
+    "quantity",
+    "committedCapital",
+    "pWin",
+    "financialV5Rank",
+    "overallV14Rank"
+  ]
+}

@@ -186,7 +186,7 @@ function SeriesPicker({ series, activeId, onSelect }) {
 }
 
 /**
- * A QUERY-BUILT market's constituents, loaded a backend page at a time.
+ * A query-built or prepared market's constituents, loaded a backend page at a time.
  *
  * WHY THIS EXISTS SEPARATELY. `resolveSeriesConstituents` reads whatever rows
  * already arrived on the series object — correct for a prepared/parent
@@ -208,7 +208,9 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
   const rowKey = (row) => row.instrumentId || row.cardVariantId || row[idField] || row.rank;
   const columns = buildConstituentColumns(asset, movementWindow);
   const primaryColumn = columns.find((column) => column.primary);
-  const page = useMarketExplorerConstituentPage(series?.spec || null);
+  const page = useMarketExplorerConstituentPage(series?.marketType
+    ? (series.generationId ? { marketKey: series.key, generationId: series.generationId } : null)
+    : series?.spec || null);
   const displayedRows = mode === "preview" ? page.rows.slice(0, PREVIEW_ROWS) : page.rows;
   const displayedColumns = mode === "preview" ? columns.filter((column) => column.primary || column.key === "rank" || column.key === "setName" || column.price || column.change) : columns;
 
@@ -235,6 +237,11 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
         </button>
       </div>
     );
+  }
+  if (page.availability === "notApplicable") {
+    return <p data-market-constituents-not-applicable className="px-3 pb-6 text-xs text-[var(--text-secondary)] sm:px-4">
+      {page.availabilityReason || "This market has no enumerable constituents."}
+    </p>;
   }
 
   return (
@@ -366,9 +373,9 @@ export default function MarketExplorerConstituents({
     (series) => series && series.available !== false && isEnumerableSeries(series)
   );
   const active = inspectable.find((series) => series.key === activeSeriesId) || null;
-  // A QUERY-BUILT market pages its roster from the backend; a prepared/parent
-  // market keeps reading its already-published (small) summary.
-  const isQuerySourced = Boolean(active?.queryFingerprint);
+  // Prepared directory markets and query-built markets page their canonical
+  // roster; parent snapshot segments keep reading their published summary.
+  const isQuerySourced = Boolean(active?.queryFingerprint || active?.marketType);
   const model = resolveSeriesConstituents(active, {
     movementWindow, previewLimit: mode === "preview" ? PREVIEW_ROWS : Number.MAX_SAFE_INTEGER,
   });
