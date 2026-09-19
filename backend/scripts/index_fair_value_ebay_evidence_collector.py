@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from decimal import Decimal, InvalidOperation
 import time
 import urllib.error
 import urllib.parse
@@ -23,6 +24,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from backend.scripts import ebay_d3_matcher_v3 as matcher
+from backend.scripts import ebay_d3_matcher_v5 as pricing_matcher
+from backend.scripts.ebay_language_policy_v1 import evaluate_structured_aspect as evaluate_language
 from backend.scripts.index_fair_value_ebay_supply import build_query, normalize
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -358,6 +361,10 @@ def normalize_listing(item: Mapping[str, Any], *, query: Mapping[str, Any], targ
         cost = (shipping_options[0] or {}).get("shippingCost") or {}
         shipping_value = cost.get("value")
         shipping_currency = cost.get("currency")
+    try:
+        landed = float(Decimal(str(price)) + Decimal(str(shipping_value))) if price is not None and shipping_value is not None and price_currency == shipping_currency else None
+    except (InvalidOperation, ValueError):
+        landed = None
     return {
         "evidence_kind": EVIDENCE_KIND,
         "ebay_item_id": item.get("itemId"),
@@ -368,6 +375,8 @@ def normalize_listing(item: Mapping[str, Any], *, query: Mapping[str, Any], targ
         "price_currency": price_currency,
         "shipping_value": float(shipping_value) if shipping_value is not None else None,
         "shipping_currency": shipping_currency,
+        "landed_ask_value": landed,
+        "landed_ask_currency": price_currency if landed is not None else None,
         "condition": item.get("condition"),
         "condition_id": item.get("conditionId"),
         "seller_username": (item.get("seller") or {}).get("username"),
@@ -409,6 +418,26 @@ def run_matcher_on_listing(target: Mapping[str, Any], listing: Mapping[str, Any]
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
         "collector_run_id": listing.get("collector_run_id"),
     }
+
+
+def pricing_eligibility(target: Mapping[str, Any], listing: Mapping[str, Any]) -> dict[str, Any]:
+    """Conservative English pricing decision; raw evidence is always retained."""
+    item = dict(listing.get("raw_item_summary") or {})
+    identity = pricing_matcher.classify_listing(dict(target), item)
+    language = evaluate_language(item.get("localizedAspects"), expected_language="ENGLISH")
+    identity_ok = identity.get("identity_state") == "HIGH_CONFIDENCE"
+    if not identity_ok:
+        status = "IDENTITY_REJECTED"
+    elif language.language_state == "LANGUAGE_MISMATCH":
+        status = "NON_ENGLISH_EXCLUDED"
+    elif language.language_state == "LANGUAGE_MATCH":
+        status = "ENGLISH_ELIGIBLE"
+    else:
+        status = "LANGUAGE_UNRESOLVED"
+    return {"eligibility_status": status, "identity_qualified": identity_ok,
+            "identity_state": identity.get("identity_state"), "identity_reason": identity.get("reason"),
+            "identity_matcher_version": pricing_matcher.MATCHER_VERSION,
+            "language_state": language.language_state, "language_method_version": language.method_version}
 
 
 # --------------------------------------------------------------------------
@@ -468,6 +497,8 @@ class Collector:
                                 if self._cfg.run_matcher and match_key not in seen_matches:
                                     seen_matches.add(match_key)
                                     match_result = run_matcher_on_listing(card, listing)
+                                    if card.get("pricing_target"):
+                                        match_result.update(pricing_eligibility(card, listing))
                                     match_fh.write(json.dumps(match_result, ensure_ascii=False) + "\n")
                             url = data.get("next")
                     target_state["status"] = "completed"

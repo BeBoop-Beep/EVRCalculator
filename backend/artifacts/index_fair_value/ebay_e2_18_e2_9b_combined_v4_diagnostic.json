@@ -1,0 +1,25 @@
+{
+  "classification": "HISTORICAL_POST_HOC_NON_CERTIFYING",
+  "cohort": "E2.9B",
+  "prediction_fingerprint_sha256": "d429f2d36a589c5aa46c152ffc469f93f88fe46cada847918d52c74a59530894",
+  "rows_total": 414,
+  "evidence_availability": {
+    "ocr_only": 414
+  },
+  "language_unverified_count": 414,
+  "accepted_count": 185,
+  "true_accepts": 185,
+  "false_accepts": 0,
+  "precision": 1.0,
+  "precision_wilson_95": [
+    0.9796577571223828,
+    1.0
+  ],
+  "card_coverage_count": 54,
+  "card_coverage_denominator": 70,
+  "card_coverage": 0.7714285714285715,
+  "catastrophic_false_accept_count": 0,
+  "catastrophic_false_accept_rows": [],
+  "newly_rejected_human_yes_rows": [],
+  "newly_accepted_rows": []
+}

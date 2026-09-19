@@ -1,0 +1,23 @@
+{
+  "version": "ebay_combined_identity_policy_v2",
+  "policy_source_sha256": "59e32c0a8a0310bf9a27417a78d566942f303cb543c4e3165f1ead39954abf07",
+  "policy_fingerprint": "7105b731d40b121d5e74089a92c065bfc8b86795281262d275192bf6049c1018",
+  "text_matcher_version": "index_fair_value_ebay_d3_v5",
+  "text_matcher_fingerprint": "93301e5da1cf8129896993f12cfec2b66c5c887d679cb6f0755785c884581c69",
+  "image_verifier_version": "ebay_image_retrieval_verifier_v2",
+  "image_verifier_model": "facebook/dinov2-small",
+  "image_verifier_fingerprint": "bf50ee1fb1160711e9591755ee4905e7e4884946f7f079adeac0bb184c680ea1",
+  "historical_development_fingerprints": {
+    "combined_identity_v1_historical_diagnostic": "backend/artifacts/index_fair_value/ebay_combined_identity_v1_historical_post_hoc_diagnostic.json",
+    "image_retrieval_verifier_v2_freeze_manifest": "backend/artifacts/index_fair_value/ebay_image_retrieval_verifier_v2_freeze_manifest.json"
+  },
+  "eligible_states": [
+    "TIER_A_IMAGE_VERIFIED",
+    "TIER_B_TEXT_VERIFIED_IMAGE_UNVERIFIED"
+  ],
+  "production_authority": false,
+  "shadow_research_only": true,
+  "certified_against_new_blind": false,
+  "consumed_blind_rows_used_for_tuning": false,
+  "frozen_at": "2026-09-14T21:56:09.805544+00:00"
+}

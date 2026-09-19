@@ -1,0 +1,66 @@
+{
+  "version": "ebay_e2_16_language_development_cohort_v1",
+  "development_only": true,
+  "production_authority": false,
+  "generated_at": "2026-09-16T17:24:39.393246+00:00",
+  "corpus_fingerprint": "8a22b6a76bb2eade33b0e0dddbba49a3ac8203067dcfcb3d291d4ffe07f0319f",
+  "row_count": 200,
+  "candidate_pool_size_before_selection": 260,
+  "strata_counts_selected": {
+    "ENGLISH_CONTROL": 60,
+    "NON_LATIN_FOREIGN": 80,
+    "LATIN_SCRIPT_FOREIGN": 60
+  },
+  "strata_counts_candidate_pool": {
+    "ENGLISH_CONTROL": 60,
+    "NON_LATIN_FOREIGN": 140,
+    "LATIN_SCRIPT_FOREIGN": 60,
+    "AMBIGUOUS_DIFFICULT": 0
+  },
+  "languages_represented_in_aspect_metadata": [
+    "CHINESE",
+    "ENGLISH",
+    "FRENCH",
+    "JAPANESE",
+    "KOREAN",
+    "OTHER"
+  ],
+  "getitem_request_count": 260,
+  "search_request_count": 70,
+  "search_errors": 0,
+  "getitem_errors": 0,
+  "language_aspect_present_count": 180,
+  "language_aspect_present_rate": 0.9,
+  "historical_exclusion": {
+    "counts_per_file": {
+      "ebay_manual_gold_labels.csv": 1050,
+      "ebay_gold_development.csv": 450,
+      "ebay_gold_validation.csv": 250,
+      "ebay_gold_final_blind.csv": 350,
+      "ebay_d3_blind_review_queue.csv": 704,
+      "ebay_d3_coverage_blind.csv": 420,
+      "ebay_d3_fresh_observations.csv": 9591,
+      "ebay_d3_precision_blind.csv": 300,
+      "ebay_d3_v3_coverage_certification_rows.csv": 420,
+      "ebay_d3_v3_high_false_positive_forensics.csv": 5,
+      "ebay_d3_v3_precision_certification_rows.csv": 300,
+      "ebay_d3_v4_fresh_blind_queue.csv": 420,
+      "ebay_d3_v5_fresh_blind_queue.csv": 417,
+      "ebay_e2_9b_fresh_blind_queue.csv": 414,
+      "ebay_e2_13_fresh_blind_queue.csv": 553,
+      "ebay_e2_14_fresh_blind_predictions.json": 553,
+      "ebay_e2_15_item_detail_language_study.json": 38
+    },
+    "total_excluded_ids": 11931
+  },
+  "review_session_id": "e2_16_dev_session_269c7139265d",
+  "reviewed_count": 0,
+  "queue_path": "backend\\artifacts\\index_fair_value\\ebay_e2_16_language_development_queue.csv",
+  "internal_raw_path": "backend\\artifacts\\index_fair_value\\ebay_e2_16_language_development_raw_internal.jsonl",
+  "review_session_started_at": "2026-09-16T18:46:34.524313+00:00",
+  "labels_frozen": true,
+  "reviewer_protocol": "SINGLE_REVIEWER_BLIND_DEVELOPMENT",
+  "reviewer_id": "donny",
+  "freeze_timestamp": "2026-09-16T18:59:28.210136+00:00",
+  "label_fingerprint": "1934c5f038f62584432c32d5538983b851a2a63a1cb8a3a972f09a5e7d7fd46c"
+}

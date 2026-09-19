@@ -1,0 +1,42 @@
+{
+  "version": "ebay_e2_17d_ocr_v3_hangul_recalibration_v1",
+  "freeze_stage": "e2_17d_ocr_v3_freeze",
+  "production_authority": false,
+  "source_fingerprint_sha256": "9194795896f57a78f1fcc4ee2bb6d421b084fd318e7afb9c7cfb98db1cbac668",
+  "easyocr_version": "1.7.2",
+  "reader_ja_config": [
+    "ja",
+    "en"
+  ],
+  "reader_ko_config": [
+    "ko",
+    "en"
+  ],
+  "merge_logic_version": "ocr_v3_merge_v1_union_disjoint_readers_rich_ko_evidence",
+  "preprocessing_version": "ebay_e2_17d_ocr_v3_hangul_recalibration_v1_no_preprocessing_raw_bytes_cv2_imread",
+  "japanese_evidence_rule": "strong_kana = (high_conf_kana_count>=4 AND distinct_regions_with_kana>=2) OR (high_conf_kana_count>=6); unchanged from OCR-v1/v2",
+  "korean_evidence_rule": "strong_hangul = ko_distinct_high_conf_hangul_regions>=2 AND ko_max_hangul_run_length>=2 (conf>=0.5 per region, contiguous Hangul run length within a single recognized-text string); NEW in v3, replaces the saturated korean_hangul_count>=2 raw-count guard",
+  "conflict_precedence": "strong_kana AND strong_hangul -> UNVERIFIED (conflict); strong_kana AND NOT strong_hangul -> JAPANESE_MISMATCH; strong_hangul AND NOT strong_kana -> NOT_JAPANESE_EVIDENCE; neither -> latin-dominant NOT_JAPANESE_EVIDENCE check, else UNVERIFIED",
+  "thresholds": {
+    "STRONG_KANA_A_HI": 4,
+    "STRONG_KANA_A_REGIONS": 2,
+    "STRONG_KANA_B_HI": 6,
+    "STRONG_HANGUL_DISTINCT_REGIONS": 2,
+    "STRONG_HANGUL_RUN_LENGTH": 2,
+    "HIGH_CONF_THRESHOLD": 0.5
+  },
+  "development_corpora_used": [
+    "ebay_e2_16_language_development_queue.csv (200 rows)",
+    "ebay_e2_16b_japanese_language_development_queue.csv (150 rows, 1 image fetch failure -> 349 total)",
+    "ebay_e2_17_japanese_specific_language_review_queue.csv (25 rows: JAPANESE=16, CHINESE=5, KOREAN=4)"
+  ],
+  "development_fingerprint_sha256": "f5d3af67220af8eb569254c3b4f3f3d0306752bbfee5c00ed7b7925826b89547",
+  "development_regression_summary": {
+    "japanese_recall": "12/16",
+    "korean_false_japanese_mismatch": "0/4",
+    "chinese_false_japanese_mismatch": "0/5",
+    "english_false_japanese_mismatch": "0/186"
+  },
+  "e2_14_or_holdout_truth_used": false,
+  "freeze_fingerprint_sha256": "79bed607ff3a34bf701030d5f2947048f176427010fbc34273c91588a0059756"
+}
