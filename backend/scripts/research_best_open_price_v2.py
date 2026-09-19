@@ -193,6 +193,7 @@ def run(
     skip_product_ids: Optional[set[str]] = None,
     checkpoint_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     enable_quantity_prefetch: bool = False,
+    bounded_batching: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Per-cohort V2 engine entry point.
 
@@ -311,6 +312,38 @@ def run(
                 )
             return prepared_batch
 
+        bounded_kwargs: Dict[str, Any] = {}
+        if bounded_batching is not None:
+            # Opt-in bounded look-ahead engine (best_open_price_v2_fused_batched).
+            # Raw blocks come from the same exact single-q parity builder;
+            # prepared scorers are built lazily, one quantity at a time.
+            def block_builder(
+                quantities: Sequence[int], *, _pid=pid, _base=base, **build_kwargs: Any,
+            ) -> Mapping[str, Any]:
+                return build_single_q_parity_distributions(
+                    _base, quantities=quantities, canonical_set_key=f"budget:{_pid}",
+                    run_fingerprint=None, **build_kwargs,
+                )
+
+            def prepare_values(
+                quantity: int, values: Any, *, _product=product, _pid=pid, _source=source,
+            ) -> PreparedCanonicalCandidate:
+                prepared = PreparedFinancialRipDistribution.prepare(
+                    values,
+                    value_offset=float(_product.get("guaranteed_component_market_value") or 0) * quantity,
+                )
+                return PreparedCanonicalCandidate(
+                    _pid, quantity, prepared, float(_source["collector_appeal_score"]),
+                    float(authority["rawBySet"][str(_product["set_id"])]), budget,
+                )
+
+            bounded_kwargs = {
+                "build_block": block_builder,
+                "prepare_from_values": prepare_values,
+                "rng_outcome_count": len(base),
+                **dict(bounded_batching),
+            }
+
         dual = DualBestOpenPriceSearch(
             product_id=pid, budget_cents=budget_cents,
             current_price_cents=int(round(float(source["product_market_price"]) * 100)),
@@ -323,6 +356,7 @@ def run(
             expected_source_authority_fingerprint=expected_source_authority_fingerprint,
             max_quantity_to_construct=max_quantity_to_construct,
             **({"enable_quantity_prefetch": True} if enable_quantity_prefetch else {}),
+            **bounded_kwargs,
         )
         if enable_quantity_prefetch:
             from backend.calculations.evr.sealed_product_distribution import single_q_parity_batch_width
