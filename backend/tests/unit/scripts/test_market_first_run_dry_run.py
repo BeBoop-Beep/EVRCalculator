@@ -21,6 +21,7 @@ def test_first_run_dry_run_uses_in_memory_index_and_performs_zero_writes(monkeyp
     monkeypatch.setattr(overview_builder, "read_global_sealed_source_snapshots", lambda *_a, **_k: [{"payload_json": {}}])
     monkeypatch.setattr(overview_builder, "build_global_sealed_market", lambda *_a, **_k: {"sourceGenerationFingerprint": "sealed"})
     monkeypatch.setattr(builder, "upsert_explore_set_value_snapshot", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("write")))
+    monkeypatch.setattr(builder, "_attach_initial_selected_set_movers", lambda *_a, **_k: None)
     class Query:
         def select(self, *_a): return self
         def eq(self, *_a): return self
@@ -46,6 +47,7 @@ def test_commit_candidate_reads_authoritative_persisted_index_when_not_injected(
     monkeypatch.setattr(builder, "read_index_history", lambda *_a, **_k: reads.append(True) or history)
     monkeypatch.setattr(overview_builder, "read_global_sealed_source_snapshots", lambda *_a, **_k: [{"payload_json": {}}])
     monkeypatch.setattr(overview_builder, "build_global_sealed_market", lambda *_a, **_k: {"sourceGenerationFingerprint": "sealed"})
+    monkeypatch.setattr(builder, "_attach_initial_selected_set_movers", lambda *_a, **_k: None)
     class Query:
         def select(self, *_a): return self
         def eq(self, *_a): return self
@@ -61,7 +63,13 @@ def test_commit_candidate_reads_authoritative_persisted_index_when_not_injected(
 
 def test_post_cutover_dashboard_read_omits_heavy_set_value_history_blob(monkeypatch):
     day = "2026-09-18"
-    sets = [{"id": "set-a", "canonical_key": "a", "name": "Alpha", "market_scope": "standard"}]
+    sets = [{
+        "id": "set-a",
+        "canonical_key": "a",
+        "name": "Alpha",
+        "market_scope": "standard",
+        "market_publication_ready": True,
+    }]
     canonical = {
         "set-a": [
             {"set_id": "set-a", "snapshot_date": "2026-09-17", "set_value": 100},
@@ -135,7 +143,12 @@ def test_pre_cutover_dashboard_read_preserves_legacy_set_value_history_blob(monk
                 "set_id": "set-a",
                 "window_key": "365d",
                 "latest_market_date": day,
-                "set_value_histories_json": {"standard": []},
+                "set_value_histories_json": {
+                    "standard": [
+                        {"date": "2026-08-16", "setValue": 100},
+                        {"date": day, "setValue": 101},
+                    ]
+                },
             }])
 
     class Client:
