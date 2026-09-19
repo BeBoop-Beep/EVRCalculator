@@ -48,6 +48,7 @@ def verify_tcgplayer_source_variant_persistence(set_id, market_date, expected_va
     if variant_ids and nm_id:
         observations = _fetch_by_chunks(variant_ids, lambda chunk: supabase.table("card_variant_price_observations")
             .select("card_variant_id").in_("card_variant_id", chunk)
+            .eq("source", "TCGPlayer")
             .eq("condition_id", nm_id).gt("market_price", 0)
             .eq("captured_at", str(market_date)))
     observed_variant_ids = sorted({row["card_variant_id"] for row in observations})

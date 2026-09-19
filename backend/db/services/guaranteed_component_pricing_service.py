@@ -116,6 +116,7 @@ def get_latest_near_mint_prices(
     response = (
         client.table("card_variant_price_observations")
         .select("card_variant_id,market_price,captured_at,created_at,currency,source")
+        .eq("source", "TCGPlayer")
         .in_("card_variant_id", ids)
         .eq("condition_id", condition_id)
         .order("captured_at", desc=True)

@@ -2862,6 +2862,7 @@ def _load_paginated_top_chase_observation_rows(
             query = (
                 client.table("card_variant_price_observations")
                 .select("id,card_variant_id,condition_id,captured_at,market_price")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_chunk)
             )
             if len(condition_ids) == 1:
@@ -2919,6 +2920,7 @@ def _load_top_chase_histories_from_observations(
             latest_result = (
                 client.table("card_variant_price_observations")
                 .select("captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4008,6 +4010,7 @@ def _load_selected_price_observations(
             client,
             "card_variant_price_observations",
             lambda query: query.select("id,card_variant_id,condition_id,market_price,source,captured_at")
+            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_ids)
             .in_("condition_id", condition_ids)
             .gte("captured_at", start_date)

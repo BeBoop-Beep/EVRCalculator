@@ -122,6 +122,7 @@ def collect_final_verification(
     for start in range(0, len(variant_ids), 250):
         prices.extend(
             client.table("card_variant_price_observations").select("captured_at,market_price")
+            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_ids[start:start + 250]).gt("market_price", 0)
             .order("captured_at", desc=True).limit(1000).execute().data or []
         )

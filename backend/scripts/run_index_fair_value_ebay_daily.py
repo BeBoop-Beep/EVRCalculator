@@ -22,6 +22,7 @@ from backend.scripts.index_fair_value_ebay_evidence_collector import (
     BrowseHTTP,
     Collector,
     CollectorConfig,
+    DailyBrowseLedger,
     RunState,
     TokenProvider,
     cohort_fingerprint,
@@ -108,7 +109,7 @@ def main(argv: list[str] | None = None) -> dict:
 
     env = load_ebay_env()
     tokens = TokenProvider(env)
-    http = BrowseHTTP(tokens, config)
+    http = BrowseHTTP(tokens, config, daily_ledger=DailyBrowseLedger(ARTIFACTS_DIR.parent / "pricing/ebay_browse_daily_usage.sqlite3"))
     collector = Collector(http, config)
     state = collector.run(state, cards)
     state.save()

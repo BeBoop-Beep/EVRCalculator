@@ -87,6 +87,7 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
         prices.extend(
             supabase.table("card_variant_price_observations")
             .select("card_variant_id,captured_at,market_price")
+            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_ids[start:start + 250])
             .gt("market_price", 0).order("captured_at", desc=True).limit(1000).execute().data or []
         )

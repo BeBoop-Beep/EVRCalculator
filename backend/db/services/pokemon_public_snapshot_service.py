@@ -4069,6 +4069,7 @@ def _load_top_chase_observation_histories(
             latest_result = (
                 service_read_client.table("card_variant_price_observations")
                 .select("captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4114,6 +4115,7 @@ def _load_top_chase_observation_histories(
             latest_result = (
                 service_read_client.table("card_variant_price_observations")
                 .select("captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", canonical_variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4131,6 +4133,7 @@ def _load_top_chase_observation_histories(
             history_result = (
                 service_read_client.table("card_variant_price_observations")
                 .select("card_variant_id,captured_at,market_price")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", canonical_variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4159,6 +4162,7 @@ def _load_top_chase_observation_histories(
         history_result = (
             service_read_client.table("card_variant_price_observations")
             .select("card_variant_id,captured_at,market_price")
+            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_ids)
             .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
             .gt("market_price", 0)

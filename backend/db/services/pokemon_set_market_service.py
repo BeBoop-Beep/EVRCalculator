@@ -526,6 +526,7 @@ def _load_price_observation_rows(
         result = (
             service_read_client.table("card_variant_price_observations")
             .select("card_variant_id,condition_id,market_price,source,captured_at")
+            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_id_chunk)
             .eq("condition_id", condition_id)
             .gte("captured_at", since)
@@ -562,6 +563,7 @@ def _load_price_observation_rows_for_window(
             result = (
                 active_client.table("card_variant_price_observations")
                 .select("id,card_variant_id,condition_id,market_price,source,captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_id_chunk)
                 .eq("condition_id", condition_id)
                 .gt("market_price", 0)
@@ -657,6 +659,7 @@ def _load_conditioned_price_observation_rows(
             query = (
                 active_client.table("card_variant_price_observations")
                 .select("id,card_variant_id,condition_id,market_price,source,captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_id_chunk)
                 .gte("captured_at", since)
                 .order("captured_at", desc=False)
@@ -1821,6 +1824,7 @@ def _load_variant_price_history(
             query = (
                 service_read_client.table("card_variant_price_observations")
                 .select("card_variant_id,condition_id,market_price,source,captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_id_chunk)
                 .order("captured_at", desc=True)
                 .limit(5000)

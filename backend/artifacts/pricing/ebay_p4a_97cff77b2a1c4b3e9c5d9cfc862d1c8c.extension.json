@@ -1,0 +1,62 @@
+{
+  "base_run_id": "97cff77b2a1c4b3e9c5d9cfc862d1c8c",
+  "request_cap": 80,
+  "requests_attempted": 34,
+  "requests_successful": 34,
+  "requests_failed": 0,
+  "retries": 0,
+  "targets": [
+    {
+      "canonical_card_id": "e4b73b72-2882-436f-9d27-90b229185520",
+      "additional_detail_calls": 6,
+      "eligible_seller_count_after": 5
+    },
+    {
+      "canonical_card_id": "f13e4255-67dd-48ce-af76-69abda61c8d9",
+      "additional_detail_calls": 3,
+      "eligible_seller_count_after": 5
+    },
+    {
+      "canonical_card_id": "621b038b-e832-47a2-8bdd-1160945d6d44",
+      "additional_detail_calls": 8,
+      "eligible_seller_count_after": 3
+    },
+    {
+      "canonical_card_id": "b38102f7-42b0-49bc-a2b1-a16bda58a581",
+      "additional_detail_calls": 3,
+      "eligible_seller_count_after": 5
+    },
+    {
+      "canonical_card_id": "7781f22e-0d90-4a51-87d8-d56fcbc34dd7",
+      "additional_detail_calls": 2,
+      "eligible_seller_count_after": 5
+    },
+    {
+      "canonical_card_id": "214a20d8-6ae0-46de-9047-082b506c4b1e",
+      "additional_detail_calls": 2,
+      "eligible_seller_count_after": 5
+    },
+    {
+      "canonical_card_id": "3695a310-0980-4cba-b790-ab7d827b3b44",
+      "additional_detail_calls": 2,
+      "eligible_seller_count_after": 5
+    },
+    {
+      "canonical_card_id": "02768af4-334c-4eb8-a6f3-71b84e54f9f5",
+      "additional_detail_calls": 5,
+      "eligible_seller_count_after": 5
+    },
+    {
+      "canonical_card_id": "038cd0c3-e33f-4a96-9999-81608939b119",
+      "additional_detail_calls": 1,
+      "eligible_seller_count_after": 3
+    },
+    {
+      "canonical_card_id": "4540ac5a-4e22-40d0-a0f1-2dbb14c99243",
+      "additional_detail_calls": 2,
+      "eligible_seller_count_after": 5
+    }
+  ],
+  "raw_artifact_path": "D:\\EVRCalculator\\backend\\artifacts\\pricing\\ebay_p4a_97cff77b2a1c4b3e9c5d9cfc862d1c8c.extension.raw.jsonl",
+  "decisions_artifact_path": "D:\\EVRCalculator\\backend\\artifacts\\pricing\\ebay_p4a_97cff77b2a1c4b3e9c5d9cfc862d1c8c.extension.decisions.jsonl"
+}

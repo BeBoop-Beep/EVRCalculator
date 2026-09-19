@@ -796,6 +796,7 @@ def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List
         client,
         table="card_variant_price_observations",
         timestamp_columns=("captured_at", "updated_at", "created_at"),
+        filters=(("source", "TCGPlayer"),),
         in_filters=(("card_variant_id", variant_ids),),
     )
     checks.extend(table_checks)
@@ -835,6 +836,7 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
         client,
         table="card_variant_price_observations",
         timestamp_columns=("captured_at", "updated_at", "created_at"),
+        filters=(("source", "TCGPlayer"),),
         in_filters=(("card_variant_id", sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))),),
     )
     checks.extend(table_checks)

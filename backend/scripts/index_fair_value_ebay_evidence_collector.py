@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import sqlite3
 from decimal import Decimal, InvalidOperation
 import time
 import urllib.error
@@ -46,6 +47,28 @@ AUTH_EXPIRED_STATUS = {401}
 
 class BudgetExhausted(RuntimeError):
     """Raised internally when the run-level request budget is exhausted."""
+
+
+class DailyBrowseLedger:
+    """Atomic cross-process Browse-call counter for collector workflows."""
+
+    def __init__(self, path: Path, limit: int = 1000) -> None:
+        self.path = Path(path)
+        self.limit = limit
+
+    def reserve(self, market_date: str | None = None) -> None:
+        day = market_date or datetime.now(timezone.utc).date().isoformat()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(str(self.path), timeout=30) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS calls (utc_date TEXT PRIMARY KEY, count INTEGER NOT NULL)")
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT count FROM calls WHERE utc_date=?", (day,)).fetchone()
+            count = int(row[0]) if row else 0
+            if count >= self.limit:
+                raise BudgetExhausted("shared daily Browse request budget exhausted")
+            conn.execute("INSERT INTO calls(utc_date,count) VALUES(?,?) ON CONFLICT(utc_date) DO UPDATE SET count=excluded.count",
+                         (day, count + 1))
+            conn.commit()
 
 
 # --------------------------------------------------------------------------
@@ -209,11 +232,13 @@ class BrowseHTTP:
         config: CollectorConfig,
         opener: Callable[[str, str], Any] | None = None,
         sleep: Callable[[float], None] | None = None,
+        daily_ledger: DailyBrowseLedger | None = None,
     ) -> None:
         self._tokens = token_provider
         self._cfg = config
         self._opener = opener or self._urllib_opener
         self._sleep = sleep or time.sleep
+        self._daily_ledger = daily_ledger
 
     @staticmethod
     def _urllib_opener(url: str, token: str) -> dict[str, Any]:
@@ -236,6 +261,8 @@ class BrowseHTTP:
         while True:
             if counters.remaining_run_budget <= 0:
                 raise BudgetExhausted("run request budget exhausted")
+            if self._daily_ledger is not None:
+                self._daily_ledger.reserve()
             counters.requests_attempted += 1
             counters.remaining_run_budget -= 1
             try:
