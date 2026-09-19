@@ -1,0 +1,146 @@
+name: Controlled VM Ops
+
+on:
+  push:
+    branches:
+      - vm-ops-control
+    paths:
+      - ".vm-ops/request.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: index-production-vm-ops
+  cancel-in-progress: false
+
+jobs:
+  vm-ops:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 120
+    steps:
+      - name: Checkout control request
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, sys
+
+          path = ".vm-ops/request.json"
+          with open(path, "r", encoding="utf-8") as handle:
+              request = json.load(handle)
+
+          allowed = {
+              "status",
+              "sync-main",
+              "pytest-cards-market",
+              "set-market-snapshot",
+              "explorer-prewarm-one",
+              "market-dashboard-set",
+          }
+
+          op = str(request.get("operation") or "")
+          if op not in allowed:
+              raise SystemExit(f"unsupported operation: {op!r}")
+
+          market_date = str(request.get("market_date") or "")
+          set_id = str(request.get("set_id") or "")
+
+          if market_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", market_date):
+              raise SystemExit("market_date must be YYYY-MM-DD")
+          if set_id and not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", set_id):
+              raise SystemExit("set_id contains unsupported characters")
+
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set"} and not market_date:
+              raise SystemExit(f"{op} requires market_date")
+          if op == "market-dashboard-set" and not set_id:
+              raise SystemExit("market-dashboard-set requires set_id")
+
+          env_path = os.environ["GITHUB_ENV"]
+          with open(env_path, "a", encoding="utf-8") as env:
+              env.write(f"VM_OPERATION={op}\n")
+              env.write(f"VM_MARKET_DATE={market_date}\n")
+              env.write(f"VM_SET_ID={set_id}\n")
+          print(json.dumps({"operation": op, "market_date": market_date, "set_id": set_id}, sort_keys=True))
+          PY
+
+      - name: Execute approved operation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO="/home/ubuntu/repos/EVRCalculator"
+          PY="$REPO/.venv/bin/python"
+
+          test -d "$REPO/.git" || { echo "Production repo missing: $REPO"; exit 2; }
+          test -x "$PY" || { echo "Production venv Python missing: $PY"; exit 2; }
+
+          case "$VM_OPERATION" in
+            status)
+              cd "$REPO"
+              echo "== git =="
+              git status --short
+              git log -1 --oneline
+              echo "== host =="
+              uname -a
+              free -h
+              df -h /
+              ;;
+
+            sync-main)
+              cd "$REPO"
+              if [ -n "$(git status --porcelain)" ]; then
+                echo "Refusing to switch a dirty production checkout."
+                git status --short
+                exit 3
+              fi
+              git fetch origin main
+              git switch --detach origin/main
+              git status --short
+              git log -1 --oneline
+              ;;
+
+            pytest-cards-market)
+              cd "$REPO"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$REPO" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_set_cards_market_analytics_service.py \
+                -q
+              ;;
+
+            set-market-snapshot)
+              cd "$REPO"
+              "$PY" backend/scripts/build_pokemon_explore_set_value_snapshot.py \
+                --commit \
+                --market-date "$VM_MARKET_DATE"
+              ;;
+
+            explorer-prewarm-one)
+              cd "$REPO"
+              "$PY" -m backend.scripts.run_market_explorer_maintained_cache_prewarm \
+                --commit \
+                --market-date "$VM_MARKET_DATE" \
+                --max-caches 1
+              ;;
+
+            market-dashboard-set)
+              cd "$REPO"
+              "$PY" backend/scripts/build_pokemon_market_dashboard_snapshots.py \
+                --set-id "$VM_SET_ID" \
+                --commit \
+                --market-date "$VM_MARKET_DATE"
+              ;;
+
+            *)
+              echo "Unexpected operation after validation: $VM_OPERATION"
+              exit 4
+              ;;
+          esac
