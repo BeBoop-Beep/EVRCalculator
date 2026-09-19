@@ -239,7 +239,7 @@ const BASIC_USER = Object.freeze({ id: "u-basic", index_plan: null });
 
 function renderCollapsed(
   value = overview, searchParams = {}, sealedSegments = SEALED_SERIES, cardSegments = CARD_SERIES,
-  user = PREMIUM_USER, initialStateOverride = null,
+  user = PREMIUM_USER, initialStateOverride = null, preparedDirectory = [], createNodeMock = undefined,
 ) {
   let renderer;
   TestRenderer.act(() => {
@@ -253,7 +253,8 @@ function renderCollapsed(
         topChaseSegmentStatus: CHASE_STATUS,
         initialState: initialStateOverride || resolveInitialExplorerState(value, searchParams, sealedSegments, cardSegments),
         user,
-      })
+        preparedDirectory,
+      }), { createNodeMock }
     );
   });
   return renderer;
@@ -1250,6 +1251,66 @@ test("workspace mode preserves chart, selection, visibility, timeframe, and char
   assert.equal(workspace()["data-market-explorer-mode"], "constituents");
   assert.equal(workspace()["data-market-explorer-detail-series"], "sealed:packs");
   assert.equal(workspace()["data-market-explorer-series"], activeKeys);
+  click(renderer, "data-market-explorer-active-visibility", "sealed:packs");
+  TestRenderer.act(() => findAll(renderer, "data-market-constituents-back")[0].props.onClick());
+  assert.equal(workspace()["data-market-explorer-mode"], "chart");
+  assert.equal(workspace()["data-market-explorer-detail-series"], "sealed:packs");
+  assert.deepEqual(renderer.root.find((node) => node.type?.name === "MarketExplorerChart")
+    .props.selectedSeries.map((series) => series.key), ["sealed:boosterBox", "sealed:packs"]);
+});
+
+test("mode changes preserve open Browse context and move focus without page scroll", () => {
+  const focusEvents = [];
+  const originalAnimationFrame = globalThis.requestAnimationFrame;
+  const originalFetch = globalThis.fetch;
+  globalThis.requestAnimationFrame = () => 1;
+  const withComposition = SEALED_SERIES.map((series) => series.key === "sealed:boosterBox"
+    ? { ...series, currentConstituents: { idField: "sealedProductId", totalCount: 1,
+      isComplete: true, topConstituents: [{ rank: 1, sealedProductId: "box-1",
+        productName: "Booster Box", setName: "Test Set", marketPrice: 100 }] } }
+    : series);
+  const directory = [
+    { market_key: "set:base", market_type: "set", parent_era_id: "e0", label: "Base Set" },
+    { market_key: "set:base-2", market_type: "set", parent_era_id: "e0", label: "Base Set 2" },
+  ];
+  const createNodeMock = (element) => {
+    if (element.props?.["data-market-explorer-graph"] !== undefined) return {
+      querySelector: () => ({ focus: (options) => focusEvents.push(["chart", options]) }),
+    };
+    if (element.props?.["data-market-constituents-back"] !== undefined) return {
+      focus: (options) => focusEvents.push(["back", options]),
+    };
+    return null;
+  };
+  let renderer;
+  try {
+    renderer = renderCollapsed(overview, {}, withComposition, CARD_SERIES, PREMIUM_USER,
+      { assetUniverse: [], sealedFamilyIds: ["sealed:boosterBox"], segmentIds: [], timeframe: "7D" },
+      directory, createNodeMock);
+    const requests = [];
+    globalThis.fetch = async (url) => { requests.push(url); return { ok: true, json: async () => ({}) }; };
+    click(renderer, "data-market-directory-category", "sets");
+    TestRenderer.act(() => findAll(renderer, "data-market-browser-search")[0].props.onChange({ target: { value: "Base" } }));
+    assert.equal(findAll(renderer, "data-prepared-market").length, 2);
+    assert.equal(findAll(renderer, "data-prepared-market")[0].props["aria-pressed"], false);
+    const list = findAll(renderer, "data-market-directory-popover")[0];
+    click(renderer, "data-market-chart-view", "performance");
+    click(renderer, "data-market-explorer-active-visibility", "sealed:boosterBox");
+    click(renderer, "data-market-explorer-active-visibility", "sealed:boosterBox");
+    TestRenderer.act(() => findAll(renderer, "data-market-constituents-see-more")[0].props.onClick());
+    assert.deepEqual(focusEvents.at(-1), ["back", { preventScroll: true }]);
+    assert.equal(findAll(renderer, "data-market-directory-popover")[0], list);
+    assert.equal(findAll(renderer, "data-market-browser-search")[0].props.value, "Base");
+    TestRenderer.act(() => findAll(renderer, "data-market-constituents-back")[0].props.onClick());
+    assert.deepEqual(focusEvents.at(-1), ["chart", { preventScroll: true }]);
+    assert.equal(findAll(renderer, "data-market-directory-popover")[0], list);
+    assert.equal(findAll(renderer, "data-market-browser-search")[0].props.value, "Base");
+    assert.deepEqual(requests.filter((url) => String(url).includes("/api/market/explorer/")), []);
+  } finally {
+    if (renderer) TestRenderer.act(() => renderer.unmount());
+    globalThis.requestAnimationFrame = originalAnimationFrame;
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("Methodology explains Per-Set Chase vs. Global Top 10 and Screens vs. the Builder", () => {

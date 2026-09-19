@@ -92,6 +92,10 @@ export function parseConstituentPageResponse(payload) {
 /** Append a fetched page to what is already held, de-duplicated by rank. */
 export function appendConstituentPage(existingRows, page) {
   const seenRanks = new Set(existingRows.map((row) => row?.rank));
-  const additions = page.rows.filter((row) => !seenRanks.has(row?.rank));
+  const additions = page.rows.filter((row) => {
+    if (seenRanks.has(row?.rank)) return false;
+    seenRanks.add(row?.rank);
+    return true;
+  });
   return [...existingRows, ...additions];
 }

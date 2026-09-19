@@ -106,8 +106,20 @@ export default function MarketExplorerClient({
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState("chart");
+  const previousWorkspaceMode = useRef("chart");
+  const graphRef = useRef(null);
+  const backToChartRef = useRef(null);
   const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
   const [loadedPreparedSeries, setLoadedPreparedSeries] = useState([]);
+
+  useEffect(() => {
+    if (previousWorkspaceMode.current === workspaceMode) return;
+    previousWorkspaceMode.current = workspaceMode;
+    const target = workspaceMode === "constituents"
+      ? backToChartRef.current
+      : graphRef.current?.querySelector('[data-market-chart-view][aria-pressed="true"]');
+    target?.focus?.({ preventScroll: true });
+  }, [workspaceMode]);
 
   useEffect(() => {
     if (canComparePreparedMarkets && compareUpgradeVisible) setCompareUpgradeVisible(false);
@@ -336,7 +348,7 @@ export default function MarketExplorerClient({
         Markets / Tools <span aria-hidden="true">{mobileToolsOpen ? "−" : "+"}</span>
       </button>
       <aside id="explorer-controls" data-market-explorer-sidebar className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:row-start-2 desk:block desk:max-h-[calc(100vh-7rem)] desk:overflow-y-auto`}>
-        <section data-market-explorer-zone="explore" className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="explore-markets-zone-heading">
+        <section data-market-explorer-zone="explore" className={`${styles.explorerZone} ${styles.explorerZoneBrowse} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="explore-markets-zone-heading">
         <div className={styles.explorerZoneHeader}>
           <p className={styles.explorerZoneEyebrow}>Explore</p>
           <h2 id="explore-markets-zone-heading" className={styles.explorerZoneTitle}>Browse Markets</h2>
@@ -413,7 +425,7 @@ export default function MarketExplorerClient({
             timeframe={timeframe}
           />
         </div>
-        <div data-market-explorer-graph aria-hidden={workspaceMode === "constituents"} className={`order-2 min-w-0 ${workspaceMode === "constituents" ? "hidden" : "block"}`}>
+        <div ref={graphRef} data-market-explorer-graph aria-hidden={workspaceMode === "constituents"} className={`order-2 min-w-0 ${workspaceMode === "constituents" ? "hidden" : "block"}`}>
           <MarketExplorerChart
             overview={overview}
             selectedSeries={visibleSeries}
@@ -429,7 +441,7 @@ export default function MarketExplorerClient({
           <MarketExplorerConstituents selectedSeries={selectedSeries} activeSeriesId={activeDetailSeriesId}
             onSelectSeries={setRequestedDetailSeriesId} onEditSeries={beginEdit}
             mode={workspaceMode === "chart" ? "preview" : "expanded"} onSeeMore={() => setWorkspaceMode("constituents")}
-            onBackToChart={() => setWorkspaceMode("chart")} />
+            onBackToChart={() => setWorkspaceMode("chart")} backButtonRef={backToChartRef} />
         </div>
 
       {/* 3 — the advanced lane, collapsed and sitting directly beneath the

@@ -51,6 +51,9 @@ test("prepared categories populate, filter, switch, select, and preserve active 
     const keyboard = renderer.root.findByProps({ "data-market-browser-search": true });
     assert.equal(keyboard.props.value, "top");
     assert.equal(keyboard.props["aria-activedescendant"], undefined);
+    let spacePrevented = false;
+    await act(async () => keyboard.props.onKeyDown({ key: " ", preventDefault: () => { spacePrevented = true; } }));
+    assert.equal(spacePrevented, false, "Space remains text input in the search field; focused row buttons use native Space activation");
     await act(async () => keyboard.props.onKeyDown({ key: "ArrowDown", preventDefault: noop }));
     assert.equal(rows(renderer)[0].props["data-search-highlighted"], "true");
     await act(async () => keyboard.props.onKeyDown({ key: "Enter", preventDefault: noop }));

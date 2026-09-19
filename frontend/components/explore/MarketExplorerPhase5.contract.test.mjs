@@ -29,16 +29,17 @@ test("Sets group by Era and Screens use only the prepared endpoint", () => {
   assert.doesNotMatch(screens, /resolveScreenResults/);
 });
 
-test("lower research sections are full-width siblings and Set analysis is gated by the inspected market", () => {
+test("one constituent workspace precedes lower comparison detail and Set analysis", () => {
   const styles = read("./explore.module.css");
   const detailsIndex = client.indexOf("<MarketExplorerDetails");
   const constituentsIndex = client.indexOf("<MarketExplorerConstituents");
   const contextIndex = client.indexOf("<MarketExplorerContextRanking");
   const methodologyIndex = client.indexOf("<MarketExplorerMethodology");
 
-  assert.ok(detailsIndex < constituentsIndex);
-  assert.ok(constituentsIndex < contextIndex);
+  assert.ok(constituentsIndex < detailsIndex);
+  assert.ok(detailsIndex < contextIndex);
   assert.ok(contextIndex < methodologyIndex);
+  assert.equal(client.match(/<MarketExplorerConstituents/g)?.length, 1);
   assert.doesNotMatch(client, /explorerInspectionGrid/);
   assert.doesNotMatch(styles, /explorerInspectionGrid/);
   assert.match(client, /activeDetailMarket\?\.marketType === "set"/);

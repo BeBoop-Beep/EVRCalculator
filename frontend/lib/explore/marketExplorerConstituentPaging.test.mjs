@@ -49,7 +49,7 @@ test("next_cursor null means the roster is exhausted, never inferred from row co
 
 test("appendConstituentPage adds new rows and de-duplicates by rank", () => {
   const existing = [{ rank: 1 }, { rank: 2 }];
-  const page = { rows: [{ rank: 2 }, { rank: 3 }], nextCursor: null, totalCount: 3, asOf: null };
+  const page = { rows: [{ rank: 2 }, { rank: 3 }, { rank: 3 }], nextCursor: null, totalCount: 3, asOf: null };
   const merged = appendConstituentPage(existing, page);
   assert.deepEqual(merged.map((row) => row.rank), [1, 2, 3]);
 });

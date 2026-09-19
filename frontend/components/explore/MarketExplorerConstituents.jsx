@@ -219,7 +219,7 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
       </p>
     );
   }
-  if (page.error) {
+  if (page.error && page.rows.length === 0) {
     return (
       <div className="px-3 pb-6 pt-1 sm:px-4">
         <p role="alert" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
@@ -239,6 +239,17 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
 
   return (
     <>
+      {page.error ? (
+        <div className="px-3 pb-3 sm:px-4">
+          <p role="alert" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
+            {page.error} Previously loaded constituents remain available.
+          </p>
+          {mode === "expanded" ? <button type="button" data-market-constituents-page-retry onClick={page.loadMore}
+            className="mt-2 min-h-11 rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+            Retry loading more
+          </button> : null}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 pb-2 sm:px-4">
         <span data-market-constituents-page-count className="text-[10px] text-[var(--text-secondary)]">
           Showing <span className="tabular-nums">{displayedRows.length}</span> of{" "}
@@ -306,7 +317,7 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
           </li>
         ))}
       </ul>
-      {mode === "expanded" && page.hasMore ? (
+      {mode === "expanded" && page.hasMore && !page.error ? (
         <div className="px-3 pb-4 sm:px-4">
           <button
             type="button"
@@ -318,7 +329,7 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
             {page.isLoadingMore ? "Loading more…" : `Load more (${page.totalCount - page.rows.length} remaining)`}
           </button>
         </div>
-      ) : mode === "expanded" ? (
+      ) : mode === "expanded" && !page.hasMore ? (
         <p data-market-constituents-page-complete className="px-3 pb-4 text-[10px] text-[var(--text-secondary)] sm:px-4">
           All {page.totalCount} constituents loaded.
         </p>
@@ -335,6 +346,7 @@ export default function MarketExplorerConstituents({
   mode = "expanded",
   onSeeMore,
   onBackToChart,
+  backButtonRef,
 }) {
   // Local, unpersisted: which window you are reading is a posture, not
   // research, and it does not belong in the URL beside the chart's timeframe.
@@ -379,7 +391,7 @@ export default function MarketExplorerConstituents({
       aria-labelledby="market-constituents-heading"
     >
       {mode === "expanded" && onBackToChart ? (
-        <button type="button" data-market-constituents-back onClick={onBackToChart}
+        <button ref={backButtonRef} type="button" data-market-constituents-back onClick={onBackToChart}
           className="mx-3 mt-3 min-h-11 self-start rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 sm:mx-4">
           Back to chart
         </button>

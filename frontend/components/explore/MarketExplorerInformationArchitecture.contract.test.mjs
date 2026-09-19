@@ -61,3 +61,26 @@ test("one constituent workspace replaces the chart presentation without unmounti
   assert.match(source, /mode=\{workspaceMode === "chart" \? "preview" : "expanded"\}/);
   assert.ok(source.indexOf("<MarketExplorerConstituents") < source.indexOf("<MarketExplorerDetails"));
 });
+
+test("desktop, tablet, and mobile keep separate scroll and width owners", async () => {
+  const [client, browse, constituents, chart, styles, tailwind] = await Promise.all([
+    read("./MarketExplorerClient.jsx"), read("./MarketExplorerBrowse.jsx"),
+    read("./MarketExplorerConstituents.jsx"), read("./MarketExplorerChart.jsx"),
+    read("./explore.module.css"), read("../../tailwind.config.js"),
+  ]);
+  assert.match(tailwind, /desk:\s*"1200px"/);
+  for (const width of [1728, 1440]) {
+    assert.ok(width - 24 * 16 - 16 > width / 2, "the main analysis column remains dominant");
+  }
+  for (const width of [768, 390]) assert.ok(width < 1200, "tablet and mobile use the stacked layout");
+  assert.match(client, /min-w-0 gap-3 desk:grid-cols-\[minmax\(21rem,24rem\)_minmax\(0,1fr\)\]/);
+  assert.match(client, /data-market-explorer-mobile-tools/);
+  assert.match(client, /desk:max-h-\[calc\(100vh-7rem\)\] desk:overflow-y-auto/);
+  assert.match(styles, /\.explorerZoneBrowse\s*\{\s*overflow:\s*visible;/);
+  assert.match(browse, /max-h-\[min\(25rem,55vh\)\] overflow-y-auto/);
+  assert.match(browse, /min-h-11 min-w-0 flex-1/);
+  assert.match(chart, /min-w-0 overflow-x-auto pb-1/);
+  assert.match(constituents, /hidden overflow-x-auto[^`]*desk:block/);
+  assert.match(constituents, /data-market-constituents-cards[^\n]*desk:hidden/);
+  assert.match(constituents, /max-h-\[75vh\] overflow-y-auto desk:max-h-none/);
+});

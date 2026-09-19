@@ -211,3 +211,23 @@ test("preview and expanded modes share one query page and retain appended rows",
   assert.equal(calls, 2);
   assert.equal(rowIds(renderer).length, 200);
 });
+
+test("a failed Load more keeps prior rows and retries the same cursor", async () => {
+  const cursors = [];
+  globalThis.fetch = async (_url, init) => {
+    const cursor = JSON.parse(init.body).afterRank;
+    cursors.push(cursor);
+    if (cursor === 0) return pageResponse({ items: rowsFor(1, 100), nextCursor: 100, total: 150 });
+    if (cursors.length === 2) return { ok: false, status: 500, json: async () => ({ message: "Temporary page failure" }) };
+    return pageResponse({ items: rowsFor(101, 50), nextCursor: null, total: 150 });
+  };
+  const renderer = await mount({ selectedSeries: [globalAllRawQuery()], activeSeriesId: "query:global-all-raw-fp" });
+  await flush(renderer, () => findByTestAttr(renderer, "data-market-constituents-load-more").props.onClick());
+  assert.equal(rowIds(renderer).length, 100);
+  assert.ok(findByTestAttr(renderer, "data-market-constituents-page-error"));
+  assert.ok(!findByTestAttr(renderer, "data-market-constituents-page-complete"));
+  await flush(renderer, () => findByTestAttr(renderer, "data-market-constituents-page-retry").props.onClick());
+  assert.deepEqual(cursors, [0, 100, 100]);
+  assert.equal(rowIds(renderer).length, 150);
+  assert.ok(findByTestAttr(renderer, "data-market-constituents-page-complete"));
+});
