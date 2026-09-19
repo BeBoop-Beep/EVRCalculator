@@ -1,6 +1,6 @@
 {
-  "operation": "refresh-explorer-and-audit",
+  "operation": "status",
   "market_date": "",
   "set_id": "",
-  "request_id": "refresh-explorer-after-repairs-001"
+  "request_id": "pause-cards-market-repair-001"
 }
