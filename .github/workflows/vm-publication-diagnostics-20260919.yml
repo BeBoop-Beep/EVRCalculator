@@ -1,0 +1,51 @@
+name: VM publication diagnostics 2026-09-19
+
+on:
+  push:
+    branches:
+      - 'ops/vm-publication-diagnostics-20260919'
+    paths:
+      - '.github/workflows/vm-publication-diagnostics-20260919.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Inspect production VM publication
+        shell: bash
+        run: |
+          set -u
+          echo "=== HOST ==="
+          hostname
+          date
+          echo
+          echo "=== PRODUCTION REPO ==="
+          cd /home/ubuntu/repos/EVRCalculator
+          printf 'head='
+          git rev-parse HEAD
+          printf 'branch='
+          git branch --show-current || true
+          echo "status:"
+          git status --short || true
+          echo
+          echo "=== PUBLICATION PROCESSES ==="
+          ps -ef | grep -E 'publish_post_scrape_if_needed|rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|build_pokemon_set_market_snapshots|build_pokemon_market_dashboard_snapshots' | grep -v grep || true
+          echo
+          echo "=== LOCK ==="
+          ls -l /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || echo "lock-file-not-present"
+          if command -v lslocks >/dev/null 2>&1; then
+            lslocks | grep -E 'pokemon-post-scrape-publication|COMMAND|python|bash' || true
+          fi
+          if command -v fuser >/dev/null 2>&1; then
+            fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          fi
+          echo
+          echo "=== PUBLICATION LOG TAIL ==="
+          tail -160 backend/logs/rebuild_snapshots_after_scrape.cron.log 2>/dev/null || true
+          echo
+          echo "=== DISPATCHER LOG TAIL ==="
+          tail -60 backend/logs/cron_dispatcher.log 2>/dev/null || true
