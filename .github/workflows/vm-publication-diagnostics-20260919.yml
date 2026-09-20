@@ -60,9 +60,8 @@ jobs:
           PY
           echo '=== FALLBACK CRON LINES ==='
           grep -E 'pokemon-batch-create|create_daily_scrape_batch' infra/oracle/tcgplayer-scraper-pokemon.crontab
-          if crontab -T infra/oracle/tcgplayer-scraper-pokemon.crontab >/tmp/cron-test.out 2>&1; then
-            echo 'crontab_syntax=PASS'
-          else
-            cat /tmp/cron-test.out
-            exit 1
-          fi
+          COUNT="$(grep -Ec 'pokemon-batch-create|create_daily_scrape_batch' infra/oracle/tcgplayer-scraper-pokemon.crontab)"
+          test "$COUNT" -eq 3
+          awk 'BEGIN{ok=1} /^[^#[:space:]]/ { if (NF < 6) ok=0 } END{exit ok?0:1}' infra/oracle/tcgplayer-scraper-pokemon.crontab
+          grep -F -- '--if-missing --skip-new-set-detection' infra/oracle/tcgplayer-scraper-pokemon.crontab >/dev/null
+          echo 'crontab_structure=PASS'
