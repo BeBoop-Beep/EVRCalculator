@@ -60,3 +60,9 @@ Bucket status `FINANCIAL_RIP_V5_RANKING_V2_BEST_OPEN_V3_BLOCKED` (test infrastru
 Completed: Ranking V2 and Best-Open V3 engines (explicit, non-default; V1/V2 untouched); frozen Sep-14 parity, 138/138 ranking products and 276/276 Best-Open thresholds with zero mismatches; focused suites match the pristine-HEAD baseline (same 11 pre-existing failures).
 
 Still outstanding after 5A: Ranking V2 and Best-Open V3 SQL persistence/RPC branches and the V1->V2->V3 migration-chain test on real PostgreSQL; explicit builder/publisher paths; exact-artifact finalization wiring; Public Contract V12; publication lifecycle; frontend transport/version guards; readiness/Sentinel; live current-cohort dry run; schema landing (including the pending V2 Best-Open migration and the V5 sealed-results migration); inactive V14 generation; final pre-cutover report; activation.
+
+## Prompt 5A.2 update (SQL persistence, real Postgres)
+
+Bucket status `FINANCIAL_RIP_V5_RANKING_V2_BEST_OPEN_V3_COMPLETE`; overall cutover remains **not READY**. Ranking V2 and Best-Open V3 migrations, RPC branches and payload builders are authored and proven on real PostgreSQL 17 in GitHub Actions (run 35543361650), including the V1 -> V2 -> V3 chain. Nothing is applied to production. See [financial_rip_v5_ranking_v2_best_open_v3.md](financial_rip_v5_ranking_v2_best_open_v3.md).
+
+Landing order at schema-landing time: V5 sealed-results migration, Ranking V2 migration, Best-Open V2 migration (pending since 2026-09-16), Best-Open V3 migration. Still outstanding: DB-backed builder/publisher orchestration, finalization wiring, Public Contract V12, publication lifecycle, frontend transport, readiness/Sentinel, live dry run, inactive V14 generation, pre-cutover report, activation.

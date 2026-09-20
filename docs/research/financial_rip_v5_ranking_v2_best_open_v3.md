@@ -2,9 +2,9 @@
 
 ## Status
 
-`FINANCIAL_RIP_V5_RANKING_V2_BEST_OPEN_V3_BLOCKED`
+`FINANCIAL_RIP_V5_RANKING_V2_BEST_OPEN_V3_COMPLETE`
 
-Classification: **test infrastructure** (no isolated PostgreSQL available), which leaves the SQL persistence branches unauthored. The engine and parity work is complete and verified; the database half is not. This is not a model or parity problem, and the V5 formula was not touched. Production is unchanged and nothing was applied.
+History: Prompt 5A ended BLOCKED (no PostgreSQL to execute SQL). Prompt 5A.2 removed that blocker (an embedded Postgres 18 locally, then GitHub Actions postgres:17) and authored and proved the persistence layer. Everything below the 5A.2 section is unchanged 5A evidence. **Production is unchanged and no migration has been applied to it.**
 
 ## Version identities (verified unused before assignment)
 
@@ -36,7 +36,20 @@ Classification: **test infrastructure** (no isolated PostgreSQL available), whic
 - The 73 skips are the Postgres integration tests (no DSN).
 - New: `test_budget_ranking_v2_and_best_open_v3.py` (8 tests): identity uniqueness, V5/V14 usage with a mutation guard against a V4 call, no V4/V12 fields, comparator shape, contiguity, determinism, fail-closed missing pillars, V3 source must be Ranking V2, comparator authority isolation, fused exact-cent search and relabelling.
 
-## Not done
+## Prompt 5A.2 - SQL persistence and real-Postgres validation (this section supersedes 'Not done' items 1-3)
+
+**Migrations (both trees, byte-identical, additive; not applied to production):**
+- `20260920120000_add_budget_product_ranking_v2_v5_v14.sql`: V5/V14-named snapshot and row columns (`financial_rip_v5_score`, `overall_rip_v14_score`, `budget_rank_v14`, `financial_only_rank_v5`, ...); the four legacy rank/tier columns become nullable with a row-shape CHECK (a row is fully legacy-shaped or fully V2-shaped; `financial_only_rank` keeps its V4 meaning); V1/V12 body renamed to `..._v1_v12` behind a dispatcher; new private `..._v2` branch (exact identities, no V4/V10/V12 fields, rank contiguity, price authority, Full Market metadata, capital reconciliation, atomic, distinct latest pointer).
+- `20260920130000_add_best_open_price_v3_dual_financial_v5_overall_v14.sql`: must apply after the pending V2 migration; V5/V14 columns, `threshold_exact_verified` flags, two benchmark NOT NULLs and `overall_rip_v12_version` relaxed with shape CHECKs; V1/V2 body renamed to `..._v1_v2` behind a dispatcher; private `..._v3` branch validating every row against the LIVE Ranking V2 rows (ranks, scores, P(win), capital, both benchmarks, threshold >= benchmark, exact-cent arithmetic, source drift, mixed-generation fields). It refuses to run on a V1-only database (does not duplicate V2 schema).
+- Security unchanged: RLS on, no API-role grants; only the dispatcher is executable, by `service_role`; renamed and V2/V3 functions are internal.
+
+**Validation on real PostgreSQL (GitHub Actions run 35543361650 on `397a2e46`, postgres:17, all three jobs green):** the existing 73 V1/V2 tests still pass; `test_budget_ranking_v2_postgres.py` (38: V1/V12 publish still works and carries no V2 fields, V2 publish and distinct pointer, 27-case atomic rejection matrix, table CHECKs, role security); `test_best_open_v3_postgres.py` (71: real V1 -> V2 -> V3 upgrade with a publish at each stage, V1/V2 rows preserved column-for-column and re-publishable, V3 publish, idempotency and non-determinism refusal, 55-case atomic rejection matrix incl. V1 source, V4/V12 evidence, benchmark and source-drift cases, dispatcher guards, role security, V3 refuses a V1-only DB); `test_budget_v2_v3_builder_compat_postgres.py` (builder output accepted by both real RPCs). The same suites passed locally on embedded Postgres 18.4 during development, where they caught and fixed one real gap (non-object snapshot handling in the ranking dispatcher).
+
+**Python:** `budget_v2_v3_publication_payloads.py` (explicit, non-default snapshot/row builders; exact-Decimal price gaps; refuses non-exact or non-V3 axis results); `test_best_open_v3_ranking_v2_payload_contract.py` pins every identity literal across Python, SQL and fixtures.
+
+**Still not done (not required for this bucket's COMPLETE criteria):** DB-backed orchestration scripts that read persisted state and call these builders/RPCs (explicit V2 request path in the ranking builder and authority loader; V3 path in the Best-Open publisher), exact-artifact finalization wiring, and everything in Prompt 5B. No default or scheduled publisher, read service or public selector was changed.
+
+## Not done (5A original list; items 1-3 now closed above)
 
 1. **Ranking V2 storage/RPC**: additive columns and a V2 branch on `publish_budget_product_ranking_snapshot` (V1/V12 branch verbatim, V2 atomic validation).
 2. **Best-Open V3 storage/RPC**: additive V5/V14 columns (must apply after the pending, unapplied V2 migration `20260916120000`) and a V3 branch beside verbatim V1/V2 branches with row-by-row validation.
