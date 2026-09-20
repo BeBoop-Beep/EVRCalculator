@@ -1,6 +1,6 @@
 {
-  "operation": "repair-cards-market-errors",
+  "operation": "market-dashboard-set",
   "market_date": "2026-09-18",
-  "set_id": "",
-  "request_id": "repair-cards-market-batch5-002"
+  "set_id": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+  "request_id": "final-emerald-001"
 }
