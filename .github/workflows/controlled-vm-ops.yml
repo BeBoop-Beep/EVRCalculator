@@ -20,6 +20,10 @@ jobs:
     timeout-minutes: 120
     env:
       VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+      ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ACTIONS_SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ACTIONS_POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+      ACTIONS_SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
     steps:
       - name: Validate request
         shell: bash
@@ -30,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -87,6 +91,41 @@ jobs:
               uname -m
               free -h
               df -h /
+              ;;
+
+            market-explorer-cutover-status)
+              cd "$REPO"
+              echo "== credential presence (values never printed) =="
+              VM_DATABASE_URL=false
+              VM_SUPABASE_DB_URL=false
+              if grep -Eq '^[[:space:]]*DATABASE_URL=' backend/.env 2>/dev/null; then VM_DATABASE_URL=true; fi
+              if grep -Eq '^[[:space:]]*SUPABASE_DB_URL=' backend/.env 2>/dev/null; then VM_SUPABASE_DB_URL=true; fi
+              echo "vm_env_DATABASE_URL=$VM_DATABASE_URL"
+              echo "vm_env_SUPABASE_DB_URL=$VM_SUPABASE_DB_URL"
+              if [ -n "${ACTIONS_DATABASE_URL:-}" ]; then echo "actions_secret_DATABASE_URL=true"; else echo "actions_secret_DATABASE_URL=false"; fi
+              if [ -n "${ACTIONS_SUPABASE_DB_URL:-}" ]; then echo "actions_secret_SUPABASE_DB_URL=true"; else echo "actions_secret_SUPABASE_DB_URL=false"; fi
+              if [ -n "${ACTIONS_POSTGRES_URL:-}" ]; then echo "actions_secret_POSTGRES_URL=true"; else echo "actions_secret_POSTGRES_URL=false"; fi
+              if [ -n "${ACTIONS_SUPABASE_DATABASE_URL:-}" ]; then echo "actions_secret_SUPABASE_DATABASE_URL=true"; else echo "actions_secret_SUPABASE_DATABASE_URL=false"; fi
+
+              echo "== source availability =="
+              git fetch --all --prune
+              ACCEPTED_SHA="2d117b49"
+              if git cat-file -e "$ACCEPTED_SHA^{commit}" 2>/dev/null; then
+                echo "accepted_worker_commit_object_present=true"
+                git branch -r --contains "$ACCEPTED_SHA" || true
+              else
+                echo "accepted_worker_commit_object_present=false"
+              fi
+              if git show origin/develop:backend/scripts/run_market_explorer_maintained_cache_prewarm.py 2>/dev/null | grep -q 'direct_db_credential_missing'; then
+                echo "origin_develop_direct_db_worker=true"
+              else
+                echo "origin_develop_direct_db_worker=false"
+              fi
+              if git show origin/develop:backend/scripts/run_market_explorer_maintained_cache_prewarm.py 2>/dev/null | grep -q 'import psycopg'; then
+                echo "origin_develop_psycopg_worker=true"
+              else
+                echo "origin_develop_psycopg_worker=false"
+              fi
               ;;
 
             sync-main)
