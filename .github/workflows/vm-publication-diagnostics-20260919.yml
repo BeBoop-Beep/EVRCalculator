@@ -1,4 +1,4 @@
-name: Validate batch fallback schedule
+name: Deploy batch fallback schedule
 
 on:
   push:
@@ -11,57 +11,35 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  deploy:
     runs-on: self-hosted
     timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Checkout fallback branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/daily-batch-fallback-schedule-20260920
-          persist-credentials: false
-      - name: Validate ensure-if-missing and cron
+      - name: Sync code and compare cron
         shell: bash
         run: |
           set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile backend/scripts/create_daily_scrape_batch.py
-          "$PY" - <<'PY'
-          import json
-          import sys
-          from backend.db.services.pokemon_scrape_runtime_preflight import RuntimePreflightReport
-          from backend.scripts import create_daily_scrape_batch as script
-
-          script._load_backend_env=lambda: None
-          script._market_date_iso=lambda _tz: '2026-09-20'
-          script.get_active_batch=lambda d: {'id':57,'market_date':d,'status':'running'}
-          script.run_runtime_preflight=lambda: (_ for _ in ()).throw(AssertionError('preflight should not run'))
-          script.create_batch=lambda *_: (_ for _ in ()).throw(AssertionError('create should not run'))
-          sys.argv=['create_daily_scrape_batch.py','--if-missing','--skip-new-set-detection']
-          assert script.main()==0
-          print('if_missing_existing_batch_noop=PASS')
-
-          def boom(_d): raise RuntimeError('temporary lookup failure')
-          script.get_active_batch=boom
-          report=RuntimePreflightReport(runtime_git_sha='deadbeef',loaded_eras=['testEra'])
-          report.local_registry_hash='same'
-          report.database_cohort_hash='same'
-          script.run_runtime_preflight=lambda: report
-          script.create_batch=lambda d,t: {'id':57,'market_date':d,'status':'running','expected_set_count':165,'queued_set_count':165}
-          script.persist_runtime_provenance=lambda _id,_r: {'status':'recorded'}
-          script.run_new_set_discovery=lambda _timeout: {'status':'skipped'}
-          sys.argv=['create_daily_scrape_batch.py','--if-missing','--skip-new-set-detection']
-          assert script.main()==0
-          print('if_missing_lookup_failure_falls_through=PASS')
-          PY
-          echo '=== FALLBACK CRON LINES ==='
-          grep -E 'pokemon-batch-create|create_daily_scrape_batch' infra/oracle/tcgplayer-scraper-pokemon.crontab
-          COUNT="$(grep -Ec 'pokemon-batch-create|create_daily_scrape_batch' infra/oracle/tcgplayer-scraper-pokemon.crontab)"
-          test "$COUNT" -eq 3
-          awk 'BEGIN{ok=1} /^[^#[:space:]]/ { if (NF < 6) ok=0 } END{exit ok?0:1}' infra/oracle/tcgplayer-scraper-pokemon.crontab
-          grep -F -- '--if-missing --skip-new-set-detection' infra/oracle/tcgplayer-scraper-pokemon.crontab >/dev/null
-          echo 'crontab_structure=PASS'
+          cd /home/ubuntu/repos/EVRCalculator
+          echo '=== BEFORE ==='
+          git rev-parse HEAD
+          git status --short
+          test -z "$(git status --porcelain)"
+          git fetch origin
+          git switch main
+          git pull --ff-only origin main
+          echo
+          echo '=== AFTER ==='
+          git rev-parse HEAD
+          git status --short
+          git merge-base --is-ancestor 1d9951d2b4b331bd5f59983c977ccbc7d547d8d6 HEAD
+          echo 'BATCH_FALLBACK_PRESENT=true'
+          echo
+          echo '=== INSTALLED CRON ==='
+          crontab -l > /tmp/index-installed.cron
+          cat /tmp/index-installed.cron
+          echo
+          echo '=== CANONICAL CRON ==='
+          cat infra/oracle/tcgplayer-scraper-pokemon.crontab
+          echo
+          echo '=== DIFF ==='
+          diff -u /tmp/index-installed.cron infra/oracle/tcgplayer-scraper-pokemon.crontab || true
