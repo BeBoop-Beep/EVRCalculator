@@ -67,9 +67,34 @@ def test_set_payload_carries_subset_structure():
         "counts_toward_parent_opening": True,
     }
     payload = service._build_set_payload(source, "tcg", "era", None)
-    assert payload["is_subset"] is True
+    assert "is_subset" not in payload
     assert payload["subset_type"] == "classic_collection"
     assert payload["counts_toward_parent_set_value"] is True
     assert payload["counts_toward_parent_opening"] is True
     assert payload["catalog_only"] is True
     assert payload["ready_for_daily_scrape"] is False
+
+
+def test_generated_is_subset_is_never_written_directly():
+    source = {
+        "canonical_key": "child",
+        "name": "Child",
+        "release_date": "2026-09-16",
+        "set_type": None,
+        "abbreviation": None,
+        "set_code": None,
+        "pokemon_api_set_id": None,
+        "symbol_image_url": None,
+        "logo_image_url": None,
+        "source_config_path": "child.py",
+        "card_details_url": "cards",
+        "sealed_details_url": "sealed",
+        "catalog_only": True,
+        "supports_opening_simulation": False,
+        "is_subset": True,
+        "subset_type": "classic_collection",
+        "counts_toward_parent_set_value": True,
+        "counts_toward_parent_opening": True,
+    }
+    payload = service._build_set_payload(source, "tcg", "era", None)
+    assert "is_subset" not in payload
