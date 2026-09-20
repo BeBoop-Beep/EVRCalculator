@@ -365,6 +365,7 @@ class OnboardingEngine:
                     return _next(step, {
                         "canonical_key": existing_canonical,
                         "era_folder": existing_era,
+                        "provider_era_folder": existing_era,
                         "provider_catalog_only": True,
                         "source_deployed": True,
                         "config_path": str(existing_config),
