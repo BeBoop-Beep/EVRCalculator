@@ -23,29 +23,10 @@ jobs:
           echo '=== BEFORE ==='
           git rev-parse HEAD
           git status --short
-          EXTRA_DIRTY="$(git status --porcelain | grep -vE '^[ MARC?]{2} payload_debug\\.json
-          git switch main
-          git pull --ff-only origin main
-          echo
-          echo '=== AFTER ==='
-          git rev-parse HEAD
-          git status --short
-          git merge-base --is-ancestor 1d9951d2b4b331bd5f59983c977ccbc7d547d8d6 HEAD
-          echo 'BATCH_FALLBACK_PRESENT=true'
-          echo
-          echo '=== INSTALLED CRON ==='
-          crontab -l > /tmp/index-installed.cron
-          cat /tmp/index-installed.cron
-          echo
-          echo '=== CANONICAL CRON ==='
-          cat infra/oracle/tcgplayer-scraper-pokemon.crontab
-          echo
-          echo '=== DIFF ==='
-          diff -u /tmp/index-installed.cron infra/oracle/tcgplayer-scraper-pokemon.crontab || true
- || true)"
+          EXTRA_DIRTY="$(git status --porcelain | grep -v 'payload_debug.json' || true)"
           if [ -n "$EXTRA_DIRTY" ]; then
             echo 'Refusing to deploy: unexpected dirty paths:'
-            printf '%s\n' "$EXTRA_DIRTY"
+            echo "$EXTRA_DIRTY"
             exit 2
           fi
           if git status --porcelain -- payload_debug.json | grep -q .; then
