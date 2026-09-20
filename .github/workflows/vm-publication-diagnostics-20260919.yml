@@ -1,4 +1,4 @@
-name: Validate null RIP rank fix
+name: Verify card count and publication progress
 
 on:
   push:
@@ -11,18 +11,37 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  verify:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Checkout fix branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/set-page-null-rip-rank-20260920
-          persist-credentials: false
-      - name: Run focused frontend architecture test
+      - name: Verify live route and publisher
         shell: bash
         run: |
           set -euo pipefail
-          cd frontend
-          node --test components/pokemon/set-page/runtime/PokemonSetRuntimeArchitecture.test.mjs
+          cd /home/ubuntu/repos/EVRCalculator
+          echo '=== LIVE ROUTE DIRECTORY ==='
+          curl -fsS --max-time 30 'https://evrcalculator.onrender.com/tcgs/pokemon/set-route-directory?limit=200' > /tmp/routes.json
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
+          import json
+          data=json.load(open('/tmp/routes.json'))
+          rows=[r for r in data.get('targets',[]) if r.get('target_id')=='42a3740d-4778-4857-9c28-e116f34b51f3']
+          assert len(rows)==1, rows
+          row=rows[0]
+          print('neo_destiny_card_count=', row.get('card_count'))
+          print('neo_destiny_cardCount=', row.get('cardCount'))
+          print('cardCountSource=', data.get('meta',{}).get('cardCountSource'))
+          assert row.get('card_count')==113
+          PY
+          echo
+          echo '=== PUBLICATION PROCESS ==='
+          ps -p 151587 -o pid,ppid,etime,time,%cpu,%mem,state,args || true
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep20-pub.log
+            grep -E '\[refresh-plan\] checked|\[refresh-plan\] complete|\[refresh-run\]|refresh exit_status|post-scrape publication COMPLETE|final exit_status' /tmp/sep20-pub.log | tail -40 || true
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/sep20-pub.log || true)"
+            tail -25 /tmp/sep20-pub.log
+          fi
