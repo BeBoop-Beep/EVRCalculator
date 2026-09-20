@@ -1,0 +1,33 @@
+name: Pokemon generated subset sync gate
+
+on:
+  push:
+    branches:
+      - fix/pokemon-new-set-catalog-20260920
+
+jobs:
+  validate:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate generated subset sync contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          eval "$("$PY" - <<'PY'
+          from dotenv import dotenv_values
+          import shlex
+          values = dotenv_values("/home/ubuntu/repos/EVRCalculator/backend/.env")
+          for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"):
+              value = str(values.get(name) or "").strip()
+              if not value:
+                  raise SystemExit(f"missing required VM env: {name}")
+              print(f"export {name}={shlex.quote(value)}")
+          PY
+          )"
+          "$PY" -m py_compile backend/db/services/pokemon_era_set_sync_service.py
+          "$PY" -m pytest -q backend/tests/unit/services/test_pokemon_era_set_sync_targeted.py
+          "$PY" backend/scripts/sync_pokemon_eras_and_sets.py --set me06DeltaReign
+          "$PY" backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebrationClassicCollection
