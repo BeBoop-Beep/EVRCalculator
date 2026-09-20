@@ -60,6 +60,9 @@ from backend.db.services.market_explorer_maintained_cache_ops import (
     advance_one_maintained_cache,
     discover_maintained_caches,
 )
+from backend.db.services.market_explorer_direct_publisher import (
+    publish_prepared_generation,
+)
 from backend.scripts.run_market_explorer_daily_publication import (
     resolve_latest_approved_market_date,
 )
@@ -323,28 +326,23 @@ def select_stale_caches(
 
 # --- Prepared Explorer handoff ------------------------------------------------
 
-def refresh_prepared_if_current(client: Any, *, target_market_date: str, commit: bool) -> dict[str, Any]:
-    """Publish one coherent prepared generation, or fail closed without replacing it."""
+def refresh_prepared_if_current(
+    client: Any, *, target_market_date: str, commit: bool,
+    rollback_only: bool = False,
+) -> dict[str, Any]:
+    """Publish one coherent prepared generation over direct PostgreSQL.
+
+    The client remains in the signature because maintained-cache work still
+    uses the service-role client and tests inject it. Prepared publication
+    bypasses PostgREST so authenticator statement timeouts cannot truncate it.
+    """
+    del client
     if not commit:
         return {"status": "skipped", "reason": "dry_run"}
-    try:
-        response = client.rpc(
-            PREPARED_REFRESH_RPC,
-            {"p_required_market_date": str(target_market_date)[:10]},
-        ).execute()
-        data = response.data if response else None
-        payload = data[0] if isinstance(data, list) and data else data
-        return {
-            "status": "refreshed",
-            "targetMarketDate": str(target_market_date)[:10],
-            "result": payload,
-        }
-    except Exception as exc:  # noqa: BLE001 - fail closed, caller records failure
-        return {
-            "status": "failed",
-            "targetMarketDate": str(target_market_date)[:10],
-            "error": f"{type(exc).__name__}: {exc}",
-        }
+    return publish_prepared_generation(
+        target_market_date,
+        rollback_only=rollback_only,
+    )
 
 
 # --- Worker summary -----------------------------------------------------------
@@ -514,7 +512,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="Plan the run; perform no writes.")
-    mode.add_argument("--commit", action="store_true", help="Execute via the service-role client.")
+    mode.add_argument("--commit", action="store_true", help="Execute maintained-cache work and guarded publication.")
+    mode.add_argument(
+        "--verify-prepared-refresh-rollback",
+        action="store_true",
+        help="Execute guarded prepared publication over PostgreSQL and roll the transaction back.",
+    )
     parser.add_argument("--market-date", default=None,
                         help="Override the target market date (default: latest approved).")
     parser.add_argument("--max-caches", type=int, default=1,
@@ -549,6 +552,17 @@ def main() -> int:
     args = build_parser().parse_args()
     from backend.db.clients.supabase_client import create_service_role_client
     client = create_service_role_client()
+
+    if args.verify_prepared_refresh_rollback:
+        target = args.market_date or resolve_latest_approved_market_date(client)
+        if not target:
+            print(json.dumps({"status": "failed", "error": "no_approved_market_date"}, sort_keys=True))
+            return 1
+        report = refresh_prepared_if_current(
+            client, target_market_date=target, commit=True, rollback_only=True
+        )
+        print(json.dumps(report, indent=2, sort_keys=True, default=str))
+        return 1 if report.get("status") == "failed" else 0
 
     def guard() -> HostGuardResult:
         return evaluate_host_guard(
