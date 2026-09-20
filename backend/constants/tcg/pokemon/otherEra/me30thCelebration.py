@@ -4,10 +4,14 @@ from .baseConfig import BaseSetConfig
 class SetMe30thCelebrationConfig(BaseSetConfig):
     SET_NAME = 'ME: 30th Celebration'
     SET_ABBREVIATION = None
+    # Official Pokemon metadata identifies 30th Celebration as part of the
+    # Mega Evolution Series. Keep the historical config path stable while
+    # syncing the public catalog to the correct era.
+    ERA_CANONICAL_KEY = "megaEvolutionEra"
 
-    # SET_ID means Pokemon API set ID; this catalog has no unique API match.
+    # SET_ID means Pokemon API set ID; this catalog still has no unique API match.
     SET_ID = None
-    RELEASE_DATE = None
+    RELEASE_DATE = '2026-09-16'
     PRINTED_TOTAL = None
     TOTAL = None
     SYMBOL_IMAGE_URL = None

@@ -4,6 +4,7 @@ from subprocess import CompletedProcess
 
 import pytest
 
+from backend.services import pokemon_set_onboarding_service as service
 from backend.services.pokemon_onboarding_git_service import GitSettings
 from backend.services.pokemon_set_onboarding_service import (
     OnboardingEngine, STEP_ORDER, validate_pull_rates_manifest,
@@ -187,3 +188,148 @@ def test_stale_simulation_run_is_insufficient():
         db_client=object(),
     )
     assert engine.run_step(_job("simulation")).error_code == "simulation_new_run_verification_failed"
+
+
+def _provider_job(step="metadata_resolution", metadata=None):
+    job = _job(step, metadata)
+    job["source_set_name"] = "ME06: Delta Reign"
+    job["source_set_id"] = "24831"
+    job["pokemon_api_set_id"] = None
+    return job
+
+
+def test_metadata_resolution_missing_api_key_falls_back_for_trusted_provider_identity(monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "fetch_targeted_sets",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            RuntimeError("Missing POKEMON_TCG_API_KEY environment variable")
+        ),
+    )
+    outcome = OnboardingEngine(execute=True).run_step(
+        _provider_job(metadata={"confidence": 0.92})
+    )
+    assert outcome.kind == "advance"
+    assert outcome.step == "source_registration"
+    assert outcome.evidence["provider_catalog_only"] is True
+    assert outcome.evidence["provider_era_folder"] == "megaEvolutionEra"
+    assert outcome.evidence["source_set_id"] == "24831"
+    assert "/24831/" in outcome.evidence["sealed_details_url"]
+
+
+def test_metadata_resolution_missing_api_key_does_not_guess_unknown_provider_era(monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "fetch_targeted_sets",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            RuntimeError("Missing POKEMON_TCG_API_KEY environment variable")
+        ),
+    )
+    job = _job("metadata_resolution", {"confidence": 0.99})
+    job["source_set_name"] = "Mystery Collection 2027"
+    job["source_set_id"] = "99999"
+    outcome = OnboardingEngine(execute=True).run_step(job)
+    assert outcome.kind == "retry"
+    assert outcome.error_code == "pokemon_api_unavailable"
+
+
+def test_dry_run_provider_only_source_registration_never_touches_git():
+    job = _provider_job(
+        "source_registration",
+        {
+            "steps": {
+                "metadata_resolution": {
+                    "provider_catalog_only": True,
+                    "provider_era_folder": "megaEvolutionEra",
+                    "card_details_url": "https://tcg/cards",
+                    "sealed_details_url": "https://tcg/sealed",
+                }
+            }
+        },
+    )
+    engine = OnboardingEngine(
+        execute=False,
+        command_runner=_forbidden_runner,
+        git_settings=GitSettings(mode="pr", worktree_dir=Path("/tmp/onboarding-worktrees")),
+    )
+    outcome = engine.run_step(job)
+    assert outcome.kind == "advance"
+    assert outcome.evidence["provider_catalog_only"] is True
+    assert outcome.evidence["provider_era_folder"] == "megaEvolutionEra"
+
+
+def test_db_registration_accepts_catalog_only_set_without_daily_scrape_readiness():
+    runner = lambda command, **kwargs: CompletedProcess(command, 0, stdout="", stderr="")
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: {
+            "public_set_correct": True,
+            "ready_for_daily_scrape": False,
+            "catalog_only": True,
+        },
+    )
+    outcome = engine.run_step(_provider_job("db_registration"))
+    assert outcome.kind == "advance"
+    assert outcome.step == "initial_scrape"
+
+
+def test_initial_scrape_uses_catalog_target_and_completes_for_sealed_only_set():
+    calls = []
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="", stderr="")
+
+    evidence = {
+        "public_set_correct": True,
+        "catalog_only": True,
+        "ready_for_daily_scrape": False,
+        "cards_populated": False,
+        "variants_populated": False,
+        "market_prices_populated": False,
+        "sealed_products_populated": True,
+        "sealed_market_prices_populated": True,
+    }
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(evidence),
+    )
+    outcome = engine.run_step(_provider_job("initial_scrape"))
+    assert outcome.kind == "complete"
+    assert outcome.evidence["catalog_only_onboarding_complete"] is True
+    assert "--catalog-set" in calls[0]
+    assert "--set" not in calls[0]
+
+
+def test_provider_source_registration_resumes_when_config_already_deployed(monkeypatch, tmp_path):
+    era_dir = tmp_path / "backend/constants/tcg/pokemon/megaEvolutionEra"
+    era_dir.mkdir(parents=True)
+    config = era_dir / "me06DeltaReign.py"
+    config.write_text("class Existing: pass\n", encoding="utf-8")
+    monkeypatch.setattr(service, "REPO_ROOT", tmp_path)
+
+    job = _provider_job(
+        "source_registration",
+        {
+            "steps": {
+                "metadata_resolution": {
+                    "provider_catalog_only": True,
+                    "provider_era_folder": "megaEvolutionEra",
+                    "card_details_url": "https://tcg/cards",
+                    "sealed_details_url": "https://tcg/sealed",
+                }
+            }
+        },
+    )
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=_forbidden_runner,
+        git_settings=GitSettings(mode="pr", worktree_dir=tmp_path / "worktrees"),
+    )
+    outcome = engine.run_step(job)
+    assert outcome.kind == "advance"
+    assert outcome.step == "awaiting_source_deploy"
+    assert outcome.evidence["canonical_key"] == "me06DeltaReign"
+    assert outcome.evidence["era_folder"] == "megaEvolutionEra"
+    assert outcome.evidence["source_deployed"] is True
