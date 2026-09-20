@@ -1,4 +1,4 @@
-name: Deploy daily batch retry fix
+name: Validate batch fallback schedule
 
 on:
   push:
@@ -11,36 +11,58 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  validate:
     runs-on: self-hosted
     timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Sync production VM to merged main
+      - name: Checkout fallback branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/daily-batch-fallback-schedule-20260920
+          persist-credentials: false
+      - name: Validate ensure-if-missing and cron
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          echo '=== BEFORE ==='
-          git rev-parse HEAD
-          git status --short
-          EXTRA_DIRTY="$(git status --porcelain | grep -vE '^[ MARC?]{2} payload_debug\.json$' || true)"
-          if [ -n "$EXTRA_DIRTY" ]; then
-            echo 'Refusing to deploy: unexpected dirty paths:'
-            printf '%s\n' "$EXTRA_DIRTY"
-            exit 2
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile backend/scripts/create_daily_scrape_batch.py
+          "$PY" - <<'PY'
+          import json
+          import sys
+          from backend.db.services.pokemon_scrape_runtime_preflight import RuntimePreflightReport
+          from backend.scripts import create_daily_scrape_batch as script
+
+          script._load_backend_env=lambda: None
+          script._market_date_iso=lambda _tz: '2026-09-20'
+          script.get_active_batch=lambda d: {'id':57,'market_date':d,'status':'running'}
+          script.run_runtime_preflight=lambda: (_ for _ in ()).throw(AssertionError('preflight should not run'))
+          script.create_batch=lambda *_: (_ for _ in ()).throw(AssertionError('create should not run'))
+          sys.argv=['create_daily_scrape_batch.py','--if-missing','--skip-new-set-detection']
+          assert script.main()==0
+          print('if_missing_existing_batch_noop=PASS')
+
+          def boom(_d): raise RuntimeError('temporary lookup failure')
+          script.get_active_batch=boom
+          report=RuntimePreflightReport(runtime_git_sha='deadbeef',loaded_eras=['testEra'])
+          report.local_registry_hash='same'
+          report.database_cohort_hash='same'
+          script.run_runtime_preflight=lambda: report
+          script.create_batch=lambda d,t: {'id':57,'market_date':d,'status':'running','expected_set_count':165,'queued_set_count':165}
+          script.persist_runtime_provenance=lambda _id,_r: {'status':'recorded'}
+          script.run_new_set_discovery=lambda _timeout: {'status':'skipped'}
+          sys.argv=['create_daily_scrape_batch.py','--if-missing','--skip-new-set-detection']
+          assert script.main()==0
+          print('if_missing_lookup_failure_falls_through=PASS')
+          PY
+          echo '=== FALLBACK CRON LINES ==='
+          grep -E 'pokemon-batch-create|create_daily_scrape_batch' infra/oracle/tcgplayer-scraper-pokemon.crontab
+          if crontab -T infra/oracle/tcgplayer-scraper-pokemon.crontab >/tmp/cron-test.out 2>&1; then
+            echo 'crontab_syntax=PASS'
+          else
+            cat /tmp/cron-test.out
+            exit 1
           fi
-          if git status --porcelain -- payload_debug.json | grep -q .; then
-            git stash push -m 'payload-debug-before-main-e362369a-20260920' -- payload_debug.json
-          fi
-          git fetch origin
-          git switch main
-          git pull --ff-only origin main
-          echo
-          echo '=== AFTER ==='
-          git rev-parse HEAD
-          git status --short
-          git merge-base --is-ancestor e362369ab9faa5aea8355a5533dcb4975b8a7ca0 HEAD
-          echo 'DAILY_BATCH_TRANSIENT_RETRY_PRESENT=true'
-          echo
-          echo '=== STASH TOP ==='
-          git stash list | head -5
