@@ -258,12 +258,12 @@ def _load_canonical_histories(client, set_ids, *, through_date: str, market_scop
     PRE-CUTOVER keeps the historical certified-root contract plus the explicitly
     activated rollout row for the current day.
 
-    POST-CUTOVER the published Market Set Value is sourced from
-    pokemon_set_value_daily_history Standard rows. The history used for
-    deltas/charts must come from that SAME authority across the full available
-    range; mixing a certified-root historical series with only a current-day
-    Standard overlay can collapse partially-covered sets to one point and can
-    introduce a false discontinuity when the two authorities differ.
+    POST-CUTOVER standard roots continue to use
+    pokemon_set_value_daily_history Standard rows. Explicit vintage edition
+    profiles may supply a scoped override for the one-row Set Market view.
+    Scoped rows come only from certified canonical root history; incomplete
+    scoped markets therefore become stale/unavailable rather than falling back
+    to a blended Standard basket.
 
     Reads are explicitly paged with a deterministic (snapshot_date, set_id)
     order so PostgREST row caps cannot silently truncate broad Market cohorts.
