@@ -1,4 +1,4 @@
-name: VM Sep 20 batch recovery
+name: VM Sep 20 scheduler diagnosis
 
 on:
   push:
@@ -11,32 +11,24 @@ permissions:
   contents: read
 
 jobs:
-  recover:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Diagnose and recover Sep 20 batch
+      - name: Diagnose automatic batch creation failures
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
-          echo '=== HOST/TIME ==='
-          hostname
+          echo '=== TIME / HEAD ==='
           date
-          echo
-          echo '=== PRODUCTION REPO ==='
           git rev-parse HEAD
-          git branch --show-current || true
-          git status --short || true
           echo
-          echo '=== ACTIVE PIPELINE PROCESSES ==='
-          ps -ef | grep -E 'create_daily_scrape_batch|run_next_scrape_job|rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|publish_post_scrape' | grep -v grep || true
+          echo '=== CRON ==='
+          crontab -l | grep -E 'create_daily_scrape_batch|market_freshness_watchdog|run_next_scrape_job' || true
           echo
-          echo '=== BATCH CREATE LOG TAIL ==='
-          tail -120 backend/logs/create_daily_scrape_batch.log 2>/dev/null || true
+          echo '=== BATCH CREATE FAILURE SUMMARY ==='
+          grep -E '\[scrape-runtime-preflight\]|\[scrape-jobs\] create_daily_scrape_batch failed|\[scrape-batch-create\] batch creation failed|PreflightFailedError|APIError:|ReadTimeout' backend/logs/create_daily_scrape_batch.log 2>/dev/null | tail -120 || true
           echo
-          echo '=== SEP 20 RECOVERY ==='
-          ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py \
-            --market-date 2026-09-20 \
-            --trigger-source manual \
-            --skip-new-set-detection
+          echo '=== LOG MTIME ==='
+          stat -c 'size=%s mtime=%y' backend/logs/create_daily_scrape_batch.log 2>/dev/null || true
