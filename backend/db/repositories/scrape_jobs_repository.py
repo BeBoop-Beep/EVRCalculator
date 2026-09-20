@@ -6,9 +6,10 @@ import os
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set
 
-from ..clients.supabase_client import supabase
+from ..clients.supabase_client import create_service_role_client, supabase
+from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -299,6 +300,8 @@ def create_daily_scrape_batch(
     market_date: Optional[str] = None,
     timezone_name: str = "America/Phoenix",
     trigger_source: str = "scheduled",
+    *,
+    client_factory: Optional[Callable[[], Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Create (or idempotently return) the daily batch for a market date.
 
@@ -306,6 +309,10 @@ def create_daily_scrape_batch(
     and enqueues one pending job per ready set that has no active job. ``market_date``
     is an ``America/Phoenix`` ISO date string; ``None`` lets the RPC default to the
     current Arizona market day.
+
+    The RPC is idempotent for a market date, so transient transport/statement
+    failures may be retried safely. Each retry uses a fresh service-role client;
+    deterministic failures still propagate immediately.
     """
     params: Dict[str, Any] = {
         "p_timezone": timezone_name,
@@ -314,8 +321,14 @@ def create_daily_scrape_batch(
     if market_date is not None:
         params["p_market_date"] = market_date
 
+    factory = client_factory or create_service_role_client
     try:
-        result = supabase.rpc("create_daily_scrape_batch", params).execute()
+        result = run_snapshot_operation_with_retry(
+            lambda client: client.rpc("create_daily_scrape_batch", params).execute(),
+            operation_name="scrape-batch:create_daily_scrape_batch",
+            max_attempts=3,
+            client_factory=factory,
+        )
         data = _rpc_data(result)
         batch = data[0] if isinstance(data, list) and data else data
         if batch:
@@ -332,7 +345,6 @@ def create_daily_scrape_batch(
     except Exception as exc:
         logger.error("%s create_daily_scrape_batch failed: %s", _JOB_TAG, exc)
         raise
-
 
 def record_batch_runtime_provenance(
     batch_id: Any,

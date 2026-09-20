@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from backend.db.services.pokemon_scrape_runtime_preflight import (
+    load_database_cohort_rows,
     run_runtime_preflight,
 )
 
@@ -278,3 +279,80 @@ def test_successful_preflight_allows_batch_creation():
 
     returned = module.run_preflight_or_fail("2026-08-03", preflight_runner=lambda: passing)
     assert returned.ok is True
+
+
+
+class _Transient522(Exception):
+    code = 522
+
+
+class _RetryNotFilter:
+    def __init__(self, query):
+        self.query = query
+
+    def is_(self, column, value):
+        return self.query
+
+
+class _RetryQuery:
+    def __init__(self, client):
+        self.client = client
+
+    @property
+    def not_(self):
+        return _RetryNotFilter(self)
+
+    def select(self, _columns):
+        return self
+
+    def eq(self, _column, _value):
+        return self
+
+    def order(self, _column):
+        return self
+
+    def range(self, _start, _end):
+        return self
+
+    def execute(self):
+        if self.client.fail:
+            raise _Transient522("Cloudflare 522 connection timed out")
+        return type("Result", (), {"data": [dict(self.client.row)]})()
+
+
+class _RetryClient:
+    def __init__(self, *, fail, row):
+        self.fail = fail
+        self.row = row
+
+    def table(self, name):
+        assert name == "sets"
+        return _RetryQuery(self)
+
+
+def test_database_cohort_read_retries_transient_522_with_fresh_client():
+    row = {
+        "id": "set-a-id",
+        "canonical_key": "setA",
+        "card_details_url": "https://www.tcgplayer.com/card",
+        "has_card_details_url": True,
+        "ready_for_daily_scrape": True,
+        "catalog_only": False,
+        "supports_opening_simulation": True,
+        "parent_opening_set_id": None,
+    }
+    clients = [
+        _RetryClient(fail=True, row=row),
+        _RetryClient(fail=False, row=row),
+    ]
+    calls = {"count": 0}
+
+    def factory():
+        client = clients[calls["count"]]
+        calls["count"] += 1
+        return client
+
+    rows = load_database_cohort_rows(client_factory=factory)
+
+    assert calls["count"] == 2
+    assert rows == [row]
