@@ -1,4 +1,4 @@
-name: Diagnose Sep 20 publication handoff
+name: Measure Sep 20 publication progress
 
 on:
   push:
@@ -11,34 +11,29 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  measure:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect Sep 20 post-scrape publication
+      - name: Measure active Sep 20 publication
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
-          echo '=== HOST/TIME/HEAD ==='
-          hostname
           date
-          git rev-parse HEAD
-          git status --short || true
-          echo
-          echo '=== PUBLICATION PROCESSES ==='
-          ps -eo user,pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|publish_post_scrape_if_needed|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
-          echo
-          echo '=== LOCK ==='
-          ls -l /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || echo no-lock-file
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo
-          echo '=== PUBLICATION LOG ==='
-          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
-          tail -180 publication.log 2>/dev/null || true
-          echo
-          echo '=== DISPATCHER TAIL ==='
-          tail -140 backend/logs/cron_dispatcher.log 2>/dev/null || true
-          echo
-          echo '=== FALLBACK PUBLICATION CRON LOG ==='
-          tail -100 backend/logs/rebuild_snapshots_after_scrape.cron.log 2>/dev/null || true
+          echo '=== PROCESS ==='
+          ps -p 151587 -o pid,ppid,etime,time,%cpu,%mem,state,args || true
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
+          echo "run_start_line=${START:-missing}"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep20-pub.log
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "sealed_upserts=$(grep -c 'pokemon_set_sealed_market_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "retries=$(grep -c 'snapshot operation retry' /tmp/sep20-pub.log || true)"
+            echo '=== PLAN / PHASE MARKERS ==='
+            grep -E '\[refresh-plan\]|\[refresh-run\]|global|explore|publication|completed|FAILED|exit_status' /tmp/sep20-pub.log | tail -100 || true
+            echo '=== LIVE TAIL ==='
+            tail -80 /tmp/sep20-pub.log
+          fi
