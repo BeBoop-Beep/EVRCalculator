@@ -1,4 +1,4 @@
-name: Validate vintage Market scope branch
+name: Check Sep 20 write phase
 
 on:
   push:
@@ -11,33 +11,25 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  check:
     runs-on: self-hosted
-    timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
+    timeout-minutes: 5
     steps:
-      - name: Checkout vintage fix branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/market-vintage-unlimited-scope-20260920
-          persist-credentials: false
-      - name: Compile and run focused vintage tests
+      - name: Check active publication write phase
         shell: bash
         run: |
-          set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile \
-            backend/scripts/build_pokemon_explore_set_value_snapshot.py \
-            backend/tests/unit/scripts/test_market_vintage_scope_override.py
-          "$PY" - <<'PY'
-          from backend.tests.unit.scripts import test_market_vintage_scope_override as t
-          t.test_scope_overrides_apply_only_to_registered_vintage_profiles()
-          print('scope_override_profiles=PASS')
-          t.test_scoped_history_keeps_only_requested_certified_scope()
-          print('scoped_certification_filter=PASS')
-          t.test_post_cutover_override_replaces_only_vintage_standard_history()
-          print('vintage_replaces_mixed_standard_only=PASS')
-          PY
+          set -u
+          cd /home/ubuntu/repos/EVRCalculator
+          date
+          ps -p 151587 -o pid,ppid,etime,time,%cpu,%mem,state,args || true
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep20-pub.log
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/sep20-pub.log || true)"
+            echo '=== PHASE MARKERS ==='
+            grep -E '\[refresh-plan\] checked|\[refresh-plan\].*(complete|finished)|\[refresh-run\]|refresh exit_status|audit exit_status|market explorer projection exit_status|post-scrape publication COMPLETE|final exit_status' /tmp/sep20-pub.log | tail -120 || true
+            echo '=== LIVE TAIL ==='
+            tail -60 /tmp/sep20-pub.log
+          fi
