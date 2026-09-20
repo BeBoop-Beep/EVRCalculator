@@ -1,0 +1,151 @@
+name: Production Pokemon new-set onboarding canary
+
+on:
+  push:
+    branches:
+      - ops/pokemon-new-set-onboarding-20260920
+
+jobs:
+  onboard:
+    runs-on: self-hosted
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resume validated new-set jobs on production
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" - <<'PY'
+          from __future__ import annotations
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          from dotenv import load_dotenv
+
+          workspace = Path(os.environ["GITHUB_WORKSPACE"])
+          load_dotenv("/home/ubuntu/repos/EVRCalculator/backend/.env", override=False)
+          sys.path.insert(0, str(workspace))
+
+          required = ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY")
+          missing = [name for name in required if not os.getenv(name)]
+          if missing:
+              raise SystemExit("missing required production env: " + ",".join(missing))
+
+          def run(*args: str) -> None:
+              command = [sys.executable, *args]
+              print("\n[ops] RUN", " ".join(args), flush=True)
+              result = subprocess.run(command, cwd=workspace, env=os.environ.copy(), check=False)
+              print("[ops] EXIT", result.returncode, flush=True)
+              if result.returncode != 0:
+                  raise SystemExit(result.returncode)
+
+          # Existing 30th Celebration was historically cataloged under Other.
+          # Sync its now-reviewed era/release metadata first.
+          run("backend/scripts/sync_pokemon_eras_and_sets.py",
+              "--set", "me30thCelebration", "--apply")
+
+          from backend.db.clients.supabase_client import supabase
+
+          jobs = (
+              ("Delta Reign", "99f3ab90-6240-48d1-a117-a0dc685d0f5f"),
+              ("30th Celebration Classic Collection", "d895a879-f353-4b93-a6da-ef93a8351a1e"),
+          )
+          terminal_bad = {"failed", "manual_review", "waiting"}
+
+          def job_row(job_id: str) -> dict:
+              rows = (
+                  supabase.table("pokemon_set_onboarding_jobs")
+                  .select("id,status,current_step,attempt_count,last_error_code,last_error_message,canonical_key,era_folder")
+                  .eq("id", job_id).limit(1).execute().data or []
+              )
+              if len(rows) != 1:
+                  raise RuntimeError(f"job not found: {job_id}")
+              return rows[0]
+
+          for label, job_id in jobs:
+              print(f"\n[ops] === {label} ===", flush=True)
+              for iteration in range(1, 9):
+                  before = job_row(job_id)
+                  print("[ops] before", json.dumps(before, sort_keys=True), flush=True)
+                  status = str(before.get("status") or "")
+                  if status == "completed":
+                      break
+                  if status in terminal_bad:
+                      raise RuntimeError(f"{label} entered terminal blocked state: {before}")
+
+                  run(
+                      "backend/scripts/run_pending_pokemon_set_onboarding.py",
+                      "--commit",
+                      "--job-id", job_id,
+                      "--max-jobs", "1",
+                      "--json",
+                  )
+                  after = job_row(job_id)
+                  print("[ops] after", json.dumps(after, sort_keys=True), flush=True)
+                  if after.get("status") == "completed":
+                      break
+                  if after.get("status") in terminal_bad:
+                      raise RuntimeError(f"{label} entered terminal blocked state: {after}")
+              else:
+                  raise RuntimeError(f"{label} did not complete within 8 bounded worker invocations")
+
+              final = job_row(job_id)
+              if final.get("status") != "completed":
+                  raise RuntimeError(f"{label} did not complete: {final}")
+
+          # Read-only final evidence from the same production DB.
+          rows = (
+              supabase.table("sets")
+              .select("id,name,canonical_key,era_id,release_date,catalog_only,ready_for_daily_scrape,"
+                      "supports_opening_simulation,is_subset,subset_type,parent_opening_set_id")
+              .in_("canonical_key", [
+                  "me30thCelebration",
+                  "me06DeltaReign",
+                  "me30thCelebrationClassicCollection",
+              ])
+              .execute().data or []
+          )
+          era_ids = sorted({str(row["era_id"]) for row in rows if row.get("era_id")})
+          eras = (
+              supabase.table("eras").select("id,name").in_("id", era_ids).execute().data or []
+          ) if era_ids else []
+          era_by_id = {str(row["id"]): row.get("name") for row in eras}
+
+          final_sets = []
+          for row in rows:
+              set_id = str(row["id"])
+              cards = supabase.table("cards").select("id", count="exact").eq("set_id", set_id).limit(1).execute()
+              canonical = supabase.table("pokemon_canonical_cards").select("id", count="exact").eq("set_id", set_id).limit(1).execute()
+              sealed = supabase.table("sealed_products").select("id", count="exact").eq("set_id", set_id).limit(1).execute()
+              final_sets.append({
+                  **row,
+                  "era_name": era_by_id.get(str(row.get("era_id"))),
+                  "cards": cards.count,
+                  "canonical_cards": canonical.count,
+                  "sealed_products": sealed.count,
+              })
+
+          directory = supabase.rpc("get_pokemon_set_route_directory", {"p_limit": 500}).execute().data or []
+          directory_names = {
+              str(row.get("canonical_key")): {
+                  "ordinal": row.get("ordinal"),
+                  "name": row.get("name"),
+                  "release_date": row.get("release_date"),
+                  "era": row.get("era"),
+              }
+              for row in directory
+              if row.get("canonical_key") in {"me30thCelebration", "me06DeltaReign"}
+          }
+
+          print("\n[ops] FINAL_EVIDENCE")
+          print(json.dumps({
+              "sets": sorted(final_sets, key=lambda row: str(row.get("canonical_key"))),
+              "route_directory_count": len(directory),
+              "route_targets": directory_names,
+              "jobs": {label: job_row(job_id) for label, job_id in jobs},
+          }, indent=2, sort_keys=True, default=str))
+          PY
