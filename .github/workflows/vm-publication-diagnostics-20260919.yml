@@ -1,4 +1,4 @@
-name: Measure Sep 20 publication progress
+name: Validate null RIP rank fix
 
 on:
   push:
@@ -11,29 +11,18 @@ permissions:
   contents: read
 
 jobs:
-  measure:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Measure active Sep 20 publication
+      - name: Checkout fix branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/set-page-null-rip-rank-20260920
+          persist-credentials: false
+      - name: Run focused frontend architecture test
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          date
-          echo '=== PROCESS ==='
-          ps -p 151587 -o pid,ppid,etime,time,%cpu,%mem,state,args || true
-          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
-          echo "run_start_line=${START:-missing}"
-          if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/sep20-pub.log
-            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep20-pub.log || true)"
-            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep20-pub.log || true)"
-            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/sep20-pub.log || true)"
-            echo "sealed_upserts=$(grep -c 'pokemon_set_sealed_market_snapshot_latest' /tmp/sep20-pub.log || true)"
-            echo "retries=$(grep -c 'snapshot operation retry' /tmp/sep20-pub.log || true)"
-            echo '=== PLAN / PHASE MARKERS ==='
-            grep -E '\[refresh-plan\]|\[refresh-run\]|global|explore|publication|completed|FAILED|exit_status' /tmp/sep20-pub.log | tail -100 || true
-            echo '=== LIVE TAIL ==='
-            tail -80 /tmp/sep20-pub.log
-          fi
+          set -euo pipefail
+          cd frontend
+          node --test components/pokemon/set-page/runtime/PokemonSetRuntimeArchitecture.test.mjs
