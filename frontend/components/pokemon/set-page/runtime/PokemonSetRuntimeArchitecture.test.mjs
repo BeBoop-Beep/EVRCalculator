@@ -148,3 +148,14 @@ test("rich RIP progressive resources are isolated and retain same-run and access
   assert.match(controller, /!canViewProductRipIntelligence/);
   assert.doesNotMatch(controller, /RipDecisionPage/);
 });
+
+
+test("missing RIP rank and cohort remain unavailable instead of coercing to zero", () => {
+  const parent = read("../PokemonSetRichPageClient.jsx");
+  assert.match(
+    parent,
+    /value === null \|\| value === undefined \|\| String\(value\)\.trim\(\) === ""/
+  );
+  assert.match(parent, /const ripRank = number\(ripScore\.rank\)/);
+  assert.match(parent, /const ripCohort = number\(ripScore\.cohortSize\)/);
+});
