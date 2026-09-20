@@ -1,6 +1,4 @@
 {
-  "operation": "market-dashboard-set",
-  "market_date": "2026-09-18",
-  "set_id": "4f84d317-e15d-4598-bc8d-52baa04b3485",
-  "request_id": "rerun-team-rocket-002"
+  "operation": "status",
+  "request_id": "market-explorer-vm-status-20260920"
 }
