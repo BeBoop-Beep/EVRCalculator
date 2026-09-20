@@ -4,14 +4,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[4]
-SQL = ROOT / "supabase/migrations/20260919231000_lock_tcgplayer_price_reads.sql"
-MIRROR = ROOT / "backend/db/migrations/20260919231000_lock_tcgplayer_price_reads.sql"
+SQL_DIR = ROOT / "supabase/migrations"
+MIRROR_DIR = ROOT / "backend/db/migrations"
 INVENTORY = ROOT / "backend/artifacts/pricing/multi_source_price_consumer_inventory.json"
 
 
 def test_migration_is_mirrored_and_keeps_multisource_storage():
-    sql = SQL.read_bytes()
-    assert sql == MIRROR.read_bytes()
+    files = sorted(SQL_DIR.glob("2026092014000*_p5a_source_lock_*.sql"))
+    assert len(files) == 7
+    assert all(file.read_bytes() == (MIRROR_DIR / file.name).read_bytes() for file in files)
+    assert all(b"set local lock_timeout = '5s'" in file.read_bytes() for file in files)
+    sql = b"\n".join(file.read_bytes() for file in files)
     text = sql.decode()
     assert "CREATE OR REPLACE VIEW public.card_market_usd_latest_by_condition" in text
     assert "CROSS JOIN LATERAL" in text
