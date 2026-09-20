@@ -197,6 +197,7 @@ def release_for_retry_v2(
 ) -> Optional[Dict[str, Any]]:
     return transition_v2(job_id, worker_id, lease_token, expected_step, {
         "status": "retry",
+        "current_step": expected_step,
         "next_attempt_at": (datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)).isoformat(),
         "last_error_code": code, "last_error_message": message[:2000],
     })

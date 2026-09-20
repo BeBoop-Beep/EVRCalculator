@@ -34,6 +34,28 @@ def _era_for_series(series: str) -> tuple[str, str]:
     return SERIES_TO_ERA[series]
 
 
+_PROVIDER_ERA_HINTS: tuple[tuple[re.Pattern[str], tuple[str, str]], ...] = (
+    # TCGplayer's current Mega Evolution catalog uses ME / ME## prefixes
+    # (for example "ME06: Delta Reign"). This is an explicit provider naming
+    # contract, not fuzzy era inference. Unknown prefixes remain unresolved.
+    (re.compile(r"^ME(?:\d+(?:\.\d+)?)?\s*:", re.IGNORECASE), ("megaEvolutionEra", "Mega Evolution")),
+)
+
+
+def provider_catalog_era_hint(source_set_name: str) -> tuple[str, str] | None:
+    """Return a trusted provider-prefix era hint, or None when no rule applies.
+
+    This intentionally does not guess from arbitrary words. Provider-only
+    onboarding is allowed to create a provisional catalog identity only when a
+    stable naming convention has an explicit mapping here.
+    """
+    name = str(source_set_name or "").strip()
+    for pattern, resolved in _PROVIDER_ERA_HINTS:
+        if pattern.search(name):
+            return resolved
+    return None
+
+
 def _era_rarities(era_dir: Path) -> list[str]:
     path = era_dir / "baseConfig.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -141,6 +163,106 @@ def generate_one_set_config(
             )
             existing_aliases[alias] = canonical_key
     # All collision and structural validation finishes before either file is written.
+    if not config_path.exists():
+        config_path.write_text(rendered, encoding="utf-8")
+        changed.append(config_path)
+    if text != original:
+        set_map_path.write_text(text, encoding="utf-8")
+        changed.append(set_map_path)
+    return GeneratedConfig(
+        canonical_key, era_folder, config_path, set_map_path, tuple(changed)
+    )
+
+
+def _render_catalog_only_config(
+    class_name: str, *, source_set_name: str, source_set_id: str,
+    card_details_url: str, sealed_details_url: str, release_date: str | None = None,
+) -> str:
+    return (
+        "from .baseConfig import BaseSetConfig\n\n\n"
+        f"class {class_name}(BaseSetConfig):\n"
+        f"    SET_NAME = {source_set_name!r}\n"
+        "    SET_ABBREVIATION = None\n"
+        "    # SET_ID is reserved for an authoritative Pokemon metadata identity.\n"
+        "    SET_ID = None\n"
+        f"    RELEASE_DATE = {release_date!r}\n"
+        "    PRINTED_TOTAL = None\n"
+        "    TOTAL = None\n"
+        "    SYMBOL_IMAGE_URL = None\n"
+        "    LOGO_IMAGE_URL = None\n"
+        f"    TCGPLAYER_SET_ID = {str(source_set_id)!r}\n"
+        f"    TCGPLAYER_SET_NAME = {source_set_name!r}\n"
+        f"    CARD_DETAILS_URL = {card_details_url!r}\n"
+        f"    SEALED_DETAILS_URL = {sealed_details_url!r}\n"
+        "    PRICE_ENDPOINTS = {}\n"
+        "    CATALOG_ONLY = True\n"
+        "    SUPPORTS_OPENING_SIMULATION = False\n"
+        "    USE_MONTE_CARLO_V2 = False\n"
+        '    PULL_MODEL_STATUS = "unsupported"\n'
+        "    PULL_RATE_MAPPING = {}\n"
+    )
+
+
+def generate_catalog_only_set_config(
+    checkout_root: Path, *, source_set_name: str, source_set_id: str,
+    card_details_url: str, sealed_details_url: str,
+    era_folder: str, release_date: str | None = None,
+) -> GeneratedConfig:
+    """Generate an idempotent provider-only config for a trusted provisional set.
+
+    The config is intentionally catalog-only until authoritative metadata and a
+    validated pull model exist. This lets a real provider identity become
+    browseable/scrapeable without overstating simulation readiness.
+    """
+    canonical_key = normalize_set_key(source_set_name)
+    class_name = f"Set{camel_to_pascal(canonical_key)}Config"
+    era_dir = checkout_root / "backend/constants/tcg/pokemon" / era_folder
+    if not era_dir.is_dir():
+        raise ConfigGenerationError(f"era folder does not exist: {era_folder}")
+    config_path = era_dir / f"{canonical_key}.py"
+    set_map_path = era_dir / "setMap.py"
+    rendered = _render_catalog_only_config(
+        class_name,
+        source_set_name=source_set_name,
+        source_set_id=source_set_id,
+        card_details_url=card_details_url,
+        sealed_details_url=sealed_details_url,
+        release_date=release_date,
+    )
+    changed: list[Path] = []
+    if config_path.exists() and config_path.read_text(encoding="utf-8") != rendered:
+        raise ConfigGenerationError(f"target config already exists with different content: {config_path}")
+
+    text = set_map_path.read_text(encoding="utf-8")
+    original = text
+    import_line = f"from .{canonical_key} import {class_name}"
+    if not re.search(rf"^{re.escape(import_line)}$", text, re.MULTILINE):
+        imports = list(re.finditer(r"^from\s+.+$", text, re.MULTILINE))
+        position = imports[-1].end() if imports else 0
+        text = text[:position] + "\n" + import_line + text[position:]
+    if not re.search(rf"^\s*['\"]{re.escape(canonical_key)}['\"]\s*:", text, re.MULTILINE):
+        text = _insert_before_closing_brace(
+            text, "SET_CONFIG_MAP", f"    {canonical_key!r} : {class_name},"
+        )
+
+    aliases = {
+        canonical_key,
+        normalize_name(source_set_name),
+        str(source_set_id).lower(),
+    }
+    existing_aliases = _parse_aliases(text)
+    for alias in sorted(aliases):
+        owner = existing_aliases.get(alias)
+        if owner and owner != canonical_key:
+            raise ConfigGenerationError(f"alias collision: {alias!r} already maps to {owner!r}")
+        if not owner:
+            text = _insert_before_closing_brace(
+                text, "SET_ALIAS_MAP", f"    {alias!r}: {canonical_key!r},"
+            )
+            existing_aliases[alias] = canonical_key
+
+    ast.parse(rendered)
+    ast.parse(text)
     if not config_path.exists():
         config_path.write_text(rendered, encoding="utf-8")
         changed.append(config_path)

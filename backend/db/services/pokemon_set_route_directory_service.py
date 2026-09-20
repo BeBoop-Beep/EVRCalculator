@@ -59,8 +59,8 @@ def _load_canonical_card_counts(set_ids: List[str]) -> Optional[Dict[str, int]]:
     return counts
 
 
-def get_pokemon_set_route_directory_payload(limit: int = 200) -> Dict[str, Any]:
-    resolved_limit = max(1, min(int(limit or 200), 200))
+def get_pokemon_set_route_directory_payload(limit: int = 500) -> Dict[str, Any]:
+    resolved_limit = max(1, min(int(limit or 500), 500))
     try:
         projected = list(
             run_public_read_with_retry(

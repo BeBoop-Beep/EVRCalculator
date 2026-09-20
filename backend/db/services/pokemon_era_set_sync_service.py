@@ -71,6 +71,17 @@ def _drop_none_values(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _resolve_config_era_canonical_key(config_cls: Any, default_era_folder: str) -> str:
+    """Allow a legacy catalog config to declare its authoritative era without
+    physically moving the source file between folders.
+
+    The override must name an existing era folder; sync validation below will
+    fail closed if that era is unavailable. Ordinary configs keep their folder
+    as the canonical era key.
+    """
+    return _clean_str(getattr(config_cls, "ERA_CANONICAL_KEY", None)) or default_era_folder
+
+
 def _validate_image_url(url: Optional[str], field_name: str = "image_url", timeout: float = 5.0) -> bool:
     """Validate that a set image URL returns HTTP 200. Returns True if valid or None/empty.
     
@@ -192,7 +203,7 @@ def discover_pokemon_era_and_set_metadata() -> Dict[str, List[Dict[str, Any]]]:
             sets.append(
                 {
                     "canonical_key": canonical_key,
-                    "era_canonical_key": era_dir.name,
+                    "era_canonical_key": _resolve_config_era_canonical_key(config_cls, era_dir.name),
                     "era_name": era_name,
                     "name": set_name,
                     "release_date": release_date,
@@ -210,6 +221,11 @@ def discover_pokemon_era_and_set_metadata() -> Dict[str, List[Dict[str, Any]]]:
                     "catalog_only": lifecycle["catalog_only"],
                     "supports_opening_simulation": lifecycle["supports_opening_simulation"],
                     "ready_for_daily_scrape": lifecycle["ready_for_daily_scrape"],
+                    "parent_opening_set_key": lifecycle["parent_opening_set_key"],
+                    "is_subset": lifecycle["is_subset"],
+                    "subset_type": lifecycle["subset_type"],
+                    "counts_toward_parent_set_value": lifecycle["counts_toward_parent_set_value"],
+                    "counts_toward_parent_opening": lifecycle["counts_toward_parent_opening"],
                 }
             )
 
@@ -360,6 +376,10 @@ def _build_set_payload(
         ),
         "card_details_url": merged_card_details_url,
         "sealed_details_url": merged_sealed_details_url,
+        "is_subset": bool(source.get("is_subset", False)),
+        "subset_type": source.get("subset_type"),
+        "counts_toward_parent_set_value": bool(source.get("counts_toward_parent_set_value", False)),
+        "counts_toward_parent_opening": bool(source.get("counts_toward_parent_opening", False)),
     }
     return _drop_none_values(payload)
 
@@ -561,6 +581,32 @@ def sync_pokemon_era_and_set_metadata(
         batch_size = 50
         for start in range(0, len(pending_set_inserts), batch_size):
             insert_sets(pending_set_inserts[start:start + batch_size])
+
+    # Structural subset relationships are resolved only after all set inserts,
+    # so a child can safely point at a parent that was created in the same sync.
+    if apply_changes:
+        refreshed_sets = get_sets_by_tcg_id(tcg_id)
+        refreshed_by_canonical = _map_rows_by(refreshed_sets, "canonical_key")
+        for source_set in source_sets:
+            parent_key = _clean_str(source_set.get("parent_opening_set_key"))
+            if not parent_key:
+                continue
+            child = refreshed_by_canonical.get(source_set.get("canonical_key"))
+            parent = refreshed_by_canonical.get(parent_key)
+            if not child or not parent:
+                conflicts.append({
+                    "entity_type": "set_subset",
+                    "canonical_key": source_set.get("canonical_key"),
+                    "name": source_set.get("name"),
+                    "message": f"Missing child or parent row for parent canonical key {parent_key}",
+                })
+                continue
+            desired_parent_id = parent.get("id")
+            if child.get("parent_opening_set_id") != desired_parent_id:
+                update_set_by_id(str(child["id"]), {
+                    "parent_opening_set_id": desired_parent_id,
+                    "updated_at": now_iso,
+                })
 
     final_eras = get_eras_by_tcg_id(tcg_id) if apply_changes else existing_eras
     final_sets = get_sets_by_tcg_id(tcg_id) if apply_changes else existing_sets
