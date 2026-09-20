@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 NAME = "20260920000523_retain_market_explorer_prepared_generations.sql"
+SEALED_GUARD = "20260920001400_guard_prepared_sealed_constituent_source.sql"
 
 
 def migration() -> str:
@@ -75,3 +76,13 @@ def test_rollback_and_cleanup_are_service_only_and_retention_is_delayed():
     assert "p_post_publication_verified is distinct from true" in sql
     assert "p_min_retention < interval '7 days'" in sql
     assert "order by coalesce(promoted_at,generated_at) desc limit 3" in sql
+
+
+def test_sealed_candidate_requires_matching_complete_d3_source():
+    supabase = (ROOT / "supabase" / "migrations" / SEALED_GUARD).read_text()
+    backend = (ROOT / "backend" / "db" / "migrations" / SEALED_GUARD).read_text()
+    assert supabase == backend
+    assert "s.market_date=v_sealed_source_asof" in supabase
+    assert "s.updated_at <= v_generated_at" in supabase
+    assert "'PREPARED_SEALED_D3_SOURCE_MISMATCH" in supabase
+    assert "prepared refresh definition changed; refusing unsafe sealed source guard" in supabase
