@@ -1,4 +1,4 @@
-name: VM Sep 20 scheduler diagnosis
+name: Validate daily batch retry fix
 
 on:
   push:
@@ -11,24 +11,90 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Diagnose automatic batch creation failures
+      - name: Checkout fix branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/daily-batch-transient-retry-20260920
+          persist-credentials: false
+      - name: Compile and exercise transient retry paths
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          echo '=== TIME / HEAD ==='
-          date
-          git rev-parse HEAD
-          echo
-          echo '=== CRON ==='
-          crontab -l | grep -E 'create_daily_scrape_batch|market_freshness_watchdog|run_next_scrape_job' || true
-          echo
-          echo '=== BATCH CREATE FAILURE SUMMARY ==='
-          grep -E '\[scrape-runtime-preflight\]|\[scrape-jobs\] create_daily_scrape_batch failed|\[scrape-batch-create\] batch creation failed|PreflightFailedError|APIError:|ReadTimeout' backend/logs/create_daily_scrape_batch.log 2>/dev/null | tail -120 || true
-          echo
-          echo '=== LOG MTIME ==='
-          stat -c 'size=%s mtime=%y' backend/logs/create_daily_scrape_batch.log 2>/dev/null || true
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile \
+            backend/db/services/pokemon_scrape_runtime_preflight.py \
+            backend/db/repositories/scrape_jobs_repository.py
+          "$PY" - <<'PY'
+          from types import SimpleNamespace
+          from backend.db.services.pokemon_scrape_runtime_preflight import load_database_cohort_rows
+          from backend.db.repositories import scrape_jobs_repository as repo
+
+          class T522(Exception):
+              code = 522
+
+          class NotFilter:
+              def __init__(self, q): self.q=q
+              def is_(self, *_): return self.q
+
+          class Q:
+              def __init__(self, c): self.c=c
+              @property
+              def not_(self): return NotFilter(self)
+              def select(self, *_): return self
+              def eq(self, *_): return self
+              def order(self, *_): return self
+              def range(self, *_): return self
+              def execute(self):
+                  if self.c.fail: raise T522('522 connection timed out')
+                  return SimpleNamespace(data=[dict(self.c.row)])
+
+          class C:
+              def __init__(self, fail, row): self.fail=fail; self.row=row
+              def table(self, name): assert name=='sets'; return Q(self)
+
+          row={'id':'a','canonical_key':'setA','card_details_url':'x','has_card_details_url':True,'ready_for_daily_scrape':True,'catalog_only':False,'supports_opening_simulation':True,'parent_opening_set_id':None}
+          cs=[C(True,row),C(False,row)]; n={'v':0}
+          def cf():
+              x=cs[n['v']]; n['v']+=1; return x
+          out=load_database_cohort_rows(client_factory=cf)
+          assert n['v']==2 and out==[row], (n,out)
+          print('preflight_522_retry=PASS')
+
+          class T57014(Exception):
+              code='57014'
+          class R:
+              def __init__(self,c): self.c=c
+              def execute(self):
+                  if self.c.fail: raise T57014('canceling statement due to statement timeout')
+                  return SimpleNamespace(data=[{'id':57,'market_date':'2026-09-20','status':'running','expected_set_count':165,'queued_set_count':165}])
+          class BC:
+              def __init__(self,fail): self.fail=fail
+              def rpc(self,name,params): assert name=='create_daily_scrape_batch'; return R(self)
+          bcs=[BC(True),BC(False)]; m={'v':0}
+          def bcf():
+              x=bcs[m['v']]; m['v']+=1; return x
+          batch=repo.create_daily_scrape_batch(market_date='2026-09-20', client_factory=bcf)
+          assert m['v']==2 and batch['id']==57, (m,batch)
+          print('batch_57014_retry=PASS')
+
+          class Deterministic(Exception):
+              code='42P01'
+          class DR:
+              def execute(self): raise Deterministic('relation does not exist')
+          class DC:
+              def rpc(self,*_): return DR()
+          d={'v':0}
+          def dcf(): d['v']+=1; return DC()
+          try:
+              repo.create_daily_scrape_batch(market_date='2026-09-20', client_factory=dcf)
+          except Deterministic:
+              pass
+          else:
+              raise AssertionError('deterministic error should propagate')
+          assert d['v']==1, d
+          print('deterministic_fail_closed=PASS')
+          PY
