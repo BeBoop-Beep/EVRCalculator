@@ -348,6 +348,28 @@ class OnboardingEngine:
             provider_catalog_only = bool(resolved.get("provider_catalog_only"))
             if not api_set and not provider_catalog_only:
                 return StepOutcome("manual_review", step, {}, "missing_resolved_metadata")
+
+            # Idempotent resume: source may already have been merged/deployed
+            # while the durable onboarding job was waiting. Do not create a
+            # duplicate worktree/branch/PR in that case.
+            if provider_catalog_only:
+                existing_canonical = __import__(
+                    "backend.scripts.bootstrap_pokemon_set_configs", fromlist=["normalize_set_key"]
+                ).normalize_set_key(name)
+                existing_era = str(resolved.get("provider_era_folder") or "")
+                existing_config = (
+                    REPO_ROOT / "backend/constants/tcg/pokemon" / existing_era
+                    / f"{existing_canonical}.py"
+                )
+                if existing_era and existing_config.exists():
+                    return _next(step, {
+                        "canonical_key": existing_canonical,
+                        "era_folder": existing_era,
+                        "provider_catalog_only": True,
+                        "source_deployed": True,
+                        "config_path": str(existing_config),
+                    })
+
             if self.no_git or self.git_settings.mode == "disabled":
                 return StepOutcome(
                     "wait", step,
