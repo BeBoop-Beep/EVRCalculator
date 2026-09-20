@@ -376,7 +376,10 @@ def _build_set_payload(
         ),
         "card_details_url": merged_card_details_url,
         "sealed_details_url": merged_sealed_details_url,
-        "is_subset": bool(source.get("is_subset", False)),
+        # is_subset is a STORED GENERATED column in production:
+        #   (parent_opening_set_id IS NOT NULL)
+        # Never write it directly. The parent relationship is resolved after
+        # inserts below, which makes Postgres derive is_subset automatically.
         "subset_type": source.get("subset_type"),
         "counts_toward_parent_set_value": bool(source.get("counts_toward_parent_set_value", False)),
         "counts_toward_parent_opening": bool(source.get("counts_toward_parent_opening", False)),
