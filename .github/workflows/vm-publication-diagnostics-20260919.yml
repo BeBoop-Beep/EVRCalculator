@@ -1,4 +1,4 @@
-name: Verify card count and publication progress
+name: Recheck Sep 20 publication progress
 
 on:
   push:
@@ -11,37 +11,27 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  check:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Verify live route and publisher
+      - name: Recheck active publication
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           cd /home/ubuntu/repos/EVRCalculator
-          echo '=== LIVE ROUTE DIRECTORY ==='
-          curl -fsS --max-time 30 'https://evrcalculator.onrender.com/tcgs/pokemon/set-route-directory?limit=200' > /tmp/routes.json
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
-          import json
-          data=json.load(open('/tmp/routes.json'))
-          rows=[r for r in data.get('targets',[]) if r.get('target_id')=='42a3740d-4778-4857-9c28-e116f34b51f3']
-          assert len(rows)==1, rows
-          row=rows[0]
-          print('neo_destiny_card_count=', row.get('card_count'))
-          print('neo_destiny_cardCount=', row.get('cardCount'))
-          print('cardCountSource=', data.get('meta',{}).get('cardCountSource'))
-          assert row.get('card_count')==113
-          PY
-          echo
-          echo '=== PUBLICATION PROCESS ==='
+          date
           ps -p 151587 -o pid,ppid,etime,time,%cpu,%mem,state,args || true
           START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
+          echo "run_start_line=${START:-missing}"
           if [ -n "${START:-}" ]; then
             tail -n +"$START" publication.log > /tmp/sep20-pub.log
-            grep -E '\[refresh-plan\] checked|\[refresh-plan\] complete|\[refresh-run\]|refresh exit_status|post-scrape publication COMPLETE|final exit_status' /tmp/sep20-pub.log | tail -40 || true
             echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep20-pub.log || true)"
             echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep20-pub.log || true)"
             echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/sep20-pub.log || true)"
-            tail -25 /tmp/sep20-pub.log
+            echo "refresh_complete_markers=$(grep -c '\[refresh-run\].*complete\|refresh exit_status=' /tmp/sep20-pub.log || true)"
+            echo '=== PHASE MARKERS ==='
+            grep -E '\[refresh-plan\] checked|\[refresh-plan\].*(complete|finished)|\[refresh-run\]|refresh exit_status|audit exit_status|market explorer projection exit_status|post-scrape publication COMPLETE|final exit_status' /tmp/sep20-pub.log | tail -100 || true
+            echo '=== LIVE TAIL ==='
+            tail -80 /tmp/sep20-pub.log
           fi
