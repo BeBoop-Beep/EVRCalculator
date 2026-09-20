@@ -31,11 +31,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.pokemon_set_lifecycle_flags import (
     normalize_details_url,
     resolve_config_lifecycle_flags,
     supports_opening_simulation,
 )
+
+from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -209,20 +212,18 @@ def _default_registry_loader() -> Dict[str, Any]:
     return build_valid_set_key_registry()
 
 
-def load_database_cohort_rows() -> List[Dict[str, Any]]:
+def _load_database_cohort_rows_once(client: Any) -> List[Dict[str, Any]]:
     """Read the rows that would enter the CORRECTED daily cohort.
 
     Mirrors ``public.pokemon_scrape_ready_cohort()`` exactly, including the
     ``catalog_only`` guard added by migration 058.
     """
-    from backend.db.clients.supabase_client import supabase
-
     page_size = 1000
     offset = 0
     rows: List[Dict[str, Any]] = []
     while True:
         query = (
-            supabase.table("sets")
+            client.table("sets")
             .select(
                 "id,name,canonical_key,card_details_url,has_card_details_url,"
                 "sealed_details_url,ready_for_daily_scrape,catalog_only,"
@@ -251,7 +252,7 @@ def load_database_cohort_rows() -> List[Dict[str, Any]]:
     # an embedded self-relationship.
     parent_ids = {str(row.get("parent_opening_set_id")) for row in rows if row.get("parent_opening_set_id")}
     if parent_ids:
-        parent_result = supabase.table("sets").select("id,canonical_key").execute()
+        parent_result = client.table("sets").select("id,canonical_key").execute()
         parent_keys = {
             str(row.get("id")): row.get("canonical_key")
             for row in list((parent_result.data if parent_result else []) or [])
@@ -260,6 +261,24 @@ def load_database_cohort_rows() -> List[Dict[str, Any]]:
             row["parent_canonical_key"] = parent_keys.get(str(row.get("parent_opening_set_id")))
     return rows
 
+
+
+def load_database_cohort_rows(
+    *, client_factory: Optional[Callable[[], Any]] = None
+) -> List[Dict[str, Any]]:
+    """Read the production cohort with bounded transient retries.
+
+    Each attempt uses a fresh service-role client so a broken HTTP/2 connection
+    pool is never reused. Deterministic schema/configuration errors still fail
+    closed immediately; only failures classified as transient are retried.
+    """
+    factory = client_factory or create_service_role_client
+    return run_snapshot_operation_with_retry(
+        lambda client: _load_database_cohort_rows_once(client),
+        operation_name="scrape-runtime-preflight:database-cohort",
+        max_attempts=3,
+        client_factory=factory,
+    )
 
 def run_runtime_preflight(
     *,
