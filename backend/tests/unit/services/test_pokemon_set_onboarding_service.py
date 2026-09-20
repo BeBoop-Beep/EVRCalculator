@@ -300,3 +300,36 @@ def test_initial_scrape_uses_catalog_target_and_completes_for_sealed_only_set():
     assert outcome.evidence["catalog_only_onboarding_complete"] is True
     assert "--catalog-set" in calls[0]
     assert "--set" not in calls[0]
+
+
+def test_provider_source_registration_resumes_when_config_already_deployed(monkeypatch, tmp_path):
+    era_dir = tmp_path / "backend/constants/tcg/pokemon/megaEvolutionEra"
+    era_dir.mkdir(parents=True)
+    config = era_dir / "me06DeltaReign.py"
+    config.write_text("class Existing: pass\n", encoding="utf-8")
+    monkeypatch.setattr(service, "REPO_ROOT", tmp_path)
+
+    job = _provider_job(
+        "source_registration",
+        {
+            "steps": {
+                "metadata_resolution": {
+                    "provider_catalog_only": True,
+                    "provider_era_folder": "megaEvolutionEra",
+                    "card_details_url": "https://tcg/cards",
+                    "sealed_details_url": "https://tcg/sealed",
+                }
+            }
+        },
+    )
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=_forbidden_runner,
+        git_settings=GitSettings(mode="pr", worktree_dir=tmp_path / "worktrees"),
+    )
+    outcome = engine.run_step(job)
+    assert outcome.kind == "advance"
+    assert outcome.step == "awaiting_source_deploy"
+    assert outcome.evidence["canonical_key"] == "me06DeltaReign"
+    assert outcome.evidence["era_folder"] == "megaEvolutionEra"
+    assert outcome.evidence["source_deployed"] is True
