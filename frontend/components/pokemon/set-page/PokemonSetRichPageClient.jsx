@@ -39,7 +39,7 @@ const MOBILE_SET_MENU_TOP_BOUNDARY_PX = 20;
 const MOBILE_SET_MENU_BOTTOM_EDGE_PX = 64;
 const MOBILE_SET_MENU_GESTURE_NOISE_PX = 4;
 const MOBILE_RETURN_TO_TOP_THRESHOLD_PX = 12;
-const number = (value) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; };
+const number = (value) => { if (value === null || value === undefined || String(value).trim() === "") return null; const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; };
 function hrefWithState(pathname, searchParams, tab, section = null, extra = {}) { return buildSameSetViewUrl({ pathname, searchParams, tab, section, extra }); }
 
 export default function PokemonSetRichPageClient({ targetsPayload, selectedTarget, requestedTargetType, requestedTargetId, explorePayload = null, shellPayload = null, initialModuleSnapshots = null, pageError, profileBaseHref = "/Explore/rip-statistics", targetHrefById = null }) {
