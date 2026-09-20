@@ -1,4 +1,4 @@
-name: Validate set route card count
+name: Diagnose Sep 20 publication handoff
 
 on:
   push:
@@ -11,63 +11,34 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
+    timeout-minutes: 5
     steps:
-      - name: Checkout fix branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/set-route-card-count-20260920
-          persist-credentials: false
-      - name: Compile and exercise route directory enrichment
+      - name: Inspect Sep 20 post-scrape publication
         shell: bash
         run: |
-          set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile backend/db/services/pokemon_set_route_directory_service.py
-          "$PY" - <<'PY'
-          from types import SimpleNamespace
-          from backend.db.services import pokemon_set_route_directory_service as directory
-
-          rows=[
-            {'target_id':'42a3740d-4778-4857-9c28-e116f34b51f3','name':'Neo Destiny','canonical_key':'neoDestiny','era':{'id':'neo','name':'Neo'},'pack_rank':None,'ranked_set_count':None},
-            {'target_id':'set-2','name':'Another Set','canonical_key':'anotherSet','era':None,'pack_rank':10,'ranked_set_count':20},
-          ]
-
-          def good_retry(_operation, *, operation_name, **_kwargs):
-              if operation_name=='pokemon_set_route_directory':
-                  return SimpleNamespace(data=rows)
-              if operation_name=='pokemon_set_route_directory_card_counts':
-                  return SimpleNamespace(data=[
-                      {'set_id':'42a3740d-4778-4857-9c28-e116f34b51f3','card_count':113},
-                      {'set_id':'set-2','card_count':42},
-                  ])
-              raise AssertionError(operation_name)
-
-          directory.run_public_read_with_retry=good_retry
-          payload=directory.get_pokemon_set_route_directory_payload(200)
-          assert len(payload['targets'])==2
-          assert payload['targets'][0]['card_count']==113
-          assert payload['targets'][0]['cardCount']==113
-          assert payload['meta']['cardCountSource']=='get_pokemon_canonical_card_counts_by_set'
-          print('route_card_count_113=PASS')
-
-          def degraded_retry(_operation, *, operation_name, **_kwargs):
-              if operation_name=='pokemon_set_route_directory':
-                  return SimpleNamespace(data=rows)
-              if operation_name=='pokemon_set_route_directory_card_counts':
-                  raise TimeoutError('temporary count lookup failure')
-              raise AssertionError(operation_name)
-
-          directory.run_public_read_with_retry=degraded_retry
-          payload=directory.get_pokemon_set_route_directory_payload(200)
-          assert len(payload['targets'])==2
-          assert payload['targets'][0]['card_count'] is None
-          assert payload['meta']['cardCountSource']=='unavailable'
-          print('route_membership_survives_count_failure=PASS')
-          PY
+          set -u
+          cd /home/ubuntu/repos/EVRCalculator
+          echo '=== HOST/TIME/HEAD ==='
+          hostname
+          date
+          git rev-parse HEAD
+          git status --short || true
+          echo
+          echo '=== PUBLICATION PROCESSES ==='
+          ps -eo user,pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|publish_post_scrape_if_needed|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
+          echo
+          echo '=== LOCK ==='
+          ls -l /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || echo no-lock-file
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo
+          echo '=== PUBLICATION LOG ==='
+          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
+          tail -180 publication.log 2>/dev/null || true
+          echo
+          echo '=== DISPATCHER TAIL ==='
+          tail -140 backend/logs/cron_dispatcher.log 2>/dev/null || true
+          echo
+          echo '=== FALLBACK PUBLICATION CRON LOG ==='
+          tail -100 backend/logs/rebuild_snapshots_after_scrape.cron.log 2>/dev/null || true
