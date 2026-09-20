@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "market-explorer-vm-status-20260920"
+  "operation": "market-explorer-cutover-status",
+  "request_id": "market-explorer-cutover-status-20260920"
 }
