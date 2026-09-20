@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: index-production-vm-ops-v2
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   vm-ops:
@@ -179,11 +179,11 @@ jobs:
               FAILED=0
 
               for SET_ID in \
-                1b3250bb-f123-47d8-b090-499e5879eda7 \
-                c56fe006-6d9a-4b26-a4e0-6726138edecb \
-                50c5370b-a5e7-4fbc-98fe-efc35e05ff80 \
-                537d3312-9622-4015-9ef2-66e16a27287c \
-                846787ce-2e12-4dab-b941-886f95cd16f8 \
+                5bb951fd-bb74-40d7-b496-cca5bf959515 \
+                332b2885-9354-4a29-ba52-03fca35594d1 \
+                a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2 \
+                78c7f000-9a9e-45ca-8233-8f36030f6019 \
+                0f7e51e2-5a78-4500-9c9c-f690e934a069 \
               ; do
                 INDEX=$((INDEX + 1))
                 echo "===== cards-market repair $INDEX/$TOTAL set_id=$SET_ID ====="
