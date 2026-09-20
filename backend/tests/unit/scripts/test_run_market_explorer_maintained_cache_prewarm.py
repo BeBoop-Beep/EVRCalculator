@@ -540,7 +540,7 @@ def test_no_stale_caches_refreshes_prepared_generation_when_unscoped_commit():
         )
 
     refresh.assert_called_once_with(
-        client, target_market_date="2026-09-17", commit=True
+        client, target_market_date="2026-09-17", commit=True, verify=False
     )
     assert result["preparedRefresh"]["status"] == "refreshed"
     assert result["failed"] == 0
@@ -615,3 +615,121 @@ def test_prepared_refresh_failure_is_a_hard_worker_failure():
 
     assert result["failed"] == 1
     assert result["preparedRefresh"]["status"] == "failed"
+
+
+class _PreparedCursor:
+    def __init__(self, existing=None, result=None, error=None):
+        self.existing = existing
+        self.result = result or {"generationId": "candidate"}
+        self.error = error
+        self.queries = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, query, params=None):
+        self.queries.append((query, params))
+        if self.error and worker.PREPARED_REFRESH_RPC in query:
+            raise self.error
+
+    def fetchone(self):
+        query = self.queries[-1][0]
+        if "join public.pokemon_market_explorer_prepared_generations_v1" in query:
+            return (self.existing,) if self.existing else None
+        return (self.result,)
+
+
+class _PreparedConnection:
+    def __init__(self, cursor):
+        self._cursor = cursor
+        self.commits = 0
+        self.rollbacks = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def cursor(self):
+        return self._cursor
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
+
+
+def test_direct_db_dry_run_calls_guard_and_rolls_back_without_promotion():
+    cursor = _PreparedCursor()
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker._run_guarded_prepared_db("2026-09-19", commit=False)
+    assert result["status"] == "verified_rollback_only"
+    assert conn.commits == 0 and conn.rollbacks == 1
+    assert any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
+    assert not any("join public.pokemon_market_explorer_prepared_generations_v1" in query
+                   for query, _ in cursor.queries)
+
+
+def test_direct_db_commit_uses_local_timeout_and_guarded_function():
+    cursor = _PreparedCursor()
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker._run_guarded_prepared_db("2026-09-19", commit=True)
+    assert result["status"] == "refreshed"
+    assert conn.commits == 1 and conn.rollbacks == 0
+    assert any("set_config('statement_timeout'" in query
+               and params == (f"{worker.PREPARED_DB_TIMEOUT_SECONDS}s",)
+               for query, params in cursor.queries)
+    assert any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
+
+
+def test_already_current_generation_skips_needless_refresh():
+    cursor = _PreparedCursor(existing="generation-a")
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker._run_guarded_prepared_db("2026-09-19", commit=True)
+    assert result == {"status": "already_current", "generationId": "generation-a"}
+    assert conn.commits == 0 and conn.rollbacks == 1
+    assert not any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
+
+
+def test_direct_db_error_rolls_back_and_never_logs_connection_secret():
+    secret = "postgresql://user:password@host/db"
+    cursor = _PreparedCursor(error=RuntimeError(secret))
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": secret}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker.refresh_prepared_if_current(Client(), target_market_date="2026-09-19", commit=True)
+    assert result["status"] == "failed"
+    assert conn.commits == 0 and conn.rollbacks == 1
+    assert secret not in str(result)
+
+
+def test_direct_db_missing_credential_fails_closed_without_rest_fallback():
+    with patch.dict(os.environ, {"DATABASE_URL": "", "SUPABASE_DB_URL": ""}):
+        result = worker.refresh_prepared_if_current(Client(), target_market_date="2026-09-19", commit=True)
+    assert result["status"] == "failed"
+    assert result["error"] == "direct_db_credential_missing"
+
+
+def test_explicit_verify_dry_run_holds_existing_lock_and_calls_direct_guard():
+    rows = [_row("fp-current", "2026-09-19", status="ready")]
+    client = Client()
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-19"), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "verified_rollback_only"}) as refresh:
+        result = worker.run_prewarm(client, commit=False, verify_prepared_direct_db=True,
+                                    lock=worker.FileLock(_tmp_lock()))
+    refresh.assert_called_once_with(client,
+                                    target_market_date="2026-09-19", commit=False, verify=True)
+    assert result["preparedRefresh"]["status"] == "verified_rollback_only"

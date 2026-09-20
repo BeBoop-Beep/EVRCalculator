@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 NAME = "20260920000523_retain_market_explorer_prepared_generations.sql"
 SEALED_GUARD = "20260920001400_guard_prepared_sealed_constituent_source.sql"
+SEALED_ALIGNMENT = "20260920225852_align_prepared_sealed_source_with_roster.sql"
 
 
 def migration() -> str:
@@ -86,3 +87,13 @@ def test_sealed_candidate_requires_matching_complete_d3_source():
     assert "s.updated_at <= v_generated_at" in supabase
     assert "'PREPARED_SEALED_D3_SOURCE_MISMATCH" in supabase
     assert "prepared refresh definition changed; refusing unsafe sealed source guard" in supabase
+
+
+def test_sealed_publisher_uses_d3_roster_date_bounded_by_history_horizon():
+    supabase = (ROOT / "supabase" / "migrations" / SEALED_ALIGNMENT).read_text()
+    backend = (ROOT / "backend" / "db" / "migrations" / SEALED_ALIGNMENT).read_text()
+    assert supabase == backend
+    assert "least(min(family_max)" in supabase
+    assert "from public.pokemon_explore_set_value_snapshot_latest s" in supabase
+    assert "s.tcg=''pokemon'' and s.scope=''market''" in supabase
+    assert "into v_sealed_source_asof" in supabase
