@@ -42,6 +42,8 @@ CANONICAL_HISTORY_RPC = "get_pokemon_market_root_set_value_daily_history_bulk_v1
 CANONICAL_HISTORY_START = "1999-01-01"
 CANONICAL_HISTORY_SET_BATCH = 4
 ROLLOUT_STANDARD_SOURCE = "canonical_root_set_rollout_v1"
+EDITION_PROFILE_TABLE = "pokemon_edition_split_root_sets_v2"
+DEFAULT_EDITION_SPLIT_DISPLAY_SCOPE = "unlimited"
 
 
 def _attach_initial_selected_set_movers(client, row: dict) -> None:
@@ -194,7 +196,63 @@ def _load_sets(client, *, market_date: str):
         for row in resolve_market_root_cohort(client, market_date=day)
     ]
 
-def _load_canonical_histories(client, set_ids, *, through_date: str):
+def _load_market_value_scope_overrides(client, set_ids):
+    """Return value-history overrides without changing Market membership.
+
+    Standard roots remain Standard. Explicit vintage edition profiles use the
+    one-row Set Market display scope. This helper is deliberately called only
+    by the current global Market build; historical/direct loader callers retain
+    their existing Standard behavior unless an override map is supplied.
+    """
+    ids = [str(value) for value in set_ids if str(value or "").strip()]
+    if not ids:
+        return {}
+    rows = []
+    for offset in range(0, len(ids), 100):
+        rows.extend(list(
+            client.table(EDITION_PROFILE_TABLE)
+            .select("set_id,profile")
+            .in_("set_id", ids[offset:offset + 100])
+            .execute().data or []
+        ))
+    return {
+        str(row.get("set_id")): DEFAULT_EDITION_SPLIT_DISPLAY_SCOPE
+        for row in rows
+        if str(row.get("profile") or "") in {"edition_split", "base_three_printings"}
+        and row.get("set_id")
+    }
+
+
+def _load_scoped_certified_histories(client, set_ids, *, through_date, scope_by_set):
+    """Load only certified scoped history for vintage display overrides."""
+    grouped = defaultdict(list)
+    limit_date = str(through_date)[:10]
+    for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
+        batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
+        response = client.rpc(
+            CANONICAL_HISTORY_RPC,
+            {
+                "p_root_set_ids": batch,
+                "p_start_date": CANONICAL_HISTORY_START,
+                "p_end_date": limit_date,
+            },
+        ).execute()
+        for row in list(response.data or []):
+            set_id = str(row.get("set_id") or "")
+            if str(row.get("market_scope") or "") != str(scope_by_set.get(set_id) or ""):
+                continue
+            if row.get("certified_on_date") is not True:
+                continue
+            grouped[set_id].append({
+                "set_id": row.get("set_id"),
+                "snapshot_date": row.get("market_date"),
+                "set_value": row.get("set_value"),
+            })
+    for rows in grouped.values():
+        rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
+    return grouped
+
+def _load_canonical_histories(client, set_ids, *, through_date: str, market_scope_overrides=None):
     """Load the Set Value history that the Market page actually displays.
 
     PRE-CUTOVER keeps the historical certified-root contract plus the explicitly
@@ -241,6 +299,21 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 if len(rows) < page_size:
                     break
                 start += page_size
+
+        overrides = {
+            str(set_id): str(scope)
+            for set_id, scope in dict(market_scope_overrides or {}).items()
+            if str(set_id) in {str(value) for value in set_ids} and str(scope) != "standard"
+        }
+        if overrides:
+            scoped = _load_scoped_certified_histories(
+                client,
+                list(overrides),
+                through_date=limit_date,
+                scope_by_set=overrides,
+            )
+            for set_id in overrides:
+                grouped[set_id] = list(scoped.get(set_id) or [])
 
         for rows in grouped.values():
             rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
@@ -317,7 +390,13 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
                 .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
             dashboards.extend(result.data or [])
 
-    histories = _load_canonical_histories(client, set_ids, through_date=market_date)
+    market_scope_overrides = _load_market_value_scope_overrides(client, set_ids)
+    histories = _load_canonical_histories(
+        client,
+        set_ids,
+        through_date=market_date,
+        market_scope_overrides=market_scope_overrides,
+    )
 
     overview = market_overview
     if overview is None:
