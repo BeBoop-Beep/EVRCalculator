@@ -121,3 +121,116 @@ BEST_OPEN_V3_IDENTITY: Dict[str, str] = {
     "chase_accessibility_transform_version": CHASE_ACCESSIBILITY_TRANSFORM_VERSION,
     "best_open_price_method_version": BEST_OPEN_PRICE_V3_METHOD_VERSION,
 }
+
+
+# ---------------------------------------------------------------------------------------
+# Best-Open V3 payloads (consume Ranking V2 rows + the V3 engine's relabelled axis results)
+# ---------------------------------------------------------------------------------------
+
+from decimal import Decimal  # noqa: E402
+
+
+def _dollars(cents: int) -> float:
+    return float(Decimal(int(cents)) / Decimal(100))
+
+
+def _gap(current_price: float, best_price: float) -> Dict[str, float]:
+    """Exact decimal price gap: the RPC requires gap == current - best with no float tail."""
+    current = Decimal(str(current_price))
+    best = Decimal(str(best_price))
+    dollars = current - best
+    return {"dollars": float(dollars), "percent": float(dollars / current)}
+
+
+def _status(current_price: float, best_price: float) -> str:
+    gap = Decimal(str(current_price)) - Decimal(str(best_price))
+    if gap > 0:
+        return "resolved_below_market"
+    return "resolved_at_market" if gap == 0 else "current_number_one_with_headroom"
+
+
+def build_best_open_v3_snapshot(
+    *, source_ranking_snapshot: Mapping[str, Any], built_at: str, runtime_seconds: float,
+    source_full_market_row_fingerprint: str, resolved_count: int, unresolved_count: int = 0,
+    diagnostics_json: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """``source_ranking_snapshot`` is the LIVE Ranking V2 snapshot row (id, published_at,
+    market_date, cohort_fingerprint, full_market_budget, eligible_cohort_count)."""
+    src = source_ranking_snapshot
+    return {
+        **BEST_OPEN_V3_IDENTITY,
+        "built_at": built_at,
+        "source_budget_snapshot_id": str(src["id"]),
+        "source_budget_published_at": str(src["published_at"]),
+        "source_market_date": str(src["market_date"]),
+        "source_cohort_fingerprint": src["cohort_fingerprint"],
+        "source_full_market_row_fingerprint": source_full_market_row_fingerprint,
+        "source_full_market_budget": src["full_market_budget"],
+        "source_eligible_cohort_count": src["eligible_cohort_count"],
+        "resolved_count": int(resolved_count), "unresolved_count": int(unresolved_count),
+        "runtime_seconds": runtime_seconds, "diagnostics_json": dict(diagnostics_json or {}),
+    }
+
+
+def build_best_open_v3_row(
+    *, current: Mapping[str, Any], overall_result: Mapping[str, Any],
+    financial_result: Mapping[str, Any], overall_benchmark: Mapping[str, Any],
+    financial_benchmark: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """One V3 row from the persisted Ranking V2 rows and the engine's axis results.
+
+    ``current`` / ``*_benchmark`` are Ranking V2 rows (snake_case, as persisted). Only exact
+    engine results are accepted: a non-exact axis raises rather than publishing a guess.
+    """
+    for name, axis in (("overall", overall_result), ("financial", financial_result)):
+        exact = axis.get("exactness") or {}
+        if axis.get("status") != "exact" or not (exact.get("thresholdWins") and exact.get("oneCentMaximal")):
+            raise ValueError(f"{name} axis is not an exact, verified threshold; refusing to publish")
+        if axis.get("methodVersion") != BEST_OPEN_V3_IDENTITY["best_open_price_method_version"]:
+            raise ValueError(f"{name} axis result is not a Best-Open V3 result")
+    price = float(current["product_market_price"])
+    o, f = overall_result["threshold"], financial_result["threshold"]
+    o_best, f_best = _dollars(o["priceCents"]), _dollars(f["priceCents"])
+    og, fg = _gap(price, o_best), _gap(price, f_best)
+    return {
+        "sealed_product_id": current["sealed_product_id"], "set_id": current["set_id"],
+        "product_family": current["product_family"],
+        "source_calculation_run_id": current["source_calculation_run_id"],
+        "current_market_price": price, "current_quantity": int(current["quantity"]),
+        "current_budget_rank": int(current["budget_rank_v14"]),
+        "current_overall_rip_v14_score": current["overall_rip_v14_score"],
+        "current_financial_rip_v5_score": current["financial_rip_v5_score"],
+        "current_financial_only_rank_v5": int(current["financial_only_rank_v5"]),
+        "current_collector_appeal_score": current["collector_appeal_score"],
+        "current_chase_accessibility_raw": current["chase_accessibility_raw"],
+        "current_chance_to_recover_capital": current["chance_to_recover_capital"],
+        "current_actual_committed_capital": current["actual_committed_capital"],
+        "status": _status(price, o_best), "best_open_price": o_best,
+        "threshold_quantity": int(o["quantity"]),
+        "price_gap_dollars": og["dollars"], "price_gap_percent": og["percent"],
+        "benchmark_sealed_product_id": overall_result["benchmarkProductId"],
+        "benchmark_overall_rip_v14_score": overall_benchmark["overall_rip_v14_score"],
+        "benchmark_financial_rip_v5_score": overall_benchmark["financial_rip_v5_score"],
+        "benchmark_chance_to_recover_capital": overall_benchmark["chance_to_recover_capital"],
+        "benchmark_actual_committed_capital": overall_benchmark["actual_committed_capital"],
+        "candidate_price_evaluations": int(overall_result["evaluationCount"]),
+        "bracket_expansions": int(overall_result.get("bracketExpansions", 0)),
+        "bracket_refinements": int(overall_result.get("bracketRefinements", 0)),
+        "monotonicity_fallback_count": int(overall_result.get("monotonicityFallbackCount", 0)),
+        "search_wall_seconds": float(overall_result["wallSeconds"]),
+        "financial_status": _status(price, f_best), "financial_best_open_price": f_best,
+        "financial_threshold_quantity": int(f["quantity"]),
+        "financial_price_gap_dollars": fg["dollars"], "financial_price_gap_percent": fg["percent"],
+        "financial_benchmark_sealed_product_id": financial_result["benchmarkProductId"],
+        "financial_benchmark_financial_rip_v5_score": financial_benchmark["financial_rip_v5_score"],
+        "financial_benchmark_overall_rip_v14_score": financial_benchmark["overall_rip_v14_score"],
+        "threshold_financial_rip_v5_score": o["financialRipV5Score"],
+        "threshold_overall_rip_v14_score": o["overallRipV14Score"],
+        "threshold_chance_to_recover_capital": o["chanceToRecoverCapital"],
+        "threshold_actual_committed_capital": o["actualCommittedCapital"],
+        "financial_threshold_financial_rip_v5_score": f["financialRipV5Score"],
+        "financial_threshold_overall_rip_v14_score": f["overallRipV14Score"],
+        "financial_threshold_chance_to_recover_capital": f["chanceToRecoverCapital"],
+        "financial_threshold_actual_committed_capital": f["actualCommittedCapital"],
+        "threshold_exact_verified": True, "financial_threshold_exact_verified": True,
+    }
