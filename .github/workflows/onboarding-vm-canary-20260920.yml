@@ -1,4 +1,4 @@
-name: Onboarding Git write audit 2026-09-20
+name: Catalog-only cards snapshot canary 2026-09-20
 
 on:
   push:
@@ -9,24 +9,16 @@ permissions:
   contents: read
 
 jobs:
-  write-audit:
+  cards-canary:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Verify Git push credential without mutation
+      - name: Build Classic Collection cards snapshot
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          echo "credential_helper=$(git config --get credential.helper || true)"
-          set +e
-          out="$(git push --dry-run origin HEAD:refs/heads/automation/credential-probe-should-not-create 2>&1)"
-          code=$?
-          set -e
-          echo "push_dry_run_exit=$code"
-          if [ "$code" -eq 0 ]; then
-            echo "git_write_authenticated=true"
-          else
-            echo "git_write_authenticated=false"
-            printf '%s\n' "$out" | sed -E 's#https://[^/@]+@github.com#https://[REDACTED]@github.com#g' | tail -n 8
-          fi
+          git fetch origin main
+          git switch main
+          git reset --hard origin/main
+          ./.venv/bin/python backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebrationClassicCollection             --commit             --market-date 2026-09-20
