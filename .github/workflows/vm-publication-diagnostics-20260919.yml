@@ -1,4 +1,4 @@
-name: Check publication completion and sync readiness
+name: Inspect Sep 20 publication tail after 165 sets
 
 on:
   push:
@@ -11,25 +11,25 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  inspect:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Check publication completion
+      - name: Inspect publisher tail
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
           date
-          echo '=== PUBLISHER ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          echo '=== PROCESS ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
           echo '=== LOCK ==='
           fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo '=== HEAD ==='
-          echo -n 'head='; git rev-parse HEAD
-          git fetch origin >/dev/null 2>&1 || true
-          echo -n 'origin_main='; git rev-parse origin/main
-          echo '=== STATUS ==='
-          git status --short || true
-          echo '=== PUBLICATION TAIL ==='
-          tail -80 publication.log || true
+          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-20' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep20-tail.log
+            echo '=== PHASE MARKERS ==='
+            grep -E 'public snapshot refresh summary|refresh exit_status=|audit exit_status=|market explorer projection exit_status=|post-scrape publication COMPLETE|final exit_status=|global failed:|cards failed:|market_dashboard failed:|set_page failed:|Rankings:' /tmp/sep20-tail.log | tail -120 || true
+            echo '=== TAIL ==='
+            tail -120 /tmp/sep20-tail.log
+          fi
