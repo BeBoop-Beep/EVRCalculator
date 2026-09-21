@@ -1,0 +1,27 @@
+name: Sentinel VM Probe
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/sentinel-vm-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Probe
+        shell: bash
+        run: |
+          set -x
+          cd /home/ubuntu/repos/EVRCalculator
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          git status --short --untracked-files=no
+          echo "cron:"
+          crontab -l || true
