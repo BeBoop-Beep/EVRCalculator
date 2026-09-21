@@ -478,11 +478,52 @@ def run_watchdog(
                 "error": f"{type(exc).__name__}: {exc}",
             }
 
-        active_date = (
-            str(active_identity.get("market_date") or "")
-            if active_identity.get("ok")
-            else ""
-        )
+        if not active_identity.get("ok"):
+            result = {
+                "healthy": False,
+                "status": "supersession_recovery_blocked",
+                "failure_code": str(
+                    active_identity.get("reason")
+                    or "publication_process_identity_invalid"
+                ),
+                "market_date": market_date,
+                "batch_id": batch.get("id"),
+                "lock_held": True,
+                "process_identity": active_identity,
+                "recovery_attempted": False,
+            }
+            if queue_failures:
+                queue_alert(
+                    "post_scrape_publication_identity_ambiguous",
+                    title=f"POST-SCRAPE PUBLICATION IDENTITY AMBIGUOUS — {market_date}",
+                    message=(
+                        "Publication lock is held, but the exact canonical wrapper/"
+                        "refresh owner could not be proven. No projection work or "
+                        "process signal was attempted."
+                    ),
+                    severity="critical",
+                    dedupe_key=(
+                        f"post_scrape_publication_identity_ambiguous:{market_date}:"
+                        f"{result['failure_code']}"
+                    ),
+                    payload=result,
+                )
+            return result
+
+        active_date = str(active_identity.get("market_date") or "")
+        if active_date > market_date:
+            return {
+                "healthy": False,
+                "status": "publication_process_date_ahead_of_authority",
+                "failure_code": "publication_process_date_ahead_of_authority",
+                "market_date": market_date,
+                "active_market_date": active_date,
+                "batch_id": batch.get("id"),
+                "lock_held": True,
+                "process_identity": active_identity,
+                "recovery_attempted": False,
+            }
+
         if active_date and active_date < market_date:
             result = {
                 "healthy": False,
