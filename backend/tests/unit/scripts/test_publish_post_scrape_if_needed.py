@@ -132,9 +132,8 @@ def test_unknown_currency_status_yields_nonzero_cli_exit(monkeypatch):
     exit_code = mod._status_to_exit_code(mod.STATUS_NOOP_CURRENCY_UNKNOWN)
     assert exit_code != 0
 
-def test_fallback_currency_delegates_to_combined_post_scrape_authority(monkeypatch):
+def test_fallback_currency_delegates_to_combined_authority(monkeypatch):
     seen = {}
-
     def combined(client, market_date):
         seen["client"] = client
         seen["market_date"] = market_date
@@ -145,7 +144,6 @@ def test_fallback_currency_delegates_to_combined_post_scrape_authority(monkeypat
         combined,
     )
     client = object()
-
     assert mod._already_current(client, "2026-09-20") == PublicationCurrencyStatus.STALE
     assert seen == {"client": client, "market_date": "2026-09-20"}
 
