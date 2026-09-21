@@ -1,0 +1,219 @@
+name: Market Explorer Sep 21 Recovery
+
+on:
+  push:
+    branches: [ops/market-explorer-finish-20260921]
+    paths:
+      - '.github/workflows/market-explorer-recovery-20260921.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    steps:
+      - name: Replace read-only monolith and advance canonical Market + Explorer V2
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          MARKET_DATE=2026-09-21
+          CLASSIC_KEY=me30thCelebrationClassicCollection
+          PUBLICATION_LOCK=/tmp/pokemon-post-scrape-publication.lock
+          WATCHDOG_LOCK=/tmp/post-scrape-publication-watchdog.lock
+
+          cd "$LIVE"
+          if [ "$(git branch --show-current)" != "main" ]; then
+            echo "FATAL: live checkout is not main"
+            exit 2
+          fi
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "FATAL: live checkout has tracked changes"
+            git status --porcelain --untracked-files=no
+            exit 3
+          fi
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== acquire watchdog ownership ==="
+          exec 8>"$WATCHDOG_LOCK"
+          flock -w 60 8
+
+          echo "=== verify exact slow publisher is still in the newer planning sequence ==="
+          if /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then
+            echo "publication_lock=free; no incumbent to terminate"
+          else
+            IDENTITY_JSON="$("$PY" - <<'PY'
+import json
+from backend.alerts import post_scrape_publication_watchdog as watchdog
+identity = watchdog._validate_active_publication_identity(
+    watchdog._default_all_publication_processes()
+)
+print(json.dumps(identity, sort_keys=True))
+PY
+)"
+            echo "active_publication_identity=$IDENTITY_JSON"
+            REFRESH_PID="$(printf '%s' "$IDENTITY_JSON" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("refresh_pid") or "")')"
+            WRAPPER_PID="$(printf '%s' "$IDENTITY_JSON" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("wrapper_pid") or "")')"
+            ID_OK="$(printf '%s' "$IDENTITY_JSON" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print("1" if d.get("ok") else "0")')"
+            ID_DATE="$(printf '%s' "$IDENTITY_JSON" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("market_date") or "")')"
+            REFRESH_AGE="$(printf '%s' "$IDENTITY_JSON" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(int(d.get("refresh_age_seconds") or 0))')"
+            if [ "$ID_OK" != "1" ] || [ "$ID_DATE" != "$MARKET_DATE" ] || [ "$REFRESH_AGE" -lt 1200 ]; then
+              echo "FATAL: active publication identity is not the proven slow Sep 21 publisher"
+              exit 4
+            fi
+
+            LAST_CHECK="$(grep -nE '\[refresh-plan\] checked [0-9]+/212 ' publication.log | tail -n 1 || true)"
+            LAST_PHASE="$(grep -nF '[refresh-phase] planning complete; entering rebuild/write phase sets=212' publication.log | tail -n 1 || true)"
+            echo "last_refresh_check=$LAST_CHECK"
+            echo "last_planning_complete=$LAST_PHASE"
+            if [ -z "$LAST_CHECK" ]; then
+              echo "FATAL: no refresh-plan progress marker"
+              exit 5
+            fi
+            CHECK_LINE="$(printf '%s\n' "$LAST_CHECK" | cut -d: -f1)"
+            CHECK_COUNT="$(printf '%s\n' "$LAST_CHECK" | sed -E 's/.*checked ([0-9]+)\/212 .*/\1/')"
+            PHASE_LINE=0
+            if [ -n "$LAST_PHASE" ]; then PHASE_LINE="$(printf '%s\n' "$LAST_PHASE" | cut -d: -f1)"; fi
+            if ! [[ "$CHECK_LINE" =~ ^[0-9]+$ && "$CHECK_COUNT" =~ ^[0-9]+$ && "$PHASE_LINE" =~ ^[0-9]+$ ]]; then
+              echo "FATAL: could not parse publication phase markers"
+              exit 6
+            fi
+            if [ "$CHECK_COUNT" -ge 212 ] || [ "$CHECK_LINE" -le "$PHASE_LINE" ]; then
+              echo "FATAL: current publication is no longer provably in read-only planning"
+              exit 7
+            fi
+
+            echo "terminating_read_only_refresh_pid=$REFRESH_PID wrapper_pid=$WRAPPER_PID progress=$CHECK_COUNT/212"
+            kill -TERM "$REFRESH_PID"
+
+            RELEASED=0
+            for i in $(seq 1 24); do
+              if /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then
+                RELEASED=1
+                echo "publication_lock_released_after_seconds=$((i*5))"
+                break
+              fi
+              sleep 5
+            done
+            if [ "$RELEASED" -ne 1 ]; then
+              echo "FATAL: incumbent publication lock did not release after SIGTERM"
+              exit 8
+            fi
+          fi
+
+          echo "=== acquire publication ownership ==="
+          exec 9>"$PUBLICATION_LOCK"
+          flock -w 60 9
+
+          echo "=== sync live checkout to current main after incumbent exit ==="
+          git fetch origin main --quiet
+          git reset --hard origin/main
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "origin_main=$(git rev-parse origin/main)"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== require Price Storage V2 READY ==="
+          "$PY" - <<'PY'
+import json
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
+c=create_service_role_client()
+d=evaluate_price_projection_gate(c,"2026-09-21")
+print("price_storage_gate="+json.dumps(d.to_dict(),sort_keys=True,default=str))
+if not d.ready:
+    raise SystemExit("Price Storage V2 is not READY")
+PY
+
+          echo "=== canonical Market candidate preparation + quality + Raw/Top10 index ==="
+          "$PY" -m backend.scripts.build_pokemon_market_index_history --commit --market-date "$MARKET_DATE"
+
+          echo "=== fill Explorer-only Classic Collection Sep 21 history ==="
+          "$PY" -m backend.scripts.backfill_pokemon_set_value_daily_history             --set-id "$CLASSIC_KEY"             --start-date "$MARKET_DATE"             --end-date "$MARKET_DATE"             --commit
+
+          echo "=== verify quality/root coverage + 166 tracked set-history coverage ==="
+          "$PY" - <<'PY'
+import json
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.market_date_quality import evaluate_market_date_quality
+c=create_service_role_client()
+day="2026-09-21"
+quality=evaluate_market_date_quality(c,day)
+coverage=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or [])
+current=[r for r in coverage if str(r.get("latest_snapshot_date") or "")[:10] >= day]
+print("market_quality="+json.dumps(quality,sort_keys=True,default=str))
+print("explorer_set_history="+json.dumps({
+    "total":len(coverage),
+    "current":len(current),
+    "stale":len(coverage)-len(current),
+    "min_latest":min((str(r.get("latest_snapshot_date") or "")[:10] for r in coverage),default=None),
+    "max_latest":max((str(r.get("latest_snapshot_date") or "")[:10] for r in coverage),default=None),
+},sort_keys=True))
+if quality.get("status") != "READY":
+    raise SystemExit("Sep 21 Market Date Quality is not READY")
+if len(coverage) != 166 or len(current) != 166:
+    raise SystemExit("tracked Market Explorer set-history coverage is not 166/166 current")
+PY
+
+          echo "=== publish compact public Set Value snapshot for Sep 21 ==="
+          "$PY" -m backend.scripts.build_pokemon_explore_set_value_snapshot --commit --market-date "$MARKET_DATE"
+
+          echo "=== publish verified Market Explorer V2 through Sep 21 ==="
+          "$PY" -m backend.scripts.run_market_explorer_daily_publication --commit --market-date "$MARKET_DATE"
+
+          echo "=== verify V2 coverage ==="
+          "$PY" - <<'PY'
+import json
+from backend.db.clients.supabase_client import create_service_role_client
+c=create_service_role_client()
+day="2026-09-21"
+rows=[]
+start=0
+while True:
+    page=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
+        .select("set_id,computed_through,missing_day_count,stale_day_count")
+        .order("set_id").range(start,start+999).execute().data or [])
+    rows.extend(page)
+    if len(page)<1000: break
+    start+=1000
+current=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]
+missing=sum(int(r.get("missing_day_count") or 0) for r in rows)
+stale=sum(int(r.get("stale_day_count") or 0) for r in rows)
+print("explorer_v2_coverage="+json.dumps({
+    "rows":len(rows),"current":len(current),"missing_day_count":missing,
+    "stale_day_count":stale,
+    "min_computed_through":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),
+    "max_computed_through":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None),
+},sort_keys=True))
+if len(rows)!=166 or len(current)!=166 or missing!=0 or stale!=0:
+    raise SystemExit("Market Explorer V2 coverage is not 166/166, missing=0, stale=0")
+PY
+
+          flock -u 9
+          flock -u 8
+
+          echo "=== verify public Market endpoint advanced ==="
+          BODY="$(mktemp)"
+          OK=0
+          for i in $(seq 1 10); do
+            CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+            DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+            COUNT="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p.get("sets") or []))' "$BODY" 2>/dev/null || true)"
+            echo "public_market_poll=$i http=$CODE date=$DATE sets=$COUNT"
+            if [ "$CODE" = "200" ] && [ "$DATE" = "$MARKET_DATE" ]; then OK=1; break; fi
+            sleep 6
+          done
+          rm -f "$BODY"
+          if [ "$OK" -ne 1 ]; then
+            echo "FATAL: public Market endpoint did not advance to Sep 21"
+            exit 20
+          fi
