@@ -1,4 +1,4 @@
-name: Check Sep 20 write phase
+name: Final Sep 20 resilience audit
 
 on:
   push:
@@ -11,25 +11,48 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  audit:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Check active publication write phase
+      - name: Inspect runtime, publication and Sentinel gates
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
+          echo '=== TIME / GIT ==='
           date
-          ps -p 151587 -o pid,ppid,etime,time,%cpu,%mem,state,args || true
-          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
+          echo -n 'head='; git rev-parse HEAD
+          echo -n 'main='; git rev-parse origin/main 2>/dev/null || true
+          git status --short || true
+          echo
+          echo '=== ACTIVE PUBLICATION ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          echo 'lock:'
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo 'log:'
+          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
           if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/sep20-pub.log
-            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep20-pub.log || true)"
-            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep20-pub.log || true)"
-            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/sep20-pub.log || true)"
-            echo '=== PHASE MARKERS ==='
-            grep -E '\[refresh-plan\] checked|\[refresh-plan\].*(complete|finished)|\[refresh-run\]|refresh exit_status|audit exit_status|market explorer projection exit_status|post-scrape publication COMPLETE|final exit_status' /tmp/sep20-pub.log | tail -120 || true
-            echo '=== LIVE TAIL ==='
-            tail -60 /tmp/sep20-pub.log
+            tail -n +"$START" publication.log > /tmp/current-pub.log
+            echo "plan_last=$(grep '\[refresh-plan\] checked' /tmp/current-pub.log | tail -1)"
+            echo "plan_complete=$(grep -c '\[refresh-plan\] complete' /tmp/current-pub.log || true)"
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/current-pub.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/current-pub.log || true)"
+            echo "refresh_exit=$(grep 'refresh exit_status=' /tmp/current-pub.log | tail -1)"
+            echo "audit_exit=$(grep 'audit exit_status=' /tmp/current-pub.log | tail -1)"
+            echo "final_exit=$(grep 'final exit_status=' /tmp/current-pub.log | tail -1)"
           fi
+          echo
+          echo '=== SENTINEL ENV GATES ==='
+          for k in SENTINEL_STATE_WRITES_ENABLED SENTINEL_PERSISTENCE_SCHEMA_READY SENTINEL_RECOVERY_ENABLED SENTINEL_RECOVERY_EXECUTION_READY SENTINEL_DEADMAN_PING_URL SENTINEL_WATCH_HOST; do
+            v="$(grep -E "^${k}=" backend/.env 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+            if [ "$k" = 'SENTINEL_DEADMAN_PING_URL' ]; then
+              if [ -n "$v" ]; then echo "$k=configured"; else echo "$k=unset"; fi
+            else
+              echo "$k=${v:-unset}"
+            fi
+          done
+          echo
+          echo '=== SENTINEL / WATCHDOG CRON ==='
+          crontab -l | grep -E 'sentinel|market-freshness|deadman|watcher|rebuild_snapshots_after_scrape|publish_post_scrape_if_needed|create_daily_scrape_batch' || true
