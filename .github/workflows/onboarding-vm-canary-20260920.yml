@@ -1,4 +1,4 @@
-name: Pokemon onboarding final nonmutating proof
+name: Pokemon catalog refresh final commit canary
 
 on:
   push:
@@ -6,16 +6,14 @@ on:
       - ops/onboarding-vm-canary-20260920
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  verify:
+  refresh:
     runs-on: self-hosted
-    timeout-minutes: 12
-    env:
-      GH_TOKEN: ${{ github.token }}
+    timeout-minutes: 20
     steps:
-      - name: Sync current main and verify Actions write path
+      - name: Sync current main
         shell: bash
         run: |
           set -euo pipefail
@@ -23,18 +21,37 @@ jobs:
           git fetch origin main
           git switch main
           git reset --hard origin/main
-          gh auth setup-git
-          git push --dry-run origin HEAD:main
-          echo "MAIN_PUSH_DRY_RUN=true"
+          echo "VM_SHA=$(git rev-parse HEAD)"
+          git status --short
 
-      - name: Dry-run catalog recheck refresh
+      - name: Wait for scrape and publication locks, then refresh
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --dry-run             --limit 25             --max-provider-requests 50
 
-      - name: Verify scheduler and checkout
+          for n in $(seq 1 40); do
+            echo "lock attempt $n/40"
+            exec 8>/tmp/pokemon-scrape-dispatcher.lock
+            exec 7>/tmp/pokemon-post-scrape-publication.lock
+
+            if flock -n 8 && flock -n 7; then
+              echo "LOCKS_ACQUIRED=true"
+              ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py                 --commit                 --limit 25                 --max-provider-requests 50
+              exit $?
+            fi
+
+            # Close and reopen the descriptors on the next loop so a partially
+            # acquired lock is never held while waiting.
+            exec 8>&-
+            exec 7>&-
+            sleep 15
+          done
+
+          echo "Timed out waiting for scrape/publication locks" >&2
+          exit 75
+
+      - name: Final VM state
         shell: bash
         run: |
           set -euo pipefail
@@ -42,7 +59,4 @@ jobs:
           echo "branch=$(git branch --show-current)"
           echo "head=$(git rev-parse HEAD)"
           echo "dirty_count=$(git status --porcelain | wc -l)"
-          echo "legacy_onboarding_cron_count=$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)"
-          echo "enable_marker=$(test -f /home/ubuntu/.pokemon_onboarding_enabled && echo present || echo absent)"
-          test "$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)" -eq 0
-          test ! -f /home/ubuntu/.pokemon_onboarding_enabled
+          git status --short
