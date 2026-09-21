@@ -25,5 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
+          set -a
+          . /home/ubuntu/repos/EVRCalculator/backend/.env
+          set +a
           /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py
           /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile backend/db/services/price_storage_v2_projection_gate.py
