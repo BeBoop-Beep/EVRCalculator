@@ -1,4 +1,4 @@
-name: Validate publish lock status fix
+name: Check publisher exit and VM sync readiness
 
 on:
   push:
@@ -11,23 +11,24 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  check:
     runs-on: self-hosted
-    timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
+    timeout-minutes: 5
     steps:
-      - name: Checkout fix branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/publish-if-needed-lock-status-20260920
-          persist-credentials: false
-      - name: Run focused wrapper tests
+      - name: Check publication owner
         shell: bash
         run: |
-          set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile backend/scripts/publish_post_scrape_if_needed.py backend/sentinel/recovery/runbooks.py
-          "$PY" -m pytest -q backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py backend/tests/unit/sentinel/test_safe_recovery.py
+          set -u
+          cd /home/ubuntu/repos/EVRCalculator
+          date
+          echo '=== PROCESS ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          echo '=== LOCK ==='
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo '=== HEADS ==='
+          echo -n 'head='; git rev-parse HEAD
+          git fetch origin >/dev/null 2>&1 || true
+          echo -n 'origin_main='; git rev-parse origin/main
+          echo '=== LOG TAIL ==='
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
+          if [ -n "${START:-}" ]; then tail -n +"$START" publication.log | tail -100; fi
