@@ -431,6 +431,8 @@ jobs:
                 backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py \
                 backend/tests/unit/db/services/test_market_explorer_query_planner.py \
                 backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
                 -q
               cd "$REPO"
               git worktree remove --force "$WT"
