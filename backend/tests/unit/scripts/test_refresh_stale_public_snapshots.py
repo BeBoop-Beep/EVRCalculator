@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -2748,3 +2749,12 @@ def test_daily_top_chase_history_rows_allows_zero_when_dashboard_has_no_top_chas
     }
 
     assert refresh._daily_top_chase_history_rows(dashboard, []) == []
+
+
+
+def test_top_chase_current_date_validation_precedes_first_coordinated_write():
+    source = inspect.getsource(refresh._maybe_rebuild_coordinated_market)
+    validate_at = source.index("_daily_top_chase_history_rows(")
+    first_write_at = source.index("upsert_row(")
+
+    assert validate_at < first_write_at

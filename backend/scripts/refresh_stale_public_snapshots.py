@@ -2018,6 +2018,10 @@ def _maybe_rebuild_coordinated_market(
             window=window,
             client=op_client,
         )
+        # Validate every supporting current-date Top Chase row BEFORE the first
+        # coordinated snapshot write. A malformed slice must not advance Cards
+        # while leaving Dashboard/history behind.
+        daily_history_rows = _daily_top_chase_history_rows(dashboard_row, history_rows)
         upsert_row(
             op_client,
             "pokemon_set_cards_snapshot_latest",
@@ -2025,7 +2029,6 @@ def _maybe_rebuild_coordinated_market(
             on_conflict="set_id",
             commit=True,
         )
-        daily_history_rows = _daily_top_chase_history_rows(dashboard_row, history_rows)
         upsert_rows(
             op_client,
             "pokemon_set_top_chase_card_daily_history",
