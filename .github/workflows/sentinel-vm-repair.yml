@@ -17,6 +17,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Reconcile VM, repair Sep 21 V2 queue, publish, and validate Sentinel
+        # Retry after terminal-row starvation fix (PR #293).
         shell: bash
         run: |
           set +e
