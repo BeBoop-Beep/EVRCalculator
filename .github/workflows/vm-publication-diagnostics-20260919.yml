@@ -1,4 +1,4 @@
-name: Validate Top Chase persisted-history audit
+name: Sync VM after Sep 20 publication
 
 on:
   push:
@@ -11,33 +11,42 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  sync:
     runs-on: self-hosted
     timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Checkout audit fix
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/audit-top-chase-daily-history-20260920
-          persist-credentials: false
-      - name: Compile and exercise persisted-history audit
+      - name: Sync production checkout to current main
         shell: bash
         run: |
           set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile backend/scripts/audit_pokemon_market_publication.py
-          "$PY" - <<'PY'
-          from backend.tests.unit.scripts import test_audit_pokemon_market_publication as t
-          t.test_top_chase_persisted_current_date_rank_is_required()
-          print('missing_daily_rank_fails=PASS')
-          t.test_top_chase_persisted_rank_set_must_match_dashboard_cardinality()
-          print('rank_cardinality_mismatch_fails=PASS')
-          t.test_end_to_end_audit_fails_when_dashboard_is_current_but_persisted_top_chase_day_is_missing()
-          print('end_to_end_persisted_history_gate=PASS')
-          t.test_audit_reads_every_declared_source_table()
-          print('happy_path_reads_daily_history=PASS')
-          PY
+          cd /home/ubuntu/repos/EVRCalculator
+          echo '=== BEFORE ==='
+          git rev-parse HEAD
+          git status --short || true
+          echo
+          echo '=== ACTIVE PUBLICATION ==='
+          if ps -ef | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep; then
+            echo 'Refusing sync: publication still active'
+            exit 3
+          fi
+          EXTRA_DIRTY="$(git status --porcelain | grep -v 'payload_debug.json' || true)"
+          if [ -n "$EXTRA_DIRTY" ]; then
+            echo 'Refusing sync: unexpected dirty paths:'
+            echo "$EXTRA_DIRTY"
+            exit 2
+          fi
+          if git status --porcelain -- payload_debug.json | grep -q .; then
+            git stash push -m 'payload-debug-before-main-c6a97c12-20260920' -- payload_debug.json
+          fi
+          git fetch origin main
+          git switch main
+          git pull --ff-only origin main
+          echo
+          echo '=== AFTER ==='
+          git rev-parse HEAD
+          git status --short || true
+          git merge-base --is-ancestor c6a97c1216ece492eb56f28ce470aa0d663aeb83 HEAD
+          echo 'VM_CURRENT_MAIN=true'
+          echo
+          echo '=== CRON BATCH/PUBLICATION LINES ==='
+          crontab -l | grep -E 'create_daily_scrape_batch|publish_post_scrape_if_needed|market-freshness-watchdog' || true
