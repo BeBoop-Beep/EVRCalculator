@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -269,6 +269,51 @@ jobs:
               rm -f "$DIAG"
               ;;
 
+
+            market-explorer-sync-db-password)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              "$PY" - <<'PY'
+              import os, json, base64, hashlib, hmac, urllib.parse, urllib.request
+              from dotenv import load_dotenv
+
+              load_dotenv("backend/.env")
+              dsn = os.environ["ACTIONS_DATABASE_URL"]
+              parsed = urllib.parse.urlsplit(dsn)
+              password = urllib.parse.unquote(parsed.password or "")
+              if not password:
+                  raise SystemExit("DATABASE_URL password missing")
+
+              iterations = 4096
+              salt = os.urandom(16)
+              salted = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+              client_key = hmac.new(salted, b"Client Key", hashlib.sha256).digest()
+              stored_key = hashlib.sha256(client_key).digest()
+              server_key = hmac.new(salted, b"Server Key", hashlib.sha256).digest()
+              b64 = lambda b: base64.b64encode(b).decode("ascii")
+              verifier = f"SCRAM-SHA-256${iterations}:{b64(salt)}${b64(stored_key)}:{b64(server_key)}"
+
+              url = os.environ.get("SUPABASE_URL")
+              key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+              if not url or not key:
+                  raise SystemExit("Supabase service configuration missing")
+
+              req = urllib.request.Request(
+                  url.rstrip("/") + "/rest/v1/rpc/set_market_explorer_publisher_password_verifier_v1",
+                  data=json.dumps({"p_verifier": verifier}).encode("utf-8"),
+                  headers={
+                      "apikey": key,
+                      "Authorization": "Bearer " + key,
+                      "Content-Type": "application/json",
+                  },
+                  method="POST",
+              )
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  if resp.status not in (200, 204):
+                      raise SystemExit(f"password sync failed status={resp.status}")
+              print("publisher_password_synced=true")
+              PY
+              ;;
 
             sync-main)
               cd "$REPO"
