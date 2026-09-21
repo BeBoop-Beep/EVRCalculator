@@ -131,6 +131,9 @@ def _page_all(query_factory: Any, *, page_size: int = 1000) -> list[dict[str, An
         start += page_size
 
 
+SET_ID_QUERY_BATCH = 40
+
+
 def _set_id_batches(set_ids: Sequence[str], *, batch_size: int = SET_ID_QUERY_BATCH) -> list[list[str]]:
     ids = sorted({str(value) for value in set_ids if str(value)})
     return [ids[offset:offset + batch_size] for offset in range(0, len(ids), batch_size)]
@@ -213,7 +216,6 @@ def resolve_scope_set_ids(
 #: Sets per canonical-card metadata request. Bounded rather than unlimited so a
 #: 167-set scope cannot build a URL-length-defeating `in_` list; 40 keeps the
 #: global 22-set cohort to a single batch with headroom to spare.
-SET_ID_QUERY_BATCH = 40
 CARD_UNIVERSE_SET_BATCH = SET_ID_QUERY_BATCH
 
 #: Scope -> {canonical rarity key: raw spellings present in that scope}.
