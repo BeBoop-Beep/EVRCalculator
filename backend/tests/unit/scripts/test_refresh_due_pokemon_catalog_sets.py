@@ -3,7 +3,7 @@ from backend.scripts import refresh_due_pokemon_catalog_sets as script
 
 def _due_row(**overrides):
     row = {
-        "id": "job-1",
+        "job_id": "job-1",
         "source_set_id": "24831",
         "source_set_name": "ME06: Delta Reign",
     }

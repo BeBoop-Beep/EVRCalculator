@@ -197,8 +197,9 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
         provider_id = str(row.get("source_set_id") or "")
         set_row = provider_sets.get(provider_id)
         if set_row and not bool(set_row.get("catalog_only")):
+            job_id = row.get("job_id") or row.get("id")
             entry = {
-                "job_id": row.get("id"),
+                "job_id": job_id,
                 "source_set_id": provider_id,
                 "canonical_key": set_row.get("canonical_key"),
                 "ready_for_daily_scrape": bool(set_row.get("ready_for_daily_scrape")),
@@ -206,7 +207,11 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
             }
             graduated_rechecks.append(entry)
             if commit:
-                _set_provider_next_check_at(supabase, str(row.get("id")), None)
+                if not job_id:
+                    raise RuntimeError(
+                        f"graduated recheck row missing job identifier for provider {provider_id}"
+                    )
+                _set_provider_next_check_at(supabase, str(job_id), None)
             continue
         catalog_due.append(row)
 

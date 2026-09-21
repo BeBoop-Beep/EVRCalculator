@@ -537,7 +537,7 @@ def test_provider_failure_never_marks_availability_changed(monkeypatch):
     assert item["sealed_listing_count_changed"] is False
 
 def test_explicit_due_rows_bypass_repository_due_query(monkeypatch):
-    explicit = [_row(id="explicit-job", source_set_id="777")]
+    explicit = [_row(job_id="explicit-job", source_set_id="777")]
     monkeypatch.setattr(
         service.jobs,
         "list_rechecks_v2",
@@ -574,7 +574,7 @@ def test_explicit_due_rows_bypass_repository_due_query(monkeypatch):
 
 
 def test_explicit_due_rows_still_respect_limit(monkeypatch):
-    explicit = [_row(id=f"job-{i}", source_set_id=str(800 + i)) for i in range(4)]
+    explicit = [_row(job_id=f"job-{i}", source_set_id=str(800 + i)) for i in range(4)]
     monkeypatch.setattr(
         service.jobs,
         "list_rechecks_v2",
@@ -607,4 +607,26 @@ def test_explicit_due_rows_still_respect_limit(monkeypatch):
 
     assert result["due_checked"] == 2
     assert [row["job_id"] for row in result["identities"]] == ["job-0", "job-1"]
+
+def test_rpc_job_id_field_is_preserved_in_result(monkeypatch):
+    explicit = [_row(job_id="rpc-job-id", source_set_id="999")]
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(1),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_count",
+        lambda requester, url, label: 1,
+    )
+
+    result = service.run_recheck(
+        commit=False,
+        limit=5,
+        max_provider_requests=10,
+        due_rows=explicit,
+    )
+
+    assert result["identities"][0]["job_id"] == "rpc-job-id"
 
