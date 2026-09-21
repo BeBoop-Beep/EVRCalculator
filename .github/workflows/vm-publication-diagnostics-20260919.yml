@@ -1,4 +1,4 @@
-name: Validate bounded publication stall recovery
+name: Deploy stalled publication recovery
 
 on:
   push:
@@ -11,83 +11,45 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  deploy:
     runs-on: self-hosted
     timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Checkout fix branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/publication-stall-bounded-recovery-20260920
-          persist-credentials: false
-      - name: Compile and exercise recovery guardrails
+      - name: Sync merged main and install canonical cron
         shell: bash
         run: |
           set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile backend/alerts/post_scrape_publication_watchdog.py
-          "$PY" - <<'PY'
-          from datetime import datetime, timezone
-          from types import SimpleNamespace
-          from unittest.mock import patch
-          from backend.alerts import post_scrape_publication_watchdog as w
-
-          now=datetime(2026,9,21,0,20,tzinfo=timezone.utc)
-          batch={'id':57,'market_date':'2026-09-20','status':'complete'}
-          processes=[
-            {'pid':100,'ppid':1,'age_seconds':2400,'args':'wrapper','kind':'wrapper'},
-            {'pid':101,'ppid':100,'age_seconds':2390,'args':'refresh','kind':'refresh'},
-          ]
-          projection=lambda *_: SimpleNamespace(ready=True,reason_code='ready',to_dict=lambda:{'ready':True})
-          gate=SimpleNamespace(allowed=True,reason_code='allowed_complete')
-
-          terminated=[]; recorded=[]
-          with patch.object(w,'_batch_gate_decision',return_value=gate):
-            result=w.run_watchdog(
-              client=object(),now=now,stall_seconds=1200,queue_failures=False,
-              latest_batch_loader=lambda _c:dict(batch),lock_checker=lambda _p:True,
-              log_age_loader=lambda _p,_n:1800.0,projection_checker=projection,
-              recover_stalled=True,process_inspector=lambda _d:list(processes),
-              terminate_process=lambda pid:terminated.append(pid),
-              cooldown_checker=lambda *_:False,
-              recovery_recorder=lambda d,n:recorded.append((d,n)),
-            )
-          assert result['status']=='stall_sigterm_requested', result
-          assert terminated==[101], terminated
-          assert recorded==[('2026-09-20',now)], recorded
-          print('exact_child_sigterm=PASS')
-
-          ambiguous=processes+[{'pid':102,'ppid':100,'age_seconds':2300,'args':'refresh2','kind':'refresh'}]
-          terminated=[]
-          with patch.object(w,'_batch_gate_decision',return_value=gate):
-            result=w.run_watchdog(
-              client=object(),now=now,stall_seconds=1200,queue_failures=False,
-              latest_batch_loader=lambda _c:dict(batch),lock_checker=lambda _p:True,
-              log_age_loader=lambda _p,_n:1800.0,projection_checker=projection,
-              recover_stalled=True,process_inspector=lambda _d:ambiguous,
-              terminate_process=lambda pid:terminated.append(pid),
-              cooldown_checker=lambda *_:False,recovery_recorder=lambda *_:None,
-            )
-          assert result['status']=='stall_recovery_blocked', result
-          assert result['failure_code']=='publication_process_identity_ambiguous', result
-          assert terminated==[], terminated
-          print('ambiguous_identity_fail_closed=PASS')
-
-          terminated=[]
-          with patch.object(w,'_batch_gate_decision',return_value=gate):
-            result=w.run_watchdog(
-              client=object(),now=now,stall_seconds=1200,queue_failures=False,
-              latest_batch_loader=lambda _c:dict(batch),lock_checker=lambda _p:True,
-              log_age_loader=lambda _p,_n:1800.0,projection_checker=projection,
-              recover_stalled=True,process_inspector=lambda _d:list(processes),
-              terminate_process=lambda pid:terminated.append(pid),
-              cooldown_checker=lambda *_:True,recovery_recorder=lambda *_:None,
-            )
-          assert result['status']=='stall_recovery_cooldown', result
-          assert terminated==[], terminated
-          print('cooldown_blocks_repeat=PASS')
-          PY
+          cd /home/ubuntu/repos/EVRCalculator
+          echo '=== BEFORE ==='
+          git rev-parse HEAD
+          git status --short || true
+          echo
+          echo '=== ACTIVE PUBLICATION ==='
+          if ps -ef | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep; then
+            echo 'Refusing deploy: publication still active'
+            exit 3
+          fi
+          EXTRA_DIRTY="$(git status --porcelain | grep -v 'payload_debug.json' || true)"
+          if [ -n "$EXTRA_DIRTY" ]; then
+            echo 'Refusing deploy: unexpected dirty paths:'
+            echo "$EXTRA_DIRTY"
+            exit 2
+          fi
+          if git status --porcelain -- payload_debug.json | grep -q .; then
+            git stash push -m 'payload-debug-before-main-faa35538-20260920' -- payload_debug.json
+          fi
+          git fetch origin main
+          git switch main
+          git pull --ff-only origin main
+          git merge-base --is-ancestor faa35538e0a79990499d94fd6f16fa2f835f1ef8 HEAD
+          echo
+          echo '=== INSTALL CANONICAL CRON ==='
+          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
+          crontab -l > /tmp/index-cron-after-stall-recovery
+          diff -u infra/oracle/tcgplayer-scraper-pokemon.crontab /tmp/index-cron-after-stall-recovery
+          echo
+          echo '=== AFTER ==='
+          git rev-parse HEAD
+          git status --short || true
+          crontab -l | grep -E 'post-scrape-publication-watchdog|create_daily_scrape_batch|publish_post_scrape_if_needed' || true
+          echo 'STALL_RECOVERY_DEPLOYED=true'
