@@ -1,0 +1,66 @@
+name: Market Explorer Finish 2026-09-21
+
+on:
+  push:
+    branches: [ops/market-explorer-finish-20260921]
+    paths:
+      - '.github/workflows/market-explorer-finish-20260921.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Inspect production VM and public market state
+        shell: bash
+        run: |
+          set +e
+          set -u
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PUB_LOCK=/tmp/pokemon-post-scrape-publication.lock
+          WATCH_LOCK=/tmp/post-scrape-publication-watchdog.lock
+          cd "$LIVE" || exit 1
+
+          echo "=== git ==="
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          git fetch origin main --quiet
+          echo "origin_main=$(git rev-parse origin/main)"
+          echo "tracked_status_begin"
+          git status --porcelain --untracked-files=no
+          echo "tracked_status_end"
+
+          echo "=== locks ==="
+          if /usr/bin/flock -n "$PUB_LOCK" -c true; then echo "publication_lock=free"; else echo "publication_lock=held"; fi
+          if /usr/bin/flock -n "$WATCH_LOCK" -c true; then echo "watchdog_lock=free"; else echo "watchdog_lock=held"; fi
+
+          echo "=== relevant processes ==="
+          pgrep -af 'rebuild_snapshots_after_scrape|refresh_pokemon_market_snapshots|publish_post_scrape|post_scrape_publication|market_explorer|run_market_explorer|recover_price_projection' || true
+
+          echo "=== public set-value market ==="
+          BODY="$(mktemp)"
+          CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market)"
+          echo "http_code=$CODE"
+          if [ -s "$BODY" ]; then
+            "$LIVE/.venv/bin/python" - "$BODY" <<'PY'
+import json, sys
+path=sys.argv[1]
+try:
+    p=json.load(open(path, encoding='utf-8'))
+    m=p.get("meta") or {}
+    s=m.get("snapshot") or {}
+    print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))
+    print("public_market_set_count="+str(len(p.get("sets") or [])))
+    print("public_keys="+",".join(sorted(p.keys())))
+except Exception as exc:
+    print("public_parse_error="+repr(exc))
+    print(open(path, encoding='utf-8', errors='replace').read()[:2000])
+PY
+          fi
+          rm -f "$BODY"
+
+          echo "=== publication log tail ==="
+          tail -n 160 publication.log 2>/dev/null || true
