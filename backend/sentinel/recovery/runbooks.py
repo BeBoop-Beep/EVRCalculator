@@ -163,6 +163,7 @@ def build_safe_recovery_registry(
         if status in {
             "noop_batch_not_complete",
             "noop_currency_unknown",
+            "noop_already_running",
             "gate_authority_unavailable",
             "gate_invalid_contract",
             "invalid_market_date",
