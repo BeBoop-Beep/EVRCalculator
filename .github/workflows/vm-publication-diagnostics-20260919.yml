@@ -1,4 +1,4 @@
-name: Validate publication fallback lock status
+name: Validate publish lock status fix
 
 on:
   push:
@@ -19,50 +19,15 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
       SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Checkout fallback fix branch
+      - name: Checkout fix branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: fix/publication-fallback-classification-20260920
+          ref: fix/publish-if-needed-lock-status-20260920
           persist-credentials: false
-      - name: Validate wrapper and Sentinel contracts
+      - name: Run focused wrapper tests
         shell: bash
         run: |
           set -euo pipefail
           PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          bash -n backend/scripts/rebuild_snapshots_after_scrape.sh
-          "$PY" -m py_compile \
-            backend/scripts/publish_post_scrape_if_needed.py \
-            backend/sentinel/recovery/runbooks.py
-          grep -F 'LOCK_HELD_EXIT_CODE=4' backend/scripts/rebuild_snapshots_after_scrape.sh >/dev/null
-          grep -F 'exit "${LOCK_HELD_EXIT_CODE}"' backend/scripts/rebuild_snapshots_after_scrape.sh >/dev/null
-          "$PY" - <<'PY'
-          from types import SimpleNamespace
-          from unittest.mock import patch
-          from backend.scripts import publish_post_scrape_if_needed as publish
-          from backend.db.services.post_scrape_publication_trigger import PublicationCurrencyStatus
-
-          gate = SimpleNamespace(allowed=True, reason_code='allowed_complete')
-          with patch.object(publish, '_batch_gate_decision', return_value=gate), patch.object(
-              publish, '_already_current', return_value=PublicationCurrencyStatus.STALE
-          ):
-              result = publish.publish_if_needed(
-                  '2026-09-20', client=object(),
-                  run_rebuild=lambda _date: publish.LOCK_HELD_EXIT_CODE,
-              )
-          assert result['status'] == publish.STATUS_NOOP_ALREADY_RUNNING, result
-          assert publish._status_to_exit_code(result['status']) == 0
-          print('lock_held_status=PASS')
-
-          with patch.object(publish, '_batch_gate_decision', return_value=gate), patch.object(
-              publish, '_already_current', return_value=PublicationCurrencyStatus.STALE
-          ):
-              result = publish.publish_if_needed(
-                  '2026-09-20', client=object(), run_rebuild=lambda _date: 0
-              )
-          assert result['status'] == publish.STATUS_PUBLISHED, result
-          print('real_zero_exit_published=PASS')
-
-          source=open('backend/sentinel/recovery/runbooks.py', encoding='utf-8').read()
-          assert '"noop_already_running"' in source
-          print('sentinel_active_publisher_blocked=PASS')
-          PY
+          "$PY" -m py_compile backend/scripts/publish_post_scrape_if_needed.py backend/sentinel/recovery/runbooks.py
+          "$PY" -m pytest -q backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py backend/tests/unit/sentinel/test_safe_recovery.py
