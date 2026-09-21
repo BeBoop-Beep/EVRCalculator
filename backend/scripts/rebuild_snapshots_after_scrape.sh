@@ -97,8 +97,28 @@ fi
 
 cd "${REPO_ROOT}"
 
-# `set -e` would abort before the exit status could be logged and classified, so
-# each stage captures its own status explicitly.
+# Price Storage V2 is now in the canonical selected-price lineage. A complete
+# scrape batch is not publishable until that exact scrape cohort has been
+# projected through card_variant_price_current_v2 / canonical selected prices.
+# This check is read-only; the separate liveness watchdog advances the queue.
+PROJECTION_CMD=(
+  "${PYTHON_BIN}" backend/scripts/check_price_storage_v2_projection_ready.py
+  --market-date "${MARKET_DATE}"
+)
+log "command: ${PROJECTION_CMD[*]}"
+PROJECTION_STATUS=0
+"${PROJECTION_CMD[@]}" || PROJECTION_STATUS=$?
+log "price projection readiness exit_status=${PROJECTION_STATUS}"
+if [[ "${PROJECTION_STATUS}" -eq 3 ]]; then
+  log "DEFERRED Price Storage V2 projection is not ready for market_date=${MARKET_DATE}; preserving previous good snapshots"
+  exit 3
+fi
+if [[ "${PROJECTION_STATUS}" -ne 0 ]]; then
+  log "FAILED Price Storage V2 projection authority could not be verified for market_date=${MARKET_DATE}"
+  exit "${PROJECTION_STATUS}"
+fi
+
+# `set -e` would abort before the exit status could be logged and classified, so# each stage captures its own status explicitly.
 REFRESH_CMD=(
   "${PYTHON_BIN}" backend/scripts/refresh_stale_public_snapshots.py
   --commit

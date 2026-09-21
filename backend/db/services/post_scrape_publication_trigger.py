@@ -73,6 +73,8 @@ STATUS_INVALID_MARKET_DATE = "invalid_market_date"
 STATUS_NOT_COMPLETE = "skipped_batch_not_complete"
 STATUS_CURRENCY_CHECK_FAILED = "currency_check_failed"
 STATUS_SKIPPED_ALREADY_RUNNING = "skipped_already_running"
+STATUS_SKIPPED_PRICE_PROJECTION_NOT_READY = "skipped_price_projection_not_ready"
+STATUS_PRICE_PROJECTION_CHECK_FAILED = "price_projection_check_failed"
 
 
 def is_valid_market_date(value: Any) -> bool:
@@ -209,6 +211,34 @@ def _default_queue_currency_unknown_alert(*, market_date: str, **_ignored: Any) 
         logger.exception("%s failed to queue currency-check-failed alert", TRIGGER_TAG)
 
 
+def _default_price_projection_check(market_date: str):
+    from backend.db.clients.supabase_client import supabase
+    from backend.db.services.price_storage_v2_projection_gate import (
+        evaluate_price_projection_gate,
+    )
+
+    return evaluate_price_projection_gate(supabase, market_date)
+
+
+def _queue_price_projection_failure_alert(market_date: str, decision: Any) -> None:
+    try:
+        from backend.alerts.scrape_alerts import queue_alert
+
+        payload = decision.to_dict() if hasattr(decision, "to_dict") else {}
+        queue_alert(
+            "price_projection_publication_blocked",
+            title=f"PRICE PROJECTION PUBLICATION BLOCKED — {market_date}",
+            message=(
+                f"Price Storage V2 readiness could not be verified for market_date={market_date}; "
+                "post-scrape publication was not launched."
+            ),
+            severity="critical",
+            dedupe_key=f"price_projection_publication_blocked:{market_date}",
+            payload=payload,
+        )
+    except Exception:
+        logger.exception("%s failed to queue price-projection alert", TRIGGER_TAG)
+
 def trigger_post_scrape_publication_if_needed(
     market_date: Optional[str],
     *,
@@ -219,6 +249,7 @@ def trigger_post_scrape_publication_if_needed(
     queue_alert: Optional[Callable[..., None]] = None,
     lock_check: Optional[Callable[[str], bool]] = None,
     lock_path: Optional[str] = None,
+    price_projection_check: Optional[Callable[[str], Any]] = None,
 ) -> Dict[str, Any]:
     """Launch the canonical post-scrape publication wrapper if it is needed.
 
@@ -270,6 +301,39 @@ def trigger_post_scrape_publication_if_needed(
         )
         result["status"] = STATUS_SKIPPED_ALREADY_RUNNING
         return result
+
+    check_projection = price_projection_check or _default_price_projection_check
+    projection = check_projection(market_date)
+    projection_reason = str(getattr(projection, "reason_code", "") or "")
+    projection_ready = bool(getattr(projection, "ready", False))
+    if not projection_ready:
+        from backend.db.services.price_storage_v2_projection_gate import (
+            REASON_AUTHORITY_UNAVAILABLE,
+        )
+        projection_payload = (
+            projection.to_dict() if hasattr(projection, "to_dict") else {}
+        )
+        if projection_reason == REASON_AUTHORITY_UNAVAILABLE:
+            logger.error(
+                "%s Price Storage V2 readiness UNKNOWN for market_date=%s; NOT launching",
+                TRIGGER_TAG, market_date,
+            )
+            _queue_price_projection_failure_alert(market_date, projection)
+            result["status"] = STATUS_PRICE_PROJECTION_CHECK_FAILED
+        else:
+            logger.info(
+                "%s Price Storage V2 not ready for market_date=%s complete=%s expected=%s; deferring launch",
+                TRIGGER_TAG, market_date,
+                projection_payload.get("complete_set_count"),
+                projection_payload.get("expected_set_count"),
+            )
+            result["status"] = STATUS_SKIPPED_PRICE_PROJECTION_NOT_READY
+        result["price_projection"] = projection_payload
+        return result
+
+    result["price_projection"] = (
+        projection.to_dict() if hasattr(projection, "to_dict") else {"ready": True}
+    )
 
     check_current = publication_current or _default_publication_current
     alert_queuer = queue_alert or _default_queue_currency_unknown_alert
