@@ -1,4 +1,4 @@
-name: Pokemon onboarding final scheduler cutover
+name: Pokemon onboarding final nonmutating proof
 
 on:
   push:
@@ -6,14 +6,16 @@ on:
       - ops/onboarding-vm-canary-20260920
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  cutover:
+  verify:
     runs-on: self-hosted
     timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Sync VM and install canonical crontab
+      - name: Sync current main and verify Actions write path
         shell: bash
         run: |
           set -euo pipefail
@@ -21,35 +23,18 @@ jobs:
           git fetch origin main
           git switch main
           git reset --hard origin/main
-          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
-          rm -f /home/ubuntu/.pokemon_onboarding_enabled
-          echo "VM_SHA=$(git rev-parse HEAD)"
-          echo "legacy_onboarding_cron_count=$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)"
-          echo "enable_marker=$(test -f /home/ubuntu/.pokemon_onboarding_enabled && echo present || echo absent)"
-          test "$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)" -eq 0
-          test ! -f /home/ubuntu/.pokemon_onboarding_enabled
+          gh auth setup-git
+          git push --dry-run origin HEAD:main
+          echo "MAIN_PUSH_DRY_RUN=true"
 
-      - name: Run real catalog recheck refresh canary
+      - name: Dry-run catalog recheck refresh
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          success=0
-          for n in $(seq 1 12); do
-            echo "catalog canary attempt $n/12"
-            set +e
-            /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock               /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock               ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py                 --commit                 --limit 25                 --max-provider-requests 50
-            code=$?
-            set -e
-            if [ "$code" -eq 0 ]; then
-              success=1
-              break
-            fi
-            sleep 15
-          done
-          test "$success" -eq 1
+          ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --dry-run             --limit 25             --max-provider-requests 50
 
-      - name: Final VM scheduler state
+      - name: Verify scheduler and checkout
         shell: bash
         run: |
           set -euo pipefail
@@ -57,8 +42,7 @@ jobs:
           echo "branch=$(git branch --show-current)"
           echo "head=$(git rev-parse HEAD)"
           echo "dirty_count=$(git status --porcelain | wc -l)"
-          git status --short
-          echo "onboarding GitHub workflow installed:"
-          test -f .github/workflows/pokemon-onboarding-autonomous.yml
-          echo "catalog recheck GitHub workflow installed:"
-          test -f .github/workflows/pokemon-catalog-recheck-refresh.yml
+          echo "legacy_onboarding_cron_count=$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)"
+          echo "enable_marker=$(test -f /home/ubuntu/.pokemon_onboarding_enabled && echo present || echo absent)"
+          test "$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)" -eq 0
+          test ! -f /home/ubuntu/.pokemon_onboarding_enabled
