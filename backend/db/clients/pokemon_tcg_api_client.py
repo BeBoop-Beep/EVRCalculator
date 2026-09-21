@@ -123,9 +123,7 @@ class PokemonTCGAPIClient:
         sleep: Callable[[float], None] = time.sleep,
         jitter: Callable[[float, float], float] = random.uniform,
     ):
-        self.api_key = api_key or os.getenv("POKEMON_TCG_API_KEY")
-        if not self.api_key:
-            raise RuntimeError("Missing POKEMON_TCG_API_KEY environment variable")
+        self.api_key = str(api_key or os.getenv("POKEMON_TCG_API_KEY") or "").strip() or None
 
         self.base_url = (base_url or os.getenv("POKEMON_TCG_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
 
@@ -230,6 +228,12 @@ class PokemonTCGAPIClient:
         so no card is emitted twice. If every strategy fails the generator raises
         rather than presenting a partial set as success.
         """
+        # Unauthenticated V2 access is supported but limited to 30 requests/min.
+        # Keep bulk/card pagination below that provider ceiling without slowing
+        # authenticated callers.
+        if not self.api_key:
+            rate_limit_delay = max(float(rate_limit_delay or 0.0), 2.1)
+
         seen_ids: Set[str] = set()
         known_total_count: Optional[int] = None
         duplicates_suppressed = 0
@@ -440,9 +444,8 @@ class PokemonTCGAPIClient:
                     f"{self.base_url}{path}",
                     params=params,
                     headers={
-                        "Accept": "application/json",
-                        "X-Api-Key": self.api_key,
-                        "User-Agent": "EVRCalculator/1.0",
+                        **{"Accept": "application/json", "User-Agent": "EVRCalculator/1.0"},
+                        **({"X-Api-Key": self.api_key} if self.api_key else {}),
                     },
                     timeout=(self.connect_timeout, self.read_timeout),
                 )
@@ -465,7 +468,7 @@ class PokemonTCGAPIClient:
                 if status_code in AUTH_STATUS_CODES:
                     raise PokemonTCGAPIError(
                         f"Pokemon TCG API rejected the request to {path} with "
-                        f"HTTP {status_code}. Verify the POKEMON_TCG_API_KEY value.",
+                        f"HTTP {status_code}. Verify provider authentication or keyless access.",
                         status_code=status_code,
                         path=path,
                         params=safe_params,
