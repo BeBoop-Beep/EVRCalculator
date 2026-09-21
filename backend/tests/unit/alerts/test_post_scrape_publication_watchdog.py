@@ -317,3 +317,132 @@ def test_latest_complete_batch_does_not_retry_deterministic_authority_failure():
         )
 
     assert calls["n"] == 1
+
+
+
+def _exact_stalled_processes():
+    return [
+        {
+            "pid": 100,
+            "ppid": 1,
+            "age_seconds": 2400,
+            "args": "/home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-20",
+            "kind": "wrapper",
+        },
+        {
+            "pid": 101,
+            "ppid": 100,
+            "age_seconds": 2390,
+            "args": "/home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-20",
+            "kind": "refresh",
+        },
+    ]
+
+
+def test_stalled_recovery_sigterms_only_exact_refresh_child_once():
+    terminated = []
+    recorded = []
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            stall_seconds=1200,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: True,
+            log_age_loader=lambda _path, _now: 1800.0,
+            recover_stalled=True,
+            process_inspector=lambda _date: _exact_stalled_processes(),
+            terminate_process=lambda pid: terminated.append(pid),
+            cooldown_checker=lambda *_args: False,
+            recovery_recorder=lambda market_date, now: recorded.append((market_date, now)),
+        )
+
+    assert result["healthy"] is False
+    assert result["status"] == "stall_sigterm_requested"
+    assert result["recovery_attempted"] is True
+    assert result["refresh_pid"] == 101
+    assert result["wrapper_pid"] == 100
+    assert terminated == [101]
+    assert recorded == [("2026-09-20", NOW)]
+
+
+def test_stalled_recovery_refuses_ambiguous_process_identity():
+    terminated = []
+    processes = _exact_stalled_processes() + [
+        {
+            "pid": 102,
+            "ppid": 100,
+            "age_seconds": 2300,
+            "args": "/home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-20",
+            "kind": "refresh",
+        }
+    ]
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            stall_seconds=1200,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: True,
+            log_age_loader=lambda _path, _now: 1800.0,
+            recover_stalled=True,
+            process_inspector=lambda _date: processes,
+            terminate_process=lambda pid: terminated.append(pid),
+            cooldown_checker=lambda *_args: False,
+            recovery_recorder=lambda *_args: None,
+        )
+
+    assert result["status"] == "stall_recovery_blocked"
+    assert result["failure_code"] == "publication_process_identity_ambiguous"
+    assert result["recovery_attempted"] is False
+    assert terminated == []
+
+
+def test_stalled_recovery_cooldown_prevents_repeat_signal():
+    terminated = []
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            stall_seconds=1200,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: True,
+            log_age_loader=lambda _path, _now: 1800.0,
+            recover_stalled=True,
+            process_inspector=lambda _date: _exact_stalled_processes(),
+            terminate_process=lambda pid: terminated.append(pid),
+            cooldown_checker=lambda *_args: True,
+            recovery_recorder=lambda *_args: pytest.fail("must not record during cooldown"),
+        )
+
+    assert result["status"] == "stall_recovery_cooldown"
+    assert result["recovery_attempted"] is False
+    assert terminated == []
+
+
+def test_stalled_recovery_refuses_parent_mismatch():
+    terminated = []
+    processes = _exact_stalled_processes()
+    processes[1] = {**processes[1], "ppid": 999}
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            stall_seconds=1200,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: True,
+            log_age_loader=lambda _path, _now: 1800.0,
+            recover_stalled=True,
+            process_inspector=lambda _date: processes,
+            terminate_process=lambda pid: terminated.append(pid),
+            cooldown_checker=lambda *_args: False,
+            recovery_recorder=lambda *_args: None,
+        )
+
+    assert result["status"] == "stall_recovery_blocked"
+    assert result["failure_code"] == "publication_process_parent_mismatch"
+    assert terminated == []
