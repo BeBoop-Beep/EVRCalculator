@@ -237,6 +237,32 @@ jobs:
                 '    if password: message = message.replace(password, "<REDACTED_PASSWORD>")' \
                 '    print("connect_ok=false error_type=%s sqlstate=%s" % (type(exc).__name__, getattr(exc, "sqlstate", None)))' \
                 '    print("error=" + message[:800].replace(chr(10), " | "))' \
+                '    pooler_failed = True' \
+                'else:' \
+                '    pooler_failed = False' \
+                'user = parsed.get("user") or ""' \
+                'project_ref = user.split(".")[-1] if "." in user else "zwxzxuuawalvwioadhmf"' \
+                'direct_user = user.split(".")[0]' \
+                'direct_host = "db." + project_ref + ".supabase.co"' \
+                'direct_dsn = "host=%s port=5432 dbname=%s user=%s password=%s sslmode=require connect_timeout=10" % (direct_host, parsed.get("dbname") or "postgres", direct_user, password)' \
+                'try:' \
+                '    infos = socket.getaddrinfo(direct_host, 5432, type=socket.SOCK_STREAM)' \
+                '    print("direct_dns_ok=true address_count=%d families=%s" % (len(infos), sorted({i[0] for i in infos})))' \
+                'except Exception as exc:' \
+                '    print("direct_dns_ok=false error_type=" + type(exc).__name__)' \
+                'try:' \
+                '    with psycopg.connect(direct_dsn) as conn:' \
+                '        with conn.cursor() as cur:' \
+                '            cur.execute("select current_user, current_database()")' \
+                '            row = cur.fetchone()' \
+                '            print("direct_connect_ok=true current_user=%s current_database=%s" % row)' \
+                'except Exception as exc:' \
+                '    message = str(exc)' \
+                '    if password: message = message.replace(password, "<REDACTED_PASSWORD>")' \
+                '    print("direct_connect_ok=false error_type=%s sqlstate=%s" % (type(exc).__name__, getattr(exc, "sqlstate", None)))' \
+                '    print("direct_error=" + message[:800].replace(chr(10), " | "))' \
+                '    raise SystemExit(7 if pooler_failed else 8)' \
+                'if pooler_failed:' \
                 '    raise SystemExit(7)' \
                 > "$DIAG"
               "$PY" "$DIAG"
