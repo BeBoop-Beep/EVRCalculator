@@ -1,4 +1,4 @@
-name: Onboarding frontend verification 2026-09-20
+name: Onboarding autonomy audit 2026-09-20
 
 on:
   push:
@@ -9,32 +9,23 @@ permissions:
   contents: read
 
 jobs:
-  frontend-verify:
+  autonomy-audit:
     runs-on: self-hosted
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
-      - name: Verify public catalog HTML
+      - name: Inspect onboarding schedule
         shell: bash
         run: |
           set -euo pipefail
-          tmp="$(mktemp)"
-          for n in 1 2 3; do
-            if curl -fsSL --max-time 30 'https://inthedex.io/TCGs/Pokemon/Sets' -o "$tmp"; then
-              break
-            fi
-            sleep 5
-          done
-          echo "http_bytes=$(wc -c < "$tmp")"
-          echo "delta_count=$(grep -o 'Delta Reign' "$tmp" | wc -l)"
-          echo "30th_count=$(grep -o '30th Celebration' "$tmp" | wc -l)"
-          echo "mega_heading_count=$(grep -o 'Mega Evolution' "$tmp" | wc -l)"
-          if grep -q 'Delta Reign' "$tmp"; then
-            echo "PUBLIC_DELTA_PRESENT=true"
+          echo "=== crontab ==="
+          crontab -l || true
+          echo "=== onboarding enable marker ==="
+          if [ -f /home/ubuntu/.pokemon_onboarding_enabled ]; then
+            echo "ONBOARDING_ENABLED=true"
           else
-            echo "PUBLIC_DELTA_PRESENT=false"
+            echo "ONBOARDING_ENABLED=false"
           fi
-          if grep -q 'ME: 30th Celebration' "$tmp"; then
-            echo "PUBLIC_30TH_PRESENT=true"
-          else
-            echo "PUBLIC_30TH_PRESENT=false"
-          fi
+          echo "=== wrapper ==="
+          ls -l /home/ubuntu/repos/EVRCalculator/infra/oracle/run_pokemon_onboarding_worker.sh
+          echo "=== related processes ==="
+          pgrep -af 'run_pending_pokemon_set_onboarding|discover_new_pokemon_sets|recheck_pokemon_set_onboarding_catalog' || true
