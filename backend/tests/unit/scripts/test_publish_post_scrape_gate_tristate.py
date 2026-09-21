@@ -74,3 +74,36 @@ def test_publish_if_needed_fails_closed_on_invalid_batch_contract():
         result = publish.publish_if_needed("2026-09-20", client=object())
     assert result["status"] == publish.STATUS_GATE_INVALID_CONTRACT
     assert publish._status_to_exit_code(result["status"]) == 1
+
+
+
+def test_publish_if_needed_maps_lock_held_exit_to_already_running():
+    from backend.db.services.post_scrape_publication_trigger import PublicationCurrencyStatus
+    gate = _decision(allowed=True, reason_code="allowed_complete")
+    with patch.object(publish, "_batch_gate_decision", return_value=gate), patch.object(
+        publish, "_already_current", return_value=PublicationCurrencyStatus.STALE
+    ):
+        result = publish.publish_if_needed(
+            "2026-09-20",
+            client=object(),
+            run_rebuild=lambda _market_date: publish.LOCK_HELD_EXIT_CODE,
+        )
+
+    assert result["status"] == publish.STATUS_NOOP_ALREADY_RUNNING
+    assert result["exit_code"] == publish.LOCK_HELD_EXIT_CODE
+    assert publish._status_to_exit_code(result["status"]) == 0
+
+
+def test_publish_if_needed_still_reports_real_zero_exit_as_published():
+    from backend.db.services.post_scrape_publication_trigger import PublicationCurrencyStatus
+    gate = _decision(allowed=True, reason_code="allowed_complete")
+    with patch.object(publish, "_batch_gate_decision", return_value=gate), patch.object(
+        publish, "_already_current", return_value=PublicationCurrencyStatus.STALE
+    ):
+        result = publish.publish_if_needed(
+            "2026-09-20",
+            client=object(),
+            run_rebuild=lambda _market_date: 0,
+        )
+
+    assert result["status"] == publish.STATUS_PUBLISHED
