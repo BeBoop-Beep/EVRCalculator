@@ -840,7 +840,10 @@ def main() -> int:
         if report.get("status") == "health_only_no_relaunch":
             report["healthy"] = False
     else:
-        report = run_watchdog(\n            recover_stalled=bool(args.recover_stalled),\n            recover_superseded=bool(args.recover_superseded),\n        )
+        report = run_watchdog(
+            recover_stalled=bool(args.recover_stalled),
+            recover_superseded=bool(args.recover_superseded),
+        )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 0 if report.get("healthy") else 1
 
