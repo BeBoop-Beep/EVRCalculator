@@ -210,6 +210,12 @@ _SIMULATION_UNAVAILABLE_SOURCE_VALUES = frozenset(
 # avoid amplifying disk I/O during recovery. Sequential by design (no parallel
 # DB-heavy snapshot generation).
 _REBUILD_MAX_ATTEMPTS = 3
+# Scalar target-date fast-path reads used to batch 100 set ids at once. In
+# production on Sep. 21 that exact first batch repeatedly hit SQLSTATE 57014,
+# disabled the fast path, and forced a 212-set deep audit that held the single
+# publisher lock for hours. Keep these scalar authority reads deliberately
+# small so a healthy target-date publication stays on the cheap plan.
+TARGET_DATE_PRELOAD_BATCH_SIZE = 20
 
 # --- planning observability -------------------------------------------------
 # The full-catalog planner issues hundreds of reads before it writes anything.
@@ -1765,8 +1771,8 @@ def _load_target_snapshot_market_dates(
     ids = [str(value) for value in set_ids if value]
     cards: Dict[str, Dict[str, Optional[str]]] = {}
     market: Dict[str, Dict[str, Optional[str]]] = {}
-    for offset in range(0, len(ids), 100):
-        batch = ids[offset:offset + 100]
+    for offset in range(0, len(ids), TARGET_DATE_PRELOAD_BATCH_SIZE):
+        batch = ids[offset:offset + TARGET_DATE_PRELOAD_BATCH_SIZE]
         try:
             card_result = run_snapshot_operation_with_retry(
                 lambda retry_client: (
