@@ -1,4 +1,4 @@
-name: Inspect active Sep 20 publisher
+name: Validate staged Price Storage worker
 
 on:
   push:
@@ -11,35 +11,23 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Inspect current lock owner progress
+      - name: Checkout staged worker branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/price-projection-transient-retry-20260921
+          persist-credentials: false
+      - name: Run focused projection suite
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          date
-          echo '=== PROCESS ==='
-          ps -p 184482,184500 -o pid,ppid,lstart,etime,time,%cpu,%mem,state,wchan:32,args || true
-          echo
-          echo '=== CURRENT RUN SECTION ==='
-          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log 2>/dev/null | tail -1 | cut -d: -f1 || true)"
-          echo "start_line=${START:-missing}"
-          if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/current-pub.log
-            grep '\[post-scrape-publication\].*resolved market_date=' /tmp/current-pub.log | head -1 || true
-            echo "plan_last=$(grep '\[refresh-plan\] checked' /tmp/current-pub.log | tail -1 || true)"
-            echo "plan_complete=$(grep -c '\[refresh-plan\] complete' /tmp/current-pub.log || true)"
-            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "setpage_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "refresh_exit=$(grep 'refresh exit_status=' /tmp/current-pub.log | tail -1 || true)"
-            echo "audit_exit=$(grep 'audit exit_status=' /tmp/current-pub.log | tail -1 || true)"
-            echo "final_exit=$(grep 'final exit_status=' /tmp/current-pub.log | tail -1 || true)"
-            echo '=== RECENT PHASE/ERROR LINES ==='
-            grep -E '\[refresh-plan\]|\[refresh-phase\]|failed coordinated|ERROR|FAILED|Traceback|refresh exit_status|audit exit_status|post-scrape publication COMPLETE|final exit_status' /tmp/current-pub.log | tail -160 || true
-            echo '=== TAIL ==='
-            tail -100 /tmp/current-pub.log || true
-          fi
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile backend/db/services/price_storage_v2_projection_gate.py backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py
+          "$PY" -m pytest -q backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py
