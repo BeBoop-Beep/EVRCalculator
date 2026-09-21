@@ -91,7 +91,7 @@ jobs:
           if [ "$COMPILE_RC" -ne 0 ]; then exit 12; fi
 
           echo "=== bounded Price Storage V2 recovery ==="
-          "$PY" backend/scripts/recover_price_projection_market_date.py --market-date "$MARKET_DATE" --rearm-terminal-set-id "$BLACK_BOLT_SET_ID" --expected-error-substring 57014 --process-limit 10 --max-rounds 30 --sleep-seconds 5
+          "$PY" -m backend.scripts.recover_price_projection_market_date --market-date "$MARKET_DATE" --rearm-terminal-set-id "$BLACK_BOLT_SET_ID" --expected-error-substring 57014 --process-limit 10 --max-rounds 30 --sleep-seconds 5
           RECOVERY_RC=$?
           echo "price_projection_recovery_rc=$RECOVERY_RC"
           if [ "$RECOVERY_RC" -ne 0 ]; then exit 21; fi
