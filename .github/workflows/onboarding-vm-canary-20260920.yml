@@ -1,0 +1,55 @@
+name: Onboarding VM canary 2026-09-20
+
+on:
+  push:
+    branches:
+      - ops/onboarding-vm-canary-20260920
+
+permissions:
+  contents: read
+
+jobs:
+  vm-canary:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    steps:
+      - name: Inspect runner and sync production checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "host=$(hostname)"
+          echo "user=$(whoami)"
+          cd /home/ubuntu/repos/EVRCalculator
+          echo "before=$(git rev-parse HEAD)"
+          git status --short
+          git fetch origin main
+          git switch --detach origin/main
+          echo "after=$(git rev-parse HEAD)"
+          git log -1 --oneline
+
+      - name: Run focused onboarding tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          ./.venv/bin/python -m pytest -q             backend/tests/unit/db/test_pokemon_set_onboarding_repository_v2.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py
+
+      - name: Advance Delta Reign one step
+        shell: bash
+        run: |
+          cd /home/ubuntu/repos/EVRCalculator
+          set +e
+          ./.venv/bin/python backend/scripts/run_pending_pokemon_set_onboarding.py             --commit             --job-id 99f3ab90-6240-48d1-a117-a0dc685d0f5f             --max-jobs 1             --json
+          code=$?
+          echo "DELTA_EXIT=$code"
+          exit 0
+
+      - name: Advance Classic Collection one step
+        shell: bash
+        run: |
+          cd /home/ubuntu/repos/EVRCalculator
+          set +e
+          ./.venv/bin/python backend/scripts/run_pending_pokemon_set_onboarding.py             --commit             --job-id d895a879-f353-4b93-a6da-ef93a8351a1e             --max-jobs 1             --json
+          code=$?
+          echo "CLASSIC_EXIT=$code"
+          exit 0
