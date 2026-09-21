@@ -64,8 +64,14 @@ def test_dry_run_plans_refresh_without_running_commands(monkeypatch):
         any(part.endswith("run_pokemon_set_scrape.py") for part in cmd)
         for cmd in refresh["planned_commands"]
     )
-    assert any("build_pokemon_set_desirability_inputs.py" in cmd for cmd in refresh["planned_commands"])
-    assert any("build_pokemon_set_cards_snapshots.py" in cmd for cmd in refresh["planned_commands"])
+    assert any(
+        any(part.endswith("build_pokemon_set_desirability_inputs.py") for part in cmd)
+        for cmd in refresh["planned_commands"]
+    )
+    assert any(
+        any(part.endswith("build_pokemon_set_cards_snapshots.py") for part in cmd)
+        for cmd in refresh["planned_commands"]
+    )
 
 
 def test_no_provider_change_and_no_db_lag_is_noop(monkeypatch):
