@@ -1,4 +1,4 @@
-name: Verify watchdog code before cron install
+name: Check publisher exit for deployment
 
 on:
   push:
@@ -11,28 +11,24 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  check:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Verify current checkout and cron
+      - name: Check canonical publisher lock and final markers
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
           date
-          echo -n 'head='; git rev-parse HEAD
-          echo -n 'branch='; git branch --show-current || true
-          echo 'status:'; git status --short || true
-          echo
-          echo 'watchdog_file:'
-          test -f backend/alerts/post_scrape_publication_watchdog.py && echo present || echo missing
-          echo 'canonical_watchdog_cron:'
-          grep 'post-scrape-publication-watchdog' infra/oracle/tcgplayer-scraper-pokemon.crontab 2>/dev/null || true
-          echo 'installed_watchdog_cron:'
-          crontab -l | grep 'post-scrape-publication-watchdog' || true
-          echo
-          echo 'publisher:'
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo 'lock:'
+          echo '=== PROCESS ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
+          echo '=== LOCK ==='
           fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo '=== FINAL MARKERS ==='
+          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-20' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep20-final-check.log
+            grep -E 'refresh exit_status=|audit exit_status=|market explorer projection exit_status=|post-scrape publication COMPLETE|final exit_status=|public snapshot refresh summary|cards failed:|market_dashboard failed:|global failed:|Rankings:' /tmp/sep20-final-check.log | tail -100 || true
+            tail -30 /tmp/sep20-final-check.log
+          fi
