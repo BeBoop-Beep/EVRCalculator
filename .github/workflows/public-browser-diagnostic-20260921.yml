@@ -1,0 +1,100 @@
+name: Public browser diagnostic 2026-09-21
+
+on:
+  push:
+    branches:
+      - ops/onboarding-vm-canary-20260920
+    paths:
+      - '.github/workflows/public-browser-diagnostic-20260921.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install -q playwright
+          python3 -m playwright install --with-deps chromium
+
+      - name: Capture production runtime failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from playwright.sync_api import sync_playwright
+
+          cases = [
+              ("catalog", "https://www.inthedex.io/TCGs/Pokemon/Sets"),
+              ("pitch", "https://www.inthedex.io/TCGs/Pokemon/Sets/pitch-black"),
+              ("delta", "https://www.inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"),
+              ("30th", "https://www.inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"),
+              ("rankings", "https://www.inthedex.io/Rankings"),
+          ]
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              for name, url in cases:
+                  page = browser.new_page(viewport={"width": 1440, "height": 900})
+                  console = []
+                  page_errors = []
+                  failed = []
+                  bad = []
+                  page.on("console", lambda msg: console.append({
+                      "type": msg.type,
+                      "text": msg.text,
+                  }) if msg.type in ("error", "warning") else None)
+                  page.on("pageerror", lambda exc: page_errors.append(str(exc)))
+                  page.on("requestfailed", lambda req: failed.append({
+                      "url": req.url,
+                      "type": req.resource_type,
+                      "failure": req.failure,
+                  }))
+                  page.on("response", lambda res: bad.append({
+                      "url": res.url,
+                      "status": res.status,
+                      "type": res.request.resource_type,
+                  }) if res.status >= 400 else None)
+
+                  goto_error = None
+                  try:
+                      page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                      page.wait_for_timeout(15000)
+                  except Exception as exc:
+                      goto_error = str(exc)
+
+                  state = page.evaluate("""() => {
+                    const text = document.body?.innerText || "";
+                    return {
+                      href: location.href,
+                      title: document.title,
+                      bodyTextLength: text.length,
+                      bodyTextHead: text.slice(0, 2500),
+                      setContextShell: !!document.querySelector('[data-set-context-shell]'),
+                      ariaBusy: Array.from(document.querySelectorAll('[aria-busy="true"]')).map(el => ({
+                        label: el.getAttribute('aria-label'),
+                        text: (el.innerText || '').slice(0, 300),
+                      })),
+                      loaderShells: document.querySelectorAll('.index-loader-shell').length,
+                    };
+                  }""")
+
+                  print("DIAG=" + json.dumps({
+                      "case": name,
+                      "goto_error": goto_error,
+                      "state": state,
+                      "page_errors": page_errors,
+                      "console": console[-80:],
+                      "failed_requests": failed[-80:],
+                      "bad_responses": bad[-80:],
+                  }))
+                  page.close()
+              browser.close()
+          PY
