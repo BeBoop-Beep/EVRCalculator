@@ -12,8 +12,8 @@
 CRON_TZ=America/Phoenix
 
 # Primary run + retries. `flock -n` guarantees one instance; a held lock is a safe no-op.
-10 4 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'cd /home/ubuntu/repos/EVRCalculator && EVR_PRICING_STATE_DIR=/home/ubuntu/state/multi_source_pricing /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_daily_multi_source_card_pricing --json --resume' >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing.log 2>&1
-40 4,5,7-20 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'cd /home/ubuntu/repos/EVRCalculator && EVR_PRICING_STATE_DIR=/home/ubuntu/state/multi_source_pricing /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_daily_multi_source_card_pricing --json --resume' >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing.log 2>&1
+10 4 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'cd /home/ubuntu/repos/EVRCalculator && EVR_PRICING_STATE_DIR=/home/ubuntu/state/multi_source_pricing /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_daily_multi_source_card_pricing --json --resume --no-frontend-env-fallback' >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing.log 2>&1
+40 4,5,7-20 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'cd /home/ubuntu/repos/EVRCalculator && EVR_PRICING_STATE_DIR=/home/ubuntu/state/multi_source_pricing /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_daily_multi_source_card_pricing --json --resume --no-frontend-env-fallback' >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing.log 2>&1
 
 # Read-only health report (degraded eBay coverage never marks canonical TCGplayer pricing unhealthy).
 20 9 * * * cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.check_multi_source_pricing_health >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing_health.log 2>&1
