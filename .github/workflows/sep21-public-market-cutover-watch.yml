@@ -1,0 +1,47 @@
+name: Sep 21 Public Market Cutover Watch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sep21-public-market-cutover-watch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/sentinel-continuation-20260921
+          fetch-depth: 1
+
+      - name: Wait for Sep 21 public Market authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET=2026-09-21
+          RESULT=""
+          for i in $(seq 1 40); do
+            DATE="$(curl --fail --silent --show-error --retry 2 --retry-delay 3 --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market | python -c 'import json,sys; p=json.load(sys.stdin); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' 2>/dev/null || true)"
+            echo "poll=$i public_market_date=$DATE"
+            if [ "$DATE" = "$TARGET" ]; then
+              RESULT="PASS"
+              break
+            fi
+            sleep 30
+          done
+
+          mkdir -p ops/assistant
+          printf 'result=%s\ntarget=%s\nobserved=%s\nutc=%s\n' "$RESULT" "$TARGET" "$DATE" "$(date -u +%FT%TZ)" > ops/assistant/public-market-cutover.txt
+
+          git config user.name "inDex public cutover watch"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/public-market-cutover.txt
+          git commit -m "ops: record Sep 21 public Market cutover"
+          git push origin HEAD:ops/sentinel-continuation-20260921
+
+          [ "$RESULT" = "PASS" ]
