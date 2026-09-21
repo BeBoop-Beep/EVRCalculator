@@ -11,6 +11,7 @@
 5,20 3 * * * /usr/bin/flock -n /tmp/pokemon-batch-create.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/create_daily_scrape_batch.py --trigger-source scheduled --if-missing --skip-new-set-detection' >> /home/ubuntu/repos/EVRCalculator/backend/logs/create_daily_scrape_batch.log 2>&1
 * * * * * /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/run_next_scrape_job.py' >> /home/ubuntu/repos/EVRCalculator/backend/logs/cron_dispatcher.log 2>&1
 0 6 * * * cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/publish_post_scrape_if_needed.py >> /home/ubuntu/repos/EVRCalculator/backend/logs/rebuild_snapshots_after_scrape.cron.log 2>&1
+2-59/5 * * * * /usr/bin/flock -n /tmp/post-scrape-publication-watchdog.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.alerts.post_scrape_publication_watchdog' >> /home/ubuntu/repos/EVRCalculator/backend/logs/post_scrape_publication_watchdog.log 2>&1
 
 # Pokemon set onboarding
 */5 5-7 * * * /usr/bin/flock -n /tmp/pokemon-set-onboarding.lock /home/ubuntu/bin/run_pokemon_onboarding_worker.sh commit >> /home/ubuntu/logs/pokemon_set_onboarding.log 2>&1
