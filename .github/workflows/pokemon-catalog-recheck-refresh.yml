@@ -41,6 +41,7 @@ jobs:
           REPO=/home/ubuntu/repos/EVRCalculator
           cd "$REPO"
 
+          set +e
           ./.venv/bin/python - <<'PY'
           from backend.db.clients.supabase_client import create_service_role_client
 
@@ -73,6 +74,7 @@ jobs:
           print("active price scrape jobs=0 runs=0")
           PY
           guard_code=$?
+          set -e
           if [ "$guard_code" -eq 75 ]; then
             exit 0
           fi
