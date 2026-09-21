@@ -1,4 +1,4 @@
-name: Inspect broken client modules
+name: Install browser diagnostics and reproduce production failure
 
 on:
   push:
@@ -9,55 +9,100 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  browser:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
-      - name: Locate set rich client module 51150
+      - name: Install isolated Python Playwright if needed
         shell: bash
         run: |
           set -euo pipefail
-          base="https://www.inthedex.io/_next/static/chunks"
-          for file in             "6191-05b4624edbeb9434.js"             "8278-d925812404ca1621.js"             "1954-9d33baa10331d710.js"             "6042-e5094b16df56c2c2.js"             "1150.ea96b4a1153f9eeb.js"
-          do
-            tmp="/tmp/$file"
-            curl -L --max-time 20 -fsS "$base/$file" -o "$tmp"
-            if grep -aq '51150:' "$tmp"; then
-              echo "MODULE_51150_CHUNK=$file"
-              python3 - "$tmp" <<'PY'
-          import sys
-          text=open(sys.argv[1],encoding='utf-8',errors='replace').read()
-          marker='51150:'
-          i=text.find(marker)
-          print(text[max(0,i-1000):i+30000])
+          VENV=/home/ubuntu/browser-diagnostics-venv
+          if [ ! -x "$VENV/bin/python" ]; then
+            python3 -m venv "$VENV"
+          fi
+          "$VENV/bin/pip" install -q --upgrade pip
+          "$VENV/bin/pip" install -q playwright
+          "$VENV/bin/python" -m playwright install chromium
+          "$VENV/bin/python" - <<'PY'
+          import playwright
+          print("PLAYWRIGHT_READY=true")
           PY
-            fi
-          done
 
-      - name: Inspect Rankings page dynamic imports
+      - name: Capture browser console and failed requests
         shell: bash
         run: |
           set -euo pipefail
-          html=/tmp/rankings.html
-          curl -L --max-time 45 -fsS "https://www.inthedex.io/Rankings" -o "$html"
-          route_src="$(grep -oE 'src="[^"]+app/Rankings/page-[^"]+\.js[^"]*"' "$html" | head -1 | sed 's/^src="//;s/"$//')"
-          echo "rankings_route_src=$route_src"
-          curl -L --max-time 20 -fsS "https://www.inthedex.io$route_src" -o /tmp/rankings-route.js
-          echo "=== rankings route chunk ==="
-          head -c 30000 /tmp/rankings-route.js
-          echo
-          echo "=== rankings dynamic ids ==="
-          grep -aoE '\.e\([0-9]+\)|n\.bind\(n,[0-9]+\)' /tmp/rankings-route.js | sort -u
+          /home/ubuntu/browser-diagnostics-venv/bin/python - <<'PY'
+          import json
+          from playwright.sync_api import sync_playwright
 
-      - name: Find common dynamic chunk dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "=== chunks with high-value shared module strings ==="
-          for file in /tmp/*.js; do
-            [ -f "$file" ] || continue
-            hits="$(grep -aoE 'RankingsLazyClient|PokemonSetRichPageClient|useRankingsAccess|PublicProfileLocalScaffold|useMediaQuery|resolveCanonicalRipV7' "$file" | sort -u | tr '\n' ',' || true)"
-            if [ -n "$hits" ]; then
-              echo "$(basename "$file"): $hits"
-            fi
-          done
+          cases = [
+              ("catalog", "https://www.inthedex.io/TCGs/Pokemon/Sets"),
+              ("pitch", "https://www.inthedex.io/TCGs/Pokemon/Sets/pitch-black"),
+              ("delta", "https://www.inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"),
+              ("30th", "https://www.inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"),
+              ("rankings", "https://www.inthedex.io/Rankings"),
+          ]
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              for name, url in cases:
+                  page = browser.new_page(viewport={"width": 1440, "height": 900})
+                  console = []
+                  errors = []
+                  failed = []
+                  responses = []
+
+                  def on_console(msg):
+                      if msg.type in ("error", "warning"):
+                          console.append({"type": msg.type, "text": msg.text})
+
+                  page.on("console", on_console)
+                  page.on("pageerror", lambda exc: errors.append(str(exc)))
+                  page.on("requestfailed", lambda req: failed.append({
+                      "url": req.url,
+                      "resource_type": req.resource_type,
+                      "failure": req.failure,
+                  }))
+                  page.on("response", lambda res: responses.append({
+                      "url": res.url,
+                      "status": res.status,
+                      "resource_type": res.request.resource_type,
+                  }) if res.status >= 400 else None)
+
+                  goto_error = None
+                  try:
+                      page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                      page.wait_for_timeout(15000)
+                  except Exception as exc:
+                      goto_error = str(exc)
+
+                  state = page.evaluate("""() => {
+                    const text = document.body?.innerText || "";
+                    return {
+                      href: location.href,
+                      title: document.title,
+                      bodyTextLength: text.length,
+                      bodyTextHead: text.slice(0, 2000),
+                      setContextShell: !!document.querySelector('[data-set-context-shell]'),
+                      ariaBusy: Array.from(document.querySelectorAll('[aria-busy="true"]')).map(el => ({
+                        label: el.getAttribute('aria-label'),
+                        text: (el.innerText || '').slice(0, 200),
+                      })),
+                      scripts: Array.from(document.scripts).map(s => s.src).filter(Boolean),
+                    };
+                  }""")
+
+                  print(json.dumps({
+                      "case": name,
+                      "goto_error": goto_error,
+                      "state": state,
+                      "page_errors": errors,
+                      "console": console[-50:],
+                      "failed_requests": failed[-50:],
+                      "bad_responses": responses[-50:],
+                  }))
+                  page.close()
+              browser.close()
+          PY
