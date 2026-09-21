@@ -5,6 +5,7 @@ currency check, breaking the exact-market-date pass-through, or letting a
 launch failure raise would make it fail.
 """
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -20,8 +21,17 @@ def _fake_popen(args, *, cwd, log_path):
 
 
 @pytest.fixture(autouse=True)
-def _reset_popen_calls():
+def _reset_popen_calls(monkeypatch):
     _fake_popen.calls = []
+    monkeypatch.setattr(
+        trigger,
+        "_default_price_projection_check",
+        lambda market_date: SimpleNamespace(
+            ready=True,
+            reason_code="price_projection_ready",
+            to_dict=lambda: {"ready": True, "market_date": market_date},
+        ),
+    )
     yield
 
 
@@ -247,3 +257,55 @@ def test_default_popen_uses_detached_session_and_explicit_args(tmp_path, monkeyp
     # No shell injection surface: args passed as a list, not a shell string.
     assert isinstance(captured["args"], list)
     assert log_path.exists()
+
+
+
+def test_price_projection_not_ready_defers_without_currency_check_or_launch():
+    currency_calls = []
+    projection = SimpleNamespace(
+        ready=False,
+        reason_code="price_projection_not_ready",
+        to_dict=lambda: {
+            "ready": False,
+            "expected_set_count": 165,
+            "complete_set_count": 100,
+        },
+    )
+    result = trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-20",
+        price_projection_check=lambda _date: projection,
+        publication_current=lambda date: currency_calls.append(date),
+        popen=_fake_popen,
+        lock_check=lambda _path: False,
+    )
+    assert result["status"] == trigger.STATUS_SKIPPED_PRICE_PROJECTION_NOT_READY
+    assert result["price_projection"]["complete_set_count"] == 100
+    assert currency_calls == []
+    assert _fake_popen.calls == []
+
+
+def test_price_projection_authority_failure_never_launches(monkeypatch):
+    from backend.db.services.price_storage_v2_projection_gate import (
+        REASON_AUTHORITY_UNAVAILABLE,
+    )
+    alerts = []
+    monkeypatch.setattr(
+        trigger,
+        "_queue_price_projection_failure_alert",
+        lambda market_date, decision: alerts.append((market_date, decision.reason_code)),
+    )
+    projection = SimpleNamespace(
+        ready=False,
+        reason_code=REASON_AUTHORITY_UNAVAILABLE,
+        to_dict=lambda: {"ready": False, "reason_code": REASON_AUTHORITY_UNAVAILABLE},
+    )
+    result = trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-20",
+        price_projection_check=lambda _date: projection,
+        publication_current=lambda _date: trigger.PublicationCurrencyStatus.STALE,
+        popen=_fake_popen,
+        lock_check=lambda _path: False,
+    )
+    assert result["status"] == trigger.STATUS_PRICE_PROJECTION_CHECK_FAILED
+    assert alerts == [("2026-09-20", REASON_AUTHORITY_UNAVAILABLE)]
+    assert _fake_popen.calls == []
