@@ -73,43 +73,71 @@ STATUS_INVALID_MARKET_DATE = "invalid_market_date"
 STATUS_NOT_COMPLETE = "skipped_batch_not_complete"
 STATUS_CURRENCY_CHECK_FAILED = "currency_check_failed"
 STATUS_SKIPPED_ALREADY_RUNNING = "skipped_already_running"
-STATUS_SKIPPED_PRICE_PROJECTION_NOT_READY = "skipped_price_projection_not_ready"
-STATUS_PRICE_PROJECTION_CHECK_FAILED = "price_projection_check_failed"
 
 
 def is_valid_market_date(value: Any) -> bool:
     return isinstance(value, str) and bool(_MARKET_DATE_RE.match(value))
 
 
-def _default_publication_current(market_date: str) -> PublicationCurrencyStatus:
-    """Durable idempotence check: is post-scrape publication already current?
+MARKET_EXPLORER_V2_COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage_v2_shadow"
 
-    Reuses the existing post-scrape audit authority for the EXACT market date
-    (bypassing its own "latest promoted batch" resolution by passing the date
-    explicitly) rather than inventing new schema.
 
-    Returns UNKNOWN (never STALE) when the audit itself could not run — an
-    audit-infrastructure/DB outage is not evidence that publication is stale.
-    """
+def _market_explorer_v2_current(client: Any, market_date: str) -> bool:
+    """Require every tracked Market Explorer Set to be projected through the date."""
+    from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids
+
+    target = str(market_date)[:10]
+    tracked = set(resolve_tracked_set_ids(client))
+    if not tracked:
+        raise RuntimeError("Market Explorer tracked-set authority returned no Sets")
+
+    rows = list(
+        client.table(MARKET_EXPLORER_V2_COVERAGE_TABLE)
+        .select("set_id,computed_through")
+        .execute().data or []
+    )
+    coverage = {
+        str(row.get("set_id") or ""): str(row.get("computed_through") or "")[:10]
+        for row in rows if row.get("set_id")
+    }
+    return all(coverage.get(set_id, "") >= target for set_id in tracked)
+
+
+def evaluate_post_scrape_publication_currency(
+    client: Any,
+    market_date: str,
+    *,
+    audit_runner: Optional[Callable[..., Any]] = None,
+) -> PublicationCurrencyStatus:
+    """Canonical post-scrape audit plus Market Explorer V2 define CURRENT."""
     try:
-        from backend.db.clients.supabase_client import supabase
-        from backend.scripts.audit_pokemon_market_publication import (
-            PHASE_POST_SCRAPE,
-            run_market_publication_audit,
-        )
+        if audit_runner is None:
+            from backend.scripts.audit_pokemon_market_publication import (
+                PHASE_POST_SCRAPE,
+                run_market_publication_audit,
+            )
+            audit_runner = run_market_publication_audit
+        else:
+            from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
 
-        report = run_market_publication_audit(
-            supabase, market_date=market_date, phase=PHASE_POST_SCRAPE
-        )
-        if report.market_date == market_date and report.passed:
-            return PublicationCurrencyStatus.CURRENT
-        return PublicationCurrencyStatus.STALE
+        report = audit_runner(client, market_date=market_date, phase=PHASE_POST_SCRAPE)
+        if report.market_date != market_date or not report.passed:
+            return PublicationCurrencyStatus.STALE
+        if not _market_explorer_v2_current(client, market_date):
+            return PublicationCurrencyStatus.STALE
+        return PublicationCurrencyStatus.CURRENT
     except Exception:
         logger.exception(
             "%s publication-currency check failed for market_date=%s; currency is UNKNOWN, not stale",
             TRIGGER_TAG, market_date,
         )
         return PublicationCurrencyStatus.UNKNOWN
+
+
+def _default_publication_current(market_date: str) -> PublicationCurrencyStatus:
+    """Durable currency check for canonical post-scrape plus Market Explorer V2."""
+    from backend.db.clients.supabase_client import supabase
+    return evaluate_post_scrape_publication_currency(supabase, market_date)
 
 
 def _default_lock_is_held(lock_path: str) -> bool:
@@ -211,34 +239,6 @@ def _default_queue_currency_unknown_alert(*, market_date: str, **_ignored: Any) 
         logger.exception("%s failed to queue currency-check-failed alert", TRIGGER_TAG)
 
 
-def _default_price_projection_check(market_date: str):
-    from backend.db.clients.supabase_client import supabase
-    from backend.db.services.price_storage_v2_projection_gate import (
-        evaluate_price_projection_gate,
-    )
-
-    return evaluate_price_projection_gate(supabase, market_date)
-
-
-def _queue_price_projection_failure_alert(market_date: str, decision: Any) -> None:
-    try:
-        from backend.alerts.scrape_alerts import queue_alert
-
-        payload = decision.to_dict() if hasattr(decision, "to_dict") else {}
-        queue_alert(
-            "price_projection_publication_blocked",
-            title=f"PRICE PROJECTION PUBLICATION BLOCKED — {market_date}",
-            message=(
-                f"Price Storage V2 readiness could not be verified for market_date={market_date}; "
-                "post-scrape publication was not launched."
-            ),
-            severity="critical",
-            dedupe_key=f"price_projection_publication_blocked:{market_date}",
-            payload=payload,
-        )
-    except Exception:
-        logger.exception("%s failed to queue price-projection alert", TRIGGER_TAG)
-
 def trigger_post_scrape_publication_if_needed(
     market_date: Optional[str],
     *,
@@ -249,7 +249,6 @@ def trigger_post_scrape_publication_if_needed(
     queue_alert: Optional[Callable[..., None]] = None,
     lock_check: Optional[Callable[[str], bool]] = None,
     lock_path: Optional[str] = None,
-    price_projection_check: Optional[Callable[[str], Any]] = None,
 ) -> Dict[str, Any]:
     """Launch the canonical post-scrape publication wrapper if it is needed.
 
@@ -301,39 +300,6 @@ def trigger_post_scrape_publication_if_needed(
         )
         result["status"] = STATUS_SKIPPED_ALREADY_RUNNING
         return result
-
-    check_projection = price_projection_check or _default_price_projection_check
-    projection = check_projection(market_date)
-    projection_reason = str(getattr(projection, "reason_code", "") or "")
-    projection_ready = bool(getattr(projection, "ready", False))
-    if not projection_ready:
-        from backend.db.services.price_storage_v2_projection_gate import (
-            REASON_AUTHORITY_UNAVAILABLE,
-        )
-        projection_payload = (
-            projection.to_dict() if hasattr(projection, "to_dict") else {}
-        )
-        if projection_reason == REASON_AUTHORITY_UNAVAILABLE:
-            logger.error(
-                "%s Price Storage V2 readiness UNKNOWN for market_date=%s; NOT launching",
-                TRIGGER_TAG, market_date,
-            )
-            _queue_price_projection_failure_alert(market_date, projection)
-            result["status"] = STATUS_PRICE_PROJECTION_CHECK_FAILED
-        else:
-            logger.info(
-                "%s Price Storage V2 not ready for market_date=%s complete=%s expected=%s; deferring launch",
-                TRIGGER_TAG, market_date,
-                projection_payload.get("complete_set_count"),
-                projection_payload.get("expected_set_count"),
-            )
-            result["status"] = STATUS_SKIPPED_PRICE_PROJECTION_NOT_READY
-        result["price_projection"] = projection_payload
-        return result
-
-    result["price_projection"] = (
-        projection.to_dict() if hasattr(projection, "to_dict") else {"ready": True}
-    )
 
     check_current = publication_current or _default_publication_current
     alert_queuer = queue_alert or _default_queue_currency_unknown_alert
