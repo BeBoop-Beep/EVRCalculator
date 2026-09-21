@@ -31,6 +31,7 @@ CLASSIFIED = {
     "backend/db/services/sealed_product_rip_finalization_service.py": "offline-builder (finalization, comment only)",
     "backend/research/chase_pillar_stage6/control.py": "research",
     "backend/research/collector_appeal_candidates.py": "research",
+    "backend/db/services/rip_release.py": "release-authority (static = marked fallback bundle only)",
     # serving readers: the static value is ONLY the marked fallback for an unreadable pointer
     "backend/db/services/product_family_rankings_service.py": "serving: release-driven; static = marked fallback",
     "backend/db/services/set_rip_service.py": "serving: release-driven; static = marked fallback",
