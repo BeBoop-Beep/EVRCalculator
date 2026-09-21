@@ -21,7 +21,31 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pandas numpy
+          pip install pytest pandas numpy pyyaml
+
+      - name: Validate GitHub workflow YAML syntax
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import sys
+          import yaml
+
+          failures = []
+          for path in sorted(Path(".github/workflows").glob("*.y*ml")):
+              try:
+                  yaml.safe_load(path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  failures.append(f"{path}: {type(exc).__name__}: {exc}")
+
+          if failures:
+              print("Invalid GitHub workflow YAML:")
+              for failure in failures:
+                  print(f"  - {failure}")
+              sys.exit(1)
+
+          print("Workflow YAML syntax valid.")
+          PY
 
       - name: Run pattern-overlay guardrail suite
         run: |
