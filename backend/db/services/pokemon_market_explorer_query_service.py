@@ -131,6 +131,21 @@ def _page_all(query_factory: Any, *, page_size: int = 1000) -> list[dict[str, An
         start += page_size
 
 
+def _set_id_batches(set_ids: Sequence[str], *, batch_size: int = SET_ID_QUERY_BATCH) -> list[list[str]]:
+    ids = sorted({str(value) for value in set_ids if str(value)})
+    return [ids[offset:offset + batch_size] for offset in range(0, len(ids), batch_size)]
+
+
+def _load_set_rows(client: Any, set_ids: Sequence[str], columns: str) -> list[dict[str, Any]]:
+    """Bound Set-table IN clauses so Global scope never emits a giant URL."""
+    rows: list[dict[str, Any]] = []
+    for batch in _set_id_batches(set_ids):
+        rows.extend(list(
+            client.table("sets").select(columns).in_("id", batch).execute().data or []
+        ))
+    return rows
+
+
 SET_HISTORY_COVERAGE_RPC = "get_pokemon_market_explorer_set_history_coverage_v1"
 
 
@@ -198,7 +213,8 @@ def resolve_scope_set_ids(
 #: Sets per canonical-card metadata request. Bounded rather than unlimited so a
 #: 167-set scope cannot build a URL-length-defeating `in_` list; 40 keeps the
 #: global 22-set cohort to a single batch with headroom to spare.
-CARD_UNIVERSE_SET_BATCH = 40
+SET_ID_QUERY_BATCH = 40
+CARD_UNIVERSE_SET_BATCH = SET_ID_QUERY_BATCH
 
 #: Scope -> {canonical rarity key: raw spellings present in that scope}.
 #:
@@ -362,7 +378,7 @@ def resolve_pokemon_names(client: Any, pokemon_ids: Sequence[str]) -> dict[str, 
 
 
 def load_release_dates(client: Any, set_ids: Sequence[str]) -> dict[str, str]:
-    rows = _page_all(lambda: client.table("sets").select("id,release_date").in_("id", list(set_ids)))
+    rows = _load_set_rows(client, set_ids, "id,release_date")
     return {str(row.get("id")): str(row.get("release_date"))[:10]
             for row in rows if row.get("release_date")}
 
@@ -445,9 +461,11 @@ def resolve_materialized_history_route(
     if not wanted:
         return "interval_fallback", None
     try:
-        rows = list((client.table(V2_COVERAGE_TABLE)
-                     .select("set_id,retained_from,computed_through")
-                     .in_("set_id", sorted(wanted)).execute()).data or [])
+        rows: list[dict[str, Any]] = []
+        for batch in _set_id_batches(sorted(wanted)):
+            rows.extend(list((client.table(V2_COVERAGE_TABLE)
+                              .select("set_id,retained_from,computed_through")
+                              .in_("set_id", batch).execute()).data or []))
         by_id = {str(row.get("set_id")): row for row in rows if row.get("set_id")}
         if set(by_id) != wanted:
             return "interval_fallback", None
@@ -1351,7 +1369,7 @@ def run_market_explorer_query(
 
 
 def _load_set_names(client: Any, set_ids: Sequence[str]) -> dict[str, str]:
-    rows = _page_all(lambda: client.table("sets").select("id,name").in_("id", list(set_ids)))
+    rows = _load_set_rows(client, set_ids, "id,name")
     return {str(row.get("id")): str(row.get("name") or "") for row in rows}
 
 
@@ -1382,9 +1400,9 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
     if not tracked_set_ids:
         raise MarketExplorerQueryUnavailable("no tracked sets have market history")
 
-    set_rows = _page_all(lambda: client.table("sets")
-                         .select("id,name,era_id,release_date")
-                         .in_("id", list(tracked_set_ids)))
+    set_rows = _load_set_rows(
+        client, tracked_set_ids, "id,name,era_id,release_date",
+    )
     era_ids = sorted({str(row.get("era_id") or "") for row in set_rows} - {""})
     era_rows = _page_all(lambda: client.table("eras")
                          .select("id,name,sort_order").in_("id", era_ids)) if era_ids else []
@@ -1408,10 +1426,14 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
 
     # Compact compatibility authority: one set-id list per selectable rarity or
     # Pokemon, never a materialized cross-product of every possible query.
-    card_rows = _page_all(lambda: client.table("pokemon_market_explorer_card_current_metadata")
-                          .select("canonical_card_id,set_id,rarity")
-                          .in_("set_id", list(tracked_set_ids))
-                          .order("canonical_card_id"))
+    card_rows: list[dict[str, Any]] = []
+    for batch in _set_id_batches(tracked_set_ids):
+        card_rows.extend(_page_all(
+            lambda batch=batch: client.table("pokemon_market_explorer_card_current_metadata")
+            .select("canonical_card_id,set_id,rarity")
+            .in_("set_id", batch)
+            .order("canonical_card_id")
+        ))
     card_set_by_id = {str(row.get("canonical_card_id")): str(row.get("set_id")) for row in card_rows}
     segment_sets: dict[str, set[str]] = {}
     rarity_card_counts: dict[str, int] = {}
