@@ -1,4 +1,4 @@
-name: Validate Top Chase pre-write guard
+name: Check publication completion and sync readiness
 
 on:
   push:
@@ -11,32 +11,25 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  check:
     runs-on: self-hosted
-    timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
+    timeout-minutes: 5
     steps:
-      - name: Checkout hotfix
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/top-chase-validate-before-write-20260920
-          persist-credentials: false
-      - name: Validate ordering and current-date slice
+      - name: Check publication completion
         shell: bash
         run: |
-          set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile backend/scripts/refresh_stale_public_snapshots.py
-          "$PY" - <<'PY'
-          import inspect
-          from backend.scripts import refresh_stale_public_snapshots as r
-          source=inspect.getsource(r._maybe_rebuild_coordinated_market)
-          assert source.index('_daily_top_chase_history_rows(') < source.index('upsert_row(')
-          d={'latest_market_date':'2026-09-20','top_chase_cards_json':[{'id':str(i)} for i in range(10)]}
-          rows=[{'snapshot_date':'2026-09-20','rank':i} for i in range(1,11)]
-          assert len(r._daily_top_chase_history_rows(d,rows))==10
-          print('prewrite_validation=PASS')
-          PY
+          set -u
+          cd /home/ubuntu/repos/EVRCalculator
+          date
+          echo '=== PUBLISHER ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          echo '=== LOCK ==='
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo '=== HEAD ==='
+          echo -n 'head='; git rev-parse HEAD
+          git fetch origin >/dev/null 2>&1 || true
+          echo -n 'origin_main='; git rev-parse origin/main
+          echo '=== STATUS ==='
+          git status --short || true
+          echo '=== PUBLICATION TAIL ==='
+          tail -80 publication.log || true
