@@ -1718,7 +1718,7 @@ def _load_completed_scrape_set_ids(client: Any, market_date: Optional[str]) -> O
 
 def _load_target_snapshot_market_dates(
     client: Any, set_ids: Sequence[str], *, window: str
-) -> Optional[Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]]:
+) -> Optional[Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]]:
     """Bulk-load only the scalar authority dates needed for target-date fast-pathing.
 
     Any preload read failure returns ``None`` so the caller falls back to the
@@ -1726,8 +1726,8 @@ def _load_target_snapshot_market_dates(
     snapshot row is missing.
     """
     ids = [str(value) for value in set_ids if value]
-    cards: Dict[str, Dict[str, Optional[str]]] = {}
-    market: Dict[str, Dict[str, Optional[str]]] = {}
+    cards: Dict[str, Dict[str, Any]] = {}
+    market: Dict[str, Dict[str, Any]] = {}
     for offset in range(0, len(ids), 100):
         batch = ids[offset:offset + 100]
         card_rows, card_error = _execute_query(
@@ -1759,7 +1759,7 @@ def _load_target_snapshot_market_dates(
         market_rows, market_error = _execute_query(
             "pokemon_set_market_dashboard_snapshot_latest.target_dates",
             client.table("pokemon_set_market_dashboard_snapshot_latest")
-            .select("set_id,latest_market_date,updated_at")
+            .select("set_id,latest_market_date,updated_at,top_chase_cards_json")
             .eq("window_key", window)
             .in_("set_id", batch),
         )
@@ -1773,12 +1773,84 @@ def _load_target_snapshot_market_dates(
             set_id = str(row.get("set_id") or "")
             if not set_id:
                 continue
+            top_cards = row.get("top_chase_cards_json")
             market[set_id] = {
                 "market_date": _to_text(row.get("latest_market_date")),
                 "updated_at": _to_text(row.get("updated_at")),
+                "top_chase_count": len(top_cards) if isinstance(top_cards, list) else 0,
             }
     return cards, market
 
+
+def _load_target_top_chase_daily_ranks(
+    client: Any,
+    set_ids: Sequence[str],
+    *,
+    target_market_date: str,
+) -> Optional[Dict[str, List[int]]]:
+    """Bulk-load persisted Top Chase ranks for the exact recovery market date.
+
+    Returns ``None`` on any unreadable preload so the planner falls back to the
+    existing deep path. A failed bulk read is never interpreted as missing data.
+    """
+    ids = [str(value) for value in set_ids if value]
+    by_set: Dict[str, List[int]] = {}
+    for offset in range(0, len(ids), 75):
+        batch = ids[offset:offset + 75]
+        rows, error = _execute_query(
+            "pokemon_set_top_chase_card_daily_history.target_ranks",
+            client.table("pokemon_set_top_chase_card_daily_history")
+            .select("set_id,snapshot_date,rank")
+            .eq("snapshot_date", target_market_date)
+            .in_("set_id", batch),
+        )
+        if error:
+            logger.warning(
+                "[refresh-plan-fastpath] Top Chase daily-rank preload failed for batch offset=%s: %s; disabling fast path",
+                offset, error,
+            )
+            return None
+        for row in rows:
+            set_id = str(row.get("set_id") or "")
+            try:
+                rank = int(row.get("rank"))
+            except (TypeError, ValueError):
+                continue
+            if set_id and rank > 0:
+                by_set.setdefault(set_id, []).append(rank)
+    for set_id, ranks in by_set.items():
+        by_set[set_id] = sorted(set(ranks))
+    return by_set
+
+
+def _target_top_chase_support_fast_result(
+    *,
+    snapshot_row: Optional[Mapping[str, Any]],
+    daily_ranks: Sequence[int],
+    target_market_date: str,
+) -> Optional[FreshnessResult]:
+    """Return proven-stale Market Dashboard result for missing rank support."""
+    if not snapshot_row:
+        return None
+    if _to_text(snapshot_row.get("market_date")) != target_market_date:
+        return None
+    expected_count = int(snapshot_row.get("top_chase_count") or 0)
+    expected_ranks = list(range(1, expected_count + 1))
+    observed_ranks = sorted({int(rank) for rank in daily_ranks})
+    if observed_ranks == expected_ranks:
+        return None
+    return FreshnessResult(
+        "market_dashboard",
+        True,
+        "persisted Top Chase daily history does not match target-date dashboard ranks",
+        _to_text(snapshot_row.get("updated_at")),
+        target_market_date,
+        [
+            f"target-date fast path: top_chase_expected_ranks={expected_ranks}",
+            f"target-date fast path: top_chase_observed_ranks={observed_ranks}",
+            f"target-date fast path: market_date={target_market_date}",
+        ],
+    )
 
 def _target_date_fast_result(
     family: str, *, snapshot_row: Optional[Mapping[str, Optional[str]]], target_market_date: str
@@ -1842,8 +1914,9 @@ def _build_plan(
     target_day = str(target_market_date or "")[:10] or None
     completed_scrape_set_ids = _load_completed_scrape_set_ids(client, target_day)
     fastpath_enabled = bool(target_day and completed_scrape_set_ids is not None)
-    cards_target_dates: Dict[str, Dict[str, Optional[str]]] = {}
-    market_target_dates: Dict[str, Dict[str, Optional[str]]] = {}
+    cards_target_dates: Dict[str, Dict[str, Any]] = {}
+    market_target_dates: Dict[str, Dict[str, Any]] = {}
+    top_chase_target_ranks: Dict[str, List[int]] = {}
     if fastpath_enabled and completed_scrape_set_ids:
         target_snapshot_dates = _load_target_snapshot_market_dates(
             client, sorted(completed_scrape_set_ids), window=window
@@ -1856,10 +1929,24 @@ def _build_plan(
             )
         else:
             cards_target_dates, market_target_dates = target_snapshot_dates
-            logger.info(
-                "[refresh-plan-fastpath] enabled market_date=%s completed_sets=%s cards_rows=%s market_rows=%s",
-                target_day, len(completed_scrape_set_ids), len(cards_target_dates), len(market_target_dates),
+            loaded_top_chase_ranks = _load_target_top_chase_daily_ranks(
+                client,
+                sorted(completed_scrape_set_ids),
+                target_market_date=target_day,
             )
+            if loaded_top_chase_ranks is None:
+                fastpath_enabled = False
+                logger.warning(
+                    "[refresh-plan-fastpath] disabled market_date=%s because Top Chase daily-rank preload was unreadable",
+                    target_day,
+                )
+            else:
+                top_chase_target_ranks = loaded_top_chase_ranks
+                logger.info(
+                    "[refresh-plan-fastpath] enabled market_date=%s completed_sets=%s cards_rows=%s market_rows=%s top_chase_rank_sets=%s",
+                    target_day, len(completed_scrape_set_ids), len(cards_target_dates),
+                    len(market_target_dates), len(top_chase_target_ranks),
+                )
     elif target_day:
         logger.info(
             "[refresh-plan-fastpath] disabled market_date=%s cohort_readable=%s completed_sets=%s",
@@ -1893,6 +1980,12 @@ def _build_plan(
                     snapshot_row=market_target_dates.get(set_id),
                     target_market_date=target_day,
                 )
+                if market is None:
+                    market = _target_top_chase_support_fast_result(
+                        snapshot_row=market_target_dates.get(set_id),
+                        daily_ranks=top_chase_target_ranks.get(set_id, []),
+                        target_market_date=target_day,
+                    )
             if cards is None:
                 cards = _cards_snapshot_staleness(client, set_id)
             if market is None:
