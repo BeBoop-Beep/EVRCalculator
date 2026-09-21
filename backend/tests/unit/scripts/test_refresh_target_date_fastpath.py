@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from backend.scripts import refresh_stale_public_snapshots as refresh
@@ -133,3 +134,122 @@ def test_build_plan_falls_back_to_deep_audit_when_bulk_preload_is_unreadable():
         )
 
     assert calls == ["cards", "market", "page"]
+
+
+
+class _Transient522(Exception):
+    code = 522
+
+
+class _FastpathQuery:
+    def __init__(self, client, table):
+        self.client = client
+        self.table_name = table
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def in_(self, *_args):
+        return self
+
+    def execute(self):
+        if self.client.fail:
+            raise _Transient522("Cloudflare 522 connection timed out")
+        return SimpleNamespace(data=list(self.client.rows.get(self.table_name, [])))
+
+
+class _FastpathClient:
+    def __init__(self, *, fail=False, rows=None):
+        self.fail = fail
+        self.rows = dict(rows or {})
+
+    def table(self, name):
+        return _FastpathQuery(self, name)
+
+
+def test_completed_scrape_cohort_retries_transient_failure_with_fresh_client():
+    initial = _FastpathClient(fail=True)
+    replacement = _FastpathClient(
+        rows={"scrape_jobs": [{"set_id": "set-1"}, {"set_id": "set-2"}]}
+    )
+    replacements = []
+
+    def factory():
+        replacements.append(True)
+        return replacement
+
+    result = refresh._load_completed_scrape_set_ids(
+        initial,
+        "2026-09-20",
+        replacement_client_factory=factory,
+        sleep=lambda _seconds: None,
+    )
+
+    assert result == {"set-1", "set-2"}
+    assert replacements == [True]
+
+
+def test_target_date_preload_retries_transient_failure_and_keeps_fastpath_available():
+    initial = _FastpathClient(fail=True)
+    replacement = _FastpathClient(
+        rows={
+            "pokemon_set_cards_snapshot_latest": [
+                {
+                    "set_id": "set-1",
+                    "updated_at": "2026-09-20T12:00:00Z",
+                    "pricing_market_date": "2026-09-19",
+                    "snapshot_market_date": "2026-09-19",
+                }
+            ],
+            "pokemon_set_market_dashboard_snapshot_latest": [
+                {
+                    "set_id": "set-1",
+                    "latest_market_date": "2026-09-19",
+                    "updated_at": "2026-09-20T12:00:00Z",
+                }
+            ],
+        }
+    )
+    replacements = []
+
+    def factory():
+        replacements.append(True)
+        return replacement
+
+    loaded = refresh._load_target_snapshot_market_dates(
+        initial,
+        ["set-1"],
+        window="365d",
+        replacement_client_factory=factory,
+        sleep=lambda _seconds: None,
+    )
+
+    assert loaded is not None
+    cards, market = loaded
+    assert cards["set-1"]["market_date"] == "2026-09-19"
+    assert market["set-1"]["market_date"] == "2026-09-19"
+    # Cards first attempt fails -> replacement. The Market preload starts with
+    # the shared initial client and therefore needs its own fresh retry too.
+    assert replacements == [True, True]
+
+
+def test_completed_scrape_cohort_exhausted_transient_failure_falls_back_to_deep_audit():
+    initial = _FastpathClient(fail=True)
+    calls = []
+
+    def factory():
+        calls.append(True)
+        return _FastpathClient(fail=True)
+
+    result = refresh._load_completed_scrape_set_ids(
+        initial,
+        "2026-09-20",
+        replacement_client_factory=factory,
+        sleep=lambda _seconds: None,
+    )
+
+    assert result is None
+    assert len(calls) == 2

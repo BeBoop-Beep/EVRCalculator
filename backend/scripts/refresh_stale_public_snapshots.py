@@ -34,6 +34,7 @@ from backend.db.services.set_publication_revalidation import (
 )
 from backend.db.services.rip_decision_freshness import evaluate_rip_decision_staleness
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
+from backend.db.clients.supabase_client import create_service_role_client
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
 from backend.scripts.build_pokemon_desirability_validation_snapshots import (
     _audit_row,
@@ -1691,63 +1692,108 @@ def _resolve_sets(client: Any, *, set_id: Optional[str]) -> List[Dict[str, Any]]
     return list_pokemon_sets(client)
 
 
-def _load_completed_scrape_set_ids(client: Any, market_date: Optional[str]) -> Optional[set[str]]:
+def _planning_retry_client_factory(
+    initial_client: Any, *, replacement_factory=create_service_role_client
+):
+    """Use the existing client once, then a fresh client on every retry."""
+    first = {"value": True}
+
+    def factory():
+        if first["value"]:
+            first["value"] = False
+            return initial_client
+        return replacement_factory()
+
+    return factory
+
+def _load_completed_scrape_set_ids(
+    client: Any,
+    market_date: Optional[str],
+    *,
+    replacement_client_factory=create_service_role_client,
+    sleep=time.sleep,
+) -> Optional[set[str]]:
     """Return the exact completed scrape cohort for a target market date.
 
-    ``None`` means the cohort read itself was unavailable and the planner must
-    fall back to the full deep audit. An empty set is a successful read with no
-    completed jobs, which likewise produces no fast-path classifications.
+    Transient transport/database failures are retried with a fresh client.
+    Exhausted or deterministic failures still disable the fast path and fall
+    back to the existing deep audit; they are never interpreted as an empty
+    completed cohort.
     """
     if not market_date:
         return set()
-    rows, error = _execute_query(
-        "scrape_jobs.completed_target_cohort",
-        client.table("scrape_jobs")
-        .select("set_id")
-        .eq("market_date", str(market_date)[:10])
-        .eq("status", "completed"),
-    )
-    if error:
+    day = str(market_date)[:10]
+    try:
+        result = run_snapshot_operation_with_retry(
+            lambda retry_client: (
+                retry_client.table("scrape_jobs")
+                .select("set_id")
+                .eq("market_date", day)
+                .eq("status", "completed")
+                .execute()
+            ),
+            operation_name="refresh-plan-fastpath:completed-scrape-cohort",
+            max_attempts=3,
+            client_factory=_planning_retry_client_factory(
+                client, replacement_factory=replacement_client_factory
+            ),
+            sleep=sleep,
+        )
+    except Exception as exc:
         logger.warning(
-            "[refresh-plan-fastpath] completed scrape cohort unavailable for market_date=%s: %s; using deep audit",
-            market_date, error,
+            "[refresh-plan-fastpath] completed scrape cohort unavailable for market_date=%s after retries: %s; using deep audit",
+            market_date, exc,
         )
         return None
+    rows = list(getattr(result, "data", None) or [])
     return {str(row.get("set_id")) for row in rows if row.get("set_id")}
 
-
 def _load_target_snapshot_market_dates(
-    client: Any, set_ids: Sequence[str], *, window: str
+    client: Any,
+    set_ids: Sequence[str],
+    *,
+    window: str,
+    replacement_client_factory=create_service_role_client,
+    sleep=time.sleep,
 ) -> Optional[Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]]:
-    """Bulk-load only the scalar authority dates needed for target-date fast-pathing.
+    """Bulk-load scalar authority dates with bounded transient retries.
 
-    Any preload read failure returns ``None`` so the caller falls back to the
-    existing deep audit. An unreadable bulk probe is never evidence that a
-    snapshot row is missing.
+    Each failed attempt after the initial shared client receives a fresh
+    service-role client. If a batch remains unreadable after the bound, return
+    None and preserve the existing deep-audit fallback semantics.
     """
     ids = [str(value) for value in set_ids if value]
     cards: Dict[str, Dict[str, Optional[str]]] = {}
     market: Dict[str, Dict[str, Optional[str]]] = {}
     for offset in range(0, len(ids), 100):
         batch = ids[offset:offset + 100]
-        card_rows, card_error = _execute_query(
-            "pokemon_set_cards_snapshot_latest.target_dates",
-            client.table("pokemon_set_cards_snapshot_latest")
-            .select(
-                "set_id,updated_at,"
-                + CARDS_PRICING_MARKET_DATE_PROJECTION
-                + ","
-                + CARDS_SNAPSHOT_MARKET_DATE_PROJECTION
+        try:
+            card_result = run_snapshot_operation_with_retry(
+                lambda retry_client: (
+                    retry_client.table("pokemon_set_cards_snapshot_latest")
+                    .select(
+                        "set_id,updated_at,"
+                        + CARDS_PRICING_MARKET_DATE_PROJECTION
+                        + ","
+                        + CARDS_SNAPSHOT_MARKET_DATE_PROJECTION
+                    )
+                    .in_("set_id", batch)
+                    .execute()
+                ),
+                operation_name=f"refresh-plan-fastpath:cards-target-dates:{offset}",
+                max_attempts=3,
+                client_factory=_planning_retry_client_factory(
+                    client, replacement_factory=replacement_client_factory
+                ),
+                sleep=sleep,
             )
-            .in_("set_id", batch),
-        )
-        if card_error:
+        except Exception as exc:
             logger.warning(
-                "[refresh-plan-fastpath] Cards target-date preload failed for batch offset=%s: %s; disabling fast path",
-                offset, card_error,
+                "[refresh-plan-fastpath] Cards target-date preload failed for batch offset=%s after retries: %s; disabling fast path",
+                offset, exc,
             )
             return None
-        for row in card_rows:
+        for row in list(getattr(card_result, "data", None) or []):
             set_id = str(row.get("set_id") or "")
             if not set_id:
                 continue
@@ -1756,20 +1802,29 @@ def _load_target_snapshot_market_dates(
                 "updated_at": _to_text(row.get("updated_at")),
             }
 
-        market_rows, market_error = _execute_query(
-            "pokemon_set_market_dashboard_snapshot_latest.target_dates",
-            client.table("pokemon_set_market_dashboard_snapshot_latest")
-            .select("set_id,latest_market_date,updated_at")
-            .eq("window_key", window)
-            .in_("set_id", batch),
-        )
-        if market_error:
+        try:
+            market_result = run_snapshot_operation_with_retry(
+                lambda retry_client: (
+                    retry_client.table("pokemon_set_market_dashboard_snapshot_latest")
+                    .select("set_id,latest_market_date,updated_at")
+                    .eq("window_key", window)
+                    .in_("set_id", batch)
+                    .execute()
+                ),
+                operation_name=f"refresh-plan-fastpath:market-target-dates:{offset}",
+                max_attempts=3,
+                client_factory=_planning_retry_client_factory(
+                    client, replacement_factory=replacement_client_factory
+                ),
+                sleep=sleep,
+            )
+        except Exception as exc:
             logger.warning(
-                "[refresh-plan-fastpath] Market Dashboard target-date preload failed for batch offset=%s: %s; disabling fast path",
-                offset, market_error,
+                "[refresh-plan-fastpath] Market Dashboard target-date preload failed for batch offset=%s after retries: %s; disabling fast path",
+                offset, exc,
             )
             return None
-        for row in market_rows:
+        for row in list(getattr(market_result, "data", None) or []):
             set_id = str(row.get("set_id") or "")
             if not set_id:
                 continue
@@ -1778,7 +1833,6 @@ def _load_target_snapshot_market_dates(
                 "updated_at": _to_text(row.get("updated_at")),
             }
     return cards, market
-
 
 def _target_date_fast_result(
     family: str, *, snapshot_row: Optional[Mapping[str, Optional[str]]], target_market_date: str
