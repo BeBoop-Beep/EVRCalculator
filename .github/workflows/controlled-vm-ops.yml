@@ -188,19 +188,7 @@ jobs:
               echo "== post-cutover =="
               git status --short
               git log -2 --oneline
-              "$PY" - <<'PY'
-              import json
-              import backend.scripts.run_market_explorer_maintained_cache_prewarm as worker
-              result = worker.refresh_prepared_if_current(
-                  None,
-                  target_market_date="2026-09-19",
-                  commit=False,
-                  verify=True,
-              )
-              print(json.dumps(result, sort_keys=True, default=str))
-              if result.get("status") == "failed":
-                  raise SystemExit(6)
-              PY
+              "$PY" -c 'import json; import backend.scripts.run_market_explorer_maintained_cache_prewarm as worker; result=worker.refresh_prepared_if_current(None,target_market_date="2026-09-19",commit=False,verify=True); print(json.dumps(result,sort_keys=True,default=str)); raise SystemExit(6 if result.get("status")=="failed" else 0)'
               ;;
 
             sync-main)
