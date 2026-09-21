@@ -129,22 +129,10 @@ def _batch_gate_decision(
 
 
 def _already_current(client, market_date: str) -> "PublicationCurrencyStatus":
-    from backend.db.services.post_scrape_publication_trigger import PublicationCurrencyStatus
-    from backend.scripts.audit_pokemon_market_publication import (
-        PHASE_POST_SCRAPE,
-        run_market_publication_audit,
+    from backend.db.services.post_scrape_publication_trigger import (
+        evaluate_post_scrape_publication_currency,
     )
-
-    try:
-        report = run_market_publication_audit(client, market_date=market_date, phase=PHASE_POST_SCRAPE)
-    except Exception:
-        logger.exception(
-            "%s currency audit failed for market_date=%s; treating as UNKNOWN", TAG, market_date
-        )
-        return PublicationCurrencyStatus.UNKNOWN
-    if report.market_date == market_date and report.passed:
-        return PublicationCurrencyStatus.CURRENT
-    return PublicationCurrencyStatus.STALE
+    return evaluate_post_scrape_publication_currency(client, market_date)
 
 
 def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dict:
