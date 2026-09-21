@@ -1,4 +1,4 @@
-name: Onboarding Git mode audit 2026-09-20
+name: Onboarding Git credential audit 2026-09-20
 
 on:
   push:
@@ -9,29 +9,22 @@ permissions:
   contents: read
 
 jobs:
-  git-mode-audit:
+  credential-audit:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect non-secret onboarding Git settings
+      - name: Inspect GitHub CLI credential availability without secrets
         shell: bash
         run: |
           set -euo pipefail
+          echo "gh_config_exists=$(test -f /home/ubuntu/.config/gh/hosts.yml && echo true || echo false)"
+          echo "git_remote=$(cd /home/ubuntu/repos/EVRCalculator && git remote get-url origin)"
+          echo "git_push_test_access:"
           cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python - <<'PY'
-          from dotenv import dotenv_values
-          v = dotenv_values("backend/.env")
-          keys = [
-              "POKEMON_ONBOARDING_GIT_MODE",
-              "POKEMON_ONBOARDING_WORKTREE_DIR",
-              "POKEMON_ONBOARDING_BASE_BRANCH",
-              "POKEMON_ONBOARDING_AUTO_MERGE",
-              "POKEMON_ONBOARDING_AUTO_DEPLOY",
-          ]
-          for k in keys:
-              print(f"{k}={v.get(k)!r}")
-          PY
-          echo "gh_available=$(command -v gh >/dev/null && echo true || echo false)"
-          if command -v gh >/dev/null; then
-            gh auth status 2>&1 | sed -E 's/(Token: ).*/\1[REDACTED]/' || true
+          git ls-remote --exit-code origin HEAD >/dev/null && echo "git_remote_read=true"
+          if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 | grep -q 'successfully authenticated'; then
+            echo "github_ssh_authenticated=true"
+          else
+            echo "github_ssh_authenticated=false"
           fi
+          echo "sudo_noninteractive=$(sudo -n true 2>/dev/null && echo true || echo false)"
