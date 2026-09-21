@@ -1,4 +1,4 @@
-name: Pokemon new-set final production audit
+name: Pokemon keyless API and Collector Appeal audit
 
 on:
   push:
@@ -13,114 +13,104 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 15
     steps:
-      - name: Audit VM config and production target state
+      - name: Probe keyless Pokemon TCG metadata
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          git fetch origin main
-          git switch main
-          git reset --hard origin/main
           ./.venv/bin/python - <<'PY'
-          import json
-          from dotenv import dotenv_values
-          from backend.db.clients.supabase_client import create_service_role_client
-
-          env = dotenv_values("backend/.env")
-          poke_key = str(env.get("POKEMON_TCG_API_KEY") or "").strip()
-          print(json.dumps({
-              "pokemon_tcg_api_key_present": bool(poke_key),
-              "pokemon_tcg_api_key_length": len(poke_key),
-          }))
-
-          client = create_service_role_client()
-          keys = [
-              "me06DeltaReign",
-              "me30thCelebration",
-              "me30thCelebrationClassicCollection",
-          ]
-          sets = list(
-              client.table("sets")
-              .select(
-                  "id,name,canonical_key,catalog_only,ready_for_daily_scrape,"
-                  "supports_opening_simulation,is_subset,parent_opening_set_id,"
-                  "release_date,pokemon_api_set_id,logo_image_url,symbol_image_url"
+          import json, requests
+          url = "https://api.pokemontcg.io/v2/sets"
+          for name in (
+              "ME06: Delta Reign",
+              "ME: 30th Celebration",
+              "ME: 30th Celebration Classic Collection",
+          ):
+              r = requests.get(
+                  url,
+                  params={"q": f'name:"{name}"', "pageSize": 50},
+                  headers={"Accept":"application/json","User-Agent":"EVRCalculator/1.0"},
+                  timeout=20,
               )
-              .in_("canonical_key", keys)
-              .execute()
-              .data
-              or []
-          )
-
-          out = []
-          for row in sorted(sets, key=lambda x: x["canonical_key"]):
-              sid = str(row["id"])
-              cards = list(client.table("cards").select("id").eq("set_id", sid).execute().data or [])
-              canonical = list(client.table("pokemon_canonical_cards").select("id").eq("set_id", sid).execute().data or [])
-              sealed = list(client.table("sealed_products").select("id").eq("set_id", sid).execute().data or [])
-
-              cards_snap = list(
-                  client.table("pokemon_set_cards_snapshot_latest")
-                  .select("updated_at,payload_json")
-                  .eq("set_id", sid).limit(1).execute().data or []
-              )
-              sealed_snap = list(
-                  client.table("pokemon_set_sealed_market_snapshot_latest")
-                  .select("market_date,updated_at")
-                  .eq("set_id", sid).limit(1).execute().data or []
-              )
-              page_snap = list(
-                  client.table("pokemon_set_page_snapshot_latest")
-                  .select("as_of,updated_at,payload_json")
-                  .eq("set_id", sid).limit(1).execute().data or []
-              )
-              appeal = list(
-                  client.table("pokemon_set_collector_appeal_current_v")
-                  .select("*")
-                  .eq("set_id", sid).limit(1).execute().data or []
-              )
-
-              card_count_snapshot = None
-              if cards_snap:
-                  payload = cards_snap[0].get("payload_json") or {}
-                  vals = payload.get("cards")
-                  if isinstance(vals, list):
-                      card_count_snapshot = len(vals)
-
-              out.append({
-                  "set": row,
-                  "cards": len(cards),
-                  "canonical_cards": len(canonical),
-                  "sealed_products": len(sealed),
-                  "cards_snapshot": {
-                      "present": bool(cards_snap),
-                      "updated_at": cards_snap[0].get("updated_at") if cards_snap else None,
-                      "card_count": card_count_snapshot,
+              payload = None
+              try:
+                  payload = r.json()
+              except Exception:
+                  payload = {}
+              rows = []
+              for item in (payload.get("data") or []):
+                  rows.append({
+                      "id": item.get("id"),
+                      "name": item.get("name"),
+                      "series": item.get("series"),
+                      "releaseDate": item.get("releaseDate"),
+                      "printedTotal": item.get("printedTotal"),
+                      "total": item.get("total"),
+                      "images": item.get("images"),
+                  })
+              print(json.dumps({
+                  "name": name,
+                  "status": r.status_code,
+                  "result_count": len(rows),
+                  "rows": rows,
+                  "rate_limit": {
+                      "limit": r.headers.get("X-Rate-Limit-Limit"),
+                      "remaining": r.headers.get("X-Rate-Limit-Remaining"),
                   },
-                  "sealed_snapshot": {
-                      "present": bool(sealed_snap),
-                      "market_date": sealed_snap[0].get("market_date") if sealed_snap else None,
-                      "updated_at": sealed_snap[0].get("updated_at") if sealed_snap else None,
-                  },
-                  "page_snapshot": {
-                      "present": bool(page_snap),
-                      "as_of": page_snap[0].get("as_of") if page_snap else None,
-                      "updated_at": page_snap[0].get("updated_at") if page_snap else None,
-                  },
-                  "collector_appeal_present": bool(appeal),
-                  "collector_appeal_row": appeal[0] if appeal else None,
-              })
-
-          print(json.dumps({"targets": out}, default=str))
+              }))
           PY
 
-      - name: Verify live catalog HTML
+      - name: Audit current Collector Appeal authority and target coverage
         shell: bash
         run: |
           set -euo pipefail
-          tmp="$(mktemp)"
-          curl -fsSL --max-time 30 'https://inthedex.io/TCGs/Pokemon/Sets' -o "$tmp"
-          echo "PUBLIC_DELTA_PRESENT=$(grep -q 'Delta Reign' "$tmp" && echo true || echo false)"
-          echo "PUBLIC_30TH_PRESENT=$(grep -q 'ME: 30th Celebration' "$tmp" && echo true || echo false)"
-          echo "PUBLIC_CLASSIC_ROOT_PRESENT=$(grep -q 'ME: 30th Celebration Classic Collection' "$tmp" && echo true || echo false)"
-          echo "html_bytes=$(wc -c < "$tmp")"
+          cd /home/ubuntu/repos/EVRCalculator
+          ./.venv/bin/python - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          client=create_service_role_client()
+
+          current=list(client.table("pokemon_collector_appeal_current").select("*").eq("scope","pokemon").limit(1).execute().data or [])
+          current_row=current[0] if current else None
+          if current_row:
+              run_id=str(current_row.get("model_run_id") or "")
+              run=list(client.table("pokemon_collector_appeal_model_runs").select("*").eq("id",run_id).limit(1).execute().data or [])
+          else:
+              run_id=""
+              run=[]
+
+          sets=list(client.table("sets").select("id,name,canonical_key").in_("canonical_key",[
+              "me06DeltaReign","me30thCelebration","me30thCelebrationClassicCollection"
+          ]).execute().data or [])
+
+          targets=[]
+          for s in sets:
+              sid=str(s["id"])
+              canon=list(client.table("pokemon_canonical_cards").select("id").eq("set_id",sid).execute().data or [])
+              card_scores=[]
+              set_scores=[]
+              desirability_links=[]
+              components=[]
+              try:
+                  if run_id:
+                      card_scores=list(client.table("pokemon_card_collector_appeal_scores").select("pokemon_canonical_card_id").eq("model_run_id",run_id).in_("pokemon_canonical_card_id",[str(x["id"]) for x in canon] or ["00000000-0000-0000-0000-000000000000"]).execute().data or [])
+                      set_scores=list(client.table("pokemon_set_collector_appeal_scores").select("*").eq("model_run_id",run_id).eq("set_id",sid).execute().data or [])
+              except Exception as exc:
+                  set_scores=[{"query_error":type(exc).__name__}]
+              desirability_links=list(client.table("pokemon_card_desirability_links").select("pokemon_canonical_card_id").in_("pokemon_canonical_card_id",[str(x["id"]) for x in canon] or ["00000000-0000-0000-0000-000000000000"]).execute().data or [])
+              components=list(client.table("pokemon_set_desirability_component_scores").select("*").eq("set_id",sid).order("created_at",desc=True).limit(3).execute().data or [])
+              targets.append({
+                  "set":s,
+                  "canonical_card_count":len(canon),
+                  "current_model_card_score_count":len(card_scores),
+                  "current_model_set_scores":set_scores,
+                  "desirability_link_count":len(desirability_links),
+                  "desirability_components":components,
+              })
+
+          print(json.dumps({
+              "current": current_row,
+              "current_run": run[0] if run else None,
+              "targets": targets,
+          },default=str))
+          PY
