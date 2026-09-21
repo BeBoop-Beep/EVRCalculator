@@ -466,7 +466,7 @@ def run_watchdog(
     # publisher cannot both hold the global publication lock and compete with
     # the new day's projection for database capacity.
     lock_held_precheck = bool(lock_checker(PUBLICATION_LOCK_PATH))
-    if lock_held_precheck:
+    if lock_held_precheck and recover_superseded:
         try:
             active_identity = _validate_active_publication_identity(
                 all_process_inspector()
