@@ -1,4 +1,4 @@
-name: Diagnose shared Explorer and set-detail outage
+name: Reproduce Explorer and set-detail browser failure
 
 on:
   push:
@@ -9,9 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  browser-repro:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Sync current main
         shell: bash
@@ -23,136 +23,99 @@ jobs:
           git reset --hard origin/main
           echo "VM_SHA=$(git rev-parse HEAD)"
 
-      - name: Probe shared live routes
+      - name: Run production browser probes
         shell: bash
         run: |
           set -euo pipefail
-          probe() {
-            label="$1"
-            url="$2"
-            tmp="$(mktemp)"
-            echo "=== $label ==="
-            set +e
-            /usr/bin/time -f 'elapsed=%e' curl -L --max-time 45 -sS -D /tmp/headers.$$ -o "$tmp" "$url"
-            code=$?
-            set -e
-            echo "curl_exit=$code"
-            head -n 20 /tmp/headers.$$ || true
-            echo "bytes=$(wc -c < "$tmp" 2>/dev/null || echo 0)"
-            echo "route_loader_count=$(grep -o 'Loading Rip Statistics\|Loading inDex' "$tmp" 2>/dev/null | wc -l)"
-            echo "error_count=$(grep -o 'Something went wrong\|RIP Statistics unavailable' "$tmp" 2>/dev/null | wc -l)"
-            rm -f "$tmp" /tmp/headers.$$
-          }
+          cd /home/ubuntu/repos/EVRCalculator/frontend
 
-          probe "Explorer" "https://inthedex.io/Explorer"
-          probe "Pitch Black set" "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
-          probe "Delta Reign set" "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
-          probe "30th Celebration set" "https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"
+          node - <<'NODE'
+          const { chromium } = require("playwright");
 
-      - name: Probe backend endpoints directly from app env
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
+          const cases = [
+            ["pitch-black", "https://www.inthedex.io/TCGs/Pokemon/Sets/pitch-black"],
+            ["delta-reign", "https://www.inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"],
+            ["30th", "https://www.inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"],
+            ["explorer", "https://www.inthedex.io/Explorer"],
+          ];
 
-          BASE="$(./.venv/bin/python - <<'PY'
-          from pathlib import Path
-          from dotenv import dotenv_values
-          candidates=[
-              Path("frontend/.env.production.local"),
-              Path("frontend/.env.production"),
-              Path("frontend/.env.local"),
-              Path("frontend/.env"),
-              Path("backend/.env"),
-          ]
-          for p in candidates:
-              if not p.exists():
-                  continue
-              v=dotenv_values(p)
-              for k in ("BACKEND_API_BASE_URL","NEXT_PUBLIC_BACKEND_API_BASE_URL"):
-                  value=str(v.get(k) or "").strip()
-                  if value:
-                      print(value.rstrip("/"))
-                      raise SystemExit
-          PY
-          )"
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              for (const [name, url] of cases) {
+                const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+                const consoleErrors = [];
+                const pageErrors = [];
+                const failed = [];
+                const badResponses = [];
 
-          if [ -z "$BASE" ]; then
-            echo "backend_base_resolved=false"
-            exit 0
-          fi
-          echo "backend_base_resolved=true"
+                page.on("console", msg => {
+                  if (["error", "warning"].includes(msg.type())) {
+                    consoleErrors.push({ type: msg.type(), text: msg.text() });
+                  }
+                });
+                page.on("pageerror", err => pageErrors.push(err.stack || err.message || String(err)));
+                page.on("requestfailed", req => failed.push({
+                  url: req.url(),
+                  method: req.method(),
+                  failure: req.failure()?.errorText || null,
+                  resourceType: req.resourceType(),
+                }));
+                page.on("response", res => {
+                  if (res.status() >= 400) {
+                    badResponses.push({
+                      status: res.status(),
+                      url: res.url(),
+                      resourceType: res.request().resourceType(),
+                    });
+                  }
+                });
 
-          SET_ID="472f851c-2e41-4c80-b6fc-8478d1d92730"
-          probe_api() {
-            label="$1"
-            path="$2"
-            tmp="$(mktemp)"
-            echo "=== API $label ==="
-            set +e
-            /usr/bin/time -f 'elapsed=%e' curl --max-time 30 -sS -D /tmp/apiheaders.$$ -o "$tmp" "$BASE$path"
-            code=$?
-            set -e
-            echo "curl_exit=$code"
-            head -n 20 /tmp/apiheaders.$$ || true
-            echo "bytes=$(wc -c < "$tmp" 2>/dev/null || echo 0)"
-            echo "body_head:"
-            head -c 500 "$tmp" 2>/dev/null || true
-            echo
-            rm -f "$tmp" /tmp/apiheaders.$$
-          }
+                const started = Date.now();
+                let gotoError = null;
+                try {
+                  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+                  await page.waitForTimeout(12000);
+                } catch (err) {
+                  gotoError = err.stack || err.message || String(err);
+                }
 
-          probe_api "route directory" "/tcgs/pokemon/set-route-directory?limit=500"
-          probe_api "Pitch Black shell" "/tcgs/pokemon/sets/$SET_ID/shell"
-          probe_api "Pitch Black RIP bootstrap" "/tcgs/pokemon/sets/$SET_ID/rip/bootstrap"
-          probe_api "Pitch Black overview" "/tcgs/pokemon/sets/$SET_ID/overview?window=365d"
-          probe_api "Explore rankings" "/tcgs/pokemon/explore/rankings"
-          probe_api "Explore set values" "/tcgs/pokemon/explore/set-values"
+                const state = await page.evaluate(() => {
+                  const text = document.body?.innerText || "";
+                  return {
+                    title: document.title,
+                    pathname: location.pathname,
+                    href: location.href,
+                    bodyTextHead: text.slice(0, 1600),
+                    bodyTextLength: text.length,
+                    setContextShell: Boolean(document.querySelector("[data-set-context-shell]")),
+                    loaders: Array.from(document.querySelectorAll('[aria-busy="true"]')).map(el => ({
+                      label: el.getAttribute("aria-label"),
+                      text: (el.innerText || "").slice(0, 200),
+                    })),
+                    nextError: Boolean(document.querySelector("nextjs-portal")),
+                  };
+                }).catch(err => ({ evaluateError: err.message }));
 
-      - name: Inspect current publication and snapshot freshness
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python - <<'PY'
-          import json
-          from backend.db.clients.supabase_client import create_service_role_client
-          c=create_service_role_client()
+                console.log(JSON.stringify({
+                  case: name,
+                  url,
+                  elapsedMs: Date.now() - started,
+                  gotoError,
+                  state,
+                  pageErrors,
+                  consoleErrors: consoleErrors.slice(-30),
+                  failedRequests: failed.slice(-30),
+                  badResponses: badResponses.slice(-50),
+                }));
 
-          def count(table):
-              try:
-                  r=c.table(table).select("*",count="exact").limit(0).execute()
-                  return r.count
-              except Exception as exc:
-                  return f"ERROR:{type(exc).__name__}"
-
-          pitch="472f851c-2e41-4c80-b6fc-8478d1d92730"
-          result={
-              "tables":{
-                  "set_page_latest":count("pokemon_set_page_snapshot_latest"),
-                  "market_dashboard_latest":count("pokemon_set_market_dashboard_snapshot_latest"),
-                  "explore_rankings_latest":count("pokemon_explore_rankings_snapshot_latest"),
-                  "explore_set_value_latest":count("pokemon_explore_set_value_snapshot_latest"),
+                await page.close();
               }
-          }
-
-          for name, table, filt in [
-              ("pitch_page","pokemon_set_page_snapshot_latest",("set_id",pitch)),
-              ("pitch_market","pokemon_set_market_dashboard_snapshot_latest",("set_id",pitch)),
-              ("rankings","pokemon_explore_rankings_snapshot_latest",("tcg","pokemon")),
-              ("set_values","pokemon_explore_set_value_snapshot_latest",("tcg","pokemon")),
-          ]:
-              try:
-                  q=c.table(table).select("*").eq(filt[0],filt[1]).limit(3).execute()
-                  rows=q.data or []
-                  result[name]=[{
-                      k:r.get(k) for k in (
-                          "set_id","scope","market_date","latest_market_date",
-                          "as_of","updated_at","source_updated_at"
-                      ) if k in r
-                  } for r in rows]
-              except Exception as exc:
-                  result[name]={"error":type(exc).__name__,"message":str(exc)}
-
-          print(json.dumps(result,default=str))
-          PY
+            } finally {
+              await browser.close();
+            }
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
