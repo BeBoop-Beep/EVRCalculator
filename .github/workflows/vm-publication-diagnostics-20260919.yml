@@ -1,4 +1,4 @@
-name: Configure Sentinel observation mode
+name: Sentinel observation canary
 
 on:
   push:
@@ -11,30 +11,53 @@ permissions:
   contents: read
 
 jobs:
-  configure:
+  canary:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Configure non-secret Sentinel env
+      - name: Run Sentinel Fast and Public observation canaries
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           cd /home/ubuntu/repos/EVRCalculator
-          ENV_FILE=backend/.env
-          test -f "$ENV_FILE"
-          update_env() {
-            key="$1"; value="$2"
-            tmp="$(mktemp)"
-            awk -v k="$key" -F= '$1 != k {print}' "$ENV_FILE" > "$tmp"
-            printf '%s=%s\n' "$key" "$value" >> "$tmp"
-            cat "$tmp" > "$ENV_FILE"
-            rm -f "$tmp"
-          }
-          update_env SENTINEL_STATE_WRITES_ENABLED true
-          update_env SENTINEL_PERSISTENCE_SCHEMA_READY true
-          update_env SENTINEL_RECOVERY_ENABLED false
-          update_env SENTINEL_RECOVERY_EXECUTION_READY false
-          update_env SENTINEL_BACKEND_BASE_URL https://evrcalculator.onrender.com
-          update_env SENTINEL_COMPONENT sentinel_vm
-          echo '=== SENTINEL CONFIG (NON-SECRET) ==='
-          grep -E '^SENTINEL_(STATE_WRITES_ENABLED|PERSISTENCE_SCHEMA_READY|RECOVERY_ENABLED|RECOVERY_EXECUTION_READY|BACKEND_BASE_URL|COMPONENT)=' "$ENV_FILE"
+          set -a
+          . backend/.env
+          set +a
+          export SENTINEL_RECOVERY_ENABLED=false
+          export SENTINEL_RECOVERY_EXECUTION_READY=false
+          echo '=== CONFIG ==='
+          printf 'state=%s schema=%s recovery=%s backend=%s\n' \
+            "${SENTINEL_STATE_WRITES_ENABLED:-unset}" \
+            "${SENTINEL_PERSISTENCE_SCHEMA_READY:-unset}" \
+            "${SENTINEL_RECOVERY_ENABLED:-unset}" \
+            "${SENTINEL_BACKEND_BASE_URL:-unset}"
+          echo
+          echo '=== FAST ==='
+          set +e
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile fast >/tmp/sentinel-fast-canary.json 2>/tmp/sentinel-fast-canary.err
+          FAST_RC=$?
+          set -e
+          cat /tmp/sentinel-fast-canary.err || true
+          cat /tmp/sentinel-fast-canary.json || true
+          echo "FAST_RC=$FAST_RC"
+          echo
+          echo '=== PUBLIC ==='
+          set +e
+          SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false \
+            /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile public >/tmp/sentinel-public-canary.json 2>/tmp/sentinel-public-canary.err
+          PUBLIC_RC=$?
+          set -e
+          cat /tmp/sentinel-public-canary.err || true
+          cat /tmp/sentinel-public-canary.json || true
+          echo "PUBLIC_RC=$PUBLIC_RC"
+          echo
+          echo '=== HEARTBEAT STATE ==='
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import supabase
+          rows=(supabase.table('sentinel_component_heartbeats')
+                .select('component,host,last_seen_at,last_run_status,build_sha')
+                .order('last_seen_at',desc=True).limit(5).execute().data or [])
+          print(json.dumps(rows,indent=2,default=str))
+          PY
+          exit 0
