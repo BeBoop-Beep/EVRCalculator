@@ -163,4 +163,3 @@ def test_fallback_currency_delegates_to_combined_explorer_authority(monkeypatch)
 
     assert mod._already_current(client, "2026-09-20") == PublicationCurrencyStatus.STALE
     assert seen == {"client": client, "market_date": "2026-09-20"}
-
