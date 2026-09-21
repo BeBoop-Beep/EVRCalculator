@@ -1,4 +1,4 @@
-name: Catalog recheck job-id field tests
+name: Diagnose scrape dispatcher lock
 
 on:
   push:
@@ -9,31 +9,30 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 8
     steps:
-      - name: Test catalog recheck job-id branch
+      - name: Inspect dispatcher lock owner
         shell: bash
         run: |
           set -euo pipefail
-          REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/catalog-recheck-job-id-test
-          BRANCH=fix/catalog-recheck-job-id-field-20260921
-
-          cd "$REPO"
-          git fetch origin "$BRANCH"
-          if [ -d "$WT" ]; then
-            git worktree remove --force "$WT" || true
+          date -Is
+          echo "=== fuser ==="
+          fuser -v /tmp/pokemon-scrape-dispatcher.lock 2>&1 || true
+          echo "=== lslocks ==="
+          lslocks -o PID,COMMAND,PATH,TYPE,MODE 2>/dev/null | grep 'pokemon-scrape-dispatcher' || true
+          echo "=== relevant processes ==="
+          pgrep -af 'run_next_scrape_job|price_storage|shadow_queue|projection|scrape' || true
+          echo "=== process details ==="
+          for pid in $(fuser /tmp/pokemon-scrape-dispatcher.lock 2>/dev/null || true); do
+            ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,wchan:28,cmd -p "$pid" || true
+          done
+          echo "=== dispatcher log tail ==="
+          tail -n 160 /home/ubuntu/repos/EVRCalculator/backend/logs/cron_dispatcher.log 2>/dev/null || true
+          echo "=== lock probe ==="
+          if flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'true'; then
+            echo "DISPATCHER_LOCK_FREE=true"
+          else
+            echo "DISPATCHER_LOCK_FREE=false"
           fi
-          git worktree add --detach "$WT" "origin/$BRANCH"
-          ln -s /home/ubuntu/repos/EVRCalculator/backend/.env "$WT/backend/.env"
-
-          cd "$WT"
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/services/pokemon_set_onboarding_recheck_service.py             backend/scripts/refresh_due_pokemon_catalog_sets.py
-
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py
-
-          rm -f "$WT/backend/.env"
-          cd "$REPO"
-          git worktree remove --force "$WT"
