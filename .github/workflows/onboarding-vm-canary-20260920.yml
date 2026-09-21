@@ -1,4 +1,4 @@
-name: Immediate Pokemon catalog refresh probe
+name: Catalog-only daily refresh tests
 
 on:
   push:
@@ -9,35 +9,31 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  test:
     runs-on: self-hosted
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
-      - name: Sync main and attempt refresh once
+      - name: Test catalog-only daily refresh branch
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          git fetch origin main
-          git switch main
-          git reset --hard origin/main
-          echo "VM_SHA=$(git rev-parse HEAD)"
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/home/ubuntu/repos/catalog-only-daily-refresh-test
+          BRANCH=fix/catalog-only-daily-price-refresh-20260921
 
-          exec 8>/tmp/pokemon-scrape-dispatcher.lock
-          exec 7>/tmp/pokemon-post-scrape-publication.lock
-
-          if ! flock -n 8; then
-            echo "SCRAPE_LOCK_FREE=false"
-            fuser -v /tmp/pokemon-scrape-dispatcher.lock 2>&1 || true
-            exit 0
+          cd "$REPO"
+          git fetch origin "$BRANCH"
+          if [ -d "$WT" ]; then
+            git worktree remove --force "$WT" || true
           fi
+          git worktree add --detach "$WT" "origin/$BRANCH"
+          ln -s /home/ubuntu/repos/EVRCalculator/backend/.env "$WT/backend/.env"
 
-          if ! flock -n 7; then
-            echo "POST_SCRAPE_LOCK_FREE=false"
-            fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-            pgrep -af 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' || true
-            exit 0
-          fi
+          cd "$WT"
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/services/pokemon_set_onboarding_recheck_service.py             backend/scripts/refresh_due_pokemon_catalog_sets.py
 
-          echo "LOCKS_ACQUIRED=true"
-          ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --commit             --limit 25             --max-provider-requests 50
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py             backend/tests/unit/scripts/test_scrape_postcondition_market_date.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py
+
+          rm -f "$WT/backend/.env"
+          cd "$REPO"
+          git worktree remove --force "$WT"
