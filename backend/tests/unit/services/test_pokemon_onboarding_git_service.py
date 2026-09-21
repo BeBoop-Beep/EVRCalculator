@@ -179,3 +179,42 @@ def test_push_and_open_pr_creates_pr_when_none_exists(tmp_path):
         "status": "source_pr_open", "source_pr_url": "https://github.com/example/repo/pull/10",
         "source_pr_number": 10,
     }
+
+def test_prepare_worktree_accepts_direct_mode(tmp_path):
+    calls = []
+    script = [
+        (["git", "status", "--porcelain"], lambda a: CompletedProcess(a, 0, stdout="", stderr="")),
+        (["git", "fetch"], lambda a: CompletedProcess(a, 0, stdout="", stderr="")),
+        (["git", "worktree", "add"], lambda a: CompletedProcess(a, 0, stdout="", stderr="")),
+    ]
+    adapter = GitAdapter(
+        tmp_path,
+        GitSettings(mode="direct", worktree_dir=tmp_path / "wt"),
+        _scripted_runner(script, calls),
+    )
+    worktree, branch = adapter.prepare_worktree("futureSet")
+    assert worktree == tmp_path / "wt" / "futureSet-source"
+    assert branch == "automation/onboard-pokemon-futureSet"
+
+
+def test_direct_mode_fast_forwards_base_without_pr(tmp_path):
+    calls = []
+    script = [
+        (["git", "fetch"], lambda a: CompletedProcess(a, 0, stdout="", stderr="")),
+        (["git", "rebase"], lambda a: CompletedProcess(a, 0, stdout="", stderr="")),
+        (["git", "push"], lambda a: CompletedProcess(a, 0, stdout="", stderr="")),
+        (["git", "rev-parse", "HEAD"], lambda a: CompletedProcess(a, 0, stdout="abc123\n", stderr="")),
+    ]
+    adapter = GitAdapter(
+        tmp_path,
+        GitSettings(mode="direct", base_branch="main", auto_deploy=False),
+        _scripted_runner(script, calls),
+    )
+    result = adapter.push_and_open_pr(
+        tmp_path, "automation/onboard-pokemon-futureSet", "Onboard futureSet"
+    )
+    assert result["status"] == "awaiting_source_deploy"
+    assert result["source_commit_sha"] == "abc123"
+    assert ["git", "rebase", "origin/main"] in calls
+    assert ["git", "push", "origin", "HEAD:main"] in calls
+    assert not any(call and call[0] == "gh" for call in calls)
