@@ -23,6 +23,10 @@
 10-59/15 * * * * /usr/bin/flock -n /tmp/market-explorer-health.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.check_market_explorer_maintained_cache_health' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_health.log 2>&1
 
 # Sentinel
+# Lightweight continuous Sentinel profiles. Persistence is enabled; recovery remains
+# explicitly disabled until the observation window is clean. Heavy audit is event-driven only.
+*/5 * * * * /usr/bin/flock -n /tmp/index-sentinel-fast.lock -c 'cd /home/ubuntu/repos/EVRCalculator && env SENTINEL_STATE_WRITES_ENABLED=true SENTINEL_PERSISTENCE_SCHEMA_READY=true SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false SENTINEL_COMPONENT=sentinel_vm /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile fast' >> /home/ubuntu/repos/EVRCalculator/backend/logs/sentinel_fast.log 2>&1
+3-59/15 * * * * /usr/bin/flock -n /tmp/index-sentinel-public.lock -c 'cd /home/ubuntu/repos/EVRCalculator && env SENTINEL_STATE_WRITES_ENABLED=true SENTINEL_PERSISTENCE_SCHEMA_READY=true SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false SENTINEL_COMPONENT=sentinel_vm SENTINEL_BACKEND_BASE_URL=https://evrcalculator.onrender.com /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile public' >> /home/ubuntu/repos/EVRCalculator/backend/logs/sentinel_public.log 2>&1
 * * * * * /usr/bin/flock -n /tmp/index-alert-dispatcher.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.alerts.dispatcher' >> /home/ubuntu/repos/EVRCalculator/backend/logs/alert_dispatcher.log 2>&1
 */5 * * * * /usr/bin/flock -n /tmp/index-market-freshness-watchdog.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.alerts.market_freshness_watchdog' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_freshness_watchdog.log 2>&1
 # Fast Sentinel is the only scheduled profile allowed to use bounded recovery.
