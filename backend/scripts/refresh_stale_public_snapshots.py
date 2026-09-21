@@ -34,6 +34,7 @@ from backend.db.services.set_publication_revalidation import (
 )
 from backend.db.services.rip_decision_freshness import evaluate_rip_decision_staleness
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
+from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
 from backend.scripts.build_pokemon_desirability_validation_snapshots import (
@@ -1762,44 +1763,112 @@ def _load_target_snapshot_market_dates(
     replacement_client_factory=create_service_role_client,
     sleep=time.sleep,
 ) -> Optional[Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]]:
-    """Bulk-load scalar authority dates with bounded transient retries.
+    """Bulk-load scalar authority dates with bounded retries and adaptive splits.
 
-    Each failed attempt after the initial shared client receives a fresh
-    service-role client. If a batch remains unreadable after the bound, return
-    None and preserve the existing deep-audit fallback semantics.
+    Production evidence on Sep. 21 showed that even a scalar 100-id Cards
+    preload could repeatedly hit SQLSTATE 57014. A fixed smaller batch reduces
+    that risk, but a transiently overloaded database can still reject any
+    particular chunk. After the normal fresh-client retry budget is exhausted,
+    split only the failing chunk in half and retry each half independently.
+    A deterministic failure, or a transient failure on a single set id, still
+    disables the fast path and preserves the existing fail-safe deep audit.
     """
     ids = [str(value) for value in set_ids if value]
     cards: Dict[str, Dict[str, Optional[str]]] = {}
     market: Dict[str, Dict[str, Optional[str]]] = {}
+
+    def _read_cards(batch: Sequence[str], label: str):
+        try:
+            return list(
+                getattr(
+                    run_snapshot_operation_with_retry(
+                        lambda retry_client: (
+                            retry_client.table("pokemon_set_cards_snapshot_latest")
+                            .select(
+                                "set_id,updated_at,"
+                                + CARDS_PRICING_MARKET_DATE_PROJECTION
+                                + ","
+                                + CARDS_SNAPSHOT_MARKET_DATE_PROJECTION
+                            )
+                            .in_("set_id", list(batch))
+                            .execute()
+                        ),
+                        operation_name=f"refresh-plan-fastpath:cards-target-dates:{label}",
+                        max_attempts=3,
+                        client_factory=_planning_retry_client_factory(
+                            client, replacement_factory=replacement_client_factory
+                        ),
+                        sleep=sleep,
+                    ),
+                    "data",
+                    None,
+                )
+                or []
+            )
+        except Exception as exc:
+            if not is_transient_data_service_error(exc) or len(batch) <= 1:
+                raise
+            midpoint = max(1, len(batch) // 2)
+            left = list(batch[:midpoint])
+            right = list(batch[midpoint:])
+            logger.warning(
+                "[refresh-plan-fastpath] Cards preload transient failure chunk_size=%s; splitting %s+%s",
+                len(batch),
+                len(left),
+                len(right),
+            )
+            return _read_cards(left, label + "L") + _read_cards(right, label + "R")
+
+    def _read_market(batch: Sequence[str], label: str):
+        try:
+            return list(
+                getattr(
+                    run_snapshot_operation_with_retry(
+                        lambda retry_client: (
+                            retry_client.table("pokemon_set_market_dashboard_snapshot_latest")
+                            .select("set_id,latest_market_date,updated_at")
+                            .eq("window_key", window)
+                            .in_("set_id", list(batch))
+                            .execute()
+                        ),
+                        operation_name=f"refresh-plan-fastpath:market-target-dates:{label}",
+                        max_attempts=3,
+                        client_factory=_planning_retry_client_factory(
+                            client, replacement_factory=replacement_client_factory
+                        ),
+                        sleep=sleep,
+                    ),
+                    "data",
+                    None,
+                )
+                or []
+            )
+        except Exception as exc:
+            if not is_transient_data_service_error(exc) or len(batch) <= 1:
+                raise
+            midpoint = max(1, len(batch) // 2)
+            left = list(batch[:midpoint])
+            right = list(batch[midpoint:])
+            logger.warning(
+                "[refresh-plan-fastpath] Market preload transient failure chunk_size=%s; splitting %s+%s",
+                len(batch),
+                len(left),
+                len(right),
+            )
+            return _read_market(left, label + "L") + _read_market(right, label + "R")
+
     for offset in range(0, len(ids), TARGET_DATE_PRELOAD_BATCH_SIZE):
         batch = ids[offset:offset + TARGET_DATE_PRELOAD_BATCH_SIZE]
         try:
-            card_result = run_snapshot_operation_with_retry(
-                lambda retry_client: (
-                    retry_client.table("pokemon_set_cards_snapshot_latest")
-                    .select(
-                        "set_id,updated_at,"
-                        + CARDS_PRICING_MARKET_DATE_PROJECTION
-                        + ","
-                        + CARDS_SNAPSHOT_MARKET_DATE_PROJECTION
-                    )
-                    .in_("set_id", batch)
-                    .execute()
-                ),
-                operation_name=f"refresh-plan-fastpath:cards-target-dates:{offset}",
-                max_attempts=3,
-                client_factory=_planning_retry_client_factory(
-                    client, replacement_factory=replacement_client_factory
-                ),
-                sleep=sleep,
-            )
+            card_rows = _read_cards(batch, str(offset))
         except Exception as exc:
             logger.warning(
-                "[refresh-plan-fastpath] Cards target-date preload failed for batch offset=%s after retries: %s; disabling fast path",
+                "[refresh-plan-fastpath] Cards target-date preload failed for batch offset=%s after retries/splits: %s; disabling fast path",
                 offset, exc,
             )
             return None
-        for row in list(getattr(card_result, "data", None) or []):
+
+        for row in card_rows:
             set_id = str(row.get("set_id") or "")
             if not set_id:
                 continue
@@ -1809,28 +1878,15 @@ def _load_target_snapshot_market_dates(
             }
 
         try:
-            market_result = run_snapshot_operation_with_retry(
-                lambda retry_client: (
-                    retry_client.table("pokemon_set_market_dashboard_snapshot_latest")
-                    .select("set_id,latest_market_date,updated_at")
-                    .eq("window_key", window)
-                    .in_("set_id", batch)
-                    .execute()
-                ),
-                operation_name=f"refresh-plan-fastpath:market-target-dates:{offset}",
-                max_attempts=3,
-                client_factory=_planning_retry_client_factory(
-                    client, replacement_factory=replacement_client_factory
-                ),
-                sleep=sleep,
-            )
+            market_rows = _read_market(batch, str(offset))
         except Exception as exc:
             logger.warning(
-                "[refresh-plan-fastpath] Market Dashboard target-date preload failed for batch offset=%s after retries: %s; disabling fast path",
+                "[refresh-plan-fastpath] Market Dashboard target-date preload failed for batch offset=%s after retries/splits: %s; disabling fast path",
                 offset, exc,
             )
             return None
-        for row in list(getattr(market_result, "data", None) or []):
+
+        for row in market_rows:
             set_id = str(row.get("set_id") or "")
             if not set_id:
                 continue
