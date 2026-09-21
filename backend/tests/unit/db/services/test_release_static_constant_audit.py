@@ -36,13 +36,13 @@ CLASSIFIED = {
     "backend/db/services/product_family_rankings_service.py": "serving: release-driven; static = marked fallback",
     "backend/db/services/set_rip_service.py": "serving: release-driven; static = marked fallback",
     "backend/db/services/pokemon_sealed_product_detail_service.py": "serving (comment only; release-driven)",
-    # KNOWN GAP (Prompt 5E): the Rankings snapshot BUILDER/PUBLISHER stamps and selects on the static canonical
-    # identity. It is not a request-time reader, and a snapshot it builds under V12 is judged stale by the
-    # release-aware reader after a V14 flip (fail closed), but it cannot yet BUILD a V14-stamped snapshot.
-    "backend/db/services/explore_rip_statistics_service.py": "BUILDER-NOT-RELEASE-DRIVEN (gap)",
-    "backend/db/services/rankings_publication_lifecycle.py": "BUILDER-NOT-RELEASE-DRIVEN (gap)",
+    # Rankings snapshot BUILDER/PUBLISHER (5E-A): release-driven. The static canonical constants remain only as the
+    # DEFAULT (release=None -> static V12 bundle) so every existing caller is unchanged; a V14 candidate is built by
+    # passing an explicit release.
+    "backend/db/services/explore_rip_statistics_service.py": "builder: release-driven (static = default V12 bundle)",
+    "backend/db/services/rankings_publication_lifecycle.py": "builder: release-driven (static = default V12 selection)",
 }
-KNOWN_GAPS = {p for p, why in CLASSIFIED.items() if "gap" in why}
+KNOWN_GAPS = {p for p, why in CLASSIFIED.items() if "gap" in why.lower()}
 
 
 def _tracked(pattern_files):
@@ -57,9 +57,14 @@ def test_every_static_canonical_reader_is_classified():
     assert not unclassified, "classify these static canonical readers (scoring / builder / historical / serving): %s" % unclassified
 
 
-def test_the_known_builder_gap_is_exactly_the_two_rankings_publication_files():
-    assert KNOWN_GAPS == {"backend/db/services/explore_rip_statistics_service.py",
-                          "backend/db/services/rankings_publication_lifecycle.py"}
+def test_the_rankings_builder_gap_is_closed_and_both_files_take_an_explicit_release():
+    assert KNOWN_GAPS == set()
+    for name in ("explore_rip_statistics_service", "rankings_publication_lifecycle"):
+        text = (ROOT / "backend/db/services" / (name + ".py")).read_text(encoding="utf-8")
+        assert "release" in text and "requires_v5_schema" in text, name
+    builder = (ROOT / "backend/db/services/explore_rip_statistics_service.py").read_text(encoding="utf-8")
+    assert "release.financial_version" in builder and "release.overall_version" in builder
+    assert "release.public_contract_version" in builder
 
 
 def test_ranking_and_best_open_snapshots_are_read_only_by_release_driven_services():

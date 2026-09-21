@@ -27,6 +27,15 @@ on:
       - 'backend/scripts/*financial_v5*'
       - 'backend/desirability/public_rip_contract_v12.py'
       - 'backend/db/services/rip_release.py'
+      - 'backend/db/services/explore_rip_statistics_service.py'
+      - 'backend/db/services/rankings_publication_lifecycle.py'
+      - 'backend/db/services/rankings_release_authority.py'
+      - 'backend/db/services/set_financial_authority.py'
+      - 'backend/db/services/set_rankings_v14.py'
+      - 'backend/scripts/*rankings_release*'
+      - 'backend/scripts/audit_set_financial_authority.py'
+      - 'backend/tests/unit/db/services/test_set_*'
+      - 'backend/tests/unit/db/services/test_rankings_*'
       - 'backend/tests/unit/db/services/test_*release*'
       - 'backend/tests/unit/db/test_v14_set_page_generation.py'
       - 'backend/tests/unit/scripts/test_run_financial_v5*'
@@ -67,6 +76,15 @@ on:
       - 'backend/scripts/*financial_v5*'
       - 'backend/desirability/public_rip_contract_v12.py'
       - 'backend/db/services/rip_release.py'
+      - 'backend/db/services/explore_rip_statistics_service.py'
+      - 'backend/db/services/rankings_publication_lifecycle.py'
+      - 'backend/db/services/rankings_release_authority.py'
+      - 'backend/db/services/set_financial_authority.py'
+      - 'backend/db/services/set_rankings_v14.py'
+      - 'backend/scripts/*rankings_release*'
+      - 'backend/scripts/audit_set_financial_authority.py'
+      - 'backend/tests/unit/db/services/test_set_*'
+      - 'backend/tests/unit/db/services/test_rankings_*'
       - 'backend/tests/unit/db/services/test_*release*'
       - 'backend/tests/unit/db/test_v14_set_page_generation.py'
       - 'backend/tests/unit/scripts/test_run_financial_v5*'
@@ -104,8 +122,8 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import subprocess, sys
-          paths = sorted({str(p) for p in Path('backend/tests/unit').rglob('test_*.py') if any(t in p.name for t in ('best_open', 'budget_normalized_product_ranking', 'budget_product_ranking', 'financial_rip_v3', 'financial_rip_v4', 'overall_rip_v12', 'financial_v5', 'v5_', 'overall_v14', 'contract_v12', 'set_rip_canonical', 'generic_active', 'release_serving', 'rip_release', 'static_constant_audit', 'run_financial_v5', 'v14_set_page'))})
-          paths += ['backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py', 'backend/tests/unit/db/services/test_public_overall_product_rankings_service.py', 'backend/tests/unit/db/services/test_product_family_rankings_service.py', 'backend/tests/unit/domain/access/test_index_plan_access.py']
+          paths = sorted({str(p) for p in Path('backend/tests/unit').rglob('test_*.py') if any(t in p.name for t in ('best_open', 'budget_normalized_product_ranking', 'budget_product_ranking', 'financial_rip_v3', 'financial_rip_v4', 'overall_rip_v12', 'financial_v5', 'v5_', 'overall_v14', 'contract_v12', 'set_rip_canonical', 'generic_active', 'release_serving', 'rip_release', 'static_constant_audit', 'run_financial_v5', 'v14_set_page', 'set_financial_authority', 'set_rankings_v14', 'rankings_writer_release', 'rankings_publication_lifecycle'))})
+          paths += ['backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py', 'backend/tests/unit/db/services/test_public_overall_product_rankings_service.py', 'backend/tests/unit/db/services/test_product_family_rankings_service.py', 'backend/tests/unit/domain/access/test_index_plan_access.py', 'backend/tests/unit/db/services/test_explore_rip_statistics_service.py']
           raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', '-q', *paths]))
           PY
           bash -n infra/local/run_simulations.sh
