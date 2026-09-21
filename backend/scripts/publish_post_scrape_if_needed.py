@@ -45,9 +45,11 @@ logger = logging.getLogger(__name__)
 TAG = "[publish-if-needed]"
 
 REBUILD_SCRIPT = _PROJECT_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
+LOCK_HELD_EXIT_CODE = 4
 
 STATUS_NOOP_NOT_COMPLETE = "noop_batch_not_complete"
 STATUS_NOOP_ALREADY_CURRENT = "noop_already_current"
+STATUS_NOOP_ALREADY_RUNNING = "noop_already_running"
 STATUS_NOOP_CURRENCY_UNKNOWN = "noop_currency_unknown"
 STATUS_GATE_AUTHORITY_UNAVAILABLE = "gate_authority_unavailable"
 STATUS_GATE_INVALID_CONTRACT = "gate_invalid_contract"
@@ -222,6 +224,11 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
     if exit_code == 0:
         logger.info("%s publication complete for market_date=%s", TAG, market_date)
         return {"market_date": market_date, "status": STATUS_PUBLISHED, "exit_code": exit_code}
+    if exit_code == LOCK_HELD_EXIT_CODE:
+        logger.info(
+            "%s publication already running for market_date=%s; safe no-op", TAG, market_date
+        )
+        return {"market_date": market_date, "status": STATUS_NOOP_ALREADY_RUNNING, "exit_code": exit_code}
 
     logger.error(
         "%s publication FAILED market_date=%s exit_code=%s", TAG, market_date, exit_code
