@@ -5,6 +5,7 @@ currency check, breaking the exact-market-date pass-through, or letting a
 launch failure raise would make it fail.
 """
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -20,8 +21,17 @@ def _fake_popen(args, *, cwd, log_path):
 
 
 @pytest.fixture(autouse=True)
-def _reset_popen_calls():
+def _reset_popen_calls(monkeypatch):
     _fake_popen.calls = []
+    monkeypatch.setattr(
+        trigger,
+        "_default_price_projection_check",
+        lambda market_date: SimpleNamespace(
+            ready=True,
+            reason_code="price_projection_ready",
+            to_dict=lambda: {"ready": True, "market_date": market_date},
+        ),
+    )
     yield
 
 
@@ -248,33 +258,91 @@ def test_default_popen_uses_detached_session_and_explicit_args(tmp_path, monkeyp
     assert isinstance(captured["args"], list)
     assert log_path.exists()
 
-class _AuditReport:
+
+
+def test_price_projection_not_ready_defers_without_currency_check_or_launch():
+    currency_calls = []
+    projection = SimpleNamespace(
+        ready=False,
+        reason_code="price_projection_not_ready",
+        to_dict=lambda: {
+            "ready": False,
+            "expected_set_count": 165,
+            "complete_set_count": 100,
+        },
+    )
+    result = trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-20",
+        price_projection_check=lambda _date: projection,
+        publication_current=lambda date: currency_calls.append(date),
+        popen=_fake_popen,
+        lock_check=lambda _path: False,
+    )
+    assert result["status"] == trigger.STATUS_SKIPPED_PRICE_PROJECTION_NOT_READY
+    assert result["price_projection"]["complete_set_count"] == 100
+    assert currency_calls == []
+    assert _fake_popen.calls == []
+
+
+def test_price_projection_authority_failure_never_launches(monkeypatch):
+    from backend.db.services.price_storage_v2_projection_gate import (
+        REASON_AUTHORITY_UNAVAILABLE,
+    )
+    alerts = []
+    monkeypatch.setattr(
+        trigger,
+        "_queue_price_projection_failure_alert",
+        lambda market_date, decision: alerts.append((market_date, decision.reason_code)),
+    )
+    projection = SimpleNamespace(
+        ready=False,
+        reason_code=REASON_AUTHORITY_UNAVAILABLE,
+        to_dict=lambda: {"ready": False, "reason_code": REASON_AUTHORITY_UNAVAILABLE},
+    )
+    result = trigger.trigger_post_scrape_publication_if_needed(
+        "2026-09-20",
+        price_projection_check=lambda _date: projection,
+        publication_current=lambda _date: trigger.PublicationCurrencyStatus.STALE,
+        popen=_fake_popen,
+        lock_check=lambda _path: False,
+    )
+    assert result["status"] == trigger.STATUS_PRICE_PROJECTION_CHECK_FAILED
+    assert alerts == [("2026-09-20", REASON_AUTHORITY_UNAVAILABLE)]
+    assert _fake_popen.calls == []
+
+class _ExplorerCurrencyAuditReport:
     def __init__(self, market_date="2026-09-20", passed=True):
         self.market_date = market_date
         self.passed = passed
 
 
-def test_currency_is_stale_when_canonical_passes_but_v2_is_stale(monkeypatch):
+def test_currency_is_stale_when_canonical_passes_but_explorer_v2_is_stale(monkeypatch):
     monkeypatch.setattr(trigger, "_market_explorer_v2_current", lambda client, market_date: False)
     status = trigger.evaluate_post_scrape_publication_currency(
         object(),
         "2026-09-20",
-        audit_runner=lambda client, market_date, phase: _AuditReport(market_date, True),
+        audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, True),
     )
     assert status == trigger.PublicationCurrencyStatus.STALE
 
 
-def test_currency_is_current_only_when_canonical_and_v2_are_current(monkeypatch):
-    monkeypatch.setattr(trigger, "_market_explorer_v2_current", lambda client, market_date: True)
+def test_currency_is_current_only_when_canonical_and_explorer_v2_are_current(monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        trigger,
+        "_market_explorer_v2_current",
+        lambda client, market_date: seen.append(market_date) or True,
+    )
     status = trigger.evaluate_post_scrape_publication_currency(
         object(),
         "2026-09-20",
-        audit_runner=lambda client, market_date, phase: _AuditReport(market_date, True),
+        audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, True),
     )
     assert status == trigger.PublicationCurrencyStatus.CURRENT
+    assert seen == ["2026-09-20"]
 
 
-def test_currency_is_unknown_when_v2_check_errors(monkeypatch):
+def test_currency_is_unknown_when_explorer_v2_authority_errors(monkeypatch):
     def broken(client, market_date):
         raise RuntimeError("coverage unavailable")
 
@@ -282,7 +350,7 @@ def test_currency_is_unknown_when_v2_check_errors(monkeypatch):
     status = trigger.evaluate_post_scrape_publication_currency(
         object(),
         "2026-09-20",
-        audit_runner=lambda client, market_date, phase: _AuditReport(market_date, True),
+        audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, True),
     )
     assert status == trigger.PublicationCurrencyStatus.UNKNOWN
 
