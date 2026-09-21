@@ -44,6 +44,7 @@ PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
 # descriptor is opened for the life of this process, so the lock releases
 # automatically on any exit path (success, failure, or signal).
 LOCK_PATH="${POST_SCRAPE_PUBLICATION_LOCK_PATH:-/tmp/pokemon-post-scrape-publication.lock}"
+LOCK_HELD_EXIT_CODE=4
 if ! command -v flock >/dev/null 2>&1; then
   printf '[post-scrape-publication] %s FATAL flock not available; refusing to publish unlocked\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -51,9 +52,9 @@ if ! command -v flock >/dev/null 2>&1; then
 fi
 exec {LOCK_FD}>"${LOCK_PATH}"
 if ! flock -n "${LOCK_FD}"; then
-  printf '[post-scrape-publication] %s already running (lock_path=%s held); safe no-op, exiting 0\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${LOCK_PATH}"
-  exit 0
+  printf '[post-scrape-publication] %s already running (lock_path=%s held); safe no-op, exit_code=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${LOCK_PATH}" "${LOCK_HELD_EXIT_CODE}"
+  exit "${LOCK_HELD_EXIT_CODE}"
 fi
 
 # Explicit market date support (recovery + the immediate post-scrape trigger):
