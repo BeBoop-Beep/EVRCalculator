@@ -165,13 +165,153 @@ def cmd_shadow(client: Any, args: argparse.Namespace) -> Dict[str, Any]:
     return {"status": "ok"}
 
 
-COMMANDS = {"finalize-v5": cmd_finalize_v5, "shadow": cmd_shadow}
+def _persisted_v5_rows_or_report(client: Any, market_date: str):
+    """Rows carrying READY persisted V5 for the current cohort, or a truthful not-ready result (no ad hoc V5)."""
+    from backend.db.services import budget_ranking_v2_orchestration as o2
+    from backend.db.services.sealed_product_rip_finalization_service import resolve_finalization_cohort
+    from backend.db.repositories.sealed_product_results_repository import get_sealed_product_results_for_runs
+
+    cohort = resolve_finalization_cohort(client, market_date=market_date)
+    if cohort.get("error") or not cohort.get("verificationPassed"):
+        return None, {"status": "not_ready", "reason": "cohort_not_verified", "detail": cohort.get("error")}
+    runs = sorted(set(cohort["runIdBySetId"].values()))
+    by_set = dict(cohort["runIdBySetId"])
+    rows = [dict(r) for r in get_sealed_product_results_for_runs(runs)
+            if by_set.get(str(r.get("set_id"))) == str(r.get("calculation_run_id"))]
+    try:
+        merged = o2.read_v5_source_rows(rows, client=client)
+        o2.require_v5_source_rows(merged)
+    except o2.RankingV2NotReady as exc:
+        return None, {"status": "not_ready", "reason": exc.reason, "detail": exc.details[:5]}
+    return {"rows": merged, "cohort": cohort}, None
+
+
+def cmd_build_v14(client: Any, args: argparse.Namespace) -> Dict[str, Any]:
+    """Inactive V14 candidate (rankings + Set-page generations). Dry run reports; --commit writes STAGED/VALIDATED only."""
+    from backend.db.services import v5_shadow_runner as sr
+    from backend.db.services.overall_v14_candidate_publication import (
+        build_v14_set_page_projections, validate_v14_set_page_projections, write_v14_candidate,
+    )
+
+    md = resolve_cohort_date(client, args.market_date)["cohortDate"]
+    if args.commit:
+        persisted, not_ready = _persisted_v5_rows_or_report(client, md)
+        if not_ready:
+            print(json.dumps(not_ready, indent=1, default=str))
+            return {"status": "not_ready", **not_ready}
+        stage = sr.run_v14_stage(client, market_date=md, v5_rows=persisted["rows"])
+    else:
+        stage = sr.run_v14_stage(client, market_date=md)
+    summary = {"dryRun": not args.commit, "marketDate": md, "v14Validation": stage["v14Validation"],
+               "setPageValidation": stage["setPageValidation"], "rows": len(stage["candidate"]["rows"]),
+               "setPages": len(stage["setPageProjections"]), "promotable": stage["v14Validation"]["passed"] and stage["setPageValidation"]["passed"],
+               "wouldWrite": ["run(staged->validated)", "rows", "rankings generation", "set_page generation"], "activates": False}
+    if args.commit:
+        cand = stage["candidate"]
+        out = write_v14_candidate(client, cand, set_page_projection_fn=lambda rows: build_v14_set_page_projections(cand),
+                                  set_page_validator_fn=validate_v14_set_page_projections)
+        summary["written"] = {k: out[k] for k in ("publicationRunId", "created", "status", "activated")}
+    print(json.dumps(summary, indent=1, default=str))
+    return {"status": "ok", **summary}
+
+
+def cmd_ranking_v2(client: Any, args: argparse.Namespace) -> Dict[str, Any]:
+    """Explicit Ranking V2. Dry run = Full Market shadow from exact V5 evidence; --commit needs PERSISTED ready V5."""
+    from backend.calculations.evr.budget_normalized_product_ranking import BUDGET_NORMALIZED_RANKING_METHOD_VERSION_V2 as V2
+    from backend.db.services import budget_ranking_v2_orchestration as o2
+    from backend.db.services import v5_shadow_runner as sr
+    from backend.db.services.overall_v14_candidate_publication import cohort_fingerprint
+
+    md = resolve_cohort_date(client, args.market_date)["cohortDate"]
+    if not args.commit:
+        shadow = sr.run_shadow(client, market_date=md)
+        fm = shadow["fullMarket"]
+        summary = {"dryRun": True, "marketDate": md, "method": V2, "fullMarketRanked": fm["rankedCount"],
+                   "excluded": fm["excludedCount"], "unrankable": fm["unrankableCount"], "publishes": False}
+        print(json.dumps(summary, indent=1, default=str))
+        return {"status": "ok", **summary}
+    persisted, not_ready = _persisted_v5_rows_or_report(client, md)
+    if not_ready:                               # never builds V5 ad hoc on the commit path
+        print(json.dumps(not_ready, indent=1, default=str))
+        return {"status": "not_ready", **not_ready}
+    rows = persisted["rows"]
+    stage = sr.run_v14_stage(client, market_date=md, v5_rows=rows)
+    if not (stage["v14Validation"]["passed"] and stage["setPageValidation"]["passed"]):
+        return {"status": "not_ready", "reason": "v14_candidate_not_valid", "detail": stage["v14Validation"]["problems"][:5]}
+    products = [{**r, "collector_appeal_score": (stage["appeal"].get(str(r["set_id"])) or {}).get("score")} for r in rows]
+    result = o2.build_ranking_v2_for_cohort(client, products, method_version=V2)
+    pub = o2.assemble_ranking_v2_publication(result, products, market_date=md, pinned_price_as_of=md,
+                                             cohort_fingerprint=cohort_fingerprint(rows))
+    o2.publish_ranking_v2(client, pub)
+    print(json.dumps({"dryRun": False, "published": V2, "rows": len(pub["rows"])}))
+    return {"status": "ok"}
+
+
+def cmd_best_open_v3(client: Any, args: argparse.Namespace) -> Dict[str, Any]:
+    """Best-Open V3 preconditions and plan. Requires a persisted Ranking V2 source; the full search is not run here."""
+    from backend.db.services import budget_best_open_v3_orchestration as o3
+    from backend.calculations.evr.budget_normalized_product_ranking import BUDGET_NORMALIZED_RANKING_METHOD_VERSION_V2 as V2
+
+    latest = list(client.table("budget_product_ranking_latest").select("snapshot_id,market_date")
+                  .eq("ranking_method_version", V2).execute().data or [])
+    snapshot = None
+    if latest:
+        snapshot = (list(client.table("budget_product_ranking_snapshots").select("*").eq("id", latest[0]["snapshot_id"])
+                         .execute().data or []) or [None])[0]
+    try:
+        o3.require_ranking_v2_snapshot(snapshot)
+    except o3.BestOpenV3NotReady as exc:
+        result = {"status": "not_ready", "reason": exc.reason, "detail": exc.details, "dryRun": not args.commit,
+                  "note": "Best-Open V3 requires a persisted Ranking V2 snapshot"}
+        print(json.dumps(result, indent=1, default=str))
+        return result
+    plan = {"status": "ok", "dryRun": not args.commit, "source": {"id": snapshot["id"], "marketDate": snapshot["market_date"]},
+            "searchRun": False, "note": "the exact-cent search is a separate long-running step"}
+    print(json.dumps(plan, indent=1, default=str))
+    return plan
+
+
+def cmd_readiness(client: Any, args: argparse.Namespace) -> Dict[str, Any]:
+    """Every readiness check against the exact evidence available now. No hidden waiver."""
+    from backend.calculations.evr.budget_normalized_product_ranking import BUDGET_NORMALIZED_RANKING_METHOD_VERSION_V2 as V2
+    from backend.db.services import v5_shadow_runner as sr
+    from backend.db.services.v5_v14_candidate_readiness import evaluate_v5_v14_candidate_readiness
+    from backend.calculations.evr.best_open_price_v3 import BEST_OPEN_PRICE_V3_METHOD_VERSION as V3
+
+    md = resolve_cohort_date(client, args.market_date)["cohortDate"]
+    stage = sr.run_v14_stage(client, market_date=md)
+    contracts = sr.build_contract_v12_targets({"candidate": stage["candidate"], "v5Rows": stage["v5Rows"], "accessibility": stage["accessibility"]})
+
+    def latest(table, key_col, key):
+        got = list(client.table(table).select("*").eq(key_col, key).execute().data or [])
+        return got[0] if got else None
+    ranking = best_open = None
+    l = latest("budget_product_ranking_latest", "ranking_method_version", V2)
+    if l:
+        ranking = (list(client.table("budget_product_ranking_snapshots").select("*").eq("id", l["snapshot_id"]).execute().data or []) or [None])[0]
+    b = latest("budget_product_best_open_price_latest", "best_open_price_method_version", V3)
+    if b:
+        best_open = (list(client.table("budget_product_best_open_price_snapshots").select("*").eq("id", b["snapshot_id"]).execute().data or []) or [None])[0]
+    result = evaluate_v5_v14_candidate_readiness(
+        expected_row_count=len(stage["v5Rows"]), v5_finalization_report=stage["v5Report"], v14_candidate=stage["candidate"],
+        v14_validation=stage["v14Validation"], ranking_v2=ranking, best_open_v3=best_open, contract_v12_samples=contracts,
+        require_best_open_v3=not args.waive_best_open_v3)
+    result["waivers"] = {"bestOpenV3": bool(args.waive_best_open_v3)}
+    print(json.dumps({"candidateReady": result["candidateReady"], "reasons": result["reasons"], "waivers": result["waivers"],
+                      "checks": {k: v["ok"] for k, v in result["checks"].items()}, "canonicalImpact": result["canonicalImpact"]}, indent=1))
+    return {"status": "ok", **{k: result[k] for k in ("candidateReady", "reasons")}}
+
+
+COMMANDS = {"finalize-v5": cmd_finalize_v5, "shadow": cmd_shadow, "build-v14": cmd_build_v14, "ranking-v2": cmd_ranking_v2,
+            "best-open-v3": cmd_best_open_v3, "readiness": cmd_readiness}
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=sorted(COMMANDS) + ["build-v14", "ranking-v2", "best-open-v3", "readiness", "shadow"])
+    parser.add_argument("command", choices=sorted(COMMANDS))
     parser.add_argument("--market-date", default=None, help="explicit promoted market date (default: resolved)")
+    parser.add_argument("--waive-best-open-v3", action="store_true",
+                        help="readiness only: intermediate diagnostic waiver (never used for final release readiness)")
     parser.add_argument("--commit", action="store_true",
                         help="perform writes (default is a read-only dry run); not accepted by 'shadow'/'readiness'")
     return parser
@@ -182,12 +322,10 @@ def main(argv: Optional[list] = None) -> int:
     if args.commit and args.command in ("shadow", "readiness"):
         raise SystemExit(f"'{args.command}' is read-only and has no commit mode")
     started = time.perf_counter()
-    handler = COMMANDS.get(args.command)
-    if handler is None:
-        raise SystemExit(f"'{args.command}' is registered in a later step of this module")
+    handler = COMMANDS[args.command]
     result = handler(_client(), args)
     print(f"elapsed {time.perf_counter() - started:.1f}s", file=sys.stderr)
-    return 0 if (result or {}).get("status") in (None, "ok") else 1
+    return 0 if (result or {}).get("status") in (None, "ok") else 1  # "not_ready" exits non-zero
 
 
 if __name__ == "__main__":

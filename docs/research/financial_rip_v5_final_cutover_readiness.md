@@ -86,3 +86,17 @@ Re-promote the retained V12 ledger run (`promote_pokemon_overall_rip_publication
 ## Known remaining risks
 
 Collector bundle build is slow (286 s) and sensitive to transient read timeouts; the promoted date can run ahead of a complete simulation cohort (handled by reporting both dates); live evidence is single-cohort (2026-09-15), not temporal; Contract V12 was validated at product level, not on real set targets.
+
+## Prompt 5D update (serving architecture closure)
+
+Status of the 5C blockers, after [financial_rip_v5_serving_architecture_closure.md](financial_rip_v5_serving_architecture_closure.md) (`FINANCIAL_RIP_V5_SERVING_ARCHITECTURE_BLOCKED`):
+
+1. Concrete-service parity: **closed at fixture level** for all five services through `rip_release` (V12 parity tests unchanged and green; V14 fixture tests added).
+2. V14 set-page generation: **closed** (built, validated, run reaches `validated`, never active).
+3. Frontend/version transport: **closed** (allowlists, ranking config, contract-driven explanation selector, V4/V5 component labels, backend + frontend entitlement pass-through, no frontend scoring).
+4. Live Best-Open V3 shadow: **still open** (not run by instruction).
+5. Operator commands: **closed** (`build-v14`, `ranking-v2`, `best-open-v3`, `readiness`).
+6. Activation atomicity: **closed by design**. Serving selection is keyed by the DB pointer's model version, so the pointer flip is the single serving switch and rollback is a re-point. Tested pointer-only V12 -> V14 -> V12.
+7. Stale generic ledger: **closed by contract**. The V12 release reads live V12/V4 storage; the stale 2026-09-10 ledger run is not the V12 score authority.
+
+**New blocker found in 5D:** the Rankings snapshot builder/publisher (`explore_rip_statistics_service`, `rankings_publication_lifecycle`) stamps and selects on the static canonical identity, so a V14-stamped Rankings snapshot cannot yet be built. The reader fails closed on a stale one. First item of Prompt 5E.

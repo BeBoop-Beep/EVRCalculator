@@ -175,6 +175,8 @@ _PLUS_TARGET_FIELDS = _BASE_TARGET_FIELDS | frozenset({
     "overallRipV10", "publicRipContractV10",
     # CURRENT canonical Overall RIP model + public contract.
     "overallRipV12", "publicRipContractV11", "chaseAccessibility",
+    # Release V14/V5 blocks follow the SAME plan gating as the V12/V4 blocks they succeed (no entitlement change).
+    "overallRipV14", "overallRipV14Composition", "financialRipV5", "publicRipContractV12",
     "publicCollectorAppealContractV1",
     "setRipV1", "openingExperience", "rankingsChase",
     "collector_appeal_score", "collector_appeal_rank", "opening_desirability_score",
@@ -478,7 +480,7 @@ def _project_set_rankings_plus_target(target: Mapping[str, Any]) -> dict[str, An
         chase = set_rip.get("chaseAccessibility")
         if isinstance(chase, Mapping): compact["chaseAccessibility"] = _pick(chase, _CHASE_FIELDS)
         result["setRipV1"] = compact
-    for key in ("overallRipV12", "financialRipV4"):
+    for key in ("overallRipV12", "financialRipV4", "overallRipV14", "financialRipV5"):
         if isinstance(target.get(key), Mapping): result[key] = _pick(target[key], _HEADLINE_FIELDS)
     chase = target.get("rankingsChase")
     if isinstance(chase, Mapping):
@@ -613,6 +615,8 @@ _PLUS_SET_PAGE_FIELDS = _BASE_SET_PAGE_FIELDS | frozenset({
     "rip", "ripCore", "financialRipV4",
     "overallRipV10", "publicRipContractV10",
     "overallRipV12", "publicRipContractV11", "chaseAccessibility",
+    # Release V14/V5 blocks follow the SAME plan gating as the V12/V4 blocks they succeed (no entitlement change).
+    "overallRipV14", "overallRipV14Composition", "financialRipV5", "publicRipContractV12",
     "openingExperience", "publicAnalyticsCohort", "publicAnalyticsStatus",
 })
 
@@ -666,6 +670,8 @@ def project_insights_critical_response(payload: Mapping[str, Any], plan: Any) ->
             "ripCore", "financialRipV4",
             "overallRipV10", "publicRipContractV10",
             "overallRipV12", "publicRipContractV11", "chaseAccessibility",
+    # Release V14/V5 blocks follow the SAME plan gating as the V12/V4 blocks they succeed (no entitlement change).
+    "overallRipV14", "overallRipV14Composition", "financialRipV5", "publicRipContractV12",
             "openingExperience", "publicAnalyticsCohort", "publicAnalyticsStatus",
             "interpretation", "meta",
         }))

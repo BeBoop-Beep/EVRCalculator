@@ -76,3 +76,7 @@ Still outstanding: frontend/version transport, controlled schema landing, runnin
 ## Prompt 5C update (live shadow, final readiness)
 
 Status `FINANCIAL_RIP_V5_PRODUCTION_CUTOVER_BLOCKED`. Live read-only shadow on the 2026-09-15 cohort (22 runs, 138 products): exact-artifact V5 138/138 ready with exact V4 lineage parity, V14 candidate validated 138/138, Full Market Ranking V2 138 ranked, Contract V12 built with 0 problems, readiness gate passed (Best-Open V3 waived). Blocked by unfinished work (services other than Set RIP, V14 set-page projection, frontend transport, live Best-Open V3) and an unresolved activation-atomicity risk, plus a stale generic ledger (active V12 run dated 2026-09-10). Full detail, activation and rollback sequences: [financial_rip_v5_final_cutover_readiness.md](financial_rip_v5_final_cutover_readiness.md).
+
+## Prompt 5D update (serving architecture closure)
+
+Status `FINANCIAL_RIP_V5_SERVING_ARCHITECTURE_BLOCKED`. One release authority (`rip_release`) now drives all five serving services, V14 Set-page generation is real and validated, frontend transport and entitlement allowlists carry the V14/V5 blocks, the CLI is complete, and two static audits pin the remaining canonical-constant readers. Remaining: the Rankings snapshot builder/publisher is not release-driven (cannot build a V14-stamped snapshot), V14 serving is proven on fixtures only, and the live Best-Open V3 search has not run. Nothing was applied to production. Detail: [financial_rip_v5_serving_architecture_closure.md](financial_rip_v5_serving_architecture_closure.md).

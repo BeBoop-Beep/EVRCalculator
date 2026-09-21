@@ -7,9 +7,10 @@ from backend.calculations.evr.best_open_price import (
     BEST_OPEN_PRICE_METHOD_VERSION, BEST_OPEN_PRICE_V2_METHOD_VERSION,
 )
 from backend.calculations.evr.budget_normalized_product_ranking import (
-    BUDGET_TYPE_FULL_MARKET, CANONICAL_BUDGET_BANDS,
+    BUDGET_NORMALIZED_RANKING_METHOD_VERSION, BUDGET_TYPE_FULL_MARKET, CANONICAL_BUDGET_BANDS,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services import rip_release
 from backend.db.services.budget_product_best_open_price_service import load_best_open_price_ranking
 from backend.db.services.budget_product_ranking_service import (
     load_budget_ranking, load_full_market_ranking, load_latest_snapshot,
@@ -26,7 +27,7 @@ def _identity_index(product_family_rankings: Mapping[str, Any]) -> Dict[str, Dic
 
 
 def _best_open_price_projection(
-    client: Any, snapshot: Mapping[str, Any], raw_rows: list[Mapping[str, Any]], budget: str,
+    client: Any, snapshot: Mapping[str, Any], raw_rows: list[Mapping[str, Any]], budget: str, release: Any = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Mapping[str, Any]]]:
     """Load the prepared Best-Open layer without making Product Rankings depend on it.
 
@@ -43,14 +44,16 @@ def _best_open_price_projection(
     # (`load_best_open_price_ranking` enforces this identically for either
     # method version) -- a stale V1 publication must never mask a valid
     # current V2 one, and an incomplete/stale V1 must not be served either.
+    # The active release names the ONLY method versions that may be read: V12 = V2 then V1 (unchanged);
+    # V14 = V3 alone. A V14 release never falls back to V1/V2 Best-Open under current labels.
+    versions = (release.best_open_method_versions if release is not None
+                else (BEST_OPEN_PRICE_V2_METHOD_VERSION, BEST_OPEN_PRICE_METHOD_VERSION))
     try:
-        prepared = load_best_open_price_ranking(
-            client, best_open_price_method_version=BEST_OPEN_PRICE_V2_METHOD_VERSION,
-        )
-        if not prepared.get("available"):
-            prepared = load_best_open_price_ranking(
-                client, best_open_price_method_version=BEST_OPEN_PRICE_METHOD_VERSION,
-            )
+        prepared = {"available": False}
+        for version in versions:
+            prepared = load_best_open_price_ranking(client, best_open_price_method_version=version)
+            if prepared.get("available"):
+                break
     except Exception:
         return {"available": False, "reason": "prepared_read_failed"}, {}
     if not prepared.get("available"):
@@ -92,12 +95,20 @@ def _best_open_price_projection(
 
 
 def read_public_overall_product_rankings(
-    budget: str = "full_market", *, product_family_rankings: Mapping[str, Any], client: Any = None
+    budget: str = "full_market", *, product_family_rankings: Mapping[str, Any], client: Any = None,
+    release: Any = None,
 ) -> Dict[str, Any]:
     client = client or service_read_client
-    snapshot = load_latest_snapshot(client)
+    release = release or rip_release.resolve_release_or_marked_fallback(client)   # once per request
+    ranking_kwargs = ({} if release.ranking_method_version == BUDGET_NORMALIZED_RANKING_METHOD_VERSION
+                      else {"ranking_method_version": release.ranking_method_version})
+    snapshot = load_latest_snapshot(client, **ranking_kwargs)
     if snapshot is None:
-        return {"available": False, "reason": "no_published_authority", "rows": []}
+        return {"available": False, "reason": "no_published_authority", "rows": [],
+                "releaseModelVersion": release.overall_version}
+    if snapshot.get("ranking_method_version", release.ranking_method_version) != release.ranking_method_version:
+        return {"available": False, "reason": "ranking_method_mismatch", "rows": [],
+                "releaseModelVersion": release.overall_version}
     if budget == "full_market":
         result = load_full_market_ranking(client, source_snapshot=snapshot)
     else:
@@ -107,7 +118,7 @@ def read_public_overall_product_rankings(
             return {"available": False, "reason": "invalid_budget", "rows": []}
         if value not in CANONICAL_BUDGET_BANDS:
             return {"available": False, "reason": "invalid_budget", "rows": []}
-        result = load_budget_ranking(client, value, source_snapshot=snapshot)
+        result = load_budget_ranking(client, value, source_snapshot=snapshot, **ranking_kwargs)
 
     if result.get("available") is False:
         return {"available": False, "reason": result.get("reason") or "no_rows_for_budget", "rows": []}
@@ -115,8 +126,11 @@ def read_public_overall_product_rankings(
     identities = _identity_index(product_family_rankings)
     raw_rows = result.get("rows") or []
     presentation = public_budget_cohort_presentation(raw_rows, snapshot)
-    best_open_price, best_open_by_id = _best_open_price_projection(client, snapshot, raw_rows, budget)
-    best_open_is_v2 = best_open_price.get("methodVersion") == BEST_OPEN_PRICE_V2_METHOD_VERSION
+    best_open_price, best_open_by_id = _best_open_price_projection(
+        client, snapshot, raw_rows, budget, release)
+    best_open_is_v2 = best_open_price.get("methodVersion") in (
+        BEST_OPEN_PRICE_V2_METHOD_VERSION, *(v for v in release.best_open_method_versions
+                                            if v != BEST_OPEN_PRICE_METHOD_VERSION))
     rows = []
     for raw in raw_rows:
         identity = identities.get(str(raw.get("sealed_product_id")), {})

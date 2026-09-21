@@ -131,6 +131,57 @@ def run_shadow(client: Any, *, market_date: str, read_rows_fn=None, collector_bu
     }
 
 
+def run_v14_stage(client: Any, *, market_date: str, read_rows_fn=None, collector_bundle_fn=None,
+                  accessibility_reader_fn=None, artifact_loader_fn=None, v5_rows: Optional[Sequence[Mapping[str, Any]]] = None,
+                  v5_report: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    """V5 evidence -> in-memory V14 candidate -> Set-page generation (built and validated). No writes.
+
+    With ``v5_rows`` (rows that already carry ready persisted V5 columns) no finalization is run; otherwise the
+    exact-artifact finalizer runs as a DRY RUN and its captured evidence supplies V5. Never persists anything.
+    """
+    from backend.db.services.overall_v14_candidate_publication import (
+        build_v14_set_page_projections, validate_v14_set_page_projections,
+    )
+
+    if read_rows_fn is None:
+        from backend.db.repositories.sealed_product_results_repository import get_sealed_product_results_for_runs as read_rows_fn
+    if collector_bundle_fn is None:
+        from backend.db.services.collector_appeal_service import get_collector_appeal_bundle as collector_bundle_fn
+    if accessibility_reader_fn is None:
+        from backend.db.services.chase_accessibility_service import read_chase_accessibility_snapshots_for_sets
+
+        def accessibility_reader_fn(set_ids):
+            return read_chase_accessibility_snapshots_for_sets(set_ids=set_ids, client=client)
+
+    cohort = resolve_finalization_cohort(client, market_date=market_date)
+    if cohort.get("error") or not cohort.get("verificationPassed"):
+        raise RuntimeError("live cohort is not verified: %s" % (cohort.get("error") or "freshness failed"))
+    run_by_set = dict(cohort["runIdBySetId"])
+    runs = sorted(set(run_by_set.values()))
+    if v5_rows is None:
+        evidence: Dict[str, Dict[str, Any]] = {}
+        kw = {} if artifact_loader_fn is None else {"artifact_loader_fn": artifact_loader_fn}
+        v5_report = finalize_financial_rip_v5(client, market_date=market_date, dry_run=True, evidence_sink=evidence, **kw)
+        rows = [dict(r) for r in read_rows_fn(runs)]
+        v5_rows = [{**r, **evidence.get(str(r["id"]), {})} for r in rows
+                   if run_by_set.get(str(r.get("set_id"))) == str(r.get("calculation_run_id"))]
+    else:
+        v5_rows = [dict(r) for r in v5_rows]
+    bundle = collector_bundle_fn() or {}
+    payloads = bundle.get("payloads") or {}
+    appeal = {sid: interpret_collector_appeal_payload(payloads.get(str(sid))) for sid in run_by_set}
+    collector_by_set = {sid: {"score": a.get("score"), "version": a.get("version")} for sid, a in appeal.items()}
+    accessibility = accessibility_reader_fn(list(run_by_set)) or {}
+    candidate = build_v14_candidate(v5_rows, market_date=market_date, collector_by_set_id=collector_by_set,
+                                    accessibility_by_set_id=accessibility, run_id_by_set_id=run_by_set)
+    validation = validate_v14_candidate(candidate)
+    projections = build_v14_set_page_projections(candidate)
+    set_page_validation = validate_v14_set_page_projections(candidate, projections)
+    return {"marketDate": market_date, "cohort": cohort, "runByset": run_by_set, "v5Rows": v5_rows, "v5Report": v5_report,
+            "appeal": appeal, "accessibility": accessibility, "candidate": candidate, "v14Validation": validation,
+            "setPageProjections": projections, "setPageValidation": set_page_validation}
+
+
 def build_contract_v12_targets(shadow: Mapping[str, Any]) -> List[Dict[str, Any]]:
     """One read-only ``publicRipContractV12`` per product target, from the shadow's ranked V14 rows."""
     ledger = {r["sealed_product_id"]: r for r in shadow["candidate"]["rows"]}

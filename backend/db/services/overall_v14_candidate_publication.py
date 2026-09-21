@@ -136,9 +136,93 @@ def _db_row(row: Mapping[str, Any], run_id: str) -> Dict[str, Any]:
     return {"publication_run_id": run_id, **{k: row.get(k) for k in keys}}
 
 
+SET_PAGE_PROJECTION_VERSION = "overall_v14_set_page_projection_v1"
+
+
+def build_v14_set_page_projections(
+    candidate: Mapping[str, Any], *,
+    contracts_by_product: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """One Set-page projection per set, built ONLY from the already-ranked candidate rows (no second ranking).
+
+    Each carries the exact authority evidence of the run it belongs to (model, Financial V5 / Chase V1 /
+    Collector V5 lineage, market date, cohort and formula fingerprints, Public Contract V12) plus the set's
+    products with their V14 score / rank / tier. ``overallPublicationRunId`` is stamped by the writer, so a
+    projection cannot be attached to a different run than the one it was built for.
+    """
+    from backend.desirability.public_rip_contract_v12 import PUBLIC_RIP_CONTRACT_V12_VERSION
+
+    run = candidate["run"]
+    by_set: Dict[str, List[Mapping[str, Any]]] = {}
+    for row in candidate["rows"]:
+        by_set.setdefault(str(row["set_id"]), []).append(row)
+    out: List[Dict[str, Any]] = []
+    for set_id in sorted(by_set):
+        products = []
+        for r in sorted(by_set[set_id], key=lambda x: (x["rank"] is None, x["rank"], x["sealed_product_id"])):
+            item = {"sealedProductId": r["sealed_product_id"], "sourceResultId": r["source_result_id"],
+                    "overallRip": {"score": r["score"], "rank": r["rank"], "tier": r["tier"],
+                                   "version": run["model_version"], "eligibility": r["eligibility_state"]},
+                    "componentLineage": dict(r.get("component_lineage") or {})}
+            if contracts_by_product and r["sealed_product_id"] in contracts_by_product:
+                item["publicRipContractV12"] = contracts_by_product[r["sealed_product_id"]]
+            products.append(item)
+        out.append({"entity_id": set_id, "projection_json": {
+            "projectionVersion": SET_PAGE_PROJECTION_VERSION, "setId": set_id,
+            "overallModelVersion": run["model_version"], "financialModelVersion": run["financial_version"],
+            "chaseVersion": run["chase_version"], "collectorVersion": run["collector_version"],
+            "marketDate": str(run["market_date"]), "cohortFingerprint": run["cohort_fingerprint"],
+            "formulaFingerprint": run["formula_fingerprint"], "publicRipContractVersion": PUBLIC_RIP_CONTRACT_V12_VERSION,
+            "productCount": len(products), "products": products}})
+    return out
+
+
+def validate_v14_set_page_projections(
+    candidate: Mapping[str, Any], projections: Sequence[Mapping[str, Any]], *, run_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Coherence of a Set-page generation with its candidate run. No I/O, never activates."""
+    from backend.desirability.public_rip_contract_v12 import PUBLIC_RIP_CONTRACT_V12_VERSION
+
+    run, rows = candidate["run"], candidate["rows"]
+    problems: List[str] = []
+    ids = [str(p["entity_id"]) for p in projections]
+    if len(set(ids)) != len(ids):
+        problems.append("duplicate_entity_ids")
+    expected = {str(r["set_id"]) for r in rows}
+    if set(ids) != expected:
+        problems.append("entity_set_mismatch: missing=%s extra=%s" % (sorted(expected - set(ids))[:3], sorted(set(ids) - expected)[:3]))
+    seen_products = []
+    for p in projections:
+        j = p["projection_json"]
+        for key, want in (("overallModelVersion", run["model_version"]), ("financialModelVersion", run["financial_version"]),
+                          ("chaseVersion", run["chase_version"]), ("collectorVersion", run["collector_version"]),
+                          ("cohortFingerprint", run["cohort_fingerprint"]), ("formulaFingerprint", run["formula_fingerprint"]),
+                          ("marketDate", str(run["market_date"])), ("publicRipContractVersion", PUBLIC_RIP_CONTRACT_V12_VERSION)):
+            if j.get(key) != want:
+                problems.append(f"{p['entity_id']}: {key}={j.get(key)!r}")
+        if run_id is not None and j.get("overallPublicationRunId") != run_id:
+            problems.append(f"{p['entity_id']}: mixed publication-run authority")
+        for item in j.get("products") or []:
+            seen_products.append(item["sealedProductId"])
+            o = item["overallRip"]
+            if o["version"] != run["model_version"]:
+                problems.append(f"{item['sealedProductId']}: mixed Overall model")
+            if o["eligibility"] == "ready" and (o["score"] is None or o["rank"] is None or o["tier"] is None):
+                problems.append(f"{item['sealedProductId']}: ready without score/rank/tier")
+            contract = item.get("publicRipContractV12")
+            if contract is not None and (contract.get("contractVersion") != PUBLIC_RIP_CONTRACT_V12_VERSION
+                                         or (contract.get("overallRipV14") or {}).get("status") != "ready"
+                                         or (contract.get("financialRipV5") or {}).get("status") != "ready"):
+                problems.append(f"{item['sealedProductId']}: contract V12 not valid/ready")
+    if sorted(seen_products) != sorted(str(r["sealed_product_id"]) for r in rows):
+        problems.append("products_do_not_cover_the_candidate_cohort_exactly_once")
+    return {"passed": not problems, "problems": problems, "entityCount": len(ids), "expectedEntityCount": len(expected)}
+
+
 def write_v14_candidate(
     client: Any, candidate: Mapping[str, Any], *,
     set_page_projection_fn: Optional[Callable[[Sequence[Mapping[str, Any]]], Sequence[Mapping[str, Any]]]] = None,
+    set_page_validator_fn: Optional[Callable[..., Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Persist an INACTIVE candidate. Idempotent per (model, market_date, cohort_fingerprint).
 
@@ -179,15 +263,23 @@ def write_v14_candidate(
     set_page = "not_built"
     set_page_ok = False
     if set_page_projection_fn is not None:
-        projections = list(set_page_projection_fn(candidate["rows"]))
+        # Bind every projection to THIS run: a projection cannot be attached to another run's authority.
+        projections = [{"entity_id": p["entity_id"],
+                        "projection_json": {**p["projection_json"], "overallPublicationRunId": run_id}}
+                       for p in set_page_projection_fn(candidate["rows"])]
+        sp_validation: Mapping[str, Any] = {"passed": bool(projections)}
+        if set_page_validator_fn is not None:
+            sp_validation = set_page_validator_fn(candidate, projections, run_id=run_id)
+        sp_ok = bool(projections) and bool(sp_validation.get("passed"))
         sp = client.table(GENERATIONS).insert({
             "publication_run_id": run_id, "generation_kind": "set_page",
-            "status": STATUS_VALIDATED if projections else "building",
-            "expected_row_count": len(projections), "validation_json": {"passed": bool(projections)}}).execute()
-        client.table(GENERATION_ROWS).insert([
-            {"generation_id": str(sp.data[0]["id"]), "entity_id": p["entity_id"], "projection_json": p["projection_json"]}
-            for p in projections]).execute() if projections else None
-        set_page, set_page_ok = "validated" if projections else "building", bool(projections)
+            "status": STATUS_VALIDATED if sp_ok else "building",
+            "expected_row_count": len(projections), "validation_json": dict(sp_validation)}).execute()
+        if projections:
+            client.table(GENERATION_ROWS).insert([
+                {"generation_id": str(sp.data[0]["id"]), "entity_id": p["entity_id"], "projection_json": p["projection_json"]}
+                for p in projections]).execute()
+        set_page, set_page_ok = ("validated" if sp_ok else "building"), sp_ok
 
     run_passed = validation["passed"] and set_page_ok
     run_validation = {**validation, "passed": run_passed, "setPageGeneration": set_page,

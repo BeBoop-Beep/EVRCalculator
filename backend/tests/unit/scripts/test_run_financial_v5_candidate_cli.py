@@ -19,9 +19,8 @@ def test_read_only_commands_reject_commit(command):
         cli.main([command, "--commit"])
 
 
-def test_unimplemented_commands_are_registered_but_fail_loudly_not_silently():
-    with pytest.raises(SystemExit, match="later step"):
-        cli.main(["build-v14"])
+def test_every_registered_command_has_a_handler():
+    assert set(cli.COMMANDS) >= {"finalize-v5", "shadow", "build-v14", "ranking-v2", "best-open-v3", "readiness"}
 
 
 def test_finalize_command_passes_dry_run_true_by_default(monkeypatch):
