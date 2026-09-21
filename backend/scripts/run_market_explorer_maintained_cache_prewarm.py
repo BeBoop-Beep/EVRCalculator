@@ -71,6 +71,87 @@ DEFAULT_MIN_AVAILABLE_MEMORY_MB = 512.0
 DEFAULT_MIN_AVAILABLE_MEMORY_PERCENT = 25.0
 DEFAULT_MAX_LOAD_PER_CPU = 1.5
 DEFAULT_FAILURE_COOLDOWN_SECONDS = 900.0
+PREPARED_REFRESH_RPC = "refresh_pokemon_market_explorer_prepared_if_current_v1"
+PREPARED_DB_TIMEOUT_SECONDS = 120  # guarded dry runs measured about 55 seconds
+PREPARED_DB_CONNECT_TIMEOUT_SECONDS = 10
+
+
+def _prepared_db_dsn() -> str:
+    # DATABASE_URL is the existing direct-Postgres convention used by project
+    # research/integration tooling. SUPABASE_DB_URL is its existing alias.
+    dsn = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
+    if not dsn:
+        raise RuntimeError("direct_db_credential_missing")
+    return dsn
+
+
+def _prepared_db_error(exc: Exception) -> str:
+    """Keep connection strings and server diagnostics out of cron output."""
+    code = getattr(exc, "sqlstate", None)
+    if code:
+        return f"database_sqlstate_{code}"
+    if str(exc) == "direct_db_credential_missing":
+        return "direct_db_credential_missing"
+    return f"direct_db_{type(exc).__name__}"
+
+
+def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[str, Any]:
+    """Run the same service-only guard in one bounded database transaction."""
+    import psycopg  # optional until the scheduled publisher has a DB credential
+
+    with psycopg.connect(
+        _prepared_db_dsn(), connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
+        application_name="market_explorer_prepared_prewarm",
+    ) as conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("select set_config('statement_timeout', %s, true)",
+                               (f"{PREPARED_DB_TIMEOUT_SECONDS}s",))
+                cursor.execute("select set_config('lock_timeout', '5s', true)")
+                if commit:
+                    cursor.execute("""
+                        select g.generation_id
+                        from public.pokemon_market_explorer_prepared_serving_v1 p
+                        join public.pokemon_market_explorer_prepared_generations_v1 g
+                          on g.generation_id=p.generation_id
+                        join public.pokemon_explore_set_value_snapshot_latest s
+                          on s.tcg='pokemon' and s.scope='market'
+                        where g.comparison_as_of=%s::date
+                          and g.source_as_of->>'sets'=s.market_date::text
+                          and g.source_as_of->>'sealed'=s.market_date::text
+                          and s.updated_at<=g.generated_at
+                          and not exists (
+                            select 1 from public.pokemon_market_explorer_query_cache c
+                            where c.cache_kind='maintained' and c.last_built_at>g.generated_at
+                          )
+                          and not exists (
+                            select 1 from public.pokemon_set_market_dashboard_snapshot_latest d
+                            where d.updated_at>g.generated_at
+                          )
+                          and not exists (
+                            select 1 from public.pokemon_set_sealed_market_snapshot_latest d
+                            where d.updated_at>g.generated_at
+                          )
+                    """, (target_market_date,))
+                    existing = cursor.fetchone()
+                    if existing:
+                        conn.rollback()
+                        return {"status": "already_current", "generationId": str(existing[0])}
+                cursor.execute(
+                    "select public.refresh_pokemon_market_explorer_prepared_if_current_v1(%s::date)",
+                    (target_market_date,),
+                )
+                row = cursor.fetchone()
+                result = row[0] if row else None
+                if commit:
+                    conn.commit()
+                else:
+                    conn.rollback()
+                return {"status": "refreshed" if commit else "verified_rollback_only",
+                        "result": result}
+        except Exception:
+            conn.rollback()
+            raise
 
 
 # --- Host resource metrics (stdlib only; never crashes off-Linux) ------------
@@ -320,6 +401,29 @@ def select_stale_caches(
     return eligible + cooling_down_by_oldest_failure_first
 
 
+# --- Prepared Explorer handoff ------------------------------------------------
+
+def refresh_prepared_if_current(client: Any, *, target_market_date: str, commit: bool,
+                                verify: bool = False) -> dict[str, Any]:
+    """Publish one coherent prepared generation, or fail closed without replacing it."""
+    if not commit and not verify:
+        return {"status": "skipped", "reason": "dry_run"}
+    try:
+        payload = _run_guarded_prepared_db(str(target_market_date)[:10], commit=commit)
+        return {
+            "status": payload["status"],
+            "targetMarketDate": str(target_market_date)[:10],
+            **({"result": payload["result"]} if "result" in payload else {}),
+            **({"generationId": payload["generationId"]} if "generationId" in payload else {}),
+        }
+    except Exception as exc:  # noqa: BLE001 - fail closed, caller records failure
+        return {
+            "status": "failed",
+            "targetMarketDate": str(target_market_date)[:10],
+            "error": _prepared_db_error(exc),
+        }
+
+
 # --- Worker summary -----------------------------------------------------------
 
 @dataclass
@@ -336,6 +440,7 @@ class PrewarmSummary:
     coolingDown: list[str] = None  # type: ignore[assignment]
     stopReason: Optional[str] = None
     reports: list[dict[str, Any]] = None  # type: ignore[assignment]
+    preparedRefresh: Optional[dict[str, Any]] = None
     elapsedSeconds: float = 0.0
 
     def __post_init__(self) -> None:
@@ -357,6 +462,7 @@ def run_prewarm(
     now: Optional[datetime] = None,
     lock: Optional[FileLock] = None,
     guard: Callable[[], HostGuardResult] = evaluate_host_guard,
+    verify_prepared_direct_db: bool = False,
 ) -> dict[str, Any]:
     started = time.monotonic()
     summary = PrewarmSummary()
@@ -405,6 +511,13 @@ def run_prewarm(
 
         if not stale:
             summary.stopReason = "no_stale_caches"
+            if (commit or verify_prepared_direct_db) and not only_set_ids and not skip_fingerprints:
+                summary.preparedRefresh = refresh_prepared_if_current(
+                    client, target_market_date=target, commit=commit,
+                    verify=verify_prepared_direct_db,
+                )
+                if summary.preparedRefresh.get("status") == "failed":
+                    summary.failed += 1
             summary.elapsedSeconds = round(time.monotonic() - started, 3)
             return asdict(summary)
 
@@ -443,6 +556,31 @@ def run_prewarm(
             summary.stopReason = "max_caches_reached" if remaining or summary.attempted >= max_caches else "completed"
 
         summary.deferred = [str(row.get("query_fingerprint") or "") for row in remaining]
+
+        # Only the unscoped unattended worker owns the prepared-generation handoff.
+        # Re-read after builds: a successful final cache advance should immediately
+        # be able to publish the coherent prepared generation in the same invocation.
+        if commit and not only_set_ids and not skip_fingerprints and summary.failed == 0:
+            rows_after = discover_maintained_caches(client)
+            stale_after = select_stale_caches(
+                rows_after,
+                target_market_date=target,
+                now=now,
+                failure_cooldown_seconds=failure_cooldown_seconds,
+            )
+            if not stale_after:
+                summary.preparedRefresh = refresh_prepared_if_current(
+                    client, target_market_date=target, commit=True
+                )
+                if summary.preparedRefresh.get("status") == "failed":
+                    summary.failed += 1
+            else:
+                summary.preparedRefresh = {
+                    "status": "deferred",
+                    "reason": "maintained_caches_still_stale",
+                    "staleCount": len(stale_after),
+                }
+
         summary.elapsedSeconds = round(time.monotonic() - started, 3)
         return asdict(summary)
     finally:
@@ -456,6 +594,9 @@ def build_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="Plan the run; perform no writes.")
     mode.add_argument("--commit", action="store_true", help="Execute via the service-role client.")
+    parser.add_argument("--verify-prepared-direct-db", action="store_true",
+                        help="With --dry-run, build and validate the guarded prepared candidate in "
+                             "a direct DB transaction, then roll it back.")
     parser.add_argument("--market-date", default=None,
                         help="Override the target market date (default: latest approved).")
     parser.add_argument("--max-caches", type=int, default=1,
@@ -488,6 +629,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = build_parser().parse_args()
+    if args.verify_prepared_direct_db and args.commit:
+        raise SystemExit("--verify-prepared-direct-db requires --dry-run")
     from backend.db.clients.supabase_client import create_service_role_client
     client = create_service_role_client()
 
@@ -504,6 +647,7 @@ def main() -> int:
         skip_fingerprints=args.skip_fingerprint,
         failure_cooldown_seconds=args.failure_cooldown_seconds,
         lock=FileLock(args.lock_path), guard=guard,
+        verify_prepared_direct_db=args.verify_prepared_direct_db,
     )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 1 if report["failed"] else 0
