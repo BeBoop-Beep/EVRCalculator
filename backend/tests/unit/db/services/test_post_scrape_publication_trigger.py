@@ -353,4 +353,3 @@ def test_currency_is_unknown_when_explorer_v2_authority_errors(monkeypatch):
         audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, True),
     )
     assert status == trigger.PublicationCurrencyStatus.UNKNOWN
-
