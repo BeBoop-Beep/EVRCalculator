@@ -1,4 +1,4 @@
-name: Catalog-only cards snapshot canary 2026-09-20
+name: Onboarding GitHub token PR probe 2026-09-20
 
 on:
   push:
@@ -6,19 +6,57 @@ on:
       - ops/onboarding-vm-canary-20260920
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
-  cards-canary:
+  pr-probe:
     runs-on: self-hosted
     timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Build Classic Collection cards snapshot
+      - name: Install GitHub CLI if needed
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
+          if ! command -v gh >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y gh
+          fi
+          gh --version
+          gh auth status
+
+      - name: Probe push and PR lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          BRANCH=automation/onboarding-token-probe-20260920
+          WT=/home/ubuntu/repos/onboarding-token-probe-20260920
+          cd "$REPO"
           git fetch origin main
-          git switch main
-          git reset --hard origin/main
-          ./.venv/bin/python backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebrationClassicCollection             --commit             --market-date 2026-09-20
+          gh auth setup-git
+
+          # Clean up a prior interrupted probe only; never touch other worktrees.
+          if [ -d "$WT" ]; then
+            git worktree remove --force "$WT" || true
+          fi
+          git branch -D "$BRANCH" 2>/dev/null || true
+          git push origin --delete "$BRANCH" 2>/dev/null || true
+
+          git worktree add -b "$BRANCH" "$WT" origin/main
+          cd "$WT"
+          git config user.name "inDex onboarding automation"
+          git config user.email "actions@users.noreply.github.com"
+          git commit --allow-empty -m "ops: onboarding token probe"
+          git push -u origin "$BRANCH"
+
+          PR_URL="$(gh pr create --base main --head "$BRANCH" --title "Onboarding token probe (temporary)" --body "Temporary automated credential probe; will be closed immediately.")"
+          echo "pr_created=true"
+          gh pr close "$PR_URL" --delete-branch
+          echo "pr_closed_and_branch_deleted=true"
+
+          cd "$REPO"
+          git worktree remove --force "$WT"
+          git branch -D "$BRANCH" 2>/dev/null || true
