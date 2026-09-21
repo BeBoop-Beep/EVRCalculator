@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -335,6 +335,58 @@ jobs:
               tail -n 25 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
               echo "== prewarm log metadata =="
               stat -c 'mtime=%y size=%s' "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
+              ;;
+
+            market-explorer-projection-audit)
+              cd "$REPO"
+              echo "== repo =="
+              git status --short
+              git log -3 --oneline
+              echo "== projection-related cron =="
+              crontab -l 2>/dev/null | grep -E 'market_explorer|Market.Explorer' || true
+              echo "== projection-related processes =="
+              pgrep -af 'market_explorer|Market.Explorer' || true
+              echo "== live compact DB state =="
+              "$PY" - <<'PY'
+              from backend.db.clients.supabase_client import create_service_role_client
+              c = create_service_role_client()
+              fp = "7852c99b7a5bd0067cb1ddeffccce7214b78acc0a62e589383ba9f0bc51c993f"
+              rows = list(
+                  c.table("pokemon_market_explorer_query_cache")
+                  .select("query_fingerprint,normalized_spec,status,computed_from,computed_through,last_built_at,updated_at,build_expires_at,constituent_count")
+                  .eq("query_fingerprint", fp).limit(1).execute().data or []
+              )
+              print({"fingerprintRow": rows[0] if rows else None})
+              cov = list(
+                  c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
+                  .select("set_id,retained_from,computed_through,row_count,refreshed_at")
+                  .execute().data or []
+              )
+              through = sorted({str(r.get("computed_through"))[:10] for r in cov if r.get("computed_through")})
+              print({
+                  "v2CoverageRows": len(cov),
+                  "v2MinRetained": min((str(r.get("retained_from"))[:10] for r in cov if r.get("retained_from")), default=None),
+                  "v2MinThrough": min(through) if through else None,
+                  "v2MaxThrough": max(through) if through else None,
+                  "v2ThroughCounts": {d: sum(1 for r in cov if str(r.get("computed_through"))[:10] == d) for d in through},
+              })
+              quality = list(
+                  c.table("pokemon_market_date_quality")
+                  .select("market_date,status")
+                  .eq("tcg","pokemon")
+                  .in_("status",["READY","LEGACY_VERIFIED"])
+                  .order("market_date", desc=True).limit(5).execute().data or []
+              )
+              print({"latestApprovedMarketDates": quality})
+              PY
+              echo "== relevant log files =="
+              find "$REPO/backend/logs" -maxdepth 1 -type f -iname '*market*explorer*' -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' 2>/dev/null | sort -r | head -n 20 || true
+              echo "== daily publication log tails =="
+              for LOG in "$REPO"/backend/logs/*market*explorer*daily*.log "$REPO"/backend/logs/*daily*market*explorer*.log; do
+                [ -f "$LOG" ] || continue
+                echo "--- $LOG ---"
+                tail -n 80 "$LOG"
+              done
               ;;
 
             market-explorer-manual-one-shot)
