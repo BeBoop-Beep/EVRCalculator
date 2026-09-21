@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "market-explorer-consolidated-base-20260921"
+  "operation": "market-explorer-pipeline-runtime-cutover",
+  "request_id": "market-explorer-pipeline-runtime-consolidated-20260921"
 }
