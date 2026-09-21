@@ -1,0 +1,30 @@
+name: Fastpath Fix Validation
+
+on:
+  push:
+    branches:
+      - fix/publication-fastpath-preload-chunking-20260921
+    paths:
+      - '.github/workflows/fastpath-fix-validation.yml'
+      - 'backend/scripts/refresh_stale_public_snapshots.py'
+      - 'backend/tests/unit/scripts/test_refresh_target_date_fastpath.py'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/publication-fastpath-preload-chunking-20260921
+          fetch-depth: 1
+      - name: Run focused validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile backend/scripts/refresh_stale_public_snapshots.py
+          "$PY" -m pytest -q backend/tests/unit/scripts/test_refresh_target_date_fastpath.py
