@@ -1,4 +1,4 @@
-name: Pokemon keyless API and Collector Appeal audit
+name: ME30th desirability dry-run
 
 on:
   push:
@@ -9,108 +9,29 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  dry-run:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
-      - name: Probe keyless Pokemon TCG metadata
+      - name: Sync current main
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python - <<'PY'
-          import json, requests
-          url = "https://api.pokemontcg.io/v2/sets"
-          for name in (
-              "ME06: Delta Reign",
-              "ME: 30th Celebration",
-              "ME: 30th Celebration Classic Collection",
-          ):
-              r = requests.get(
-                  url,
-                  params={"q": f'name:"{name}"', "pageSize": 50},
-                  headers={"Accept":"application/json","User-Agent":"EVRCalculator/1.0"},
-                  timeout=20,
-              )
-              payload = None
-              try:
-                  payload = r.json()
-              except Exception:
-                  payload = {}
-              rows = []
-              for item in (payload.get("data") or []):
-                  rows.append({
-                      "id": item.get("id"),
-                      "name": item.get("name"),
-                      "series": item.get("series"),
-                      "releaseDate": item.get("releaseDate"),
-                      "printedTotal": item.get("printedTotal"),
-                      "total": item.get("total"),
-                      "images": item.get("images"),
-                  })
-              print(json.dumps({
-                  "name": name,
-                  "status": r.status_code,
-                  "result_count": len(rows),
-                  "rows": rows,
-                  "rate_limit": {
-                      "limit": r.headers.get("X-Rate-Limit-Limit"),
-                      "remaining": r.headers.get("X-Rate-Limit-Remaining"),
-                  },
-              }))
-          PY
+          git fetch origin main
+          git switch main
+          git reset --hard origin/main
 
-      - name: Audit current Collector Appeal authority and target coverage
+      - name: Dry-run 30th parent desirability
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python - <<'PY'
-          import json
-          from backend.db.clients.supabase_client import create_service_role_client
-          client=create_service_role_client()
+          ./.venv/bin/python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration             --dry-run             --log-level INFO
 
-          current=list(client.table("pokemon_collector_appeal_current").select("*").eq("scope","pokemon").limit(1).execute().data or [])
-          current_row=current[0] if current else None
-          if current_row:
-              run_id=str(current_row.get("model_run_id") or "")
-              run=list(client.table("pokemon_collector_appeal_model_runs").select("*").eq("id",run_id).limit(1).execute().data or [])
-          else:
-              run_id=""
-              run=[]
-
-          sets=list(client.table("sets").select("id,name,canonical_key").in_("canonical_key",[
-              "me06DeltaReign","me30thCelebration","me30thCelebrationClassicCollection"
-          ]).execute().data or [])
-
-          targets=[]
-          for s in sets:
-              sid=str(s["id"])
-              canon=list(client.table("pokemon_canonical_cards").select("id").eq("set_id",sid).execute().data or [])
-              card_scores=[]
-              set_scores=[]
-              desirability_links=[]
-              components=[]
-              try:
-                  if run_id:
-                      card_scores=list(client.table("pokemon_card_collector_appeal_scores").select("pokemon_canonical_card_id").eq("model_run_id",run_id).in_("pokemon_canonical_card_id",[str(x["id"]) for x in canon] or ["00000000-0000-0000-0000-000000000000"]).execute().data or [])
-                      set_scores=list(client.table("pokemon_set_collector_appeal_scores").select("*").eq("model_run_id",run_id).eq("set_id",sid).execute().data or [])
-              except Exception as exc:
-                  set_scores=[{"query_error":type(exc).__name__}]
-              desirability_links=list(client.table("pokemon_card_desirability_links").select("pokemon_canonical_card_id").in_("pokemon_canonical_card_id",[str(x["id"]) for x in canon] or ["00000000-0000-0000-0000-000000000000"]).execute().data or [])
-              components=list(client.table("pokemon_set_desirability_component_scores").select("*").eq("set_id",sid).order("created_at",desc=True).limit(3).execute().data or [])
-              targets.append({
-                  "set":s,
-                  "canonical_card_count":len(canon),
-                  "current_model_card_score_count":len(card_scores),
-                  "current_model_set_scores":set_scores,
-                  "desirability_link_count":len(desirability_links),
-                  "desirability_components":components,
-              })
-
-          print(json.dumps({
-              "current": current_row,
-              "current_run": run[0] if run else None,
-              "targets": targets,
-          },default=str))
-          PY
+      - name: Dry-run Classic Collection desirability
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          ./.venv/bin/python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection             --dry-run             --log-level INFO
