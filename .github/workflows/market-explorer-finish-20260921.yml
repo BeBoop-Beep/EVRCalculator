@@ -45,20 +45,7 @@ jobs:
           CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market)"
           echo "http_code=$CODE"
           if [ -s "$BODY" ]; then
-            "$LIVE/.venv/bin/python" - "$BODY" <<'PY'
-import json, sys
-path=sys.argv[1]
-try:
-    p=json.load(open(path, encoding='utf-8'))
-    m=p.get("meta") or {}
-    s=m.get("snapshot") or {}
-    print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))
-    print("public_market_set_count="+str(len(p.get("sets") or [])))
-    print("public_keys="+",".join(sorted(p.keys())))
-except Exception as exc:
-    print("public_parse_error="+repr(exc))
-    print(open(path, encoding='utf-8', errors='replace').read()[:2000])
-PY
+            "$LIVE/.venv/bin/python" -c 'import json,sys; p=json.load(open(sys.argv[1],encoding="utf-8")); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or "")); print("public_market_set_count="+str(len(p.get("sets") or []))); print("public_keys="+",".join(sorted(p.keys())))' "$BODY" || { echo "public_parse_failed"; head -c 2000 "$BODY"; echo; }
           fi
           rm -f "$BODY"
 
