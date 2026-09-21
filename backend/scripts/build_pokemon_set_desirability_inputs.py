@@ -282,6 +282,10 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
     references = _list_pokemon_reference(client)
     reference_lookup = _build_reference_lookup(references)
     trainer_reference_names = _list_trainer_reference_names(client)
+    authoritative_non_pokemon = _list_authoritative_non_pokemon_name_supertypes(
+        client,
+        [str(card.get("name") or "") for card in cards],
+    )
 
     rows_to_upsert: List[Dict[str, Any]] = []
     skipped_missing_required = 0
@@ -312,6 +316,8 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
 
         normalized_name = normalize_pokemon_name_key(name)
         non_pokemon_supertype = _infer_non_pokemon_supertype(name)
+        if non_pokemon_supertype is None:
+            non_pokemon_supertype = authoritative_non_pokemon.get(normalized_name)
         if non_pokemon_supertype is None and normalized_name in trainer_reference_names:
             non_pokemon_supertype = "Trainer"
 
@@ -733,6 +739,42 @@ def _list_pokemon_reference(client: Any) -> List[Dict[str, Any]]:
             break
         start += page_size
     return rows
+
+
+def _list_authoritative_non_pokemon_name_supertypes(
+    client: Any,
+    names: Sequence[str],
+) -> Dict[str, str]:
+    """Reuse exact-name supertype evidence from authoritative canonical rows.
+
+    This is intentionally exact-name only. It safely recognizes recurring
+    Trainer/Energy cards such as Switch without teaching the fallback path a
+    fuzzy non-Pokemon classifier that could swallow owned Pokemon names.
+    Conflicting authoritative supertypes are omitted rather than guessed.
+    """
+    clean_names = sorted({str(name or "").strip() for name in names if str(name or "").strip()})
+    observed: Dict[str, set[str]] = {}
+    for chunk in _chunked(clean_names, 100):
+        result = (
+            client.table("pokemon_canonical_cards")
+            .select("name,supertype,source")
+            .in_("name", list(chunk))
+            .neq("source", FALLBACK_SOURCE)
+            .execute()
+        )
+        for row in list(result.data or []):
+            supertype = str(row.get("supertype") or "").strip()
+            if not supertype or supertype.casefold() in {"pokemon", "pokémon"}:
+                continue
+            key = normalize_pokemon_name_key(row.get("name"))
+            if key:
+                observed.setdefault(key, set()).add(supertype)
+
+    return {
+        key: next(iter(values))
+        for key, values in observed.items()
+        if len(values) == 1
+    }
 
 
 def _list_trainer_reference_names(client: Any) -> set[str]:
