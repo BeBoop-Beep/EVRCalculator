@@ -1,4 +1,4 @@
-name: Check browser tooling on VM
+name: Inspect broken client modules
 
 on:
   push:
@@ -11,19 +11,53 @@ permissions:
 jobs:
   inspect:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Check installed browser tooling
+      - name: Locate set rich client module 51150
         shell: bash
         run: |
           set -euo pipefail
-          command -v node || true
-          command -v npm || true
-          command -v chromium || true
-          command -v chromium-browser || true
-          command -v google-chrome || true
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
-          import importlib.util
-          for name in ("playwright","selenium","pyppeteer"):
-              print(name, bool(importlib.util.find_spec(name)))
+          base="https://www.inthedex.io/_next/static/chunks"
+          for file in             "6191-05b4624edbeb9434.js"             "8278-d925812404ca1621.js"             "1954-9d33baa10331d710.js"             "6042-e5094b16df56c2c2.js"             "1150.ea96b4a1153f9eeb.js"
+          do
+            tmp="/tmp/$file"
+            curl -L --max-time 20 -fsS "$base/$file" -o "$tmp"
+            if grep -aq '51150:' "$tmp"; then
+              echo "MODULE_51150_CHUNK=$file"
+              python3 - "$tmp" <<'PY'
+          import sys
+          text=open(sys.argv[1],encoding='utf-8',errors='replace').read()
+          marker='51150:'
+          i=text.find(marker)
+          print(text[max(0,i-1000):i+30000])
           PY
+            fi
+          done
+
+      - name: Inspect Rankings page dynamic imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          html=/tmp/rankings.html
+          curl -L --max-time 45 -fsS "https://www.inthedex.io/Rankings" -o "$html"
+          route_src="$(grep -oE 'src="[^"]+app/Rankings/page-[^"]+\.js[^"]*"' "$html" | head -1 | sed 's/^src="//;s/"$//')"
+          echo "rankings_route_src=$route_src"
+          curl -L --max-time 20 -fsS "https://www.inthedex.io$route_src" -o /tmp/rankings-route.js
+          echo "=== rankings route chunk ==="
+          head -c 30000 /tmp/rankings-route.js
+          echo
+          echo "=== rankings dynamic ids ==="
+          grep -aoE '\.e\([0-9]+\)|n\.bind\(n,[0-9]+\)' /tmp/rankings-route.js | sort -u
+
+      - name: Find common dynamic chunk dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== chunks with high-value shared module strings ==="
+          for file in /tmp/*.js; do
+            [ -f "$file" ] || continue
+            hits="$(grep -aoE 'RankingsLazyClient|PokemonSetRichPageClient|useRankingsAccess|PublicProfileLocalScaffold|useMediaQuery|resolveCanonicalRipV7' "$file" | sort -u | tr '\n' ',' || true)"
+            if [ -n "$hits" ]; then
+              echo "$(basename "$file"): $hits"
+            fi
+          done
