@@ -1,4 +1,4 @@
-name: Pokemon catalog refresh after publication
+name: Pokemon catalog refresh final commit
 
 on:
   push:
@@ -23,26 +23,32 @@ jobs:
           git reset --hard origin/main
           echo "VM_SHA=$(git rev-parse HEAD)"
 
-      - name: Check lock and run real catalog refresh
+      - name: Wait for short dispatcher gap and refresh
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
 
-          if ! flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
-            echo "POST_SCRAPE_LOCK_FREE=false"
-            exit 75
-          fi
-          if ! flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'true'; then
-            echo "SCRAPE_DISPATCHER_LOCK_FREE=false"
-            exit 76
-          fi
-
-          echo "LOCKS_FREE=true"
           exec 9>/tmp/pokemon-catalog-recheck.lock
           flock -n 9
 
-          ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --commit             --limit 25             --max-provider-requests 50
+          for n in $(seq 1 30); do
+            exec 8>/tmp/pokemon-scrape-dispatcher.lock
+            exec 7>/tmp/pokemon-post-scrape-publication.lock
+
+            if flock -n 8 && flock -n 7; then
+              echo "LOCKS_ACQUIRED=true attempt=$n"
+              ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py                 --commit                 --limit 25                 --max-provider-requests 50
+              exit $?
+            fi
+
+            exec 8>&-
+            exec 7>&-
+            sleep 2
+          done
+
+          echo "No safe lock gap found within 60s" >&2
+          exit 77
 
       - name: Final state
         shell: bash
