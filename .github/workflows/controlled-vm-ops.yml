@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -160,6 +160,47 @@ jobs:
               echo "DATABASE_URL installed; value suppressed."
               stat -c 'owner=%U group=%G mode=%a' "$TARGET"
               grep -q '^DATABASE_URL=' "$TARGET" && echo "DATABASE_URL_present=true"
+              ;;
+
+            market-explorer-worker-cutover)
+              cd "$REPO"
+              git fetch origin develop
+              DIRTY_PATHS="$(git status --porcelain | sed -E 's/^.. //')"
+              if [ -n "$DIRTY_PATHS" ] && [ "$DIRTY_PATHS" != "payload_debug.json" ]; then
+                echo "Refusing cutover: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+              if git merge-base --is-ancestor 2d117b49264212ec6944c9dd50b4fb6419beaadc HEAD; then
+                echo "accepted_worker_commit_already_present=true"
+              else
+                set +e
+                git cherry-pick -x 2d117b49264212ec6944c9dd50b4fb6419beaadc
+                STATUS=$?
+                set -e
+                if [ "$STATUS" -ne 0 ]; then
+                  git cherry-pick --abort || true
+                  echo "worker_cutover_cherry_pick_failed=true"
+                  exit "$STATUS"
+                fi
+              fi
+              "$PY" -m pip install --disable-pip-version-check -q 'psycopg[binary]==3.3.6'
+              echo "== post-cutover =="
+              git status --short
+              git log -2 --oneline
+              "$PY" - <<'PY'
+              import json
+              import backend.scripts.run_market_explorer_maintained_cache_prewarm as worker
+              result = worker.refresh_prepared_if_current(
+                  None,
+                  target_market_date="2026-09-19",
+                  commit=False,
+                  verify=True,
+              )
+              print(json.dumps(result, sort_keys=True, default=str))
+              if result.get("status") == "failed":
+                  raise SystemExit(6)
+              PY
               ;;
 
             sync-main)
