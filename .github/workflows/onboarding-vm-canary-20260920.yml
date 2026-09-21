@@ -1,4 +1,4 @@
-name: Pokemon catalog refresh final commit
+name: Diagnose Pokemon dispatcher lock
 
 on:
   push:
@@ -9,53 +9,45 @@ permissions:
   contents: read
 
 jobs:
-  refresh:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 20
+    timeout-minutes: 8
     steps:
-      - name: Sync current main
+      - name: Inspect dispatcher lock owner
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          git fetch origin main
-          git switch main
-          git reset --hard origin/main
-          echo "VM_SHA=$(git rev-parse HEAD)"
+          date -Is
 
-      - name: Wait for short dispatcher gap and refresh
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
+          echo "=== lslocks ==="
+          lslocks -o PID,COMMAND,PATH,TYPE,MODE,SIZE 2>/dev/null | grep -E 'pokemon-scrape-dispatcher|pokemon-post-scrape-publication' || true
 
-          exec 9>/tmp/pokemon-catalog-recheck.lock
-          flock -n 9
+          echo "=== fuser dispatcher ==="
+          fuser -v /tmp/pokemon-scrape-dispatcher.lock 2>&1 || true
 
-          for n in $(seq 1 30); do
-            exec 8>/tmp/pokemon-scrape-dispatcher.lock
-            exec 7>/tmp/pokemon-post-scrape-publication.lock
+          echo "=== relevant processes ==="
+          pgrep -af 'run_next_scrape_job|pokemon_set_scrape|publish_post_scrape|refresh_stale_public_snapshots' || true
 
-            if flock -n 8 && flock -n 7; then
-              echo "LOCKS_ACQUIRED=true attempt=$n"
-              ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py                 --commit                 --limit 25                 --max-provider-requests 50
-              exit $?
-            fi
-
-            exec 8>&-
-            exec 7>&-
-            sleep 2
+          for pid in $(fuser /tmp/pokemon-scrape-dispatcher.lock 2>/dev/null || true); do
+            echo "=== PID $pid ==="
+            ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,wchan:28,cmd -p "$pid" || true
+            echo "--- children ---"
+            pgrep -P "$pid" | xargs -r ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,wchan:28,cmd -p || true
+            echo "--- io ---"
+            sudo cat "/proc/$pid/io" 2>/dev/null || true
           done
 
-          echo "No safe lock gap found within 60s" >&2
-          exit 77
+          echo "=== dispatcher log tail ==="
+          tail -n 160 /home/ubuntu/repos/EVRCalculator/backend/logs/cron_dispatcher.log 2>/dev/null || true
 
-      - name: Final state
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          echo "branch=$(git branch --show-current)"
-          echo "head=$(git rev-parse HEAD)"
-          echo "dirty_count=$(git status --porcelain | wc -l)"
-          git status --short
+          echo "=== lock tests ==="
+          if flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'true'; then
+            echo "DISPATCHER_LOCK_FREE=true"
+          else
+            echo "DISPATCHER_LOCK_FREE=false"
+          fi
+          if flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
+            echo "PUBLICATION_LOCK_FREE=true"
+          else
+            echo "PUBLICATION_LOCK_FREE=false"
+          fi
