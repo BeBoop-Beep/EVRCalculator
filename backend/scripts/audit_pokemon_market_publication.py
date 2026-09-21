@@ -541,7 +541,12 @@ def _audit_set_value(
     return verdict
 
 
-def _audit_top_chase(market_date: str, dashboard_row: Dict[str, Any], set_id: Optional[str]) -> SectionVerdict:
+def _audit_top_chase(
+    market_date: str,
+    dashboard_row: Dict[str, Any],
+    set_id: Optional[str],
+    daily_ranks: Optional[Sequence[int]] = None,
+) -> SectionVerdict:
     verdict = SectionVerdict(section=SECTION_TOP_CHASE)
 
     cards = dashboard_row.get("top_chase_cards_json")
@@ -584,6 +589,20 @@ def _audit_top_chase(market_date: str, dashboard_row: Dict[str, Any], set_id: Op
     latest_seen: Optional[str] = None
     usable_counts: List[int] = []
     end_dates: List[Optional[str]] = []
+
+    # Persisted daily history is part of the publication authority, not merely
+    # an optional analytics cache. The ordinary daily writer publishes exactly
+    # one row per current Top Chase rank for the promoted market date. A fresh
+    # dashboard whose supporting persisted slice is missing/incomplete must not
+    # pass simply because its embedded JSON history happens to be current.
+    if daily_ranks is not None:
+        normalized_ranks = sorted({int(rank) for rank in daily_ranks})
+        expected_ranks = list(range(1, len(cards) + 1))
+        if normalized_ranks != expected_ranks:
+            problems.append(
+                "persisted Top Chase daily history does not match current dashboard ranks: "
+                f"expected={expected_ranks} observed={normalized_ranks} market_date={market_date}"
+            )
 
     if unidentified:
         problems.append(f"{unidentified} positively priced card(s) carry no stable identity")
@@ -1117,6 +1136,7 @@ def audit_market_set_row(
     global_set_value_target: Optional[Dict[str, Any]] = None,
     global_set_value_problem_detail: Optional[str] = None,
     in_global_set_value_cohort: bool = False,
+    top_chase_daily_ranks: Optional[Sequence[int]] = None,
     phase: str = PHASE_FULL,
 ) -> MarketSetAuditRow:
     """Pure per-set verdict across every publication-required market surface.
@@ -1124,7 +1144,8 @@ def audit_market_set_row(
     Each section reads its OWN source table:
       set_value    -> pokemon_set_value_daily_history (+ page snapshot for the
                       displayed number)
-      top_chase    -> pokemon_set_market_dashboard_snapshot_latest
+      top_chase    -> pokemon_set_market_dashboard_snapshot_latest +
+                      pokemon_set_top_chase_card_daily_history
       opvc         -> pokemon_set_market_dashboard_snapshot_latest
       sealed       -> pokemon_set_sealed_market_snapshot_latest
       card_prices  -> pokemon_set_cards_snapshot_latest
@@ -1182,7 +1203,7 @@ def audit_market_set_row(
 
     dependent = [
         _audit_set_value(market_date, value_history, page_row),
-        _audit_top_chase(market_date, dashboard_row, set_id),
+        _audit_top_chase(market_date, dashboard_row, set_id, top_chase_daily_ranks),
         _audit_opvc(market_date, dashboard_row, supports_simulation, phase=phase),
         _audit_sealed(
             market_date, sealed_row, has_sealed_product,
@@ -1304,6 +1325,46 @@ def _load_value_histories(client: Any, set_ids: Sequence[str], market_date: str)
                 by_set.setdefault(set_id, []).append({"date": row.get("snapshot_date"), "setValue": row.get("set_value")})
     return by_set
 
+
+def _load_top_chase_daily_ranks(
+    client: Any,
+    set_ids: Sequence[str],
+    market_date: str,
+) -> Dict[str, List[int]]:
+    """Current-date persisted Top Chase rank set for each audited set."""
+    by_set: Dict[str, List[int]] = {}
+    if not set_ids:
+        return by_set
+
+    def _read_chunk(chunk_ids: Sequence[str]) -> List[Dict[str, Any]]:
+        try:
+            result = (
+                client.table("pokemon_set_top_chase_card_daily_history")
+                .select("set_id,snapshot_date,rank")
+                .in_("set_id", list(chunk_ids))
+                .eq("snapshot_date", market_date)
+                .execute()
+            )
+            return list((result.data if result else []) or [])
+        except Exception as exc:
+            if not is_transient_data_service_error(exc) or len(chunk_ids) <= 1:
+                raise
+            midpoint = max(1, len(chunk_ids) // 2)
+            return _read_chunk(chunk_ids[:midpoint]) + _read_chunk(chunk_ids[midpoint:])
+
+    for start in range(0, len(set_ids), 100):
+        for row in _read_chunk(list(set_ids[start:start + 100])):
+            set_id = _to_text(row.get("set_id"))
+            try:
+                rank = int(row.get("rank"))
+            except (TypeError, ValueError):
+                continue
+            if set_id and rank > 0:
+                by_set.setdefault(set_id, []).append(rank)
+
+    for set_id, ranks in by_set.items():
+        by_set[set_id] = sorted(set(ranks))
+    return by_set
 
 def _load_sealed_products(client: Any, set_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     """Raw sealed-product rows per set, for the builder's own classifier.
@@ -1509,6 +1570,7 @@ def run_market_publication_audit(
             chunk_size=200,
         )
         value_histories = _load_value_histories(client, set_ids, resolved_date)
+        top_chase_daily_ranks = _load_top_chase_daily_ranks(client, set_ids, resolved_date)
         # D: sealed applicability comes from the builder's real mapping contract.
         sealed_products = _load_sealed_products(client, set_ids)
         sealed_source_dates = _load_sealed_source_latest_dates(client, sealed_products, resolved_date)
@@ -1574,6 +1636,7 @@ def run_market_publication_audit(
                 ),
                 global_set_value_problem_detail=global_problem,
                 in_global_set_value_cohort=(set_id or "") in global_cohort,
+                top_chase_daily_ranks=top_chase_daily_ranks.get(set_id or "", []),
                 phase=phase,
             )
         )
