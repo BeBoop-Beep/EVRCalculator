@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-coverage-rpc-cutover",
-  "request_id": "market-explorer-coverage-rpc-cutover-20260921"
+  "operation": "market-explorer-manual-one-shot",
+  "request_id": "market-explorer-manual-one-shot-post-coverage-fix-20260921"
 }
