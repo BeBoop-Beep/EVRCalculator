@@ -323,7 +323,10 @@ jobs:
               git log -3 --oneline
               echo "== matching processes =="
               pgrep -af 'run_market_explorer_maintained_cache_prewarm' || true
-              ps -eo pid,lstart,etime,cmd | grep '[r]un_market_explorer_maintained_cache_prewarm' || true
+              ps -eo pid,lstart,etime,stat,pcpu,pmem,wchan:24,cmd | grep '[r]un_market_explorer_maintained_cache_prewarm' || true
+              for PID in $(pgrep -f 'python -m backend.scripts.run_market_explorer_maintained_cache_prewarm' || true); do
+                echo "pid=$PID state=$(awk '/^State:/{print $2,$3}' /proc/$PID/status 2>/dev/null || true) io=$(tr '\n' ' ' </proc/$PID/io 2>/dev/null || true)"
+              done
               echo "== lock owner =="
               /usr/bin/fuser -v /tmp/market-explorer-prewarm.lock 2>&1 || true
               echo "== prewarm log recent signals =="
