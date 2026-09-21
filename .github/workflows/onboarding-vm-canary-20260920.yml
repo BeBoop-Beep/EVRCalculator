@@ -1,4 +1,4 @@
-name: Pokemon Onboarding Autonomy V2 final tests
+name: Pokemon onboarding final scheduler cutover
 
 on:
   push:
@@ -9,31 +9,56 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  cutover:
     runs-on: self-hosted
-    timeout-minutes: 20
+    timeout-minutes: 12
     steps:
-      - name: Test current-main autonomy branch in isolated worktree
+      - name: Sync VM and install canonical crontab
         shell: bash
         run: |
           set -euo pipefail
-          REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/pokemon-onboarding-autonomy-v2-test
-          BRANCH=fix/pokemon-onboarding-autonomy-v2-20260920
+          cd /home/ubuntu/repos/EVRCalculator
+          git fetch origin main
+          git switch main
+          git reset --hard origin/main
+          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
+          rm -f /home/ubuntu/.pokemon_onboarding_enabled
+          echo "VM_SHA=$(git rev-parse HEAD)"
+          echo "legacy_onboarding_cron_count=$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)"
+          echo "enable_marker=$(test -f /home/ubuntu/.pokemon_onboarding_enabled && echo present || echo absent)"
+          test "$(crontab -l | grep -c 'run_pokemon_onboarding_worker.sh commit' || true)" -eq 0
+          test ! -f /home/ubuntu/.pokemon_onboarding_enabled
 
-          cd "$REPO"
-          git fetch origin "$BRANCH"
-          if [ -d "$WT" ]; then
-            git worktree remove --force "$WT" || true
-          fi
-          git worktree add --detach "$WT" "origin/$BRANCH"
-          ln -s /home/ubuntu/repos/EVRCalculator/backend/.env "$WT/backend/.env"
+      - name: Run real catalog recheck refresh canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          success=0
+          for n in $(seq 1 12); do
+            echo "catalog canary attempt $n/12"
+            set +e
+            /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock               /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock               ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py                 --commit                 --limit 25                 --max-provider-requests 50
+            code=$?
+            set -e
+            if [ "$code" -eq 0 ]; then
+              success=1
+              break
+            fi
+            sleep 15
+          done
+          test "$success" -eq 1
 
-          cd "$WT"
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/services/pokemon_onboarding_git_service.py             backend/services/pokemon_set_onboarding_recheck_service.py             backend/scripts/refresh_due_pokemon_catalog_sets.py
-
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/services/test_pokemon_onboarding_git_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_onboarding_end_to_end.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py             backend/tests/unit/db/test_pokemon_subset_structural_registry.py             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py
-
-          rm -f "$WT/backend/.env"
-          cd "$REPO"
-          git worktree remove --force "$WT"
+      - name: Final VM scheduler state
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          echo "dirty_count=$(git status --porcelain | wc -l)"
+          git status --short
+          echo "onboarding GitHub workflow installed:"
+          test -f .github/workflows/pokemon-onboarding-autonomous.yml
+          echo "catalog recheck GitHub workflow installed:"
+          test -f .github/workflows/pokemon-catalog-recheck-refresh.yml
