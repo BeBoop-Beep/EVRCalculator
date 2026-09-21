@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-cutover-status",
-  "request_id": "market-explorer-cutover-status-after-secret-20260920"
+  "operation": "market-explorer-install-db-env",
+  "request_id": "market-explorer-install-db-env-20260920"
 }
