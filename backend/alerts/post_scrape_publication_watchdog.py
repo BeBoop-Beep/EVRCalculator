@@ -161,13 +161,15 @@ def run_watchdog(
     trigger: Callable[..., Dict[str, Any]] = trigger_post_scrape_publication_if_needed,
     latest_batch_loader: Callable[[Any], Optional[Dict[str, Any]]] = _latest_complete_batch,
     log_age_loader: Callable[[Path, datetime], Optional[float]] = _log_age_seconds,
-    projection_checker: Callable[[Any, str], Any] = evaluate_price_projection_gate,
-    projection_advancer: Callable[..., Dict[str, Any]] = advance_price_projection_once,
+    projection_checker: Optional[Callable[[Any, str], Any]] = None,
+    projection_advancer: Optional[Callable[..., Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     resolved_now = now or datetime.now(timezone.utc)
     threshold = stall_seconds or _env_positive_int(
         "POST_SCRAPE_PUBLICATION_STALL_SECONDS", DEFAULT_STALL_SECONDS
     )
+    check_projection = projection_checker or evaluate_price_projection_gate
+    advance_projection = projection_advancer or advance_price_projection_once
 
     try:
         batch = latest_batch_loader(client)
@@ -213,7 +215,7 @@ def run_watchdog(
             )
         return failure
 
-    projection = projection_checker(client, market_date)
+    projection = check_projection(client, market_date)
     if not getattr(projection, "ready", False):
         projection_payload = (
             projection.to_dict() if hasattr(projection, "to_dict") else {}
@@ -258,7 +260,7 @@ def run_watchdog(
 
         try:
             advance = dict(
-                projection_advancer(client, market_date, process_limit=20) or {}
+                advance_projection(client, market_date, process_limit=20) or {}
             )
         except Exception as exc:
             failure = {
