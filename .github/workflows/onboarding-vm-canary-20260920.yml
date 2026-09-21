@@ -1,4 +1,4 @@
-name: Diagnose Pokemon dispatcher lock
+name: Pokemon new-set final production audit
 
 on:
   push:
@@ -9,45 +9,118 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  audit:
     runs-on: self-hosted
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
-      - name: Inspect dispatcher lock owner
+      - name: Audit VM config and production target state
         shell: bash
         run: |
           set -euo pipefail
-          date -Is
+          cd /home/ubuntu/repos/EVRCalculator
+          git fetch origin main
+          git switch main
+          git reset --hard origin/main
+          ./.venv/bin/python - <<'PY'
+          import json
+          from dotenv import dotenv_values
+          from backend.db.clients.supabase_client import create_service_role_client
 
-          echo "=== lslocks ==="
-          lslocks -o PID,COMMAND,PATH,TYPE,MODE,SIZE 2>/dev/null | grep -E 'pokemon-scrape-dispatcher|pokemon-post-scrape-publication' || true
+          env = dotenv_values("backend/.env")
+          poke_key = str(env.get("POKEMON_TCG_API_KEY") or "").strip()
+          print(json.dumps({
+              "pokemon_tcg_api_key_present": bool(poke_key),
+              "pokemon_tcg_api_key_length": len(poke_key),
+          }))
 
-          echo "=== fuser dispatcher ==="
-          fuser -v /tmp/pokemon-scrape-dispatcher.lock 2>&1 || true
+          client = create_service_role_client()
+          keys = [
+              "me06DeltaReign",
+              "me30thCelebration",
+              "me30thCelebrationClassicCollection",
+          ]
+          sets = list(
+              client.table("sets")
+              .select(
+                  "id,name,canonical_key,catalog_only,ready_for_daily_scrape,"
+                  "supports_opening_simulation,is_subset,parent_opening_set_id,"
+                  "release_date,pokemon_api_set_id,logo_image_url,symbol_image_url"
+              )
+              .in_("canonical_key", keys)
+              .execute()
+              .data
+              or []
+          )
 
-          echo "=== relevant processes ==="
-          pgrep -af 'run_next_scrape_job|pokemon_set_scrape|publish_post_scrape|refresh_stale_public_snapshots' || true
+          out = []
+          for row in sorted(sets, key=lambda x: x["canonical_key"]):
+              sid = str(row["id"])
+              cards = list(client.table("cards").select("id").eq("set_id", sid).execute().data or [])
+              canonical = list(client.table("pokemon_canonical_cards").select("id").eq("set_id", sid).execute().data or [])
+              sealed = list(client.table("sealed_products").select("id").eq("set_id", sid).execute().data or [])
 
-          for pid in $(fuser /tmp/pokemon-scrape-dispatcher.lock 2>/dev/null || true); do
-            echo "=== PID $pid ==="
-            ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,wchan:28,cmd -p "$pid" || true
-            echo "--- children ---"
-            pgrep -P "$pid" | xargs -r ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,wchan:28,cmd -p || true
-            echo "--- io ---"
-            sudo cat "/proc/$pid/io" 2>/dev/null || true
-          done
+              cards_snap = list(
+                  client.table("pokemon_set_cards_snapshot_latest")
+                  .select("updated_at,payload_json")
+                  .eq("set_id", sid).limit(1).execute().data or []
+              )
+              sealed_snap = list(
+                  client.table("pokemon_set_sealed_market_snapshot_latest")
+                  .select("market_date,updated_at")
+                  .eq("set_id", sid).limit(1).execute().data or []
+              )
+              page_snap = list(
+                  client.table("pokemon_set_page_snapshot_latest")
+                  .select("as_of,updated_at,payload_json")
+                  .eq("set_id", sid).limit(1).execute().data or []
+              )
+              appeal = list(
+                  client.table("pokemon_set_collector_appeal_current_v")
+                  .select("*")
+                  .eq("set_id", sid).limit(1).execute().data or []
+              )
 
-          echo "=== dispatcher log tail ==="
-          tail -n 160 /home/ubuntu/repos/EVRCalculator/backend/logs/cron_dispatcher.log 2>/dev/null || true
+              card_count_snapshot = None
+              if cards_snap:
+                  payload = cards_snap[0].get("payload_json") or {}
+                  vals = payload.get("cards")
+                  if isinstance(vals, list):
+                      card_count_snapshot = len(vals)
 
-          echo "=== lock tests ==="
-          if flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'true'; then
-            echo "DISPATCHER_LOCK_FREE=true"
-          else
-            echo "DISPATCHER_LOCK_FREE=false"
-          fi
-          if flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
-            echo "PUBLICATION_LOCK_FREE=true"
-          else
-            echo "PUBLICATION_LOCK_FREE=false"
-          fi
+              out.append({
+                  "set": row,
+                  "cards": len(cards),
+                  "canonical_cards": len(canonical),
+                  "sealed_products": len(sealed),
+                  "cards_snapshot": {
+                      "present": bool(cards_snap),
+                      "updated_at": cards_snap[0].get("updated_at") if cards_snap else None,
+                      "card_count": card_count_snapshot,
+                  },
+                  "sealed_snapshot": {
+                      "present": bool(sealed_snap),
+                      "market_date": sealed_snap[0].get("market_date") if sealed_snap else None,
+                      "updated_at": sealed_snap[0].get("updated_at") if sealed_snap else None,
+                  },
+                  "page_snapshot": {
+                      "present": bool(page_snap),
+                      "as_of": page_snap[0].get("as_of") if page_snap else None,
+                      "updated_at": page_snap[0].get("updated_at") if page_snap else None,
+                  },
+                  "collector_appeal_present": bool(appeal),
+                  "collector_appeal_row": appeal[0] if appeal else None,
+              })
+
+          print(json.dumps({"targets": out}, default=str))
+          PY
+
+      - name: Verify live catalog HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          curl -fsSL --max-time 30 'https://inthedex.io/TCGs/Pokemon/Sets' -o "$tmp"
+          echo "PUBLIC_DELTA_PRESENT=$(grep -q 'Delta Reign' "$tmp" && echo true || echo false)"
+          echo "PUBLIC_30TH_PRESENT=$(grep -q 'ME: 30th Celebration' "$tmp" && echo true || echo false)"
+          echo "PUBLIC_CLASSIC_ROOT_PRESENT=$(grep -q 'ME: 30th Celebration Classic Collection' "$tmp" && echo true || echo false)"
+          echo "html_bytes=$(wc -c < "$tmp")"
