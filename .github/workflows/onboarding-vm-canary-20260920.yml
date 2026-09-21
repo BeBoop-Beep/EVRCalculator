@@ -1,4 +1,4 @@
-name: Catalog-only daily refresh tests
+name: Catalog recheck job-id field tests
 
 on:
   push:
@@ -11,15 +11,15 @@ permissions:
 jobs:
   test:
     runs-on: self-hosted
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
-      - name: Test catalog-only daily refresh branch
+      - name: Test catalog recheck job-id branch
         shell: bash
         run: |
           set -euo pipefail
           REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/catalog-only-daily-refresh-test
-          BRANCH=fix/catalog-only-daily-price-refresh-20260921
+          WT=/home/ubuntu/repos/catalog-recheck-job-id-test
+          BRANCH=fix/catalog-recheck-job-id-field-20260921
 
           cd "$REPO"
           git fetch origin "$BRANCH"
@@ -32,7 +32,7 @@ jobs:
           cd "$WT"
           /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/services/pokemon_set_onboarding_recheck_service.py             backend/scripts/refresh_due_pokemon_catalog_sets.py
 
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py             backend/tests/unit/scripts/test_scrape_postcondition_market_date.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py
 
           rm -f "$WT/backend/.env"
           cd "$REPO"
