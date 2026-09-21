@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -314,6 +314,21 @@ jobs:
               pgrep -af 'run_market_explorer_maintained_cache_prewarm' || true
               echo "== recent Explorer prewarm logs =="
               find "$REPO" -maxdepth 3 -type f \( -iname '*explorer*prewarm*.log' -o -iname '*market*explorer*.log' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 8 || true
+              ;;
+
+            market-explorer-cron-observe)
+              cd "$REPO"
+              echo "== repo =="
+              git status --short
+              git log -3 --oneline
+              echo "== matching processes =="
+              pgrep -af 'run_market_explorer_maintained_cache_prewarm' || true
+              echo "== lock owner =="
+              /usr/bin/fuser -v /tmp/market-explorer-prewarm.lock 2>&1 || true
+              echo "== prewarm log tail =="
+              tail -n 180 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
+              echo "== prewarm log metadata =="
+              stat -c 'mtime=%y size=%s' "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
               ;;
 
             market-explorer-manual-one-shot)
