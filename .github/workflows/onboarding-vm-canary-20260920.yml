@@ -1,4 +1,4 @@
-name: Pokemon catalog refresh final commit canary
+name: Diagnose Pokemon publication lock
 
 on:
   push:
@@ -9,54 +9,49 @@ permissions:
   contents: read
 
 jobs:
-  refresh:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 20
+    timeout-minutes: 8
     steps:
-      - name: Sync current main
+      - name: Inspect lock owners and publication processes
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          git fetch origin main
-          git switch main
-          git reset --hard origin/main
-          echo "VM_SHA=$(git rev-parse HEAD)"
-          git status --short
+          echo "=== time ==="
+          date -Is
 
-      - name: Wait for scrape and publication locks, then refresh
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
+          echo "=== lock files ==="
+          ls -l /tmp/pokemon-post-scrape-publication.lock /tmp/pokemon-scrape-dispatcher.lock 2>/dev/null || true
 
-          for n in $(seq 1 40); do
-            echo "lock attempt $n/40"
-            exec 8>/tmp/pokemon-scrape-dispatcher.lock
-            exec 7>/tmp/pokemon-post-scrape-publication.lock
+          echo "=== lslocks ==="
+          lslocks -o PID,COMMAND,PATH,TYPE,MODE,SIZE 2>/dev/null | grep -E 'pokemon-post-scrape-publication|pokemon-scrape-dispatcher' || true
 
-            if flock -n 8 && flock -n 7; then
-              echo "LOCKS_ACQUIRED=true"
-              ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py                 --commit                 --limit 25                 --max-provider-requests 50
-              exit $?
-            fi
+          echo "=== fuser ==="
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          fuser -v /tmp/pokemon-scrape-dispatcher.lock 2>&1 || true
 
-            # Close and reopen the descriptors on the next loop so a partially
-            # acquired lock is never held while waiting.
-            exec 8>&-
-            exec 7>&-
-            sleep 15
+          echo "=== relevant processes ==="
+          pgrep -af 'publish_post_scrape_if_needed|run_daily_opening_publication|refresh_stale_public_snapshots|pokemon.*publication|run_next_scrape_job|build_pokemon' || true
+
+          echo "=== process details for lock owners ==="
+          for pid in $(fuser /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || true); do
+            ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,cmd -p "$pid" || true
+            echo "--- children of $pid ---"
+            pgrep -P "$pid" | xargs -r ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,cmd -p || true
           done
 
-          echo "Timed out waiting for scrape/publication locks" >&2
-          exit 75
+          echo "=== publication logs tail ==="
+          for log in             /home/ubuntu/repos/EVRCalculator/backend/logs/rebuild_snapshots_after_scrape.cron.log             /home/ubuntu/repos/EVRCalculator/backend/logs/post_scrape_publication_watchdog.log             /home/ubuntu/repos/EVRCalculator/backend/logs/run_daily_opening_publication.log             /home/ubuntu/repos/EVRCalculator/backend/logs/refresh_stale_public_snapshots.log
+          do
+            if [ -f "$log" ]; then
+              echo "--- $log ---"
+              tail -n 120 "$log"
+            fi
+          done
 
-      - name: Final VM state
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          echo "branch=$(git branch --show-current)"
-          echo "head=$(git rev-parse HEAD)"
-          echo "dirty_count=$(git status --porcelain | wc -l)"
-          git status --short
+          echo "=== lock test ==="
+          if flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
+            echo "POST_SCRAPE_LOCK_FREE=true"
+          else
+            echo "POST_SCRAPE_LOCK_FREE=false"
+          fi
