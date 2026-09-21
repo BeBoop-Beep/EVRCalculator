@@ -1,4 +1,4 @@
-name: ME30th subset production cutover
+name: ME30th subset post-cutover refresh
 
 on:
   push:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 jobs:
-  cutover:
+  refresh:
     runs-on: self-hosted
     timeout-minutes: 30
     steps:
-      - name: Sync VM to merged main
+      - name: Sync VM to main
         shell: bash
         run: |
           set -euo pipefail
@@ -23,25 +23,25 @@ jobs:
           git switch main
           git reset --hard origin/main
           echo "VM_SHA=$(git rev-parse HEAD)"
-          git status --short
 
-      - name: Sync root and subset lifecycle to production DB
+      - name: Targeted parent and subset scrape
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebration --apply
-          ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebrationClassicCollection --apply
+          retry() {
+            local n=1
+            until "$@"; do
+              if [ "$n" -ge 4 ]; then return 1; fi
+              echo "transient retry $n/4: $*"
+              n=$((n+1))
+              sleep 15
+            done
+          }
+          retry ./.venv/bin/python backend/scripts/run_pokemon_set_scrape.py --run --set me30thCelebration
+          retry ./.venv/bin/python backend/scripts/run_pokemon_set_scrape.py --run --set me30thCelebrationClassicCollection
 
-      - name: Refresh parent and subset market data
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python backend/scripts/run_pokemon_set_scrape.py --run --set me30thCelebration
-          ./.venv/bin/python backend/scripts/run_pokemon_set_scrape.py --run --set me30thCelebrationClassicCollection
-
-      - name: Normalize canonical root and subset roles
+      - name: Reproject canonical eligibility from merged lifecycle
         shell: bash
         run: |
           set -euo pipefail
@@ -49,27 +49,21 @@ jobs:
           ./.venv/bin/python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --canonical-only
           ./.venv/bin/python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --canonical-only
 
-      - name: Refresh parent market authority inputs and snapshots
+      - name: Refresh parent public snapshots
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
+          ./.venv/bin/python backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration --commit --market-date 2026-09-20
+          ./.venv/bin/python backend/scripts/build_pokemon_set_sealed_market_snapshots.py             --set-id me30thCelebration --commit
+          ./.venv/bin/python backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebration --commit
 
-          ./.venv/bin/python -m backend.scripts.run_pokemon_market_set_authority             --commit             --set-name "ME: 30th Celebration"             --show-blockers || true
-
-          ./.venv/bin/python backend/scripts/backfill_pokemon_set_value_daily_history.py             --set me30thCelebration             --commit
-
-          ./.venv/bin/python backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration             --commit             --market-date 2026-09-20
-
-          ./.venv/bin/python backend/scripts/build_pokemon_set_sealed_market_snapshots.py             --set-id me30thCelebration             --commit
-
-          ./.venv/bin/python backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebration             --commit
-
-      - name: Final VM state
+      - name: Clean generated diagnostics
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
           echo "branch=$(git branch --show-current)"
           echo "head=$(git rev-parse HEAD)"
           git status --short
