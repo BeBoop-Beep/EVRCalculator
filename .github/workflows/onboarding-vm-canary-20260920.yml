@@ -1,4 +1,4 @@
-name: Install browser diagnostics and reproduce production failure
+name: Probe live Rankings backend 503
 
 on:
   push:
@@ -9,100 +9,66 @@ permissions:
   contents: read
 
 jobs:
-  browser:
+  probe:
     runs-on: self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
-      - name: Install isolated Python Playwright if needed
+      - name: Probe backend through local app service
         shell: bash
         run: |
           set -euo pipefail
-          VENV=/home/ubuntu/browser-diagnostics-venv
-          if [ ! -x "$VENV/bin/python" ]; then
-            python3 -m venv "$VENV"
-          fi
-          "$VENV/bin/pip" install -q --upgrade pip
-          "$VENV/bin/pip" install -q playwright
-          "$VENV/bin/python" -m playwright install chromium
-          "$VENV/bin/python" - <<'PY'
-          import playwright
-          print("PLAYWRIGHT_READY=true")
-          PY
 
-      - name: Capture browser console and failed requests
+          echo "=== listening services ==="
+          ss -ltnp | grep -E ':8000|:8080|:3000|:5000' || true
+
+          for port in 8000 8080; do
+            for lens in sets eras products; do
+              echo "=== port=$port lens=$lens ==="
+              set +e
+              curl -sS --max-time 30 -D /tmp/h.$$ -o /tmp/b.$$ "http://127.0.0.1:$port/explore/rankings/lens/$lens?limit=60"
+              code=$?
+              set -e
+              echo "curl_exit=$code"
+              cat /tmp/h.$$ 2>/dev/null || true
+              echo "body:"
+              cat /tmp/b.$$ 2>/dev/null || true
+              echo
+            done
+          done
+
+      - name: Probe reader directly in-process
         shell: bash
         run: |
           set -euo pipefail
-          /home/ubuntu/browser-diagnostics-venv/bin/python - <<'PY'
-          import json
-          from playwright.sync_api import sync_playwright
+          cd /home/ubuntu/repos/EVRCalculator
+          ./.venv/bin/python - <<'PY'
+          import json, time, traceback
+          from backend.db.services.pokemon_public_snapshot_service import get_pokemon_explore_rankings_lens_payload
+          from backend.db.services.public_rip_publication_contract import canonical_publication_identity
 
-          cases = [
-              ("catalog", "https://www.inthedex.io/TCGs/Pokemon/Sets"),
-              ("pitch", "https://www.inthedex.io/TCGs/Pokemon/Sets/pitch-black"),
-              ("delta", "https://www.inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"),
-              ("30th", "https://www.inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"),
-              ("rankings", "https://www.inthedex.io/Rankings"),
-          ]
-
-          with sync_playwright() as p:
-              browser = p.chromium.launch(headless=True)
-              for name, url in cases:
-                  page = browser.new_page(viewport={"width": 1440, "height": 900})
-                  console = []
-                  errors = []
-                  failed = []
-                  responses = []
-
-                  def on_console(msg):
-                      if msg.type in ("error", "warning"):
-                          console.append({"type": msg.type, "text": msg.text})
-
-                  page.on("console", on_console)
-                  page.on("pageerror", lambda exc: errors.append(str(exc)))
-                  page.on("requestfailed", lambda req: failed.append({
-                      "url": req.url,
-                      "resource_type": req.resource_type,
-                      "failure": req.failure,
-                  }))
-                  page.on("response", lambda res: responses.append({
-                      "url": res.url,
-                      "status": res.status,
-                      "resource_type": res.request.resource_type,
-                  }) if res.status >= 400 else None)
-
-                  goto_error = None
-                  try:
-                      page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                      page.wait_for_timeout(15000)
-                  except Exception as exc:
-                      goto_error = str(exc)
-
-                  state = page.evaluate("""() => {
-                    const text = document.body?.innerText || "";
-                    return {
-                      href: location.href,
-                      title: document.title,
-                      bodyTextLength: text.length,
-                      bodyTextHead: text.slice(0, 2000),
-                      setContextShell: !!document.querySelector('[data-set-context-shell]'),
-                      ariaBusy: Array.from(document.querySelectorAll('[aria-busy="true"]')).map(el => ({
-                        label: el.getAttribute('aria-label'),
-                        text: (el.innerText || '').slice(0, 200),
-                      })),
-                      scripts: Array.from(document.scripts).map(s => s.src).filter(Boolean),
-                    };
-                  }""")
-
+          print("canonical_identity=" + json.dumps(canonical_publication_identity(), sort_keys=True))
+          for lens in ("sets","eras","products"):
+              started=time.time()
+              try:
+                  payload=get_pokemon_explore_rankings_lens_payload(lens=lens, limit=60)
                   print(json.dumps({
-                      "case": name,
-                      "goto_error": goto_error,
-                      "state": state,
-                      "page_errors": errors,
-                      "console": console[-50:],
-                      "failed_requests": failed[-50:],
-                      "bad_responses": responses[-50:],
-                  }))
-                  page.close()
-              browser.close()
+                      "lens":lens,
+                      "status":"ok",
+                      "elapsed":round(time.time()-started,3),
+                      "target_count":len(payload.get("targets") or []),
+                      "era_count":len(((payload.get("eraSetStrengthV1") or {}).get("eras") or [])),
+                      "family_keys":len((payload.get("productFamilyRankings") or {})),
+                      "meta":payload.get("meta"),
+                  },default=str))
+              except Exception as exc:
+                  print(json.dumps({
+                      "lens":lens,
+                      "status":"error",
+                      "elapsed":round(time.time()-started,3),
+                      "type":type(exc).__name__,
+                      "status_code":getattr(exc,"status_code",None),
+                      "code":getattr(exc,"code",None),
+                      "message":str(exc),
+                  },default=str))
+                  traceback.print_exc()
           PY
