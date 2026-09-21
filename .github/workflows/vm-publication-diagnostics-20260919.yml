@@ -85,17 +85,19 @@ jobs:
 
           batch={'id':57,'market_date':'2026-09-20','status':'complete'}
           adv_calls=[]
-          result=watchdog.run_watchdog(
-              client=object(),
-              queue_failures=False,
-              latest_batch_loader=lambda _c:batch,
-              lock_checker=lambda _p:False,
-              projection_checker=lambda _c,_d:not_ready,
-              projection_advancer=lambda _c,d,process_limit: adv_calls.append((d,process_limit)) or {
-                  'after':{'ready':False,'expected_set_count':165,'complete_set_count':120,'terminal_failed_set_count':0}
-              },
-              trigger=lambda *_a,**_k: (_ for _ in ()).throw(AssertionError('must not launch while V2 is behind')),
-          )
+          from unittest.mock import patch
+          with patch.object(watchdog, '_batch_gate_decision', return_value=SimpleNamespace(allowed=True,reason_code='allowed_complete')):
+              result=watchdog.run_watchdog(
+                  client=object(),
+                  queue_failures=False,
+                  latest_batch_loader=lambda _c:batch,
+                  lock_checker=lambda _p:False,
+                  projection_checker=lambda _c,_d:not_ready,
+                  projection_advancer=lambda _c,d,process_limit: adv_calls.append((d,process_limit)) or {
+                      'after':{'ready':False,'expected_set_count':165,'complete_set_count':120,'terminal_failed_set_count':0}
+                  },
+                  trigger=lambda *_a,**_k: (_ for _ in ()).throw(AssertionError('must not launch while V2 is behind')),
+              )
           assert result['status']=='price_projection_advancing'
           assert adv_calls==[('2026-09-20',20)]
           print('watchdog_advances_one_bounded_chunk=PASS')
