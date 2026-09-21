@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -145,6 +145,21 @@ jobs:
                 backend/tests/unit/db/services/test_market_explorer_direct_publisher.py \
                 backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
                 -q
+              ;;
+
+            market-explorer-install-db-env)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              umask 077
+              TARGET="$REPO/backend/.env"
+              TMP="$REPO/backend/.env.market-explorer.tmp"
+              awk '!/^DATABASE_URL=/' "$TARGET" > "$TMP"
+              printf '%s\n' "DATABASE_URL=$ACTIONS_DATABASE_URL" >> "$TMP"
+              chmod 600 "$TMP"
+              mv "$TMP" "$TARGET"
+              echo "DATABASE_URL installed; value suppressed."
+              stat -c 'owner=%U group=%G mode=%a' "$TARGET"
+              grep -q '^DATABASE_URL=' "$TARGET" && echo "DATABASE_URL_present=true"
               ;;
 
             sync-main)
