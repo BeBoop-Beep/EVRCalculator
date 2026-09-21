@@ -536,3 +536,15 @@ def assert_rankings_publication_parity(
     return {"status": "passed", "publicationId": publication_id,
             "marketDate": report.market_date, "sourceRunFingerprint": report.source_run_fingerprint,
             "updatedAt": (latest or {}).get("updated_at")}
+
+
+def evaluate_candidate_generation_readiness(**kwargs: Any) -> Dict[str, Any]:
+    """Is the Financial V5 / Overall V14 / contract-V12 CANDIDATE complete and coherent?
+
+    Deliberately separate from :func:`evaluate_rankings_publication_readiness`, which answers whether the
+    CURRENT canonical (V4/V12/V11) publication is healthy. Neither answer is derived from the other; a
+    candidate that is absent or not ready never marks the canonical publication broken.
+    """
+    from backend.db.services.v5_v14_candidate_readiness import evaluate_v5_v14_candidate_readiness
+
+    return evaluate_v5_v14_candidate_readiness(**kwargs)

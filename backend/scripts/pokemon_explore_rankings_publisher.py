@@ -60,8 +60,9 @@ from backend.db.services.public_rip_publication_contract import (
     set_value_contract_problems,
     supported_cohort_fingerprint,
 )
-from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION, OVERALL_RIP_V12_VERSION
+from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION, OVERALL_RIP_V12_VERSION, OVERALL_RIP_V14_VERSION
 from backend.desirability.public_rip_contract_v11 import PUBLIC_RIP_CONTRACT_V11_KEY
+from backend.desirability.public_rip_contract_v12 import PUBLIC_RIP_CONTRACT_V12_KEY
 from backend.desirability.public_rip_contract_v10 import PUBLIC_RIP_CONTRACT_V10_KEY
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_RANKINGS_LIMIT,
@@ -234,6 +235,9 @@ def _ranked(target: Dict[str, Any], key: str) -> bool:
 _CANONICAL_PUBLIC_RIP_CONTRACT_TARGET_KEYS: Dict[str, str] = {
     "overall_rip_v10_90_financial_v4_10_collector_appeal_v5": PUBLIC_RIP_CONTRACT_V10_KEY,
     OVERALL_RIP_V12_VERSION: PUBLIC_RIP_CONTRACT_V11_KEY,
+    # REGISTERED, NOT SELECTED: lets the candidate lineage be understood; the canonical selection
+    # (CANONICAL_OVERALL_RIP_VERSION) is unchanged, so runtime still resolves to publicRipContractV11.
+    OVERALL_RIP_V14_VERSION: PUBLIC_RIP_CONTRACT_V12_KEY,
 }
 
 

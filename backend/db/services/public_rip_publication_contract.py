@@ -59,6 +59,7 @@ from backend.desirability.scoring_config import (
     CANONICAL_OVERALL_RIP_VERSION,
     OVERALL_RIP_V10_VERSION,
     OVERALL_RIP_V12_VERSION,
+    OVERALL_RIP_V14_VERSION,
     canonical_public_rip_contract_version,
 )
 
@@ -77,6 +78,10 @@ _CANONICAL_OVERALL_RIP_TARGET_KEYS: Dict[str, str] = {
     # need to remember to re-add it here.
     OVERALL_RIP_V10_VERSION: "overallRipV10",
     OVERALL_RIP_V12_VERSION: "overallRipV12",
+    # REGISTERED, NOT SELECTED. V14 (Financial V5) is a pre-cutover candidate lineage: the entry only
+    # lets the publisher/readiness code understand it. ``CANONICAL_OVERALL_RIP_VERSION`` still selects
+    # V12, so ``canonical_overall_rip_target_key()`` keeps returning "overallRipV12" until activation.
+    OVERALL_RIP_V14_VERSION: "overallRipV14",
 }
 
 
@@ -284,6 +289,31 @@ def canonical_publication_identity() -> Dict[str, str]:
     }
 
 
+def candidate_overall_rip_target_key() -> str:
+    """The target key carrying the Overall RIP V14 CANDIDATE object (never the canonical one)."""
+    return _CANONICAL_OVERALL_RIP_TARGET_KEYS[OVERALL_RIP_V14_VERSION]
+
+
+def candidate_publication_identity() -> Dict[str, str]:
+    """The identifiers a Financial V5 / Overall V14 / public-contract-V12 CANDIDATE must carry.
+
+    Deliberately separate from :func:`canonical_publication_identity`. Canonical health means
+    V4/V12/V11 healthy; candidate readiness means V5/V14/V12-contract healthy. The two are asked
+    independently and neither is derived from the other, so an absent or not-ready candidate can never
+    make the current canonical publication look broken, and a healthy canonical publication can never
+    make an unbuilt candidate look ready.
+    """
+    from backend.calculations.evr.financial_rip_v5_config import FINANCIAL_RIP_V5_VERSION
+    from backend.desirability.public_rip_contract_v12 import PUBLIC_RIP_CONTRACT_V12_VERSION
+
+    return {
+        "financialRipVersion": FINANCIAL_RIP_V5_VERSION,
+        "collectorAppealVersion": COLLECTOR_APPEAL_V5_VERSION,
+        "overallRipVersion": OVERALL_RIP_V14_VERSION,
+        "publicRipContractVersion": PUBLIC_RIP_CONTRACT_V12_VERSION,
+    }
+
+
 def supported_cohort_fingerprint(keys: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     """A stable fingerprint of the AUTHORITATIVE supported opening cohort.
 
@@ -380,8 +410,14 @@ def evaluate_leaderboard_staleness(
     latest_eligible_run_id_by_set: Optional[Mapping[str, Optional[str]]] = None,
     published_run_id_by_set: Optional[Mapping[str, Optional[str]]] = None,
     cohort: Optional[Mapping[str, Any]] = None,
+    expected_identity: Optional[Mapping[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     """Every reason this published leaderboard is NOT current. Empty means current.
+
+    ``expected_identity`` defaults to the CANONICAL identity (unchanged behavior for every existing
+    caller). Passing :func:`candidate_publication_identity` runs the SAME semantic check (model +
+    contract + cohort identity, never timestamps) against a Financial V5 / Overall V14 / contract V12
+    candidate, so candidate freshness can never be decided by a date match either.
 
     A LIST, not a boolean. "Stale" is one word for several different situations -
     an obsolete scoring version, a superseded simulation, a cohort that changed
@@ -401,7 +437,7 @@ def evaluate_leaderboard_staleness(
         return [_reason(REASON_SNAPSHOT_MISSING, "No published leaderboard snapshot row exists.")]
 
     reasons: List[Dict[str, Any]] = []
-    expected = canonical_publication_identity()
+    expected = dict(expected_identity) if expected_identity is not None else canonical_publication_identity()
     observed = read_published_identity(row)
 
     for reason_code, key, label in (

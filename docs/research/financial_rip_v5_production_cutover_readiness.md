@@ -66,3 +66,9 @@ Still outstanding after 5A: Ranking V2 and Best-Open V3 SQL persistence/RPC bran
 Bucket status `FINANCIAL_RIP_V5_RANKING_V2_BEST_OPEN_V3_COMPLETE`; overall cutover remains **not READY**. Ranking V2 and Best-Open V3 migrations, RPC branches and payload builders are authored and proven on real PostgreSQL 17 in GitHub Actions (run 35543361650), including the V1 -> V2 -> V3 chain. Nothing is applied to production. See [financial_rip_v5_ranking_v2_best_open_v3.md](financial_rip_v5_ranking_v2_best_open_v3.md).
 
 Landing order at schema-landing time: V5 sealed-results migration, Ranking V2 migration, Best-Open V2 migration (pending since 2026-09-16), Best-Open V3 migration. Still outstanding: DB-backed builder/publisher orchestration, finalization wiring, Public Contract V12, publication lifecycle, frontend transport, readiness/Sentinel, live dry run, inactive V14 generation, pre-cutover report, activation.
+
+## Prompt 5B update (finalization, contract V12, backend transport)
+
+Bucket status `FINANCIAL_RIP_V5_BACKEND_PUBLICATION_TRANSPORT_COMPLETE`; overall cutover remains **not READY**. Exact-artifact Financial V5 finalizer, Overall V14 per-row finalization and inactive generic-ledger candidate, Public Contract V12 (registered, non-canonical, V11 frozen and embedded verbatim), V14/contract-V12 identity registration, separate candidate readiness, generic active-reader parity, and explicit Ranking V2 / Best-Open V3 orchestration modules are implemented and unit-tested (102 new tests). Nothing applied to production. Details, design findings and limits: [financial_rip_v5_backend_transport_v12.md](financial_rip_v5_backend_transport_v12.md).
+
+Still outstanding: frontend/version transport, controlled schema landing, running the finalizer on real artifacts plus the current-cohort dry run, V14 set-page generation projections, rewiring concrete services onto the generic reader, CLI wrappers for the orchestrators, final pre-cutover report, activation.
