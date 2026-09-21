@@ -21,6 +21,11 @@ on:
       - 'backend/db/migrations/*budget_product_ranking*'
       - 'backend/tests/integration/**'
       - 'backend/db/services/budget_v2_v3_publication_payloads.py'
+      - 'backend/db/services/*v5*'
+      - 'backend/db/services/set_rip_service.py'
+      - 'backend/db/services/public_rip_publication_contract.py'
+      - 'backend/scripts/*financial_v5*'
+      - 'backend/desirability/public_rip_contract_v12.py'
       - '.github/workflows/best-open-price-guardrails.yml'
   push:
     branches: [develop]
@@ -43,6 +48,11 @@ on:
       - 'backend/db/migrations/*budget_product_ranking*'
       - 'backend/tests/integration/**'
       - 'backend/db/services/budget_v2_v3_publication_payloads.py'
+      - 'backend/db/services/*v5*'
+      - 'backend/db/services/set_rip_service.py'
+      - 'backend/db/services/public_rip_publication_contract.py'
+      - 'backend/scripts/*financial_v5*'
+      - 'backend/desirability/public_rip_contract_v12.py'
       - '.github/workflows/best-open-price-guardrails.yml'
 permissions:
   contents: read
@@ -68,7 +78,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import subprocess, sys
-          paths = sorted({str(p) for p in Path('backend/tests/unit').rglob('test_*.py') if any(t in p.name for t in ('best_open', 'budget_normalized_product_ranking', 'budget_product_ranking', 'financial_rip_v3', 'financial_rip_v4', 'overall_rip_v12'))})
+          paths = sorted({str(p) for p in Path('backend/tests/unit').rglob('test_*.py') if any(t in p.name for t in ('best_open', 'budget_normalized_product_ranking', 'budget_product_ranking', 'financial_rip_v3', 'financial_rip_v4', 'overall_rip_v12', 'financial_v5', 'v5_', 'overall_v14', 'contract_v12', 'set_rip_canonical', 'generic_active'))})
           paths += ['backend/tests/unit/db/services/test_pokemon_sealed_product_detail_service.py', 'backend/tests/unit/db/services/test_public_overall_product_rankings_service.py']
           raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', '-q', *paths]))
           PY

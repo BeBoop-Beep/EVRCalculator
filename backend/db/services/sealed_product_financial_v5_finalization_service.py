@@ -38,7 +38,7 @@ import logging
 import math
 import time
 from collections import Counter
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence
 
 import numpy as np
 
@@ -191,8 +191,14 @@ def finalize_financial_rip_v5(
     artifact_loader_fn: Callable[[Any, Any], Any] = load_pack_outcome_artifact,
     run_hash_fn: Optional[Callable[[Any, Sequence[str]], Mapping[str, str]]] = None,
     write_fn: Optional[Callable[[Any, Dict[str, Any]], Any]] = None,
+    evidence_sink: Optional[MutableMapping[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """Finalize Financial V5 for the current cohort from exact artifacts. See module docstring."""
+    """Finalize Financial V5 for the current cohort from exact artifacts. See module docstring.
+
+    ``evidence_sink`` (optional) receives, keyed by source row id, the exact V5-only column set computed
+    for each row (score, version, status, rankable and the bounded payload that carries the Shortfall
+    sufficient statistics). It holds no outcome arrays. It lets a READ-ONLY shadow feed later stages
+    without persisting anything; it never replaces the persisted-V5 requirement of the commit paths."""
     started = time.perf_counter()
     if read_rows_fn is None:
         from backend.db.repositories.sealed_product_results_repository import (
@@ -207,20 +213,20 @@ def finalize_financial_rip_v5(
     cohort = resolve_cohort_fn(client, market_date=market_date, canonical_keys=canonical_keys,
                                unsupported_keys=unsupported_keys)
     if cohort.get("error"):
-        return _report(STATUS_CANNOT_START, cohort.get("marketDate"), started, error=cohort["error"])
+        return _report(STATUS_CANNOT_START, cohort.get("marketDate"), started, error=cohort["error"], dry_run=dry_run)
     if require_verified_cohort and not cohort.get("verificationPassed"):
-        return _report(STATUS_CANNOT_START, cohort.get("marketDate"), started,
+        return _report(STATUS_CANNOT_START, cohort.get("marketDate"), started, dry_run=dry_run,
                        error="opening-simulation freshness did not pass; refusing to finalize a partial cohort")
     run_id_by_set_id: Dict[str, str] = cohort["runIdBySetId"]
     if not run_id_by_set_id:
-        return _report(STATUS_NO_COHORT, cohort.get("marketDate"), started)
+        return _report(STATUS_NO_COHORT, cohort.get("marketDate"), started, dry_run=dry_run)
     set_key_by_run_id: Mapping[str, str] = cohort.get("setKeyByRunId") or {}
     current_runs = sorted(set(run_id_by_set_id.values()))
     expected_run_by_set = dict(run_id_by_set_id)
 
     rows = list(read_rows_fn(current_runs))
     if not rows:
-        return _report(STATUS_NO_ROWS, cohort.get("marketDate"), started, cohort_runs=len(current_runs))
+        return _report(STATUS_NO_ROWS, cohort.get("marketDate"), started, cohort_runs=len(current_runs), dry_run=dry_run)
     run_hashes = run_hash_fn(client, current_runs)
 
     by_run: Dict[str, List[Mapping[str, Any]]] = {}
@@ -239,6 +245,8 @@ def finalize_financial_rip_v5(
     results: List[Dict[str, Any]] = []
 
     def record(row: Mapping[str, Any], fields: Dict[str, Any], reason: Optional[str], detail: str = "") -> None:
+        if evidence_sink is not None:
+            evidence_sink[str(row["id"])] = fields
         if not dry_run:
             write_fn(row["id"], fields)
         results.append({"id": row.get("id"), "sealedProductId": row.get("sealed_product_id"),

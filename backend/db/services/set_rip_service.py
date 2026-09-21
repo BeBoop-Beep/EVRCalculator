@@ -49,8 +49,22 @@ def _ranked_targets(targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, A
     both V12 and V10 ranks is decided by V12 - V10 must never win when a
     canonical V12 rank is present.
     """
+    from backend.db.services.public_rip_publication_contract import (
+        canonical_overall_rip_target_key, canonical_public_rip_contract_target_key,
+    )
+
+    # The CANONICAL selection decides first (V12 today -> exactly the two V12/V11 checks below; V14 after an
+    # authorized cutover -> overallRipV14 / publicRipContractV12). The historical chain then follows unchanged,
+    # so a candidate-only target can never displace the canonical authority.
+    canonical_key, contract_key = canonical_overall_rip_target_key(), canonical_public_rip_contract_target_key()
     ranked = []
     for candidate in targets:
+        if (candidate.get(canonical_key) or {}).get("rank") is not None:
+            ranked.append(candidate)
+            continue
+        if (((candidate.get(contract_key) or {}).get("overallRip") or {}).get("rank")) is not None:
+            ranked.append(candidate)
+            continue
         if (candidate.get("overallRipV12") or {}).get("rank") is not None:
             ranked.append(candidate)
             continue

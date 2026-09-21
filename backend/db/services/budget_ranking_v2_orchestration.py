@@ -140,8 +140,13 @@ def build_ranking_v2_for_cohort(
     artifact_loader_fn: Optional[Callable[[Any, Any], Any]] = None,
     base_builder_fn: Optional[Callable[[Any, int, str], Any]] = None,
     require_v5: bool = True,
+    only_full_market: bool = False,
 ) -> Dict[str, Any]:
-    """Explicit V2 build over the cohort. Fails closed before any scoring if V5 authority is missing."""
+    """Explicit V2 build over the cohort. Fails closed before any scoring if V5 authority is missing.
+
+    ``only_full_market`` (default False = every budget, as published) restricts a READ-ONLY shadow to the
+    Full Market budget - the one Best-Open V3 and the frozen oracle use - to bound its runtime. A publication
+    must not use it."""
     require_explicit_v2_request(method_version)
     if require_v5:
         require_v5_source_rows(products)
@@ -167,7 +172,7 @@ def build_ranking_v2_for_cohort(
             base_cache[(run_id, count)] = base_builder_fn(artifacts[run_id], count, run_id)
         return base_cache[(run_id, count)]
 
-    budgets = [(float(b), BUDGET_TYPE_STANDARD) for b in CANONICAL_BUDGET_BANDS]
+    budgets = [] if only_full_market else [(float(b), BUDGET_TYPE_STANDARD) for b in CANONICAL_BUDGET_BANDS]
     budgets.append((float(full_market["budget"]), BUDGET_TYPE_FULL_MARKET))
     results = {"%s:%g" % (bt, tb): rank_one_budget_v2(
         engine_products=products, base_values_for=base_values_for, target_budget=tb, budget_type=bt,
@@ -176,7 +181,7 @@ def build_ranking_v2_for_cohort(
     return {"rankingMethodVersion": BUDGET_NORMALIZED_RANKING_METHOD_VERSION_V2, "fullMarket": full_market,
             "productCount": len(products), "budgets": results,
             "batchAccessibilityReadCount": resolution.get("batchReadCount"),
-            "artifactLoads": len(artifacts), "builtAt": datetime.now(timezone.utc).isoformat()}
+            "artifactLoads": len(artifacts), "onlyFullMarket": only_full_market, "builtAt": datetime.now(timezone.utc).isoformat()}
 
 
 def assemble_ranking_v2_publication(

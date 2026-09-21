@@ -289,6 +289,25 @@ def canonical_publication_identity() -> Dict[str, str]:
     }
 
 
+def canonical_public_rip_contract_target_key() -> str:
+    """The target key carrying the CURRENT canonical public RIP contract (selector-driven, fail closed).
+
+    Same authority as :func:`canonical_overall_rip_target_key` (``CANONICAL_OVERALL_RIP_VERSION``); shared so
+    services read one mapping instead of hardcoding ``publicRipContractV11``.
+    """
+    from backend.desirability.public_rip_contract_v10 import PUBLIC_RIP_CONTRACT_V10_KEY
+    from backend.desirability.public_rip_contract_v11 import PUBLIC_RIP_CONTRACT_V11_KEY
+    from backend.desirability.public_rip_contract_v12 import PUBLIC_RIP_CONTRACT_V12_KEY
+
+    keys = {OVERALL_RIP_V10_VERSION: PUBLIC_RIP_CONTRACT_V10_KEY, OVERALL_RIP_V12_VERSION: PUBLIC_RIP_CONTRACT_V11_KEY,
+            OVERALL_RIP_V14_VERSION: PUBLIC_RIP_CONTRACT_V12_KEY}
+    try:
+        return keys[CANONICAL_OVERALL_RIP_VERSION]
+    except KeyError:
+        raise RuntimeError("No registered public RIP contract key for canonical Overall RIP version %r"
+                           % (CANONICAL_OVERALL_RIP_VERSION,))
+
+
 def candidate_overall_rip_target_key() -> str:
     """The target key carrying the Overall RIP V14 CANDIDATE object (never the canonical one)."""
     return _CANONICAL_OVERALL_RIP_TARGET_KEYS[OVERALL_RIP_V14_VERSION]
