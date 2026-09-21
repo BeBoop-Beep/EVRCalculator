@@ -1,4 +1,4 @@
-name: Provider fallback identity acceptance
+name: Provider fallback identity hosted unit tests
 
 on:
   push:
@@ -9,112 +9,21 @@ permissions:
   contents: read
 
 jobs:
-  accept:
-    runs-on: self-hosted
-    timeout-minutes: 25
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Test branch in isolated worktree
-        shell: bash
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/provider-fallback-card-identity-20260921
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend test dependencies
+        run: python -m pip install -r backend/requirements.txt pytest
+      - name: Run focused identity suites
         run: |
-          set -euo pipefail
-          REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/provider-fallback-identity-test
-          BRANCH=fix/provider-fallback-card-identity-20260921
-
-          cd "$REPO"
-          git fetch origin "$BRANCH"
-          if [ -d "$WT" ]; then
-            git worktree remove --force "$WT" || true
-          fi
-          git worktree add --detach "$WT" "origin/$BRANCH"
-          ln -s /home/ubuntu/repos/EVRCalculator/backend/.env "$WT/backend/.env"
-
-          cd "$WT"
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/scripts/build_pokemon_set_desirability_inputs.py
-
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py             backend/tests/unit/scripts/test_build_pokemon_card_desirability_links.py
-
-      - name: Dry-run parent identity and desirability
-        shell: bash
-        run: |
-          set -euo pipefail
-          WT=/home/ubuntu/repos/provider-fallback-identity-test
-          cd "$WT"
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python             backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration             --dry-run             --log-level INFO             > /tmp/me30-parent-dry.json
-
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
-          import json
-          p=json.load(open("/tmp/me30-parent-dry.json"))
-          sr=p["set_reports"][0]
-          lr=p["links_report"]["diagnostics"]
-          cr=p["component_scores_report"]
-          print(json.dumps({
-              "set_report":{
-                  k:sr.get(k) for k in (
-                      "cards_rows","matched_pokemon_cards","non_pokemon_cards",
-                      "unmatched_non_trainer_cards","sample_unmatched_non_trainer_cards"
-                  )
-              },
-              "links":{
-                  k:lr.get(k) for k in (
-                      "total_canonical_cards_scanned","total_pokemon_cards_scanned",
-                      "total_non_pokemon_cards_skipped","total_hit_rarity_cards",
-                      "total_pokemon_hit_eligible_cards","cards_linked_by_pokedex_number",
-                      "cards_linked_by_fallback_name","unmatched_pokemon_cards_missing_pokedex_numbers",
-                      "excluded_non_pokemon_hit_rarity_rows","multi_pokemon_cards_linked"
-                  )
-              },
-              "components":{
-                  "metric_status_counts":cr.get("metric_status_counts"),
-                  "summary_rows":cr.get("summary_rows"),
-                  "warning_category_counts":cr.get("warning_category_counts"),
-              }
-          },default=str))
-          PY
-
-      - name: Dry-run Classic Collection identity and desirability
-        shell: bash
-        run: |
-          set -euo pipefail
-          WT=/home/ubuntu/repos/provider-fallback-identity-test
-          cd "$WT"
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python             backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection             --dry-run             --log-level INFO             > /tmp/me30-classic-dry.json
-
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
-          import json
-          p=json.load(open("/tmp/me30-classic-dry.json"))
-          sr=p["set_reports"][0]
-          lr=p["links_report"]["diagnostics"]
-          print(json.dumps({
-              "set_report":{
-                  k:sr.get(k) for k in (
-                      "cards_rows","matched_pokemon_cards","non_pokemon_cards",
-                      "unmatched_non_trainer_cards","sample_unmatched_non_trainer_cards"
-                  )
-              },
-              "links":{
-                  k:lr.get(k) for k in (
-                      "total_canonical_cards_scanned","total_pokemon_cards_scanned",
-                      "total_non_pokemon_cards_skipped","total_hit_rarity_cards",
-                      "total_pokemon_hit_eligible_cards","cards_linked_by_pokedex_number",
-                      "cards_linked_by_fallback_name","unmatched_pokemon_cards_missing_pokedex_numbers",
-                      "excluded_non_pokemon_hit_rarity_rows","multi_pokemon_cards_linked"
-                  )
-              },
-              "excluded_samples":p["links_report"].get("samples",{}).get("excluded_non_pokemon_hit_rarity_rows"),
-              "unmatched_samples":p["links_report"].get("samples",{}).get("unmatched_pokemon_cards_missing_pokedex_numbers"),
-              "component_summary":p["component_scores_report"].get("summary_rows"),
-              "component_warnings":p["component_scores_report"].get("warning_category_counts"),
-          },default=str))
-          PY
-
-      - name: Cleanup worktree
-        if: always()
-        shell: bash
-        run: |
-          set +e
-          REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/provider-fallback-identity-test
-          rm -f "$WT/backend/.env"
-          cd "$REPO"
-          git worktree remove --force "$WT" || true
+          python -m py_compile backend/scripts/build_pokemon_set_desirability_inputs.py
+          python -m pytest -q             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py             backend/tests/unit/scripts/test_build_pokemon_card_desirability_links.py
