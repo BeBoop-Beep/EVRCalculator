@@ -1,4 +1,4 @@
-name: Install current publication liveness watchdog
+name: Monitor Sep 20 self-healing publication
 
 on:
   push:
@@ -11,21 +11,43 @@ permissions:
   contents: read
 
 jobs:
-  install:
+  monitor:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Install current-head canonical cron
+      - name: Inspect active publisher and watchdog
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           cd /home/ubuntu/repos/EVRCalculator
-          test "$(git rev-parse HEAD)" = "4f4920088e0b1043cc3031429fda86d6a56ecd64"
-          echo '=== DIFF BEFORE ==='
-          crontab -l > /tmp/cron-before-liveness
-          diff -u /tmp/cron-before-liveness infra/oracle/tcgplayer-scraper-pokemon.crontab || true
-          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
-          echo '=== INSTALLED LIVENESS LINE ==='
-          crontab -l | grep 'post-scrape-publication-watchdog'
-          echo '=== CURRENT WATCHDOG HEALTH ==='
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.alerts.post_scrape_publication_watchdog --health || true
+          echo '=== TIME / GIT ==='
+          date
+          echo -n 'head='; git rev-parse HEAD
+          git fetch origin >/dev/null 2>&1 || true
+          echo -n 'origin_main='; git rev-parse origin/main 2>/dev/null || true
+          echo
+          echo '=== ACTIVE PUBLICATION ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
+          echo
+          echo '=== LOCK OWNER ==='
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo
+          echo '=== CURRENT SEP20 RUN MARKERS ==='
+          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-20' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
+          echo "start_line=${START:-missing}"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep20-current.log
+            echo "plan_last=$(grep '\[refresh-plan\] checked' /tmp/sep20-current.log | tail -1)"
+            echo "plan_complete=$(grep -c '\[refresh-plan\] complete' /tmp/sep20-current.log || true)"
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep20-current.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep20-current.log || true)"
+            echo "refresh_exit=$(grep 'refresh exit_status=' /tmp/sep20-current.log | tail -1)"
+            echo "audit_exit=$(grep 'audit exit_status=' /tmp/sep20-current.log | tail -1)"
+            echo "explorer_exit=$(grep 'market explorer projection exit_status=' /tmp/sep20-current.log | tail -1)"
+            echo "final_exit=$(grep 'final exit_status=' /tmp/sep20-current.log | tail -1)"
+            echo '=== RECENT FAILURES ==='
+            grep -Ei 'failed coordinated|global failed|explore_rankings.*failed|rankings publication|ERROR snapshot operation failed' /tmp/sep20-current.log | tail -60 || true
+          fi
+          echo
+          echo '=== WATCHDOG TAIL ==='
+          tail -120 backend/logs/post_scrape_publication_watchdog.log 2>/dev/null || true
