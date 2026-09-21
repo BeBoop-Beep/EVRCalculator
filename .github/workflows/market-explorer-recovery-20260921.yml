@@ -50,14 +50,14 @@ jobs:
             echo "publication_lock=free; no incumbent to terminate"
           else
             IDENTITY_JSON="$("$PY" - <<'PY'
-import json
-from backend.alerts import post_scrape_publication_watchdog as watchdog
-identity = watchdog._validate_active_publication_identity(
-    watchdog._default_all_publication_processes()
-)
-print(json.dumps(identity, sort_keys=True))
-PY
-)"
+          import json
+          from backend.alerts import post_scrape_publication_watchdog as watchdog
+          identity = watchdog._validate_active_publication_identity(
+          watchdog._default_all_publication_processes()
+          )
+          print(json.dumps(identity, sort_keys=True))
+          PY
+          )"
             echo "active_publication_identity=$IDENTITY_JSON"
             REFRESH_PID="$(printf '%s' "$IDENTITY_JSON" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("refresh_pid") or "")')"
             WRAPPER_PID="$(printf '%s' "$IDENTITY_JSON" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("wrapper_pid") or "")')"
@@ -124,15 +124,15 @@ PY
 
           echo "=== require Price Storage V2 READY ==="
           "$PY" - <<'PY'
-import json
-from backend.db.clients.supabase_client import create_service_role_client
-from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
-c=create_service_role_client()
-d=evaluate_price_projection_gate(c,"2026-09-21")
-print("price_storage_gate="+json.dumps(d.to_dict(),sort_keys=True,default=str))
-if not d.ready:
-    raise SystemExit("Price Storage V2 is not READY")
-PY
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
+          c=create_service_role_client()
+          d=evaluate_price_projection_gate(c,"2026-09-21")
+          print("price_storage_gate="+json.dumps(d.to_dict(),sort_keys=True,default=str))
+          if not d.ready:
+          raise SystemExit("Price Storage V2 is not READY")
+          PY
 
           echo "=== canonical Market candidate preparation + quality + Raw/Top10 index ==="
           "$PY" -m backend.scripts.build_pokemon_market_index_history --commit --market-date "$MARKET_DATE"
@@ -142,27 +142,27 @@ PY
 
           echo "=== verify quality/root coverage + 166 tracked set-history coverage ==="
           "$PY" - <<'PY'
-import json
-from backend.db.clients.supabase_client import create_service_role_client
-from backend.db.services.market_date_quality import evaluate_market_date_quality
-c=create_service_role_client()
-day="2026-09-21"
-quality=evaluate_market_date_quality(c,day)
-coverage=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or [])
-current=[r for r in coverage if str(r.get("latest_snapshot_date") or "")[:10] >= day]
-print("market_quality="+json.dumps(quality,sort_keys=True,default=str))
-print("explorer_set_history="+json.dumps({
-    "total":len(coverage),
-    "current":len(current),
-    "stale":len(coverage)-len(current),
-    "min_latest":min((str(r.get("latest_snapshot_date") or "")[:10] for r in coverage),default=None),
-    "max_latest":max((str(r.get("latest_snapshot_date") or "")[:10] for r in coverage),default=None),
-},sort_keys=True))
-if quality.get("status") != "READY":
-    raise SystemExit("Sep 21 Market Date Quality is not READY")
-if len(coverage) != 166 or len(current) != 166:
-    raise SystemExit("tracked Market Explorer set-history coverage is not 166/166 current")
-PY
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.market_date_quality import evaluate_market_date_quality
+          c=create_service_role_client()
+          day="2026-09-21"
+          quality=evaluate_market_date_quality(c,day)
+          coverage=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or [])
+          current=[r for r in coverage if str(r.get("latest_snapshot_date") or "")[:10] >= day]
+          print("market_quality="+json.dumps(quality,sort_keys=True,default=str))
+          print("explorer_set_history="+json.dumps({
+          "total":len(coverage),
+          "current":len(current),
+          "stale":len(coverage)-len(current),
+          "min_latest":min((str(r.get("latest_snapshot_date") or "")[:10] for r in coverage),default=None),
+          "max_latest":max((str(r.get("latest_snapshot_date") or "")[:10] for r in coverage),default=None),
+          },sort_keys=True))
+          if quality.get("status") != "READY":
+          raise SystemExit("Sep 21 Market Date Quality is not READY")
+          if len(coverage) != 166 or len(current) != 166:
+          raise SystemExit("tracked Market Explorer set-history coverage is not 166/166 current")
+          PY
 
           echo "=== publish compact public Set Value snapshot for Sep 21 ==="
           "$PY" -m backend.scripts.build_pokemon_explore_set_value_snapshot --commit --market-date "$MARKET_DATE"
@@ -172,31 +172,31 @@ PY
 
           echo "=== verify V2 coverage ==="
           "$PY" - <<'PY'
-import json
-from backend.db.clients.supabase_client import create_service_role_client
-c=create_service_role_client()
-day="2026-09-21"
-rows=[]
-start=0
-while True:
-    page=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
-        .select("set_id,computed_through,missing_day_count,stale_day_count")
-        .order("set_id").range(start,start+999).execute().data or [])
-    rows.extend(page)
-    if len(page)<1000: break
-    start+=1000
-current=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]
-missing=sum(int(r.get("missing_day_count") or 0) for r in rows)
-stale=sum(int(r.get("stale_day_count") or 0) for r in rows)
-print("explorer_v2_coverage="+json.dumps({
-    "rows":len(rows),"current":len(current),"missing_day_count":missing,
-    "stale_day_count":stale,
-    "min_computed_through":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),
-    "max_computed_through":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None),
-},sort_keys=True))
-if len(rows)!=166 or len(current)!=166 or missing!=0 or stale!=0:
-    raise SystemExit("Market Explorer V2 coverage is not 166/166, missing=0, stale=0")
-PY
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          day="2026-09-21"
+          rows=[]
+          start=0
+          while True:
+          page=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
+          .select("set_id,computed_through,missing_day_count,stale_day_count")
+          .order("set_id").range(start,start+999).execute().data or [])
+          rows.extend(page)
+          if len(page)<1000: break
+          start+=1000
+          current=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]
+          missing=sum(int(r.get("missing_day_count") or 0) for r in rows)
+          stale=sum(int(r.get("stale_day_count") or 0) for r in rows)
+          print("explorer_v2_coverage="+json.dumps({
+          "rows":len(rows),"current":len(current),"missing_day_count":missing,
+          "stale_day_count":stale,
+          "min_computed_through":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),
+          "max_computed_through":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None),
+          },sort_keys=True))
+          if len(rows)!=166 or len(current)!=166 or missing!=0 or stale!=0:
+          raise SystemExit("Market Explorer V2 coverage is not 166/166, missing=0, stale=0")
+          PY
 
           flock -u 9
           flock -u 8
