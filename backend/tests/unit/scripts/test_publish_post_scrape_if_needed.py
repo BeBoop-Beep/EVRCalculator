@@ -146,3 +146,20 @@ def test_explicit_market_date_is_never_overridden_by_wall_clock():
 def test_run_rebuild_script_never_passes_force_publish():
     args = [str(mod.REBUILD_SCRIPT), "2026-09-01"]
     assert "--force-publish" not in args
+
+def test_fallback_currency_delegates_to_combined_authority(monkeypatch):
+    seen = {}
+
+    def combined(client, market_date):
+        seen["client"] = client
+        seen["market_date"] = market_date
+        return PublicationCurrencyStatus.STALE
+
+    monkeypatch.setattr(
+        "backend.db.services.post_scrape_publication_trigger.evaluate_post_scrape_publication_currency",
+        combined,
+    )
+    client = object()
+    assert mod._already_current(client, "2026-09-20") == PublicationCurrencyStatus.STALE
+    assert seen == {"client": client, "market_date": "2026-09-20"}
+
