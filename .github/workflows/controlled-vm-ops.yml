@@ -505,12 +505,12 @@ jobs:
 
             market-explorer-pipeline-runtime-cutover)
               cd "$REPO"
-              TARGET_REF="origin/fix/market-explorer-pipeline-runtime-20260921"
+              TARGET_REF="origin/ops/vm-market-explorer-consolidated-runtime-20260921"
               WT="/tmp/EVRCalculator-market-explorer-pipeline-runtime-cutover"
-              git fetch origin fix/market-explorer-pipeline-runtime-20260921
+              git fetch origin ops/vm-market-explorer-consolidated-runtime-20260921
 
               if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
-                echo "Refusing pipeline cutover: unexpected dirty paths:"
+                echo "Refusing consolidated cutover: unexpected dirty paths:"
                 git status --short
                 exit 3
               fi
@@ -524,7 +524,7 @@ jobs:
               cp "$REPO/backend/.env" "$WT/backend/.env"
               chmod 600 "$WT/backend/.env"
 
-              echo "== candidate compile/live coverage verification =="
+              echo "== consolidated candidate tests =="
               cd "$WT"
               "$PY" -m py_compile \
                 backend/scripts/run_market_explorer_maintained_cache_prewarm.py \
@@ -532,7 +532,22 @@ jobs:
                 backend/db/services/market_explorer_query_planner.py \
                 backend/db/services/post_scrape_publication_trigger.py \
                 backend/scripts/publish_post_scrape_if_needed.py
+
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py \
+                backend/tests/unit/db/services/test_market_explorer_query_planner.py \
+                backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+                -q
+
+              echo "== live authority verification =="
               "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids; c=create_service_role_client(); ids=set(resolve_tracked_set_ids(c)); child="a787aa9f-dbc3-47c0-bfe9-0045b9516a67"; print({"tracked":len(ids),"classicCollectionPresent":child in ids}); raise SystemExit(0 if len(ids)==166 and child in ids else 7)'
+
               rm -f "$WT/backend/.env"
               cd "$REPO"
               git worktree remove --force "$WT"
@@ -550,7 +565,7 @@ jobs:
               git commit -m "ops(explorer): install consolidated pipeline runtime"
               echo "== post-cutover =="
               git status --short
-              git log -3 --oneline
+              git log -4 --oneline
               ;;
 
             market-explorer-v2-repair)
