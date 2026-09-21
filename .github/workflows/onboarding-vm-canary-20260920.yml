@@ -1,4 +1,4 @@
-name: Verify set-detail dynamic chunks
+name: Check browser tooling on VM
 
 on:
   push:
@@ -9,43 +9,21 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Check all secondary chunks
+      - name: Check installed browser tooling
         shell: bash
         run: |
           set -euo pipefail
-          base="https://www.inthedex.io/_next/static/chunks"
-          for file in             "6191-05b4624edbeb9434.js"             "8278-d925812404ca1621.js"             "1954-9d33baa10331d710.js"             "6042-e5094b16df56c2c2.js"             "1150.ea96b4a1153f9eeb.js"
-          do
-            tmp="$(mktemp)"
-            code="$(curl -L --max-time 20 -sS -o "$tmp" -w '%{http_code}' "$base/$file?dpl=dpl_BHYrPwf59gU4y8ATTPJKne2hm9Tf" || true)"
-            size="$(wc -c < "$tmp" 2>/dev/null || echo 0)"
-            echo "$file status=$code bytes=$size"
-            if [ "$code" != "200" ]; then
-              echo "body:"
-              head -c 500 "$tmp" || true
-              echo
-            fi
-            rm -f "$tmp"
-          done
-
-      - name: Check Rankings route secondary chunks
-        shell: bash
-        run: |
-          set -euo pipefail
-          html=/tmp/rankings.html
-          curl -L --max-time 45 -fsS "https://www.inthedex.io/Rankings" -o "$html"
-          echo "bytes=$(wc -c < "$html")"
-          echo "title=$(grep -o '<title>[^<]*</title>' "$html" | head -1 || true)"
-          grep -oE 'src="[^"]+\.js[^"]*"' "$html" | sed 's/^src="//;s/"$//' | sort -u > /tmp/rankings.scripts
-          while IFS= read -r src; do
-            case "$src" in
-              http*) full="$src" ;;
-              *) full="https://www.inthedex.io$src" ;;
-            esac
-            code="$(curl -L --max-time 20 -sS -o /dev/null -w '%{http_code}' "$full" || true)"
-            echo "$code $src"
-          done < /tmp/rankings.scripts
+          command -v node || true
+          command -v npm || true
+          command -v chromium || true
+          command -v chromium-browser || true
+          command -v google-chrome || true
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
+          import importlib.util
+          for name in ("playwright","selenium","pyppeteer"):
+              print(name, bool(importlib.util.find_spec(name)))
+          PY
