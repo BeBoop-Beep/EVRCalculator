@@ -1,0 +1,64 @@
+name: Diagnose Sep 21 publication
+
+on:
+  push:
+    branches:
+      - 'ops/sep21-publication-diagnosis-20260921'
+    paths:
+      - '.github/workflows/sep21-publication-diagnosis.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Inspect Sep 21 publication runtime
+        shell: bash
+        run: |
+          set -u
+          cd /home/ubuntu/repos/EVRCalculator
+          echo '=== TIME / REPO ==='
+          date
+          printf 'head='; git rev-parse HEAD
+          printf 'branch='; git branch --show-current || true
+          git status --short || true
+          echo
+          echo '=== INSTALLED CRON ==='
+          crontab -l | grep -E 'create_daily_scrape_batch|post-scrape-publication-watchdog|publish_post_scrape_if_needed|market-freshness-watchdog' || true
+          echo
+          echo '=== ACTIVE PUBLICATION PROCESSES ==='
+          ps -eo user,pid,ppid,lstart,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|post_scrape_publication_watchdog|publish_post_scrape_if_needed|run_market_explorer_daily_publication' | grep -v grep || true
+          echo
+          echo '=== PUBLICATION LOCK ==='
+          ls -l /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || echo no-lock-file
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo
+          echo '=== PUBLICATION LOG ==='
+          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
+          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-21' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
+          echo "sep21_start_line=${START:-missing}"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep21-pub.log
+            echo "plan_last=$(grep '\[refresh-plan\] checked' /tmp/sep21-pub.log | tail -1)"
+            echo "plan_complete=$(grep -c '\[refresh-plan\] complete' /tmp/sep21-pub.log || true)"
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/sep21-pub.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/sep21-pub.log || true)"
+            echo "setpage_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/sep21-pub.log || true)"
+            echo "refresh_exit=$(grep 'refresh exit_status=' /tmp/sep21-pub.log | tail -1)"
+            echo "audit_exit=$(grep 'audit exit_status=' /tmp/sep21-pub.log | tail -1)"
+            echo "market_explorer_exit=$(grep 'market explorer projection exit_status=' /tmp/sep21-pub.log | tail -1)"
+            echo "final_exit=$(grep 'final exit_status=' /tmp/sep21-pub.log | tail -1)"
+            echo '=== ERRORS/WARNINGS ==='
+            grep -E 'ERROR|FAILED|Traceback|stalled|blocked|DEFERRED|timeout|520|522|525|57014|PGRST002' /tmp/sep21-pub.log | tail -120 || true
+            echo '=== LIVE TAIL ==='
+            tail -120 /tmp/sep21-pub.log
+          fi
+          echo
+          echo '=== WATCHDOG LOG ==='
+          tail -160 backend/logs/post_scrape_publication_watchdog.log 2>/dev/null || true
+          echo
+          echo '=== MARKET FRESHNESS LOG ==='
+          tail -100 backend/logs/market_freshness_watchdog.log 2>/dev/null || true
