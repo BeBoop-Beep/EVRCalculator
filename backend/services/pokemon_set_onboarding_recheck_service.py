@@ -319,7 +319,7 @@ def run_recheck(
             summary.reconciled += 1
 
         items.append({
-            "job_id": row.get("id"),
+            "job_id": row.get("job_id") or row.get("id"),
             **checked,
             **change_evidence,
             "proposed_next_check_at": next_check_at,
