@@ -152,7 +152,8 @@ class _FastpathQuery:
     def eq(self, *_args):
         return self
 
-    def in_(self, *_args):
+    def in_(self, _column, values):
+        self.client.in_batches.append((self.table_name, list(values)))
         return self
 
     def execute(self):
@@ -165,6 +166,7 @@ class _FastpathClient:
     def __init__(self, *, fail=False, rows=None):
         self.fail = fail
         self.rows = dict(rows or {})
+        self.in_batches = []
 
     def table(self, name):
         return _FastpathQuery(self, name)
@@ -253,3 +255,54 @@ def test_completed_scrape_cohort_exhausted_transient_failure_falls_back_to_deep_
 
     assert result is None
     assert len(calls) == 2
+
+
+def test_target_date_preload_uses_bounded_batches_to_avoid_statement_timeout():
+    set_ids = [f"set-{i}" for i in range(45)]
+    rows = {
+        "pokemon_set_cards_snapshot_latest": [
+            {
+                "set_id": set_id,
+                "updated_at": "2026-09-21T12:00:00Z",
+                "pricing_market_date": "2026-09-20",
+                "snapshot_market_date": "2026-09-20",
+            }
+            for set_id in set_ids
+        ],
+        "pokemon_set_market_dashboard_snapshot_latest": [
+            {
+                "set_id": set_id,
+                "latest_market_date": "2026-09-20",
+                "updated_at": "2026-09-21T12:00:00Z",
+            }
+            for set_id in set_ids
+        ],
+    }
+    client = _FastpathClient(rows=rows)
+
+    loaded = refresh._load_target_snapshot_market_dates(
+        client,
+        set_ids,
+        window="365d",
+        replacement_client_factory=lambda: client,
+        sleep=lambda _seconds: None,
+    )
+
+    assert loaded is not None
+    cards, market = loaded
+    assert set(cards) == set(set_ids)
+    assert set(market) == set(set_ids)
+
+    cards_batches = [
+        len(values)
+        for table, values in client.in_batches
+        if table == "pokemon_set_cards_snapshot_latest"
+    ]
+    market_batches = [
+        len(values)
+        for table, values in client.in_batches
+        if table == "pokemon_set_market_dashboard_snapshot_latest"
+    ]
+    assert cards_batches == [20, 20, 5]
+    assert market_batches == [20, 20, 5]
+    assert max(cards_batches + market_batches) <= refresh.TARGET_DATE_PRELOAD_BATCH_SIZE
