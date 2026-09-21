@@ -1,4 +1,4 @@
-name: Onboarding VM recovery 2026-09-20
+name: Onboarding frontend verification 2026-09-20
 
 on:
   push:
@@ -9,64 +9,32 @@ permissions:
   contents: read
 
 jobs:
-  vm-recovery:
+  frontend-verify:
     runs-on: self-hosted
-    timeout-minutes: 25
+    timeout-minutes: 8
     steps:
-      - name: Sync production checkout to main
+      - name: Verify public catalog HTML
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          git fetch origin main
-          git switch --detach origin/main
-          echo "VM_SHA=$(git rev-parse HEAD)"
-          git log -1 --oneline
-
-      - name: Sync corrected catalog metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          retry() {
-            local n=1
-            until "$@"; do
-              if [ "$n" -ge 5 ]; then
-                return 1
-              fi
-              echo "retry $n/5 after transient failure: $*"
-              n=$((n+1))
-              sleep 15
-            done
-          }
-          retry ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebration --apply
-          retry ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me06DeltaReign --apply
-          retry ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebrationClassicCollection --apply
-
-      - name: Build targeted sealed snapshots
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          for key in me30thCelebration me06DeltaReign me30thCelebrationClassicCollection; do
-            echo "=== sealed snapshot $key ==="
-            set +e
-            ./.venv/bin/python backend/scripts/build_pokemon_set_sealed_market_snapshots.py --set-id "$key" --commit
-            code=$?
-            set -e
-            echo "sealed_snapshot_exit[$key]=$code"
+          tmp="$(mktemp)"
+          for n in 1 2 3; do
+            if curl -fsSL --max-time 30 'https://inthedex.io/TCGs/Pokemon/Sets' -o "$tmp"; then
+              break
+            fi
+            sleep 5
           done
-
-      - name: Build targeted set-page snapshots
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          for key in me30thCelebration me06DeltaReign me30thCelebrationClassicCollection; do
-            echo "=== set page $key ==="
-            set +e
-            ./.venv/bin/python backend/scripts/build_pokemon_set_page_snapshots.py --set-id "$key" --commit
-            code=$?
-            set -e
-            echo "set_page_exit[$key]=$code"
-          done
+          echo "http_bytes=$(wc -c < "$tmp")"
+          echo "delta_count=$(grep -o 'Delta Reign' "$tmp" | wc -l)"
+          echo "30th_count=$(grep -o '30th Celebration' "$tmp" | wc -l)"
+          echo "mega_heading_count=$(grep -o 'Mega Evolution' "$tmp" | wc -l)"
+          if grep -q 'Delta Reign' "$tmp"; then
+            echo "PUBLIC_DELTA_PRESENT=true"
+          else
+            echo "PUBLIC_DELTA_PRESENT=false"
+          fi
+          if grep -q 'ME: 30th Celebration' "$tmp"; then
+            echo "PUBLIC_30TH_PRESENT=true"
+          else
+            echo "PUBLIC_30TH_PRESENT=false"
+          fi
