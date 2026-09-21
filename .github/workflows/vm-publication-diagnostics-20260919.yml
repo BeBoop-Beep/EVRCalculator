@@ -1,4 +1,4 @@
-name: Cutover readiness check
+name: Install current publication liveness watchdog
 
 on:
   push:
@@ -11,23 +11,21 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  install:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Check publication lock and current main
+      - name: Install current-head canonical cron
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          date
-          echo '=== PROCESSES ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo '=== LOCK ==='
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo '=== GIT ==='
-          echo -n 'head='; git rev-parse HEAD
-          git fetch origin >/dev/null 2>&1 || true
-          echo -n 'origin_main='; git rev-parse origin/main
-          echo '=== STATUS ==='
-          git status --short || true
+          test "$(git rev-parse HEAD)" = "4f4920088e0b1043cc3031429fda86d6a56ecd64"
+          echo '=== DIFF BEFORE ==='
+          crontab -l > /tmp/cron-before-liveness
+          diff -u /tmp/cron-before-liveness infra/oracle/tcgplayer-scraper-pokemon.crontab || true
+          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
+          echo '=== INSTALLED LIVENESS LINE ==='
+          crontab -l | grep 'post-scrape-publication-watchdog'
+          echo '=== CURRENT WATCHDOG HEALTH ==='
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.alerts.post_scrape_publication_watchdog --health || true
