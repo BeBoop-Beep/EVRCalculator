@@ -1,0 +1,41 @@
+name: Market Explorer Consolidated Pipeline Runtime
+
+on:
+  push:
+    branches:
+      - fix/market-explorer-pipeline-runtime-20260921
+    paths:
+      - 'backend/scripts/run_market_explorer_maintained_cache_prewarm.py'
+      - 'backend/db/services/pokemon_market_explorer_query_service.py'
+      - 'backend/db/services/market_explorer_query_planner.py'
+      - 'backend/db/services/post_scrape_publication_trigger.py'
+      - 'backend/scripts/publish_post_scrape_if_needed.py'
+      - 'backend/requirements.txt'
+      - 'backend/tests/unit/**'
+      - '.github/workflows/market-explorer-consolidated-pipeline-runtime.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -q             pytest supabase==2.28.3 python-dotenv==1.2.2 'psycopg[binary]==3.3.6'
+      - name: Compile pipeline runtime
+        run: |
+          python -m py_compile             backend/scripts/run_market_explorer_maintained_cache_prewarm.py             backend/db/services/pokemon_market_explorer_query_service.py             backend/db/services/market_explorer_query_planner.py             backend/db/services/post_scrape_publication_trigger.py             backend/scripts/publish_post_scrape_if_needed.py
+      - name: Run consolidated Market Explorer runtime suites
+        run: |
+          python -m pytest -q             backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py             backend/tests/unit/db/services/test_market_explorer_query_planner.py             backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py             backend/tests/unit/db/services/test_post_scrape_publication_currency_v2.py             backend/tests/unit/db/services/test_post_scrape_publication_trigger.py             backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py             backend/tests/unit/scripts/test_publish_post_scrape_gate_tristate.py             backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py             backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py             backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py             backend/tests/unit/test_market_explorer_v2_runtime_cutover.py             backend/tests/unit/db/clients/test_supabase_client_timeout.py
