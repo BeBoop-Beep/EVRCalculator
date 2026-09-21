@@ -1,4 +1,4 @@
-name: Pokemon Onboarding Autonomy final tests
+name: Pokemon Onboarding Autonomy V2 final tests
 
 on:
   push:
@@ -13,13 +13,13 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 20
     steps:
-      - name: Test autonomy feature branch in isolated worktree
+      - name: Test current-main autonomy branch in isolated worktree
         shell: bash
         run: |
           set -euo pipefail
           REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/pokemon-onboarding-autonomy-test
-          BRANCH=fix/pokemon-onboarding-autonomy-20260920
+          WT=/home/ubuntu/repos/pokemon-onboarding-autonomy-v2-test
+          BRANCH=fix/pokemon-onboarding-autonomy-v2-20260920
 
           cd "$REPO"
           git fetch origin "$BRANCH"
@@ -32,7 +32,7 @@ jobs:
           cd "$WT"
           /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/services/pokemon_onboarding_git_service.py             backend/services/pokemon_set_onboarding_recheck_service.py             backend/scripts/refresh_due_pokemon_catalog_sets.py
 
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/services/test_pokemon_onboarding_git_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_onboarding_end_to_end.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/services/test_pokemon_onboarding_git_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_onboarding_end_to_end.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py             backend/tests/unit/db/test_pokemon_subset_structural_registry.py             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py
 
           rm -f "$WT/backend/.env"
           cd "$REPO"
