@@ -164,31 +164,45 @@ jobs:
 
             market-explorer-worker-cutover)
               cd "$REPO"
-              git fetch origin develop
+              TARGET_REF="origin/ops/vm-market-explorer-worker-cutover-20260920"
+              WT="/tmp/EVRCalculator-market-explorer-cutover-verify"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+
               DIRTY_PATHS="$(git status --porcelain | sed -E 's/^.. //')"
               if [ -n "$DIRTY_PATHS" ] && [ "$DIRTY_PATHS" != "payload_debug.json" ]; then
                 echo "Refusing cutover: unexpected dirty paths:"
                 git status --short
                 exit 3
               fi
-              if git merge-base --is-ancestor 2d117b49264212ec6944c9dd50b4fb6419beaadc HEAD; then
-                echo "accepted_worker_commit_already_present=true"
-              else
-                set +e
-                git cherry-pick -x 2d117b49264212ec6944c9dd50b4fb6419beaadc
-                STATUS=$?
-                set -e
-                if [ "$STATUS" -ne 0 ]; then
-                  git cherry-pick --abort || true
-                  echo "worker_cutover_cherry_pick_failed=true"
-                  exit "$STATUS"
-                fi
-              fi
+
               "$PY" -m pip install --disable-pip-version-check -q 'psycopg[binary]==3.3.6'
+
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cp "$REPO/backend/.env" "$WT/backend/.env"
+              chmod 600 "$WT/backend/.env"
+
+              echo "== rollback-only verification on candidate source =="
+              cd "$WT"
+              "$PY" -c 'import json; import backend.scripts.run_market_explorer_maintained_cache_prewarm as worker; result=worker.refresh_prepared_if_current(None,target_market_date="2026-09-19",commit=False,verify=True); print(json.dumps(result,sort_keys=True,default=str)); raise SystemExit(6 if result.get("status")=="failed" else 0)'
+
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
+
+              echo "== installing verified runtime files =="
+              git checkout "$TARGET_REF" -- \
+                backend/scripts/run_market_explorer_maintained_cache_prewarm.py \
+                backend/requirements.txt
+              git diff --check --cached
+              git diff --cached --stat
+              git commit -m "ops(explorer): cut over guarded direct DB publisher"
+
               echo "== post-cutover =="
               git status --short
               git log -2 --oneline
-              "$PY" -c 'import json; import backend.scripts.run_market_explorer_maintained_cache_prewarm as worker; result=worker.refresh_prepared_if_current(None,target_market_date="2026-09-19",commit=False,verify=True); print(json.dumps(result,sort_keys=True,default=str)); raise SystemExit(6 if result.get("status")=="failed" else 0)'
               ;;
 
             sync-main)
