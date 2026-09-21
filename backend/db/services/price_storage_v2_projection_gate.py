@@ -39,6 +39,7 @@ class PriceProjectionDecision:
     complete_set_count: int = 0
     pending_set_ids: List[str] = field(default_factory=list)
     failed_set_ids: List[str] = field(default_factory=list)
+    terminal_failed_set_ids: List[str] = field(default_factory=list)
     missing_set_ids: List[str] = field(default_factory=list)
     stale_source_set_ids: List[str] = field(default_factory=list)
     error: Optional[str] = None
@@ -52,10 +53,12 @@ class PriceProjectionDecision:
             "complete_set_count": self.complete_set_count,
             "pending_set_count": len(self.pending_set_ids),
             "failed_set_count": len(self.failed_set_ids),
+            "terminal_failed_set_count": len(self.terminal_failed_set_ids),
             "missing_set_count": len(self.missing_set_ids),
             "stale_source_set_count": len(self.stale_source_set_ids),
             "pending_set_ids": self.pending_set_ids[:25],
             "failed_set_ids": self.failed_set_ids[:25],
+            "terminal_failed_set_ids": self.terminal_failed_set_ids[:25],
             "missing_set_ids": self.missing_set_ids[:25],
             "stale_source_set_ids": self.stale_source_set_ids[:25],
             "error": self.error,
@@ -112,6 +115,7 @@ def evaluate_price_projection_gate(client: Any, market_date: str) -> PriceProjec
     complete: List[str] = []
     pending: List[str] = []
     failed: List[str] = []
+    terminal_failed: List[str] = []
     missing: List[str] = []
     stale_source: List[str] = []
 
@@ -129,6 +133,12 @@ def evaluate_price_projection_gate(client: Any, market_date: str) -> PriceProjec
             complete.append(set_id)
         elif status == "failed":
             failed.append(set_id)
+            try:
+                attempts = int(row.get("attempts") or 0)
+            except (TypeError, ValueError):
+                attempts = 0
+            if attempts >= 5:
+                terminal_failed.append(set_id)
         else:
             pending.append(set_id)
 
@@ -141,6 +151,7 @@ def evaluate_price_projection_gate(client: Any, market_date: str) -> PriceProjec
         complete_set_count=len(complete),
         pending_set_ids=pending,
         failed_set_ids=failed,
+        terminal_failed_set_ids=terminal_failed,
         missing_set_ids=missing,
         stale_source_set_ids=stale_source,
     )
