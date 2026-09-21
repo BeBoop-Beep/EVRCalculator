@@ -1,0 +1,36 @@
+name: Public Rankings proxy probe 2026-09-21
+
+on:
+  push:
+    branches:
+      - ops/onboarding-vm-canary-20260920
+    paths:
+      - '.github/workflows/public-rankings-proxy-probe-20260921.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe public Rankings lens proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lens in sets eras products; do
+            echo "===== $lens ====="
+            tmp="$(mktemp)"
+            set +e
+            curl -sS --max-time 45 -D /tmp/h.$$ -o "$tmp"               "https://www.inthedex.io/api/explore/rankings/lens?lens=$lens"
+            code=$?
+            set -e
+            echo "curl_exit=$code"
+            cat /tmp/h.$$ || true
+            echo "body:"
+            cat "$tmp" || true
+            echo
+            rm -f "$tmp" /tmp/h.$$
+          done
