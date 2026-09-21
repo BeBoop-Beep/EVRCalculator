@@ -1,4 +1,4 @@
-name: Onboarding autonomy audit 2026-09-20
+name: Onboarding VM readiness audit 2026-09-20
 
 on:
   push:
@@ -9,23 +9,28 @@ permissions:
   contents: read
 
 jobs:
-  autonomy-audit:
+  readiness:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect onboarding schedule
+      - name: Inspect production checkout and wrapper
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== crontab ==="
-          crontab -l || true
-          echo "=== onboarding enable marker ==="
-          if [ -f /home/ubuntu/.pokemon_onboarding_enabled ]; then
-            echo "ONBOARDING_ENABLED=true"
+          cd /home/ubuntu/repos/EVRCalculator
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          git status --short
+          echo "=== payload_debug diffstat ==="
+          git diff --stat -- payload_debug.json || true
+          echo "=== payload_debug diff head ==="
+          git diff -- payload_debug.json | sed -n '1,120p' || true
+          echo "=== installed wrapper ==="
+          if [ -f /home/ubuntu/bin/run_pokemon_onboarding_worker.sh ]; then
+            sha256sum /home/ubuntu/bin/run_pokemon_onboarding_worker.sh
+            sed -n '1,220p' /home/ubuntu/bin/run_pokemon_onboarding_worker.sh
           else
-            echo "ONBOARDING_ENABLED=false"
+            echo "installed wrapper missing"
           fi
-          echo "=== wrapper ==="
-          ls -l /home/ubuntu/repos/EVRCalculator/infra/oracle/run_pokemon_onboarding_worker.sh
-          echo "=== related processes ==="
-          pgrep -af 'run_pending_pokemon_set_onboarding|discover_new_pokemon_sets|recheck_pokemon_set_onboarding_catalog' || true
+          echo "=== repo wrapper ==="
+          sha256sum /home/ubuntu/repos/EVRCalculator/infra/oracle/run_pokemon_onboarding_worker.sh
