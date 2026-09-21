@@ -37,7 +37,34 @@ def _iso(value: Optional[datetime]) -> Optional[str]:
 def _dt(value: Any) -> Optional[datetime]:
     if value is None or value == "":
         return None
-    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+    # PostgREST/PostgreSQL may trim trailing zeroes from fractional seconds
+    # (for example .71485+00:00). Python 3.10's fromisoformat accepts only
+    # supported ISO fractional widths, so normalize numeric fractions to
+    # microseconds before parsing. Sub-microsecond precision is truncated.
+    text = str(value).strip().replace("Z", "+00:00")
+    time_index = text.find("T")
+    fraction_index = text.find(".", time_index if time_index >= 0 else 0)
+    if fraction_index >= 0:
+        timezone_candidates = [
+            index
+            for index in (
+                text.find("+", fraction_index + 1),
+                text.find("-", fraction_index + 1),
+            )
+            if index >= 0
+        ]
+        timezone_index = min(timezone_candidates) if timezone_candidates else len(text)
+        fraction = text[fraction_index + 1 : timezone_index]
+        if fraction.isdigit():
+            normalized_fraction = (fraction + "000000")[:6]
+            text = (
+                text[: fraction_index + 1]
+                + normalized_fraction
+                + text[timezone_index:]
+            )
+
+    parsed = datetime.fromisoformat(text)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed

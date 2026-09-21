@@ -134,3 +134,31 @@ def test_supabase_heartbeat_write_retries_transient_failure_with_same_identity()
     assert payload["component"] == "sentinel_vm"
     assert payload["host"] == "tcgplayer-scraper-pokemon-v2"
     assert payload["heartbeat_at"] == NOW.isoformat()
+
+
+def test_supabase_state_read_accepts_postgrest_trimmed_fractional_seconds():
+    client = _Client(
+        rows={
+            "sentinel_check_state": [
+                {
+                    "check_key": "market.freshness",
+                    "status": "healthy",
+                    "last_checked_at": "2026-09-21T05:41:02.71485+00:00",
+                    "last_success_at": "2026-09-21T05:41:02.4Z",
+                    "consecutive_failures": 0,
+                    "last_observation_json": {},
+                }
+            ]
+        }
+    )
+    store = SupabaseStateStore(client)
+
+    state = store.get_check_state("market.freshness")
+
+    assert state is not None
+    assert state.last_checked_at == datetime(
+        2026, 9, 21, 5, 41, 2, 714850, tzinfo=timezone.utc
+    )
+    assert state.last_success_at == datetime(
+        2026, 9, 21, 5, 41, 2, 400000, tzinfo=timezone.utc
+    )
