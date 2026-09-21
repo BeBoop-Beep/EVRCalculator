@@ -14,7 +14,10 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.desirability.normalization import normalize_pokemon_name_key  # noqa: E402
+from backend.desirability.normalization import (  # noqa: E402
+    FORM_SUFFIXES_TO_STRIP,
+    normalize_pokemon_name_key,
+)
 from backend.desirability.composite import COMPOSITE_SCORING_VERSION  # noqa: E402
 from backend.desirability.rarity_buckets import HIT_POLICY_VERSION  # noqa: E402
 from backend.desirability.set_components import SCORING_VERSION as COMPONENT_SCORING_VERSION  # noqa: E402
@@ -80,6 +83,8 @@ TRAINER_LIKE_KEYWORDS = (
     "card",
     "energy",
 )
+
+REGIONAL_FORM_PREFIXES = ("alolan", "galarian", "hisuian", "paldean")
 
 
 class SetDesirabilityInputsError(RuntimeError):
@@ -276,6 +281,7 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
 
     references = _list_pokemon_reference(client)
     reference_lookup = _build_reference_lookup(references)
+    trainer_reference_names = _list_trainer_reference_names(client)
 
     rows_to_upsert: List[Dict[str, Any]] = []
     skipped_missing_required = 0
@@ -304,15 +310,22 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
         if existing and str(existing.get("source") or "") not in {"", FALLBACK_SOURCE}:
             continue
 
+        normalized_name = normalize_pokemon_name_key(name)
         non_pokemon_supertype = _infer_non_pokemon_supertype(name)
-        matched_reference = None
+        if non_pokemon_supertype is None and normalized_name in trainer_reference_names:
+            non_pokemon_supertype = "Trainer"
+
+        matched_references: List[Dict[str, Any]] = []
         if non_pokemon_supertype is None:
-            matched_reference = _match_reference_for_card_name(name=name, reference_lookup=reference_lookup)
+            matched_references = _match_references_for_card_name(
+                name=name,
+                reference_lookup=reference_lookup,
+            )
 
         if non_pokemon_supertype:
             supertype = non_pokemon_supertype
             non_pokemon_cards += 1
-        elif matched_reference:
+        elif matched_references:
             supertype = "Pokémon"
             matched_pokemon_cards += 1
         else:
@@ -327,7 +340,11 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
                 )
 
         subtypes = _infer_subtypes(name) if non_pokemon_supertype is None else []
-        pokedex_numbers = [int(matched_reference["pokedex_number"])] if matched_reference else []
+        pokedex_numbers = [
+            int(reference["pokedex_number"])
+            for reference in matched_references
+            if reference.get("pokedex_number") is not None
+        ]
 
         rows_to_upsert.append(
             {
@@ -349,7 +366,8 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
                     "source_table": "public.cards",
                     "source_card_id": card.get("id"),
                     "match_method": FALLBACK_MATCH_METHOD,
-                    "matched_pokedex_number": matched_reference.get("pokedex_number") if matched_reference else None,
+                    "matched_pokedex_number": pokedex_numbers[0] if len(pokedex_numbers) == 1 else None,
+                    "matched_pokedex_numbers": pokedex_numbers,
                 },
                 **catalog_only_eligibility_overrides(set_row),
             }
@@ -717,42 +735,142 @@ def _list_pokemon_reference(client: Any) -> List[Dict[str, Any]]:
     return rows
 
 
-def _build_reference_lookup(references: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    lookup: Dict[str, Dict[str, Any]] = {}
+def _list_trainer_reference_names(client: Any) -> set[str]:
+    """Load reviewed active Trainer identities for exact-name fallback typing.
+
+    Exact matching is deliberate. Prefix matching would misclassify owned
+    Pokemon names such as "Erika's Jigglypuff" as Trainer cards.
+    """
+    rows: List[Dict[str, Any]] = []
+    start = 0
+    page_size = 1000
+    while True:
+        result = (
+            client.table("pokemon_collector_entity_reference")
+            .select("display_name")
+            .eq("entity_type", "trainer")
+            .eq("active", True)
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        page = list(result.data or [])
+        rows.extend(page)
+        if len(page) < page_size:
+            break
+        start += page_size
+    return {
+        key
+        for row in rows
+        for key in [normalize_pokemon_name_key(row.get("display_name"))]
+        if key
+    }
+
+
+def _reference_alias_keys(reference: Dict[str, Any]) -> set[str]:
+    keys: set[str] = set()
+    for field in ("display_name", "canonical_name"):
+        key = normalize_pokemon_name_key(reference.get(field))
+        if not key:
+            continue
+        keys.add(key)
+        for suffix in FORM_SUFFIXES_TO_STRIP:
+            suffix_text = f" {suffix}"
+            if key.endswith(suffix_text):
+                stripped = key[: -len(suffix_text)].strip()
+                if stripped:
+                    keys.add(stripped)
+    return keys
+
+
+def _build_reference_lookup(
+    references: Sequence[Dict[str, Any]],
+) -> Dict[str, List[Dict[str, Any]]]:
+    lookup: Dict[str, List[Dict[str, Any]]] = {}
     for row in references:
-        for field in ("display_name", "canonical_name"):
-            key = normalize_pokemon_name_key(row.get(field))
-            if not key:
-                continue
-            lookup.setdefault(key, row)
+        for key in _reference_alias_keys(row):
+            bucket = lookup.setdefault(key, [])
+            if not any(str(existing.get("id")) == str(row.get("id")) for existing in bucket):
+                bucket.append(row)
     return lookup
 
 
-def _match_reference_for_card_name(*, name: str, reference_lookup: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _contains_word_phrase(haystack: str, needle: str) -> bool:
+    return f" {needle} " in f" {haystack} "
+
+
+def _strip_regional_prefix(value: str) -> str:
+    tokens = value.split()
+    if tokens and tokens[0] in REGIONAL_FORM_PREFIXES:
+        return " ".join(tokens[1:]).strip()
+    return value
+
+
+def _match_references_for_card_name(
+    *,
+    name: str,
+    reference_lookup: Dict[str, List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    """Resolve all unambiguous Pokemon subjects represented by a fallback name.
+
+    Provider-only rows do not carry Pokemon TCG API supertype/Pokedex metadata.
+    Use the maintained Pokemon reference registry instead of hard-coded set
+    exceptions. Whole-word phrase matching supports legacy modifiers/owners and
+    explicit multi-Pokemon names while avoiding substring collisions (Mew is not
+    matched inside Mewtwo).
+    """
     normalized = normalize_pokemon_name_key(name)
     if not normalized:
-        return None
+        return []
 
-    alias_lookup = {
-        "keldeo": "keldeo ordinary",
-        "deoxys": "deoxys normal",
-        "meowstic": "meowstic male",
-        "pumpkaboo": "pumpkaboo average",
-        "pyroar": "pyroar male",
-        "gourgeist": "gourgeist average",
-    }
+    cleaned = _strip_name_tokens(normalized)
+    candidates = [cleaned]
+    regional = _strip_regional_prefix(cleaned)
+    if regional and regional != cleaned:
+        candidates.append(regional)
 
-    candidate = _strip_name_tokens(normalized)
-    if candidate in alias_lookup:
-        alias_row = reference_lookup.get(alias_lookup[candidate])
-        if alias_row:
-            return alias_row
+    matched: Dict[str, Dict[str, Any]] = {}
 
-    exact = reference_lookup.get(candidate)
-    if exact:
-        return exact
+    # Strongest path: exact alias/form-default match.
+    for candidate in candidates:
+        rows = reference_lookup.get(candidate) or []
+        for row in rows:
+            if row.get("id") is not None:
+                matched[str(row["id"])] = row
+    if matched:
+        return sorted(
+            matched.values(),
+            key=lambda row: (int(row.get("pokedex_number") or 10**9), str(row.get("id"))),
+        )
 
-    return None
+    # Provider names frequently retain descriptors that are not part of species
+    # identity: "Shining Celebi", "Dark Tyranitar", "Crobat G",
+    # "Genesect EX (Team Plasma)", "Erika's Jigglypuff", etc. Match only full
+    # word phrases from the maintained reference registry. Multiple distinct
+    # matches are intentional for TAG TEAM / LEGEND cards.
+    for candidate in candidates:
+        for key, rows in reference_lookup.items():
+            if not key or len(key) < 3:
+                continue
+            if not _contains_word_phrase(candidate, key):
+                continue
+            for row in rows:
+                if row.get("id") is not None:
+                    matched[str(row["id"])] = row
+
+    return sorted(
+        matched.values(),
+        key=lambda row: (int(row.get("pokedex_number") or 10**9), str(row.get("id"))),
+    )
+
+
+def _match_reference_for_card_name(
+    *,
+    name: str,
+    reference_lookup: Dict[str, List[Dict[str, Any]]],
+) -> Optional[Dict[str, Any]]:
+    """Backward-compatible single-subject wrapper for existing callers/tests."""
+    matches = _match_references_for_card_name(name=name, reference_lookup=reference_lookup)
+    return matches[0] if len(matches) == 1 else None
 
 
 def _strip_name_tokens(value: str) -> str:
