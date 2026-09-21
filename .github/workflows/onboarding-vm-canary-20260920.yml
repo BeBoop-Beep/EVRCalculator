@@ -1,4 +1,4 @@
-name: Pokemon targeted API retry tests
+name: Diagnose shared Explorer and set-detail outage
 
 on:
   push:
@@ -9,21 +9,150 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: fix/pokemon-targeted-api-retries-20260921
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - name: Install focused dependencies
-        run: python -m pip install requests pytest
-      - name: Run targeted metadata tests
+      - name: Sync current main
+        shell: bash
         run: |
-          python -m py_compile backend/services/pokemon_tcg_api_set_service.py
-          python -m pytest -q backend/tests/unit/services/test_pokemon_tcg_api_set_service.py
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          git fetch origin main
+          git switch main
+          git reset --hard origin/main
+          echo "VM_SHA=$(git rev-parse HEAD)"
+
+      - name: Probe shared live routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe() {
+            label="$1"
+            url="$2"
+            tmp="$(mktemp)"
+            echo "=== $label ==="
+            set +e
+            /usr/bin/time -f 'elapsed=%e' curl -L --max-time 45 -sS -D /tmp/headers.$$ -o "$tmp" "$url"
+            code=$?
+            set -e
+            echo "curl_exit=$code"
+            head -n 20 /tmp/headers.$$ || true
+            echo "bytes=$(wc -c < "$tmp" 2>/dev/null || echo 0)"
+            echo "route_loader_count=$(grep -o 'Loading Rip Statistics\|Loading inDex' "$tmp" 2>/dev/null | wc -l)"
+            echo "error_count=$(grep -o 'Something went wrong\|RIP Statistics unavailable' "$tmp" 2>/dev/null | wc -l)"
+            rm -f "$tmp" /tmp/headers.$$
+          }
+
+          probe "Explorer" "https://inthedex.io/Explorer"
+          probe "Pitch Black set" "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
+          probe "Delta Reign set" "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
+          probe "30th Celebration set" "https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"
+
+      - name: Probe backend endpoints directly from app env
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+
+          BASE="$(./.venv/bin/python - <<'PY'
+          from pathlib import Path
+          from dotenv import dotenv_values
+          candidates=[
+              Path("frontend/.env.production.local"),
+              Path("frontend/.env.production"),
+              Path("frontend/.env.local"),
+              Path("frontend/.env"),
+              Path("backend/.env"),
+          ]
+          for p in candidates:
+              if not p.exists():
+                  continue
+              v=dotenv_values(p)
+              for k in ("BACKEND_API_BASE_URL","NEXT_PUBLIC_BACKEND_API_BASE_URL"):
+                  value=str(v.get(k) or "").strip()
+                  if value:
+                      print(value.rstrip("/"))
+                      raise SystemExit
+          PY
+          )"
+
+          if [ -z "$BASE" ]; then
+            echo "backend_base_resolved=false"
+            exit 0
+          fi
+          echo "backend_base_resolved=true"
+
+          SET_ID="472f851c-2e41-4c80-b6fc-8478d1d92730"
+          probe_api() {
+            label="$1"
+            path="$2"
+            tmp="$(mktemp)"
+            echo "=== API $label ==="
+            set +e
+            /usr/bin/time -f 'elapsed=%e' curl --max-time 30 -sS -D /tmp/apiheaders.$$ -o "$tmp" "$BASE$path"
+            code=$?
+            set -e
+            echo "curl_exit=$code"
+            head -n 20 /tmp/apiheaders.$$ || true
+            echo "bytes=$(wc -c < "$tmp" 2>/dev/null || echo 0)"
+            echo "body_head:"
+            head -c 500 "$tmp" 2>/dev/null || true
+            echo
+            rm -f "$tmp" /tmp/apiheaders.$$
+          }
+
+          probe_api "route directory" "/tcgs/pokemon/set-route-directory?limit=500"
+          probe_api "Pitch Black shell" "/tcgs/pokemon/sets/$SET_ID/shell"
+          probe_api "Pitch Black RIP bootstrap" "/tcgs/pokemon/sets/$SET_ID/rip/bootstrap"
+          probe_api "Pitch Black overview" "/tcgs/pokemon/sets/$SET_ID/overview?window=365d"
+          probe_api "Explore rankings" "/tcgs/pokemon/explore/rankings"
+          probe_api "Explore set values" "/tcgs/pokemon/explore/set-values"
+
+      - name: Inspect current publication and snapshot freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          ./.venv/bin/python - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+
+          def count(table):
+              try:
+                  r=c.table(table).select("*",count="exact").limit(0).execute()
+                  return r.count
+              except Exception as exc:
+                  return f"ERROR:{type(exc).__name__}"
+
+          pitch="472f851c-2e41-4c80-b6fc-8478d1d92730"
+          result={
+              "tables":{
+                  "set_page_latest":count("pokemon_set_page_snapshot_latest"),
+                  "market_dashboard_latest":count("pokemon_set_market_dashboard_snapshot_latest"),
+                  "explore_rankings_latest":count("pokemon_explore_rankings_snapshot_latest"),
+                  "explore_set_value_latest":count("pokemon_explore_set_value_snapshot_latest"),
+              }
+          }
+
+          for name, table, filt in [
+              ("pitch_page","pokemon_set_page_snapshot_latest",("set_id",pitch)),
+              ("pitch_market","pokemon_set_market_dashboard_snapshot_latest",("set_id",pitch)),
+              ("rankings","pokemon_explore_rankings_snapshot_latest",("tcg","pokemon")),
+              ("set_values","pokemon_explore_set_value_snapshot_latest",("tcg","pokemon")),
+          ]:
+              try:
+                  q=c.table(table).select("*").eq(filt[0],filt[1]).limit(3).execute()
+                  rows=q.data or []
+                  result[name]=[{
+                      k:r.get(k) for k in (
+                          "set_id","scope","market_date","latest_market_date",
+                          "as_of","updated_at","source_updated_at"
+                      ) if k in r
+                  } for r in rows]
+              except Exception as exc:
+                  result[name]={"error":type(exc).__name__,"message":str(exc)}
+
+          print(json.dumps(result,default=str))
+          PY
