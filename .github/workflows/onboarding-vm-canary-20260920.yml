@@ -1,4 +1,4 @@
-name: Onboarding Git credential audit 2026-09-20
+name: Onboarding Git write audit 2026-09-20
 
 on:
   push:
@@ -9,22 +9,24 @@ permissions:
   contents: read
 
 jobs:
-  credential-audit:
+  write-audit:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect GitHub CLI credential availability without secrets
+      - name: Verify Git push credential without mutation
         shell: bash
         run: |
           set -euo pipefail
-          echo "gh_config_exists=$(test -f /home/ubuntu/.config/gh/hosts.yml && echo true || echo false)"
-          echo "git_remote=$(cd /home/ubuntu/repos/EVRCalculator && git remote get-url origin)"
-          echo "git_push_test_access:"
           cd /home/ubuntu/repos/EVRCalculator
-          git ls-remote --exit-code origin HEAD >/dev/null && echo "git_remote_read=true"
-          if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 | grep -q 'successfully authenticated'; then
-            echo "github_ssh_authenticated=true"
+          echo "credential_helper=$(git config --get credential.helper || true)"
+          set +e
+          out="$(git push --dry-run origin HEAD:refs/heads/automation/credential-probe-should-not-create 2>&1)"
+          code=$?
+          set -e
+          echo "push_dry_run_exit=$code"
+          if [ "$code" -eq 0 ]; then
+            echo "git_write_authenticated=true"
           else
-            echo "github_ssh_authenticated=false"
+            echo "git_write_authenticated=false"
+            printf '%s\n' "$out" | sed -E 's#https://[^/@]+@github.com#https://[REDACTED]@github.com#g' | tail -n 8
           fi
-          echo "sudo_noninteractive=$(sudo -n true 2>/dev/null && echo true || echo false)"
