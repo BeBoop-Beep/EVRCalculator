@@ -1,0 +1,71 @@
+name: Pokemon Onboarding Autonomous
+
+on:
+  schedule:
+    # America/Phoenix is UTC-7 year-round.
+    - cron: '*/5 12-14 * * *'
+    - cron: '0-30/5 15 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pokemon-onboarding-autonomous.yml'
+      - 'backend/services/pokemon_onboarding_git_service.py'
+      - 'backend/scripts/run_pending_pokemon_set_onboarding.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pokemon-onboarding-autonomous
+  cancel-in-progress: false
+
+jobs:
+  onboard:
+    runs-on: self-hosted
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      POKEMON_ONBOARDING_GIT_MODE: direct
+      POKEMON_ONBOARDING_BASE_BRANCH: main
+      POKEMON_ONBOARDING_AUTO_MERGE: 'false'
+      POKEMON_ONBOARDING_AUTO_DEPLOY: 'true'
+    steps:
+      - name: Run bounded onboarding worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec 9>/tmp/pokemon-set-onboarding.lock
+          if ! flock -n 9; then
+            echo "onboarding worker already active; safe no-op"
+            exit 0
+          fi
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          cd "$REPO"
+
+          if ! command -v gh >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y gh
+          fi
+          gh auth status
+          gh auth setup-git
+
+          # Legacy runtime artifacts were historically tracked. Restore them only
+          # when the current checkout still knows those paths; once untracked they
+          # are ignored and this becomes a no-op.
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+
+          git fetch origin main
+          git switch main
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Refusing autonomous onboarding: unexpected dirty production checkout" >&2
+            git status --short >&2
+            exit 2
+          fi
+          git pull --ff-only origin main
+
+          git config user.name "inDex onboarding automation"
+          git config user.email "actions@users.noreply.github.com"
+
+          ./.venv/bin/python backend/scripts/run_pending_pokemon_set_onboarding.py             --commit             --resume-all             --max-jobs 5             --json

@@ -1,0 +1,52 @@
+name: Pokemon Catalog Recheck Refresh
+
+on:
+  schedule:
+    # 09:05 America/Phoenix, after the scrape/onboarding windows.
+    - cron: '5 16 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pokemon-catalog-recheck-refresh.yml'
+      - 'backend/scripts/refresh_due_pokemon_catalog_sets.py'
+      - 'backend/services/pokemon_set_onboarding_recheck_service.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pokemon-catalog-recheck-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Recheck and refresh changed catalog sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec 9>/tmp/pokemon-catalog-recheck.lock
+          flock -n 9 || { echo "catalog recheck already active; safe no-op"; exit 0; }
+
+          # Do not overlap the price scraper or the post-scrape publisher.
+          exec 8>/tmp/pokemon-scrape-dispatcher.lock
+          flock -n 8 || { echo "scrape dispatcher active; defer catalog refresh"; exit 0; }
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -n 7 || { echo "post-scrape publisher active; defer catalog refresh"; exit 0; }
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          cd "$REPO"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main
+          git switch main
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Refusing catalog refresh: unexpected dirty production checkout" >&2
+            git status --short >&2
+            exit 2
+          fi
+          git pull --ff-only origin main
+
+          ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --commit             --limit 25             --max-provider-requests 50

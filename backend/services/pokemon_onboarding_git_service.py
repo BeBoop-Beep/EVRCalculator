@@ -52,8 +52,8 @@ class GitAdapter:
             raise GitSafetyError(f"checkout is dirty: {root}")
 
     def prepare_worktree(self, canonical_key: str, phase: str = "source") -> tuple[Path, str]:
-        if self.settings.mode != "pr":
-            raise GitSafetyError("Git PR mode is disabled")
+        if self.settings.mode not in {"pr", "direct"}:
+            raise GitSafetyError("Git source-write mode is disabled")
         if not self.settings.worktree_dir:
             raise GitSafetyError("POKEMON_ONBOARDING_WORKTREE_DIR is required")
         self.verify_clean(self.production_checkout)
@@ -122,6 +122,32 @@ class GitAdapter:
         return rows[0] if rows else None
 
     def push_and_open_pr(self, worktree: Path, branch: str, title: str) -> dict:
+        if self.settings.mode == "direct":
+            # GitHub Actions may be allowed to write repository contents while the
+            # repository-level "Actions may create PRs" switch remains disabled.
+            # Keep the same isolated-worktree/exact-file safety, but fast-forward
+            # the validated commit directly onto the configured base branch.
+            # Never force: if main moved incompatibly, rebase/push fails and the
+            # onboarding worker releases the job for a bounded retry.
+            self._run(["git", "fetch", "origin", self.settings.base_branch], worktree)
+            self._run(["git", "rebase", f"origin/{self.settings.base_branch}"], worktree)
+            self._run(
+                ["git", "push", "origin", f"HEAD:{self.settings.base_branch}"],
+                worktree,
+            )
+            deployed_sha = self._run(["git", "rev-parse", "HEAD"], worktree).stdout.strip()
+            if not self.settings.auto_deploy:
+                return {
+                    "status": "awaiting_source_deploy",
+                    "source_commit_sha": deployed_sha,
+                    "operator_action": (
+                        f"Deploy {self.settings.base_branch}; validated onboarding source "
+                        "has already been fast-forwarded to the remote branch."
+                    ),
+                }
+            self.deploy_base_branch()
+            return {"status": "deployed", "source_commit_sha": deployed_sha}
+
         self._run(["git", "push", "-u", "origin", branch], worktree)
         existing = self._find_existing_pr(branch, worktree)
         if existing:
