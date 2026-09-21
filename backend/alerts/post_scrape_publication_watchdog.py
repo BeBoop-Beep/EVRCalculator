@@ -32,6 +32,11 @@ from backend.db.services.post_scrape_publication_trigger import (
     trigger_post_scrape_publication_if_needed,
 )
 from backend.scripts.publish_post_scrape_if_needed import _batch_gate_decision
+from backend.db.services.price_storage_v2_projection_gate import (
+    REASON_AUTHORITY_UNAVAILABLE as PRICE_PROJECTION_AUTHORITY_UNAVAILABLE,
+    advance_price_projection_once,
+    evaluate_price_projection_gate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +161,8 @@ def run_watchdog(
     trigger: Callable[..., Dict[str, Any]] = trigger_post_scrape_publication_if_needed,
     latest_batch_loader: Callable[[Any], Optional[Dict[str, Any]]] = _latest_complete_batch,
     log_age_loader: Callable[[Path, datetime], Optional[float]] = _log_age_seconds,
+    projection_checker: Callable[[Any, str], Any] = evaluate_price_projection_gate,
+    projection_advancer: Callable[..., Dict[str, Any]] = advance_price_projection_once,
 ) -> Dict[str, Any]:
     resolved_now = now or datetime.now(timezone.utc)
     threshold = stall_seconds or _env_positive_int(
@@ -205,6 +212,91 @@ def run_watchdog(
                 payload=failure,
             )
         return failure
+
+    projection = projection_checker(client, market_date)
+    if not getattr(projection, "ready", False):
+        projection_payload = (
+            projection.to_dict() if hasattr(projection, "to_dict") else {}
+        )
+        if getattr(projection, "reason_code", "") == PRICE_PROJECTION_AUTHORITY_UNAVAILABLE:
+            failure = {
+                "healthy": False,
+                "status": "price_projection_authority_unavailable",
+                "market_date": market_date,
+                "batch_id": batch.get("id"),
+                "price_projection": projection_payload,
+            }
+            if queue_failures:
+                queue_alert(
+                    "price_projection_watchdog_failed",
+                    title=f"PRICE PROJECTION WATCHDOG FAILED — {market_date}",
+                    message="Price Storage V2 readiness authority is unavailable; publication remains blocked.",
+                    severity="critical",
+                    dedupe_key=f"price_projection_watchdog_failed:{market_date}",
+                    payload=failure,
+                )
+            return failure
+
+        if projection_payload.get("terminal_failed_set_count", 0):
+            failure = {
+                "healthy": False,
+                "status": "price_projection_terminal_failure",
+                "market_date": market_date,
+                "batch_id": batch.get("id"),
+                "price_projection": projection_payload,
+            }
+            if queue_failures:
+                queue_alert(
+                    "price_projection_terminal_failure",
+                    title=f"PRICE PROJECTION TERMINAL FAILURE — {market_date}",
+                    message="One or more Price Storage V2 queue rows exhausted their retry budget.",
+                    severity="critical",
+                    dedupe_key=f"price_projection_terminal_failure:{market_date}",
+                    payload=failure,
+                )
+            return failure
+
+        try:
+            advance = dict(
+                projection_advancer(client, market_date, process_limit=20) or {}
+            )
+        except Exception as exc:
+            failure = {
+                "healthy": False,
+                "status": "price_projection_advance_failed",
+                "market_date": market_date,
+                "batch_id": batch.get("id"),
+                "error": f"{type(exc).__name__}: {exc}",
+                "price_projection": projection_payload,
+            }
+            if queue_failures:
+                queue_alert(
+                    "price_projection_advance_failed",
+                    title=f"PRICE PROJECTION ADVANCE FAILED — {market_date}",
+                    message=failure["error"],
+                    severity="critical",
+                    dedupe_key=f"price_projection_advance_failed:{market_date}",
+                    payload=failure,
+                )
+            return failure
+
+        after = dict(advance.get("after") or {})
+        if not after.get("ready"):
+            if after.get("terminal_failed_set_count", 0):
+                return {
+                    "healthy": False,
+                    "status": "price_projection_terminal_failure",
+                    "market_date": market_date,
+                    "batch_id": batch.get("id"),
+                    "advance": advance,
+                }
+            return {
+                "healthy": True,
+                "status": "price_projection_advancing",
+                "market_date": market_date,
+                "batch_id": batch.get("id"),
+                "advance": advance,
+            }
 
     lock_held = bool(lock_checker(PUBLICATION_LOCK_PATH))
     if lock_held:
