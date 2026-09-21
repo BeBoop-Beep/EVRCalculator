@@ -1,4 +1,4 @@
-name: Inspect publication fastpath
+name: Validate publication fastpath retries
 
 on:
   push:
@@ -11,24 +11,33 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Inspect current publication fastpath
+      - name: Checkout fastpath retry branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/publication-fastpath-transient-retry-20260920
+          persist-credentials: false
+      - name: Compile and exercise retry cases
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          date
-          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
-          if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/current-pub.log
-            echo '=== FASTPATH ==='
-            grep -E '\[refresh-plan-fastpath\]' /tmp/current-pub.log | head -30 || true
-            echo '=== PROCESS ==='
-            ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-            echo '=== PROGRESS ==='
-            grep '\[refresh-plan\] checked' /tmp/current-pub.log | tail -5 || true
-            stat -c 'log_mtime=%y size=%s' publication.log || true
-          fi
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile \
+            backend/scripts/refresh_stale_public_snapshots.py \
+            backend/tests/unit/scripts/test_refresh_target_date_fastpath.py
+          "$PY" - <<'PY'
+          from backend.tests.unit.scripts import test_refresh_target_date_fastpath as t
+          t.test_completed_scrape_cohort_retries_transient_failure_with_fresh_client()
+          print('completed_cohort_transient_retry=PASS')
+          t.test_target_date_preload_retries_transient_failure_and_keeps_fastpath_available()
+          print('target_date_preload_transient_retry=PASS')
+          t.test_completed_scrape_cohort_exhausted_transient_failure_falls_back_to_deep_audit()
+          print('exhausted_retry_falls_back=PASS')
+          PY
