@@ -204,53 +204,42 @@ jobs:
 
             market-explorer-db-diagnose)
               cd "$REPO"
-              "$PY" - <<'PY'
-              import os, socket
-              from dotenv import load_dotenv
-              load_dotenv("backend/.env")
-              import psycopg
-              from psycopg.conninfo import conninfo_to_dict
-
-              dsn = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
-              if not dsn:
-                  raise SystemExit("direct_db_credential_missing")
-
-              parsed = conninfo_to_dict(dsn)
-              password = parsed.get("password") or ""
-              safe = {
-                  "host": parsed.get("host"),
-                  "port": parsed.get("port"),
-                  "user": parsed.get("user"),
-                  "dbname": parsed.get("dbname"),
-                  "sslmode": parsed.get("sslmode"),
-                  "password_present": bool(password),
-              }
-              print("parsed=" + repr(safe))
-
-              try:
-                  infos = socket.getaddrinfo(parsed.get("host"), int(parsed.get("port") or 5432), type=socket.SOCK_STREAM)
-                  families = sorted({info[0] for info in infos})
-                  print("dns_ok=true address_count=%d families=%s" % (len(infos), families))
-              except Exception as exc:
-                  print("dns_ok=false error_type=" + type(exc).__name__)
-
-              try:
-                  with psycopg.connect(dsn, connect_timeout=10) as conn:
-                      with conn.cursor() as cur:
-                          cur.execute("select current_user, current_database()")
-                          row = cur.fetchone()
-                          print("connect_ok=true current_user=%s current_database=%s" % row)
-              except Exception as exc:
-                  message = str(exc)
-                  if dsn:
-                      message = message.replace(dsn, "<REDACTED_DSN>")
-                  if password:
-                      message = message.replace(password, "<REDACTED_PASSWORD>")
-                  print("connect_ok=false error_type=%s sqlstate=%s" % (type(exc).__name__, getattr(exc, "sqlstate", None)))
-                  print("error=" + message[:800].replace("\n", " | "))
-                  raise SystemExit(7)
-              PY
+              DIAG="/tmp/market_explorer_db_diag.py"
+              printf '%s\n' \
+                'import os, socket' \
+                'from dotenv import load_dotenv' \
+                'load_dotenv("backend/.env")' \
+                'import psycopg' \
+                'from psycopg.conninfo import conninfo_to_dict' \
+                'dsn = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")' \
+                'assert dsn, "direct_db_credential_missing"' \
+                'parsed = conninfo_to_dict(dsn)' \
+                'password = parsed.get("password") or ""' \
+                'safe = {k: parsed.get(k) for k in ("host","port","user","dbname","sslmode")}' \
+                'safe["password_present"] = bool(password)' \
+                'print("parsed=" + repr(safe))' \
+                'try:' \
+                '    infos = socket.getaddrinfo(parsed.get("host"), int(parsed.get("port") or 5432), type=socket.SOCK_STREAM)' \
+                '    print("dns_ok=true address_count=%d families=%s" % (len(infos), sorted({i[0] for i in infos})))' \
+                'except Exception as exc:' \
+                '    print("dns_ok=false error_type=" + type(exc).__name__)' \
+                'try:' \
+                '    with psycopg.connect(dsn, connect_timeout=10) as conn:' \
+                '        with conn.cursor() as cur:' \
+                '            cur.execute("select current_user, current_database()")' \
+                '            row = cur.fetchone()' \
+                '            print("connect_ok=true current_user=%s current_database=%s" % row)' \
+                'except Exception as exc:' \
+                '    message = str(exc).replace(dsn, "<REDACTED_DSN>")' \
+                '    if password: message = message.replace(password, "<REDACTED_PASSWORD>")' \
+                '    print("connect_ok=false error_type=%s sqlstate=%s" % (type(exc).__name__, getattr(exc, "sqlstate", None)))' \
+                '    print("error=" + message[:800].replace(chr(10), " | "))' \
+                '    raise SystemExit(7)' \
+                > "$DIAG"
+              "$PY" "$DIAG"
+              rm -f "$DIAG"
               ;;
+
 
             sync-main)
               cd "$REPO"
