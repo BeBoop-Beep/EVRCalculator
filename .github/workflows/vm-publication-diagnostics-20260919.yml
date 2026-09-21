@@ -1,4 +1,4 @@
-name: Inspect final stale tail progress
+name: Check Sep 20 publisher before deploy
 
 on:
   push:
@@ -11,23 +11,27 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  check:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect publisher tail and watchdog
+      - name: Inspect publisher and current main
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
           date
+          git fetch origin >/dev/null 2>&1 || true
+          echo -n 'head='; git rev-parse HEAD
+          echo -n 'origin_main='; git rev-parse origin/main 2>/dev/null || true
           echo '=== PROCESS ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,wchan:32,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo '=== LOG STAT ==='
-          stat -c 'mtime=%y size=%s' publication.log || true
-          echo '=== LIVE TAIL ==='
-          tail -120 publication.log || true
-          echo '=== WATCHDOG LOG ==='
-          tail -100 backend/logs/post_scrape_publication_watchdog.log 2>/dev/null || true
-          echo '=== SENTINEL CRON ==='
-          crontab -l | grep -E 'post-scrape-publication-watchdog|index-sentinel-(fast|public)' || true
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
+          echo '=== LOCK ==='
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo '=== LAST SEP20 MARKERS ==='
+          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-20' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/sep20-last.log
+            grep -E 'refresh exit_status=|audit exit_status=|market explorer projection exit_status=|post-scrape publication COMPLETE|final exit_status=|cards failed:|market_dashboard failed:|global failed:|Rankings:' /tmp/sep20-last.log | tail -120 || true
+            tail -35 /tmp/sep20-last.log
+          fi
