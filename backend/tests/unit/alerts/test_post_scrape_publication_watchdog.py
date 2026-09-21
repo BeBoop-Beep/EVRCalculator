@@ -203,7 +203,7 @@ def test_projection_becomes_ready_after_advance_then_can_launch():
     assert result["status"] == "relaunch_requested"
 
 
-def test_terminal_projection_failure_never_launches():
+def test_terminal_projection_failure_keeps_draining_retryable_rows_but_never_launches():
     projection = SimpleNamespace(
         ready=False,
         reason_code="price_projection_not_ready",
@@ -216,6 +216,21 @@ def test_terminal_projection_failure_never_launches():
         },
     )
     trigger_calls = []
+    advance_calls = []
+
+    def advance(_client, market_date, *, process_limit):
+        advance_calls.append((market_date, process_limit))
+        return {
+            "after": {
+                "ready": False,
+                "expected_set_count": 165,
+                "complete_set_count": 164,
+                "terminal_failed_set_count": 1,
+                "terminal_failed_set_ids": ["set-bad"],
+            },
+            "process_result": {"processed": 20, "completed": 20, "failed": 0},
+        }
+
     with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
         result = watchdog.run_watchdog(
             client=object(),
@@ -225,9 +240,12 @@ def test_terminal_projection_failure_never_launches():
             lock_checker=lambda _path: False,
             trigger=lambda *_a, **_k: trigger_calls.append(True),
             projection_checker=lambda _client, _date: projection,
+            projection_advancer=advance,
         )
     assert result["healthy"] is False
     assert result["status"] == "price_projection_terminal_failure"
+    assert advance_calls == [("2026-09-20", 20)]
+    assert result["advance"]["process_result"]["completed"] == 20
     assert trigger_calls == []
 
 

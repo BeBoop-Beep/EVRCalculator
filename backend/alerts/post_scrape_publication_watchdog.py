@@ -609,25 +609,6 @@ def run_watchdog(
                 )
             return failure
 
-        if projection_payload.get("terminal_failed_set_count", 0):
-            failure = {
-                "healthy": False,
-                "status": "price_projection_terminal_failure",
-                "market_date": market_date,
-                "batch_id": batch.get("id"),
-                "price_projection": projection_payload,
-            }
-            if queue_failures:
-                queue_alert(
-                    "price_projection_terminal_failure",
-                    title=f"PRICE PROJECTION TERMINAL FAILURE — {market_date}",
-                    message="One or more Price Storage V2 queue rows exhausted their retry budget.",
-                    severity="critical",
-                    dedupe_key=f"price_projection_terminal_failure:{market_date}",
-                    payload=failure,
-                )
-            return failure
-
         try:
             advance = dict(
                 advance_projection(client, market_date, process_limit=20) or {}
@@ -655,13 +636,28 @@ def run_watchdog(
         after = dict(advance.get("after") or {})
         if not after.get("ready"):
             if after.get("terminal_failed_set_count", 0):
-                return {
+                failure = {
                     "healthy": False,
                     "status": "price_projection_terminal_failure",
                     "market_date": market_date,
                     "batch_id": batch.get("id"),
+                    "price_projection": after,
                     "advance": advance,
                 }
+                if queue_failures:
+                    queue_alert(
+                        "price_projection_terminal_failure",
+                        title=f"PRICE PROJECTION TERMINAL FAILURE — {market_date}",
+                        message=(
+                            "One or more Price Storage V2 queue rows exhausted their "
+                            "retry budget. Retryable rows continue draining, but "
+                            "publication remains blocked."
+                        ),
+                        severity="critical",
+                        dedupe_key=f"price_projection_terminal_failure:{market_date}",
+                        payload=failure,
+                    )
+                return failure
             return {
                 "healthy": True,
                 "status": "price_projection_advancing",
