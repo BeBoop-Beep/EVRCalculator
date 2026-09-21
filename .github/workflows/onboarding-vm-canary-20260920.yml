@@ -1,4 +1,4 @@
-name: Audit production Next chunk graph
+name: Inspect production route dynamic chunks
 
 on:
   push:
@@ -9,82 +9,55 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  inspect:
     runs-on: self-hosted
     timeout-minutes: 15
     steps:
-      - name: Compare working and broken route assets
+      - name: Probe actual Explorer route
         shell: bash
         run: |
           set -euo pipefail
+          tmp=/tmp/explore.html
+          curl -L --max-time 45 -sS -D /tmp/explore.headers -o "$tmp" "https://www.inthedex.io/Explore"
+          echo "=== headers ==="
+          cat /tmp/explore.headers
+          echo "bytes=$(wc -c < "$tmp")"
+          echo "loader_count=$(grep -o 'Loading inDex\|Loading Rip Statistics\|Loading rankings\|Loading' "$tmp" | wc -l)"
+          echo "title=$(grep -o '<title>[^<]*</title>' "$tmp" | head -1 || true)"
+          echo "scripts:"
+          grep -oE 'src="[^"]+\.js[^"]*"' "$tmp" | sed 's/^src="//;s/"$//' | sort -u
 
-          audit_route() {
-            name="$1"
-            url="$2"
-            html="/tmp/\${name}.html"
-            echo "===== ROUTE \${name} ====="
-            curl -L --max-time 45 -fsS "$url" -o "$html"
-            echo "bytes=$(wc -c < "$html")"
-            echo "next_f_count=$(grep -o '__next_f.push' "$html" | wc -l)"
-            echo "loader_count=$(grep -o 'Loading Rip Statistics\|Loading inDex\|Loading set intelligence' "$html" | wc -l)"
-
-            grep -oE 'src="[^"]+\.js[^"]*"' "$html" \
-              | sed 's/^src="//;s/"$//' \
-              | sort -u > "/tmp/\${name}.scripts"
-
-            echo "script_count=$(wc -l < "/tmp/\${name}.scripts")"
-            while IFS= read -r src; do
-              case "$src" in
-                http*) full="$src" ;;
-                *) full="https://www.inthedex.io$src" ;;
-              esac
-              code="$(curl -L --max-time 20 -sS -o /tmp/chunk.$$ -w '%{http_code}' "$full" || true)"
-              size="$(wc -c < /tmp/chunk.$$ 2>/dev/null || echo 0)"
-              ctype="$(file -b --mime-type /tmp/chunk.$$ 2>/dev/null || true)"
-              printf '%s\t%s\t%s\t%s\n' "$code" "$size" "$ctype" "$src"
-            done < "/tmp/\${name}.scripts" | tee "/tmp/\${name}.asset-status"
-
-            echo "bad_asset_count=$(awk '$1 != 200 {n++} END{print n+0}' "/tmp/\${name}.asset-status")"
-          }
-
-          audit_route "catalog" "https://www.inthedex.io/TCGs/Pokemon/Sets"
-          audit_route "pitch" "https://www.inthedex.io/TCGs/Pokemon/Sets/pitch-black"
-          audit_route "explorer-lower" "https://www.inthedex.io/explorer"
-          audit_route "explorer-upper" "https://www.inthedex.io/Explorer"
-
-          echo "===== SET-PAGE-ONLY SCRIPTS ====="
-          comm -13 /tmp/catalog.scripts /tmp/pitch.scripts || true
-
-          echo "===== EXPLORER-ONLY SCRIPTS ====="
-          comm -13 /tmp/catalog.scripts /tmp/explorer-lower.scripts || true
-
-          echo "===== SHARED PITCH+EXPLORER BUT NOT CATALOG ====="
-          comm -12 /tmp/pitch.scripts /tmp/explorer-lower.scripts > /tmp/shared-broken.scripts
-          comm -13 /tmp/catalog.scripts /tmp/shared-broken.scripts || true
-
-      - name: Inspect route-specific chunks for obvious runtime markers
+      - name: Inspect set route bundle and all referenced chunk ids
         shell: bash
         run: |
           set -euo pipefail
+          html=/tmp/pitch.html
+          curl -L --max-time 45 -fsS "https://www.inthedex.io/TCGs/Pokemon/Sets/pitch-black" -o "$html"
 
-          inspect_unique() {
-            base="$1"
-            route="$2"
-            echo "===== UNIQUE CHUNKS $route ====="
-            comm -13 "/tmp/\${base}.scripts" "/tmp/\${route}.scripts" | while IFS= read -r src; do
-              [ -n "$src" ] || continue
-              case "$src" in
-                http*) full="$src" ;;
-                *) full="https://www.inthedex.io$src" ;;
-              esac
-              tmp="$(mktemp)"
-              curl -L --max-time 20 -fsS "$full" -o "$tmp" || continue
-              echo "--- $src ---"
-              echo "bytes=$(wc -c < "$tmp")"
-              grep -aoE 'PokemonSetRichPageClient|RankingsLazyClient|ChunkLoadError|Loading set intelligence|Loading Rip Statistics' "$tmp" | sort -u || true
-              rm -f "$tmp"
-            done
-          }
+          route_src="$(grep -oE 'src="[^"]+app/TCGs/Pokemon/Sets/%5BsetSlug%5D/page-[^"]+\.js[^"]*"' "$html" | head -1 | sed 's/^src="//;s/"$//')"
+          echo "route_src=$route_src"
+          test -n "$route_src"
+          curl -L --max-time 20 -fsS "https://www.inthedex.io$route_src" -o /tmp/set-route.js
 
-          inspect_unique catalog pitch
-          inspect_unique catalog explorer-lower
+          echo "route_chunk_bytes=$(wc -c < /tmp/set-route.js)"
+          echo "=== route chunk strings ==="
+          grep -aoE 'PokemonSetRichPageClient|PokemonSetPageClient|Loading set intelligence|Loading Rip Statistics|[0-9]{3,6}:[^,}]+' /tmp/set-route.js | head -n 120 || true
+
+          echo "=== route chunk head ==="
+          head -c 12000 /tmp/set-route.js
+          echo
+
+          echo "=== numeric chunk ids near dynamic loader ==="
+          grep -aoE '\.e\([0-9]+\)|\[([0-9]+(,[0-9]+)*)\]' /tmp/set-route.js | sort -u | head -n 100 || true
+
+      - name: Verify candidate secondary chunks from webpack mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          html=/tmp/pitch.html
+          webpack_src="$(grep -oE 'src="[^"]+webpack-[^"]+\.js[^"]*"' "$html" | head -1 | sed 's/^src="//;s/"$//')"
+          echo "webpack_src=$webpack_src"
+          curl -L --max-time 20 -fsS "https://www.inthedex.io$webpack_src" -o /tmp/webpack.js
+          echo "webpack_bytes=$(wc -c < /tmp/webpack.js)"
+          head -c 16000 /tmp/webpack.js
+          echo
