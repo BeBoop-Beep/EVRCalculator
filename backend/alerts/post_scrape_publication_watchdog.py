@@ -15,6 +15,8 @@ import argparse
 import json
 import logging
 import os
+import signal
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
@@ -45,6 +47,9 @@ TAG = "[publication-liveness-watchdog]"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PUBLICATION_LOG_PATH = REPO_ROOT / "publication.log"
 DEFAULT_STALL_SECONDS = 20 * 60
+DEFAULT_STALL_RECOVERY_COOLDOWN_SECONDS = 60 * 60
+STALL_RECOVERY_MARKER_DIR = Path("/tmp")
+REFRESH_SCRIPT_TOKEN = "backend/scripts/refresh_stale_public_snapshots.py"
 
 
 def _env_positive_int(name: str, default: int) -> int:
@@ -105,6 +110,115 @@ def _lock_is_held(lock_path: str) -> bool:
     except OSError:
         return False
 
+
+def _default_publication_processes(market_date: str) -> list[dict[str, Any]]:
+    """Return only exact canonical post-scrape wrapper/refresh processes.
+
+    This intentionally parses a local Linux `ps` view and never matches by PID
+    alone. A stalled-recovery signal is permitted only when one wrapper and one
+    direct refresh child agree on the exact market date.
+    """
+    result = subprocess.run(
+        ["ps", "-eo", "pid=,ppid=,etimes=,args="],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"ps failed with exit code {result.returncode}: {result.stderr[:500]}")
+
+    wrapper_token = str(REPO_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh")
+    exact_date = str(market_date)
+    rows: list[dict[str, Any]] = []
+    for raw in result.stdout.splitlines():
+        parts = raw.strip().split(None, 3)
+        if len(parts) != 4:
+            continue
+        pid_text, ppid_text, age_text, args = parts
+        try:
+            pid = int(pid_text)
+            ppid = int(ppid_text)
+            age_seconds = int(age_text)
+        except ValueError:
+            continue
+        kind = None
+        if wrapper_token in args and exact_date in args:
+            kind = "wrapper"
+        elif REFRESH_SCRIPT_TOKEN in args and f"--market-date {exact_date}" in args:
+            kind = "refresh"
+        if kind:
+            rows.append({
+                "pid": pid,
+                "ppid": ppid,
+                "age_seconds": age_seconds,
+                "args": args,
+                "kind": kind,
+            })
+    return rows
+
+
+def _default_terminate_process(pid: int) -> None:
+    if int(pid) <= 1:
+        raise RuntimeError(f"refusing to signal unsafe pid={pid}")
+    os.kill(int(pid), signal.SIGTERM)
+
+
+def _stall_recovery_marker_path(market_date: str) -> Path:
+    safe_date = str(market_date).replace("/", "_")
+    return STALL_RECOVERY_MARKER_DIR / f"pokemon-post-scrape-stall-recovery-{safe_date}.marker"
+
+
+def _default_recovery_cooldown_active(market_date: str, now: datetime, cooldown_seconds: int) -> bool:
+    path = _stall_recovery_marker_path(market_date)
+    try:
+        modified = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    except OSError:
+        return False
+    age = max(0.0, (now.astimezone(timezone.utc) - modified).total_seconds())
+    return age < int(cooldown_seconds)
+
+
+def _default_record_recovery_attempt(market_date: str, now: datetime) -> None:
+    path = _stall_recovery_marker_path(market_date)
+    path.write_text(now.astimezone(timezone.utc).isoformat() + "\n", encoding="utf-8")
+
+
+def _validate_stalled_process_identity(
+    processes: list[dict[str, Any]], *, market_date: str, stall_seconds: int
+) -> Dict[str, Any]:
+    wrappers = [row for row in processes if row.get("kind") == "wrapper"]
+    refreshers = [row for row in processes if row.get("kind") == "refresh"]
+    if len(wrappers) != 1 or len(refreshers) != 1:
+        return {
+            "ok": False,
+            "reason": "publication_process_identity_ambiguous",
+            "wrapper_count": len(wrappers),
+            "refresh_count": len(refreshers),
+        }
+    wrapper = wrappers[0]
+    refresh = refreshers[0]
+    if int(refresh.get("ppid") or -1) != int(wrapper.get("pid") or -2):
+        return {
+            "ok": False,
+            "reason": "publication_process_parent_mismatch",
+            "wrapper_pid": wrapper.get("pid"),
+            "refresh_pid": refresh.get("pid"),
+            "refresh_ppid": refresh.get("ppid"),
+        }
+    if min(int(wrapper.get("age_seconds") or 0), int(refresh.get("age_seconds") or 0)) < int(stall_seconds):
+        return {
+            "ok": False,
+            "reason": "publication_process_too_young_for_stall_recovery",
+            "wrapper_age_seconds": wrapper.get("age_seconds"),
+            "refresh_age_seconds": refresh.get("age_seconds"),
+        }
+    return {
+        "ok": True,
+        "reason": "exact_publication_process_identity",
+        "wrapper_pid": int(wrapper["pid"]),
+        "refresh_pid": int(refresh["pid"]),
+        "market_date": str(market_date),
+    }
 
 def _log_age_seconds(log_path: Path, now: datetime) -> Optional[float]:
     try:
@@ -183,6 +297,12 @@ def run_watchdog(
     log_age_loader: Callable[[Path, datetime], Optional[float]] = _log_age_seconds,
     projection_checker: Optional[Callable[[Any, str], Any]] = None,
     projection_advancer: Optional[Callable[..., Dict[str, Any]]] = None,
+    recover_stalled: bool = False,
+    process_inspector: Callable[[str], list[dict[str, Any]]] = _default_publication_processes,
+    terminate_process: Callable[[int], None] = _default_terminate_process,
+    cooldown_checker: Callable[[str, datetime, int], bool] = _default_recovery_cooldown_active,
+    recovery_recorder: Callable[[str, datetime], None] = _default_record_recovery_attempt,
+    recovery_cooldown_seconds: int = DEFAULT_STALL_RECOVERY_COOLDOWN_SECONDS,
 ) -> Dict[str, Any]:
     resolved_now = now or datetime.now(timezone.utc)
     threshold = stall_seconds or _env_positive_int(
@@ -333,11 +453,100 @@ def run_watchdog(
             "lock_held": True,
             "stall_seconds": threshold,
         }
-        if not classification["healthy"] and queue_failures:
+        if classification["healthy"]:
+            return result
+
+        if not recover_stalled:
+            if queue_failures:
+                _queue_stall_alert(
+                    market_date=market_date,
+                    batch_id=batch.get("id"),
+                    classification=classification,
+                    stall_seconds=threshold,
+                )
+            return result
+
+        if cooldown_checker(market_date, resolved_now, recovery_cooldown_seconds):
+            result.update({
+                "status": "stall_recovery_cooldown",
+                "failure_code": "publication_stall_recovery_cooldown",
+                "recovery_attempted": False,
+                "recovery_cooldown_seconds": recovery_cooldown_seconds,
+            })
+            if queue_failures:
+                _queue_stall_alert(
+                    market_date=market_date,
+                    batch_id=batch.get("id"),
+                    classification=result,
+                    stall_seconds=threshold,
+                )
+            return result
+
+        try:
+            identity = _validate_stalled_process_identity(
+                process_inspector(market_date),
+                market_date=market_date,
+                stall_seconds=threshold,
+            )
+        except Exception as exc:
+            identity = {
+                "ok": False,
+                "reason": "publication_process_inspection_failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+        if not identity.get("ok"):
+            result.update({
+                "status": "stall_recovery_blocked",
+                "failure_code": str(identity.get("reason") or "publication_process_identity_invalid"),
+                "recovery_attempted": False,
+                "process_identity": identity,
+            })
+            if queue_failures:
+                _queue_stall_alert(
+                    market_date=market_date,
+                    batch_id=batch.get("id"),
+                    classification=result,
+                    stall_seconds=threshold,
+                )
+            return result
+
+        refresh_pid = int(identity["refresh_pid"])
+        try:
+            recovery_recorder(market_date, resolved_now)
+            terminate_process(refresh_pid)
+        except Exception as exc:
+            result.update({
+                "status": "stall_recovery_failed",
+                "failure_code": "publication_stall_sigterm_failed",
+                "recovery_attempted": True,
+                "refresh_pid": refresh_pid,
+                "error": f"{type(exc).__name__}: {exc}",
+                "process_identity": identity,
+            })
+            if queue_failures:
+                _queue_stall_alert(
+                    market_date=market_date,
+                    batch_id=batch.get("id"),
+                    classification=result,
+                    stall_seconds=threshold,
+                )
+            return result
+
+        result.update({
+            "status": "stall_sigterm_requested",
+            "failure_code": "publication_stall_sigterm_requested",
+            "recovery_attempted": True,
+            "refresh_pid": refresh_pid,
+            "wrapper_pid": identity.get("wrapper_pid"),
+            "recovery_cooldown_seconds": recovery_cooldown_seconds,
+            "process_identity": identity,
+        })
+        if queue_failures:
             _queue_stall_alert(
                 market_date=market_date,
                 batch_id=batch.get("id"),
-                classification=classification,
+                classification=result,
                 stall_seconds=threshold,
             )
         return result
@@ -374,6 +583,15 @@ def run_watchdog(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--health", action="store_true", help="Read-only alert suppression; relaunch logic remains disabled.")
+    parser.add_argument(
+        "--recover-stalled",
+        action="store_true",
+        help=(
+            "Enable one-shot SIGTERM recovery for an exact canonical refresh child "
+            "after the progress-stall threshold. Never SIGKILLs or signals an "
+            "ambiguous process identity."
+        ),
+    )
     args = parser.parse_args()
     if args.health:
         # Health mode must be strictly read-only, including no detached relaunch.
@@ -384,7 +602,7 @@ def main() -> int:
         if report.get("status") == "health_only_no_relaunch":
             report["healthy"] = False
     else:
-        report = run_watchdog()
+        report = run_watchdog(recover_stalled=bool(args.recover_stalled))
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 0 if report.get("healthy") else 1
 
