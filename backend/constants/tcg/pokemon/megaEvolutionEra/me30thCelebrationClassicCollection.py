@@ -11,9 +11,10 @@ class SetMe30thCelebrationClassicCollectionConfig(BaseSetConfig):
     SET_NAME = 'ME: 30th Celebration Classic Collection'
     SET_ABBREVIATION = None
 
-    # Official Pokemon material identifies Classic Collection as a subset of
-    # 30th Celebration. Keep it catalog-only until an authoritative API
-    # identity / supported opening model is available.
+    # Official Pokemon material identifies Classic Collection as a pack-pulled
+    # subset of 30th Celebration. Match the established Celebrations/Classic
+    # Collection contract: scrape it independently, but roll its cards into the
+    # parent set-value/opening universe rather than exposing it as a root set.
     SET_ID = None
     RELEASE_DATE = '2026-09-16'
     PRINTED_TOTAL = 30
@@ -28,7 +29,7 @@ class SetMe30thCelebrationClassicCollectionConfig(BaseSetConfig):
     SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/24837/cards/?rows=5000&productTypeID=25'
     PRICE_ENDPOINTS = {}
 
-    CATALOG_ONLY = True
+    CATALOG_ONLY = False
     SUPPORTS_OPENING_SIMULATION = False
     USE_MONTE_CARLO_V2 = False
     PULL_MODEL_STATUS = "unsupported"

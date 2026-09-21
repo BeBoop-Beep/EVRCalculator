@@ -395,20 +395,49 @@ def canonical_set_needs_authoritative_refresh(rows: List[Dict[str, Any]]) -> boo
 
 
 def catalog_only_eligibility_overrides(set_row: Dict[str, Any]) -> Dict[str, Any]:
-    """Explicit eligibility fields for a catalog-only set's canonical rows.
+    """Explicit canonical-card eligibility from the set lifecycle contract.
 
-    Returns {} for a normal (non catalog-only) set, leaving the table's ordinary
-    defaults in place. For a catalog-only set, returns the fields that must be
-    written explicitly rather than left to those defaults.
+    Historical fallback rows originally relied on table defaults for ordinary sets
+    and only overrode catalog-only rows. That is insufficient when a provider-only
+    set later graduates into the normal root/subset lifecycle: its already-created
+    canonical rows would retain the old catalog-only role/eligibility forever.
+
+    Keep the helper name for compatibility, but make the contract explicit for all
+    three structural cases:
+      * catalog-only identity -> market-visible, never opening-eligible;
+      * contributing subset -> role=subset and inherits parent contribution flags;
+      * ordinary root -> normal main/opening-eligible defaults, written explicitly.
     """
-    if not set_row.get("catalog_only"):
-        return {}
+    if set_row.get("catalog_only"):
+        return {
+            "catalog_role": "main",
+            "set_value_eligible": True,
+            "opening_eligible": False,
+            "canonical_review_status": "approved",
+            "eligibility_reason": CATALOG_ONLY_ELIGIBILITY_REASON,
+        }
+
+    if set_row.get("is_subset"):
+        contributes_value = bool(set_row.get("counts_toward_parent_set_value"))
+        contributes_opening = bool(set_row.get("counts_toward_parent_opening"))
+        return {
+            "catalog_role": "subset",
+            "set_value_eligible": contributes_value,
+            "opening_eligible": contributes_opening,
+            "canonical_review_status": "approved",
+            "eligibility_reason": (
+                "pack_pulled_subset_card"
+                if contributes_opening
+                else "subset_not_opening_eligible"
+            ),
+        }
+
     return {
         "catalog_role": "main",
         "set_value_eligible": True,
-        "opening_eligible": False,
+        "opening_eligible": True,
         "canonical_review_status": "approved",
-        "eligibility_reason": CATALOG_ONLY_ELIGIBILITY_REASON,
+        "eligibility_reason": None,
     }
 
 
@@ -625,7 +654,10 @@ def _opening_signature(*, set_id: Any, scoring_version: Any, source_v2_component
 
 
 def _list_sets(client: Any, *, set_key: Optional[str], process_all: bool) -> List[Dict[str, Any]]:
-    query = client.table("sets").select("id,name,canonical_key,pokemon_api_set_id,catalog_only").order("name")
+    query = client.table("sets").select(
+        "id,name,canonical_key,pokemon_api_set_id,catalog_only,is_subset,"
+        "counts_toward_parent_set_value,counts_toward_parent_opening"
+    ).order("name")
     if set_key:
         query = query.eq("canonical_key", set_key)
     elif not process_all:

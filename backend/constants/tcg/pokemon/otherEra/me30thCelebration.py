@@ -25,10 +25,11 @@ class SetMe30thCelebrationConfig(BaseSetConfig):
     SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/24722/cards/?rows=5000&productTypeID=25'
     PRICE_ENDPOINTS = {}
 
-    # Historical catalog identity added for market/card coverage only.
-    # It is NOT an approved pack-simulation product.
-    CATALOG_ONLY = True
+    # Normal root-set lifecycle, matching older root/subset families such as
+    # Celebrations + Classic Collection. The set is scrape/market eligible now;
+    # opening simulation remains gated until a validated pull model is approved.
+    CATALOG_ONLY = False
     SUPPORTS_OPENING_SIMULATION = False
     USE_MONTE_CARLO_V2 = False
-    PULL_MODEL_STATUS = "unsupported"
+    PULL_MODEL_STATUS = "pending"
     PULL_RATE_MAPPING = {}
