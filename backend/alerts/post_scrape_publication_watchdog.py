@@ -4,9 +4,9 @@ This is deliberately narrower than the market freshness watchdog:
 - it acts only after a scrape batch is authoritatively complete;
 - it distinguishes an active publisher from a missing publisher;
 - it relaunches only when NO publisher owns the canonical flock;
-- it never kills a process or bypasses the publication gate;
-- a held lock with no log progress is alert-only until an explicit
-  stall-recovery runbook is separately approved.
+- it never bypasses the publication gate;
+- SIGTERM recovery is bounded to an exact canonical refresh child whose
+  process identity is proven either stalled or superseded by a newer complete batch.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import signal
 import subprocess
 from datetime import datetime, timezone
@@ -111,13 +112,8 @@ def _lock_is_held(lock_path: str) -> bool:
         return False
 
 
-def _default_publication_processes(market_date: str) -> list[dict[str, Any]]:
-    """Return only exact canonical post-scrape wrapper/refresh processes.
-
-    This intentionally parses a local Linux `ps` view and never matches by PID
-    alone. A stalled-recovery signal is permitted only when one wrapper and one
-    direct refresh child agree on the exact market date.
-    """
+def _default_all_publication_processes() -> list[dict[str, Any]]:
+    """Return canonical wrapper/refresh processes with their exact market date."""
     result = subprocess.run(
         ["ps", "-eo", "pid=,ppid=,etimes=,args="],
         capture_output=True,
@@ -125,10 +121,17 @@ def _default_publication_processes(market_date: str) -> list[dict[str, Any]]:
         check=False,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"ps failed with exit code {result.returncode}: {result.stderr[:500]}")
+        raise RuntimeError(
+            f"ps failed with exit code {result.returncode}: {result.stderr[:500]}"
+        )
 
-    wrapper_token = str(REPO_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh")
-    exact_date = str(market_date)
+    wrapper_token = str(
+        REPO_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
+    )
+    date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    refresh_date_pattern = re.compile(
+        r"(?:^|\s)--market-date(?:=|\s+)(\d{4}-\d{2}-\d{2})(?:\s|$)"
+    )
     rows: list[dict[str, Any]] = []
     for raw in result.stdout.splitlines():
         parts = raw.strip().split(None, 3)
@@ -141,20 +144,86 @@ def _default_publication_processes(market_date: str) -> list[dict[str, Any]]:
             age_seconds = int(age_text)
         except ValueError:
             continue
+
         kind = None
-        if wrapper_token in args and exact_date in args:
-            kind = "wrapper"
-        elif REFRESH_SCRIPT_TOKEN in args and f"--market-date {exact_date}" in args:
-            kind = "refresh"
-        if kind:
-            rows.append({
-                "pid": pid,
-                "ppid": ppid,
-                "age_seconds": age_seconds,
-                "args": args,
-                "kind": kind,
-            })
+        market_date = None
+        tokens = args.split()
+        if wrapper_token in tokens:
+            index = tokens.index(wrapper_token)
+            if index + 1 < len(tokens) and date_pattern.match(tokens[index + 1]):
+                kind = "wrapper"
+                market_date = tokens[index + 1]
+        elif REFRESH_SCRIPT_TOKEN in args:
+            match = refresh_date_pattern.search(args)
+            if match:
+                kind = "refresh"
+                market_date = match.group(1)
+
+        if kind and market_date:
+            rows.append(
+                {
+                    "pid": pid,
+                    "ppid": ppid,
+                    "age_seconds": age_seconds,
+                    "args": args,
+                    "kind": kind,
+                    "market_date": market_date,
+                }
+            )
     return rows
+
+
+def _default_publication_processes(market_date: str) -> list[dict[str, Any]]:
+    """Return exact canonical wrapper/refresh processes for one market date."""
+    exact_date = str(market_date)
+    return [
+        row
+        for row in _default_all_publication_processes()
+        if str(row.get("market_date") or "") == exact_date
+    ]
+
+
+def _validate_active_publication_identity(
+    processes: list[dict[str, Any]],
+) -> Dict[str, Any]:
+    """Resolve one exact wrapper -> refresh pair without an age requirement."""
+    wrappers = [row for row in processes if row.get("kind") == "wrapper"]
+    refreshers = [row for row in processes if row.get("kind") == "refresh"]
+    if len(wrappers) != 1 or len(refreshers) != 1:
+        return {
+            "ok": False,
+            "reason": "publication_process_identity_ambiguous",
+            "wrapper_count": len(wrappers),
+            "refresh_count": len(refreshers),
+        }
+    wrapper = wrappers[0]
+    refresh = refreshers[0]
+    wrapper_date = str(wrapper.get("market_date") or "")
+    refresh_date = str(refresh.get("market_date") or "")
+    if not wrapper_date or wrapper_date != refresh_date:
+        return {
+            "ok": False,
+            "reason": "publication_process_market_date_mismatch",
+            "wrapper_market_date": wrapper_date,
+            "refresh_market_date": refresh_date,
+        }
+    if int(refresh.get("ppid") or -1) != int(wrapper.get("pid") or -2):
+        return {
+            "ok": False,
+            "reason": "publication_process_parent_mismatch",
+            "wrapper_pid": wrapper.get("pid"),
+            "refresh_pid": refresh.get("pid"),
+            "refresh_ppid": refresh.get("ppid"),
+        }
+    return {
+        "ok": True,
+        "reason": "exact_publication_process_identity",
+        "wrapper_pid": int(wrapper["pid"]),
+        "refresh_pid": int(refresh["pid"]),
+        "market_date": wrapper_date,
+        "wrapper_age_seconds": int(wrapper.get("age_seconds") or 0),
+        "refresh_age_seconds": int(refresh.get("age_seconds") or 0),
+    }
 
 
 def _default_terminate_process(pid: int) -> None:
@@ -285,6 +354,41 @@ def _queue_stall_alert(
     )
 
 
+def _queue_superseded_alert(
+    *,
+    latest_market_date: str,
+    batch_id: Any,
+    active_identity: Dict[str, Any],
+    recovery_status: str,
+) -> None:
+    active_date = str(active_identity.get("market_date") or "unknown")
+    queue_alert(
+        "post_scrape_publication_superseded",
+        title=(
+            f"POST-SCRAPE PUBLICATION SUPERSEDED — {active_date} -> "
+            f"{latest_market_date}"
+        ),
+        message=(
+            f"Publication lock is owned by market_date={active_date}, while a newer "
+            f"complete promoted batch exists for {latest_market_date}. "
+            f"recovery_status={recovery_status}."
+        ),
+        severity="critical",
+        dedupe_key=(
+            f"post_scrape_publication_superseded:{active_date}:{latest_market_date}"
+        ),
+        payload={
+            "market_date": latest_market_date,
+            "batch_id": batch_id,
+            "active_market_date": active_date,
+            "failure_code": "publication_superseded_by_newer_batch",
+            "recovery_status": recovery_status,
+            "process_identity": active_identity,
+            "lock_path": PUBLICATION_LOCK_PATH,
+        },
+    )
+
+
 def run_watchdog(
     *,
     client: Any = supabase,
@@ -298,7 +402,9 @@ def run_watchdog(
     projection_checker: Optional[Callable[[Any, str], Any]] = None,
     projection_advancer: Optional[Callable[..., Dict[str, Any]]] = None,
     recover_stalled: bool = False,
+    recover_superseded: bool = False,
     process_inspector: Callable[[str], list[dict[str, Any]]] = _default_publication_processes,
+    all_process_inspector: Callable[[], list[dict[str, Any]]] = _default_all_publication_processes,
     terminate_process: Callable[[int], None] = _default_terminate_process,
     cooldown_checker: Callable[[str, datetime, int], bool] = _default_recovery_cooldown_active,
     recovery_recorder: Callable[[str, datetime], None] = _default_record_recovery_attempt,
@@ -354,6 +460,89 @@ def run_watchdog(
                 payload=failure,
             )
         return failure
+
+    # A newer promoted batch supersedes any older latest-snapshot publisher.
+    # Check this BEFORE doing Price Storage projection work so an obsolete
+    # publisher cannot both hold the global publication lock and compete with
+    # the new day's projection for database capacity.
+    lock_held_precheck = bool(lock_checker(PUBLICATION_LOCK_PATH))
+    if lock_held_precheck:
+        try:
+            active_identity = _validate_active_publication_identity(
+                all_process_inspector()
+            )
+        except Exception as exc:
+            active_identity = {
+                "ok": False,
+                "reason": "publication_process_inspection_failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+        active_date = (
+            str(active_identity.get("market_date") or "")
+            if active_identity.get("ok")
+            else ""
+        )
+        if active_date and active_date < market_date:
+            result = {
+                "healthy": False,
+                "status": "superseded_publication_active",
+                "failure_code": "publication_superseded_by_newer_batch",
+                "market_date": market_date,
+                "active_market_date": active_date,
+                "batch_id": batch.get("id"),
+                "lock_held": True,
+                "process_identity": active_identity,
+                "recovery_attempted": False,
+            }
+            recovery_key = f"superseded-{active_date}-by-{market_date}"
+            if recover_superseded:
+                if cooldown_checker(
+                    recovery_key,
+                    resolved_now,
+                    recovery_cooldown_seconds,
+                ):
+                    result.update(
+                        {
+                            "status": "supersession_recovery_cooldown",
+                            "failure_code": "publication_supersession_recovery_cooldown",
+                            "recovery_cooldown_seconds": recovery_cooldown_seconds,
+                        }
+                    )
+                else:
+                    refresh_pid = int(active_identity["refresh_pid"])
+                    try:
+                        recovery_recorder(recovery_key, resolved_now)
+                        terminate_process(refresh_pid)
+                    except Exception as exc:
+                        result.update(
+                            {
+                                "status": "supersession_recovery_failed",
+                                "failure_code": "publication_supersession_sigterm_failed",
+                                "recovery_attempted": True,
+                                "refresh_pid": refresh_pid,
+                                "error": f"{type(exc).__name__}: {exc}",
+                            }
+                        )
+                    else:
+                        result.update(
+                            {
+                                "status": "supersession_sigterm_requested",
+                                "failure_code": "publication_supersession_sigterm_requested",
+                                "recovery_attempted": True,
+                                "refresh_pid": refresh_pid,
+                                "wrapper_pid": active_identity.get("wrapper_pid"),
+                                "recovery_cooldown_seconds": recovery_cooldown_seconds,
+                            }
+                        )
+            if queue_failures:
+                _queue_superseded_alert(
+                    latest_market_date=market_date,
+                    batch_id=batch.get("id"),
+                    active_identity=active_identity,
+                    recovery_status=str(result.get("status") or ""),
+                )
+            return result
 
     projection = check_projection(client, market_date)
     if not getattr(projection, "ready", False):
@@ -592,6 +781,14 @@ def main() -> int:
             "ambiguous process identity."
         ),
     )
+    parser.add_argument(
+        "--recover-superseded",
+        action="store_true",
+        help=(
+            "Enable one-shot SIGTERM recovery when an exact older publication "
+            "process owns the lock after a newer complete promoted batch exists."
+        ),
+    )
     args = parser.parse_args()
     if args.health:
         # Health mode must be strictly read-only, including no detached relaunch.
@@ -602,7 +799,7 @@ def main() -> int:
         if report.get("status") == "health_only_no_relaunch":
             report["healthy"] = False
     else:
-        report = run_watchdog(recover_stalled=bool(args.recover_stalled))
+        report = run_watchdog(\n            recover_stalled=bool(args.recover_stalled),\n            recover_superseded=bool(args.recover_superseded),\n        )
     print(json.dumps(report, indent=2, sort_keys=True, default=str))
     return 0 if report.get("healthy") else 1
 
