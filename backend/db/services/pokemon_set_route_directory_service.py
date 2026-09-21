@@ -1,7 +1,9 @@
 """Lightweight routing authority for Pokemon set-detail routes.
 
-This deliberately reads narrow relational columns from the canonical RIP view;
-it never reads or trims the multi-megabyte Rankings publication JSON.
+Route membership/identity is sourced only from the slim root-set catalog RPC.
+RIP/Rankings enrichment is deliberately not part of the critical route path;
+those analytics load from their dedicated contracts after route resolution.
+The service never reads or trims the multi-megabyte Rankings publication JSON.
 """
 
 import logging
