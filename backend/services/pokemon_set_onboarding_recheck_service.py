@@ -136,6 +136,69 @@ def _propose_disposition(row: Dict[str, Any], observed_at: datetime) -> str:
     return "stale_observation_ignored" if observed_at <= last_checked_at else "observed_existing"
 
 
+def _listing_count_changed(previous: Any, current: Any) -> bool:
+    """True only for a real observed availability change.
+
+    Provider failure (current=None) is never a change. A previously unknown count
+    becomes actionable only when the provider now exposes at least one row, so
+    first observation of a genuine zero does not cause a needless catalog scrape.
+    """
+    if current is None:
+        return False
+    try:
+        current_count = int(current)
+    except (TypeError, ValueError):
+        return False
+    if previous is None:
+        return current_count > 0
+    try:
+        return int(previous) != current_count
+    except (TypeError, ValueError):
+        return current_count > 0
+
+
+def _availability_change_evidence(row: Dict[str, Any], checked: Dict[str, Any]) -> Dict[str, Any]:
+    prior_discovery = row.get("provider_discovery_json")
+    if not isinstance(prior_discovery, dict):
+        prior_discovery = {}
+
+    previous_card_count = row.get("provider_card_listing_count")
+    previous_sealed_count = row.get("provider_sealed_listing_count")
+    previous_processable = prior_discovery.get("processable_card_listing_count")
+    current_processable = (checked.get("card_quality") or {}).get("processable_card_listing_count")
+
+    processable_became_available = False
+    if current_processable is not None:
+        try:
+            current_processable_int = int(current_processable)
+            previous_processable_int = (
+                int(previous_processable) if previous_processable is not None else None
+            )
+            processable_became_available = (
+                current_processable_int > 0 and previous_processable_int == 0
+            )
+        except (TypeError, ValueError):
+            processable_became_available = False
+
+    card_count_changed = _listing_count_changed(
+        previous_card_count, checked.get("card_listing_count")
+    )
+    sealed_count_changed = _listing_count_changed(
+        previous_sealed_count, checked.get("sealed_listing_count")
+    )
+    return {
+        "previous_card_listing_count": previous_card_count,
+        "previous_sealed_listing_count": previous_sealed_count,
+        "previous_processable_card_listing_count": previous_processable,
+        "card_listing_count_changed": card_count_changed,
+        "sealed_listing_count_changed": sealed_count_changed,
+        "processable_cards_became_available": processable_became_available,
+        "availability_changed": bool(
+            card_count_changed or sealed_count_changed or processable_became_available
+        ),
+    }
+
+
 def _check_one_identity(
     requester: ThrottledRequester, row: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -219,6 +282,7 @@ def run_recheck(
         if checked["provider_error"]:
             summary.provider_errors += 1
 
+        change_evidence = _availability_change_evidence(row, checked)
         discovery_json = {
             "mode": "recheck",
             "provider_card_listing_count": checked["card_listing_count"],
@@ -227,6 +291,10 @@ def run_recheck(
             "provider_next_check_at": next_check_at,
             "provider_error": checked["provider_error"],
             **checked["card_quality"],
+            "availability_changed": change_evidence["availability_changed"],
+            "card_listing_count_changed": change_evidence["card_listing_count_changed"],
+            "sealed_listing_count_changed": change_evidence["sealed_listing_count_changed"],
+            "processable_cards_became_available": change_evidence["processable_cards_became_available"],
         }
 
         disposition = _propose_disposition(row, now)
@@ -244,6 +312,7 @@ def run_recheck(
 
         items.append({
             **checked,
+            **change_evidence,
             "proposed_next_check_at": next_check_at,
             "proposed_reconcile_disposition": disposition,
             "discovery_json": discovery_json,
