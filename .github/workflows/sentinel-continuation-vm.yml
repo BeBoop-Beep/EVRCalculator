@@ -1,0 +1,384 @@
+name: Sentinel Continuation VM
+
+on:
+  push:
+    branches:
+      - ops/sentinel-continuation-20260921
+    paths:
+      - .github/workflows/sentinel-continuation-vm.yml
+
+permissions:
+  contents: write
+
+jobs:
+  continue-sentinel:
+    runs-on: self-hosted
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/sentinel-continuation-20260921
+          fetch-depth: 0
+
+      - name: Inspect, safely sync, and validate production VM
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="${LIVE}/.venv/bin/python"
+          LOCK=/tmp/pokemon-post-scrape-publication.lock
+          REPORT="${RUNNER_TEMP}/sentinel-continuation-report.txt"
+          TODAY="$(TZ=America/Phoenix date +%F)"
+          PREVIOUS="$(TZ=America/Phoenix date -d 'yesterday' +%F)"
+          SYNCED=0
+
+          : > "${REPORT}"
+          exec > >(tee -a "${REPORT}") 2>&1
+
+          echo "=== Sentinel continuation production report ==="
+          echo "utc_now=$(date -u +%FT%TZ)"
+          echo "phoenix_now=$(TZ=America/Phoenix date +%FT%T%z)"
+          echo "today=${TODAY}"
+          echo "previous=${PREVIOUS}"
+
+          if [ ! -d "${LIVE}/.git" ]; then
+            echo "FATAL: live checkout missing: ${LIVE}"
+            exit 1
+          fi
+          if [ ! -x "${PY}" ]; then
+            echo "FATAL: live venv python missing: ${PY}"
+            exit 1
+          fi
+
+          cd "${LIVE}"
+          echo
+          echo "=== live checkout before ==="
+          echo "branch=$(git branch --show-current || true)"
+          echo "head=$(git rev-parse HEAD)"
+          echo "tracked_dirty_begin"
+          git status --short --untracked-files=no || true
+          echo "tracked_dirty_end"
+
+          git fetch origin main --quiet || echo "WARN: git fetch origin main failed"
+          ORIGIN_MAIN="$(git rev-parse origin/main 2>/dev/null || true)"
+          echo "origin_main=${ORIGIN_MAIN}"
+
+          echo
+          echo "=== publication process/lock before ==="
+          ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          if /usr/bin/flock -n "${LOCK}" -c true; then
+            LOCK_HELD=0
+            echo "publication_lock=free"
+          else
+            LOCK_HELD=1
+            echo "publication_lock=held"
+          fi
+
+          if [ -f publication.log ]; then
+            LOG_AGE=$(( $(date +%s) - $(stat -c %Y publication.log) ))
+            echo "publication_log_age_seconds=${LOG_AGE}"
+          else
+            LOG_AGE=999999
+            echo "publication_log_age_seconds=missing"
+          fi
+
+          # If an old publisher is genuinely stalled, use the already-merged
+          # bounded recovery implementation from origin/main without modifying
+          # the live checkout underneath an active process.
+          if [ "${LOCK_HELD}" -eq 1 ] && [ "${LOG_AGE}" -gt 1200 ] && [ -n "${ORIGIN_MAIN}" ]; then
+            echo
+            echo "=== stalled publisher bounded recovery from origin/main ==="
+            WT="/tmp/index-sentinel-continuation-${GITHUB_RUN_ID}"
+            rm -rf "${WT}" || true
+            if git worktree add --detach "${WT}" origin/main; then
+              (
+                set -a
+                . "${LIVE}/backend/.env"
+                set +a
+                cd "${WT}"
+                LIVE_ROOT="${LIVE}" "${PY}" - <<'PY'
+import json
+import os
+from pathlib import Path
+
+from backend.alerts import post_scrape_publication_watchdog as watchdog
+
+live = Path(os.environ["LIVE_ROOT"])
+watchdog.REPO_ROOT = live
+watchdog.PUBLICATION_LOG_PATH = live / "publication.log"
+result = watchdog.run_watchdog(recover_stalled=True)
+print("bounded_recovery_result=" + json.dumps(result, default=str, sort_keys=True))
+PY
+              ) || echo "WARN: bounded stalled recovery invocation failed"
+              git worktree remove --force "${WT}" || true
+            else
+              echo "WARN: unable to create detached origin/main worktree"
+            fi
+            sleep 20
+          fi
+
+          if /usr/bin/flock -n "${LOCK}" -c true; then
+            LOCK_HELD=0
+            echo "publication_lock_after_recovery=free"
+          else
+            LOCK_HELD=1
+            echo "publication_lock_after_recovery=held"
+          fi
+
+          echo
+          echo "=== live sync decision ==="
+          BRANCH="$(git branch --show-current || true)"
+          if [ "${LOCK_HELD}" -ne 0 ]; then
+            echo "sync=skipped_active_publisher"
+          elif [ "${BRANCH}" != "main" ]; then
+            echo "sync=skipped_non_main_branch branch=${BRANCH}"
+          elif ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "sync=skipped_tracked_dirty"
+          elif [ -z "${ORIGIN_MAIN}" ]; then
+            echo "sync=skipped_missing_origin_main"
+          else
+            if git merge --ff-only origin/main; then
+              SYNCED=1
+              echo "sync=fast_forwarded"
+            else
+              echo "sync=failed_non_fast_forward"
+            fi
+          fi
+          echo "head_after_sync=$(git rev-parse HEAD)"
+          echo "origin_main_after_sync=$(git rev-parse origin/main 2>/dev/null || true)"
+
+          echo
+          echo "=== canonical cron ==="
+          CURRENT_CRON="${RUNNER_TEMP}/current.cron"
+          crontab -l > "${CURRENT_CRON}" 2>/dev/null || : > "${CURRENT_CRON}"
+          if cmp -s "${CURRENT_CRON}" infra/oracle/tcgplayer-scraper-pokemon.crontab; then
+            echo "cron=already_canonical"
+          elif [ "${LOCK_HELD}" -eq 0 ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main 2>/dev/null || true)" ]; then
+            cp "${CURRENT_CRON}" "${RUNNER_TEMP}/crontab.before.sentinel-continuation"
+            if crontab infra/oracle/tcgplayer-scraper-pokemon.crontab; then
+              echo "cron=installed_canonical"
+            else
+              echo "cron=install_failed"
+            fi
+          else
+            echo "cron=drift_detected_but_not_changed"
+          fi
+          echo "cron_sentinel_lines_begin"
+          crontab -l 2>/dev/null | grep -E 'sentinel|market-freshness|post-scrape-publication|publish_post_scrape|pokemon-batch-create' || true
+          echo "cron_sentinel_lines_end"
+
+          echo
+          echo "=== safe Sentinel configuration presence ==="
+          for key in SENTINEL_PERSIST_STATE SENTINEL_STATE_PERSISTENCE_ENABLED SENTINEL_RECOVERY_ENABLED SENTINEL_RECOVERY_EXECUTION_READY SENTINEL_BACKEND_BASE_URL; do
+            if grep -q "^${key}=" backend/.env 2>/dev/null; then
+              case "${key}" in
+                SENTINEL_RECOVERY_ENABLED|SENTINEL_RECOVERY_EXECUTION_READY|SENTINEL_PERSIST_STATE|SENTINEL_STATE_PERSISTENCE_ENABLED)
+                  val="$(grep "^${key}=" backend/.env | tail -1 | cut -d= -f2- | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+                  echo "${key}=${val}"
+                  ;;
+                *)
+                  echo "${key}=present"
+                  ;;
+              esac
+            else
+              echo "${key}=absent"
+            fi
+          done
+
+          echo
+          echo "=== manual observation-only Sentinel canary ==="
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main 2>/dev/null || true)" ]; then
+            (
+              set -a
+              . backend/.env
+              set +a
+              export SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"
+              SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "${PY}" -m backend.sentinel.operational --profile fast
+            )
+            echo "sentinel_fast_rc=$?"
+            (
+              set -a
+              . backend/.env
+              set +a
+              export SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"
+              SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "${PY}" -m backend.sentinel.operational --profile public
+            )
+            echo "sentinel_public_rc=$?"
+          else
+            echo "sentinel_canary=skipped_checkout_not_current_main"
+          fi
+
+          echo
+          echo "=== post-scrape watchdog current-main pass ==="
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main 2>/dev/null || true)" ]; then
+            (
+              set -a
+              . backend/.env
+              set +a
+              "${PY}" -m backend.alerts.post_scrape_publication_watchdog --recover-stalled
+            )
+            echo "post_scrape_watchdog_rc=$?"
+          else
+            echo "post_scrape_watchdog=skipped_checkout_not_current_main"
+          fi
+
+          echo
+          echo "=== compact production DB snapshot ==="
+          (
+            set -a
+            . backend/.env
+            set +a
+            TARGET_TODAY="${TODAY}" TARGET_PREVIOUS="${PREVIOUS}" "${PY}" - <<'PY'
+import json
+import os
+
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
+
+client = create_service_role_client()
+today = os.environ["TARGET_TODAY"]
+previous = os.environ["TARGET_PREVIOUS"]
+
+sets = list(
+    client.table("sets")
+    .select("id,canonical_key,ready_for_daily_scrape,catalog_only")
+    .eq("ready_for_daily_scrape", True)
+    .execute().data or []
+)
+tracked = [r for r in sets if not bool(r.get("catalog_only"))]
+tracked_ids = {str(r.get("id")) for r in tracked if r.get("id")}
+print(f"tracked_daily_set_count={len(tracked_ids)}")
+
+batches = list(
+    client.table("pokemon_scrape_batches")
+    .select("id,market_date,status,expected_set_count,missing_set_count,promoted_at,updated_at")
+    .order("market_date", desc=True)
+    .limit(4)
+    .execute().data or []
+)
+print("latest_batches=" + json.dumps(batches, default=str, sort_keys=True))
+
+def current_set_ids(table, date_col, target, *, window=None):
+    q = client.table(table).select(f"set_id,{date_col}").eq(date_col, target)
+    if window is not None:
+        q = q.eq("window_key", window)
+    rows = list(q.execute().data or [])
+    return {str(r.get("set_id")) for r in rows if r.get("set_id")}
+
+for target in (previous, today):
+    cards = current_set_ids("pokemon_set_cards_snapshot_latest", "market_date", target)
+    dashboards = current_set_ids(
+        "pokemon_set_market_dashboard_snapshot_latest", "latest_market_date", target, window="365d"
+    )
+    print(
+        f"snapshot_counts target={target} cards={len(cards)}/{len(tracked_ids)} "
+        f"dashboard365d={len(dashboards)}/{len(tracked_ids)}"
+    )
+    print(
+        "cards_missing target=" + target + " " +
+        json.dumps(sorted(tracked_ids - cards)[:20])
+    )
+    print(
+        "dashboard_missing target=" + target + " " +
+        json.dumps(sorted(tracked_ids - dashboards)[:20])
+    )
+    try:
+        projection = evaluate_price_projection_gate(client, target)
+        payload = projection.to_dict() if hasattr(projection, "to_dict") else {
+            "ready": getattr(projection, "ready", None),
+            "reason_code": getattr(projection, "reason_code", None),
+        }
+        print("price_projection target=" + target + " " + json.dumps(payload, default=str, sort_keys=True))
+    except Exception as exc:
+        print(f"price_projection target={target} error={type(exc).__name__}:{exc}")
+
+global_rows = list(
+    client.table("pokemon_explore_set_value_snapshot_latest")
+    .select("market_date,set_count,updated_at")
+    .eq("tcg", "pokemon")
+    .eq("scope", "market")
+    .limit(1)
+    .execute().data or []
+)
+print("global_set_value=" + json.dumps(global_rows, default=str, sort_keys=True))
+
+rank_rows = list(
+    client.table("pokemon_explore_rankings_snapshot_latest")
+    .select("ranking_payload_json,updated_at")
+    .eq("tcg", "pokemon")
+    .eq("scope", "rip-statistics")
+    .limit(1)
+    .execute().data or []
+)
+rank_summary = []
+for row in rank_rows:
+    payload = row.get("ranking_payload_json") or {}
+    meta = payload.get("meta") or {}
+    snap = meta.get("snapshot") or {}
+    rank_summary.append({
+        "marketDate": snap.get("marketDate") or meta.get("marketDate"),
+        "updated_at": row.get("updated_at"),
+        "target_count": len(payload.get("targets") or []),
+    })
+print("explore_rankings=" + json.dumps(rank_summary, default=str, sort_keys=True))
+PY
+          ) || echo "WARN: compact DB snapshot failed"
+
+          echo
+          echo "=== public endpoint authority ==="
+          if curl --fail --silent --show-error --retry 3 --retry-delay 5 --retry-all-errors --max-time 45               https://evrcalculator.onrender.com/explore/set-value-market > "${RUNNER_TEMP}/public-market.json"; then
+            PUBLIC_JSON="${RUNNER_TEMP}/public-market.json" "${PY}" - <<'PY'
+import json
+import os
+from pathlib import Path
+
+payload = json.loads(Path(os.environ["PUBLIC_JSON"]).read_text())
+meta = payload.get("meta") or {}
+snap = meta.get("snapshot") or {}
+print("public_market_date=" + str(
+    payload.get("marketDate") or meta.get("marketDate") or snap.get("marketDate") or payload.get("market_date")
+))
+sets = payload.get("sets")
+if isinstance(sets, list):
+    print(f"public_market_set_count={len(sets)}")
+PY
+          else
+            echo "public_market_probe=failed"
+          fi
+
+          echo
+          echo "=== process/log tail after watchdog ==="
+          ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          if /usr/bin/flock -n "${LOCK}" -c true; then
+            echo "publication_lock_final=free"
+          else
+            echo "publication_lock_final=held"
+          fi
+          echo "publication_log_tail_begin"
+          tail -n 120 publication.log 2>/dev/null || true
+          echo "publication_log_tail_end"
+          echo "post_scrape_watchdog_tail_begin"
+          tail -n 80 backend/logs/post_scrape_publication_watchdog.log 2>/dev/null || true
+          echo "post_scrape_watchdog_tail_end"
+          echo "sentinel_fast_tail_begin"
+          tail -n 40 backend/logs/sentinel_fast.log 2>/dev/null || true
+          echo "sentinel_fast_tail_end"
+          echo "sentinel_public_tail_begin"
+          tail -n 40 backend/logs/sentinel_public.log 2>/dev/null || true
+          echo "sentinel_public_tail_end"
+
+          echo
+          echo "=== report complete ==="
+          echo "final_live_head=$(git rev-parse HEAD)"
+          echo "final_origin_main=$(git rev-parse origin/main 2>/dev/null || true)"
+          echo "synced_flag=${SYNCED}"
+
+          cd "${GITHUB_WORKSPACE}"
+          mkdir -p ops/assistant
+          cp "${REPORT}" ops/assistant/sentinel-continuation-report.txt
+          git config user.name "index-ops-runner"
+          git config user.email "index-ops-runner@users.noreply.github.com"
+          git add ops/assistant/sentinel-continuation-report.txt
+          git commit -m "ops: capture Sentinel continuation production report" || true
+          git push origin HEAD:ops/sentinel-continuation-20260921
