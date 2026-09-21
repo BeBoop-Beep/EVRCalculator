@@ -54,3 +54,45 @@ Phases B-M: full-surface matrix, migration inventory/chain test, schema landing,
 ## CI
 
 Docs-only change; no workflow is path-triggered by it. CI for the last code commit `e7bf0978` remains green (Best-Open Price Guardrails 35631436175, Pattern Overlay 35631436237).
+
+## Prompt 5E-A - Set-level Financial authority proof and Rankings writer repair
+
+Status: `FINANCIAL_RIP_V5_SET_RANKINGS_WRITER_READY` for the **writer/builder**, with one live-data precondition that is NOT met yet (below). The historical blocker entry above is left as written; this section is its resolution evidence.
+
+### What the existing set-level Financial V4 is
+
+A Rankings set target's `financialRipV4` is re-projected from the `financial_rip_v3_payload` persisted on the set's calculation run (`simulation_derived_metrics`), built at simulation time as `build_financial_rip_v3(values, pack_cost)` over the run's per-pack outcome vector (`derived_metrics.compute_derived_metrics`). That vector is what `simulation_pack_outcome_artifacts` stores for the run, and the payload records the `packCost` it used. Set authority = `(run's pack-outcome artifact, payload.packCost)`. It is **not** a sealed-product row and not a product family: in several sets the loose-pack sealed product's V4 differs from the set's V4 (Journey Together 31.9723 vs 31.7427, Chaos Rising 32.7262 vs 32.2528, Stellar Crown 28.4835 vs 28.2371, Black Bolt 29.519 vs 29.446), so a "loose booster pack" mapping would have been wrong. Contract named in code: `set_financial_authority_v1` (`backend/db/services/set_financial_authority.py`).
+
+### 22/22 lineage proof (read-only; `backend/scripts/audit_set_financial_authority.py`; data in `financial_rip_v5_set_authority_lineage.json`)
+
+Classification: **A = 22, B = 0, C = 0, D = 0.** For every current set: the artifact belongs to the same run; outcome count, pack cost, mean, median, P05, P95 and P99 match the persisted run statistics (1e-6); the V3 payload recomputed from the vector reproduces the persisted score and all six components (max abs diff 0.0); the V4 control recomputed from the vector equals the persisted-V3 re-projection (diff 0.0). The proof can fail: unit tests show it detects a wrong run, the same set name with a wrong run, a wrong distribution, a changed quantity, a changed opening cost, an altered source statistic and an altered V4 component (`test_set_financial_authority.py`, 6 tests). Five artifact reads first hit a transient statement timeout (classified D by the audit) and were re-read with a bounded retry; they resolved to A.
+
+### Code
+
+- `set_financial_authority.py`: binds a run row to its artifact, verifies every persisted statistic, and scores Financial V5 through the canonical `score_row_v5` (which also asserts the V4 control reproduces the stored V4 before V5 is scored). V5 is recomputed from the exact vector, never derived from a V4 number.
+- `set_rankings_v14.py`: per-target `financialRipV5` and `overallRipV14` (canonical `overall_rip_v14_for`: exact V5, run-matched Chase V1, exact Collector V5, no renormalization, no V4/V12 fallback). V14 lives only under its own keys.
+- `explore_rip_statistics_service.get_rip_statistics_targets_payload(release=None, ...)`: `None` is the static V12 bundle, so every existing caller is unchanged. V14 adds the V5/V14 blocks, ranks them, attaches `publicRipContractV12`, uses `overallRipV14` for the Overall cohort audit, and stamps `ripWeightsConfig` (financial, overall, weights, public contract) from the release bundle.
+- `rankings_publication_lifecycle.py`: `release` on readiness and parity (target key and identity). A snapshot that is not a coherent snapshot of the selected release returns `BLOCKED_RELEASE_AUTHORITY_MISMATCH`.
+- `rankings_release_authority.py`: `snapshot_release_problems` and `observed_bundle_problems` reject V14+V4, V14+Ranking V1, V14+Contract V11, Ranking V2+Overall V12, V14+Best-Open V1/V2, V5 under a V4 identity, V14 under a V12 key, wrong-run V5 evidence, a stale other-generation snapshot, a cohort-fingerprint mismatch and an unknown release.
+- The static audit now classifies the two builder files as release-driven; the known gap is empty.
+
+### V12 preservation
+
+The release-driven builder on the existing fixture with `release=None` and with the V12 bundle is identical, and it is identical to the pre-change module (the `ef5531b0` version of the file loaded side by side on the same fixture, times stripped): 2 targets, `identical: True`. All 53 pre-existing explore/lifecycle/compact tests pass unchanged. A live old-vs-new V12 comparison could not be run (see the view timeout below).
+
+### Live V14 dry run (read-only) and the precondition that is not met
+
+- **Financial V5: 22/22 ready**, each built from its own run's artifact (`runMatchesAuthority: true`).
+- **Overall V14: 1/22 ready.** The other 21 are refused, correctly, by the run-match rule: the current Chase Accessibility rows (updated 2026-09-17, one per set) belong to the previous calculation runs, and production's set runs have advanced (newest run 2026-09-18 18:08Z); only 1 of the 22 Chase rows sits on a current run. Nothing fell back to V4/V12. Ranks over the ready set were contiguous and the assembled snapshot passed `snapshot_release_problems`. Data: `financial_rip_v5_set_targets_v14_dry_run.json`.
+- Collector Appeal V5 inputs for this dry run were the values published in the current snapshot (`financial_rip_v5_collector_inputs_snapshot_2026-09-18.json`), because the live bundle build is retry-bound under DB contention; they are keyed by the snapshot's older runs, so this dry run is not a valid Collector check for the new runs either.
+- The 22/22 Overall V14 gate is therefore **not demonstrated live**. It needs Chase Accessibility V1 (and Collector Appeal V5) republished for the current simulation runs. Overall V12 has the same run-match requirement, so this is a production freshness prerequisite, not a defect in this code, but it must be closed before the readiness phase.
+- **Production read-path finding:** `explore_rip_statistics_latest` currently times out through the API role (about 9 s against the 8 s `authenticator` statement timeout) even for `select set_id`. The Rankings builder's own read of that view fails on production today (4/4 retries), which is consistent with the rankings snapshot last updating 2026-09-18. It is independent of this work but blocks the daily Rankings publisher and a full live builder run.
+
+### Tests and CI
+
+108 focused tests pass locally (release serving, static audit, set authority 6, set rankings V14 5, Rankings writer/release 24, lifecycle, explore service). Pre-existing local failures (public-snapshot `public_read_client` AttributeError, billing on Python 3.8, unrelated eBay/treatment suites) are unchanged baseline. CI on `e753f6f9`: Best-Open Price Guardrails **35661477218 success** (runtime, windows-lock, postgres-integration), Pattern Overlay Guardrails **35661477095 success**. The proof commit is `588a98b6`.
+
+### Remaining 5E work (resume from Phase B; nothing below was started)
+
+1. Republish Chase Accessibility V1 and Collector Appeal V5 for the current runs and resolve the `explore_rip_statistics_latest` timeout, so a full live V14 Rankings build (22/22 Overall V14) and the live V12 old/new parity run can be shown.
+2. Phase B release-bundle re-audit, C migration inventory and disposable-Postgres chain test, D additive schema landing, E-M as specified. No migration, V5/V14 row, snapshot or pointer change was made in 5E-A; V12 remains canonical.

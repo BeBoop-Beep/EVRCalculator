@@ -18,6 +18,13 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main(argv=None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--collector-inputs", default=None,
+                        help="JSON {v, byRun:{run_id: score}} of the PUBLISHED Collector Appeal V5 scores; skips the "
+                             "slow bundle build (which is retry-bound under DB contention)")
+    args = parser.parse_args(argv)
     from backend.db.services import explore_rip_statistics_service as svc
     from backend.db.services import rankings_release_authority as ra
     from backend.db.services import rip_release as rr
@@ -32,16 +39,21 @@ def main(argv=None) -> int:
     authority_rows = {str(r["calculation_run_id"]): r for r in audit._target_rows(client) if r.get("financial_rip_v3_payload")}
     set_ids = [str(r["set_id"]) for r in authority_rows.values()]
     accessibility = read_chase_accessibility_snapshots_for_sets(set_ids=set_ids, client=client) or {}
-    payloads = (get_collector_appeal_bundle() or {}).get("payloads") or {}
+    published = json.loads(Path(args.collector_inputs).read_text(encoding="utf-8")) if args.collector_inputs else None
+    payloads = {} if published else ((get_collector_appeal_bundle() or {}).get("payloads") or {})
 
     targets: List[Dict[str, Any]] = []
     for run, row in sorted(authority_rows.items(), key=lambda kv: str(kv[1]["set_id"])):
         set_id = str(row["set_id"])
-        collector = svc._resolve_collector_payload({"target_id": set_id, "name": row.get("set_name")}, payloads)
+        if published:
+            collector_score, collector_version = published["byRun"].get(run), published["v"]
+        else:
+            collector = svc._resolve_collector_payload({"target_id": set_id, "name": row.get("set_name")}, payloads)
+            collector_score = svc._resolve_canonical_collector_appeal_score(collector)
+            collector_version = (collector.get("collectorAppeal") or {}).get("version")
         blocks = sr14.build_v14_target_blocks(
             {"calculation_run_id": run, "target_id": set_id}, authority_row=row, client=client,
-            collector_score=svc._resolve_canonical_collector_appeal_score(collector),
-            collector_version=(collector.get("collectorAppeal") or {}).get("version"),
+            collector_score=collector_score, collector_version=collector_version,
             accessibility_row=accessibility.get(set_id), artifact_loader=audit._retrying_loader)
         targets.append({"target_id": set_id, "name": row.get("set_name"), "calculation_run_id": run, **blocks})
 
