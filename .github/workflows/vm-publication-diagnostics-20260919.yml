@@ -1,4 +1,4 @@
-name: Validate publication planner fast path
+name: Validate Price Storage publication barrier
 
 on:
   push:
@@ -19,29 +19,84 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
       SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Checkout fast-path branch
+      - name: Checkout barrier branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: fix/publication-planner-target-date-fastpath-20260920
+          ref: fix/price-projection-publication-barrier-20260920
           persist-credentials: false
-      - name: Compile and exercise planner fast path
+      - name: Validate barrier contracts
         shell: bash
         run: |
           set -euo pipefail
           PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
           "$PY" -m py_compile \
-            backend/scripts/refresh_stale_public_snapshots.py \
-            backend/tests/unit/scripts/test_refresh_target_date_fastpath.py
+            backend/db/services/price_storage_v2_projection_gate.py \
+            backend/scripts/check_price_storage_v2_projection_ready.py \
+            backend/db/services/post_scrape_publication_trigger.py \
+            backend/alerts/post_scrape_publication_watchdog.py \
+            backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py
+          bash -n backend/scripts/rebuild_snapshots_after_scrape.sh
           "$PY" - <<'PY'
-          from backend.tests.unit.scripts import test_refresh_target_date_fastpath as t
-          t.test_target_date_fast_result_proves_stale_on_date_mismatch()
-          print('date_mismatch_proves_stale=PASS')
-          t.test_target_date_fast_result_defers_to_deep_audit_when_already_current()
-          print('current_date_deep_audit=PASS')
-          t.test_build_plan_skips_expensive_dependency_scans_when_target_date_is_proven_stale()
-          print('proven_stale_skips_deep_scan=PASS')
-          t.test_build_plan_deep_audits_when_snapshot_dates_are_already_current()
-          print('current_snapshot_deep_scan=PASS')
-          t.test_build_plan_falls_back_to_deep_audit_when_bulk_preload_is_unreadable()
-          print('unreadable_preload_falls_back=PASS')
+          from types import SimpleNamespace
+          from backend.tests.unit.db.services import test_price_storage_v2_projection_gate as gt
+          from backend.db.services import post_scrape_publication_trigger as trigger
+          from backend.alerts import post_scrape_publication_watchdog as watchdog
+
+          gt.test_projection_ready_requires_every_completed_scrape_set()
+          gt.test_pending_projection_blocks_publication()
+          gt.test_complete_queue_row_for_older_scrape_attempt_is_not_ready()
+          gt.test_terminal_failed_projection_is_exposed()
+          gt.test_authority_read_error_fails_closed()
+          print('projection_gate_contract=PASS')
+
+          class Proc: pid=4242
+          launches=[]
+          not_ready=SimpleNamespace(
+              ready=False,
+              reason_code='price_projection_not_ready',
+              to_dict=lambda: {'ready':False,'expected_set_count':165,'complete_set_count':100},
+          )
+          result=trigger.trigger_post_scrape_publication_if_needed(
+              '2026-09-20',
+              price_projection_check=lambda _d:not_ready,
+              publication_current=lambda _d: trigger.PublicationCurrencyStatus.STALE,
+              popen=lambda args,**kwargs: launches.append(args) or Proc(),
+              lock_check=lambda _p:False,
+          )
+          assert result['status']==trigger.STATUS_SKIPPED_PRICE_PROJECTION_NOT_READY
+          assert launches==[]
+          print('trigger_defers_until_projection_ready=PASS')
+
+          ready=SimpleNamespace(
+              ready=True,
+              reason_code='price_projection_ready',
+              to_dict=lambda: {'ready':True,'expected_set_count':165,'complete_set_count':165},
+          )
+          result=trigger.trigger_post_scrape_publication_if_needed(
+              '2026-09-20',
+              price_projection_check=lambda _d:ready,
+              publication_current=lambda _d: trigger.PublicationCurrencyStatus.STALE,
+              popen=lambda args,**kwargs: launches.append(args) or Proc(),
+              lock_check=lambda _p:False,
+          )
+          assert result['status']==trigger.STATUS_LAUNCH_REQUESTED
+          assert len(launches)==1
+          print('trigger_launches_after_projection_ready=PASS')
+
+          batch={'id':57,'market_date':'2026-09-20','status':'complete'}
+          adv_calls=[]
+          result=watchdog.run_watchdog(
+              client=object(),
+              queue_failures=False,
+              latest_batch_loader=lambda _c:batch,
+              lock_checker=lambda _p:False,
+              projection_checker=lambda _c,_d:not_ready,
+              projection_advancer=lambda _c,d,process_limit: adv_calls.append((d,process_limit)) or {
+                  'after':{'ready':False,'expected_set_count':165,'complete_set_count':120,'terminal_failed_set_count':0}
+              },
+              trigger=lambda *_a,**_k: (_ for _ in ()).throw(AssertionError('must not launch while V2 is behind')),
+          )
+          assert result['status']=='price_projection_advancing'
+          assert adv_calls==[('2026-09-20',20)]
+          print('watchdog_advances_one_bounded_chunk=PASS')
           PY
