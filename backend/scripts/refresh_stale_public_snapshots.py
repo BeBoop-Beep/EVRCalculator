@@ -295,6 +295,8 @@ def _log_memory_observability(context: str) -> None:
 # Server-side JSON path projection: PostgREST evaluates the path and returns ONE
 # scalar, so the cards snapshot's (large) payload_json never crosses the wire.
 CARDS_GENERATION_ID_PROJECTION = "generation_id:payload_json->meta->snapshot->>generationId"
+CARDS_PRICING_MARKET_DATE_PROJECTION = "pricing_market_date:payload_json->meta->pricingContract->>latestMarketDate"
+CARDS_SNAPSHOT_MARKET_DATE_PROJECTION = "snapshot_market_date:payload_json->meta->snapshot->>marketAsOfDate"
 
 # Market-dashboard freshness-check projection (requirement E). CONFIRMED by
 # reading backend/scripts/pokemon_snapshot_builders.py's
@@ -1689,7 +1691,130 @@ def _resolve_sets(client: Any, *, set_id: Optional[str]) -> List[Dict[str, Any]]
     return list_pokemon_sets(client)
 
 
-def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> Tuple[List[SetRefreshPlan], FreshnessResult, FreshnessResult, int]:
+def _load_completed_scrape_set_ids(client: Any, market_date: Optional[str]) -> Optional[set[str]]:
+    """Return the exact completed scrape cohort for a target market date.
+
+    ``None`` means the cohort read itself was unavailable and the planner must
+    fall back to the full deep audit. An empty set is a successful read with no
+    completed jobs, which likewise produces no fast-path classifications.
+    """
+    if not market_date:
+        return set()
+    rows, error = _execute_query(
+        "scrape_jobs.completed_target_cohort",
+        client.table("scrape_jobs")
+        .select("set_id")
+        .eq("market_date", str(market_date)[:10])
+        .eq("status", "completed"),
+    )
+    if error:
+        logger.warning(
+            "[refresh-plan-fastpath] completed scrape cohort unavailable for market_date=%s: %s; using deep audit",
+            market_date, error,
+        )
+        return None
+    return {str(row.get("set_id")) for row in rows if row.get("set_id")}
+
+
+def _load_target_snapshot_market_dates(
+    client: Any, set_ids: Sequence[str], *, window: str
+) -> Optional[Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]]:
+    """Bulk-load only the scalar authority dates needed for target-date fast-pathing.
+
+    Any preload read failure returns ``None`` so the caller falls back to the
+    existing deep audit. An unreadable bulk probe is never evidence that a
+    snapshot row is missing.
+    """
+    ids = [str(value) for value in set_ids if value]
+    cards: Dict[str, Dict[str, Optional[str]]] = {}
+    market: Dict[str, Dict[str, Optional[str]]] = {}
+    for offset in range(0, len(ids), 100):
+        batch = ids[offset:offset + 100]
+        card_rows, card_error = _execute_query(
+            "pokemon_set_cards_snapshot_latest.target_dates",
+            client.table("pokemon_set_cards_snapshot_latest")
+            .select(
+                "set_id,updated_at,"
+                + CARDS_PRICING_MARKET_DATE_PROJECTION
+                + ","
+                + CARDS_SNAPSHOT_MARKET_DATE_PROJECTION
+            )
+            .in_("set_id", batch),
+        )
+        if card_error:
+            logger.warning(
+                "[refresh-plan-fastpath] Cards target-date preload failed for batch offset=%s: %s; disabling fast path",
+                offset, card_error,
+            )
+            return None
+        for row in card_rows:
+            set_id = str(row.get("set_id") or "")
+            if not set_id:
+                continue
+            cards[set_id] = {
+                "market_date": _to_text(row.get("pricing_market_date") or row.get("snapshot_market_date")),
+                "updated_at": _to_text(row.get("updated_at")),
+            }
+
+        market_rows, market_error = _execute_query(
+            "pokemon_set_market_dashboard_snapshot_latest.target_dates",
+            client.table("pokemon_set_market_dashboard_snapshot_latest")
+            .select("set_id,latest_market_date,updated_at")
+            .eq("window_key", window)
+            .in_("set_id", batch),
+        )
+        if market_error:
+            logger.warning(
+                "[refresh-plan-fastpath] Market Dashboard target-date preload failed for batch offset=%s: %s; disabling fast path",
+                offset, market_error,
+            )
+            return None
+        for row in market_rows:
+            set_id = str(row.get("set_id") or "")
+            if not set_id:
+                continue
+            market[set_id] = {
+                "market_date": _to_text(row.get("latest_market_date")),
+                "updated_at": _to_text(row.get("updated_at")),
+            }
+    return cards, market
+
+
+def _target_date_fast_result(
+    family: str, *, snapshot_row: Optional[Mapping[str, Optional[str]]], target_market_date: str
+) -> Optional[FreshnessResult]:
+    """Return a proven-stale result when the snapshot authority predates the target.
+
+    ``None`` means the cheap authority date is already current and the caller
+    must continue into the existing deep dependency audit.
+    """
+    if not snapshot_row:
+        return FreshnessResult(
+            family, True, "snapshot row missing for completed target-date scrape cohort",
+            None, target_market_date,
+            [f"target-date fast path: expected {target_market_date}; snapshot row missing"],
+        )
+    snapshot_market_date = _to_text(snapshot_row.get("market_date"))
+    if snapshot_market_date != target_market_date:
+        return FreshnessResult(
+            family, True,
+            f"snapshot market date {snapshot_market_date or 'missing'} differs from completed scrape market date {target_market_date}",
+            _to_text(snapshot_row.get("updated_at")),
+            target_market_date,
+            [
+                f"target-date fast path: snapshot_market_date={snapshot_market_date or 'missing'}",
+                f"target-date fast path: completed_scrape_market_date={target_market_date}",
+            ],
+        )
+    return None
+
+def _build_plan(
+    client: Any,
+    *,
+    set_rows: List[Dict[str, Any]],
+    window: str,
+    target_market_date: Optional[str] = None,
+) -> Tuple[List[SetRefreshPlan], FreshnessResult, FreshnessResult, int]:
     """READ-ONLY classification of every snapshot family. Writes nothing.
 
     Progress is logged deterministically because this phase is long, silent and
@@ -1714,6 +1839,33 @@ def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> 
     logger.info("[refresh-plan] starting sets=%s", total)
     _log_memory_observability("plan start")
     _PLANNING_RUN_ID_CACHE = {}
+    target_day = str(target_market_date or "")[:10] or None
+    completed_scrape_set_ids = _load_completed_scrape_set_ids(client, target_day)
+    fastpath_enabled = bool(target_day and completed_scrape_set_ids is not None)
+    cards_target_dates: Dict[str, Dict[str, Optional[str]]] = {}
+    market_target_dates: Dict[str, Dict[str, Optional[str]]] = {}
+    if fastpath_enabled and completed_scrape_set_ids:
+        target_snapshot_dates = _load_target_snapshot_market_dates(
+            client, sorted(completed_scrape_set_ids), window=window
+        )
+        if target_snapshot_dates is None:
+            fastpath_enabled = False
+            logger.warning(
+                "[refresh-plan-fastpath] disabled market_date=%s because snapshot-date preload was unreadable",
+                target_day,
+            )
+        else:
+            cards_target_dates, market_target_dates = target_snapshot_dates
+            logger.info(
+                "[refresh-plan-fastpath] enabled market_date=%s completed_sets=%s cards_rows=%s market_rows=%s",
+                target_day, len(completed_scrape_set_ids), len(cards_target_dates), len(market_target_dates),
+            )
+    elif target_day:
+        logger.info(
+            "[refresh-plan-fastpath] disabled market_date=%s cohort_readable=%s completed_sets=%s",
+            target_day, completed_scrape_set_ids is not None,
+            len(completed_scrape_set_ids or ()),
+        )
     try:
         for index, set_row in enumerate(set_rows, start=1):
             set_id = str(set_row["id"])
@@ -1722,9 +1874,43 @@ def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> 
                 "[refresh-plan] checking %s/%s key=%s id=%s", index, total, canonical_key, set_id
             )
             set_started = time.monotonic()
-            cards = _cards_snapshot_staleness(client, set_id)
-            market = _market_snapshot_staleness(client, set_id, window)
-            page = _set_page_snapshot_staleness(client, set_id)
+            use_target_fastpath = bool(
+                fastpath_enabled
+                and completed_scrape_set_ids
+                and set_id in completed_scrape_set_ids
+                and target_day
+            )
+            cards = None
+            market = None
+            if use_target_fastpath:
+                cards = _target_date_fast_result(
+                    "cards",
+                    snapshot_row=cards_target_dates.get(set_id),
+                    target_market_date=target_day,
+                )
+                market = _target_date_fast_result(
+                    "market_dashboard",
+                    snapshot_row=market_target_dates.get(set_id),
+                    target_market_date=target_day,
+                )
+            if cards is None:
+                cards = _cards_snapshot_staleness(client, set_id)
+            if market is None:
+                market = _market_snapshot_staleness(client, set_id, window)
+            if use_target_fastpath and (cards.stale or market.stale):
+                page = FreshnessResult(
+                    "set_page",
+                    True,
+                    "upstream target-date Cards/Market publication requires rebuild",
+                    None,
+                    target_day,
+                    [
+                        f"target-date fast path: cards_stale={cards.stale}",
+                        f"target-date fast path: market_dashboard_stale={market.stale}",
+                    ],
+                )
+            else:
+                page = _set_page_snapshot_staleness(client, set_id)
             elapsed = time.monotonic() - set_started
             source_checks += len(cards.dependency_checks) + len(market.dependency_checks) + len(page.dependency_checks)
             plans.append(SetRefreshPlan(set_row=set_row, cards=cards, market_dashboard=market, set_page=page))
@@ -2690,7 +2876,12 @@ def main() -> None:
     # PLAN BEFORE WRITE. Nothing below this call writes until _build_plan has
     # classified EVERY set; an interruption or failure during planning therefore
     # leaves production untouched.
-    plans, rankings, validation, source_checks = _build_plan(client, set_rows=set_rows, window=args.window)
+    plans, rankings, validation, source_checks = _build_plan(
+        client,
+        set_rows=set_rows,
+        window=args.window,
+        target_market_date=args.market_date or gate.market_date,
+    )
     logger.info(
         "[refresh-phase] planning complete; entering %s phase sets=%s",
         "rebuild/write" if commit else "dry-run report",
