@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -302,6 +302,19 @@ jobs:
               rm -f "$SYNC"
               ;;
 
+
+            market-explorer-cron-audit)
+              cd "$REPO"
+              echo "== repo =="
+              git status --short
+              git log -1 --oneline
+              echo "== matching cron entries =="
+              crontab -l 2>/dev/null | grep -E 'run_market_explorer_maintained_cache_prewarm|market_explorer.*prewarm' || true
+              echo "== matching processes =="
+              pgrep -af 'run_market_explorer_maintained_cache_prewarm' || true
+              echo "== recent Explorer prewarm logs =="
+              find "$REPO" -maxdepth 3 -type f \( -iname '*explorer*prewarm*.log' -o -iname '*market*explorer*.log' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 8 || true
+              ;;
 
             sync-main)
               cd "$REPO"
