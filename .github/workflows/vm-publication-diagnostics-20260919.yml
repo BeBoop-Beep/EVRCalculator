@@ -1,4 +1,4 @@
-name: Validate V2 readiness CLI import
+name: Launch clean hardened Sep 20 publication
 
 on:
   push:
@@ -11,24 +11,59 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  launch:
     runs-on: self-hosted
-    timeout-minutes: 5
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
+    timeout-minutes: 10
     steps:
-      - name: Checkout fix
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/price-projection-cli-import-20260920
-          persist-credentials: false
-      - name: Execute CLI by file path
+      - name: Sync final fix and launch clean publication
         shell: bash
         run: |
           set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          env -u PYTHONPATH "$PY" backend/scripts/check_price_storage_v2_projection_ready.py --help >/tmp/help.txt
-          grep -F -- '--market-date' /tmp/help.txt
-          echo 'file_path_import=PASS'
+          cd /home/ubuntu/repos/EVRCalculator
+          echo '=== PRECHECK ==='
+          date
+          echo -n 'head='; git rev-parse HEAD
+          git status --short || true
+          echo 'publication processes:'
+          ps -eo pid,ppid,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          if ! /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
+            echo 'Publication lock is still held; refusing duplicate launch'
+            false
+          fi
+          echo 'PUBLICATION_LOCK_FREE=true'
+          EXTRA_DIRTY="$(git status --porcelain | grep -v 'payload_debug.json' || true)"
+          if [ -n "$EXTRA_DIRTY" ]; then
+            echo 'Unexpected dirty paths:'
+            echo "$EXTRA_DIRTY"
+            false
+          fi
+          if git status --porcelain -- payload_debug.json | grep -q .; then
+            git stash push -m 'payload-debug-before-cli-fix-20260920' -- payload_debug.json
+          fi
+          echo
+          echo '=== SYNC MAIN ==='
+          git fetch origin main
+          git switch main
+          git pull --ff-only origin main
+          HEAD="$(git rev-parse HEAD)"
+          echo "head=$HEAD"
+          git merge-base --is-ancestor 4f4920088e0b1043cc3031429fda86d6a56ecd64 "$HEAD"
+          git status --short
+          echo
+          echo '=== VERIFY CANONICAL CRON ==='
+          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
+          crontab -l | grep -E 'post_scrape_publication_watchdog|create_daily_scrape_batch|publish_post_scrape_if_needed'
+          echo
+          echo '=== V2 READINESS ==='
+          ./.venv/bin/python backend/scripts/check_price_storage_v2_projection_ready.py --market-date 2026-09-20 | tee /tmp/v2-ready.json
+          echo
+          echo '=== CLEAN LAUNCH ==='
+          nohup bash backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-20 >> publication.log 2>&1 < /dev/null &
+          WRAPPER_PID=$!
+          echo "wrapper_pid=$WRAPPER_PID"
+          sleep 8
+          ps -eo pid,ppid,etime,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep
+          echo 'lock owner:'
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+          echo '=== LOG TAIL ==='
+          tail -120 publication.log
