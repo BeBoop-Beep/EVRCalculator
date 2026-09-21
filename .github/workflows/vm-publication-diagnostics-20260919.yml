@@ -1,4 +1,4 @@
-name: Inspect Sep 20 publication tail after 165 sets
+name: Check current publisher lock
 
 on:
   push:
@@ -11,25 +11,16 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  check:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect publisher tail
+      - name: Check lock and tail
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
           date
-          echo '=== PROCESS ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
-          echo '=== LOCK ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
           fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-20' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
-          if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/sep20-tail.log
-            echo '=== PHASE MARKERS ==='
-            grep -E 'public snapshot refresh summary|refresh exit_status=|audit exit_status=|market explorer projection exit_status=|post-scrape publication COMPLETE|final exit_status=|global failed:|cards failed:|market_dashboard failed:|set_page failed:|Rankings:' /tmp/sep20-tail.log | tail -120 || true
-            echo '=== TAIL ==='
-            tail -120 /tmp/sep20-tail.log
-          fi
+          tail -50 publication.log || true
