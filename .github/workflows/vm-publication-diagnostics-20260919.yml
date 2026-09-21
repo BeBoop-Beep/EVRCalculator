@@ -1,4 +1,4 @@
-name: Sentinel observation canary
+name: Validate daily Top Chase current-date writes
 
 on:
   push:
@@ -11,53 +11,49 @@ permissions:
   contents: read
 
 jobs:
-  canary:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Run Sentinel Fast and Public observation canaries
+      - name: Checkout daily history fix
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/daily-top-chase-current-date-write-20260920
+          persist-credentials: false
+      - name: Compile and exercise current-date contract
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          set -a
-          . backend/.env
-          set +a
-          export SENTINEL_RECOVERY_ENABLED=false
-          export SENTINEL_RECOVERY_EXECUTION_READY=false
-          echo '=== CONFIG ==='
-          printf 'state=%s schema=%s recovery=%s backend=%s\n' \
-            "${SENTINEL_STATE_WRITES_ENABLED:-unset}" \
-            "${SENTINEL_PERSISTENCE_SCHEMA_READY:-unset}" \
-            "${SENTINEL_RECOVERY_ENABLED:-unset}" \
-            "${SENTINEL_BACKEND_BASE_URL:-unset}"
-          echo
-          echo '=== FAST ==='
-          set +e
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile fast >/tmp/sentinel-fast-canary.json 2>/tmp/sentinel-fast-canary.err
-          FAST_RC=$?
-          set -e
-          cat /tmp/sentinel-fast-canary.err || true
-          cat /tmp/sentinel-fast-canary.json || true
-          echo "FAST_RC=$FAST_RC"
-          echo
-          echo '=== PUBLIC ==='
-          set +e
-          SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false \
-            /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile public >/tmp/sentinel-public-canary.json 2>/tmp/sentinel-public-canary.err
-          PUBLIC_RC=$?
-          set -e
-          cat /tmp/sentinel-public-canary.err || true
-          cat /tmp/sentinel-public-canary.json || true
-          echo "PUBLIC_RC=$PUBLIC_RC"
-          echo
-          echo '=== HEARTBEAT STATE ==='
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
-          import json
-          from backend.db.clients.supabase_client import supabase
-          rows=(supabase.table('sentinel_component_heartbeats')
-                .select('component,host,last_seen_at,last_run_status,build_sha')
-                .order('last_seen_at',desc=True).limit(5).execute().data or [])
-          print(json.dumps(rows,indent=2,default=str))
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile backend/scripts/refresh_stale_public_snapshots.py
+          "$PY" - <<'PY'
+          from backend.scripts import refresh_stale_public_snapshots as r
+
+          dashboard={'latest_market_date':'2026-09-20','top_chase_cards_json':[{'id':f'c{i}'} for i in range(1,11)]}
+          rows=[]
+          for day in ('2026-09-18','2026-09-19','2026-09-20'):
+              rows += [{'set_id':'s','snapshot_date':day,'rank':i,'card_id':f'c{i}'} for i in range(1,11)]
+          current=r._daily_top_chase_history_rows(dashboard,rows)
+          assert len(current)==10
+          assert {x['snapshot_date'] for x in current}=={'2026-09-20'}
+          assert {x['rank'] for x in current}==set(range(1,11))
+          print('current_date_slice=PASS')
+
+          try:
+              r._daily_top_chase_history_rows(dashboard,[{'snapshot_date':'2026-09-20','rank':i} for i in range(1,10)])
+          except RuntimeError as exc:
+              assert 'current-date slice is incomplete' in str(exc)
+          else:
+              raise AssertionError('incomplete slice must fail closed')
+          print('incomplete_slice_fail_closed=PASS')
+
+          assert r._daily_top_chase_history_rows({'latest_market_date':'2026-09-20','top_chase_cards_json':[]},[])==[]
+          print('zero_top_chase=PASS')
           PY
-          exit 0
+          grep -F "DELETE FROM public.pokemon_set_top_chase_card_daily_history h" supabase/migrations/20260906003757_use_current_canonical_value_for_rollout_snapshots.sql >/dev/null
+          grep -F "WHERE h.snapshot_date = v_market_date" supabase/migrations/20260906003757_use_current_canonical_value_for_rollout_snapshots.sql >/dev/null
+          echo 'canonical_sql_current_date_contract=PASS'
