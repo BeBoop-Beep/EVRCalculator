@@ -33,6 +33,9 @@ jobs:
           trap cleanup EXIT
 
           cd "$TMP"
+          export SUPABASE_URL=https://example.supabase.co
+          export SUPABASE_SERVICE_ROLE_KEY=dummy-service-role-key
+          export SUPABASE_ANON_KEY=dummy-anon-key
           "$LIVE/.venv/bin/python" -m pytest -q             backend/tests/unit/db/services/test_market_explorer_query_planner.py             backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py             backend/tests/unit/db/services/test_post_scrape_publication_trigger.py             backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py             backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py             backend/tests/unit/scripts/test_rebuild_snapshots_after_scrape_shell_contract.py
 
           "$LIVE/.venv/bin/python" -m py_compile             backend/db/services/market_explorer_query_planner.py             backend/db/services/pokemon_market_explorer_query_service.py             backend/db/services/post_scrape_publication_trigger.py             backend/scripts/publish_post_scrape_if_needed.py             backend/scripts/run_market_explorer_maintained_cache_prewarm.py
