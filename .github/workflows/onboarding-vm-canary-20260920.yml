@@ -1,4 +1,4 @@
-name: Diagnose stale publication process progress
+name: Immediate Pokemon catalog refresh probe
 
 on:
   push:
@@ -9,40 +9,35 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  probe:
     runs-on: self-hosted
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
-      - name: Inspect live publication process progress
+      - name: Sync main and attempt refresh once
         shell: bash
         run: |
           set -euo pipefail
-          date -Is
+          cd /home/ubuntu/repos/EVRCalculator
+          git fetch origin main
+          git switch main
+          git reset --hard origin/main
+          echo "VM_SHA=$(git rev-parse HEAD)"
 
-          PIDS="$(fuser /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || true)"
-          echo "lock_pids=$PIDS"
+          exec 8>/tmp/pokemon-scrape-dispatcher.lock
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
 
-          for pid in $PIDS; do
-            echo "=== PID $pid ==="
-            ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,wchan:28,cmd -p "$pid" || true
-            echo "--- /proc/$pid/io ---"
-            sudo cat "/proc/$pid/io" 2>/dev/null || true
-            echo "--- fd targets ---"
-            sudo ls -l "/proc/$pid/fd" 2>/dev/null | tail -n 40 || true
-          done
-
-          echo "=== publication.log metadata ==="
-          if [ -f /home/ubuntu/repos/EVRCalculator/publication.log ]; then
-            stat -c 'size=%s mtime=%y' /home/ubuntu/repos/EVRCalculator/publication.log
-            echo "=== publication.log tail ==="
-            tail -n 220 /home/ubuntu/repos/EVRCalculator/publication.log
-          else
-            echo "publication.log missing"
+          if ! flock -n 8; then
+            echo "SCRAPE_LOCK_FREE=false"
+            fuser -v /tmp/pokemon-scrape-dispatcher.lock 2>&1 || true
+            exit 0
           fi
 
-          echo "=== lock state ==="
-          if flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
-            echo "POST_SCRAPE_LOCK_FREE=true"
-          else
+          if ! flock -n 7; then
             echo "POST_SCRAPE_LOCK_FREE=false"
+            fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
+            pgrep -af 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' || true
+            exit 0
           fi
+
+          echo "LOCKS_ACQUIRED=true"
+          ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --commit             --limit 25             --max-provider-requests 50
