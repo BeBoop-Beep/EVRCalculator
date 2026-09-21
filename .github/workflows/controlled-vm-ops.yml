@@ -343,7 +343,7 @@ jobs:
               git status --short
               git log -3 --oneline
               echo "== projection-related cron =="
-              crontab -l 2>/dev/null | grep -E 'market_explorer|Market.Explorer' || true
+              crontab -l 2>/dev/null | grep -E 'market_explorer|Market.Explorer|publish_market_explorer|daily_projection|daily_publication|rebuild_snapshots_after_scrape' || true
               echo "== projection-related processes =="
               pgrep -af 'market_explorer|Market.Explorer' || true
               echo "== live compact DB state =="
@@ -360,7 +360,7 @@ jobs:
                 'quality = list(c.table("pokemon_market_date_quality").select("market_date,status").eq("tcg","pokemon").in_("status",["READY","LEGACY_VERIFIED"]).order("market_date", desc=True).limit(5).execute().data or [])' \
                 'print({"latestApprovedMarketDates": quality})' \
                 > "$AUDIT"
-              "$PY" "$AUDIT"
+              PYTHONPATH="$REPO" "$PY" "$AUDIT"
               rm -f "$AUDIT"
               echo "== relevant log files =="
               find "$REPO/backend/logs" -maxdepth 1 -type f -iname '*market*explorer*' -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' 2>/dev/null | sort -r | head -n 20 || true
