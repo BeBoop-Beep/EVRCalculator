@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-pipeline-runtime-cutover",
-  "request_id": "market-explorer-pipeline-runtime-consolidated-final-20260921"
+  "operation": "market-explorer-v2-repair",
+  "request_id": "market-explorer-v2-repair-post-consolidated-runtime-20260921"
 }
