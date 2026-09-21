@@ -1,4 +1,4 @@
-name: Validate staged Price Storage worker
+name: Validate rebased staged Price Storage worker
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
       - name: Checkout staged worker branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: fix/price-projection-transient-retry-20260921
+          ref: fix/price-projection-staged-worker-20260921
           persist-credentials: false
       - name: Run focused projection suite
         shell: bash
