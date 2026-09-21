@@ -1,0 +1,19 @@
+# Daily eBay + multi-source SHADOW pricing pipeline (P6). Application cron on the scraper VM; NOT pg_cron.
+# Host timezone MUST be America/Phoenix (see tcgplayer-scraper-pokemon.crontab). Every time below is Phoenix-local.
+#
+# Schedule rationale (audited against the canonical crontab and production scrape history):
+#   01:05       daily scrape batch created;   ~01:55-02:00  batch completes in normal weeks
+#   02:00-04:00 price-storage-v2-shadow-cycle (pg_cron, every 15 min) projects the scraped rows into card_variant_price_current_v2
+#   04:10       THIS JOB: after the projector has drained, before the 06:00 publication fallback / 06:15 Market Explorer publication
+#   06:00-06:30 publication window is skipped on purpose (no eBay run starts in hour 06)
+# The pipeline itself gates on a COMPLETE scrape batch for the market date (exit 75 = waiting, safe no-op), so the
+# hourly retry line below also covers the days the scrape batch is created late. A COMPLETE market date replays as a
+# no-op that makes no eBay calls and no database writes, so the retries are cheap.
+CRON_TZ=America/Phoenix
+
+# Primary run + retries. `flock -n` guarantees one instance; a held lock is a safe no-op.
+10 4 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'cd /home/ubuntu/repos/EVRCalculator && EVR_PRICING_STATE_DIR=/home/ubuntu/state/multi_source_pricing /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_daily_multi_source_card_pricing --json --resume' >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing.log 2>&1
+40 4,5,7-20 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'cd /home/ubuntu/repos/EVRCalculator && EVR_PRICING_STATE_DIR=/home/ubuntu/state/multi_source_pricing /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_daily_multi_source_card_pricing --json --resume' >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing.log 2>&1
+
+# Read-only health report (degraded eBay coverage never marks canonical TCGplayer pricing unhealthy).
+20 9 * * * cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.check_multi_source_pricing_health >> /home/ubuntu/repos/EVRCalculator/backend/logs/multi_source_pricing_health.log 2>&1

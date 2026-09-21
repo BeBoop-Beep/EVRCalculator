@@ -55,3 +55,8 @@ supabase/.branches/
 
 # Local E2E scratch / secrets / test credentials
 .e2e-scratch/
+
+# eBay pricing: raw provider captures, local request ledger and pipeline runtime state (never committed)
+backend/artifacts/pricing/ebay_p4a_*.raw.jsonl
+backend/artifacts/pricing/*.sqlite3
+backend/.pricing_state/

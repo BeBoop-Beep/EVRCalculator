@@ -1,0 +1,116 @@
+{
+ "market_date": "2026-09-20",
+ "rule": "resolver identity ranks; default variant = non-special first, then holo<non-holo<reverse-holo, then id; price join omitted",
+ "cards": {
+  "00afbaf5-46cc-4b2d-b1ee-c9839b7d6d8f": {
+   "chosen_variant_id": "b0cf1531-280e-4dd5-be18-964cdb18979d",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 0
+  },
+  "069eeb09-34c0-4c5a-ae08-23e829d59a34": {
+   "chosen_variant_id": null,
+   "candidate_variants": 0,
+   "other_condition_price_rows": 0
+  },
+  "0ac8d1e3-dc0a-4cca-9df8-04291875dffe": {
+   "chosen_variant_id": "abf0b403-ceb3-4abb-a9fe-8707274a97e7",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 1
+  },
+  "0fec8e9b-2119-40d2-97cf-8268fa2169ac": {
+   "chosen_variant_id": "2b8a54aa-8561-4b77-9245-8ccf5eab57f9",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 0
+  },
+  "145c3df2-bafd-4fe8-820e-2226b51454d2": {
+   "chosen_variant_id": "2bbe2755-dea0-489b-ba87-c294c2697dba",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "214a20d8-6ae0-46de-9047-082b506c4b1e": {
+   "chosen_variant_id": "2b7b9483-96bb-4389-8163-922e4bca9d8e",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 0
+  },
+  "310cafff-701e-4213-a59b-938d2f5f794e": {
+   "chosen_variant_id": "37dab816-8c3b-4612-97e5-fe4396343ed6",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "3ef680dc-9c3a-4d0f-af5d-f7b8b3c35695": {
+   "chosen_variant_id": "38eb3e8a-df79-40c0-a218-63fce77703cc",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "4540ac5a-4e22-40d0-a0f1-2dbb14c99243": {
+   "chosen_variant_id": "91af974d-1474-4948-9414-927530aa8577",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 0
+  },
+  "57f1882b-11e5-4fa6-98a8-b4e323392911": {
+   "chosen_variant_id": "733e422c-bcb2-4474-a203-e1542245414a",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 2
+  },
+  "5b76f552-1ce2-4db1-b498-e06cd1184711": {
+   "chosen_variant_id": "f2634870-2f00-4ab3-a953-e172a170cd80",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "621b038b-e832-47a2-8bdd-1160945d6d44": {
+   "chosen_variant_id": "6ba0433e-5ba1-47fa-b97e-408266dea0a6",
+   "candidate_variants": 2,
+   "other_condition_price_rows": 4
+  },
+  "6edc2e28-ef57-4648-b0d1-6dafd30d5ca4": {
+   "chosen_variant_id": "8b90d96e-f30f-4822-bbe3-17fd52b83de2",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 3
+  },
+  "ab8f7a71-f1e8-41e8-89cb-b01bea223bf2": {
+   "chosen_variant_id": "b36745f3-85b5-486b-8e1c-601e9ea29271",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "b154538a-8975-4f88-ac81-a97728c75421": {
+   "chosen_variant_id": "b323a018-049e-4a1e-9ce2-6a144ade0eb8",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "b815a131-d4f1-43da-b8b2-fb521ffbab10": {
+   "chosen_variant_id": "cf3802e7-101a-452d-8f90-bdd88d727ee5",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "c4e95fe7-f82d-4550-8c8b-f871ec338bb1": {
+   "chosen_variant_id": "3e9b90cc-43d6-4883-b8cd-6054d923b699",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "cae71539-cdde-41e1-aa61-cf1f67f43d69": {
+   "chosen_variant_id": "a7044de2-7842-4096-9082-65f39a492b65",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 4
+  },
+  "cc642eda-5fac-44b2-98a4-bfe0993884ba": {
+   "chosen_variant_id": "ad7b4bbf-77a0-4e4f-9ab8-12a1e29c5a25",
+   "candidate_variants": 2,
+   "other_condition_price_rows": 8
+  },
+  "e4ca99f2-796b-447a-af18-224eb290297b": {
+   "chosen_variant_id": "8e8a4fd7-6029-43b5-9e23-3db745c8fcbf",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 0
+  },
+  "f73c7c50-3c9e-40a2-94b2-6371c44099e8": {
+   "chosen_variant_id": "95142761-e7b1-4e2a-b9a8-87ce66e22a93",
+   "candidate_variants": 2,
+   "other_condition_price_rows": 4
+  },
+  "f940db65-6995-4dbf-bd92-817aececb2ec": {
+   "chosen_variant_id": "b116c265-4cb6-4ab0-8e7e-8a4e5048015a",
+   "candidate_variants": 1,
+   "other_condition_price_rows": 2
+  }
+ }
+}

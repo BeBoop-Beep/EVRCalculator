@@ -1,0 +1,263 @@
+{
+ "market_date": "2026-09-20",
+ "source": "production SQL (identity-resolution CTE without price join)",
+ "totals": [
+  {
+   "catalog_role": "main",
+   "has_variant": false,
+   "n": 59,
+   "opening": 59
+  },
+  {
+   "catalog_role": "main",
+   "has_variant": true,
+   "n": 216,
+   "opening": 96
+  },
+  {
+   "catalog_role": "promo",
+   "has_variant": false,
+   "n": 513,
+   "opening": 0
+  },
+  {
+   "catalog_role": "promo",
+   "has_variant": true,
+   "n": 25,
+   "opening": 0
+  }
+ ],
+ "by_era": [
+  [
+   "Sword and Shield",
+   304,
+   0
+  ],
+  [
+   "Other",
+   132,
+   127
+  ],
+  [
+   "EX",
+   115,
+   61
+  ],
+  [
+   "Diamond and Pearl",
+   56,
+   0
+  ],
+  [
+   "Sun and Moon",
+   53,
+   3
+  ],
+  [
+   "Base/WOTC",
+   53,
+   0
+  ],
+  [
+   "XY",
+   30,
+   6
+  ],
+  [
+   "Black and White",
+   25,
+   13
+  ],
+  [
+   "E-Card",
+   24,
+   24
+  ],
+  [
+   "NP",
+   17,
+   4
+  ],
+  [
+   "HeartGold and SoulSilver",
+   2,
+   1
+  ],
+  [
+   "Neo",
+   1,
+   1
+  ],
+  [
+   "POP",
+   1,
+   1
+  ]
+ ],
+ "by_rarity": [
+  [
+   "Promo",
+   538,
+   25
+  ],
+  [
+   "Common",
+   108,
+   64
+  ],
+  [
+   "(none)",
+   55,
+   40
+  ],
+  [
+   "Pikachu Rare",
+   24,
+   24
+  ],
+  [
+   "Rare Holo",
+   24,
+   24
+  ],
+  [
+   "Rare",
+   15,
+   15
+  ],
+  [
+   "Illustration Rare",
+   12,
+   12
+  ],
+  [
+   "Double Rare",
+   11,
+   11
+  ],
+  [
+   "Rare Holo Star",
+   10,
+   10
+  ],
+  [
+   "Rare Holo EX",
+   6,
+   6
+  ],
+  [
+   "Rare Secret",
+   3,
+   3
+  ],
+  [
+   "Special Illustration Rare",
+   3,
+   3
+  ],
+  [
+   "Futuristic Rare",
+   2,
+   2
+  ],
+  [
+   "Rare Shining",
+   1,
+   1
+  ]
+ ],
+ "top_sets": [
+  [
+   "SWSH Black Star Promos",
+   304,
+   0,
+   0
+  ],
+  [
+   "ME: 30th Celebration",
+   120,
+   120,
+   0
+  ],
+  [
+   "DP Black Star Promos",
+   56,
+   0,
+   0
+  ],
+  [
+   "SM Black Star Promos",
+   53,
+   3,
+   0
+  ],
+  [
+   "Wizards Black Star Promos",
+   53,
+   0,
+   0
+  ],
+  [
+   "XY Black Star Promos",
+   30,
+   6,
+   0
+  ],
+  [
+   "EX Trainer Kit 2 Minun",
+   27,
+   12,
+   27
+  ],
+  [
+   "EX Trainer Kit 2 Plusle",
+   27,
+   12,
+   27
+  ],
+  [
+   "BW Black Star Promos",
+   24,
+   12,
+   0
+  ],
+  [
+   "EX Trainer Kit Latios",
+   22,
+   10,
+   22
+  ],
+  [
+   "EX Trainer Kit Latias",
+   22,
+   10,
+   22
+  ],
+  [
+   "Nintendo Black Star Promos",
+   17,
+   4,
+   0
+  ]
+ ],
+ "by_rarity_cols": [
+  "rarity",
+  "n",
+  "with_variant"
+ ],
+ "by_era_cols": [
+  "era",
+  "n",
+  "with_variant"
+ ],
+ "top_sets_cols": [
+  "set",
+  "n",
+  "with_variant",
+  "opening"
+ ],
+ "opening_sets_with_gaps": 22,
+ "main_variant_high_rarity_gaps": 58,
+ "missing_main_other_condition_price": 50,
+ "missing_promo_other_condition_price": 25
+}

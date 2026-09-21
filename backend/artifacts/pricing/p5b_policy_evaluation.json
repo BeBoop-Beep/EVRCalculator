@@ -1,0 +1,397 @@
+{
+ "policy": "pokemon_multi_source_card_price_v1",
+ "policy_fingerprint": "caf6acbf7e4b4e43b4491ef2b018122bb4cfcb8b254621f8b32c8bb8a70abdb6",
+ "cohort_size": 150,
+ "v1_decision_state_counts": {
+  "TCGPLAYER_STALE_RETAINED": 22,
+  "TCGPLAYER_PRIMARY_EBAY_CORROBORATED": 11,
+  "TCGPLAYER_PRIMARY_SOURCE_DISAGREEMENT": 2,
+  "UNPRICED": 20,
+  "TCGPLAYER_PRIMARY_EBAY_MODERATE_DISAGREEMENT": 8,
+  "EBAY_ACTIVE_ASK_FALLBACK": 2,
+  "TCGPLAYER_PRIMARY": 84,
+  "TCGPLAYER_AGING_RETAINED": 1
+ },
+ "v1_agreement_counts_all": {
+  "SINGLE_SOURCE_ONLY": 125,
+  "AGREE": 13,
+  "SEVERE_DISAGREEMENT": 3,
+  "MODERATE_DISAGREEMENT": 9
+ },
+ "v1_freshness_counts": {
+  "STALE": 22,
+  "FRESH": 105,
+  "MISSING": 22,
+  "AGING": 1
+ },
+ "paired_agreement_counts": {
+  "AGREE": 13,
+  "SEVERE_DISAGREEMENT": 3,
+  "MODERATE_DISAGREEMENT": 9
+ },
+ "paired_by_freshness_agreement": {
+  "FRESH": {
+   "AGREE": 11,
+   "SEVERE_DISAGREEMENT": 2,
+   "MODERATE_DISAGREEMENT": 8
+  },
+  "STALE": {
+   "AGREE": 2,
+   "MODERATE_DISAGREEMENT": 1,
+   "SEVERE_DISAGREEMENT": 1
+  }
+ },
+ "paired_by_band_agreement": {
+  "100_250": {
+   "AGREE": 1
+  },
+  "20_50": {
+   "MODERATE_DISAGREEMENT": 1,
+   "AGREE": 2
+  },
+  "250_plus": {
+   "MODERATE_DISAGREEMENT": 1,
+   "AGREE": 1
+  },
+  "50_100": {
+   "MODERATE_DISAGREEMENT": 1
+  },
+  "5_20": {
+   "MODERATE_DISAGREEMENT": 6,
+   "AGREE": 2
+  },
+  "lt5": {
+   "AGREE": 7,
+   "SEVERE_DISAGREEMENT": 3
+  }
+ },
+ "severe_or_moderate_rows": [
+  {
+   "canonical": "f13e4255",
+   "band": "lt5",
+   "era": "Sun and Moon",
+   "rarity": "Rare",
+   "set": "Sun & Moon",
+   "tcg": "0.25",
+   "ebay": "2.35",
+   "diff_pct": "8.4000",
+   "state": "SEVERE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "b38102f7",
+   "band": "5_20",
+   "era": "Base/WOTC",
+   "rarity": "Rare",
+   "set": "Team Rocket",
+   "tcg": "18.45",
+   "ebay": "16.00",
+   "diff_pct": "-0.1328",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "02768af4",
+   "band": "50_100",
+   "era": "EX",
+   "rarity": "Uncommon",
+   "set": "Delta Species",
+   "tcg": "51.17",
+   "ebay": "55.94",
+   "diff_pct": "0.0932",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "STALE"
+  },
+  {
+   "canonical": "fa2b2ff8",
+   "band": "5_20",
+   "era": "Base/WOTC",
+   "rarity": "Uncommon",
+   "set": "Team Rocket",
+   "tcg": "13.28",
+   "ebay": "14.96",
+   "diff_pct": "0.1265",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "f9902a40",
+   "band": "20_50",
+   "era": "Sword and Shield",
+   "rarity": "Rare Rainbow",
+   "set": "Chilling Reign",
+   "tcg": "39.48",
+   "ebay": "48.75",
+   "diff_pct": "0.2348",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "642c9ce1",
+   "band": "250_plus",
+   "era": "Sword and Shield",
+   "rarity": "Rare Rainbow",
+   "set": "Evolving Skies",
+   "tcg": "312.61",
+   "ebay": "419.43",
+   "diff_pct": "0.3417",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "03d54d33",
+   "band": "5_20",
+   "era": "Sword and Shield",
+   "rarity": "Rare Ultra",
+   "set": "Vivid Voltage",
+   "tcg": "7.76",
+   "ebay": "9.28",
+   "diff_pct": "0.1959",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "c0e4e54f",
+   "band": "lt5",
+   "era": "Sword and Shield",
+   "rarity": "Rare Ultra",
+   "set": "Astral Radiance",
+   "tcg": "4.58",
+   "ebay": "6.99",
+   "diff_pct": "0.5262",
+   "state": "SEVERE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "4561dbcc",
+   "band": "5_20",
+   "era": "Sword and Shield",
+   "rarity": "Rare Secret",
+   "set": "Brilliant Stars",
+   "tcg": "13.49",
+   "ebay": "15.71",
+   "diff_pct": "0.1646",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "bdbe1f8a",
+   "band": "5_20",
+   "era": "Gym",
+   "rarity": "Rare",
+   "set": "Gym Challenge",
+   "tcg": "19.46",
+   "ebay": "13.35",
+   "diff_pct": "-0.3140",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "9fed53a1",
+   "band": "5_20",
+   "era": "Mega Evolution",
+   "rarity": "MEGA_ATTACK_RARE",
+   "set": "Ascended Heroes",
+   "tcg": "5.31",
+   "ebay": "6.86",
+   "diff_pct": "0.2919",
+   "state": "MODERATE_DISAGREEMENT",
+   "freshness": "FRESH"
+  },
+  {
+   "canonical": "69fe1d53",
+   "band": "lt5",
+   "era": "Sword and Shield",
+   "rarity": "Rare Rainbow",
+   "set": "Sword & Shield",
+   "tcg": "3.92",
+   "ebay": "5.74",
+   "diff_pct": "0.4643",
+   "state": "SEVERE_DISAGREEMENT",
+   "freshness": "STALE"
+  }
+ ],
+ "baseline_priced": 128,
+ "policy_A": {
+  "priced": 130,
+  "ebay_selected": 2,
+  "existing_prices_changed": 0
+ },
+ "policy_B": {
+  "priced": 130,
+  "ebay_selected": 5,
+  "existing_prices_replaced": 3,
+  "stale_or_aging_with_sufficient_ebay": 4,
+  "stale_candidates": [
+   {
+    "canonical": "7781f22e",
+    "tcg": "2.03",
+    "tcg_age_days": 81,
+    "ebay": "2.99",
+    "diff_pct": "0.4729",
+    "agreement": "AGREE"
+   },
+   {
+    "canonical": "3695a310",
+    "tcg": "0.17",
+    "tcg_age_days": 60,
+    "ebay": "0.99",
+    "diff_pct": "4.8235",
+    "agreement": "AGREE"
+   },
+   {
+    "canonical": "02768af4",
+    "tcg": "51.17",
+    "tcg_age_days": 33,
+    "ebay": "55.94",
+    "diff_pct": "0.0932",
+    "agreement": "MODERATE_DISAGREEMENT"
+   },
+   {
+    "canonical": "69fe1d53",
+    "tcg": "3.92",
+    "tcg_age_days": 88,
+    "ebay": "5.74",
+    "diff_pct": "0.4643",
+    "agreement": "SEVERE_DISAGREEMENT"
+   }
+  ]
+ },
+ "policy_C": {
+  "eligible_fresh_sufficient_agree_rows": 11,
+  "paired_rows_total": 25,
+  "min_paired_for_calibration_gate": 30,
+  "gate_met": false,
+  "weights_evaluated": false
+ },
+ "policy_D": {
+  "paired_n": 25,
+  "gate_n_ge_30": false,
+  "lt5_median": 1.4995536386516664,
+  "ge5_median": 1.0932186828219659,
+  "lt5_iqr": [
+   1.3085399449035813,
+   1.6974789915966388
+  ],
+  "ge5_iqr": [
+   1.0576003242805028,
+   1.1645663454410675
+  ],
+  "stable_across_bands": false,
+  "implemented": false
+ },
+ "gap_fill_sample": {
+  "missing_sampled": 22,
+  "with_resolved_variant": 21,
+  "recovered_sufficient": 2,
+  "thin_only": 1,
+  "no_evidence": 18,
+  "recovery_rate": 0.09523809523809523,
+  "recovery_wilson95": [
+   0.026518208796947225,
+   0.2891458386074067
+  ],
+  "recovered_rows": [
+   {
+    "canonical": "214a20d8",
+    "variant": "2b7b9483",
+    "ebay_price": "14.99",
+    "sellers": 5,
+    "set": "ME: 30th Celebration",
+    "rarity": "Illustration Rare"
+   },
+   {
+    "canonical": "4540ac5a",
+    "variant": "91af974d",
+    "ebay_price": "12.29",
+    "sellers": 5,
+    "set": "ME: 30th Celebration",
+    "rarity": "Illustration Rare"
+   }
+  ],
+  "unrecovered_by_set": {
+   "Neo Revelation": 1,
+   "Aquapolis": 2,
+   "POP Series 5": 1,
+   "Holon Phantoms": 1,
+   "Call of Legends": 1,
+   "Boundaries Crossed": 1,
+   "Skyridge": 5,
+   "ME: 30th Celebration": 1,
+   "Power Keepers": 1,
+   "Legend Maker": 1,
+   "Pok\u00e9mon Rumble": 1,
+   "Expedition Base Set": 1,
+   "Team Rocket Returns": 1,
+   "McDonald's Collection 2016": 1
+  },
+  "sampled_by_set": {
+   "Neo Revelation": 1,
+   "Aquapolis": 2,
+   "POP Series 5": 1,
+   "Holon Phantoms": 1,
+   "Call of Legends": 1,
+   "Boundaries Crossed": 1,
+   "ME: 30th Celebration": 3,
+   "Skyridge": 5,
+   "Power Keepers": 1,
+   "Legend Maker": 1,
+   "Pok\u00e9mon Rumble": 1,
+   "Expedition Base Set": 1,
+   "Wizards Black Star Promos": 1,
+   "Team Rocket Returns": 1,
+   "McDonald's Collection 2016": 1
+  }
+ },
+ "gap_fill_projection": {
+  "missing_main_promo_total": 813,
+  "identity_unresolved": 572,
+  "resolvable": 241,
+  "expected_recoverable_point": 23,
+  "expected_recoverable_95": [
+   6,
+   70
+  ],
+  "caveat": "sample of 21 resolvable cards, dominated by low-supply strata; extrapolation is indicative only"
+ },
+ "shadow_rows_persistable": 149,
+ "shadow_rows_fingerprint": "365ea0a9ad33587353bcf2c34597c81bfaf7a466f6d3dcdc4d1daade7eea7395",
+ "high_value_paired": [
+  {
+   "canonical": "02768af4",
+   "tcg": "51.17",
+   "ebay": "55.94",
+   "diff_pct": "0.0932",
+   "state": "MODERATE_DISAGREEMENT",
+   "set": "Delta Species",
+   "rarity": "Uncommon"
+  },
+  {
+   "canonical": "f28978a5",
+   "tcg": "246.70",
+   "ebay": "260.91",
+   "diff_pct": "0.0576",
+   "state": "AGREE",
+   "set": "Battle Styles",
+   "rarity": "Rare Ultra"
+  },
+  {
+   "canonical": "642c9ce1",
+   "tcg": "312.61",
+   "ebay": "419.43",
+   "diff_pct": "0.3417",
+   "state": "MODERATE_DISAGREEMENT",
+   "set": "Evolving Skies",
+   "rarity": "Rare Rainbow"
+  },
+  {
+   "canonical": "18b5470b",
+   "tcg": "2283.14",
+   "ebay": "2450.00",
+   "diff_pct": "0.0731",
+   "state": "AGREE",
+   "set": "Evolving Skies",
+   "rarity": "Rare Rainbow"
+  }
+ ]
+}

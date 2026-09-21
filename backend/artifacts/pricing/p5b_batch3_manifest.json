@@ -1,0 +1,1610 @@
+{
+  "market_date": "2026-09-20",
+  "selector_version": "p5b_cohort_v1",
+  "target_count": 40,
+  "canonical_card_ids": [
+    "957cf210-19c6-4455-be98-6c04c5f0eb3c",
+    "18f8c350-02c3-4082-b0bc-893608832dce",
+    "c0e4e54f-c139-417f-a8b0-fad8d419b150",
+    "0f6136ef-fec8-42fc-97bd-b45a67ae859b",
+    "3b929c4c-ea00-4b53-b044-72a2d5d7f7be",
+    "608e3d4a-1578-4f36-a975-26b87979c331",
+    "71ab9bc5-395a-4e35-a1d2-557751bf44f1",
+    "285ba705-52aa-4a08-baa3-335d70903853",
+    "d918d2f9-46a0-456e-b83c-b21fdbccaee6",
+    "824fb6f5-195a-46e8-b881-08eb5c74d69c",
+    "e11442b2-9ab1-4b30-8379-04da7a386107",
+    "ecc89b80-4b9b-4f4d-83bf-6897974037df",
+    "2a7fa456-9d05-424a-b7c6-eda8be2a472e",
+    "6752bcc9-f4d8-424f-9de2-fea8a7357cbe",
+    "4561dbcc-c6b6-48d6-823d-78cc0eea374f",
+    "4b05d112-03ba-447b-942a-865d23d56811",
+    "b77aa265-f920-45c7-b4bb-7b0ab8d46d08",
+    "42976682-1f35-4d2f-bd39-99a3735d26d5",
+    "27c68f2d-31cb-4480-8a9a-68fd23f0416a",
+    "69d6844f-8643-45cd-9310-220f00fead4a",
+    "c39b776b-195a-48db-88a9-011e0808977f",
+    "bdbe1f8a-b1e2-40fd-bf04-aa8530c38cbc",
+    "9fed53a1-a504-47ee-96f2-e7af3a8d3ff2",
+    "0410c561-ac4a-47e0-9c29-5b4c96c59f66",
+    "a650eafe-fc1a-4441-9486-1d1044cbf4e2",
+    "3091cc4f-8749-49d3-86d0-37ee13e399cb",
+    "3bc4834a-4865-4240-8a06-b32c70497fc7",
+    "cce26087-8d86-4fb7-83bb-531fd3b6e7a5",
+    "072c2243-054d-4739-9282-865401b7ea1f",
+    "979bb0f8-1d9a-421f-9900-a735e2f22e54",
+    "308c05f3-4f02-47d3-a105-fa969765ed17",
+    "515c2883-4965-438c-88e2-5a82ceb5e5b8",
+    "f394df84-0c60-4ec4-9e15-a3d0a65c0d37",
+    "69fe1d53-1b30-46bf-bf2f-506d9ac70a90",
+    "6b930962-0752-4db7-b6e1-b24c868eb8fd",
+    "842d0afe-2313-4728-b494-23f65fe808f4",
+    "b154538a-8975-4f88-ac81-a97728c75421",
+    "f73c7c50-3c9e-40a2-94b2-6371c44099e8",
+    "5b76f552-1ce2-4db1-b498-e06cd1184711",
+    "0fec8e9b-2119-40d2-97cf-8268fa2169ac"
+  ],
+  "cards": [
+    {
+      "pricing_target": true,
+      "canonical_card_id": "957cf210-19c6-4455-be98-6c04c5f0eb3c",
+      "card_variant_id": "e16ee5b9-e0b1-43f1-b4fc-26547e5cc6e2",
+      "card_name": "Tyrogue",
+      "card_number": "36/95",
+      "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "set_name": "Call of Legends",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 3.21,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Tyrogue 36/95 Call of Legends Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Tyrogue 36/95 Call of Legends",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "18f8c350-02c3-4082-b0bc-893608832dce",
+      "card_variant_id": "f1425117-6c2d-4d91-b6f5-f926a9a7d69d",
+      "card_name": "Time Shard",
+      "card_number": "135/147",
+      "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "set_name": "Aquapolis",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "rarity": "Uncommon",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 2.06,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Time Shard 135/147 Aquapolis Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Time Shard 135/147 Aquapolis",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "c0e4e54f-c139-417f-a8b0-fad8d419b150",
+      "card_variant_id": "fdcc24ff-1bea-43a5-a9bf-18d036302883",
+      "card_name": "Hisuian Sneasler V",
+      "card_number": "174/189",
+      "set_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+      "set_name": "Astral Radiance",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "rarity": "Rare Ultra",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 4.58,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Hisuian Sneasler V 174/189 Astral Radiance Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Hisuian Sneasler V 174/189 Astral Radiance",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "0f6136ef-fec8-42fc-97bd-b45a67ae859b",
+      "card_variant_id": "465e3fbb-5ec0-4cae-a41d-e41546ebecfc",
+      "card_name": "Monferno",
+      "card_number": "56/127",
+      "set_id": "98301e8a-8aa3-43d8-a85b-908883264721",
+      "set_name": "Platinum",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "rarity": "Uncommon",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 0.9,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Monferno 56/127 Platinum Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Monferno 56/127 Platinum",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "3b929c4c-ea00-4b53-b044-72a2d5d7f7be",
+      "card_variant_id": "89c5833f-6edc-4280-8f8b-2ff23c5f9c66",
+      "card_name": "Oddish",
+      "card_number": "58/64",
+      "set_id": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+      "set_name": "Jungle",
+      "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+      "rarity": "Common",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 0.48,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Oddish 58/64 Jungle Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Oddish 58/64 Jungle",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "608e3d4a-1578-4f36-a975-26b87979c331",
+      "card_variant_id": "03795f12-5040-41a5-86dd-5fd5eacfdf97",
+      "card_name": "Brock's Primeape",
+      "card_number": "35/132",
+      "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "set_name": "Gym Challenge",
+      "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "rarity": "Uncommon",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 3.5,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Brock's Primeape 35/132 Gym Challenge Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Brock's Primeape 35/132 Gym Challenge",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "71ab9bc5-395a-4e35-a1d2-557751bf44f1",
+      "card_variant_id": "e7d705d2-6462-4d63-a309-4fc21d338e9b",
+      "card_name": "Black Kyurem-EX",
+      "card_number": "101/149",
+      "set_id": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+      "set_name": "Boundaries Crossed",
+      "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+      "rarity": "Rare Holo EX",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 4.13,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Black Kyurem-EX 101/149 Boundaries Crossed Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Black Kyurem-EX 101/149 Boundaries Crossed",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "285ba705-52aa-4a08-baa3-335d70903853",
+      "card_variant_id": "e88bee47-eb5f-4e81-aa6b-580c02d481a2",
+      "card_name": "Fennekin",
+      "card_number": "14/25",
+      "set_id": "332b2885-9354-4a29-ba52-03fca35594d1",
+      "set_name": "McDonald's Collection 2021",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "rarity": "",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 1.29,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Fennekin 14/25 McDonald's Collection 2021 Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Fennekin 14/25 McDonald's Collection 2021",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "d918d2f9-46a0-456e-b83c-b21fdbccaee6",
+      "card_variant_id": "aa0f8686-b43a-4631-99b0-4f26a1b4154f",
+      "card_name": "Rhyperior E4",
+      "card_number": "32/111",
+      "set_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+      "set_name": "Rising Rivals",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 0.81,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Rhyperior E4 32/111 Rising Rivals Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Rhyperior E4 32/111 Rising Rivals",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "824fb6f5-195a-46e8-b881-08eb5c74d69c",
+      "card_variant_id": "4f64b8d9-e5dd-43b1-ac3d-79b36200ed75",
+      "card_name": "Lt. Surge",
+      "card_number": "101/132",
+      "set_id": "537d3312-9622-4015-9ef2-66e16a27287c",
+      "set_name": "Gym Heroes",
+      "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 4.91,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Lt. Surge 101/132 Gym Heroes Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Lt. Surge 101/132 Gym Heroes",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "e11442b2-9ab1-4b30-8379-04da7a386107",
+      "card_variant_id": "3f74f8c7-3afa-4802-82d2-f223e6db632a",
+      "card_name": "Mega Gengar ex",
+      "card_number": "56/94",
+      "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "set_name": "Phantasmal Flames",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "rarity": "Double Rare",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 2.48,
+      "tcgplayer_captured_at": "2026-09-20",
+      "tcgplayer_age_days": 0,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Mega Gengar ex 56/94 Phantasmal Flames Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Mega Gengar ex 56/94 Phantasmal Flames",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "ecc89b80-4b9b-4f4d-83bf-6897974037df",
+      "card_variant_id": "0122739d-969a-4846-a8ee-c0996704290f",
+      "card_name": "Pokémon Breeder",
+      "card_number": "102/110",
+      "set_id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+      "set_name": "Legendary Collection",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:lt5"
+      ],
+      "tcgplayer_market_price": 4.87,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:lt5",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Pokémon Breeder 102/110 Legendary Collection Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Pokémon Breeder 102/110 Legendary Collection",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "2a7fa456-9d05-424a-b7c6-eda8be2a472e",
+      "card_variant_id": "081c44a9-aad1-405c-bfc4-b09500edb4a9",
+      "card_name": "Farfetch'd",
+      "card_number": "19/123",
+      "set_id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+      "set_name": "HeartGold & SoulSilver",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 6.12,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Farfetch'd 19/123 HeartGold & SoulSilver Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Farfetch'd 19/123 HeartGold & SoulSilver",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "6752bcc9-f4d8-424f-9de2-fea8a7357cbe",
+      "card_variant_id": "f470ed3c-ffc7-44f1-86e9-0d8f97a06eb5",
+      "card_name": "Nidoran ♂",
+      "card_number": "96/147",
+      "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "set_name": "Aquapolis",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "rarity": "Common",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 12.94,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Nidoran ♂ 96/147 Aquapolis Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Nidoran ♂ 96/147 Aquapolis",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "4561dbcc-c6b6-48d6-823d-78cc0eea374f",
+      "card_variant_id": "5f3697cd-3b12-4523-918d-f72877585cf1",
+      "card_name": "Ultra Ball",
+      "card_number": "186/172",
+      "set_id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+      "set_name": "Brilliant Stars",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "rarity": "Rare Secret",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 13.49,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Ultra Ball 186/172 Brilliant Stars Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Ultra Ball 186/172 Brilliant Stars",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "4b05d112-03ba-447b-942a-865d23d56811",
+      "card_variant_id": "f203af05-ff4d-4cd7-85e3-9b276b5d70b6",
+      "card_name": "Munchlax",
+      "card_number": "70/111",
+      "set_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+      "set_name": "Rising Rivals",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "rarity": "Common",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 10.12,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Munchlax 70/111 Rising Rivals Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Munchlax 70/111 Rising Rivals",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "b77aa265-f920-45c7-b4bb-7b0ab8d46d08",
+      "card_variant_id": "34e05ebf-1a9b-4608-ad44-3725d446a375",
+      "card_name": "Ivysaur",
+      "card_number": "44/130",
+      "set_id": "6c82fb37-b9b9-4961-a528-12556bd15417",
+      "set_name": "Base Set 2",
+      "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+      "rarity": "Uncommon",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 7.19,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Ivysaur 44/130 Base Set 2 Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Ivysaur 44/130 Base Set 2",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "42976682-1f35-4d2f-bd39-99a3735d26d5",
+      "card_variant_id": "4312190d-b30a-4210-9924-017691f1cf77",
+      "card_name": "Koga's Tangela",
+      "card_number": "81/132",
+      "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "set_name": "Gym Challenge",
+      "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "rarity": "Common",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 5.19,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Koga's Tangela 81/132 Gym Challenge Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Koga's Tangela 81/132 Gym Challenge",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "27c68f2d-31cb-4480-8a9a-68fd23f0416a",
+      "card_variant_id": "10853cf1-b0c4-49ca-8122-985a954a4831",
+      "card_name": "Kyurem-EX",
+      "card_number": "38/99",
+      "set_id": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+      "set_name": "Next Destinies",
+      "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+      "rarity": "Rare Holo EX",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 9.26,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Kyurem-EX 38/99 Next Destinies Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Kyurem-EX 38/99 Next Destinies",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "69d6844f-8643-45cd-9310-220f00fead4a",
+      "card_variant_id": "e12a2a19-6e14-458a-ae7e-b34ebcdfada7",
+      "card_name": "Arcanine",
+      "card_number": "36/110",
+      "set_id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+      "set_name": "Legendary Collection",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "rarity": "Uncommon",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 8.43,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Arcanine 36/110 Legendary Collection Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Arcanine 36/110 Legendary Collection",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "c39b776b-195a-48db-88a9-011e0808977f",
+      "card_variant_id": "6074d6ee-55a8-43a9-a123-981175d4bc2f",
+      "card_name": "Lickilicky C",
+      "card_number": "30/147",
+      "set_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+      "set_name": "Supreme Victors",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 7.99,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Lickilicky C 30/147 Supreme Victors Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Lickilicky C 30/147 Supreme Victors",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "bdbe1f8a-b1e2-40fd-bf04-aa8530c38cbc",
+      "card_variant_id": "6a8e8e4b-f4df-46ec-9e56-3fb3e5a6ec67",
+      "card_name": "Brock's Dugtrio",
+      "card_number": "22/132",
+      "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "set_name": "Gym Challenge",
+      "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 19.46,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Brock's Dugtrio 22/132 Gym Challenge Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Brock's Dugtrio 22/132 Gym Challenge",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "9fed53a1-a504-47ee-96f2-e7af3a8d3ff2",
+      "card_variant_id": "66784d3a-b6aa-4e4a-a88e-633510e1946c",
+      "card_name": "Mega Hawlucha ex",
+      "card_number": "268/217",
+      "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "set_name": "Ascended Heroes",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "rarity": "MEGA_ATTACK_RARE",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 5.31,
+      "tcgplayer_captured_at": "2026-09-20",
+      "tcgplayer_age_days": 0,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Mega Hawlucha ex 268/217 Ascended Heroes Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Mega Hawlucha ex 268/217 Ascended Heroes",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "0410c561-ac4a-47e0-9c29-5b4c96c59f66",
+      "card_variant_id": "a3d37424-cd69-40d6-be5b-fc99b2450110",
+      "card_name": "Beedrill",
+      "card_number": "20/110",
+      "set_id": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+      "set_name": "Legendary Collection",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 5.85,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Beedrill 20/110 Legendary Collection Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Beedrill 20/110 Legendary Collection",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "a650eafe-fc1a-4441-9486-1d1044cbf4e2",
+      "card_variant_id": "b62a2253-a023-4db5-aff5-3826495411c3",
+      "card_name": "Torchic - 017 (EX Deck Tin)",
+      "card_number": "017",
+      "set_id": "78c7f000-9a9e-45ca-8233-8f36030f6019",
+      "set_name": "Nintendo Black Star Promos",
+      "era_id": "798fec5b-4e8c-4bc1-bbd1-bdacf5e7105c",
+      "rarity": "Promo",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 19.92,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Torchic - 017 (EX Deck Tin) 017 Nintendo Black Star Promos Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Torchic - 017 (EX Deck Tin) 017 Nintendo Black Star Promos",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "3091cc4f-8749-49d3-86d0-37ee13e399cb",
+      "card_variant_id": "0f7c59d5-ca62-4bd8-b8ca-5910df78a8db",
+      "card_name": "Rainbow Energy",
+      "card_number": "144/147",
+      "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "set_name": "Aquapolis",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "rarity": "Rare",
+      "priority_reasons": [
+        "fresh:5_20"
+      ],
+      "tcgplayer_market_price": 12.72,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:5_20",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Rainbow Energy 144/147 Aquapolis Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Rainbow Energy 144/147 Aquapolis",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "3bc4834a-4865-4240-8a06-b32c70497fc7",
+      "card_variant_id": "0a8476fb-86d3-4ca1-8901-def325c94a77",
+      "card_name": "Raichu",
+      "card_number": "10/123",
+      "set_id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+      "set_name": "HeartGold & SoulSilver",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "rarity": "Rare Holo",
+      "priority_reasons": [
+        "fresh:20_50"
+      ],
+      "tcgplayer_market_price": 35.65,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:20_50",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Raichu 10/123 HeartGold & SoulSilver Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Raichu 10/123 HeartGold & SoulSilver",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "cce26087-8d86-4fb7-83bb-531fd3b6e7a5",
+      "card_variant_id": "9a79a48b-799c-4378-b51e-d9b9b53b4c1b",
+      "card_name": "Shuckle",
+      "card_number": "96/144",
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "set_name": "Skyridge",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "rarity": "Common",
+      "priority_reasons": [
+        "fresh:20_50"
+      ],
+      "tcgplayer_market_price": 30.76,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:20_50",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Shuckle 96/144 Skyridge Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Shuckle 96/144 Skyridge",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "072c2243-054d-4739-9282-865401b7ea1f",
+      "card_variant_id": "d05f1708-7c01-4942-b08a-559d8884f78d",
+      "card_name": "Celebi VMAX",
+      "card_number": "199/198",
+      "set_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+      "set_name": "Chilling Reign",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "rarity": "Rare Rainbow",
+      "priority_reasons": [
+        "fresh:20_50"
+      ],
+      "tcgplayer_market_price": 26.49,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:20_50",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Celebi VMAX 199/198 Chilling Reign Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Celebi VMAX 199/198 Chilling Reign",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "979bb0f8-1d9a-421f-9900-a735e2f22e54",
+      "card_variant_id": "e0d881a7-f7b7-44b7-abbd-14086f0f9e73",
+      "card_name": "Dragonite FB",
+      "card_number": "56/147",
+      "set_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+      "set_name": "Supreme Victors",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "rarity": "Uncommon",
+      "priority_reasons": [
+        "fresh:20_50"
+      ],
+      "tcgplayer_market_price": 23.17,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:20_50",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Dragonite FB 56/147 Supreme Victors Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Dragonite FB 56/147 Supreme Victors",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "308c05f3-4f02-47d3-a105-fa969765ed17",
+      "card_variant_id": "b15b31c9-acf7-46cd-bdda-dba39fefc85e",
+      "card_name": "Misty's Tears",
+      "card_number": "118/132",
+      "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "set_name": "Gym Challenge",
+      "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "rarity": "Uncommon",
+      "priority_reasons": [
+        "fresh:20_50"
+      ],
+      "tcgplayer_market_price": 21.85,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:20_50",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Misty's Tears 118/132 Gym Challenge Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Misty's Tears 118/132 Gym Challenge",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "515c2883-4965-438c-88e2-5a82ceb5e5b8",
+      "card_variant_id": "abcb1b4e-3000-4734-846d-f029a53d57af",
+      "card_name": "Palkia-EX",
+      "card_number": "66/101",
+      "set_id": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+      "set_name": "Plasma Blast",
+      "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+      "rarity": "Rare Holo EX",
+      "priority_reasons": [
+        "fresh:20_50"
+      ],
+      "tcgplayer_market_price": 21.81,
+      "tcgplayer_captured_at": "2026-09-19",
+      "tcgplayer_age_days": 1,
+      "stratum": "fresh:20_50",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Palkia-EX 66/101 Plasma Blast Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Palkia-EX 66/101 Plasma Blast",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "f394df84-0c60-4ec4-9e15-a3d0a65c0d37",
+      "card_variant_id": "f1930188-18a3-4da2-9b94-ebc257836811",
+      "card_name": "Raikou",
+      "card_number": "SL9/95",
+      "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "set_name": "Call of Legends",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "rarity": "Rare Holo",
+      "priority_reasons": [
+        "stale"
+      ],
+      "tcgplayer_market_price": 170.0,
+      "tcgplayer_captured_at": "2026-08-15",
+      "tcgplayer_age_days": 36,
+      "stratum": "stale",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Raikou SL9/95 Call of Legends Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Raikou SL9/95 Call of Legends",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "69fe1d53-1b30-46bf-bf2f-506d9ac70a90",
+      "card_variant_id": "5c965847-4f9e-46ba-a483-b2901a159485",
+      "card_name": "Professor's Research (Professor Magnolia)",
+      "card_number": "209/202",
+      "set_id": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+      "set_name": "Sword & Shield",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "rarity": "Rare Rainbow",
+      "priority_reasons": [
+        "stale"
+      ],
+      "tcgplayer_market_price": 3.92,
+      "tcgplayer_captured_at": "2026-06-24",
+      "tcgplayer_age_days": 88,
+      "stratum": "stale",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Professor's Research (Professor Magnolia) 209/202 Sword & Shield Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Professor's Research (Professor Magnolia) 209/202 Sword & Shield",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "6b930962-0752-4db7-b6e1-b24c868eb8fd",
+      "card_variant_id": "759968f2-8731-4500-8b02-6d9eeca89fc5",
+      "card_name": "Meowth",
+      "card_number": "11/12",
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set_name": "McDonald's Collection 2016",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "rarity": "",
+      "priority_reasons": [
+        "stale"
+      ],
+      "tcgplayer_market_price": 150.0,
+      "tcgplayer_captured_at": "2026-09-05",
+      "tcgplayer_age_days": 15,
+      "stratum": "stale",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Meowth 11/12 McDonald's Collection 2016 Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Meowth 11/12 McDonald's Collection 2016",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "842d0afe-2313-4728-b494-23f65fe808f4",
+      "card_variant_id": "2a9309e2-c8f0-4d28-a1a0-8fae760af436",
+      "card_name": "Luxray GL LV.X",
+      "card_number": "109/111",
+      "set_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+      "set_name": "Rising Rivals",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "rarity": "Rare Holo LV.X",
+      "priority_reasons": [
+        "stale"
+      ],
+      "tcgplayer_market_price": 98.21,
+      "tcgplayer_captured_at": "2026-09-02",
+      "tcgplayer_age_days": 18,
+      "stratum": "stale",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Luxray GL LV.X 109/111 Rising Rivals Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Luxray GL LV.X 109/111 Rising Rivals",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "b154538a-8975-4f88-ac81-a97728c75421",
+      "card_variant_id": null,
+      "card_name": "Magikarp",
+      "card_number": "4/12",
+      "set_id": "f769797d-2683-497c-b0b3-28ac04f6e304",
+      "set_name": "McDonald's Collection 2016",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "rarity": "",
+      "priority_reasons": [
+        "missing:main"
+      ],
+      "tcgplayer_market_price": null,
+      "tcgplayer_captured_at": null,
+      "tcgplayer_age_days": null,
+      "stratum": "missing:main",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Magikarp 4/12 McDonald's Collection 2016 Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Magikarp 4/12 McDonald's Collection 2016",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "f73c7c50-3c9e-40a2-94b2-6371c44099e8",
+      "card_variant_id": null,
+      "card_name": "Crobat",
+      "card_number": "147/144",
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "set_name": "Skyridge",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "rarity": "Rare Secret",
+      "priority_reasons": [
+        "missing:main"
+      ],
+      "tcgplayer_market_price": null,
+      "tcgplayer_captured_at": null,
+      "tcgplayer_age_days": null,
+      "stratum": "missing:main",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Crobat 147/144 Skyridge Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Crobat 147/144 Skyridge",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "5b76f552-1ce2-4db1-b498-e06cd1184711",
+      "card_variant_id": null,
+      "card_name": "Jolteon",
+      "card_number": "H12/144",
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "set_name": "Skyridge",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "rarity": "Rare Holo",
+      "priority_reasons": [
+        "missing:main"
+      ],
+      "tcgplayer_market_price": null,
+      "tcgplayer_captured_at": null,
+      "tcgplayer_age_days": null,
+      "stratum": "missing:main",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Jolteon H12/144 Skyridge Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Jolteon H12/144 Skyridge",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    },
+    {
+      "pricing_target": true,
+      "canonical_card_id": "0fec8e9b-2119-40d2-97cf-8268fa2169ac",
+      "card_variant_id": null,
+      "card_name": "Mudkip ★",
+      "card_number": "107/109",
+      "set_id": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+      "set_name": "Team Rocket Returns",
+      "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+      "rarity": "Rare Holo Star",
+      "priority_reasons": [
+        "missing:main"
+      ],
+      "tcgplayer_market_price": null,
+      "tcgplayer_captured_at": null,
+      "tcgplayer_age_days": null,
+      "stratum": "missing:main",
+      "planned_queries": [
+        {
+          "formulation": "primary",
+          "query": "Mudkip ★ 107/109 Team Rocket Returns Pokemon card",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "index_fair_value_ebay_supply_d1_v1"
+        },
+        {
+          "formulation": "collector_number_focus",
+          "query": "Mudkip ★ 107/109 Team Rocket Returns",
+          "marketplace": "EBAY_US",
+          "category_id": "183454",
+          "limit": 100,
+          "filters": "buyingOptions:{FIXED_PRICE|AUCTION}",
+          "version": "ebay_evidence_query_strategy_v1"
+        }
+      ],
+      "estimated_request_cost": 2
+    }
+  ],
+  "selector_fingerprint": "1b627b68525040536c7568fa3f3640a8e6e5e10e116e1f9f621bc4d05d3a58fe"
+}
