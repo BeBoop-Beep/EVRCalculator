@@ -1,4 +1,4 @@
-name: Check current publisher lock
+name: Validate Top Chase persisted-history audit
 
 on:
   push:
@@ -11,16 +11,33 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Check lock and tail
+      - name: Checkout audit fix
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/audit-top-chase-daily-history-20260920
+          persist-credentials: false
+      - name: Compile and exercise persisted-history audit
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          date
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          tail -50 publication.log || true
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile backend/scripts/audit_pokemon_market_publication.py
+          "$PY" - <<'PY'
+          from backend.tests.unit.scripts import test_audit_pokemon_market_publication as t
+          t.test_top_chase_persisted_current_date_rank_is_required()
+          print('missing_daily_rank_fails=PASS')
+          t.test_top_chase_persisted_rank_set_must_match_dashboard_cardinality()
+          print('rank_cardinality_mismatch_fails=PASS')
+          t.test_end_to_end_audit_fails_when_dashboard_is_current_but_persisted_top_chase_day_is_missing()
+          print('end_to_end_persisted_history_gate=PASS')
+          t.test_audit_reads_every_declared_source_table()
+          print('happy_path_reads_daily_history=PASS')
+          PY
