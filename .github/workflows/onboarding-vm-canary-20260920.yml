@@ -1,4 +1,4 @@
-name: Onboarding VM enablement 2026-09-20
+name: Onboarding Git mode audit 2026-09-20
 
 on:
   push:
@@ -9,64 +9,29 @@ permissions:
   contents: read
 
 jobs:
-  enablement:
+  git-mode-audit:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Restore production checkout to clean current main
+      - name: Inspect non-secret onboarding Git settings
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-
-          # These are generated/debug outputs inspected in the preceding audit,
-          # not operator source edits.
-          git restore --             backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json             payload_debug.json
-
-          git fetch origin main
-          git switch main
-          git reset --hard origin/main
-
-          echo "branch=$(git branch --show-current)"
-          echo "head=$(git rev-parse HEAD)"
-          git status --short
-          test "$(git branch --show-current)" = "main"
-          test -z "$(git status --porcelain)"
-
-      - name: Enable unattended onboarding
-        shell: bash
-        run: |
-          set -euo pipefail
-          install -m 600 /dev/null /home/ubuntu/.pokemon_onboarding_enabled
-          test -f /home/ubuntu/.pokemon_onboarding_enabled
-          echo "ONBOARDING_ENABLED=true"
-
-      - name: Verify installed wrapper matches repo
-        shell: bash
-        run: |
-          set -euo pipefail
-          cmp             /home/ubuntu/bin/run_pokemon_onboarding_worker.sh             /home/ubuntu/repos/EVRCalculator/infra/oracle/run_pokemon_onboarding_worker.sh
-          echo "WRAPPER_MATCH=true"
-
-      - name: Dry-run unattended worker
-        shell: bash
-        run: |
-          set -euo pipefail
-          /usr/bin/flock -n /tmp/pokemon-set-onboarding.lock             /home/ubuntu/bin/run_pokemon_onboarding_worker.sh dry-run
-
-      - name: Commit-mode no-op proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          /usr/bin/flock -n /tmp/pokemon-set-onboarding.lock             /home/ubuntu/bin/run_pokemon_onboarding_worker.sh commit
-
-      - name: Final state
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          echo "branch=$(git branch --show-current)"
-          echo "head=$(git rev-parse HEAD)"
-          echo "dirty_count=$(git status --porcelain | wc -l)"
-          echo "enable_marker=$(test -f /home/ubuntu/.pokemon_onboarding_enabled && echo present || echo missing)"
-          crontab -l | grep -F 'run_pokemon_onboarding_worker.sh commit'
+          ./.venv/bin/python - <<'PY'
+          from dotenv import dotenv_values
+          v = dotenv_values("backend/.env")
+          keys = [
+              "POKEMON_ONBOARDING_GIT_MODE",
+              "POKEMON_ONBOARDING_WORKTREE_DIR",
+              "POKEMON_ONBOARDING_BASE_BRANCH",
+              "POKEMON_ONBOARDING_AUTO_MERGE",
+              "POKEMON_ONBOARDING_AUTO_DEPLOY",
+          ]
+          for k in keys:
+              print(f"{k}={v.get(k)!r}")
+          PY
+          echo "gh_available=$(command -v gh >/dev/null && echo true || echo false)"
+          if command -v gh >/dev/null; then
+            gh auth status 2>&1 | sed -E 's/(Token: ).*/\1[REDACTED]/' || true
+          fi
