@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from backend.alerts.scrape_alerts import queue_alert
-from backend.db.clients.supabase_client import supabase
+from backend.db.clients.supabase_client import create_service_role_client, supabase
 from backend.db.services.post_scrape_publication_trigger import (
     PUBLICATION_LOCK_PATH,
     STATUS_CURRENCY_CHECK_FAILED,
@@ -32,6 +32,7 @@ from backend.db.services.post_scrape_publication_trigger import (
     trigger_post_scrape_publication_if_needed,
 )
 from backend.scripts.publish_post_scrape_if_needed import _batch_gate_decision
+from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.db.services.price_storage_v2_projection_gate import (
     REASON_AUTHORITY_UNAVAILABLE as PRICE_PROJECTION_AUTHORITY_UNAVAILABLE,
     advance_price_projection_once,
@@ -55,7 +56,7 @@ def _env_positive_int(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
-def _latest_complete_batch(client: Any) -> Optional[Dict[str, Any]]:
+def _latest_complete_batch_once(client: Any) -> Optional[Dict[str, Any]]:
     rows = list(
         client.table("pokemon_scrape_batches")
         .select("id,market_date,status,promoted_at,updated_at,expected_set_count,missing_set_count")
@@ -66,6 +67,25 @@ def _latest_complete_batch(client: Any) -> Optional[Dict[str, Any]]:
     )
     return dict(rows[0]) if rows else None
 
+
+def _latest_complete_batch(
+    client: Any,
+    *,
+    client_factory: Callable[[], Any] = create_service_role_client,
+    sleep: Optional[Callable[[float], None]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Load the newest complete batch with bounded fresh-client transient retries."""
+    kwargs = {
+        "operation_name": "post-scrape-publication-watchdog:latest-complete-batch",
+        "max_attempts": 3,
+        "client_factory": client_factory,
+    }
+    if sleep is not None:
+        kwargs["sleep"] = sleep
+    return run_snapshot_operation_with_retry(
+        lambda retry_client: _latest_complete_batch_once(retry_client),
+        **kwargs,
+    )
 
 def _lock_is_held(lock_path: str) -> bool:
     """Best-effort POSIX flock probe; false means the canonical wrapper may launch."""
