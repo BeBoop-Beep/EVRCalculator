@@ -1,198 +1,230 @@
-utc_now=2026-09-21T22:02:28Z
-phoenix_now=2026-09-21T15:02:28-0700
+utc_now=2026-09-21T23:24:23Z
+phoenix_now=2026-09-21T16:24:23-0700
 branch=main
-head=c1b1a7b2dbc2abbc969cb156697db3f149b0ccb9
-origin_main=bce8766f44185735146a2a1dbd1d0a08a14a3539
+head=8e572cd3955db421c74f4cd539af5b93c2746665
+origin_main=669c6d9bc302535f8a43774474fdb5fa254f5d0d
 tracked_status_begin
 tracked_status_end
-publication_lock=held
+publication_lock=free
 publication_processes_begin
- 204882       1    5729 bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-21
- 204925  204882    5704 /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-21 --gate-wait-attempts 6 --gate-wait-seconds 600
 publication_processes_end
 publication_log_tail_begin
-WARNING [refresh-query] slow label=calculation_history_trend.run_created_at set_id=None elapsed=8.16s
-INFO [refresh-plan] checked 57/212 key=scarletAndViolet151 elapsed=90.28s
-INFO [refresh-memory] plan progress 57/212 rss_mb=590.7 available_mb=10453.0
-WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=17.34s
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=8.06s
-INFO [refresh-plan] checked 58/212 key=obsidianFlames elapsed=97.22s
-INFO [refresh-memory] plan progress 58/212 rss_mb=590.7 available_mb=10421.8
-WARNING [refresh-query] slow label=simulation_input_cards_with_near_mint_price.captured_at set_id=None elapsed=5.90s
-INFO [refresh-plan] checked 59/212 key=paldeaEvolved elapsed=181.72s
-INFO [refresh-memory] plan progress 59/212 rss_mb=590.7 available_mb=10453.8
-WARNING [refresh-query] slow label=pokemon_desirability_composite_scores.updated_at set_id=None elapsed=11.15s
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=8.62s
-INFO [refresh-plan] checked 60/212 key=scarletAndVioletBase elapsed=148.56s
-INFO [refresh-memory] plan progress 60/212 rss_mb=590.7 available_mb=10604.8
-WARNING [refresh-query] slow label=card_variant_price_observations.created_at set_id=None elapsed=7.32s
-INFO [refresh-plan] checked 62/212 key=crownZenith elapsed=21.79s
-INFO [refresh-memory] plan progress 62/212 rss_mb=590.7 available_mb=10625.3
-WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=7.43s
-INFO [refresh-plan] checked 63/212 key=silverTempest elapsed=62.67s
-INFO [refresh-memory] plan progress 63/212 rss_mb=590.7 available_mb=10619.7
-WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=5.60s
-INFO [refresh-plan] checked 64/212 key=silverTempestTrainerGallery elapsed=49.80s
-INFO [refresh-memory] plan progress 64/212 rss_mb=590.7 available_mb=10614.4
-INFO [refresh-plan] checked 65/212 key=lostOrigin elapsed=32.21s
-INFO [refresh-memory] plan progress 65/212 rss_mb=590.7 available_mb=9857.6
-INFO [refresh-plan] checked 66/212 key=lostOriginTrainerGallery elapsed=13.53s
-INFO [refresh-memory] plan progress 66/212 rss_mb=590.7 available_mb=9678.9
-INFO [refresh-plan] checked 67/212 key=mcdonaldSCollection2022 elapsed=41.22s
-INFO [refresh-memory] plan progress 67/212 rss_mb=590.7 available_mb=10389.3
-WARNING [refresh-query] slow label=card_variant_price_observations.created_at set_id=None elapsed=7.96s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=5.92s
-INFO [refresh-plan] checked 68/212 key=pokMonGO elapsed=40.69s
-INFO [refresh-memory] plan progress 68/212 rss_mb=590.7 available_mb=10615.3
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=7.42s
-INFO [refresh-plan] checked 69/212 key=astralRadiance elapsed=118.63s
-INFO [refresh-memory] plan progress 69/212 rss_mb=590.7 available_mb=10613.2
-INFO [refresh-plan] checked 70/212 key=astralRadianceTrainerGallery elapsed=23.26s
-INFO [refresh-memory] plan progress 70/212 rss_mb=590.7 available_mb=10559.1
-INFO [refresh-plan] checked 71/212 key=brilliantStars elapsed=35.05s
-INFO [refresh-memory] plan progress 71/212 rss_mb=590.7 available_mb=10654.5
-INFO [refresh-plan] checked 72/212 key=brilliantStarsTrainerGallery elapsed=14.72s
-INFO [refresh-memory] plan progress 72/212 rss_mb=590.7 available_mb=10654.5
-WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=9.22s
-WARNING [refresh-query] slow label=simulation_latest_by_target.updated_at set_id=None elapsed=6.95s
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=5.76s
-INFO [refresh-plan] checked 73/212 key=fusionStrike elapsed=122.42s
-INFO [refresh-memory] plan progress 73/212 rss_mb=590.7 available_mb=10648.5
-INFO [refresh-plan] checked 74/212 key=celebrationsClassicCollection elapsed=19.83s
-INFO [refresh-memory] plan progress 74/212 rss_mb=590.7 available_mb=10645.0
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=7.59s
-INFO [refresh-plan] checked 75/212 key=celebrations elapsed=25.55s
-INFO [refresh-memory] plan progress 75/212 rss_mb=590.7 available_mb=10645.0
-WARNING [refresh-query] slow label=cards.ids set_id=None elapsed=5.71s
-WARNING [refresh-query] slow label=simulation_input_cards_with_near_mint_price.captured_at set_id=None elapsed=5.57s
-INFO [refresh-plan] checked 76/212 key=evolvingSkies elapsed=95.54s
-INFO [refresh-memory] plan progress 76/212 rss_mb=590.7 available_mb=9892.0
-WARNING [refresh-query] slow label=simulation_latest_by_target.updated_at set_id=None elapsed=5.58s
-WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=7.83s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=8.56s
-INFO [refresh-plan] checked 77/212 key=chillingReign elapsed=112.84s
-INFO [refresh-memory] plan progress 77/212 rss_mb=590.7 available_mb=10479.0
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=6.12s
-WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.70s
-INFO [refresh-plan] checked 78/212 key=battleStyles elapsed=40.27s
-INFO [refresh-memory] plan progress 78/212 rss_mb=590.7 available_mb=10651.0
-INFO [refresh-plan] checked 79/212 key=shiningFatesShinyVault elapsed=12.71s
-INFO [refresh-memory] plan progress 79/212 rss_mb=590.7 available_mb=10492.9
-WARNING [refresh-query] slow label=card_variant_price_observations.created_at set_id=None elapsed=7.25s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=5.68s
-INFO [refresh-plan] checked 80/212 key=shiningFates elapsed=37.16s
-INFO [refresh-memory] plan progress 80/212 rss_mb=590.7 available_mb=10660.4
-INFO [refresh-plan] checked 81/212 key=mcdonaldSCollection2021 elapsed=32.59s
-INFO [refresh-memory] plan progress 81/212 rss_mb=590.7 available_mb=10536.0
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.updated_at set_id=None elapsed=8.57s
-INFO [refresh-plan] checked 82/212 key=vividVoltage elapsed=75.48s
-INFO [refresh-memory] plan progress 82/212 rss_mb=590.7 available_mb=10650.0
-WARNING [refresh-query] slow label=simulation_latest_by_target.run_at set_id=None elapsed=6.09s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=17.17s
-INFO [refresh-plan] checked 83/212 key=championSPath elapsed=82.04s
-INFO [refresh-memory] plan progress 83/212 rss_mb=590.7 available_mb=10596.6
-INFO [refresh-plan] checked 84/212 key=pokMonFutsalCollection elapsed=3.54s
-INFO [refresh-memory] plan progress 84/212 rss_mb=590.7 available_mb=10596.6
-INFO [refresh-plan] checked 85/212 key=darknessAblaze elapsed=64.42s
-INFO [refresh-memory] plan progress 85/212 rss_mb=590.7 available_mb=10552.4
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=6.06s
-WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=7.78s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=6.30s
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=9.02s
-INFO [refresh-plan] checked 86/212 key=rebelClash elapsed=88.62s
-INFO [refresh-memory] plan progress 86/212 rss_mb=590.7 available_mb=10648.4
-INFO [refresh-plan] checked 87/212 key=swordAndShield elapsed=60.90s
-INFO [refresh-memory] plan progress 87/212 rss_mb=590.7 available_mb=10523.8
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=6.93s
-INFO [refresh-plan] checked 88/212 key=swshBlackStarPromos elapsed=14.66s
-INFO [refresh-memory] plan progress 88/212 rss_mb=590.7 available_mb=10636.8
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.run_at set_id=None elapsed=6.57s
-INFO [refresh-plan] checked 89/212 key=cosmicEclipse elapsed=112.81s
-INFO [refresh-memory] plan progress 89/212 rss_mb=590.7 available_mb=10581.9
-WARNING [refresh-query] slow label=pokemon_canonical_cards.updated_at set_id=None elapsed=6.74s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=5.14s
-INFO [refresh-plan] checked 90/212 key=mcdonaldSCollection2019 elapsed=30.33s
-INFO [refresh-memory] plan progress 90/212 rss_mb=590.7 available_mb=10509.1
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=6.69s
-INFO [refresh-plan] checked 91/212 key=hiddenFates elapsed=49.94s
-INFO [refresh-memory] plan progress 91/212 rss_mb=590.7 available_mb=10596.9
-INFO [refresh-plan] checked 92/212 key=hiddenFatesShinyVault elapsed=31.11s
-INFO [refresh-memory] plan progress 92/212 rss_mb=590.7 available_mb=10648.8
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=5.26s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.updated_at set_id=None elapsed=6.20s
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=11.09s
-WARNING [refresh-query] slow label=pokemon_explore_rankings_snapshot_latest.updated_at set_id=None elapsed=5.28s
-INFO [refresh-plan] checked 93/212 key=unifiedMinds elapsed=95.21s
-INFO [refresh-memory] plan progress 93/212 rss_mb=590.7 available_mb=10391.2
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=7.51s
-WARNING [refresh-query] slow label=simulation_latest_by_target.updated_at set_id=None elapsed=7.29s
-INFO [refresh-plan] checked 94/212 key=unbrokenBonds elapsed=111.37s
-INFO [refresh-memory] plan progress 94/212 rss_mb=590.7 available_mb=10620.1
-WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=5.13s
-WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.76s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=7.69s
-INFO [refresh-plan] checked 96/212 key=teamUp elapsed=40.64s
-INFO [refresh-memory] plan progress 96/212 rss_mb=590.7 available_mb=10635.4
-WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=6.16s
-INFO [refresh-plan] checked 97/212 key=lostThunder elapsed=103.82s
-INFO [refresh-memory] plan progress 97/212 rss_mb=590.7 available_mb=10583.1
-INFO [refresh-plan] checked 98/212 key=mcdonaldSCollection2018 elapsed=42.54s
-INFO [refresh-memory] plan progress 98/212 rss_mb=590.7 available_mb=10575.5
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=6.40s
-INFO [refresh-plan] checked 99/212 key=dragonMajesty elapsed=36.85s
-INFO [refresh-memory] plan progress 99/212 rss_mb=590.7 available_mb=10620.5
-WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=7.91s
-INFO [refresh-plan] checked 100/212 key=celestialStorm elapsed=100.60s
-INFO [refresh-memory] plan progress 100/212 rss_mb=590.7 available_mb=9693.1
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=10.99s
-INFO [refresh-plan] checked 101/212 key=forbiddenLight elapsed=61.79s
-INFO [refresh-memory] plan progress 101/212 rss_mb=590.7 available_mb=10567.2
-WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=5.27s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.run_at set_id=None elapsed=5.02s
-INFO [refresh-plan] checked 102/212 key=ultraPrism elapsed=95.90s
-INFO [refresh-memory] plan progress 102/212 rss_mb=590.7 available_mb=10479.0
-WARNING [refresh-query] slow label=pokemon_set_value_daily_history.updated_at set_id=None elapsed=5.92s
-WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=6.19s
-WARNING [refresh-query] slow label=simulation_latest_by_target.updated_at set_id=None elapsed=5.34s
-INFO [refresh-plan] checked 103/212 key=mcdonaldSCollection2017 elapsed=97.76s
-INFO [refresh-memory] plan progress 103/212 rss_mb=590.7 available_mb=10645.9
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=8.38s
-INFO [refresh-plan] checked 104/212 key=crimsonInvasion elapsed=88.50s
-INFO [refresh-memory] plan progress 104/212 rss_mb=590.7 available_mb=10584.4
-WARNING [refresh-query] slow label=calculation_history_trend.snapshot_date set_id=None elapsed=5.67s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.updated_at set_id=None elapsed=5.25s
-WARNING [refresh-query] slow label=simulation_latest_by_target.latest_run set_id=None elapsed=25.78s
-INFO [refresh-plan] checked 105/212 key=shiningLegends elapsed=169.18s
-INFO [refresh-memory] plan progress 105/212 rss_mb=590.7 available_mb=10631.2
-INFO [refresh-plan] checked 106/212 key=burningShadows elapsed=59.69s
-INFO [refresh-memory] plan progress 106/212 rss_mb=590.7 available_mb=10667.5
-WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=7.41s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.updated_at set_id=None elapsed=6.83s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=7.86s
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=17.39s
-INFO [refresh-plan] checked 107/212 key=guardiansRising elapsed=117.73s
-INFO [refresh-memory] plan progress 107/212 rss_mb=590.7 available_mb=10633.7
-WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=11.73s
-WARNING [refresh-query] slow label=pokemon_set_value_daily_history.updated_at set_id=None elapsed=5.66s
-WARNING [refresh-query] slow label=pokemon_set_top_chase_card_daily_history.updated_at set_id=None elapsed=7.58s
-WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=5.40s
-WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=5.16s
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=9.08s
-INFO [refresh-plan] checked 108/212 key=smBlackStarPromos elapsed=200.10s
-INFO [refresh-memory] plan progress 108/212 rss_mb=590.7 available_mb=10400.0
-WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=6.25s
-INFO [refresh-plan] checked 109/212 key=sunAndMoon elapsed=111.79s
-INFO [refresh-memory] plan progress 109/212 rss_mb=590.7 available_mb=10555.5
-INFO [refresh-plan] checked 110/212 key=evolutions elapsed=83.50s
-INFO [refresh-memory] plan progress 110/212 rss_mb=590.7 available_mb=10631.3
-WARNING [refresh-query] slow label=card_variants.ids set_id=None elapsed=19.80s
-INFO [refresh-plan] checked 111/212 key=mcdonaldSCollection2016 elapsed=64.43s
-INFO [refresh-memory] plan progress 111/212 rss_mb=590.7 available_mb=10609.9
-WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=6.67s
-INFO [refresh-plan] checked 112/212 key=steamSiege elapsed=88.30s
-INFO [refresh-memory] plan progress 112/212 rss_mb=590.7 available_mb=10423.6
+INFO [refresh-memory] plan progress 19/212 rss_mb=136.8 available_mb=10826.7
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.41s
+INFO [refresh-plan] checked 20/212 key=alternateArtPromos elapsed=50.86s
+INFO [refresh-memory] plan progress 20/212 rss_mb=136.8 available_mb=10771.4
+INFO [refresh-plan] checked 21/212 key=sveScarletAndVioletEnergies elapsed=12.77s
+INFO [refresh-memory] plan progress 21/212 rss_mb=136.8 available_mb=10939.1
+WARNING [refresh-query] slow label=pokemon_set_top_chase_card_daily_history.updated_at set_id=None elapsed=5.08s
+WARNING [refresh-query] slow label=simulation_latest_by_target.updated_at set_id=None elapsed=7.16s
+WARNING [refresh-query] slow label=calculation_history_trend.run_created_at set_id=None elapsed=8.13s
+INFO [refresh-plan] checked 23/212 key=swshSwordAndShieldPromoCards elapsed=143.20s
+INFO [refresh-memory] plan progress 23/212 rss_mb=136.9 available_mb=10894.3
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.65s
+WARNING [refresh-query] slow label=explore_rip_statistics_latest.created_at set_id=None elapsed=33.05s
+INFO [refresh-plan] checked 24/212 key=tradingCardGameClassic elapsed=94.42s
+INFO [refresh-memory] plan progress 24/212 rss_mb=136.9 available_mb=10894.1
+INFO [refresh-plan] checked 25/212 key=professorProgramPromos elapsed=15.34s
+INFO [refresh-memory] plan progress 25/212 rss_mb=136.9 available_mb=10893.9
+INFO [refresh-plan] checked 26/212 key=baseSetShadowless elapsed=18.59s
+INFO [refresh-memory] plan progress 26/212 rss_mb=136.9 available_mb=10943.2
+INFO [refresh-plan] checked 27/212 key=pikachuWorldCollectionPromos elapsed=56.36s
+INFO [refresh-memory] plan progress 27/212 rss_mb=136.9 available_mb=10878.5
+INFO [refresh-plan] checked 30/212 key=xyTrainerKitBisharpAndWigglytuff elapsed=3.73s
+INFO [refresh-memory] plan progress 30/212 rss_mb=137.1 available_mb=10942.3
+INFO [refresh-plan] checked 31/212 key=hgssTrainerKitGyaradosAndRaichu elapsed=46.09s
+INFO [refresh-memory] plan progress 31/212 rss_mb=137.1 available_mb=10777.5
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.83s
+INFO [refresh-plan] checked 32/212 key=bwTrainerKitExcadrillAndZoroark elapsed=13.03s
+INFO [refresh-memory] plan progress 32/212 rss_mb=137.1 available_mb=10941.8
+WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=15.22s
+WARNING [refresh-query] slow label=pokemon_explore_rankings_snapshot_latest.updated_at set_id=None elapsed=11.59s
+INFO [refresh-plan] checked 33/212 key=xyTrainerKitLatiasAndLatios elapsed=66.04s
+INFO [refresh-memory] plan progress 33/212 rss_mb=137.1 available_mb=10833.3
+INFO [refresh-plan] checked 34/212 key=xyTrainerKitSylveonAndNoivern elapsed=11.28s
+INFO [refresh-memory] plan progress 34/212 rss_mb=137.1 available_mb=10942.8
+WARNING [refresh-query] slow label=explore_rip_statistics_latest.run_at set_id=None elapsed=7.00s
+WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=13.52s
+INFO [refresh-plan] checked 35/212 key=smTrainerKitLycanrocAndAlolanRaichu elapsed=75.69s
+INFO [refresh-memory] plan progress 35/212 rss_mb=137.1 available_mb=10886.9
+WARNING [refresh-query] slow label=cards.created_at set_id=None elapsed=18.97s
+WARNING [refresh-query] slow label=pokemon_set_top_chase_card_daily_history.updated_at set_id=None elapsed=7.79s
+WARNING [refresh-query] slow label=pokemon_set_top_chase_card_daily_history.snapshot_date set_id=None elapsed=6.78s
+INFO [refresh-plan] checked 36/212 key=me06DeltaReign elapsed=73.01s
+INFO [refresh-memory] plan progress 36/212 rss_mb=137.1 available_mb=10804.2
+INFO [refresh-plan] checked 37/212 key=me30thCelebrationClassicCollection elapsed=14.28s
+INFO [refresh-memory] plan progress 37/212 rss_mb=140.7 available_mb=10940.6
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.75s
+WARNING [refresh-query] slow label=pokemon_canonical_card_market_prices_latest.coverage set_id=None elapsed=7.86s
+WARNING [refresh-query] slow label=pokemon_set_top_chase_card_daily_history.created_at set_id=None elapsed=5.25s
+WARNING [refresh-query] slow label=card_variants.ids set_id=None elapsed=8.51s
+WARNING [refresh-query] slow label=simulation_latest_by_target.updated_at set_id=None elapsed=6.15s
+WARNING [refresh-query] slow label=simulation_latest_by_target.run_at set_id=None elapsed=6.97s
+INFO [refresh-plan] checked 38/212 key=me30thCelebration elapsed=100.00s
+INFO [refresh-memory] plan progress 38/212 rss_mb=164.7 available_mb=10810.8
+WARNING [refresh-query] slow label=simulation_input_cards_with_near_mint_price.captured_at set_id=None elapsed=6.40s
+INFO [refresh-plan] checked 39/212 key=pitchBlack elapsed=39.63s
+INFO [refresh-memory] plan progress 39/212 rss_mb=324.6 available_mb=10764.2
+WARNING [refresh-query] slow label=card_variants.ids set_id=None elapsed=6.02s
+WARNING [refresh-query] slow label=explore_rip_statistics_latest.updated_at set_id=None elapsed=6.96s
+INFO [refresh-plan] checked 40/212 key=chaosRising elapsed=75.43s
+INFO [refresh-memory] plan progress 40/212 rss_mb=334.7 available_mb=10561.7
+WARNING [refresh-query] slow label=simulation_latest_by_target.latest_run set_id=None elapsed=16.70s
+WARNING [refresh-query] slow label=simulation_input_cards_with_near_mint_price.captured_at set_id=None elapsed=5.65s
+INFO [refresh-plan] checked 41/212 key=perfectOrder elapsed=95.23s
+INFO [refresh-memory] plan progress 41/212 rss_mb=340.9 available_mb=10690.0
+WARNING [refresh-query] slow label=card_variants.created_at set_id=None elapsed=12.44s
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=16.41s
+WARNING [refresh-query] slow label=simulation_input_cards_with_near_mint_price.captured_at set_id=None elapsed=5.20s
+INFO [refresh-plan] checked 42/212 key=ascendedHeroes elapsed=57.45s
+INFO [refresh-memory] plan progress 42/212 rss_mb=591.1 available_mb=10515.5
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=7.96s
+INFO [refresh-plan] checked 43/212 key=phantasmalFlames elapsed=17.60s
+INFO [refresh-memory] plan progress 43/212 rss_mb=591.1 available_mb=10515.5
+INFO [refresh-plan] checked 44/212 key=megaEvolution elapsed=25.89s
+INFO [refresh-memory] plan progress 44/212 rss_mb=591.1 available_mb=10633.5
+INFO [refresh-plan] checked 45/212 key=blackBolt elapsed=78.84s
+INFO [refresh-memory] plan progress 45/212 rss_mb=591.1 available_mb=10626.8
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=13.02s
+INFO [refresh-plan] checked 46/212 key=whiteFlare elapsed=134.53s
+INFO [refresh-memory] plan progress 46/212 rss_mb=591.1 available_mb=10664.0
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=9.03s
+INFO [refresh-plan] checked 47/212 key=destinedRivals elapsed=37.55s
+INFO [refresh-memory] plan progress 47/212 rss_mb=591.1 available_mb=10670.3
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=6.98s
+INFO [refresh-plan] checked 48/212 key=journeyTogether elapsed=19.52s
+INFO [refresh-memory] plan progress 48/212 rss_mb=591.1 available_mb=10643.5
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=6.83s
+INFO [refresh-plan] checked 49/212 key=prismaticEvolutions elapsed=59.47s
+INFO [refresh-memory] plan progress 49/212 rss_mb=591.1 available_mb=10658.0
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=8.03s
+WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=9.07s
+INFO [refresh-plan] checked 50/212 key=surgingSparks elapsed=60.31s
+INFO [refresh-memory] plan progress 50/212 rss_mb=591.1 available_mb=10535.0
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=9.86s
+INFO [refresh-plan] checked 51/212 key=stellarCrown elapsed=38.99s
+INFO [refresh-memory] plan progress 51/212 rss_mb=591.1 available_mb=9572.1
+WARNING [refresh-query] slow label=card_variant_price_observations.created_at set_id=None elapsed=6.73s
+INFO [refresh-plan] checked 52/212 key=shroudedFable elapsed=23.03s
+INFO [refresh-memory] plan progress 52/212 rss_mb=591.1 available_mb=10533.9
+WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=7.60s
+INFO [refresh-plan] checked 53/212 key=twilightMasquerade elapsed=69.51s
+INFO [refresh-memory] plan progress 53/212 rss_mb=591.1 available_mb=10540.9
+INFO [refresh-plan] checked 54/212 key=temporalForces elapsed=30.19s
+INFO [refresh-memory] plan progress 54/212 rss_mb=591.1 available_mb=9588.3
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.81s
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=6.16s
+INFO [refresh-plan] checked 55/212 key=paldeanFates elapsed=17.10s
+INFO [refresh-memory] plan progress 55/212 rss_mb=591.1 available_mb=10559.5
+WARNING [refresh-query] slow label=card_variants.ids set_id=None elapsed=5.74s
+WARNING [refresh-query] slow label=pokemon_canonical_card_market_prices_latest.variant_ids set_id=None elapsed=23.23s
+WARNING [refresh-query] slow label=simulation_input_cards_with_near_mint_price.created_at set_id=None elapsed=7.56s
+WARNING [refresh-query] slow label=pokemon_set_sealed_market_snapshot_latest.rip_decision_authority set_id=None elapsed=5.48s
+INFO [refresh-plan] checked 56/212 key=paradoxRift elapsed=177.26s
+INFO [refresh-memory] plan progress 56/212 rss_mb=591.1 available_mb=10557.7
+INFO [refresh-plan] checked 57/212 key=scarletAndViolet151 elapsed=79.28s
+INFO [refresh-memory] plan progress 57/212 rss_mb=591.1 available_mb=10457.3
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=9.81s
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=6.32s
+INFO [refresh-plan] checked 58/212 key=obsidianFlames elapsed=41.06s
+INFO [refresh-memory] plan progress 58/212 rss_mb=591.1 available_mb=10546.2
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.33s
+INFO [refresh-plan] checked 59/212 key=paldeaEvolved elapsed=59.04s
+INFO [refresh-memory] plan progress 59/212 rss_mb=591.1 available_mb=10545.9
+INFO [refresh-plan] checked 60/212 key=scarletAndVioletBase elapsed=31.94s
+INFO [refresh-memory] plan progress 60/212 rss_mb=591.1 available_mb=9602.9
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=5.43s
+WARNING [refresh-query] slow label=simulation_latest_by_target.latest_run set_id=None elapsed=23.94s
+INFO [refresh-plan] checked 61/212 key=crownZenithGalarianGallery elapsed=72.03s
+INFO [refresh-memory] plan progress 61/212 rss_mb=591.1 available_mb=10426.4
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=5.47s
+WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=5.65s
+INFO [refresh-plan] checked 62/212 key=crownZenith elapsed=54.13s
+INFO [refresh-memory] plan progress 62/212 rss_mb=591.1 available_mb=10434.6
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=14.12s
+WARNING [refresh-query] slow label=pokemon_canonical_card_market_prices_latest.coverage set_id=None elapsed=7.19s
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=9.54s
+INFO [refresh-plan] checked 63/212 key=silverTempest elapsed=57.72s
+INFO [refresh-memory] plan progress 63/212 rss_mb=591.1 available_mb=9768.3
+WARNING [refresh-query] slow label=pokemon_card_desirability_links.updated_at set_id=None elapsed=22.10s
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=6.64s
+WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=5.83s
+INFO [refresh-plan] checked 65/212 key=lostOrigin elapsed=110.89s
+INFO [refresh-memory] plan progress 65/212 rss_mb=591.1 available_mb=10337.7
+INFO [refresh-plan] checked 66/212 key=lostOriginTrainerGallery elapsed=60.22s
+INFO [refresh-memory] plan progress 66/212 rss_mb=591.1 available_mb=10316.5
+WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=6.05s
+INFO [refresh-plan] checked 67/212 key=mcdonaldSCollection2022 elapsed=18.84s
+INFO [refresh-memory] plan progress 67/212 rss_mb=591.1 available_mb=10497.4
+WARNING [refresh-query] slow label=pokemon_set_page_snapshot_latest.snapshot set_id=None elapsed=6.04s
+INFO [refresh-plan] checked 68/212 key=pokMonGO elapsed=95.97s
+INFO [refresh-memory] plan progress 68/212 rss_mb=591.1 available_mb=10468.8
+INFO [refresh-plan] checked 69/212 key=astralRadiance elapsed=82.26s
+INFO [refresh-memory] plan progress 69/212 rss_mb=591.1 available_mb=9641.4
+INFO [refresh-plan] checked 70/212 key=astralRadianceTrainerGallery elapsed=10.64s
+INFO [refresh-memory] plan progress 70/212 rss_mb=591.1 available_mb=10479.4
+WARNING [refresh-query] slow label=card_variant_price_observations.captured_at set_id=None elapsed=8.10s
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=6.57s
+WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=7.70s
+WARNING [refresh-query] slow label=explore_rip_statistics_latest.latest_run set_id=None elapsed=13.21s
+INFO [refresh-plan] checked 71/212 key=brilliantStars elapsed=84.74s
+INFO [refresh-memory] plan progress 71/212 rss_mb=591.1 available_mb=10421.8
+INFO [refresh-plan] checked 72/212 key=brilliantStarsTrainerGallery elapsed=10.12s
+INFO [refresh-memory] plan progress 72/212 rss_mb=591.1 available_mb=10510.5
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=8.56s
+WARNING [refresh-query] slow label=calculation_history_trend.snapshot_date set_id=None elapsed=7.67s
+WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=8.84s
+INFO [refresh-plan] checked 73/212 key=fusionStrike elapsed=111.44s
+INFO [refresh-memory] plan progress 73/212 rss_mb=591.1 available_mb=10410.1
+INFO [refresh-plan] checked 75/212 key=celebrations elapsed=4.63s
+INFO [refresh-memory] plan progress 75/212 rss_mb=591.1 available_mb=10426.1
+INFO [refresh-plan] checked 76/212 key=evolvingSkies elapsed=11.27s
+INFO [refresh-memory] plan progress 76/212 rss_mb=591.1 available_mb=10425.5
+INFO [refresh-plan] checked 77/212 key=chillingReign elapsed=12.99s
+INFO [refresh-memory] plan progress 77/212 rss_mb=591.1 available_mb=10424.7
+INFO [refresh-plan] checked 78/212 key=battleStyles elapsed=8.25s
+INFO [refresh-memory] plan progress 78/212 rss_mb=591.1 available_mb=10415.9
+INFO [refresh-plan] checked 79/212 key=shiningFatesShinyVault elapsed=49.00s
+INFO [refresh-memory] plan progress 79/212 rss_mb=591.1 available_mb=10380.3
+INFO [refresh-plan] checked 81/212 key=mcdonaldSCollection2021 elapsed=5.34s
+INFO [refresh-memory] plan progress 81/212 rss_mb=591.1 available_mb=10562.8
+WARNING [refresh-query] slow label=pokemon_set_cards_snapshot_latest.snapshot set_id=None elapsed=6.15s
 publication_log_tail_end
 watchdog_log_tail_begin
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cupdated_at%2Cexpected_set_count%2Cmissing_set_count&status=eq.complete&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&market_date=eq.2026-09-21&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+[publication-gate] promotion ALLOWED — batch 2026-09-21 is complete (promoted_at=2026-09-21T14:50:12.429159+00:00, expected=167, missing=0)
+[publish-if-needed] gate check market_date=2026-09-21 allowed=True reason_code=allowed_complete attempt=1/3
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/scrape_jobs?select=set_id%2Ccompleted_at&market_date=eq.2026-09-21&status=eq.completed "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/price_storage_v2_shadow_queue?select=set_id%2Cstatus%2Cattempts%2Clast_error%2Csource_completed_at%2Ccompleted_at%2Cupdated_at&market_date=eq.2026-09-21 "HTTP/2 200 OK"
+{
+  "batch_id": 59,
+  "failure_code": null,
+  "healthy": true,
+  "lock_held": true,
+  "log_age_seconds": 1.687469,
+  "market_date": "2026-09-21",
+  "stall_seconds": 1200,
+  "status": "in_progress"
+}
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cupdated_at%2Cexpected_set_count%2Cmissing_set_count&status=eq.complete&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&market_date=eq.2026-09-21&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+[publication-gate] promotion ALLOWED — batch 2026-09-21 is complete (promoted_at=2026-09-21T14:50:12.429159+00:00, expected=167, missing=0)
+[publish-if-needed] gate check market_date=2026-09-21 allowed=True reason_code=allowed_complete attempt=1/3
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/scrape_jobs?select=set_id%2Ccompleted_at&market_date=eq.2026-09-21&status=eq.completed "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/price_storage_v2_shadow_queue?select=set_id%2Cstatus%2Cattempts%2Clast_error%2Csource_completed_at%2Ccompleted_at%2Cupdated_at&market_date=eq.2026-09-21 "HTTP/2 200 OK"
+{
+  "batch_id": 59,
+  "failure_code": null,
+  "healthy": true,
+  "lock_held": true,
+  "log_age_seconds": 77.112837,
+  "market_date": "2026-09-21",
+  "stall_seconds": 1200,
+  "status": "in_progress"
+}
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cupdated_at%2Cexpected_set_count%2Cmissing_set_count&status=eq.complete&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&market_date=eq.2026-09-21&order=market_date.desc&limit=1 "HTTP/2 200 OK"
 [publication-gate] promotion ALLOWED — batch 2026-09-21 is complete (promoted_at=2026-09-21T14:50:12.429159+00:00, expected=167, missing=0)
 [publish-if-needed] gate check market_date=2026-09-21 allowed=True reason_code=allowed_complete attempt=1/3
 HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/scrape_jobs?select=set_id%2Ccompleted_at&market_date=eq.2026-09-21&status=eq.completed "HTTP/2 200 OK"
@@ -212,47 +244,13 @@ HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrap
 [publication-gate] promotion ALLOWED — batch 2026-09-21 is complete (promoted_at=2026-09-21T14:50:12.429159+00:00, expected=167, missing=0)
 [publish-if-needed] gate check market_date=2026-09-21 allowed=True reason_code=allowed_complete attempt=1/3
 HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/scrape_jobs?select=set_id%2Ccompleted_at&market_date=eq.2026-09-21&status=eq.completed "HTTP/2 200 OK"
-HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/price_storage_v2_shadow_queue?select=set_id%2Cstatus%2Cattempts%2Clast_error%2Csource_completed_at%2Ccompleted_at%2Cupdated_at&market_date=eq.2026-09-21 "HTTP/2 500 Internal Server Error"
-HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/alert_events?select=id%2Calert_type%2Cseverity%2Ctitle%2Cmessage%2Cpayload%2Cdedupe_key&dedupe_key=eq.price_projection_watchdog_failed%3A2026-09-21&limit=1 "HTTP/2 200 OK"
-[scrape-alerts] deduplicated alert key=price_projection_watchdog_failed:2026-09-21
-{
-  "batch_id": 59,
-  "healthy": false,
-  "market_date": "2026-09-21",
-  "price_projection": {
-    "complete_set_count": 0,
-    "error": "APIError: {'message': 'canceling statement due to statement timeout', 'code': '57014', 'hint': None, 'details': None}",
-    "expected_set_count": 0,
-    "failed_set_count": 0,
-    "failed_set_ids": [],
-    "market_date": "2026-09-21",
-    "missing_set_count": 0,
-    "missing_set_ids": [],
-    "pending_set_count": 0,
-    "pending_set_ids": [],
-    "ready": false,
-    "reason_code": "price_projection_authority_unavailable",
-    "stale_source_set_count": 0,
-    "stale_source_set_ids": [],
-    "terminal_failed_set_count": 0,
-    "terminal_failed_set_ids": []
-  },
-  "status": "price_projection_authority_unavailable"
-}
-HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cupdated_at%2Cexpected_set_count%2Cmissing_set_count&status=eq.complete&order=market_date.desc&limit=1 "HTTP/2 500 Internal Server Error"
-snapshot operation retry operation=post-scrape-publication-watchdog:latest-complete-batch set_id=None attempt=1/3 error_type=APIError error_code=57014 status=57014 delay=0.288s
-HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cupdated_at%2Cexpected_set_count%2Cmissing_set_count&status=eq.complete&order=market_date.desc&limit=1 "HTTP/2 200 OK"
-HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&market_date=eq.2026-09-21&order=market_date.desc&limit=1 "HTTP/2 200 OK"
-[publication-gate] promotion ALLOWED — batch 2026-09-21 is complete (promoted_at=2026-09-21T14:50:12.429159+00:00, expected=167, missing=0)
-[publish-if-needed] gate check market_date=2026-09-21 allowed=True reason_code=allowed_complete attempt=1/3
-HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/scrape_jobs?select=set_id%2Ccompleted_at&market_date=eq.2026-09-21&status=eq.completed "HTTP/2 200 OK"
 HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/price_storage_v2_shadow_queue?select=set_id%2Cstatus%2Cattempts%2Clast_error%2Csource_completed_at%2Ccompleted_at%2Cupdated_at&market_date=eq.2026-09-21 "HTTP/2 200 OK"
 {
   "batch_id": 59,
   "failure_code": null,
   "healthy": true,
   "lock_held": true,
-  "log_age_seconds": 45.34268,
+  "log_age_seconds": 87.605309,
   "market_date": "2026-09-21",
   "stall_seconds": 1200,
   "status": "in_progress"
@@ -268,7 +266,7 @@ HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/price_storage
   "failure_code": null,
   "healthy": true,
   "lock_held": true,
-  "log_age_seconds": 42.770336,
+  "log_age_seconds": 21.167408,
   "market_date": "2026-09-21",
   "stall_seconds": 1200,
   "status": "in_progress"
