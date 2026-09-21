@@ -19,6 +19,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -26,10 +27,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from backend.db.repositories import pokemon_set_onboarding_repository as onboarding_jobs
 from backend.scripts.run_pokemon_set_scrape import _load_backend_env
 from backend.services.pokemon_set_onboarding_recheck_service import run_recheck
 
 _PROVIDER_ID_RE = re.compile(r"/priceguide/set/(\d+)/")
+REFRESH_RETRY_DELAY_HOURS = 1.0
 
 
 def _provider_id_from_url(value: Any) -> Optional[str]:
@@ -37,11 +40,19 @@ def _provider_id_from_url(value: Any) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _catalog_state(client: Any) -> Dict[str, Dict[str, Any]]:
+def _provider_set_state(client: Any) -> Dict[str, Dict[str, Any]]:
+    """Map TCGplayer provider identity -> current set lifecycle row.
+
+    Includes BOTH catalog-only and normal daily-scrape sets so due recheck rows
+    can be pruned before any provider requests once a set graduates out of the
+    catalog-only lane.
+    """
     rows = list(
         client.table("sets")
-        .select("id,name,canonical_key,catalog_only,card_details_url,sealed_details_url")
-        .eq("catalog_only", True)
+        .select(
+            "id,name,canonical_key,catalog_only,ready_for_daily_scrape,"
+            "card_details_url,sealed_details_url"
+        )
         .execute()
         .data
         or []
@@ -59,6 +70,27 @@ def _catalog_state(client: Any) -> Dict[str, Dict[str, Any]]:
         for provider_id in provider_ids:
             by_provider[provider_id] = dict(row)
     return by_provider
+
+
+def _set_provider_next_check_at(client: Any, job_id: str, value: Optional[str]) -> None:
+    payload = {
+        "provider_next_check_at": value,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    response = (
+        client.table("pokemon_set_onboarding_jobs")
+        .update(payload)
+        .eq("id", job_id)
+        .execute()
+    )
+    if not (response.data or []):
+        raise RuntimeError(f"provider recheck timer update affected zero rows for job {job_id}")
+
+
+def _retry_at() -> str:
+    return (
+        datetime.now(timezone.utc) + timedelta(hours=REFRESH_RETRY_DELAY_HOURS)
+    ).isoformat()
 
 
 def _row_count(client: Any, table: str, set_id: str) -> int:
@@ -142,22 +174,57 @@ def _planned_commands(canonical_key: str, *, has_processable_cards: bool) -> lis
 
 
 def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Dict[str, Any]:
-    from backend.db.clients.supabase_client import service_read_client
+    from backend.db.clients.supabase_client import service_read_client, supabase
+
+    limit = max(1, limit)
+    try:
+        due_rows = onboarding_jobs.list_rechecks_v2(limit=limit)
+    except Exception as exc:
+        return {
+            "status": "retryable_database_error",
+            "dry_run": not commit,
+            "error": str(exc),
+            "recheck": None,
+            "graduated_rechecks": [],
+            "refreshes": [],
+        }
+
+    provider_sets = _provider_set_state(service_read_client)
+    catalog_due: list[Dict[str, Any]] = []
+    graduated_rechecks: list[Dict[str, Any]] = []
+
+    for row in due_rows:
+        provider_id = str(row.get("source_set_id") or "")
+        set_row = provider_sets.get(provider_id)
+        if set_row and not bool(set_row.get("catalog_only")):
+            entry = {
+                "job_id": row.get("id"),
+                "source_set_id": provider_id,
+                "canonical_key": set_row.get("canonical_key"),
+                "ready_for_daily_scrape": bool(set_row.get("ready_for_daily_scrape")),
+                "status": "would_clear_recheck" if not commit else "recheck_cleared",
+            }
+            graduated_rechecks.append(entry)
+            if commit:
+                _set_provider_next_check_at(supabase, str(row.get("id")), None)
+            continue
+        catalog_due.append(row)
 
     recheck = run_recheck(
         commit=commit,
-        limit=max(1, limit),
+        limit=limit,
         max_provider_requests=max_provider_requests,
+        due_rows=catalog_due,
     )
     if recheck.get("status") != "ok":
         return {
             "status": "recheck_failed",
             "dry_run": not commit,
             "recheck": recheck,
+            "graduated_rechecks": graduated_rechecks,
             "refreshes": [],
         }
 
-    catalog = _catalog_state(service_read_client)
     refreshes: list[Dict[str, Any]] = []
     critical_failures = 0
 
@@ -165,8 +232,8 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
         if item.get("provider_error"):
             continue
         provider_id = str(item.get("source_set_id") or "")
-        set_row = catalog.get(provider_id)
-        if not set_row:
+        set_row = provider_sets.get(provider_id)
+        if not set_row or not bool(set_row.get("catalog_only")):
             continue
 
         set_id = str(set_row["id"])
@@ -188,11 +255,18 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
         except (TypeError, ValueError):
             provider_sealed_count = 0
 
-        scrape_needed = bool(item.get("availability_changed"))
-        if processable_count > card_count:
-            scrape_needed = True
-        if provider_sealed_count > sealed_count:
-            scrape_needed = True
+        raw_card_count = (item.get("card_quality") or {}).get("raw_card_listing_count")
+        try:
+            raw_card_count_int = int(raw_card_count) if raw_card_count is not None else 0
+        except (TypeError, ValueError):
+            raw_card_count_int = 0
+
+        # A due, reachable catalog-only identity gets a real price refresh even
+        # when its listing counts are unchanged. This keeps sealed-only/preorder
+        # sets current rather than merely re-observing their catalog shape.
+        # Genuine provider emptiness (0 cards AND 0 sealed) remains a no-op.
+        provider_has_inventory = raw_card_count_int > 0 or provider_sealed_count > 0
+        scrape_needed = provider_has_inventory
         canonical_needed = processable_count > 0 and canonical_count < max(card_count, processable_count)
         if not scrape_needed and not canonical_needed:
             continue
@@ -205,7 +279,9 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
             "source_set_id": provider_id,
             "set_id": set_id,
             "canonical_key": canonical_key,
+            "job_id": item.get("job_id"),
             "availability_changed": bool(item.get("availability_changed")),
+            "scheduled_price_refresh": bool(scrape_needed),
             "before": {
                 "cards": card_count,
                 "canonical_cards": canonical_count,
@@ -232,6 +308,13 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
             if scrape_result["exit_code"] != 0:
                 entry["status"] = "scrape_failed"
                 critical_failures += 1
+                if item.get("job_id"):
+                    retry_at = _retry_at()
+                    try:
+                        _set_provider_next_check_at(supabase, str(item["job_id"]), retry_at)
+                        entry["retry_scheduled_at"] = retry_at
+                    except Exception as exc:
+                        entry["retry_schedule_error"] = str(exc)
                 continue
 
         start_index = 1
@@ -249,6 +332,13 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
                 if "build_pokemon_set_desirability_inputs.py" in command:
                     entry["status"] = "canonical_projection_failed"
                     critical_failures += 1
+                    if item.get("job_id"):
+                        retry_at = _retry_at()
+                        try:
+                            _set_provider_next_check_at(supabase, str(item["job_id"]), retry_at)
+                            entry["retry_scheduled_at"] = retry_at
+                        except Exception as exc:
+                            entry["retry_schedule_error"] = str(exc)
                     break
                 snapshot_warnings += 1
         else:
@@ -261,6 +351,7 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
         "dry_run": not commit,
         "critical_failures": critical_failures,
         "recheck": recheck,
+        "graduated_rechecks": graduated_rechecks,
         "refreshes": refreshes,
     }
 

@@ -248,6 +248,7 @@ def run_recheck(
     recheck_interval_hours: float = DEFAULT_RECHECK_INTERVAL_HOURS,
     max_provider_requests: Optional[int] = None,
     session: Optional[requests.Session] = None, as_of: Optional[str] = None,
+    due_rows: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Query due identities and reconcile fresh provider evidence.
 
@@ -259,10 +260,17 @@ def run_recheck(
     """
     limit = max(1, limit)
     summary = RecheckSummary(dry_run=not commit, source_system=source_system)
-    try:
-        due = jobs.list_rechecks_v2(source_system=source_system, limit=limit, as_of=as_of)
-    except Exception as exc:
-        return {**asdict(summary), "status": "retryable_database_error", "error": str(exc)}
+    if due_rows is None:
+        try:
+            due = jobs.list_rechecks_v2(source_system=source_system, limit=limit, as_of=as_of)
+        except Exception as exc:
+            return {**asdict(summary), "status": "retryable_database_error", "error": str(exc)}
+    else:
+        # The catalog refresh orchestrator may pre-filter due identities against
+        # current set lifecycle state (for example, to remove identities that
+        # graduated from catalog_only into the normal daily scrape cohort).
+        # Preserve the same hard row bound even for caller-supplied rows.
+        due = list(due_rows)[:limit]
 
     requester = ThrottledRequester(
         session or requests.Session(), timeout_seconds=max(0.1, provider_timeout_seconds)
@@ -311,6 +319,7 @@ def run_recheck(
             summary.reconciled += 1
 
         items.append({
+            "job_id": row.get("id"),
             **checked,
             **change_evidence,
             "proposed_next_check_at": next_check_at,
