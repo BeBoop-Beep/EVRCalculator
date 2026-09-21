@@ -10,6 +10,36 @@ permissions:
   contents: read
 
 jobs:
+  validate:
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - name: Validate rebased Explorer runtime in isolated worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          TMP=/tmp/evr-market-explorer-finish-20260921
+          BRANCH=ops/market-explorer-finish-20260921
+          cd "$LIVE"
+          git fetch origin "$BRANCH" --quiet
+          git worktree remove --force "$TMP" >/dev/null 2>&1 || true
+          rm -rf "$TMP"
+          git worktree add --detach "$TMP" "origin/$BRANCH"
+          cleanup() {
+            cd "$LIVE"
+            git worktree remove --force "$TMP" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          cd "$TMP"
+          "$LIVE/.venv/bin/python" -m pytest -q             backend/tests/unit/db/services/test_market_explorer_query_planner.py             backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py             backend/tests/unit/db/services/test_post_scrape_publication_trigger.py             backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py             backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py             backend/tests/unit/scripts/test_rebuild_snapshots_after_scrape_shell_contract.py
+
+          "$LIVE/.venv/bin/python" -m py_compile             backend/db/services/market_explorer_query_planner.py             backend/db/services/pokemon_market_explorer_query_service.py             backend/db/services/post_scrape_publication_trigger.py             backend/scripts/publish_post_scrape_if_needed.py             backend/scripts/run_market_explorer_maintained_cache_prewarm.py
+
+          git diff --check origin/main...HEAD
+          echo "validated_head=$(git rev-parse HEAD)"
+
   inspect:
     runs-on: self-hosted
     timeout-minutes: 10
@@ -50,4 +80,4 @@ jobs:
           rm -f "$BODY"
 
           echo "=== publication log tail ==="
-          tail -n 160 publication.log 2>/dev/null || true
+          tail -n 80 publication.log 2>/dev/null || true
