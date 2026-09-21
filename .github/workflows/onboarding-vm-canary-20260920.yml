@@ -1,4 +1,4 @@
-name: Diagnose shared Explorer and Pokemon set-page regression
+name: Public route probe after slim directory repair
 
 on:
   push:
@@ -9,101 +9,39 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
-    runs-on: self-hosted
-    timeout-minutes: 15
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - name: Sync current main
+      - name: Probe live public routes
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          git fetch origin main
-          git switch main
-          git reset --hard origin/main
-          echo "VM_SHA=$(git rev-parse HEAD)"
-          git status --short
-
-      - name: Inspect backend runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          echo "=== relevant listeners ==="
-          sudo ss -ltnp | grep -E ':(8000|3000|8080|80|443)\b' || true
-          echo "=== backend processes ==="
-          pgrep -af 'uvicorn|gunicorn|backend.api.main|fastapi|python.*8000' || true
-          echo "=== backend env presence only ==="
-          ./.venv/bin/python - <<'PY'
-          from dotenv import dotenv_values
-          from urllib.parse import urlparse
-          v=dotenv_values("backend/.env")
-          for key in ("BACKEND_API_BASE_URL","NEXT_PUBLIC_BACKEND_API_BASE_URL","SUPABASE_URL","SUPABASE_SERVICE_ROLE_KEY"):
-              raw=str(v.get(key) or "").strip()
-              host=urlparse(raw).netloc if raw.startswith(("http://","https://")) else ""
-              print(f"{key}: present={bool(raw)} host={host or '-'}")
-          PY
-
-      - name: Probe local backend set-page dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
 
           probe() {
             label="$1"
             url="$2"
             echo "=== $label ==="
-            rm -f /tmp/probe_body.txt
+            rm -f body.out headers.out
             set +e
-            curl -sS -o /tmp/probe_body.txt               --connect-timeout 3               --max-time 20               -w 'http=%{http_code} start=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download}\n'               "$url"
+            curl -sS -L -D headers.out -o body.out               --connect-timeout 5               --max-time 40               -w 'http=%{http_code} start=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download}\n'               "$url"
             code=$?
             set -e
             echo "curl_exit=$code"
-            if [ -f /tmp/probe_body.txt ]; then
-              head -c 700 /tmp/probe_body.txt | tr '\n' ' ' || true
+            grep -Ei '^(HTTP/|x-vercel|x-matched-path|cache-control|content-type|server:|date:)' headers.out | tail -n 30 || true
+            if [ -f body.out ]; then
+              echo "body_bytes=$(wc -c < body.out)"
+              echo "contains_pitch=$(grep -qi 'Pitch Black' body.out && echo true || echo false)"
+              echo "contains_delta=$(grep -qi 'Delta Reign' body.out && echo true || echo false)"
+              echo "contains_30th=$(grep -qi '30th Celebration' body.out && echo true || echo false)"
+              echo "contains_route_loader=$(grep -qi 'Loading Rip Statistics' body.out && echo true || echo false)"
+              echo "contains_set_client=$(grep -qi 'Loading set intelligence\|set-detail-glass-scope\|RIP Statistics unavailable' body.out && echo true || echo false)"
+              head -c 300 body.out | tr '\n' ' ' || true
               echo
             fi
           }
 
-          BASE=http://127.0.0.1:8000
-          probe "route-directory" "$BASE/tcgs/pokemon/set-route-directory?limit=500"
-
-          probe "pitch-shell" "$BASE/tcgs/pokemon/sets/472f851c-2e41-4c80-b6fc-8478d1d92730/shell"
-          probe "pitch-rip-bootstrap" "$BASE/tcgs/pokemon/sets/472f851c-2e41-4c80-b6fc-8478d1d92730/rip/bootstrap"
-          probe "pitch-overview" "$BASE/tcgs/pokemon/sets/472f851c-2e41-4c80-b6fc-8478d1d92730/overview?window=365d"
-
-          probe "delta-shell" "$BASE/tcgs/pokemon/sets/12d2ae6e-aed1-4178-8851-03912d211342/shell"
-          probe "delta-rip-bootstrap" "$BASE/tcgs/pokemon/sets/12d2ae6e-aed1-4178-8851-03912d211342/rip/bootstrap"
-
-          probe "30th-shell" "$BASE/tcgs/pokemon/sets/8dbf97f7-b7e8-4ff5-883a-0bb3356291bf/shell"
-          probe "30th-rip-bootstrap" "$BASE/tcgs/pokemon/sets/8dbf97f7-b7e8-4ff5-883a-0bb3356291bf/rip/bootstrap"
-
-      - name: Probe public route completion
-        shell: bash
-        run: |
-          set -euo pipefail
-          probe_public() {
-            label="$1"
-            url="$2"
-            echo "=== $label ==="
-            rm -f /tmp/public_body.html /tmp/public_headers.txt
-            set +e
-            curl -sS -L -D /tmp/public_headers.txt -o /tmp/public_body.html               --connect-timeout 5               --max-time 30               -w 'http=%{http_code} start=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download}\n'               "$url"
-            code=$?
-            set -e
-            echo "curl_exit=$code"
-            grep -Ei '^(HTTP/|x-vercel|x-matched-path|cache-control|content-type|server:|date:)' /tmp/public_headers.txt | tail -n 30 || true
-            if [ -f /tmp/public_body.html ]; then
-              echo "body_bytes=$(wc -c < /tmp/public_body.html)"
-              echo "contains_pitch=$(grep -qi 'Pitch Black' /tmp/public_body.html && echo true || echo false)"
-              echo "contains_delta=$(grep -qi 'Delta Reign' /tmp/public_body.html && echo true || echo false)"
-              echo "contains_30th=$(grep -qi '30th Celebration' /tmp/public_body.html && echo true || echo false)"
-              echo "contains_loading=$(grep -qi 'Loading Rip Statistics\|Loading set intelligence' /tmp/public_body.html && echo true || echo false)"
-            fi
-          }
-
-          probe_public "pitch-page" "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
-          probe_public "delta-page" "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
-          probe_public "30th-page" "https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"
-          probe_public "explorer-page" "https://inthedex.io/Explorer"
+          probe pitch "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
+          probe delta "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
+          probe celebration "https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"
+          probe explorer "https://inthedex.io/Explorer"
