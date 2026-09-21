@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-currency-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -462,6 +462,56 @@ jobs:
                 -q
               cd "$REPO"
               git worktree remove --force "$WT"
+              ;;
+
+            market-explorer-currency-cutover)
+              cd "$REPO"
+              TARGET_REF="origin/ops/vm-market-explorer-worker-cutover-20260920"
+              WT="/tmp/EVRCalculator-market-explorer-currency-cutover"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+
+              if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "Refusing currency cutover: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_post_scrape_publication_currency_v2.py \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+
+              git checkout "$TARGET_REF" -- \
+                backend/db/services/post_scrape_publication_trigger.py \
+                backend/scripts/publish_post_scrape_if_needed.py
+              git diff --check --cached
+              git diff --cached --stat
+              git commit -m "ops(explorer): include V2 in publication currency"
+              git log -2 --oneline
+              ;;
+
+            market-explorer-v2-repair)
+              cd "$REPO"
+              echo "== V2 repair preflight =="
+              git status --short
+              git log -3 --oneline
+              "$PY" -m backend.scripts.run_market_explorer_daily_publication \
+                --commit \
+                --market-date 2026-09-20
+              echo "== V2 repair complete =="
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids; c=create_service_role_client(); tracked=set(resolve_tracked_set_ids(c)); cov=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").execute().data or []); by={str(r.get("set_id")):str(r.get("computed_through") or "")[:10] for r in cov if r.get("set_id")}; missing=sorted(tracked-set(by)); stale=sorted(s for s in tracked if by.get(s,"")<"2026-09-20"); print({"tracked":len(tracked),"coverageRows":len(cov),"missing":len(missing),"stale":len(stale),"minThrough":min((by.get(s,"") for s in tracked),default=None),"maxThrough":max((by.get(s,"") for s in tracked),default=None)}); raise SystemExit(0 if not missing and not stale else 7)'
               ;;
 
             market-explorer-coverage-rpc-cutover)
