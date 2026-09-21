@@ -73,7 +73,10 @@ jobs:
           if /usr/bin/flock -n "$WATCH_LOCK" -c true; then echo "watchdog_lock=free"; else echo "watchdog_lock=held"; fi
 
           echo "=== relevant processes ==="
-          pgrep -af 'rebuild_snapshots_after_scrape|refresh_pokemon_market_snapshots|publish_post_scrape|post_scrape_publication|market_explorer|run_market_explorer|recover_price_projection' || true
+          pgrep -af 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|refresh_pokemon_market_snapshots|publish_post_scrape|post_scrape_publication|market_explorer|run_market_explorer|recover_price_projection' || true
+          ps -eo pid,ppid,pgid,etime,stat,args --forest | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          echo "planning_complete_markers=$(grep -cF '[refresh-phase] planning complete' publication.log 2>/dev/null || true)"
+          grep -F '[refresh-phase] planning complete' publication.log 2>/dev/null | tail -n 3 || true
 
           echo "=== public set-value market ==="
           BODY="$(mktemp)"
