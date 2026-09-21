@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 
 
 REASON_READY = "price_projection_ready"
@@ -158,22 +161,50 @@ def evaluate_price_projection_gate(client: Any, market_date: str) -> PriceProjec
 
 
 def advance_price_projection_once(
-    client: Any, market_date: str, *, process_limit: int = 20
+    client: Any,
+    market_date: str,
+    *,
+    process_limit: int = 20,
+    client_factory: Optional[Callable[[], Any]] = None,
 ) -> Dict[str, Any]:
-    """Idempotently enqueue the target cohort and process one bounded queue chunk."""
+    """Idempotently enqueue and process one bounded Price Storage V2 chunk.
+
+    The two mutation RPCs are safe to retry: enqueue is idempotent for the
+    market-date/set identity and the queue processor already owns its own
+    attempt/status contract. Production uses a fresh service-role client for
+    every retry so a poisoned HTTP/2 connection pool is never reused. Only
+    errors classified as transient are retried; deterministic failures still
+    raise immediately and remain fail-closed.
+    """
     day = str(market_date or "")[:10]
-    enqueue = client.rpc(
-        "enqueue_price_storage_v2_completed_scrape_jobs",
-        {"p_market_date": day, "p_limit": 1000},
-    ).execute()
+    factory = client_factory or create_service_role_client
+
+    enqueue = run_snapshot_operation_with_retry(
+        lambda op_client: op_client.rpc(
+            "enqueue_price_storage_v2_completed_scrape_jobs",
+            {"p_market_date": day, "p_limit": 1000},
+        ).execute(),
+        operation_name="price-storage-v2:enqueue-completed-scrapes",
+        max_attempts=3,
+        client_factory=factory,
+    )
+
+    # Keep readiness evaluation on the caller's authority client. It already
+    # fail-closes to REASON_AUTHORITY_UNAVAILABLE instead of raising.
     before = evaluate_price_projection_gate(client, day)
     process_result = None
     if not before.ready and before.reason_code != REASON_AUTHORITY_UNAVAILABLE:
-        processed = client.rpc(
-            "process_price_storage_v2_shadow_queue",
-            {"p_limit": max(1, min(int(process_limit), 20))},
-        ).execute()
+        processed = run_snapshot_operation_with_retry(
+            lambda op_client: op_client.rpc(
+                "process_price_storage_v2_shadow_queue",
+                {"p_limit": max(1, min(int(process_limit), 20))},
+            ).execute(),
+            operation_name="price-storage-v2:process-shadow-queue",
+            max_attempts=3,
+            client_factory=factory,
+        )
         process_result = getattr(processed, "data", None)
+
     after = evaluate_price_projection_gate(client, day)
     return {
         "market_date": day,

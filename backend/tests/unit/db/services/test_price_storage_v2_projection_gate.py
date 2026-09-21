@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from backend.db.services import price_storage_v2_projection_gate as gate
 
 
@@ -106,3 +108,117 @@ def test_authority_read_error_fails_closed():
     result = gate.evaluate_price_projection_gate(Broken(), "2026-09-20")
     assert result.ready is False
     assert result.reason_code == gate.REASON_AUTHORITY_UNAVAILABLE
+
+
+class _Transient57014(Exception):
+    code = "57014"
+
+
+class _DeterministicSqlError(Exception):
+    code = "42P01"
+
+
+class _RpcCall:
+    def __init__(self, *, error=None, data=None):
+        self.error = error
+        self.data = data
+
+    def execute(self):
+        if self.error is not None:
+            raise self.error
+        return SimpleNamespace(data=self.data)
+
+
+class _RpcClient:
+    def __init__(self, *, expected_rpc, error=None, data=None):
+        self.expected_rpc = expected_rpc
+        self.error = error
+        self.data = data
+
+    def rpc(self, name, params):
+        assert name == self.expected_rpc
+        return _RpcCall(error=self.error, data=self.data)
+
+
+def _decision(*, ready=False):
+    return gate.PriceProjectionDecision(
+        ready=ready,
+        market_date="2026-09-21",
+        reason_code=gate.REASON_READY if ready else gate.REASON_NOT_READY,
+        expected_set_count=167,
+        complete_set_count=167 if ready else 0,
+    )
+
+
+def test_process_rpc_retries_transient_57014_with_fresh_client(monkeypatch):
+    readiness = iter([_decision(ready=False), _decision(ready=True)])
+    monkeypatch.setattr(
+        gate,
+        "evaluate_price_projection_gate",
+        lambda _client, _day: next(readiness),
+    )
+    clients = [
+        _RpcClient(
+            expected_rpc="enqueue_price_storage_v2_completed_scrape_jobs",
+            data={"queued": 167},
+        ),
+        _RpcClient(
+            expected_rpc="process_price_storage_v2_shadow_queue",
+            error=_Transient57014("canceling statement due to statement timeout"),
+        ),
+        _RpcClient(
+            expected_rpc="process_price_storage_v2_shadow_queue",
+            data={"processed": 20},
+        ),
+    ]
+    state = {"index": 0}
+
+    def factory():
+        client = clients[state["index"]]
+        state["index"] += 1
+        return client
+
+    result = gate.advance_price_projection_once(
+        object(),
+        "2026-09-21",
+        process_limit=20,
+        client_factory=factory,
+    )
+
+    assert state["index"] == 3
+    assert result["process_result"] == {"processed": 20}
+    assert result["after"]["ready"] is True
+
+
+def test_deterministic_process_failure_is_not_retried(monkeypatch):
+    monkeypatch.setattr(
+        gate,
+        "evaluate_price_projection_gate",
+        lambda _client, _day: _decision(ready=False),
+    )
+    clients = [
+        _RpcClient(
+            expected_rpc="enqueue_price_storage_v2_completed_scrape_jobs",
+            data={"queued": 167},
+        ),
+        _RpcClient(
+            expected_rpc="process_price_storage_v2_shadow_queue",
+            error=_DeterministicSqlError("relation does not exist"),
+        ),
+    ]
+    state = {"index": 0}
+
+    def factory():
+        client = clients[state["index"]]
+        state["index"] += 1
+        return client
+
+    with pytest.raises(_DeterministicSqlError):
+        gate.advance_price_projection_once(
+            object(),
+            "2026-09-21",
+            process_limit=20,
+            client_factory=factory,
+        )
+
+    assert state["index"] == 2
