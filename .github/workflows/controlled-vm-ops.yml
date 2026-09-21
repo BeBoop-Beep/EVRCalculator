@@ -273,47 +273,35 @@ jobs:
             market-explorer-sync-db-password)
               cd "$REPO"
               test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
-              "$PY" - <<'PY'
-              import os, json, base64, hashlib, hmac, urllib.parse, urllib.request
-              from dotenv import load_dotenv
-
-              load_dotenv("backend/.env")
-              dsn = os.environ["ACTIONS_DATABASE_URL"]
-              parsed = urllib.parse.urlsplit(dsn)
-              password = urllib.parse.unquote(parsed.password or "")
-              if not password:
-                  raise SystemExit("DATABASE_URL password missing")
-
-              iterations = 4096
-              salt = os.urandom(16)
-              salted = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
-              client_key = hmac.new(salted, b"Client Key", hashlib.sha256).digest()
-              stored_key = hashlib.sha256(client_key).digest()
-              server_key = hmac.new(salted, b"Server Key", hashlib.sha256).digest()
-              b64 = lambda b: base64.b64encode(b).decode("ascii")
-              verifier = f"SCRAM-SHA-256${iterations}:{b64(salt)}${b64(stored_key)}:{b64(server_key)}"
-
-              url = os.environ.get("SUPABASE_URL")
-              key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-              if not url or not key:
-                  raise SystemExit("Supabase service configuration missing")
-
-              req = urllib.request.Request(
-                  url.rstrip("/") + "/rest/v1/rpc/set_market_explorer_publisher_password_verifier_v1",
-                  data=json.dumps({"p_verifier": verifier}).encode("utf-8"),
-                  headers={
-                      "apikey": key,
-                      "Authorization": "Bearer " + key,
-                      "Content-Type": "application/json",
-                  },
-                  method="POST",
-              )
-              with urllib.request.urlopen(req, timeout=30) as resp:
-                  if resp.status not in (200, 204):
-                      raise SystemExit(f"password sync failed status={resp.status}")
-              print("publisher_password_synced=true")
-              PY
+              SYNC="/tmp/market_explorer_sync_db_password.py"
+              printf '%s\n' \
+                'import os, json, base64, hashlib, hmac, urllib.parse, urllib.request' \
+                'from dotenv import load_dotenv' \
+                'load_dotenv("backend/.env")' \
+                'dsn = os.environ["ACTIONS_DATABASE_URL"]' \
+                'parsed = urllib.parse.urlsplit(dsn)' \
+                'password = urllib.parse.unquote(parsed.password or "")' \
+                'assert password, "DATABASE_URL password missing"' \
+                'iterations = 4096' \
+                'salt = os.urandom(16)' \
+                'salted = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)' \
+                'client_key = hmac.new(salted, b"Client Key", hashlib.sha256).digest()' \
+                'stored_key = hashlib.sha256(client_key).digest()' \
+                'server_key = hmac.new(salted, b"Server Key", hashlib.sha256).digest()' \
+                'b64 = lambda b: base64.b64encode(b).decode("ascii")' \
+                'verifier = f"SCRAM-SHA-256${iterations}:{b64(salt)}${b64(stored_key)}:{b64(server_key)}"' \
+                'url = os.environ.get("SUPABASE_URL")' \
+                'key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")' \
+                'assert url and key, "Supabase service configuration missing"' \
+                'req = urllib.request.Request(url.rstrip("/") + "/rest/v1/rpc/set_market_explorer_publisher_password_verifier_v1", data=json.dumps({"p_verifier": verifier}).encode("utf-8"), headers={"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json"}, method="POST")' \
+                'with urllib.request.urlopen(req, timeout=30) as resp:' \
+                '    assert resp.status in (200, 204), "password sync failed"' \
+                'print("publisher_password_synced=true")' \
+                > "$SYNC"
+              ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" "$PY" "$SYNC"
+              rm -f "$SYNC"
               ;;
+
 
             sync-main)
               cd "$REPO"
