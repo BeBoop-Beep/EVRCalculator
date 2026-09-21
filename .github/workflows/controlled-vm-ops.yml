@@ -169,7 +169,18 @@ jobs:
               git fetch origin ops/vm-market-explorer-worker-cutover-20260920
 
               DIRTY_PATHS="$(git status --porcelain | sed -E 's/^.. //')"
-              UNEXPECTED_DIRTY="$(printf '%s\n' "$DIRTY_PATHS" | grep -Ev '^(payload_debug\.json|backend/constants/tcg/pokemon/pokemon_era_set_sync_report\.json)?
+              while IFS= read -r DIRTY_PATH; do
+                case "$DIRTY_PATH" in
+                  ""|payload_debug.json|backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json)
+                    ;;
+                  *)
+                    echo "Refusing cutover: unexpected dirty path: $DIRTY_PATH"
+                    git status --short
+                    exit 3
+                    ;;
+                esac
+              done <<< "$DIRTY_PATHS"
+
               "$PY" -m pip install --disable-pip-version-check -q 'psycopg[binary]==3.3.6'
 
               if [ -d "$WT" ]; then
