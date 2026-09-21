@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -358,6 +358,44 @@ jobs:
                 -q
               cd "$REPO"
               git worktree remove --force "$WT"
+              ;;
+
+            market-explorer-coverage-rpc-cutover)
+              cd "$REPO"
+              TARGET_REF="origin/ops/vm-market-explorer-worker-cutover-20260920"
+              WT="/tmp/EVRCalculator-market-explorer-coverage-rpc-cutover"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+
+              if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "Refusing coverage cutover: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cp "$REPO/backend/.env" "$WT/backend/.env"
+              chmod 600 "$WT/backend/.env"
+
+              echo "== live indexed coverage RPC verification =="
+              cd "$WT"
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1", {"p_set_ids": None}).execute().data or []); ids={str(r.get("set_id")) for r in rows}; child="a787aa9f-dbc3-47c0-bfe9-0045b9516a67"; print({"rows":len(rows),"classicCollectionPresent":child in ids}); raise SystemExit(0 if len(rows)==166 and child in ids else 7)'
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
+
+              echo "== install runtime service files =="
+              git checkout "$TARGET_REF" -- \
+                backend/db/services/pokemon_market_explorer_query_service.py \
+                backend/db/services/market_explorer_query_planner.py
+              git diff --check --cached
+              git diff --cached --stat
+              git commit -m "ops(explorer): use indexed set history coverage"
+              echo "== post-cutover =="
+              git status --short
+              git log -2 --oneline
               ;;
 
             sync-main)
