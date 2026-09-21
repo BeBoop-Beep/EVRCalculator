@@ -1,0 +1,196 @@
+name: Sentinel Production Probe
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.head_ref == 'ops/sentinel-continuation-20260921'
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Probe live Sentinel and publication state
+        shell: bash
+        run: |
+          set +e
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          LOCK=/tmp/pokemon-post-scrape-publication.lock
+          TODAY="$(TZ=America/Phoenix date +%F)"
+          PREVIOUS="$(TZ=America/Phoenix date -d 'yesterday' +%F)"
+
+          echo "=== production probe ==="
+          echo "utc_now=$(date -u +%FT%TZ)"
+          echo "phoenix_now=$(TZ=America/Phoenix date +%FT%T%z)"
+          echo "today=$TODAY previous=$PREVIOUS"
+
+          cd "$LIVE" || exit 1
+          echo "live_branch=$(git branch --show-current)"
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "tracked_status_begin"
+          git status --short --untracked-files=no
+          echo "tracked_status_end"
+
+          git fetch origin main --quiet
+          echo "fetch_rc=$?"
+          MAIN="$(git rev-parse origin/main 2>/dev/null)"
+          echo "origin_main=$MAIN"
+
+          echo "publication_processes_begin"
+          ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep
+          echo "publication_processes_end"
+
+          if /usr/bin/flock -n "$LOCK" -c true; then
+            LOCK_HELD=0
+            echo "publication_lock=free"
+          else
+            LOCK_HELD=1
+            echo "publication_lock=held"
+          fi
+          if [ -f publication.log ]; then
+            echo "publication_log_age_seconds=$(( $(date +%s) - $(stat -c %Y publication.log) ))"
+          else
+            echo "publication_log_age_seconds=missing"
+          fi
+
+          BRANCH="$(git branch --show-current)"
+          DIRTY=0
+          git diff --quiet || DIRTY=1
+          git diff --cached --quiet || DIRTY=1
+          if [ "$LOCK_HELD" -eq 0 ] && [ "$BRANCH" = "main" ] && [ "$DIRTY" -eq 0 ]; then
+            git merge --ff-only origin/main
+            echo "live_sync_rc=$?"
+          else
+            echo "live_sync_skipped lock=$LOCK_HELD branch=$BRANCH dirty=$DIRTY"
+          fi
+          LIVE_HEAD="$(git rev-parse HEAD)"
+          CURRENT_MAIN="$(git rev-parse origin/main)"
+          echo "live_head_after_sync=$LIVE_HEAD"
+          echo "origin_main_after_sync=$CURRENT_MAIN"
+
+          echo "cron_relevant_begin"
+          crontab -l 2>/dev/null | grep -E 'sentinel|market-freshness|post-scrape-publication|publish_post_scrape|pokemon-batch-create|run_next_scrape_job'
+          echo "cron_relevant_end"
+          crontab -l > "$RUNNER_TEMP/current.cron" 2>/dev/null
+          diff -u "$RUNNER_TEMP/current.cron" infra/oracle/tcgplayer-scraper-pokemon.crontab
+          echo "cron_diff_rc=$?"
+
+          echo "sentinel_env_begin"
+          for key in SENTINEL_STATE_WRITES_ENABLED SENTINEL_PERSISTENCE_SCHEMA_READY SENTINEL_RECOVERY_ENABLED SENTINEL_RECOVERY_EXECUTION_READY SENTINEL_AI_ENABLED SENTINEL_BACKEND_BASE_URL SENTINEL_RUNTIME_REPO_PATH SENTINEL_EXPECTED_RELEASE_BRANCH SENTINEL_WATCH_HOST SENTINEL_COMPONENT; do
+            line="$(grep "^$key=" backend/.env 2>/dev/null | tail -1)"
+            if [ -z "$line" ]; then
+              echo "$key=absent"
+            else
+              echo "$line"
+            fi
+          done
+          if grep -q '^SENTINEL_DEADMAN_PING_URL=.' backend/.env 2>/dev/null; then echo "SENTINEL_DEADMAN_PING_URL=present"; else echo "SENTINEL_DEADMAN_PING_URL=absent"; fi
+          if grep -q '^SENTINEL_EXPECTED_RELEASE_SHA=.' backend/.env 2>/dev/null; then echo "SENTINEL_EXPECTED_RELEASE_SHA=present"; else echo "SENTINEL_EXPECTED_RELEASE_SHA=absent"; fi
+          echo "sentinel_env_end"
+
+          if [ "$LIVE_HEAD" = "$CURRENT_MAIN" ]; then
+            echo "fast_canary_begin"
+            (
+              set -a
+              . backend/.env
+              set +a
+              SENTINEL_RUNNER_BUILD_SHA="$LIVE_HEAD" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile fast
+            )
+            echo "fast_canary_rc=$?"
+            echo "fast_canary_end"
+
+            echo "public_canary_begin"
+            (
+              set -a
+              . backend/.env
+              set +a
+              SENTINEL_RUNNER_BUILD_SHA="$LIVE_HEAD" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile public
+            )
+            echo "public_canary_rc=$?"
+            echo "public_canary_end"
+
+            echo "publication_watchdog_begin"
+            (
+              set -a
+              . backend/.env
+              set +a
+              "$PY" -m backend.alerts.post_scrape_publication_watchdog
+            )
+            echo "publication_watchdog_rc=$?"
+            echo "publication_watchdog_end"
+          else
+            echo "canaries_skipped_live_not_current_main"
+          fi
+
+          echo "db_probe_begin"
+          (
+            set -a
+            . backend/.env
+            set +a
+            TARGET_TODAY="$TODAY" TARGET_PREVIOUS="$PREVIOUS" "$PY" - <<'PY'
+import json
+import os
+from backend.db.clients.supabase_client import create_service_role_client
+
+c = create_service_role_client()
+today = os.environ["TARGET_TODAY"]
+previous = os.environ["TARGET_PREVIOUS"]
+
+sets = list(c.table("sets").select("id,catalog_only").eq("ready_for_daily_scrape", True).execute().data or [])
+tracked = {str(r["id"]) for r in sets if r.get("id") and not bool(r.get("catalog_only"))}
+print("tracked_daily_set_count=" + str(len(tracked)))
+
+batches = list(c.table("pokemon_scrape_batches").select("id,market_date,status,expected_set_count,missing_set_count,promoted_at,updated_at").order("market_date", desc=True).limit(4).execute().data or [])
+print("latest_batches=" + json.dumps(batches, default=str, sort_keys=True))
+
+for target in (previous, today):
+    cards = list(c.table("pokemon_set_cards_snapshot_latest").select("set_id,market_date").eq("market_date", target).execute().data or [])
+    dashes = list(c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date").eq("window_key", "365d").eq("latest_market_date", target).execute().data or [])
+    card_ids = {str(r["set_id"]) for r in cards if r.get("set_id")}
+    dash_ids = {str(r["set_id"]) for r in dashes if r.get("set_id")}
+    print(f"snapshot_counts target={target} cards={len(card_ids)}/{len(tracked)} dashboard365d={len(dash_ids)}/{len(tracked)}")
+    print("cards_missing=" + json.dumps(sorted(tracked-card_ids)[:25]))
+    print("dashboard_missing=" + json.dumps(sorted(tracked-dash_ids)[:25]))
+
+g = list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,set_count,updated_at").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or [])
+print("global_set_value=" + json.dumps(g, default=str, sort_keys=True))
+
+for table in ("sentinel_check_state","sentinel_incidents","sentinel_recovery_attempts","sentinel_component_heartbeats"):
+    try:
+        res = c.table(table).select("*", count="exact").limit(1).execute()
+        print(table + "_count=" + str(getattr(res, "count", None)))
+    except Exception as exc:
+        print(table + "_count_error=" + type(exc).__name__ + ":" + str(exc))
+
+beats = list(c.table("sentinel_component_heartbeats").select("component,host,heartbeat_at,build_sha").order("heartbeat_at", desc=True).limit(5).execute().data or [])
+print("recent_heartbeats=" + json.dumps(beats, default=str, sort_keys=True))
+PY
+          )
+          echo "db_probe_rc=$?"
+          echo "db_probe_end"
+
+          echo "public_market_begin"
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 --retry-all-errors --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market > "$RUNNER_TEMP/public-market.json"
+          echo "public_market_curl_rc=$?"
+          if [ -s "$RUNNER_TEMP/public-market.json" ]; then
+            PUBLIC_JSON="$RUNNER_TEMP/public-market.json" "$PY" - <<'PY'
+import json
+import os
+from pathlib import Path
+p = json.loads(Path(os.environ["PUBLIC_JSON"]).read_text())
+m = p.get("meta") or {}
+s = m.get("snapshot") or {}
+print("public_market_date=" + str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date")))
+if isinstance(p.get("sets"), list):
+    print("public_market_set_count=" + str(len(p["sets"])))
+PY
+          fi
+          echo "public_market_end"
+
+          echo "log_tail_begin"
+          tail -n 80 publication.log 2>/dev/null
+          echo "log_tail_end"
