@@ -36,7 +36,7 @@ jobs:
 
           # Do not overlap the price scraper or the post-scrape publisher.
           exec 8>/tmp/pokemon-scrape-dispatcher.lock
-          flock -w 55 8 || { echo "scrape dispatcher stayed active for 55s; defer catalog refresh"; exit 0; }
+          flock -w 600 8 || { echo "scrape dispatcher stayed active for 10m; defer catalog refresh"; exit 0; }
           exec 7>/tmp/pokemon-post-scrape-publication.lock
           flock -n 7 || { echo "post-scrape publisher active; defer catalog refresh"; exit 0; }
 
