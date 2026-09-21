@@ -1,4 +1,4 @@
-name: Inspect Sep 20 publication final state
+name: Inspect Sep 20 publication tail
 
 on:
   push:
@@ -15,31 +15,26 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect final publication outcome
+      - name: Inspect active publication tail
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
           date
-          echo '=== GIT ==='
-          git fetch origin >/dev/null 2>&1 || true
-          echo -n 'head='; git rev-parse HEAD
-          echo -n 'origin_main='; git rev-parse origin/main 2>/dev/null || true
-          git status --short || true
+          echo '=== PROCESS ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
           echo
-          echo '=== ACTIVE PUBLICATION ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
+          echo '=== LOCK ==='
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
           echo
-          echo '=== SEP20 PUBLICATION FINAL MARKERS ==='
-          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-20' publication.log | tail -1 | cut -d: -f1)"
-          echo "start_line=${START:-missing}"
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
           if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/sep20-final.log
-            grep -E 'refresh exit_status=|audit exit_status=|market explorer projection exit_status=|post-scrape publication COMPLETE|final exit_status=|failed:|failed_sets|global failed|warnings remaining|first 10 problem canonical keys|Rankings:' /tmp/sep20-final.log | tail -160 || true
-            echo
-            echo '=== FAILED SET CONTEXT ==='
-            grep -Ei 'failed coordinated|cards.*failed|market_dashboard.*failed|rankings publication|explore_rankings.*failed|Traceback|ERROR' /tmp/sep20-final.log | tail -220 || true
-            echo
-            echo '=== TAIL ==='
-            tail -140 /tmp/sep20-final.log
+            tail -n +"$START" publication.log > /tmp/current-pub.log
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/current-pub.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/current-pub.log || true)"
+            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/current-pub.log || true)"
+            echo '=== FAILURES / WARNINGS ==='
+            grep -E 'failed coordinated|failed_sets|global failed|Traceback|ERROR|Rankings:|refresh exit_status|audit exit_status|final exit_status' /tmp/current-pub.log | tail -120 || true
+            echo '=== LAST 120 ==='
+            tail -120 /tmp/current-pub.log
           fi
