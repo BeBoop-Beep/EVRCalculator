@@ -592,6 +592,10 @@ def test_provider_fallback_multi_subjects_persist_all_pokedex_numbers(monkeypatc
     monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: refs)
     monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: set())
     monkeypatch.setattr(
+        combined, "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {},
+    )
+    monkeypatch.setattr(
         combined, "_refresh_authoritative_canonical_cards",
         lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
     )
