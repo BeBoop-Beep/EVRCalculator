@@ -1,4 +1,4 @@
-name: Check publisher exit and VM sync readiness
+name: Validate publication watchdog authority retry
 
 on:
   push:
@@ -11,24 +11,62 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Check publication owner
+      - name: Checkout watchdog fix branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/publication-watchdog-authority-retry-20260920
+          persist-credentials: false
+      - name: Compile and exercise retry policy
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          date
-          echo '=== PROCESS ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo '=== LOCK ==='
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo '=== HEADS ==='
-          echo -n 'head='; git rev-parse HEAD
-          git fetch origin >/dev/null 2>&1 || true
-          echo -n 'origin_main='; git rev-parse origin/main
-          echo '=== LOG TAIL ==='
-          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log | tail -1 | cut -d: -f1)"
-          if [ -n "${START:-}" ]; then tail -n +"$START" publication.log | tail -100; fi
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile backend/alerts/post_scrape_publication_watchdog.py
+          "$PY" - <<'PY'
+          from types import SimpleNamespace
+          from backend.alerts import post_scrape_publication_watchdog as watchdog
+
+          BATCH={'id':57,'market_date':'2026-09-20','status':'complete','promoted_at':'2026-09-20T23:21:43+00:00'}
+          class T522(Exception): code=522
+          class T42(Exception): code='42P01'
+          class Q:
+              def __init__(self,c): self.c=c
+              def select(self,*_): return self
+              def eq(self,*_): return self
+              def order(self,*_,**__): return self
+              def limit(self,*_): return self
+              def execute(self):
+                  if self.c.error: raise self.c.error
+                  return SimpleNamespace(data=[dict(BATCH)])
+          class C:
+              def __init__(self,error=None): self.error=error
+              def table(self,name): assert name=='pokemon_scrape_batches'; return Q(self)
+
+          clients=[C(T522('522 timeout')),C()]
+          n={'v':0}
+          def factory():
+              c=clients[n['v']]; n['v']+=1; return c
+          out=watchdog._latest_complete_batch(object(),client_factory=factory,sleep=lambda _s:None)
+          assert n['v']==2 and out['id']==57
+          print('watchdog_transient_retry=PASS')
+
+          n={'v':0}
+          def deterministic_factory():
+              n['v']+=1; return C(T42('relation does not exist'))
+          try:
+              watchdog._latest_complete_batch(object(),client_factory=deterministic_factory,sleep=lambda _s:None)
+          except T42:
+              pass
+          else:
+              raise AssertionError('deterministic failure must propagate')
+          assert n['v']==1
+          print('watchdog_deterministic_fail_closed=PASS')
+          PY
