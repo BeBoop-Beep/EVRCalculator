@@ -1,4 +1,4 @@
-name: Validate daily Top Chase current-date writes
+name: Install Sentinel observation schedules
 
 on:
   push:
@@ -11,49 +11,36 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  install:
     runs-on: self-hosted
-    timeout-minutes: 10
-    env:
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
-      SUPABASE_ANON_KEY: dummy-anon-key
+    timeout-minutes: 5
     steps:
-      - name: Checkout daily history fix
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: fix/daily-top-chase-current-date-write-20260920
-          persist-credentials: false
-      - name: Compile and exercise current-date contract
+      - name: Install observation-only Sentinel cron
         shell: bash
         run: |
           set -euo pipefail
-          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m py_compile backend/scripts/refresh_stale_public_snapshots.py
-          "$PY" - <<'PY'
-          from backend.scripts import refresh_stale_public_snapshots as r
-
-          dashboard={'latest_market_date':'2026-09-20','top_chase_cards_json':[{'id':f'c{i}'} for i in range(1,11)]}
-          rows=[]
-          for day in ('2026-09-18','2026-09-19','2026-09-20'):
-              rows += [{'set_id':'s','snapshot_date':day,'rank':i,'card_id':f'c{i}'} for i in range(1,11)]
-          current=r._daily_top_chase_history_rows(dashboard,rows)
-          assert len(current)==10
-          assert {x['snapshot_date'] for x in current}=={'2026-09-20'}
-          assert {x['rank'] for x in current}==set(range(1,11))
-          print('current_date_slice=PASS')
-
-          try:
-              r._daily_top_chase_history_rows(dashboard,[{'snapshot_date':'2026-09-20','rank':i} for i in range(1,10)])
-          except RuntimeError as exc:
-              assert 'current-date slice is incomplete' in str(exc)
-          else:
-              raise AssertionError('incomplete slice must fail closed')
-          print('incomplete_slice_fail_closed=PASS')
-
-          assert r._daily_top_chase_history_rows({'latest_market_date':'2026-09-20','top_chase_cards_json':[]},[])==[]
-          print('zero_top_chase=PASS')
-          PY
-          grep -F "DELETE FROM public.pokemon_set_top_chase_card_daily_history h" supabase/migrations/20260906003757_use_current_canonical_value_for_rollout_snapshots.sql >/dev/null
-          grep -F "WHERE h.snapshot_date = v_market_date" supabase/migrations/20260906003757_use_current_canonical_value_for_rollout_snapshots.sql >/dev/null
-          echo 'canonical_sql_current_date_contract=PASS'
+          cd /home/ubuntu/repos/EVRCalculator
+          ENV_FILE=backend/.env
+          update_env() {
+            key="$1"; value="$2"
+            tmp="$(mktemp)"
+            awk -v k="$key" -F= '$1 != k {print}' "$ENV_FILE" > "$tmp"
+            printf '%s=%s\n' "$key" "$value" >> "$tmp"
+            cat "$tmp" > "$ENV_FILE"
+            rm -f "$tmp"
+          }
+          update_env SENTINEL_RUNNER_HOST tcgplayer-scraper-pokemon-v2
+          update_env SENTINEL_RECOVERY_ENABLED false
+          update_env SENTINEL_RECOVERY_EXECUTION_READY false
+          crontab -l | grep -v 'index-sentinel-fast.lock' | grep -v 'index-sentinel-public.lock' > /tmp/cron-sentinel-observe
+          cat >> /tmp/cron-sentinel-observe <<'EOF'
+# Fast Sentinel observation canary schedule; recovery remains disabled in backend/.env.
+1-59/5 * * * * /usr/bin/flock -n /tmp/index-sentinel-fast.lock -c 'cd /home/ubuntu/repos/EVRCalculator && set -a && . backend/.env && set +a && SENTINEL_RUNNER_BUILD_SHA=$(git rev-parse HEAD) /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile fast' >> /home/ubuntu/repos/EVRCalculator/backend/logs/sentinel_fast.log 2>&1
+# Public semantic checks are always observation-only.
+4-59/10 * * * * /usr/bin/flock -n /tmp/index-sentinel-public.lock -c 'cd /home/ubuntu/repos/EVRCalculator && set -a && . backend/.env && set +a && SENTINEL_RUNNER_BUILD_SHA=$(git rev-parse HEAD) SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.sentinel.operational --profile public' >> /home/ubuntu/repos/EVRCalculator/backend/logs/sentinel_public.log 2>&1
+EOF
+          crontab /tmp/cron-sentinel-observe
+          echo '=== SENTINEL CRON ==='
+          crontab -l | grep -E 'index-sentinel-(fast|public)'
+          echo '=== SENTINEL ENV ==='
+          grep -E '^SENTINEL_(STATE_WRITES_ENABLED|PERSISTENCE_SCHEMA_READY|RECOVERY_ENABLED|RECOVERY_EXECUTION_READY|BACKEND_BASE_URL|COMPONENT|RUNNER_HOST)=' "$ENV_FILE"
