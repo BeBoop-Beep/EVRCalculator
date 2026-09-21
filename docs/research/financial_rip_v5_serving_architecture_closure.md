@@ -66,3 +66,11 @@ The V12 release keeps reading **live V12/V4 storage**. The generic ledger's V12 
 
 - 27 CLI/release/set-page tests, 5 public-rankings tests, 3 detail/snapshot tests, 1 access test, 3 audit tests and 5 node tests were added and pass.
 - `test_pokemon_public_snapshot_service.py` fails 158 tests on the local Python 3.8 interpreter with `AttributeError: ... has no attribute 'public_read_client'`; HEAD's service also defines no such name, so this is pre-existing and not caused by this change (a CI run on the matching interpreter is the authority). Modules using `X | None` annotations cannot be collected locally on 3.8 (billing); unrelated.
+
+## CI
+
+- `e244cc11` (initial): Best-Open Price Guardrails run 35630843547 **failed** (audit test did not classify `rip_release.py`); Pattern Overlay 35630843443 success.
+- `0e3cfb7a` (audit fix): Pattern Overlay 35631256204 success; Best-Open did not trigger (path filters).
+- `e7bf0978` (filters extended): Best-Open Price Guardrails **35631436175 success** (runtime, windows-lock, postgres-integration); Pattern Overlay **35631436237 success**.
+
+Status unchanged: `FINANCIAL_RIP_V5_SERVING_ARCHITECTURE_BLOCKED` (Rankings snapshot builder not release-driven). Prompt 5E not started.
