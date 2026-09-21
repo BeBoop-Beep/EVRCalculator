@@ -325,10 +325,17 @@ def run(
                     run_fingerprint=None, **build_kwargs,
                 )
 
+            _bounded_options = dict(bounded_batching)
+            _prepare_variant = _bounded_options.pop("prepare_variant", "canonical")
+            if _prepare_variant not in ("canonical", "accelerated"):
+                raise ValueError(f"unknown prepare_variant {_prepare_variant!r}")
+            _prepare = (PreparedFinancialRipDistribution.prepare_exact_accelerated
+                        if _prepare_variant == "accelerated" else PreparedFinancialRipDistribution.prepare)
+
             def prepare_values(
                 quantity: int, values: Any, *, _product=product, _pid=pid, _source=source,
             ) -> PreparedCanonicalCandidate:
-                prepared = PreparedFinancialRipDistribution.prepare(
+                prepared = _prepare(
                     values,
                     value_offset=float(_product.get("guaranteed_component_market_value") or 0) * quantity,
                 )
@@ -341,7 +348,7 @@ def run(
                 "build_block": block_builder,
                 "prepare_from_values": prepare_values,
                 "rng_outcome_count": len(base),
-                **dict(bounded_batching),
+                **_bounded_options,
             }
 
         dual = DualBestOpenPriceSearch(
