@@ -110,6 +110,7 @@ def test_authority_read_error_fails_closed():
     assert result.reason_code == gate.REASON_AUTHORITY_UNAVAILABLE
 
 
+
 class _Transient57014(Exception):
     code = "57014"
 
@@ -140,85 +141,119 @@ class _RpcClient:
         return _RpcCall(error=self.error, data=self.data)
 
 
-def _decision(*, ready=False):
-    return gate.PriceProjectionDecision(
-        ready=ready,
-        market_date="2026-09-21",
-        reason_code=gate.REASON_READY if ready else gate.REASON_NOT_READY,
-        expected_set_count=167,
-        complete_set_count=167 if ready else 0,
-    )
+def _job():
+    return {
+        "id": 1,
+        "set_id": "set-a",
+        "market_date": "2026-09-21",
+        "attempts": 1,
+    }
 
 
-def test_process_rpc_retries_transient_57014_with_fresh_client(monkeypatch):
-    readiness = iter([_decision(ready=False), _decision(ready=True)])
-    monkeypatch.setattr(
-        gate,
-        "evaluate_price_projection_gate",
-        lambda _client, _day: next(readiness),
-    )
+def test_staged_job_retries_transient_stage_with_fresh_client(monkeypatch):
     clients = [
         _RpcClient(
-            expected_rpc="enqueue_price_storage_v2_completed_scrape_jobs",
-            data={"queued": 167},
-        ),
-        _RpcClient(
-            expected_rpc="process_price_storage_v2_shadow_queue",
+            expected_rpc="sync_price_storage_v2_set_date",
             error=_Transient57014("canceling statement due to statement timeout"),
         ),
+        _RpcClient(expected_rpc="sync_price_storage_v2_set_date", data={"ok": True}),
+        _RpcClient(expected_rpc="sync_price_observation_ranges_v2_set_date", data={"ok": True}),
         _RpcClient(
-            expected_rpc="process_price_storage_v2_shadow_queue",
-            data={"processed": 20},
+            expected_rpc="sync_pokemon_market_price_intervals_v2_shadow_set_from_date",
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="refresh_pokemon_canonical_card_market_prices_latest_for_set",
+            data=120,
         ),
     ]
     state = {"index": 0}
+    finished = []
 
     def factory():
         client = clients[state["index"]]
         state["index"] += 1
         return client
 
-    result = gate.advance_price_projection_once(
-        object(),
-        "2026-09-21",
-        process_limit=20,
-        client_factory=factory,
-    )
-
-    assert state["index"] == 3
-    assert result["process_result"] == {"processed": 20}
-    assert result["after"]["ready"] is True
-
-
-def test_deterministic_process_failure_is_not_retried(monkeypatch):
     monkeypatch.setattr(
         gate,
-        "evaluate_price_projection_gate",
-        lambda _client, _day: _decision(ready=False),
+        "_finish_projection_job",
+        lambda job, *, status, last_error, client_factory: finished.append(
+            (status, last_error)
+        ),
     )
+
+    report = gate._process_projection_job_staged(
+        _job(), client_factory=factory
+    )
+
+    assert state["index"] == 5
+    assert report["status"] == "complete"
+    assert len(report["completed_stages"]) == 4
+    assert finished == [("complete", None)]
+
+
+def test_staged_job_deterministic_failure_is_not_retried(monkeypatch):
     clients = [
         _RpcClient(
-            expected_rpc="enqueue_price_storage_v2_completed_scrape_jobs",
-            data={"queued": 167},
-        ),
-        _RpcClient(
-            expected_rpc="process_price_storage_v2_shadow_queue",
+            expected_rpc="sync_price_storage_v2_set_date",
             error=_DeterministicSqlError("relation does not exist"),
         ),
     ]
     state = {"index": 0}
+    finished = []
 
     def factory():
         client = clients[state["index"]]
         state["index"] += 1
         return client
 
-    with pytest.raises(_DeterministicSqlError):
-        gate.advance_price_projection_once(
-            object(),
-            "2026-09-21",
-            process_limit=20,
-            client_factory=factory,
-        )
+    monkeypatch.setattr(
+        gate,
+        "_finish_projection_job",
+        lambda job, *, status, last_error, client_factory: finished.append(
+            (status, last_error)
+        ),
+    )
 
-    assert state["index"] == 2
+    report = gate._process_projection_job_staged(
+        _job(), client_factory=factory
+    )
+
+    assert state["index"] == 1
+    assert report["status"] == "failed"
+    assert report["completed_stages"] == []
+    assert finished and finished[0][0] == "failed"
+
+
+def test_failed_staged_job_does_not_starve_later_jobs(monkeypatch):
+    jobs = iter([
+        {"id": 1, "set_id": "bad", "market_date": "2026-09-21", "attempts": 1},
+        {"id": 2, "set_id": "good", "market_date": "2026-09-21", "attempts": 1},
+        None,
+    ])
+    monkeypatch.setattr(
+        gate,
+        "_claim_projection_job",
+        lambda *_a, **_k: next(jobs),
+    )
+    monkeypatch.setattr(
+        gate,
+        "_process_projection_job_staged",
+        lambda job, **_k: {
+            "id": job["id"],
+            "set_id": job["set_id"],
+            "status": "failed" if job["set_id"] == "bad" else "complete",
+        },
+    )
+
+    report = gate._process_projection_jobs_staged(
+        "2026-09-21",
+        process_limit=20,
+        client_factory=lambda: object(),
+    )
+
+    assert report["processed"] == 2
+    assert report["failed"] == 1
+    assert report["completed"] == 1
+    assert [row["set_id"] for row in report["jobs"]] == ["bad", "good"]
