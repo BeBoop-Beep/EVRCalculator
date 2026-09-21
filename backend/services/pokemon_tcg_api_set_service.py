@@ -34,13 +34,18 @@ def fetch_targeted_sets(
     name: str, api_key: str, *, timeout_seconds: float = 15.0,
     session: Optional[requests.Session] = None,
 ) -> list[Dict[str, Any]]:
-    if not api_key:
-        raise RuntimeError("Missing POKEMON_TCG_API_KEY environment variable")
     client = session or requests.Session()
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "EVRCalculator/1.0",
+    }
+    normalized_key = str(api_key or "").strip()
+    if normalized_key:
+        headers["X-Api-Key"] = normalized_key
     response = client.get(
         API_URL,
         params={"q": f'name:"{name}"', "pageSize": 50},
-        headers={"Accept": "application/json", "X-Api-Key": api_key, "User-Agent": "EVRCalculator/1.0"},
+        headers=headers,
         timeout=timeout_seconds,
     )
     response.raise_for_status()
