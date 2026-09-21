@@ -1,4 +1,4 @@
-name: Cut over hardened Sep 20 publication
+name: Validate V2 readiness CLI import
 
 on:
   push:
@@ -11,83 +11,24 @@ permissions:
   contents: read
 
 jobs:
-  cutover:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Stop tainted publisher, deploy main, relaunch cleanly
+      - name: Checkout fix
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/price-projection-cli-import-20260920
+          persist-credentials: false
+      - name: Execute CLI by file path
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          echo '=== BEFORE ==='
-          date
-          git rev-parse HEAD
-          git status --short || true
-          echo
-          echo '=== ACTIVE TAINTED PUBLICATION ==='
-          CHILD="$(ps -eo pid=,args= | awk '/\/home\/ubuntu\/repos\/EVRCalculator\/\.venv\/bin\/python backend\/scripts\/refresh_stale_public_snapshots\.py --commit --market-date 2026-09-20/ {print $1; exit}')"
-          WRAPPER="$(ps -eo pid=,args= | awk '/bash \/home\/ubuntu\/repos\/EVRCalculator\/backend\/scripts\/rebuild_snapshots_after_scrape\.sh 2026-09-20/ {print $1; exit}')"
-          echo "child=${CHILD:-none} wrapper=${WRAPPER:-none}"
-          if [ -n "${CHILD:-}" ]; then
-            kill -TERM "$CHILD"
-            echo "sent SIGTERM to refresh child $CHILD"
-          fi
-          for i in $(seq 1 30); do
-            if { [ -z "${CHILD:-}" ] || ! kill -0 "$CHILD" 2>/dev/null; } && { [ -z "${WRAPPER:-}" ] || ! kill -0 "$WRAPPER" 2>/dev/null; }; then
-              break
-            fi
-            sleep 1
-          done
-          if [ -n "${CHILD:-}" ] && kill -0 "$CHILD" 2>/dev/null; then
-            echo "refresh child did not exit after 30s; sending SIGKILL"
-            kill -KILL "$CHILD"
-            sleep 2
-          fi
-          for i in $(seq 1 10); do
-            if [ -z "${WRAPPER:-}" ] || ! kill -0 "$WRAPPER" 2>/dev/null; then break; fi
-            sleep 1
-          done
-          echo 'remaining publication processes:'
-          ps -eo pid,ppid,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo
-          echo '=== VERIFY LOCK FREE ==='
-          /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c 'echo PUBLICATION_LOCK_FREE=true'
-          echo
-          echo '=== PRESERVE KNOWN DEBUG ARTIFACT ==='
-          EXTRA_DIRTY="$(git status --porcelain | grep -v 'payload_debug.json' || true)"
-          if [ -n "$EXTRA_DIRTY" ]; then
-            echo 'Unexpected dirty paths; refusing code cutover:'
-            echo "$EXTRA_DIRTY"
-            false
-          fi
-          if git status --porcelain -- payload_debug.json | grep -q .; then
-            git stash push -m 'payload-debug-before-publication-hardening-20260920' -- payload_debug.json
-          fi
-          echo
-          echo '=== SYNC CURRENT MAIN ==='
-          git fetch origin main
-          git switch main
-          git pull --ff-only origin main
-          HEAD="$(git rev-parse HEAD)"
-          echo "head=$HEAD"
-          git merge-base --is-ancestor 6a9cf8898046ac0426f9a4eaeda133667a72b255 "$HEAD"
-          git status --short
-          echo
-          echo '=== INSTALL CANONICAL CRON ==='
-          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
-          crontab -l | grep -E 'create_daily_scrape_batch|post_scrape_publication_watchdog|publish_post_scrape_if_needed' || true
-          echo
-          echo '=== VERIFY V2 PROJECTION READY ==='
-          ./.venv/bin/python backend/scripts/check_price_storage_v2_projection_ready.py --market-date 2026-09-20
-          echo
-          echo '=== RELAUNCH CLEAN SEP 20 PUBLICATION ==='
-          nohup bash backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-20 >> publication.log 2>&1 < /dev/null &
-          NEW_PID=$!
-          echo "launched wrapper pid=$NEW_PID"
-          sleep 5
-          ps -eo pid,ppid,etime,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo 'lock owner:'
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo 'latest log:'
-          tail -80 publication.log
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          env -u PYTHONPATH "$PY" backend/scripts/check_price_storage_v2_projection_ready.py --help >/tmp/help.txt
+          grep -F -- '--market-date' /tmp/help.txt
+          echo 'file_path_import=PASS'
