@@ -93,96 +93,16 @@ jobs:
           echo "compile_rc=$COMPILE_RC"
           if [ "$COMPILE_RC" -ne 0 ]; then exit 12; fi
 
-          echo "=== safely rearm only known broken-signature failures and orphaned claims ==="
+          echo "=== queue preflight after targeted recovery ==="
           (
             set -a
             . backend/.env
             set +a
-            "$PY" - <<'PY'
-          from datetime import datetime, timezone
-          import json
-          
-          from backend.db.clients.supabase_client import create_service_role_client
-          
-          client = create_service_role_client()
-          market_date = "2026-09-21"
-          now = datetime.now(timezone.utc).isoformat()
-          
-          failed = list(
-              client.table("price_storage_v2_shadow_queue")
-              .select("id,set_id,status,attempts,last_error")
-              .eq("market_date", market_date)
-              .eq("status", "failed")
-              .execute().data or []
+            "$PY" -c 'import json,sys; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); rows=list(c.table("price_storage_v2_shadow_queue").select("id,set_id,status,attempts,last_error").eq("market_date","2026-09-21").execute().data or []); bad=[r for r in rows if r.get("status") in ("failed","processing") or (r.get("status")=="pending" and int(r.get("attempts") or 0)>=5)]; print("queue_preflight_bad="+json.dumps(bad,default=str,sort_keys=True)); sys.exit(0 if not bad else 21)'
           )
-          rearmed = []
-          left_failed = []
-          needle = "sync_pokemon_market_price_intervals_v2_shadow_set_from_date"
-          for row in failed:
-              error = str(row.get("last_error") or "")
-              if "PGRST202" in error and needle in error:
-                  result = (
-            client.table("price_storage_v2_shadow_queue")
-            .update({
-                "status": "pending",
-                "attempts": 0,
-                "started_at": None,
-                "completed_at": None,
-                "last_error": "rearmed after corrected staged interval RPC argument",
-                "updated_at": now,
-            })
-            .eq("id", row["id"])
-            .eq("status", "failed")
-            .eq("attempts", row.get("attempts") or 0)
-            .execute()
-                  )
-                  if result.data:
-            rearmed.append(row["id"])
-              else:
-                  left_failed.append({
-            "id": row.get("id"),
-            "set_id": row.get("set_id"),
-            "attempts": row.get("attempts"),
-            "last_error": error[:500],
-                  })
-          
-          processing = list(
-              client.table("price_storage_v2_shadow_queue")
-              .select("id,set_id,status,attempts,started_at")
-              .eq("market_date", market_date)
-              .eq("status", "processing")
-              .execute().data or []
-          )
-          requeued_processing = []
-          for row in processing:
-              result = (
-                  client.table("price_storage_v2_shadow_queue")
-                  .update({
-            "status": "pending",
-            "attempts": 0,
-            "started_at": None,
-            "completed_at": None,
-            "last_error": "rearmed after interrupted bounded repair worker",
-            "updated_at": now,
-                  })
-                  .eq("id", row["id"])
-                  .eq("status", "processing")
-                  .eq("attempts", row.get("attempts") or 0)
-                  .execute()
-              )
-              if result.data:
-                  requeued_processing.append(row["id"])
-          
-          print("rearmed_signature_failure_ids=" + json.dumps(rearmed))
-          print("requeued_orphan_processing_ids=" + json.dumps(requeued_processing))
-          print("unrelated_failed_rows=" + json.dumps(left_failed, sort_keys=True))
-          if left_failed:
-              raise SystemExit(21)
-          PY
-          )
-          REARM_RC=$?
-          echo "rearm_rc=$REARM_RC"
-          if [ "$REARM_RC" -ne 0 ]; then exit "$REARM_RC"; fi
+          PREFLIGHT_RC=$?
+          echo "queue_preflight_rc=$PREFLIGHT_RC"
+          if [ "$PREFLIGHT_RC" -ne 0 ]; then exit "$PREFLIGHT_RC"; fi
 
           echo "=== advance Price Storage V2 with corrected staged worker ==="
           READY=0
@@ -283,20 +203,7 @@ jobs:
             set -a
             . backend/.env
             set +a
-            "$PY" - <<'PY'
-          import json
-          from collections import Counter
-          from backend.db.clients.supabase_client import create_service_role_client
-          from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
-          
-          client = create_service_role_client()
-          decision = evaluate_price_projection_gate(client, "2026-09-21")
-          print("projection_final=" + json.dumps(decision.to_dict(), sort_keys=True))
-          rows = list(
-              client.table("price_storage_v2_shadow_queue")
-              .select("status,attempts")
-              .eq("market_date", "2026-09-21")
-              .execute().data or []
+            "$PY" -c 'import json; from collections import Counter; from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate; c=create_service_role_client(); d=evaluate_price_projection_gate(c,"2026-09-21"); print("projection_final="+json.dumps(d.to_dict(),sort_keys=True)); rows=list(c.table("price_storage_v2_shadow_queue").select("status,attempts").eq("market_date","2026-09-21").execute().data or []); print("projection_queue_statuses="+json.dumps(Counter(str(r.get("status")) for r in rows),sort_keys=True))'
           )
           print("projection_queue_statuses=" + json.dumps(Counter(str(r.get("status")) for r in rows), sort_keys=True))
           PY
