@@ -347,38 +347,21 @@ jobs:
               echo "== projection-related processes =="
               pgrep -af 'market_explorer|Market.Explorer' || true
               echo "== live compact DB state =="
-              "$PY" - <<'PY'
-              from backend.db.clients.supabase_client import create_service_role_client
-              c = create_service_role_client()
-              fp = "7852c99b7a5bd0067cb1ddeffccce7214b78acc0a62e589383ba9f0bc51c993f"
-              rows = list(
-                  c.table("pokemon_market_explorer_query_cache")
-                  .select("query_fingerprint,normalized_spec,status,computed_from,computed_through,last_built_at,updated_at,build_expires_at,constituent_count")
-                  .eq("query_fingerprint", fp).limit(1).execute().data or []
-              )
-              print({"fingerprintRow": rows[0] if rows else None})
-              cov = list(
-                  c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
-                  .select("set_id,retained_from,computed_through,row_count,refreshed_at")
-                  .execute().data or []
-              )
-              through = sorted({str(r.get("computed_through"))[:10] for r in cov if r.get("computed_through")})
-              print({
-                  "v2CoverageRows": len(cov),
-                  "v2MinRetained": min((str(r.get("retained_from"))[:10] for r in cov if r.get("retained_from")), default=None),
-                  "v2MinThrough": min(through) if through else None,
-                  "v2MaxThrough": max(through) if through else None,
-                  "v2ThroughCounts": {d: sum(1 for r in cov if str(r.get("computed_through"))[:10] == d) for d in through},
-              })
-              quality = list(
-                  c.table("pokemon_market_date_quality")
-                  .select("market_date,status")
-                  .eq("tcg","pokemon")
-                  .in_("status",["READY","LEGACY_VERIFIED"])
-                  .order("market_date", desc=True).limit(5).execute().data or []
-              )
-              print({"latestApprovedMarketDates": quality})
-              PY
+              AUDIT="/tmp/market_explorer_projection_audit.py"
+              printf '%s\n' \
+                'from backend.db.clients.supabase_client import create_service_role_client' \
+                'c = create_service_role_client()' \
+                'fp = "7852c99b7a5bd0067cb1ddeffccce7214b78acc0a62e589383ba9f0bc51c993f"' \
+                'rows = list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,normalized_spec,status,computed_from,computed_through,last_built_at,updated_at,build_expires_at,constituent_count").eq("query_fingerprint", fp).limit(1).execute().data or [])' \
+                'print({"fingerprintRow": rows[0] if rows else None})' \
+                'cov = list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,retained_from,computed_through,row_count,refreshed_at").execute().data or [])' \
+                'through = sorted({str(r.get("computed_through"))[:10] for r in cov if r.get("computed_through")})' \
+                'print({"v2CoverageRows": len(cov), "v2MinRetained": min((str(r.get("retained_from"))[:10] for r in cov if r.get("retained_from")), default=None), "v2MinThrough": min(through) if through else None, "v2MaxThrough": max(through) if through else None, "v2ThroughCounts": {d: sum(1 for r in cov if str(r.get("computed_through"))[:10] == d) for d in through}})' \
+                'quality = list(c.table("pokemon_market_date_quality").select("market_date,status").eq("tcg","pokemon").in_("status",["READY","LEGACY_VERIFIED"]).order("market_date", desc=True).limit(5).execute().data or [])' \
+                'print({"latestApprovedMarketDates": quality})' \
+                > "$AUDIT"
+              "$PY" "$AUDIT"
+              rm -f "$AUDIT"
               echo "== relevant log files =="
               find "$REPO/backend/logs" -maxdepth 1 -type f -iname '*market*explorer*' -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' 2>/dev/null | sort -r | head -n 20 || true
               echo "== daily publication log tails =="
@@ -388,6 +371,7 @@ jobs:
                 tail -n 80 "$LOG"
               done
               ;;
+
 
             market-explorer-manual-one-shot)
               cd "$REPO"
