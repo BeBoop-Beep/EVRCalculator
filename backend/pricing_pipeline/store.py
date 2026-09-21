@@ -167,10 +167,26 @@ class SupabaseStore:
     def __init__(self, client: Any) -> None:
         self.c = client
 
+    @staticmethod
+    def _retry(call, attempts: int = 4, base_delay: float = 3.0, sleep=None):
+        """Read-only PostgREST calls are retried on transient timeouts (57014) and gateway errors; writes never use this."""
+        import time
+
+        sleep = sleep or time.sleep
+        for attempt in range(attempts):
+            try:
+                return call()
+            except Exception as exc:  # noqa: BLE001
+                text = str(exc)
+                transient = "57014" in text or "statement timeout" in text or "502" in text or "503" in text or "504" in text
+                if not transient or attempt == attempts - 1:
+                    raise
+                sleep(base_delay * (attempt + 1))
+
     def _paged(self, factory):
         rows, start = [], 0
         while True:
-            page = list(factory().range(start, start + 999).execute().data or [])
+            page = list(self._retry(lambda: factory().range(start, start + 999).execute().data or []))
             rows.extend(page)
             if len(page) < 1000:
                 return rows

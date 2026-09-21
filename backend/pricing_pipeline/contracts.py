@@ -9,7 +9,8 @@ from typing import Any
 from backend.scripts.freeze_ebay_active_ask_v1 import VERSION as EBAY_ESTIMATOR_VERSION
 from backend.scripts.pokemon_multi_source_card_price_v1 import POLICY_FINGERPRINT, POLICY_VERSION
 
-PIPELINE_VERSION = "multi_source_daily_pipeline_p6_v1"
+PIPELINE_VERSION = "multi_source_daily_pipeline_p6_v1"  # historical V1 identity (1000/day self-imposed cap); frozen
+PIPELINE_VERSION_V2 = "multi_source_daily_pipeline_p6_v2"  # provider-aware quota authority (ebay_api_budget_policy_v2)
 NM_CONDITION_ID = "4f8d1181-670e-4aea-937c-4d98d2e531a6"
 # Arizona observes no DST, so America/Phoenix is always UTC-7 (same helper as the Sentinel authorities).
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
@@ -17,6 +18,9 @@ DAILY_REQUEST_LIMIT = 1000
 # Measured on P4/P5B: 195/30 and 836/120 Browse calls per target (adaptive search + getItem, stop at 5 sellers).
 DEFAULT_REQUESTS_PER_TARGET = 7.0
 PLANNING_FRACTION = 0.90
+# V2 keeps 20% of the usable pool unplanned for retries, late hydration and operational/manual probes.
+PLANNING_FRACTION_V2 = 0.80
+V2_STANDARD_USABLE_CEILING = 4500  # 5000 provider limit - 500 reserve; the DB is authoritative, callers can only lower it
 STOP_SELLERS = 5
 DETAILS_PER_TARGET = 8
 # Accepted collector partial policy: at least this share of manifest targets must be attempted and at most this

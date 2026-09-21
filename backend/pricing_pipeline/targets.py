@@ -28,8 +28,9 @@ def measured_requests_per_target(history: Sequence[Mapping[str, Any]]) -> float:
     return float(statistics.median(ratios)) if ratios else DEFAULT_REQUESTS_PER_TARGET
 
 
-def plan_capacity(remaining_requests: int, cost_per_target: float, fraction: float = PLANNING_FRACTION) -> int:
-    budget = max(0, min(remaining_requests, DAILY_REQUEST_LIMIT))
+def plan_capacity(remaining_requests: int, cost_per_target: float, fraction: float = PLANNING_FRACTION,
+                  ceiling: int = DAILY_REQUEST_LIMIT) -> int:
+    budget = max(0, min(remaining_requests, ceiling))
     return int((budget * fraction) // max(cost_per_target, 1.0))
 
 
@@ -79,10 +80,11 @@ def _to_target(row: Mapping[str, Any], tier: int, reason: str, variant: str | No
 
 def plan_targets(universe: Sequence[Mapping[str, Any]], market_date: date, *, remaining_requests: int,
                  cost_per_target: float, resolved_variants: Mapping[str, Any] | None = None,
-                 disagreements: set[str] | None = None, events: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+                 disagreements: set[str] | None = None, events: Sequence[Mapping[str, Any]] = (),
+                 planning_fraction: float = PLANNING_FRACTION, ceiling: int = DAILY_REQUEST_LIMIT) -> dict[str, Any]:
     resolved = resolved_variants or {}
     movers = _mover_variants(events)
-    capacity = plan_capacity(remaining_requests, cost_per_target)
+    capacity = plan_capacity(remaining_requests, cost_per_target, planning_fraction, ceiling)
     buckets: dict[int, list[tuple]] = {t: [] for t in TIER_NAMES}
     for row in universe:
         if not cb.eligible_for_cohort(row):
@@ -115,7 +117,7 @@ def plan_targets(universe: Sequence[Mapping[str, Any]], market_date: date, *, re
     manifest = {
         "market_date": market_date.isoformat(), "selector_version": SELECTOR_VERSION, "target_count": len(chosen),
         "remaining_requests_at_plan": remaining_requests, "cost_per_target": round(cost_per_target, 3),
-        "planned_capacity": capacity, "planning_fraction": PLANNING_FRACTION,
+        "planned_capacity": capacity, "planning_fraction": planning_fraction,
         "tier_counts": {TIER_NAMES[t]: sum(1 for x in chosen if x["priority_tier"] == t) for t in TIER_NAMES},
         "candidate_counts": {TIER_NAMES[t]: len(buckets[t]) for t in TIER_NAMES}, "cards": chosen,
     }

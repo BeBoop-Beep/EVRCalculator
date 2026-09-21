@@ -36,6 +36,9 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
 
     day = now.astimezone(PHOENIX).date().isoformat()
     ledger = client.table("ebay_browse_request_ledger_v1").select("requests_reserved,daily_limit").eq("budget_day", day).limit(1).execute().data or []
+    v2 = client.table("ebay_api_request_budget_v2").select(
+        "resource_bucket,provider_window_start,provider_window_end,usable_limit,requests_reserved,verified_at,provider_usage_state").order(
+        "provider_window_end", desc=True).limit(4).execute().data or []
     policies = client.table("pokemon_multi_source_card_prices_v1").select("policy_version").order("market_date", desc=True).limit(50).execute().data or []
     return {
         "now": now,
@@ -43,7 +46,7 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
         "evidence": one("ebay_pricing_runs_v1", "market_date,status,finished_at", "market_date", status="COMPLETE"),
         "estimate": one("ebay_active_ask_price_estimates_v1", "market_date,estimator_version", "market_date"),
         "shadow": one("pokemon_multi_source_card_prices_v1", "market_date,policy_version", "market_date"),
-        "ledger": ledger[0] if ledger else None,
+        "ledger": ledger[0] if ledger else None, "budget_v2": v2,
         "shadow_policies": sorted({p["policy_version"] for p in policies}),
         "non_tcg_current": len(client.table("card_variant_price_current_v2").select("source").neq("source", "TCGPlayer").limit(1).execute().data or []),
         "non_tcg_canonical": len(client.table("pokemon_canonical_card_market_prices_latest").select("source").neq("source", "TCGPlayer").limit(1).execute().data or []),
@@ -68,6 +71,15 @@ def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
     limit = ledger["daily_limit"] if ledger else DAILY_REQUEST_LIMIT
     results.append(_check("pricing.ebay.budget_health", used <= min(limit, DAILY_REQUEST_LIMIT), "REQUEST_BUDGET_OVER_LIMIT",
                           {"requests_reserved_today": used, "daily_limit": limit}))
+    windows = list(snapshot.get("budget_v2") or [])
+    if windows or "budget_v2" in snapshot:
+        def _parse(v):
+            return datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        current = [w for w in windows if _parse(w["provider_window_start"]) <= now < _parse(w["provider_window_end"])]
+        std = next((w for w in current if w["resource_bucket"] == "BUY_BROWSE_STANDARD"), None)
+        ok = bool(std) and now - _parse(std["verified_at"]) <= timedelta(hours=36) and std["requests_reserved"] <= std["usable_limit"]
+        results.append(_check("pricing.ebay.quota_authority_v2", ok, "EBAY_QUOTA_WINDOW_UNVERIFIED_OR_OVERSPENT",
+                              {"standard_window": std and {k: std[k] for k in ("provider_window_end", "usable_limit", "requests_reserved", "provider_usage_state")}}))
     evidence_age = None
     if evidence and evidence.get("finished_at"):
         finished = datetime.fromisoformat(str(evidence["finished_at"]).replace("Z", "+00:00"))

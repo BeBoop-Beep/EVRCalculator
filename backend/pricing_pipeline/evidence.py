@@ -97,7 +97,7 @@ def prepare(manifest: Mapping[str, Any], records: Mapping[str, Mapping[str, Any]
         "run_id": run_id, "market_date": market_date, "status": "COMPLETE", "selector_version": manifest["selector_version"],
         "selector_fingerprint": manifest["selector_fingerprint"], "collector_version": COLLECTOR_VERSION,
         "query_strategy_version": QUERY_STRATEGY_VERSION, "target_count": len(attempted),
-        "planned_request_count": max(0, min(1000, int(planned_requests))), "requests_attempted": requests["attempted"],
+        "planned_request_count": max(0, min(5000, int(planned_requests))), "requests_attempted": requests["attempted"],
         "requests_successful": max(0, requests["attempted"] - requests["failed"]), "requests_failed": requests["failed"],
         "retry_count": requests["retries"], "raw_listing_count": sum(s["raw_count"] for s in summaries),
         "deduped_listing_count": sum(s["deduped_count"] for s in summaries),

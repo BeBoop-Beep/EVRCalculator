@@ -15,7 +15,7 @@ from typing import Any, Callable, Mapping
 
 from backend.pricing_pipeline import builder, collector, estimates, evidence, targets
 from backend.pricing_pipeline.contracts import (
-    DAILY_REQUEST_LIMIT, MAX_FAILED_REQUEST_SHARE, MIN_ATTEMPTED_SHARE, NM_CONDITION_ID, PIPELINE_VERSION, STAGES,
+    DAILY_REQUEST_LIMIT, MAX_FAILED_REQUEST_SHARE, MIN_ATTEMPTED_SHARE, NM_CONDITION_ID, PIPELINE_VERSION, PLANNING_FRACTION, STAGES,
     PipelineError, assert_policy_contract, digest,
 )
 from backend.pricing_pipeline.variants import resolve_default_variants
@@ -26,9 +26,15 @@ from backend.scripts.freeze_ebay_active_ask_v1 import VERSION as ESTIMATOR_VERSI
 
 class Orchestrator:
     def __init__(self, store: Any, ledger: Any, state_dir: Path, *, http_factory: Callable[[Any], Any] | None = None,
-                 max_requests: int = DAILY_REQUEST_LIMIT, require_tcg_ready: bool = True, log: Callable[[str], None] = lambda m: None) -> None:
+                 max_requests: int = DAILY_REQUEST_LIMIT, require_tcg_ready: bool = True, log: Callable[[str], None] = lambda m: None,
+                 pipeline_version: str = PIPELINE_VERSION, request_ceiling: int = DAILY_REQUEST_LIMIT,
+                 planning_fraction: float = PLANNING_FRACTION,
+                 quota_gate: Callable[[], None] | None = None) -> None:
+        self.quota_gate = quota_gate  # V2: verifies provider quota before any network work; never called on a replay
         self.store, self.ledger, self.state_dir = store, ledger, Path(state_dir)
-        self.http_factory, self.max_requests = http_factory, min(max_requests, DAILY_REQUEST_LIMIT)
+        # a caller may only LOWER the run cap; the ceiling comes from the quota authority, never from the CLI
+        self.pipeline_version, self.request_ceiling, self.planning_fraction = pipeline_version, request_ceiling, planning_fraction
+        self.http_factory, self.max_requests = http_factory, min(max_requests, request_ceiling)
         self.require_tcg_ready, self.log = require_tcg_ready, log
         self._t0 = time.monotonic()
 
@@ -67,7 +73,7 @@ class Orchestrator:
         if not run:
             run = self.store.create_run({
                 "run_id": str(uuid.uuid4()), "market_date": md, "policy_version": policy.POLICY_VERSION,
-                "pipeline_version": PIPELINE_VERSION, "status": "RUNNING", "stage": "INIT",
+                "pipeline_version": self.pipeline_version, "status": "RUNNING", "stage": "INIT",
                 "request_cap": max(1, self.max_requests), "started_at": datetime.now(timezone.utc).isoformat()})
         try:
             while run["stage"] != "COMPLETE":
@@ -92,12 +98,15 @@ class Orchestrator:
         manifest = targets.plan_targets(
             universe, market_date, remaining_requests=remaining,
             cost_per_target=targets.measured_requests_per_target(self.store.completed_run_history()),
-            resolved_variants=resolved, disagreements=self.store.previous_disagreements(market_date.isoformat()), events=events)
+            resolved_variants=resolved, disagreements=self.store.previous_disagreements(market_date.isoformat()), events=events,
+            planning_fraction=self.planning_fraction, ceiling=self.request_ceiling)
         return {"manifest": manifest, "prices": {str(p["canonical_card_id"]): p for p in prices}}
 
     def _init(self, run: dict[str, Any], md: str) -> None:
         if self.require_tcg_ready and not self.store.tcg_batch_complete(md):
             raise PipelineError("TCG_BATCH_NOT_COMPLETE", f"no completed TCGplayer scrape batch for {md}", status="WAITING")
+        if self.quota_gate:
+            self.quota_gate()
         remaining = self.ledger.remaining()
         if remaining <= 0:
             raise PipelineError("BUDGET_EXHAUSTED", "no eBay Browse requests remain today")
@@ -119,6 +128,8 @@ class Orchestrator:
 
     def _collection_running(self, run: dict[str, Any], md: str) -> None:
         manifest = self._verify_manifest(run)
+        if self.quota_gate:
+            self.quota_gate()
         if self.http_factory is None:
             raise PipelineError("COLLECTOR_UNAVAILABLE", "no eBay HTTP client configured")
         checkpoint = collector.CollectionCheckpoint(self._dir(md))
@@ -220,7 +231,7 @@ class Orchestrator:
         metrics = dict(run.get("metrics") or {})
         manifest = self._verify_manifest(run)
         receipt = {
-            "market_date": md, "pipeline_run_id": run["run_id"], "pipeline_version": PIPELINE_VERSION, "policy_version": policy.POLICY_VERSION,
+            "market_date": md, "pipeline_run_id": run["run_id"], "pipeline_version": self.pipeline_version, "policy_version": policy.POLICY_VERSION,
             "policy_fingerprint": policy.POLICY_FINGERPRINT, "target_count": manifest["target_count"], "tier_counts": manifest["tier_counts"],
             "target_fingerprint": run["target_fingerprint"], "ebay_pricing_run_id": run["ebay_pricing_run_id"],
             "requests_attempted": run["requests_attempted"], "requests_failed": run["requests_failed"], "retries": run["retries"],
