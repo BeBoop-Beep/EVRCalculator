@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -372,6 +372,25 @@ jobs:
               done
               ;;
 
+
+            market-explorer-currency-source-audit)
+              cd "$REPO"
+              echo "== repo =="
+              git log -3 --oneline
+              for PATHNAME in \
+                backend/db/services/post_scrape_publication_trigger.py \
+                backend/scripts/publish_post_scrape_if_needed.py \
+                backend/alerts/post_scrape_publication_watchdog.py; do
+                echo "== $PATHNAME =="
+                if [ -f "$PATHNAME" ]; then
+                  echo "exists=true tracked=$(git ls-files --error-unmatch "$PATHNAME" >/dev/null 2>&1 && echo true || echo false)"
+                  sha256sum "$PATHNAME"
+                  grep -nE 'price_projection|_default_publication_current|_already_current|trigger_post_scrape_publication_if_needed|run_watchdog' "$PATHNAME" | head -n 40 || true
+                else
+                  echo "exists=false"
+                fi
+              done
+              ;;
 
             market-explorer-manual-one-shot)
               cd "$REPO"
