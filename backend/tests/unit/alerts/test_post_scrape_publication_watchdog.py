@@ -229,3 +229,91 @@ def test_terminal_projection_failure_never_launches():
     assert result["healthy"] is False
     assert result["status"] == "price_projection_terminal_failure"
     assert trigger_calls == []
+
+
+
+class _Transient522(Exception):
+    code = 522
+
+
+class _DeterministicRelationError(Exception):
+    code = "42P01"
+
+
+class _BatchResult:
+    def __init__(self, client):
+        self.client = client
+
+    def execute(self):
+        if self.client.error is not None:
+            raise self.client.error
+        return SimpleNamespace(data=[dict(BATCH)])
+
+
+class _BatchQuery:
+    def __init__(self, client):
+        self.client = client
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def order(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, *_args):
+        return self
+
+    def execute(self):
+        return _BatchResult(self.client).execute()
+
+
+class _BatchClient:
+    def __init__(self, error=None):
+        self.error = error
+
+    def table(self, name):
+        assert name == "pokemon_scrape_batches"
+        return _BatchQuery(self)
+
+
+def test_latest_complete_batch_retries_transient_authority_failure_with_fresh_client():
+    clients = [
+        _BatchClient(_Transient522("Cloudflare 522 connection timed out")),
+        _BatchClient(),
+    ]
+    calls = {"n": 0}
+
+    def factory():
+        client = clients[calls["n"]]
+        calls["n"] += 1
+        return client
+
+    result = watchdog._latest_complete_batch(
+        object(),
+        client_factory=factory,
+        sleep=lambda _seconds: None,
+    )
+
+    assert calls["n"] == 2
+    assert result["id"] == BATCH["id"]
+    assert result["market_date"] == BATCH["market_date"]
+
+
+def test_latest_complete_batch_does_not_retry_deterministic_authority_failure():
+    calls = {"n": 0}
+
+    def factory():
+        calls["n"] += 1
+        return _BatchClient(_DeterministicRelationError("relation does not exist"))
+
+    with pytest.raises(_DeterministicRelationError):
+        watchdog._latest_complete_batch(
+            object(),
+            client_factory=factory,
+            sleep=lambda _seconds: None,
+        )
+
+    assert calls["n"] == 1
