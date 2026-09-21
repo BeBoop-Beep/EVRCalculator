@@ -1,4 +1,4 @@
-name: Public route probe after slim directory repair
+name: Public route warm probe after slim directory repair
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: Probe live public routes
+      - name: Probe warm live routes
         shell: bash
         run: |
           set -euo pipefail
@@ -28,20 +28,19 @@ jobs:
             code=$?
             set -e
             echo "curl_exit=$code"
-            grep -Ei '^(HTTP/|x-vercel|x-matched-path|cache-control|content-type|server:|date:)' headers.out | tail -n 30 || true
+            grep -Ei '^(HTTP/|x-vercel-cache:|x-matched-path:|cache-control:|content-type:)' headers.out | tail -n 20 || true
             if [ -f body.out ]; then
               echo "body_bytes=$(wc -c < body.out)"
-              echo "contains_pitch=$(grep -qi 'Pitch Black' body.out && echo true || echo false)"
-              echo "contains_delta=$(grep -qi 'Delta Reign' body.out && echo true || echo false)"
-              echo "contains_30th=$(grep -qi '30th Celebration' body.out && echo true || echo false)"
-              echo "contains_route_loader=$(grep -qi 'Loading Rip Statistics' body.out && echo true || echo false)"
-              echo "contains_set_client=$(grep -qi 'Loading set intelligence\|set-detail-glass-scope\|RIP Statistics unavailable' body.out && echo true || echo false)"
-              head -c 300 body.out | tr '\n' ' ' || true
-              echo
+              echo "route_loader=$(grep -qi 'Loading Rip Statistics' body.out && echo true || echo false)"
+              echo "set_client=$(grep -qi 'set-detail-glass-scope\|RIP Statistics unavailable\|Loading set intelligence' body.out && echo true || echo false)"
+              echo "market_explorer=$(grep -qi 'data-market-explorer-workspace\|Market Directory\|Build Your Market' body.out && echo true || echo false)"
             fi
           }
 
-          probe pitch "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
-          probe delta "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
-          probe celebration "https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"
-          probe explorer "https://inthedex.io/Explorer"
+          # Run twice to distinguish a cold shared dependency from a per-set one.
+          probe pitch-1 "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
+          probe pitch-2 "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
+          probe delta-1 "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
+          probe delta-2 "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
+          probe explorer-1 "https://inthedex.io/Market/Explorer"
+          probe explorer-2 "https://inthedex.io/Market/Explorer"
