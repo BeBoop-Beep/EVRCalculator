@@ -1,0 +1,29 @@
+name: Price Projection RPC Contract Test
+
+on:
+  push:
+    branches:
+      - 'fix/price-projection-interval-rpc-args-20260921'
+    paths:
+      - 'backend/db/services/price_storage_v2_projection_gate.py'
+      - 'backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py'
+      - '.github/workflows/price-projection-rpc-contract-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  focused-test:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/price-projection-interval-rpc-args-20260921
+      - name: Run focused projection tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile backend/db/services/price_storage_v2_projection_gate.py
