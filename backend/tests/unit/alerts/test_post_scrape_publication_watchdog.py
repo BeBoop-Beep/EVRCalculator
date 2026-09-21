@@ -446,3 +446,125 @@ def test_stalled_recovery_refuses_parent_mismatch():
     assert result["status"] == "stall_recovery_blocked"
     assert result["failure_code"] == "publication_process_parent_mismatch"
     assert terminated == []
+
+
+NEWER_BATCH = {
+    "id": 59,
+    "market_date": "2026-09-21",
+    "status": "complete",
+    "promoted_at": "2026-09-21T14:50:12+00:00",
+}
+
+
+def _superseded_processes():
+    return [
+        {
+            "pid": 200,
+            "ppid": 1,
+            "age_seconds": 18000,
+            "args": "/home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-20",
+            "kind": "wrapper",
+            "market_date": "2026-09-20",
+        },
+        {
+            "pid": 201,
+            "ppid": 200,
+            "age_seconds": 17990,
+            "args": "/home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-20",
+            "kind": "refresh",
+            "market_date": "2026-09-20",
+        },
+    ]
+
+
+def test_superseded_recovery_sigterms_only_exact_old_refresh_before_projection():
+    terminated = []
+    recorded = []
+    projection_calls = []
+
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(NEWER_BATCH),
+            lock_checker=lambda _path: True,
+            recover_superseded=True,
+            all_process_inspector=_superseded_processes,
+            terminate_process=lambda pid: terminated.append(pid),
+            cooldown_checker=lambda *_args: False,
+            recovery_recorder=lambda key, now: recorded.append((key, now)),
+            projection_checker=lambda *_args: projection_calls.append(True),
+        )
+
+    assert result["healthy"] is False
+    assert result["status"] == "supersession_sigterm_requested"
+    assert result["failure_code"] == "publication_supersession_sigterm_requested"
+    assert result["market_date"] == "2026-09-21"
+    assert result["active_market_date"] == "2026-09-20"
+    assert result["refresh_pid"] == 201
+    assert result["wrapper_pid"] == 200
+    assert terminated == [201]
+    assert recorded == [("superseded-2026-09-20-by-2026-09-21", NOW)]
+    assert projection_calls == []
+
+
+def test_superseded_recovery_refuses_ambiguous_old_process_identity():
+    terminated = []
+    processes = _superseded_processes() + [
+        {
+            "pid": 202,
+            "ppid": 200,
+            "age_seconds": 17000,
+            "args": "/home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-20",
+            "kind": "refresh",
+            "market_date": "2026-09-20",
+        }
+    ]
+
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(NEWER_BATCH),
+            lock_checker=lambda _path: True,
+            recover_superseded=True,
+            all_process_inspector=lambda: processes,
+            terminate_process=lambda pid: terminated.append(pid),
+            projection_checker=lambda *_args: pytest.fail(
+                "projection must not run behind ambiguous held lock"
+            ),
+        )
+
+    # Ambiguous identity cannot be safely signalled; existing lock-liveness
+    # handling remains authoritative and no process is terminated.
+    assert terminated == []
+    assert result["lock_held"] is True
+
+
+def test_current_date_lock_is_never_superseded():
+    current = [
+        {**_superseded_processes()[0], "market_date": "2026-09-21",
+         "args": "/home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-21"},
+        {**_superseded_processes()[1], "market_date": "2026-09-21",
+         "args": "/home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-21"},
+    ]
+    terminated = []
+
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(NEWER_BATCH),
+            lock_checker=lambda _path: True,
+            log_age_loader=lambda _path, _now: 30.0,
+            recover_superseded=True,
+            all_process_inspector=lambda: current,
+            terminate_process=lambda pid: terminated.append(pid),
+        )
+
+    assert result["healthy"] is True
+    assert result["status"] == "in_progress"
+    assert terminated == []
