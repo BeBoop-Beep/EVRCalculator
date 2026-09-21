@@ -1,4 +1,4 @@
-name: Deploy stalled publication recovery
+name: Inspect active Sep 20 republisher
 
 on:
   push:
@@ -11,45 +11,36 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Sync merged main and install canonical cron
+      - name: Inspect active publication progress
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           cd /home/ubuntu/repos/EVRCalculator
-          echo '=== BEFORE ==='
-          git rev-parse HEAD
-          git status --short || true
+          date
+          echo '=== PROCESS ==='
+          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
           echo
-          echo '=== ACTIVE PUBLICATION ==='
-          if ps -ef | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep; then
-            echo 'Refusing deploy: publication still active'
-            exit 3
-          fi
-          EXTRA_DIRTY="$(git status --porcelain | grep -v 'payload_debug.json' || true)"
-          if [ -n "$EXTRA_DIRTY" ]; then
-            echo 'Refusing deploy: unexpected dirty paths:'
-            echo "$EXTRA_DIRTY"
-            exit 2
-          fi
-          if git status --porcelain -- payload_debug.json | grep -q .; then
-            git stash push -m 'payload-debug-before-main-faa35538-20260920' -- payload_debug.json
-          fi
-          git fetch origin main
-          git switch main
-          git pull --ff-only origin main
-          git merge-base --is-ancestor faa35538e0a79990499d94fd6f16fa2f835f1ef8 HEAD
+          echo '=== LOCK ==='
+          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
           echo
-          echo '=== INSTALL CANONICAL CRON ==='
-          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab
-          crontab -l > /tmp/index-cron-after-stall-recovery
-          diff -u infra/oracle/tcgplayer-scraper-pokemon.crontab /tmp/index-cron-after-stall-recovery
-          echo
-          echo '=== AFTER ==='
-          git rev-parse HEAD
-          git status --short || true
-          crontab -l | grep -E 'post-scrape-publication-watchdog|create_daily_scrape_batch|publish_post_scrape_if_needed' || true
-          echo 'STALL_RECOVERY_DEPLOYED=true'
+          echo '=== LOG ==='
+          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
+          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
+          echo "run_start_line=${START:-missing}"
+          if [ -n "${START:-}" ]; then
+            tail -n +"$START" publication.log > /tmp/current-pub.log
+            echo "plan_last=$(grep '\[refresh-plan\] checked' /tmp/current-pub.log | tail -1)"
+            echo "plan_complete=$(grep -c '\[refresh-plan\] complete' /tmp/current-pub.log || true)"
+            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/current-pub.log || true)"
+            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/current-pub.log || true)"
+            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/current-pub.log || true)"
+            echo "refresh_exit=$(grep 'refresh exit_status=' /tmp/current-pub.log | tail -1)"
+            echo "audit_exit=$(grep 'audit exit_status=' /tmp/current-pub.log | tail -1)"
+            echo "final_exit=$(grep 'final exit_status=' /tmp/current-pub.log | tail -1)"
+            echo '=== TAIL ==='
+            tail -80 /tmp/current-pub.log
+          fi
