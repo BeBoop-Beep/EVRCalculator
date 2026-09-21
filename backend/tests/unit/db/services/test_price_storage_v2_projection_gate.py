@@ -131,13 +131,16 @@ class _RpcCall:
 
 
 class _RpcClient:
-    def __init__(self, *, expected_rpc, error=None, data=None):
+    def __init__(self, *, expected_rpc, expected_params=None, error=None, data=None):
         self.expected_rpc = expected_rpc
+        self.expected_params = expected_params
         self.error = error
         self.data = data
 
     def rpc(self, name, params):
         assert name == self.expected_rpc
+        if self.expected_params is not None:
+            assert params == self.expected_params
         return _RpcCall(error=self.error, data=self.data)
 
 
@@ -257,3 +260,49 @@ def test_failed_staged_job_does_not_starve_later_jobs(monkeypatch):
     assert report["failed"] == 1
     assert report["completed"] == 1
     assert [row["set_id"] for row in report["jobs"]] == ["bad", "good"]
+
+
+def test_staged_interval_rpc_uses_start_date_contract(monkeypatch):
+    clients = [
+        _RpcClient(
+            expected_rpc="sync_price_storage_v2_set_date",
+            expected_params={"p_set_id": "set-a", "p_market_date": "2026-09-21"},
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="sync_price_observation_ranges_v2_set_date",
+            expected_params={"p_set_id": "set-a", "p_market_date": "2026-09-21"},
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="sync_pokemon_market_price_intervals_v2_shadow_set_from_date",
+            expected_params={"p_set_id": "set-a", "p_start_date": "2026-09-21"},
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="refresh_pokemon_canonical_card_market_prices_latest_for_set",
+            expected_params={"target_set_id": "set-a"},
+            data=120,
+        ),
+    ]
+    state = {"index": 0}
+    finished = []
+
+    def factory():
+        client = clients[state["index"]]
+        state["index"] += 1
+        return client
+
+    monkeypatch.setattr(
+        gate,
+        "_finish_projection_job",
+        lambda job, *, status, last_error, client_factory: finished.append(
+            (status, last_error)
+        ),
+    )
+
+    report = gate._process_projection_job_staged(_job(), client_factory=factory)
+
+    assert report["status"] == "complete"
+    assert state["index"] == 4
+    assert finished == [("complete", None)]
