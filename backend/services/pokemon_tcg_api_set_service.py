@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional
+import time
+from typing import Any, Callable, Dict, Iterable, Optional
 
 import requests
 
@@ -11,6 +12,7 @@ from backend.services.tcgplayer_set_catalog_service import normalize_name, token
 REQUIRED_FIELDS = (
     "id", "name", "series", "releaseDate", "printedTotal", "total", "ptcgoCode", "images",
 )
+RETRYABLE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 
 @dataclass(frozen=True)
@@ -31,22 +33,63 @@ def _project(row: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def fetch_targeted_sets(
-    name: str, api_key: str, *, timeout_seconds: float = 15.0,
+    name: str,
+    api_key: str,
+    *,
+    timeout_seconds: float = 15.0,
     session: Optional[requests.Session] = None,
+    max_attempts: int = 3,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> list[Dict[str, Any]]:
+    """Fetch a bounded metadata candidate set with transient retries.
+
+    Metadata resolution is one of the first onboarding steps. A single provider
+    500 must not defer an otherwise valid set until the next scheduler cycle.
+    Keyless access remains rate-safe by using >=2.1s between transient retries.
+    """
     client = session or requests.Session()
     headers = {"Accept": "application/json", "User-Agent": "EVRCalculator/1.0"}
     cleaned_key = str(api_key or "").strip()
     if cleaned_key:
         headers["X-Api-Key"] = cleaned_key
-    response = client.get(
-        API_URL,
-        params={"q": f'name:"{name}"', "pageSize": 50},
-        headers=headers,
-        timeout=timeout_seconds,
-    )
-    response.raise_for_status()
-    return [_project(row) for row in response.json().get("data", [])]
+
+    attempts = max(1, int(max_attempts or 1))
+    keyless_floor = 2.1 if not cleaned_key else 0.0
+    last_exception: Optional[BaseException] = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            response = client.get(
+                API_URL,
+                params={"q": f'name:"{name}"', "pageSize": 50},
+                headers=headers,
+                timeout=timeout_seconds,
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_exception = exc
+            if attempt >= attempts:
+                raise
+            delay = max(keyless_floor, float(2 ** (attempt - 1)))
+            sleep(delay)
+            continue
+
+        if response.status_code in RETRYABLE_STATUS_CODES and attempt < attempts:
+            retry_after = response.headers.get("Retry-After")
+            try:
+                parsed_retry_after = float(retry_after) if retry_after is not None else None
+            except (TypeError, ValueError):
+                parsed_retry_after = None
+            delay = parsed_retry_after if parsed_retry_after is not None else float(2 ** (attempt - 1))
+            delay = min(30.0, max(keyless_floor, delay))
+            sleep(delay)
+            continue
+
+        response.raise_for_status()
+        return [_project(row) for row in response.json().get("data", [])]
+
+    if last_exception is not None:
+        raise last_exception
+    return []
 
 
 def resolve_set_metadata(
