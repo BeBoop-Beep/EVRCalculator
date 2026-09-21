@@ -1,4 +1,4 @@
-name: Inspect production route dynamic chunks
+name: Verify set-detail dynamic chunks
 
 on:
   push:
@@ -9,55 +9,43 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  verify:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - name: Probe actual Explorer route
+      - name: Check all secondary chunks
         shell: bash
         run: |
           set -euo pipefail
-          tmp=/tmp/explore.html
-          curl -L --max-time 45 -sS -D /tmp/explore.headers -o "$tmp" "https://www.inthedex.io/Explore"
-          echo "=== headers ==="
-          cat /tmp/explore.headers
-          echo "bytes=$(wc -c < "$tmp")"
-          echo "loader_count=$(grep -o 'Loading inDex\|Loading Rip Statistics\|Loading rankings\|Loading' "$tmp" | wc -l)"
-          echo "title=$(grep -o '<title>[^<]*</title>' "$tmp" | head -1 || true)"
-          echo "scripts:"
-          grep -oE 'src="[^"]+\.js[^"]*"' "$tmp" | sed 's/^src="//;s/"$//' | sort -u
+          base="https://www.inthedex.io/_next/static/chunks"
+          for file in             "6191-05b4624edbeb9434.js"             "8278-d925812404ca1621.js"             "1954-9d33baa10331d710.js"             "6042-e5094b16df56c2c2.js"             "1150.ea96b4a1153f9eeb.js"
+          do
+            tmp="$(mktemp)"
+            code="$(curl -L --max-time 20 -sS -o "$tmp" -w '%{http_code}' "$base/$file?dpl=dpl_BHYrPwf59gU4y8ATTPJKne2hm9Tf" || true)"
+            size="$(wc -c < "$tmp" 2>/dev/null || echo 0)"
+            echo "$file status=$code bytes=$size"
+            if [ "$code" != "200" ]; then
+              echo "body:"
+              head -c 500 "$tmp" || true
+              echo
+            fi
+            rm -f "$tmp"
+          done
 
-      - name: Inspect set route bundle and all referenced chunk ids
+      - name: Check Rankings route secondary chunks
         shell: bash
         run: |
           set -euo pipefail
-          html=/tmp/pitch.html
-          curl -L --max-time 45 -fsS "https://www.inthedex.io/TCGs/Pokemon/Sets/pitch-black" -o "$html"
-
-          route_src="$(grep -oE 'src="[^"]+app/TCGs/Pokemon/Sets/%5BsetSlug%5D/page-[^"]+\.js[^"]*"' "$html" | head -1 | sed 's/^src="//;s/"$//')"
-          echo "route_src=$route_src"
-          test -n "$route_src"
-          curl -L --max-time 20 -fsS "https://www.inthedex.io$route_src" -o /tmp/set-route.js
-
-          echo "route_chunk_bytes=$(wc -c < /tmp/set-route.js)"
-          echo "=== route chunk strings ==="
-          grep -aoE 'PokemonSetRichPageClient|PokemonSetPageClient|Loading set intelligence|Loading Rip Statistics|[0-9]{3,6}:[^,}]+' /tmp/set-route.js | head -n 120 || true
-
-          echo "=== route chunk head ==="
-          head -c 12000 /tmp/set-route.js
-          echo
-
-          echo "=== numeric chunk ids near dynamic loader ==="
-          grep -aoE '\.e\([0-9]+\)|\[([0-9]+(,[0-9]+)*)\]' /tmp/set-route.js | sort -u | head -n 100 || true
-
-      - name: Verify candidate secondary chunks from webpack mapping
-        shell: bash
-        run: |
-          set -euo pipefail
-          html=/tmp/pitch.html
-          webpack_src="$(grep -oE 'src="[^"]+webpack-[^"]+\.js[^"]*"' "$html" | head -1 | sed 's/^src="//;s/"$//')"
-          echo "webpack_src=$webpack_src"
-          curl -L --max-time 20 -fsS "https://www.inthedex.io$webpack_src" -o /tmp/webpack.js
-          echo "webpack_bytes=$(wc -c < /tmp/webpack.js)"
-          head -c 16000 /tmp/webpack.js
-          echo
+          html=/tmp/rankings.html
+          curl -L --max-time 45 -fsS "https://www.inthedex.io/Rankings" -o "$html"
+          echo "bytes=$(wc -c < "$html")"
+          echo "title=$(grep -o '<title>[^<]*</title>' "$html" | head -1 || true)"
+          grep -oE 'src="[^"]+\.js[^"]*"' "$html" | sed 's/^src="//;s/"$//' | sort -u > /tmp/rankings.scripts
+          while IFS= read -r src; do
+            case "$src" in
+              http*) full="$src" ;;
+              *) full="https://www.inthedex.io$src" ;;
+            esac
+            code="$(curl -L --max-time 20 -sS -o /dev/null -w '%{http_code}' "$full" || true)"
+            echo "$code $src"
+          done < /tmp/rankings.scripts
