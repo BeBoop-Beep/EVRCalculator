@@ -1,4 +1,5 @@
 name: Sentinel Live Observe
+# queued after Sep 21 repair for post-repair verification
 
 on:
   push:
