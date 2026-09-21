@@ -284,3 +284,132 @@ def test_disposable_postgres_quota_v2_integration():
     root = Path(__file__).resolve().parents[4]
     result = subprocess.run(["node", "backend/tests/integration/p6_6_disposable_postgres.mjs"], cwd=root, capture_output=True, text=True, timeout=300)
     assert result.returncode == 0, result.stderr[-2000:]
+
+
+class _SchemaClient:
+    def __init__(self, error):
+        self.error = error
+
+    def table(self, name):
+        outer = self
+
+        class Q:
+            def select(self, *_): return self
+            def limit(self, *_): return self
+            def execute(self):
+                if outer.error:
+                    raise Exception(outer.error)
+        return Q()
+
+
+def test_schema_ready_distinguishes_missing_tables_from_transient_errors():
+    store = SupabaseStore(_SchemaClient(None))
+    assert store.schema_ready() is True
+    assert SupabaseStore(_SchemaClient("{'code': 'PGRST205', 'message': \"Could not find the table 'public.x'\"}")).schema_ready() is False
+    assert SupabaseStore(_SchemaClient('relation "public.x" does not exist 42P01')).schema_ready() is False
+    for transient in ("57014 canceling statement due to statement timeout", "503 upstream unavailable"):
+        s = SupabaseStore(_SchemaClient(transient))
+        s._retry = lambda call, **k: call()  # no sleeping in the test
+        with pytest.raises(Exception, match="5"):
+            s.schema_ready()  # a timeout is NOT "migration missing"
+
+
+def test_movers_read_failure_degrades_the_tier_without_blocking_the_run(tmp_path):
+    from datetime import date
+    from backend.pricing_pipeline import targets as t
+
+    class Store(MemoryStore):
+        def recent_price_events(self, start, end):
+            raise Exception("57014 statement timeout")
+
+    store = Store()
+    store.catalog = ([{"id": "c1", "set_id": "s", "name": "Card1", "number": "1", "printed_number": "1", "rarity": "Rare Holo", "catalog_role": "main",
+                       "opening_eligible": True, "set_value_eligible": True, "canonical_review_status": "approved", "pokemon_tcg_api_card_id": "a"}],
+                     [{"id": "s", "name": "S", "era_id": "e"}], [{"id": "e", "name": "Modern", "sort_order": 1}],
+                     [{"canonical_card_id": "c1", "card_variant_id": "v1", "market_price": 80.0, "captured_at": "2026-09-21", "source": "TCGPlayer"}])
+    logs = []
+    manifest = Orchestrator(store, RecordingLedger("s"), tmp_path, log=logs.append)._build_manifest(date(2026, 9, 21), 1000)["manifest"]
+    assert manifest["movers_unavailable"] is True and manifest["target_count"] == 1 and t.verify_manifest(manifest)
+    assert manifest["tier_counts"]["MOVER"] == 0 and any("movers tier unavailable" in m for m in logs)
+
+
+class _FlakyRpcClient:
+    def __init__(self, failures, error="{'code': '57014', 'message': 'canceling statement due to statement timeout'}"):
+        self.failures, self.error, self.calls = failures, error, 0
+
+    def rpc(self, name, params):
+        outer = self
+
+        class R:
+            def execute(self):
+                outer.calls += 1
+                if outer.calls <= outer.failures:
+                    raise Exception(outer.error)
+        return R()
+
+
+def test_reservation_retries_transient_stalls_and_fails_closed_when_they_persist():
+    sleeps = []
+    client = _FlakyRpcClient(failures=2)
+    b.PoolLedger(client, KEYSET, b.STANDARD).reserve(sleep=sleeps.append)
+    assert client.calls == 3 and sleeps == [1.5, 3.0]
+    stuck = _FlakyRpcClient(failures=99)
+    with pytest.raises(PipelineError) as exc:
+        b.PoolLedger(stuck, KEYSET, b.STANDARD).reserve(sleep=lambda s: None)
+    assert exc.value.code == "BUDGET_AUTHORITY_UNAVAILABLE" and stuck.calls == b.PoolLedger.RETRY_ATTEMPTS
+    # exhaustion and unverified quota are NOT retried: they are decisions, not stalls
+    for text, code in (("EBAY_BUDGET_EXHAUSTED", None), ("EBAY_BUDGET_WINDOW_UNKNOWN", "QUOTA_UNVERIFIED")):
+        c = _FlakyRpcClient(failures=99, error=text)
+        with pytest.raises((BudgetExhausted, PipelineError)):
+            b.PoolLedger(c, KEYSET, b.STANDARD).reserve(sleep=lambda s: None)
+        assert c.calls == 1
+
+
+def test_a_lowered_run_cap_shrinks_the_manifest_instead_of_tripping_the_partial_gate(tmp_path):
+    from datetime import date
+    store = MemoryStore()
+    cards = [{"id": f"c{i}", "set_id": "s", "name": f"Card{i}", "number": str(i), "printed_number": str(i), "rarity": "Rare Holo", "catalog_role": "main",
+              "opening_eligible": True, "set_value_eligible": True, "canonical_review_status": "approved", "pokemon_tcg_api_card_id": f"a{i}"} for i in range(80)]
+    prices = [{"canonical_card_id": c["id"], "card_variant_id": f"v{i}", "market_price": 60.0 + i, "captured_at": "2026-09-21", "source": "TCGPlayer"} for i, c in enumerate(cards)]
+    store.catalog = (cards, [{"id": "s", "name": "S", "era_id": "e"}], [{"id": "e", "name": "Modern", "sort_order": 1}], prices)
+    store.batches["2026-09-21"] = "complete"
+    big = Orchestrator(store, RecordingLedger("s"), tmp_path, max_requests=4500, request_ceiling=4500, planning_fraction=PLANNING_FRACTION_V2)
+    small = Orchestrator(store, RecordingLedger("s"), tmp_path, max_requests=150, request_ceiling=4500, planning_fraction=PLANNING_FRACTION_V2)
+    class Big(RecordingLedger):
+        def remaining(self): return 4500
+    big.ledger = small.ledger = Big("s")
+    assert small.preview_targets(date(2026, 9, 21))["target_count"] == 17  # 150 x 0.8 / 7.0
+    assert big.preview_targets(date(2026, 9, 21))["target_count"] == 80    # limited by the universe, not the cap
+
+
+
+def test_source_guard_timeout_is_unverified_not_contamination_and_never_critical():
+    from backend.pricing_pipeline import health
+    snap = {"now": NOW, "run": None, "evidence": None, "estimate": None, "shadow": None, "ledger": None, "shadow_policies": [],
+            "non_tcg_current": None, "non_tcg_canonical": 0}
+    guard = next(r for r in health.assess(snap) if r["check"] == "pricing.canonical.source_guard")
+    assert guard["status"] == health.DEGRADED and guard["code"] == "SOURCE_GUARD_UNVERIFIABLE_TRANSIENT_TIMEOUT"
+    assert health.overall(health.assess(snap))["canonical_pricing_healthy"] is True
+    bad = dict(snap, non_tcg_current=1)
+    assert health.overall(health.assess(bad))["canonical_pricing_healthy"] is False  # a positive finding is still CRITICAL
+
+
+def test_store_guard_returns_none_on_timeout_and_raises_on_other_errors():
+    class C:
+        def __init__(self, err): self.err = err
+        def table(self, name):
+            outer = self
+            class Q:
+                def select(self, *_): return self
+                def neq(self, *_): return self
+                def limit(self, *_): return self
+                def execute(self):
+                    raise Exception(outer.err)
+            return Q()
+    s = SupabaseStore(C("57014 canceling statement due to statement timeout"))
+    s._retry = lambda call, **k: call()
+    assert s.count_non_tcg_current() is None
+    s2 = SupabaseStore(C("permission denied"))
+    s2._retry = lambda call, **k: call()
+    with pytest.raises(Exception, match="permission denied"):
+        s2.count_non_tcg_current()

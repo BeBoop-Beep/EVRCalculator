@@ -58,7 +58,7 @@ class Orchestrator:
     def preview_targets(self, market_date: date) -> dict[str, Any]:
         """--dry-run: build the manifest only. No network to eBay, no database writes, no budget reservation."""
         assert_policy_contract()
-        return self._build_manifest(market_date, remaining=self.ledger.remaining())["manifest"]
+        return self._build_manifest(market_date, remaining=min(self.ledger.remaining(), self.max_requests))["manifest"]
 
     def run(self, market_date: date, *, resume: bool = True) -> dict[str, Any]:
         assert_policy_contract()
@@ -94,12 +94,22 @@ class Orchestrator:
         missing_ids = {u["canonical_card_id"] for u in universe if u["tcg_status"] == "missing" and cb.eligible_for_cohort(u)}
         missing_cards = [c for c in cards if str(c["id"]) in missing_ids]
         resolved = resolve_default_variants(missing_cards, self.store.fetch_identity_inputs(missing_cards)) if missing_cards else {}
-        events = self.store.recent_price_events((market_date - timedelta_days(30)).isoformat(), market_date.isoformat())
+        # Movers (tier 5) is a prioritization heuristic, not an integrity input: if the events read fails (e.g. a database
+        # timeout) the run proceeds WITHOUT that tier and says so in the manifest, instead of blocking all daily pricing.
+        movers_unavailable = False
+        try:
+            events = self.store.recent_price_events((market_date - timedelta_days(30)).isoformat(), market_date.isoformat())
+        except Exception as exc:  # noqa: BLE001
+            events, movers_unavailable = [], True
+            self.log(f"movers tier unavailable ({type(exc).__name__}); continuing without it")
         manifest = targets.plan_targets(
             universe, market_date, remaining_requests=remaining,
             cost_per_target=targets.measured_requests_per_target(self.store.completed_run_history()),
             resolved_variants=resolved, disagreements=self.store.previous_disagreements(market_date.isoformat()), events=events,
             planning_fraction=self.planning_fraction, ceiling=self.request_ceiling)
+        if movers_unavailable:
+            manifest["movers_unavailable"] = True
+            manifest["selector_fingerprint"] = digest({k: v for k, v in manifest.items() if k != "selector_fingerprint"})
         return {"manifest": manifest, "prices": {str(p["canonical_card_id"]): p for p in prices}}
 
     def _init(self, run: dict[str, Any], md: str) -> None:
@@ -107,7 +117,8 @@ class Orchestrator:
             raise PipelineError("TCG_BATCH_NOT_COMPLETE", f"no completed TCGplayer scrape batch for {md}", status="WAITING")
         if self.quota_gate:
             self.quota_gate()
-        remaining = self.ledger.remaining()
+        # plan against the LOWER of the pool remainder and the run cap, so a reduced --max-requests shrinks the manifest
+        remaining = min(self.ledger.remaining(), self.max_requests)
         if remaining <= 0:
             raise PipelineError("BUDGET_EXHAUSTED", "no eBay Browse requests remain today")
         manifest = self._build_manifest(date.fromisoformat(md), remaining)["manifest"]
@@ -197,7 +208,7 @@ class Orchestrator:
     def _estimates_built(self, run: dict[str, Any], md: str) -> None:
         manifest = self._verify_manifest(run)
         pricing_run = run["ebay_pricing_run_id"]
-        catalog_prices = {str(p["canonical_card_id"]): p for p in self.store.fetch_catalog()[3]}
+        catalog_prices = self.store.fetch_tcg_prices([t["canonical_card_id"] for t in manifest["cards"]])
         rows = builder.build(manifest, self.store.get_summaries(pricing_run), self.store.get_estimates(md, ESTIMATOR_VERSION),
                              catalog_prices, market_date=md, pipeline_run_id=run["run_id"])
         inserted, skipped = self.store.insert_shadow_rows(rows)
@@ -209,11 +220,15 @@ class Orchestrator:
     def _multi_source_built(self, run: dict[str, Any], md: str) -> None:
         manifest = self._verify_manifest(run)
         pricing_run = run["ebay_pricing_run_id"]
-        catalog_prices = {str(p["canonical_card_id"]): p for p in self.store.fetch_catalog()[3]}
         estimate_rows = self.store.get_estimates(md, ESTIMATOR_VERSION)
-        expected = builder.build(manifest, self.store.get_summaries(pricing_run), estimate_rows, catalog_prices,
-                                 market_date=md, pipeline_run_id=run["run_id"])
         stored = {r["canonical_card_id"]: r for r in self.store.get_shadow_rows(md)}
+        # Validate against the TCG inputs each decision RECORDED, not today's live prices: the projector keeps advancing
+        # TCG observed dates, so a resumed run must not fail merely because TCGplayer moved after the row was built.
+        recorded_prices = {cid: {"canonical_card_id": cid, "card_variant_id": row["card_variant_id"], "market_price": row["tcgplayer_price"],
+                                 "captured_at": row["tcgplayer_date"], "source": "TCGPlayer"}
+                           for cid, row in stored.items() if row.get("tcgplayer_price") is not None}
+        expected = builder.build(manifest, self.store.get_summaries(pricing_run), estimate_rows, recorded_prices,
+                                 market_date=md, pipeline_run_id=run["run_id"])
         for row in expected:
             got = stored.get(row["canonical_card_id"])
             if got is None or got["decision_fingerprint"] != row["decision_fingerprint"]:
@@ -223,9 +238,12 @@ class Orchestrator:
             raise PipelineError("ESTIMATE_REPLAY_MISMATCH", "estimator fingerprint not reproducible from persisted evidence")
         if any(r["policy_version"] != policy.POLICY_VERSION for r in stored.values()):
             raise PipelineError("POLICY_VERSION_MISMATCH", "stored row policy drift")
-        if self.store.count_non_tcg_current() != 0:
+        guard = self.store.count_non_tcg_current()
+        if guard is not None and guard != 0:
             raise PipelineError("SOURCE_LOCK_AUTHORITY_MISMATCH", "non-TCGPlayer rows in generic current pricing")
-        self._stage(run, "VALIDATED")
+        # None = the full-table probe timed out. That is "unverified", not "contaminated": the run continues, the receipt says so,
+        # and every canonical price read by this run was individually checked to be TCGPlayer in store.fetch_tcg_prices.
+        self._stage(run, "VALIDATED", metrics=dict(run.get("metrics") or {}, source_guard="VERIFIED_TCGPLAYER_ONLY" if guard == 0 else "UNVERIFIED_TRANSIENT_TIMEOUT"))
 
     def _validated(self, run: dict[str, Any], md: str) -> None:
         metrics = dict(run.get("metrics") or {})
@@ -237,7 +255,7 @@ class Orchestrator:
             "requests_attempted": run["requests_attempted"], "requests_failed": run["requests_failed"], "retries": run["retries"],
             "request_cap": run["request_cap"], "remaining_budget_today": self.ledger.remaining(),
             "collection": metrics.get("collection"), "evidence": metrics.get("evidence"), "estimates": metrics.get("estimates"),
-            "multi_source": metrics.get("multi_source"),
+            "multi_source": metrics.get("multi_source"), "source_guard": metrics.get("source_guard"),
             "gap_fills": (metrics.get("multi_source") or {}).get("decision_counts", {}).get("EBAY_ACTIVE_ASK_FALLBACK", 0),
             "runtime_seconds": round(time.monotonic() - self._t0, 1), "last_successful_stage": "VALIDATED",
             "completed_at": datetime.now(timezone.utc).isoformat()}

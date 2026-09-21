@@ -64,6 +64,10 @@ class MemoryStore:
     def tcg_batch_complete(self, market_date: str) -> bool:
         return self.batches.get(market_date) == "complete"
 
+    def fetch_tcg_prices(self, canonical_ids: list[str]) -> dict[str, dict[str, Any]]:
+        wanted = set(canonical_ids)
+        return {str(p["canonical_card_id"]): p for p in self.catalog[3] if str(p["canonical_card_id"]) in wanted}
+
     def fetch_identity_inputs(self, canonical_cards: list[dict[str, Any]]) -> dict[str, Any]:
         return self.identity_inputs
 
@@ -193,13 +197,19 @@ class SupabaseStore:
             start += 1000
 
     def schema_ready(self) -> bool:
-        try:
-            for table in ("pokemon_multi_source_pricing_runs_v1", "pokemon_multi_source_card_prices_v1",
-                          "ebay_active_ask_price_estimates_v1", "ebay_pricing_runs_v1", "ebay_browse_request_ledger_v1"):
-                self.c.table(table).select("*").limit(0).execute()
-            return True
-        except Exception:  # noqa: BLE001
-            return False
+        # Only a genuinely absent relation means "migration missing". Timeouts/gateway errors are transient: they are
+        # retried and, if they persist, propagate as errors instead of being misreported as a missing migration.
+        for table in ("pokemon_multi_source_pricing_runs_v1", "pokemon_multi_source_card_prices_v1",
+                      "ebay_active_ask_price_estimates_v1", "ebay_pricing_runs_v1", "ebay_browse_request_ledger_v1",
+                      "ebay_api_request_budget_v2"):
+            try:
+                self._retry(lambda table=table: self.c.table(table).select("*").limit(0).execute())
+            except Exception as exc:  # noqa: BLE001
+                text = str(exc)
+                if "42P01" in text or "PGRST205" in text or "does not exist" in text or "Could not find the table" in text:
+                    return False
+                raise
+        return True
 
     def get_run(self, market_date: str) -> dict[str, Any] | None:
         rows = self.c.table("pokemon_multi_source_pricing_runs_v1").select("*").eq("market_date", market_date).eq(
@@ -223,6 +233,18 @@ class SupabaseStore:
         if any(row.get("source") != "TCGPlayer" for row in prices):
             raise PipelineError("SOURCE_LOCK_AUTHORITY_MISMATCH", "canonical price authority is no longer exclusively TCGPlayer")
         return cards, sets, eras, prices
+
+    def fetch_tcg_prices(self, canonical_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Explicit TCGplayer authority read for specific cards (no full-catalog download); fails closed on another source."""
+        out: dict[str, dict[str, Any]] = {}
+        for chunk in _chunks(sorted(set(canonical_ids)), 100):
+            rows = self._retry(lambda chunk=chunk: self.c.table("pokemon_canonical_card_market_prices_latest").select(
+                "canonical_card_id,card_variant_id,market_price,captured_at,source").in_("canonical_card_id", chunk).execute().data or [])
+            for row in rows:
+                if row.get("source") != "TCGPlayer":
+                    raise PipelineError("SOURCE_LOCK_AUTHORITY_MISMATCH", "canonical price authority is no longer exclusively TCGPlayer")
+                out[str(row["canonical_card_id"])] = row
+        return out
 
     def tcg_batch_complete(self, market_date: str) -> bool:
         rows = self.c.table("pokemon_scrape_batches").select("status").eq("market_date", market_date).limit(1).execute().data or []
@@ -261,8 +283,15 @@ class SupabaseStore:
         return list(self.c.table("pokemon_multi_source_pricing_runs_v1").select("requests_attempted,target_count").eq(
             "status", "COMPLETE").order("market_date", desc=True).limit(14).execute().data or [])
 
-    def count_non_tcg_current(self) -> int:
-        rows = self.c.table("card_variant_price_current_v2").select("source").neq("source", "TCGPlayer").limit(1).execute().data or []
+    def count_non_tcg_current(self) -> int | None:
+        """0 = verified TCGPlayer-only; >0 = contamination; None = could not be verified (transient timeout on a full scan)."""
+        try:
+            rows = self._retry(lambda: self.c.table("card_variant_price_current_v2").select("source").neq("source", "TCGPlayer").limit(1).execute().data or [],
+                               attempts=2, base_delay=2.0)
+        except Exception as exc:  # noqa: BLE001
+            if "57014" in str(exc) or "statement timeout" in str(exc):
+                return None
+            raise
         return len(rows)
 
     def get_pricing_run(self, run_id: str) -> dict[str, Any] | None:

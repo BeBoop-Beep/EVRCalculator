@@ -51,16 +51,32 @@ class PoolLedger:
             raise ValueError(bucket)
         self.client, self.keyset, self.bucket = client, keyset, bucket
 
-    def reserve(self, market_date: str | None = None) -> None:
-        try:
-            self.client.rpc("reserve_ebay_api_request_v2", {"p_keyset": self.keyset, "p_api": API_NAME, "p_bucket": self.bucket}).execute()
-        except Exception as exc:  # noqa: BLE001 - PostgREST surfaces the SQL exception text
-            text = str(exc)
-            if "EBAY_BUDGET_EXHAUSTED" in text:
-                raise BudgetExhausted(f"{self.bucket} pool exhausted for the current provider window") from exc
-            if "EBAY_BUDGET_WINDOW_UNKNOWN" in text or "EBAY_BUDGET_VERIFICATION_STALE" in text:
-                raise PipelineError("QUOTA_UNVERIFIED", "window unknown or verification older than 36h; failing closed") from exc
-            raise PipelineError("BUDGET_AUTHORITY_UNAVAILABLE", text[:200]) from exc
+    RETRY_ATTEMPTS = 4
+
+    def reserve(self, market_date: str | None = None, sleep: Callable[[float], None] | None = None) -> None:
+        """Reserve one request. Transient database stalls (statement timeout / gateway errors) are retried a few times with
+        short backoff; a cancelled statement is not committed, so a retry can only over-count, never under-count."""
+        import time
+
+        sleep = sleep or time.sleep
+        for attempt in range(self.RETRY_ATTEMPTS):
+            try:
+                self.client.rpc("reserve_ebay_api_request_v2", {"p_keyset": self.keyset, "p_api": API_NAME, "p_bucket": self.bucket}).execute()
+                return
+            except Exception as exc:  # noqa: BLE001 - PostgREST surfaces the SQL exception text
+                text = str(exc)
+                transient = ("57014" in text or "statement timeout" in text or " 502" in text or " 503" in text or " 504" in text)
+                if transient and attempt < self.RETRY_ATTEMPTS - 1:
+                    sleep(1.5 * (attempt + 1))
+                    continue
+                self._raise_mapped(exc, text)
+
+    def _raise_mapped(self, exc: Exception, text: str) -> None:
+        if "EBAY_BUDGET_EXHAUSTED" in text:
+            raise BudgetExhausted(f"{self.bucket} pool exhausted for the current provider window") from exc
+        if "EBAY_BUDGET_WINDOW_UNKNOWN" in text or "EBAY_BUDGET_VERIFICATION_STALE" in text:
+            raise PipelineError("QUOTA_UNVERIFIED", "window unknown or verification older than 36h; failing closed") from exc
+        raise PipelineError("BUDGET_AUTHORITY_UNAVAILABLE", text[:200]) from exc
 
     def window(self, now: datetime | None = None) -> dict[str, Any] | None:
         now = now or datetime.now(timezone.utc)

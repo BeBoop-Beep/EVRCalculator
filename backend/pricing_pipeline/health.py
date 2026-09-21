@@ -24,6 +24,16 @@ def expected_market_date(now: datetime) -> date:
     return local.date() if local.time() >= RUN_DEADLINE_PHOENIX else local.date() - timedelta(days=1)
 
 
+def _guard(client: Any, table: str) -> int | None:
+    """Rows with a non-TCGPlayer source; None when the full-table probe cannot complete (transient timeout)."""
+    try:
+        return len(client.table(table).select("source").neq("source", "TCGPlayer").limit(1).execute().data or [])
+    except Exception as exc:  # noqa: BLE001
+        if "57014" in str(exc) or "statement timeout" in str(exc):
+            return None
+        raise
+
+
 def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
 
@@ -48,8 +58,8 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
         "shadow": one("pokemon_multi_source_card_prices_v1", "market_date,policy_version", "market_date"),
         "ledger": ledger[0] if ledger else None, "budget_v2": v2,
         "shadow_policies": sorted({p["policy_version"] for p in policies}),
-        "non_tcg_current": len(client.table("card_variant_price_current_v2").select("source").neq("source", "TCGPlayer").limit(1).execute().data or []),
-        "non_tcg_canonical": len(client.table("pokemon_canonical_card_market_prices_latest").select("source").neq("source", "TCGPlayer").limit(1).execute().data or []),
+        "non_tcg_current": _guard(client, "card_variant_price_current_v2"),
+        "non_tcg_canonical": _guard(client, "pokemon_canonical_card_market_prices_latest"),
     }
 
 
@@ -90,9 +100,14 @@ def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
                           "EBAY_ESTIMATES_STALE", {"latest_estimate_market_date": estimate and estimate["market_date"]}))
     results.append(_check("pricing.multi_source.shadow_freshness", bool(shadow and shadow["market_date"] >= expected),
                           "MULTI_SOURCE_SHADOW_STALE", {"expected_market_date": expected, "latest_shadow_market_date": shadow and shadow["market_date"]}))
-    results.append(_check("pricing.canonical.source_guard", snapshot["non_tcg_current"] == 0 and snapshot["non_tcg_canonical"] == 0,
-                          "NON_TCGPLAYER_SOURCE_IN_CANONICAL_PRICING",
-                          {"non_tcg_current_rows": snapshot["non_tcg_current"], "non_tcg_canonical_rows": snapshot["non_tcg_canonical"]}, severity=CRITICAL))
+    observed = {"non_tcg_current_rows": snapshot["non_tcg_current"], "non_tcg_canonical_rows": snapshot["non_tcg_canonical"]}
+    if any(v is not None and v > 0 for v in observed.values()):
+        results.append(_check("pricing.canonical.source_guard", False, "NON_TCGPLAYER_SOURCE_IN_CANONICAL_PRICING", observed, severity=CRITICAL))
+    elif any(v is None for v in observed.values()):
+        # could not be verified (timeout): NOT contamination, so never CRITICAL, but never silently "ok" either
+        results.append(_check("pricing.canonical.source_guard", False, "SOURCE_GUARD_UNVERIFIABLE_TRANSIENT_TIMEOUT", observed))
+    else:
+        results.append(_check("pricing.canonical.source_guard", True, "", observed))
     policies = list(snapshot.get("shadow_policies") or [])
     versions_ok = all(p == POLICY_VERSION for p in policies) and (not estimate or estimate["estimator_version"] == ESTIMATOR_VERSION)
     results.append(_check("pricing.multi_source.policy_drift", versions_ok, "POLICY_OR_ESTIMATOR_VERSION_DRIFT",

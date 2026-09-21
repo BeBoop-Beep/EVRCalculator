@@ -560,3 +560,32 @@ def test_health_expected_date_uses_phoenix_deadline():
     from datetime import datetime, timezone
     assert health.expected_market_date(datetime(2026, 9, 21, 10, 0, tzinfo=timezone.utc)) == date(2026, 9, 20)  # 03:00 Phoenix: not yet due
     assert health.expected_market_date(datetime(2026, 9, 21, 16, 0, tzinfo=timezone.utc)) == date(2026, 9, 21)  # 09:00 Phoenix: due
+
+
+def test_validation_uses_recorded_tcg_inputs_so_later_tcg_movement_does_not_fail_a_resume(tmp_path):
+    store = MemoryStore()
+    make_world(store, priced=4, missing=0, price_base=10.0)
+    orch, ledger, http = orchestrator(tmp_path, store)
+    orch.run(date(2026, 9, 20))
+    run = store.get_run(MD)
+    # the TCG projector advances observed dates AFTER the shadow rows were built, then the run is resumed at validation
+    cards, sets, eras, prices = store.catalog
+    store.catalog = (cards, sets, eras, [dict(p, captured_at="2026-09-21", market_price=p["market_price"] + 1) for p in prices])
+    store.update_run(run["run_id"], {"stage": "MULTI_SOURCE_BUILT", "status": "FAILED", "finished_at": None, "receipt": None})
+    calls = len(http.calls)
+    Orchestrator(store, ledger, tmp_path, http_factory=lambda l: http).run(date(2026, 9, 20))
+    assert store.get_run(MD)["status"] == "COMPLETE" and len(http.calls) == calls
+
+
+def test_validation_still_fails_closed_when_a_stored_decision_is_tampered(tmp_path):
+    store = MemoryStore()
+    make_world(store, priced=3, missing=0, price_base=10.0)
+    orch, ledger, http = orchestrator(tmp_path, store)
+    orch.run(date(2026, 9, 20))
+    key = next(iter(store.shadow))
+    store.shadow[key]["decision_fingerprint"] = "0" * 64
+    run = store.get_run(MD)
+    store.update_run(run["run_id"], {"stage": "MULTI_SOURCE_BUILT", "status": "FAILED", "finished_at": None, "receipt": None})
+    with pytest.raises(PipelineError) as exc:
+        Orchestrator(store, ledger, tmp_path, http_factory=lambda l: http).run(date(2026, 9, 20))
+    assert exc.value.code == "SHADOW_VALIDATION_MISMATCH"

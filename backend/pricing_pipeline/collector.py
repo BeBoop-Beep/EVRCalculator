@@ -159,7 +159,7 @@ def collect(manifest: Mapping[str, Any], checkpoint: CollectionCheckpoint, http:
         if record["status"] == "BUDGET_EXHAUSTED":
             exhausted = True
             break
-    return {"targets_total": len(manifest["cards"]), "targets_completed": sum(1 for r in done.values() if r["status"] == "COMPLETE"),
+    return {"targets_total": len(manifest["cards"]), "targets_completed": sum(1 for t in manifest["cards"] if done.get(t["canonical_card_id"], {}).get("status") == "COMPLETE"),
             "targets_resumed_from_checkpoint": skipped, "budget_exhausted": exhausted,
             "requests_attempted": sum(r["requests_attempted"] for r in done.values()),
             "requests_failed": sum(r["requests_failed"] for r in done.values()),
