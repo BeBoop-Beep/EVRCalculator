@@ -1,4 +1,4 @@
-name: Provider fallback identity hosted unit tests rerun
+name: Pokemon targeted API retry tests
 
 on:
   push:
@@ -11,19 +11,19 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fix/provider-fallback-card-identity-20260921
+          ref: fix/pokemon-targeted-api-retries-20260921
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: pip
           cache-dependency-path: backend/requirements.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements.txt pytest
-      - name: Run focused identity suites
+      - name: Install focused dependencies
+        run: python -m pip install requests pytest
+      - name: Run targeted metadata tests
         run: |
-          python -m py_compile backend/scripts/build_pokemon_set_desirability_inputs.py
-          python -m pytest -q             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py             backend/tests/unit/scripts/test_build_pokemon_card_desirability_links.py
+          python -m py_compile backend/services/pokemon_tcg_api_set_service.py
+          python -m pytest -q backend/tests/unit/services/test_pokemon_tcg_api_set_service.py
