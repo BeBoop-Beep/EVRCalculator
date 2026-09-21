@@ -1,4 +1,4 @@
-name: ME30th subset post-cutover refresh
+name: ME30th final VM cleanliness
 
 on:
   push:
@@ -9,61 +9,24 @@ permissions:
   contents: read
 
 jobs:
-  refresh:
+  verify:
     runs-on: self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 8
     steps:
-      - name: Sync VM to main
+      - name: Sync clean production checkout
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git restore --             payload_debug.json             backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json             backend/constants/tcg/pokemon/pokemon_set_scrape_run_report.json 2>/dev/null || true
           git fetch origin main
           git switch main
           git reset --hard origin/main
-          echo "VM_SHA=$(git rev-parse HEAD)"
-
-      - name: Targeted parent and subset scrape
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          retry() {
-            local n=1
-            until "$@"; do
-              if [ "$n" -ge 4 ]; then return 1; fi
-              echo "transient retry $n/4: $*"
-              n=$((n+1))
-              sleep 15
-            done
-          }
-          retry ./.venv/bin/python backend/scripts/run_pokemon_set_scrape.py --run --set me30thCelebration
-          retry ./.venv/bin/python backend/scripts/run_pokemon_set_scrape.py --run --set me30thCelebrationClassicCollection
-
-      - name: Reproject canonical eligibility from merged lifecycle
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --canonical-only
-          ./.venv/bin/python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --canonical-only
-
-      - name: Refresh parent public snapshots
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration --commit --market-date 2026-09-20
-          ./.venv/bin/python backend/scripts/build_pokemon_set_sealed_market_snapshots.py             --set-id me30thCelebration --commit
-          ./.venv/bin/python backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebration --commit
-
-      - name: Clean generated diagnostics
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
           echo "branch=$(git branch --show-current)"
           echo "head=$(git rev-parse HEAD)"
+          echo "status:"
           git status --short
+          test -z "$(git status --porcelain)"
+          echo "CLEAN=true"
+          echo "scrape_report_tracked=$(git ls-files --error-unmatch backend/constants/tcg/pokemon/pokemon_set_scrape_run_report.json >/dev/null 2>&1 && echo true || echo false)"
+          echo "scrape_report_ignored=$(git check-ignore -q backend/constants/tcg/pokemon/pokemon_set_scrape_run_report.json && echo true || echo false)"
