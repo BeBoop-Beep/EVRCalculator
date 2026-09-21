@@ -1,4 +1,4 @@
-name: Validate publication gate tri-state fix
+name: Validate publication liveness watchdog
 
 on:
   push:
@@ -19,28 +19,30 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
       SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Checkout tri-state fix branch
+      - name: Checkout liveness branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: fix/publication-gate-tristate-20260920
+          ref: fix/publication-liveness-watchdog-20260920
           persist-credentials: false
-      - name: Compile and exercise gate classifications
+      - name: Compile and exercise liveness boundaries
         shell: bash
         run: |
           set -euo pipefail
           PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
           "$PY" -m py_compile \
-            backend/scripts/publish_post_scrape_if_needed.py \
-            backend/sentinel/recovery/runbooks.py \
-            backend/tests/unit/scripts/test_publish_post_scrape_gate_tristate.py
+            backend/alerts/post_scrape_publication_watchdog.py \
+            backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py
           "$PY" - <<'PY'
-          from backend.tests.unit.scripts import test_publish_post_scrape_gate_tristate as t
-          t.test_batch_gate_retries_authority_unavailable_with_fresh_client()
-          print('authority_retry_fresh_client=PASS')
-          t.test_publish_if_needed_returns_nonzero_status_when_gate_authority_stays_unknown()
-          print('authority_unknown_nonzero=PASS')
-          t.test_publish_if_needed_keeps_genuine_incomplete_batch_as_noop()
-          print('genuine_incomplete_noop=PASS')
-          t.test_publish_if_needed_fails_closed_on_invalid_batch_contract()
-          print('invalid_contract_nonzero=PASS')
+          from backend.tests.unit.alerts import test_post_scrape_publication_watchdog as t
+          t.test_locked_publisher_with_recent_progress_is_healthy()
+          print('locked_recent_progress=PASS')
+          t.test_locked_publisher_without_progress_is_stalled_and_never_relaunched()
+          print('held_lock_stall_no_kill=PASS')
+          t.test_missing_publisher_relaunches_through_existing_detached_trigger()
+          print('missing_publisher_relaunch=PASS')
+          t.test_missing_publisher_currency_failure_is_unhealthy_not_success()
+          print('relaunch_failure_unhealthy=PASS')
+          t.test_gate_authority_failure_blocks_relaunch()
+          print('gate_authority_blocks_relaunch=PASS')
           PY
+          grep -F 'post_scrape_publication_watchdog' infra/oracle/tcgplayer-scraper-pokemon.crontab
