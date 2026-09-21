@@ -131,70 +131,63 @@ def _page_all(query_factory: Any, *, page_size: int = 1000) -> list[dict[str, An
         start += page_size
 
 
+SET_ID_QUERY_BATCH = 40
+
+
+def _set_id_batches(
+    set_ids: Sequence[str], *, batch_size: int = SET_ID_QUERY_BATCH,
+) -> list[list[str]]:
+    ids = sorted({str(value) for value in set_ids if str(value)})
+    return [ids[offset:offset + batch_size] for offset in range(0, len(ids), batch_size)]
+
+
+def _load_set_rows(
+    client: Any, set_ids: Sequence[str], columns: str,
+) -> list[dict[str, Any]]:
+    """Bound Set-table IN clauses so Global scope never emits one giant request."""
+    rows: list[dict[str, Any]] = []
+    for batch in _set_id_batches(set_ids):
+        rows.extend(list(
+            client.table("sets").select(columns).in_("id", batch).execute().data or []
+        ))
+    return rows
+
+
+SET_HISTORY_COVERAGE_RPC = "get_pokemon_market_explorer_set_history_coverage_v1"
+
+
 def resolve_tracked_set_ids(client: Any) -> list[str]:
-    """Sets that actually have canonical market history AND are Market Explorer
-    product authority (i.e. not catalog-only).
+    """Tracked, non-catalog-only Sets with canonical standard Set Value history.
 
-    The catalogue contains sets the market does not track. Starting from the
-    tracked set list rather than the catalogue keeps the engine from issuing
-    constituent reads that can only return nothing.
-
-    READ FROM THE COVERAGE ROLLUP, NOT THE HISTORY TABLE. Both answer the
-    "does this set have history" question with the identical underlying
-    universe, but the history table holds ~21.8k 'standard' rows and PostgREST
-    has no DISTINCT, so deriving the set list from it costs ~22 paged round
-    trips on EVERY query before a single price is read. The coverage rollup is
-    one row per set. This is the same fact, read from the authority that
-    already stores it per set.
-
-    THE RESULT IS AN INTERSECTION, NOT A SWITCH OF SOURCE. History-tracked
-    sets include a handful of catalog-only child sets (e.g. the EX Trainer Kit
-    Latias/Latios/2 Minun/2 Plusle sub-decks) that are intentionally outside
-    Market Explorer product authority -- no projection coverage exists or
-    should exist for them. Filtering those out here, against the small
-    non-catalog-only set universe, keeps every other history-tracked set
-    (including one with no projection coverage yet) resolvable through this
-    same path; it is not a wholesale switch to a different, smaller source
-    table. As of 2026-09, the intersection is 165 sets (169 history-tracked
-    minus the 4 catalog-only Trainer Kit sets).
+    The service-role-only database RPC preserves the existing authority
+    semantics while avoiding the aggregate coverage view that can exceed the
+    PostgREST statement budget under production load.
     """
-    rows = _page_all(lambda: client.table("pokemon_set_value_daily_history_coverage")
-                     .select("set_id,has_history").eq("has_history", True))
-    tracked = {str(row.get("set_id") or "").strip() for row in rows} - {""}
-    if not tracked:
-        return []
-
-    # Fetched unfiltered (not `.eq("catalog_only", False)`) and excluded in
-    # Python: `catalog_only` defaults FALSE in the schema, and a row missing
-    # the column entirely (or reporting it as NULL) must read as "not
-    # catalog-only", not silently drop out of the tracked universe.
-    all_set_rows = _page_all(lambda: client.table("sets").select("id,catalog_only"))
-    catalog_only_ids = {
-        str(row.get("id") or "").strip() for row in all_set_rows if row.get("catalog_only") is True
-    }
-
-    return sorted(tracked - catalog_only_ids)
+    rows = list(client.rpc(SET_HISTORY_COVERAGE_RPC, {
+        "p_set_ids": None,
+    }).execute().data or [])
+    return sorted({
+        str(row.get("set_id") or "").strip()
+        for row in rows
+        if str(row.get("set_id") or "").strip()
+    })
 
 
 def resolve_scope_history_bounds(
     client: Any, set_ids: Sequence[str],
 ) -> tuple[str | None, str | None]:
-    """Earliest and latest market dates any set in scope actually has.
-
-    CALLERS MAY ASK FOR AN OPEN-ENDED RANGE. The API deliberately requests "all
-    of history" rather than hardcoding a start, which is the right contract --
-    but the cohort reader walks the range in fixed-size chunks, so an unclamped
-    1999 start would issue hundreds of statements against years that hold no
-    rows at all. Clamping to the dates the coverage rollup reports turns "all of
-    history" into the real history without the caller needing to know it.
-    """
-    rows = _page_all(lambda: client.table("pokemon_set_value_daily_history_coverage")
-                     .select("set_id,first_snapshot_date,latest_snapshot_date")
-                     .in_("set_id", list(set_ids)))
-    firsts = sorted({str(row.get("first_snapshot_date"))[:10] for row in rows
-                     if row.get("first_snapshot_date")})
-    latests = sorted({str(row.get("latest_snapshot_date"))[:10] for row in rows
-                      if row.get("latest_snapshot_date")})
+    """Earliest/latest canonical standard-history dates in the requested scope."""
+    rows = list(client.rpc(SET_HISTORY_COVERAGE_RPC, {
+        "p_set_ids": list(set_ids),
+    }).execute().data or [])
+    firsts = sorted({
+        str(row.get("first_snapshot_date"))[:10]
+        for row in rows if row.get("first_snapshot_date")
+    })
+    latests = sorted({
+        str(row.get("latest_snapshot_date"))[:10]
+        for row in rows if row.get("latest_snapshot_date")
+    })
     return (firsts[0] if firsts else None, latests[-1] if latests else None)
 
 
@@ -225,7 +218,7 @@ def resolve_scope_set_ids(
 #: Sets per canonical-card metadata request. Bounded rather than unlimited so a
 #: 167-set scope cannot build a URL-length-defeating `in_` list; 40 keeps the
 #: global 22-set cohort to a single batch with headroom to spare.
-CARD_UNIVERSE_SET_BATCH = 40
+CARD_UNIVERSE_SET_BATCH = SET_ID_QUERY_BATCH
 
 #: Scope -> {canonical rarity key: raw spellings present in that scope}.
 #:
@@ -389,7 +382,7 @@ def resolve_pokemon_names(client: Any, pokemon_ids: Sequence[str]) -> dict[str, 
 
 
 def load_release_dates(client: Any, set_ids: Sequence[str]) -> dict[str, str]:
-    rows = _page_all(lambda: client.table("sets").select("id,release_date").in_("id", list(set_ids)))
+    rows = _load_set_rows(client, set_ids, "id,release_date")
     return {str(row.get("id")): str(row.get("release_date"))[:10]
             for row in rows if row.get("release_date")}
 
@@ -472,9 +465,11 @@ def resolve_materialized_history_route(
     if not wanted:
         return "interval_fallback", None
     try:
-        rows = list((client.table(V2_COVERAGE_TABLE)
-                     .select("set_id,retained_from,computed_through")
-                     .in_("set_id", sorted(wanted)).execute()).data or [])
+        rows: list[dict[str, Any]] = []
+        for batch in _set_id_batches(sorted(wanted)):
+            rows.extend(list((client.table(V2_COVERAGE_TABLE)
+                              .select("set_id,retained_from,computed_through")
+                              .in_("set_id", batch).execute()).data or []))
         by_id = {str(row.get("set_id")): row for row in rows if row.get("set_id")}
         if set(by_id) != wanted:
             return "interval_fallback", None
@@ -1378,7 +1373,7 @@ def run_market_explorer_query(
 
 
 def _load_set_names(client: Any, set_ids: Sequence[str]) -> dict[str, str]:
-    rows = _page_all(lambda: client.table("sets").select("id,name").in_("id", list(set_ids)))
+    rows = _load_set_rows(client, set_ids, "id,name")
     return {str(row.get("id")): str(row.get("name") or "") for row in rows}
 
 
@@ -1409,9 +1404,9 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
     if not tracked_set_ids:
         raise MarketExplorerQueryUnavailable("no tracked sets have market history")
 
-    set_rows = _page_all(lambda: client.table("sets")
-                         .select("id,name,era_id,release_date")
-                         .in_("id", list(tracked_set_ids)))
+    set_rows = _load_set_rows(
+        client, tracked_set_ids, "id,name,era_id,release_date",
+    )
     era_ids = sorted({str(row.get("era_id") or "") for row in set_rows} - {""})
     era_rows = _page_all(lambda: client.table("eras")
                          .select("id,name,sort_order").in_("id", era_ids)) if era_ids else []
@@ -1435,10 +1430,14 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
 
     # Compact compatibility authority: one set-id list per selectable rarity or
     # Pokemon, never a materialized cross-product of every possible query.
-    card_rows = _page_all(lambda: client.table("pokemon_market_explorer_card_current_metadata")
-                          .select("canonical_card_id,set_id,rarity")
-                          .in_("set_id", list(tracked_set_ids))
-                          .order("canonical_card_id"))
+    card_rows: list[dict[str, Any]] = []
+    for batch in _set_id_batches(tracked_set_ids):
+        card_rows.extend(_page_all(
+            lambda batch=batch: client.table("pokemon_market_explorer_card_current_metadata")
+            .select("canonical_card_id,set_id,rarity")
+            .in_("set_id", batch)
+            .order("canonical_card_id")
+        ))
     card_set_by_id = {str(row.get("canonical_card_id")): str(row.get("set_id")) for row in card_rows}
     segment_sets: dict[str, set[str]] = {}
     rarity_card_counts: dict[str, int] = {}
