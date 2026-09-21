@@ -81,35 +81,89 @@ def is_valid_market_date(value: Any) -> bool:
     return isinstance(value, str) and bool(_MARKET_DATE_RE.match(value))
 
 
-def _default_publication_current(market_date: str) -> PublicationCurrencyStatus:
-    """Durable idempotence check: is post-scrape publication already current?
+MARKET_EXPLORER_V2_COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage_v2_shadow"
 
-    Reuses the existing post-scrape audit authority for the EXACT market date
-    (bypassing its own "latest promoted batch" resolution by passing the date
-    explicitly) rather than inventing new schema.
 
-    Returns UNKNOWN (never STALE) when the audit itself could not run — an
-    audit-infrastructure/DB outage is not evidence that publication is stale.
+def _market_explorer_v2_current(client: Any, market_date: str) -> bool:
+    """Return whether every tracked Market Explorer Set is projected through the date.
+
+    Tracked-set authority stays with the canonical Set Value history contract.
+    The V2 coverage table is deliberately read without a giant `IN (...)`
+    filter: it is compact (one row per projected Set), and comparing in Python
+    avoids reintroducing the broad PostgREST URL failures that this runtime has
+    already eliminated.
     """
-    try:
-        from backend.db.clients.supabase_client import supabase
-        from backend.scripts.audit_pokemon_market_publication import (
-            PHASE_POST_SCRAPE,
-            run_market_publication_audit,
-        )
+    from backend.db.services.pokemon_market_explorer_query_service import (
+        resolve_tracked_set_ids,
+    )
 
-        report = run_market_publication_audit(
-            supabase, market_date=market_date, phase=PHASE_POST_SCRAPE
+    target = str(market_date)[:10]
+    tracked = set(resolve_tracked_set_ids(client))
+    if not tracked:
+        raise RuntimeError("Market Explorer tracked-set authority returned no Sets")
+
+    rows = list(
+        client.table(MARKET_EXPLORER_V2_COVERAGE_TABLE)
+        .select("set_id,computed_through")
+        .execute().data or []
+    )
+    coverage = {
+        str(row.get("set_id") or ""): str(row.get("computed_through") or "")[:10]
+        for row in rows
+        if row.get("set_id")
+    }
+    missing = sorted(tracked - set(coverage))
+    stale = sorted(
+        set_id for set_id in tracked
+        if coverage.get(set_id, "") < target
+    )
+    if missing or stale:
+        logger.info(
+            "%s Market Explorer V2 stale for market_date=%s tracked=%d coverage=%d missing=%d stale=%d",
+            TRIGGER_TAG, target, len(tracked), len(coverage), len(missing), len(stale),
         )
-        if report.market_date == market_date and report.passed:
-            return PublicationCurrencyStatus.CURRENT
-        return PublicationCurrencyStatus.STALE
+        return False
+    return True
+
+
+def evaluate_post_scrape_publication_currency(
+    client: Any,
+    market_date: str,
+    *,
+    audit_runner: Optional[Callable[..., Any]] = None,
+) -> PublicationCurrencyStatus:
+    """Canonical post-scrape audit PLUS Market Explorer V2 define currency."""
+    try:
+        if audit_runner is None:
+            from backend.scripts.audit_pokemon_market_publication import (
+                PHASE_POST_SCRAPE,
+                run_market_publication_audit,
+            )
+            audit_runner = run_market_publication_audit
+        else:
+            from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
+
+        report = audit_runner(
+            client, market_date=market_date, phase=PHASE_POST_SCRAPE
+        )
+        if report.market_date != market_date or not report.passed:
+            return PublicationCurrencyStatus.STALE
+        if not _market_explorer_v2_current(client, market_date):
+            return PublicationCurrencyStatus.STALE
+        return PublicationCurrencyStatus.CURRENT
     except Exception:
         logger.exception(
             "%s publication-currency check failed for market_date=%s; currency is UNKNOWN, not stale",
             TRIGGER_TAG, market_date,
         )
         return PublicationCurrencyStatus.UNKNOWN
+
+
+def _default_publication_current(market_date: str) -> PublicationCurrencyStatus:
+    """Durable currency check for canonical post-scrape + Market Explorer V2."""
+    from backend.db.clients.supabase_client import supabase
+
+    return evaluate_post_scrape_publication_currency(supabase, market_date)
 
 
 def _default_lock_is_held(lock_path: str) -> bool:
