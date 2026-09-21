@@ -1,4 +1,4 @@
-name: Final Sep 20 resilience audit
+name: Validate publication gate tri-state fix
 
 on:
   push:
@@ -11,48 +11,36 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  validate:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Inspect runtime, publication and Sentinel gates
+      - name: Checkout tri-state fix branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/publication-gate-tristate-20260920
+          persist-credentials: false
+      - name: Compile and exercise gate classifications
         shell: bash
         run: |
-          set -u
-          cd /home/ubuntu/repos/EVRCalculator
-          echo '=== TIME / GIT ==='
-          date
-          echo -n 'head='; git rev-parse HEAD
-          echo -n 'main='; git rev-parse origin/main 2>/dev/null || true
-          git status --short || true
-          echo
-          echo '=== ACTIVE PUBLICATION ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo 'lock:'
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo 'log:'
-          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
-          START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
-          if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/current-pub.log
-            echo "plan_last=$(grep '\[refresh-plan\] checked' /tmp/current-pub.log | tail -1)"
-            echo "plan_complete=$(grep -c '\[refresh-plan\] complete' /tmp/current-pub.log || true)"
-            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "refresh_exit=$(grep 'refresh exit_status=' /tmp/current-pub.log | tail -1)"
-            echo "audit_exit=$(grep 'audit exit_status=' /tmp/current-pub.log | tail -1)"
-            echo "final_exit=$(grep 'final exit_status=' /tmp/current-pub.log | tail -1)"
-          fi
-          echo
-          echo '=== SENTINEL ENV GATES ==='
-          for k in SENTINEL_STATE_WRITES_ENABLED SENTINEL_PERSISTENCE_SCHEMA_READY SENTINEL_RECOVERY_ENABLED SENTINEL_RECOVERY_EXECUTION_READY SENTINEL_DEADMAN_PING_URL SENTINEL_WATCH_HOST; do
-            v="$(grep -E "^${k}=" backend/.env 2>/dev/null | tail -1 | cut -d= -f2- || true)"
-            if [ "$k" = 'SENTINEL_DEADMAN_PING_URL' ]; then
-              if [ -n "$v" ]; then echo "$k=configured"; else echo "$k=unset"; fi
-            else
-              echo "$k=${v:-unset}"
-            fi
-          done
-          echo
-          echo '=== SENTINEL / WATCHDOG CRON ==='
-          crontab -l | grep -E 'sentinel|market-freshness|deadman|watcher|rebuild_snapshots_after_scrape|publish_post_scrape_if_needed|create_daily_scrape_batch' || true
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile \
+            backend/scripts/publish_post_scrape_if_needed.py \
+            backend/sentinel/recovery/runbooks.py \
+            backend/tests/unit/scripts/test_publish_post_scrape_gate_tristate.py
+          "$PY" - <<'PY'
+          from backend.tests.unit.scripts import test_publish_post_scrape_gate_tristate as t
+          t.test_batch_gate_retries_authority_unavailable_with_fresh_client()
+          print('authority_retry_fresh_client=PASS')
+          t.test_publish_if_needed_returns_nonzero_status_when_gate_authority_stays_unknown()
+          print('authority_unknown_nonzero=PASS')
+          t.test_publish_if_needed_keeps_genuine_incomplete_batch_as_noop()
+          print('genuine_incomplete_noop=PASS')
+          t.test_publish_if_needed_fails_closed_on_invalid_batch_contract()
+          print('invalid_contract_nonzero=PASS')
+          PY
