@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -459,6 +459,35 @@ jobs:
               PYTHONPATH="$REPO" "$PY" "$SMOKE"
               rm -f "$SMOKE"
               ;;
+            market-explorer-coverage-direct-smoke)
+              cd "$REPO"
+              echo "== direct PostgreSQL coverage authority smoke =="
+              DIRECT="/tmp/market_explorer_coverage_direct_smoke.py"
+              printf '%s\n' \
+                'import os, time' \
+                'from dotenv import load_dotenv' \
+                'load_dotenv("backend/.env")' \
+                'import psycopg' \
+                'dsn = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")' \
+                'assert dsn, "direct_db_credential_missing"' \
+                'with psycopg.connect(dsn, connect_timeout=10, application_name="market_explorer_coverage_smoke") as conn:' \
+                '    conn.execute("set transaction read only")' \
+                '    with conn.cursor() as cur:' \
+                '        cur.execute("select current_user, has_function_privilege(current_user, %s, %s), has_table_privilege(current_user, %s, %s), has_table_privilege(current_user, %s, %s)", ("public.get_pokemon_market_explorer_set_history_coverage_v1(uuid[])", "EXECUTE", "public.sets", "SELECT", "public.pokemon_set_value_daily_history", "SELECT"))' \
+                '        print({"role": cur.fetchone()})' \
+                '        started = time.monotonic()' \
+                '        try:' \
+                '            cur.execute("select set_id, first_snapshot_date, latest_snapshot_date from public.get_pokemon_market_explorer_set_history_coverage_v1(null)")' \
+                '            rows = cur.fetchall()' \
+                '        except Exception as exc:' \
+                '            print({"coverageExecute": "failed", "sqlstate": getattr(exc, "sqlstate", None), "errorType": type(exc).__name__})' \
+                '            raise' \
+                '        print({"coverageExecute": "ok", "elapsedSeconds": round(time.monotonic()-started,3), "rows": len(rows)})' \
+                > "$DIRECT"
+              PYTHONPATH="$REPO" "$PY" "$DIRECT"
+              rm -f "$DIRECT"
+              ;;
+
 
             market-explorer-currency-tests)
               cd "$REPO"
