@@ -1,4 +1,4 @@
-name: Validate publication liveness watchdog
+name: Validate publication planner fast path
 
 on:
   push:
@@ -19,30 +19,29 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
       SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Checkout liveness branch
+      - name: Checkout fast-path branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: fix/publication-liveness-watchdog-20260920
+          ref: fix/publication-planner-target-date-fastpath-20260920
           persist-credentials: false
-      - name: Compile and exercise liveness boundaries
+      - name: Compile and exercise planner fast path
         shell: bash
         run: |
           set -euo pipefail
           PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
           "$PY" -m py_compile \
-            backend/alerts/post_scrape_publication_watchdog.py \
-            backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py
+            backend/scripts/refresh_stale_public_snapshots.py \
+            backend/tests/unit/scripts/test_refresh_target_date_fastpath.py
           "$PY" - <<'PY'
-          from backend.tests.unit.alerts import test_post_scrape_publication_watchdog as t
-          t.test_locked_publisher_with_recent_progress_is_healthy()
-          print('locked_recent_progress=PASS')
-          t.test_locked_publisher_without_progress_is_stalled_and_never_relaunched()
-          print('held_lock_stall_no_kill=PASS')
-          t.test_missing_publisher_relaunches_through_existing_detached_trigger()
-          print('missing_publisher_relaunch=PASS')
-          t.test_missing_publisher_currency_failure_is_unhealthy_not_success()
-          print('relaunch_failure_unhealthy=PASS')
-          t.test_gate_authority_failure_blocks_relaunch()
-          print('gate_authority_blocks_relaunch=PASS')
+          from backend.tests.unit.scripts import test_refresh_target_date_fastpath as t
+          t.test_target_date_fast_result_proves_stale_on_date_mismatch()
+          print('date_mismatch_proves_stale=PASS')
+          t.test_target_date_fast_result_defers_to_deep_audit_when_already_current()
+          print('current_date_deep_audit=PASS')
+          t.test_build_plan_skips_expensive_dependency_scans_when_target_date_is_proven_stale()
+          print('proven_stale_skips_deep_scan=PASS')
+          t.test_build_plan_deep_audits_when_snapshot_dates_are_already_current()
+          print('current_snapshot_deep_scan=PASS')
+          t.test_build_plan_falls_back_to_deep_audit_when_bulk_preload_is_unreadable()
+          print('unreadable_preload_falls_back=PASS')
           PY
-          grep -F 'post_scrape_publication_watchdog' infra/oracle/tcgplayer-scraper-pokemon.crontab
