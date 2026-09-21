@@ -52,28 +52,7 @@ jobs:
             set -a
             . backend/.env
             set +a
-            MARKET_DATE="$MARKET_DATE" "$PY" - <<'PY'
-import json
-import os
-from backend.alerts import post_scrape_publication_watchdog as watchdog
-
-market_date = os.environ["MARKET_DATE"]
-identity = watchdog._validate_active_publication_identity(
-    watchdog._default_all_publication_processes()
-)
-print("active_publication_identity=" + json.dumps(identity, default=str, sort_keys=True))
-if not identity.get("ok"):
-    raise SystemExit(51)
-if str(identity.get("market_date") or "") != market_date:
-    raise SystemExit(52)
-if min(
-    int(identity.get("wrapper_age_seconds") or 0),
-    int(identity.get("refresh_age_seconds") or 0),
-) < 20 * 60:
-    raise SystemExit(53)
-watchdog._default_terminate_process(int(identity["refresh_pid"]))
-print("slow_current_refresh_sigterm_pid=" + str(identity["refresh_pid"]))
-PY
+            MARKET_DATE="$MARKET_DATE" "$PY" -c 'import json,os; from backend.alerts import post_scrape_publication_watchdog as w; d=os.environ["MARKET_DATE"]; i=w._validate_active_publication_identity(w._default_all_publication_processes()); print("active_publication_identity="+json.dumps(i,default=str,sort_keys=True)); (i.get("ok") or (_ for _ in ()).throw(SystemExit(51))); (str(i.get("market_date") or "") == d or (_ for _ in ()).throw(SystemExit(52))); (min(int(i.get("wrapper_age_seconds") or 0),int(i.get("refresh_age_seconds") or 0)) >= 1200 or (_ for _ in ()).throw(SystemExit(53))); w._default_terminate_process(int(i["refresh_pid"])); print("slow_current_refresh_sigterm_pid="+str(i["refresh_pid"]))'
             REPLACE_RC=$?
             echo "replace_slow_current_rc=$REPLACE_RC"
             if [ "$REPLACE_RC" -ne 0 ]; then exit 5; fi
