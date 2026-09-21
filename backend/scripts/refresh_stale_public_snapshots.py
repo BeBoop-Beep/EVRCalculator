@@ -1718,8 +1718,13 @@ def _load_completed_scrape_set_ids(client: Any, market_date: Optional[str]) -> O
 
 def _load_target_snapshot_market_dates(
     client: Any, set_ids: Sequence[str], *, window: str
-) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]:
-    """Bulk-load only the scalar authority dates needed for target-date fast-pathing."""
+) -> Optional[Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]]:
+    """Bulk-load only the scalar authority dates needed for target-date fast-pathing.
+
+    Any preload read failure returns ``None`` so the caller falls back to the
+    existing deep audit. An unreadable bulk probe is never evidence that a
+    snapshot row is missing.
+    """
     ids = [str(value) for value in set_ids if value]
     cards: Dict[str, Dict[str, Optional[str]]] = {}
     market: Dict[str, Dict[str, Optional[str]]] = {}
@@ -1738,10 +1743,10 @@ def _load_target_snapshot_market_dates(
         )
         if card_error:
             logger.warning(
-                "[refresh-plan-fastpath] Cards target-date preload failed for batch offset=%s: %s",
+                "[refresh-plan-fastpath] Cards target-date preload failed for batch offset=%s: %s; disabling fast path",
                 offset, card_error,
             )
-            card_rows = []
+            return None
         for row in card_rows:
             set_id = str(row.get("set_id") or "")
             if not set_id:
@@ -1760,10 +1765,10 @@ def _load_target_snapshot_market_dates(
         )
         if market_error:
             logger.warning(
-                "[refresh-plan-fastpath] Market Dashboard target-date preload failed for batch offset=%s: %s",
+                "[refresh-plan-fastpath] Market Dashboard target-date preload failed for batch offset=%s: %s; disabling fast path",
                 offset, market_error,
             )
-            market_rows = []
+            return None
         for row in market_rows:
             set_id = str(row.get("set_id") or "")
             if not set_id:
@@ -1840,13 +1845,21 @@ def _build_plan(
     cards_target_dates: Dict[str, Dict[str, Optional[str]]] = {}
     market_target_dates: Dict[str, Dict[str, Optional[str]]] = {}
     if fastpath_enabled and completed_scrape_set_ids:
-        cards_target_dates, market_target_dates = _load_target_snapshot_market_dates(
+        target_snapshot_dates = _load_target_snapshot_market_dates(
             client, sorted(completed_scrape_set_ids), window=window
         )
-        logger.info(
-            "[refresh-plan-fastpath] enabled market_date=%s completed_sets=%s cards_rows=%s market_rows=%s",
-            target_day, len(completed_scrape_set_ids), len(cards_target_dates), len(market_target_dates),
-        )
+        if target_snapshot_dates is None:
+            fastpath_enabled = False
+            logger.warning(
+                "[refresh-plan-fastpath] disabled market_date=%s because snapshot-date preload was unreadable",
+                target_day,
+            )
+        else:
+            cards_target_dates, market_target_dates = target_snapshot_dates
+            logger.info(
+                "[refresh-plan-fastpath] enabled market_date=%s completed_sets=%s cards_rows=%s market_rows=%s",
+                target_day, len(completed_scrape_set_ids), len(cards_target_dates), len(market_target_dates),
+            )
     elif target_day:
         logger.info(
             "[refresh-plan-fastpath] disabled market_date=%s cohort_readable=%s completed_sets=%s",
