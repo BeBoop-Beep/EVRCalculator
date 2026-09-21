@@ -226,7 +226,9 @@ def test_staged_job_deterministic_failure_is_not_retried(monkeypatch):
     assert state["index"] == 1
     assert report["status"] == "failed"
     assert report["completed_stages"] == []
+    assert report["failed_stage"] == "sync_price_storage_v2_set_date"
     assert finished and finished[0][0] == "failed"
+    assert finished[0][1].startswith("stage=sync_price_storage_v2_set_date;")
 
 
 def test_failed_staged_job_does_not_starve_later_jobs(monkeypatch):
