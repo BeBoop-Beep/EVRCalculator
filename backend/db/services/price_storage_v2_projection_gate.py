@@ -324,7 +324,7 @@ def _process_projection_job_staged(
         ),
         (
             "sync_pokemon_market_price_intervals_v2_shadow_set_from_date",
-            {"p_set_id": set_id, "p_market_date": market_date},
+            {"p_set_id": set_id, "p_start_date": market_date},
         ),
         (
             "refresh_pokemon_canonical_card_market_prices_latest_for_set",
