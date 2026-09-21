@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   vm-canary:
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: self-hosted
     timeout-minutes: 15
     steps:
       - name: Inspect runner and sync production checkout
