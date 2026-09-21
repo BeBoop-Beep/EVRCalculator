@@ -1,1 +1,2 @@
 Trigger temporary Sentinel production probe for 2026-09-21 continuation.
+Synchronize after probe workflow landed on main.
