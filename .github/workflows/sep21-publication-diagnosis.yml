@@ -33,3 +33,4 @@ jobs:
           "$PY" -m pytest -q backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py
           grep -F -- '--recover-stalled --recover-superseded' infra/oracle/tcgplayer-scraper-pokemon.crontab >/dev/null
           echo 'supersession_cron_flag=PASS'
+# supersession-validation-r2
