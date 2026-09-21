@@ -1,4 +1,4 @@
-name: Check publisher exit for deployment
+name: Configure Sentinel observation mode
 
 on:
   push:
@@ -11,24 +11,30 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  configure:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Check canonical publisher lock and final markers
+      - name: Configure non-secret Sentinel env
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          date
-          echo '=== PROCESS ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|audit_pokemon_market_publication|run_market_explorer_daily_publication' | grep -v grep || true
-          echo '=== LOCK ==='
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo '=== FINAL MARKERS ==='
-          START="$(grep -n '\[post-scrape-publication\].*resolved market_date=2026-09-20' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
-          if [ -n "${START:-}" ]; then
-            tail -n +"$START" publication.log > /tmp/sep20-final-check.log
-            grep -E 'refresh exit_status=|audit exit_status=|market explorer projection exit_status=|post-scrape publication COMPLETE|final exit_status=|public snapshot refresh summary|cards failed:|market_dashboard failed:|global failed:|Rankings:' /tmp/sep20-final-check.log | tail -100 || true
-            tail -30 /tmp/sep20-final-check.log
-          fi
+          ENV_FILE=backend/.env
+          test -f "$ENV_FILE"
+          update_env() {
+            key="$1"; value="$2"
+            tmp="$(mktemp)"
+            awk -v k="$key" -F= '$1 != k {print}' "$ENV_FILE" > "$tmp"
+            printf '%s=%s\n' "$key" "$value" >> "$tmp"
+            cat "$tmp" > "$ENV_FILE"
+            rm -f "$tmp"
+          }
+          update_env SENTINEL_STATE_WRITES_ENABLED true
+          update_env SENTINEL_PERSISTENCE_SCHEMA_READY true
+          update_env SENTINEL_RECOVERY_ENABLED false
+          update_env SENTINEL_RECOVERY_EXECUTION_READY false
+          update_env SENTINEL_BACKEND_BASE_URL https://evrcalculator.onrender.com
+          update_env SENTINEL_COMPONENT sentinel_vm
+          echo '=== SENTINEL CONFIG (NON-SECRET) ==='
+          grep -E '^SENTINEL_(STATE_WRITES_ENABLED|PERSISTENCE_SCHEMA_READY|RECOVERY_ENABLED|RECOVERY_EXECUTION_READY|BACKEND_BASE_URL|COMPONENT)=' "$ENV_FILE"
