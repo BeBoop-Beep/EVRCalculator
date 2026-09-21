@@ -1,4 +1,4 @@
-name: ME30th final VM cleanliness
+name: Pokemon Onboarding Autonomy final tests
 
 on:
   push:
@@ -9,24 +9,31 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  test:
     runs-on: self-hosted
-    timeout-minutes: 8
+    timeout-minutes: 20
     steps:
-      - name: Sync clean production checkout
+      - name: Test autonomy feature branch in isolated worktree
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          git restore --             payload_debug.json             backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json             backend/constants/tcg/pokemon/pokemon_set_scrape_run_report.json 2>/dev/null || true
-          git fetch origin main
-          git switch main
-          git reset --hard origin/main
-          echo "branch=$(git branch --show-current)"
-          echo "head=$(git rev-parse HEAD)"
-          echo "status:"
-          git status --short
-          test -z "$(git status --porcelain)"
-          echo "CLEAN=true"
-          echo "scrape_report_tracked=$(git ls-files --error-unmatch backend/constants/tcg/pokemon/pokemon_set_scrape_run_report.json >/dev/null 2>&1 && echo true || echo false)"
-          echo "scrape_report_ignored=$(git check-ignore -q backend/constants/tcg/pokemon/pokemon_set_scrape_run_report.json && echo true || echo false)"
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/home/ubuntu/repos/pokemon-onboarding-autonomy-test
+          BRANCH=fix/pokemon-onboarding-autonomy-20260920
+
+          cd "$REPO"
+          git fetch origin "$BRANCH"
+          if [ -d "$WT" ]; then
+            git worktree remove --force "$WT" || true
+          fi
+          git worktree add --detach "$WT" "origin/$BRANCH"
+          ln -s /home/ubuntu/repos/EVRCalculator/backend/.env "$WT/backend/.env"
+
+          cd "$WT"
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/services/pokemon_onboarding_git_service.py             backend/services/pokemon_set_onboarding_recheck_service.py             backend/scripts/refresh_due_pokemon_catalog_sets.py
+
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/services/test_pokemon_onboarding_git_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_onboarding_end_to_end.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py
+
+          rm -f "$WT/backend/.env"
+          cd "$REPO"
+          git worktree remove --force "$WT"
