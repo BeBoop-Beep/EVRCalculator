@@ -1,4 +1,4 @@
-name: Pokemon Onboarding Autonomy branch tests
+name: ME30th subset lifecycle tests
 
 on:
   push:
@@ -11,15 +11,15 @@ permissions:
 jobs:
   test:
     runs-on: self-hosted
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
-      - name: Test autonomy feature branch in isolated worktree
+      - name: Test 30th Celebration subset lifecycle branch
         shell: bash
         run: |
           set -euo pipefail
           REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/pokemon-onboarding-autonomy-test
-          BRANCH=fix/pokemon-onboarding-autonomy-20260920
+          WT=/home/ubuntu/repos/me30th-subset-lifecycle-test
+          BRANCH=fix/me30th-subset-lifecycle-20260920
 
           cd "$REPO"
           git fetch origin "$BRANCH"
@@ -30,9 +30,9 @@ jobs:
           ln -s /home/ubuntu/repos/EVRCalculator/backend/.env "$WT/backend/.env"
 
           cd "$WT"
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/services/pokemon_onboarding_git_service.py             backend/services/pokemon_set_onboarding_recheck_service.py             backend/scripts/refresh_due_pokemon_catalog_sets.py
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile             backend/constants/tcg/pokemon/otherEra/me30thCelebration.py             backend/constants/tcg/pokemon/megaEvolutionEra/me30thCelebrationClassicCollection.py             backend/scripts/build_pokemon_set_desirability_inputs.py
 
-          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/services/test_pokemon_onboarding_git_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_recheck_service.py             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_onboarding_end_to_end.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest -q             backend/tests/unit/db/test_pokemon_subset_structural_registry.py             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py             backend/tests/unit/db/test_set_lifecycle_migration_contract.py
 
           rm -f "$WT/backend/.env"
           cd "$REPO"
