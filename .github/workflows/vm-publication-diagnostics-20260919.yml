@@ -1,4 +1,4 @@
-name: Inspect active Sep 20 republisher
+name: Inspect publication fastpath
 
 on:
   push:
@@ -15,32 +15,20 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect active publication progress
+      - name: Inspect current publication fastpath
         shell: bash
         run: |
           set -u
           cd /home/ubuntu/repos/EVRCalculator
           date
-          echo '=== PROCESS ==='
-          ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
-          echo
-          echo '=== LOCK ==='
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          echo
-          echo '=== LOG ==='
-          stat -c 'size=%s mtime=%y' publication.log 2>/dev/null || true
           START="$(grep -n '\[post-scrape-publication\].*started_at=' publication.log 2>/dev/null | tail -1 | cut -d: -f1)"
-          echo "run_start_line=${START:-missing}"
           if [ -n "${START:-}" ]; then
             tail -n +"$START" publication.log > /tmp/current-pub.log
-            echo "plan_last=$(grep '\[refresh-plan\] checked' /tmp/current-pub.log | tail -1)"
-            echo "plan_complete=$(grep -c '\[refresh-plan\] complete' /tmp/current-pub.log || true)"
-            echo "cards_upserts=$(grep -c 'upserted pokemon_set_cards_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "dashboard_upserts=$(grep -c 'upserted pokemon_set_market_dashboard_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "set_page_upserts=$(grep -c 'upserted pokemon_set_page_snapshot_latest' /tmp/current-pub.log || true)"
-            echo "refresh_exit=$(grep 'refresh exit_status=' /tmp/current-pub.log | tail -1)"
-            echo "audit_exit=$(grep 'audit exit_status=' /tmp/current-pub.log | tail -1)"
-            echo "final_exit=$(grep 'final exit_status=' /tmp/current-pub.log | tail -1)"
-            echo '=== TAIL ==='
-            tail -80 /tmp/current-pub.log
+            echo '=== FASTPATH ==='
+            grep -E '\[refresh-plan-fastpath\]' /tmp/current-pub.log | head -30 || true
+            echo '=== PROCESS ==='
+            ps -eo pid,ppid,etime,time,%cpu,%mem,state,args | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+            echo '=== PROGRESS ==='
+            grep '\[refresh-plan\] checked' /tmp/current-pub.log | tail -5 || true
+            stat -c 'log_mtime=%y size=%s' publication.log || true
           fi
