@@ -247,3 +247,54 @@ def test_default_popen_uses_detached_session_and_explicit_args(tmp_path, monkeyp
     # No shell injection surface: args passed as a list, not a shell string.
     assert isinstance(captured["args"], list)
     assert log_path.exists()
+
+class _AuditReport:
+    def __init__(self, market_date="2026-09-20", passed=True):
+        self.market_date = market_date
+        self.passed = passed
+
+
+def test_currency_is_stale_when_canonical_passes_but_market_explorer_v2_is_stale(monkeypatch):
+    monkeypatch.setattr(trigger, "_market_explorer_v2_current", lambda client, market_date: False)
+
+    status = trigger.evaluate_post_scrape_publication_currency(
+        object(),
+        "2026-09-20",
+        audit_runner=lambda client, market_date, phase: _AuditReport(market_date, True),
+    )
+
+    assert status == trigger.PublicationCurrencyStatus.STALE
+
+
+def test_currency_is_current_only_when_canonical_and_market_explorer_v2_are_current(monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        trigger,
+        "_market_explorer_v2_current",
+        lambda client, market_date: seen.append(market_date) or True,
+    )
+
+    status = trigger.evaluate_post_scrape_publication_currency(
+        object(),
+        "2026-09-20",
+        audit_runner=lambda client, market_date, phase: _AuditReport(market_date, True),
+    )
+
+    assert status == trigger.PublicationCurrencyStatus.CURRENT
+    assert seen == ["2026-09-20"]
+
+
+def test_currency_fails_closed_unknown_when_v2_authority_check_errors(monkeypatch):
+    def broken_v2(client, market_date):
+        raise RuntimeError("coverage authority unavailable")
+
+    monkeypatch.setattr(trigger, "_market_explorer_v2_current", broken_v2)
+
+    status = trigger.evaluate_post_scrape_publication_currency(
+        object(),
+        "2026-09-20",
+        audit_runner=lambda client, market_date, phase: _AuditReport(market_date, True),
+    )
+
+    assert status == trigger.PublicationCurrencyStatus.UNKNOWN
+
