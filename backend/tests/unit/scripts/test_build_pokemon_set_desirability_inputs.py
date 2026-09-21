@@ -267,6 +267,11 @@ def _wire_process_single_set(monkeypatch, *, cards, canonical_rows):
     monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: [])
     monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: set())
     monkeypatch.setattr(
+        combined,
+        "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {},
+    )
+    monkeypatch.setattr(
         combined, "_refresh_authoritative_canonical_cards",
         lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
     )
@@ -553,6 +558,10 @@ def test_provider_fallback_exact_trainer_authority_wins_over_pokemon_phrase_matc
     monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: [])
     monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: {"n", "misty"})
     monkeypatch.setattr(
+        combined, "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {},
+    )
+    monkeypatch.setattr(
         combined, "_refresh_authoritative_canonical_cards",
         lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
     )
@@ -599,3 +608,35 @@ def test_provider_fallback_multi_subjects_persist_all_pokedex_numbers(monkeypatc
     assert captured[0]["national_pokedex_numbers"] == [25, 644]
     assert captured[0]["source_payload"]["matched_pokedex_numbers"] == [25, 644]
     assert captured[0]["source_payload"]["matched_pokedex_number"] is None
+
+
+
+def test_authoritative_non_pokemon_exact_name_supertype_wins_without_fuzzy_guess(monkeypatch):
+    cards = [
+        {"id": "switch-card", "name": "Switch", "rarity": "Common",
+         "card_number": "127/128", "pokemon_tcg_api_id": None,
+         "image_small_url": None, "image_large_url": None},
+    ]
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda _client, _set_id: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: [])
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: [])
+    monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: set())
+    monkeypatch.setattr(
+        combined, "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {"switch": "Trainer"},
+    )
+    monkeypatch.setattr(
+        combined, "_refresh_authoritative_canonical_cards",
+        lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
+    )
+    captured = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_NORMAL_SET_ROW, dry_run=False)
+
+    assert len(captured) == 1
+    assert captured[0]["supertype"] == "Trainer"
+    assert captured[0]["national_pokedex_numbers"] == []
