@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-cron-audit",
-  "request_id": "market-explorer-cron-audit-20260920"
+  "operation": "market-explorer-manual-one-shot",
+  "request_id": "market-explorer-manual-one-shot-20260920"
 }
