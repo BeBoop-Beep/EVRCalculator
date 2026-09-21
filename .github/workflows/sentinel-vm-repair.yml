@@ -99,29 +99,29 @@ jobs:
             . backend/.env
             set +a
             "$PY" - <<'PY'
-from datetime import datetime, timezone
-import json
-
-from backend.db.clients.supabase_client import create_service_role_client
-
-client = create_service_role_client()
-market_date = "2026-09-21"
-now = datetime.now(timezone.utc).isoformat()
-
-failed = list(
-    client.table("price_storage_v2_shadow_queue")
-    .select("id,set_id,status,attempts,last_error")
-    .eq("market_date", market_date)
-    .eq("status", "failed")
-    .execute().data or []
-)
-rearmed = []
-left_failed = []
-needle = "sync_pokemon_market_price_intervals_v2_shadow_set_from_date"
-for row in failed:
-    error = str(row.get("last_error") or "")
-    if "PGRST202" in error and needle in error:
-        result = (
+          from datetime import datetime, timezone
+          import json
+          
+          from backend.db.clients.supabase_client import create_service_role_client
+          
+          client = create_service_role_client()
+          market_date = "2026-09-21"
+          now = datetime.now(timezone.utc).isoformat()
+          
+          failed = list(
+              client.table("price_storage_v2_shadow_queue")
+              .select("id,set_id,status,attempts,last_error")
+              .eq("market_date", market_date)
+              .eq("status", "failed")
+              .execute().data or []
+          )
+          rearmed = []
+          left_failed = []
+          needle = "sync_pokemon_market_price_intervals_v2_shadow_set_from_date"
+          for row in failed:
+              error = str(row.get("last_error") or "")
+              if "PGRST202" in error and needle in error:
+                  result = (
             client.table("price_storage_v2_shadow_queue")
             .update({
                 "status": "pending",
@@ -135,50 +135,50 @@ for row in failed:
             .eq("status", "failed")
             .eq("attempts", row.get("attempts") or 0)
             .execute()
-        )
-        if result.data:
+                  )
+                  if result.data:
             rearmed.append(row["id"])
-    else:
-        left_failed.append({
+              else:
+                  left_failed.append({
             "id": row.get("id"),
             "set_id": row.get("set_id"),
             "attempts": row.get("attempts"),
             "last_error": error[:500],
-        })
-
-processing = list(
-    client.table("price_storage_v2_shadow_queue")
-    .select("id,set_id,status,attempts,started_at")
-    .eq("market_date", market_date)
-    .eq("status", "processing")
-    .execute().data or []
-)
-requeued_processing = []
-for row in processing:
-    result = (
-        client.table("price_storage_v2_shadow_queue")
-        .update({
+                  })
+          
+          processing = list(
+              client.table("price_storage_v2_shadow_queue")
+              .select("id,set_id,status,attempts,started_at")
+              .eq("market_date", market_date)
+              .eq("status", "processing")
+              .execute().data or []
+          )
+          requeued_processing = []
+          for row in processing:
+              result = (
+                  client.table("price_storage_v2_shadow_queue")
+                  .update({
             "status": "pending",
             "attempts": 0,
             "started_at": None,
             "completed_at": None,
             "last_error": "rearmed after interrupted bounded repair worker",
             "updated_at": now,
-        })
-        .eq("id", row["id"])
-        .eq("status", "processing")
-        .eq("attempts", row.get("attempts") or 0)
-        .execute()
-    )
-    if result.data:
-        requeued_processing.append(row["id"])
-
-print("rearmed_signature_failure_ids=" + json.dumps(rearmed))
-print("requeued_orphan_processing_ids=" + json.dumps(requeued_processing))
-print("unrelated_failed_rows=" + json.dumps(left_failed, sort_keys=True))
-if left_failed:
-    raise SystemExit(21)
-PY
+                  })
+                  .eq("id", row["id"])
+                  .eq("status", "processing")
+                  .eq("attempts", row.get("attempts") or 0)
+                  .execute()
+              )
+              if result.data:
+                  requeued_processing.append(row["id"])
+          
+          print("rearmed_signature_failure_ids=" + json.dumps(rearmed))
+          print("requeued_orphan_processing_ids=" + json.dumps(requeued_processing))
+          print("unrelated_failed_rows=" + json.dumps(left_failed, sort_keys=True))
+          if left_failed:
+              raise SystemExit(21)
+          PY
           )
           REARM_RC=$?
           echo "rearm_rc=$REARM_RC"
@@ -284,22 +284,22 @@ PY
             . backend/.env
             set +a
             "$PY" - <<'PY'
-import json
-from collections import Counter
-from backend.db.clients.supabase_client import create_service_role_client
-from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
-
-client = create_service_role_client()
-decision = evaluate_price_projection_gate(client, "2026-09-21")
-print("projection_final=" + json.dumps(decision.to_dict(), sort_keys=True))
-rows = list(
-    client.table("price_storage_v2_shadow_queue")
-    .select("status,attempts")
-    .eq("market_date", "2026-09-21")
-    .execute().data or []
-)
-print("projection_queue_statuses=" + json.dumps(Counter(str(r.get("status")) for r in rows), sort_keys=True))
-PY
+          import json
+          from collections import Counter
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
+          
+          client = create_service_role_client()
+          decision = evaluate_price_projection_gate(client, "2026-09-21")
+          print("projection_final=" + json.dumps(decision.to_dict(), sort_keys=True))
+          rows = list(
+              client.table("price_storage_v2_shadow_queue")
+              .select("status,attempts")
+              .eq("market_date", "2026-09-21")
+              .execute().data or []
+          )
+          print("projection_queue_statuses=" + json.dumps(Counter(str(r.get("status")) for r in rows), sort_keys=True))
+          PY
           )
 
           curl --fail --silent --show-error --max-time 45             https://evrcalculator.onrender.com/explore/set-value-market           | "$PY" -c 'import json,sys; p=json.load(sys.stdin); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date"))); print("public_market_set_count="+str(len(p.get("sets") or [])))'
