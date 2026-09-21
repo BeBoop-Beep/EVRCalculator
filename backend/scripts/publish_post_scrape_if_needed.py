@@ -149,7 +149,9 @@ def _already_current(client, market_date: str) -> "PublicationCurrencyStatus":
 
 def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dict:
     from backend.db.services.post_scrape_publication_trigger import (
+        PUBLICATION_LOCK_PATH,
         PublicationCurrencyStatus,
+        _default_lock_is_held,
         is_valid_market_date,
     )
 
@@ -207,6 +209,17 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
             "market_date": market_date,
             "status": STATUS_GATE_INVALID_CONTRACT,
             "gate_reason_code": gate.reason_code,
+        }
+
+    if _default_lock_is_held(PUBLICATION_LOCK_PATH):
+        logger.info(
+            "%s publication already running for market_date=%s; no-op",
+            TAG, market_date,
+        )
+        return {
+            "market_date": market_date,
+            "status": STATUS_NOOP_ALREADY_RUNNING,
+            "lock_path": PUBLICATION_LOCK_PATH,
         }
 
     currency_status = _already_current(client, market_date)

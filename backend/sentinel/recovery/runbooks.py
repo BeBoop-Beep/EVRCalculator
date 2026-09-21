@@ -164,6 +164,7 @@ def build_safe_recovery_registry(
             "noop_batch_not_complete",
             "noop_already_running",
             "noop_currency_unknown",
+            "noop_already_running",
             "gate_authority_unavailable",
             "gate_invalid_contract",
             "invalid_market_date",
