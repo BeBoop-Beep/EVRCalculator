@@ -1,4 +1,4 @@
-name: Diagnose Pokemon publication lock
+name: Diagnose stale publication process progress
 
 on:
   push:
@@ -13,43 +13,34 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 8
     steps:
-      - name: Inspect lock owners and publication processes
+      - name: Inspect live publication process progress
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== time ==="
           date -Is
 
-          echo "=== lock files ==="
-          ls -l /tmp/pokemon-post-scrape-publication.lock /tmp/pokemon-scrape-dispatcher.lock 2>/dev/null || true
+          PIDS="$(fuser /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || true)"
+          echo "lock_pids=$PIDS"
 
-          echo "=== lslocks ==="
-          lslocks -o PID,COMMAND,PATH,TYPE,MODE,SIZE 2>/dev/null | grep -E 'pokemon-post-scrape-publication|pokemon-scrape-dispatcher' || true
-
-          echo "=== fuser ==="
-          fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-          fuser -v /tmp/pokemon-scrape-dispatcher.lock 2>&1 || true
-
-          echo "=== relevant processes ==="
-          pgrep -af 'publish_post_scrape_if_needed|run_daily_opening_publication|refresh_stale_public_snapshots|pokemon.*publication|run_next_scrape_job|build_pokemon' || true
-
-          echo "=== process details for lock owners ==="
-          for pid in $(fuser /tmp/pokemon-post-scrape-publication.lock 2>/dev/null || true); do
-            ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,cmd -p "$pid" || true
-            echo "--- children of $pid ---"
-            pgrep -P "$pid" | xargs -r ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,cmd -p || true
+          for pid in $PIDS; do
+            echo "=== PID $pid ==="
+            ps -o pid,ppid,lstart,etime,stat,%cpu,%mem,wchan:28,cmd -p "$pid" || true
+            echo "--- /proc/$pid/io ---"
+            sudo cat "/proc/$pid/io" 2>/dev/null || true
+            echo "--- fd targets ---"
+            sudo ls -l "/proc/$pid/fd" 2>/dev/null | tail -n 40 || true
           done
 
-          echo "=== publication logs tail ==="
-          for log in             /home/ubuntu/repos/EVRCalculator/backend/logs/rebuild_snapshots_after_scrape.cron.log             /home/ubuntu/repos/EVRCalculator/backend/logs/post_scrape_publication_watchdog.log             /home/ubuntu/repos/EVRCalculator/backend/logs/run_daily_opening_publication.log             /home/ubuntu/repos/EVRCalculator/backend/logs/refresh_stale_public_snapshots.log
-          do
-            if [ -f "$log" ]; then
-              echo "--- $log ---"
-              tail -n 120 "$log"
-            fi
-          done
+          echo "=== publication.log metadata ==="
+          if [ -f /home/ubuntu/repos/EVRCalculator/publication.log ]; then
+            stat -c 'size=%s mtime=%y' /home/ubuntu/repos/EVRCalculator/publication.log
+            echo "=== publication.log tail ==="
+            tail -n 220 /home/ubuntu/repos/EVRCalculator/publication.log
+          else
+            echo "publication.log missing"
+          fi
 
-          echo "=== lock test ==="
+          echo "=== lock state ==="
           if flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
             echo "POST_SCRAPE_LOCK_FREE=true"
           else
