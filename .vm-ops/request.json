@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-install-db-env",
-  "request_id": "market-explorer-install-db-env-corrected-20260920"
+  "operation": "market-explorer-db-diagnose",
+  "request_id": "market-explorer-db-diagnose-corrected-20260920"
 }
