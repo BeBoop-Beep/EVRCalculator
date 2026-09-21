@@ -60,7 +60,10 @@ def test_dry_run_plans_refresh_without_running_commands(monkeypatch):
     refresh = report["refreshes"][0]
     assert refresh["status"] == "would_refresh"
     assert refresh["canonical_key"] == "me06DeltaReign"
-    assert any("run_pokemon_set_scrape.py" in cmd for cmd in refresh["planned_commands"])
+    assert any(
+        any(part.endswith("run_pokemon_set_scrape.py") for part in cmd)
+        for cmd in refresh["planned_commands"]
+    )
     assert any("build_pokemon_set_desirability_inputs.py" in cmd for cmd in refresh["planned_commands"])
     assert any("build_pokemon_set_cards_snapshots.py" in cmd for cmd in refresh["planned_commands"])
 
@@ -118,7 +121,7 @@ def test_scrape_failure_stops_downstream_and_remains_retryable(monkeypatch):
     assert report["critical_failures"] == 1
     assert report["refreshes"][0]["status"] == "scrape_failed"
     assert len(calls) == 1
-    assert "run_pokemon_set_scrape.py" in calls[0]
+    assert any(part.endswith("run_pokemon_set_scrape.py") for part in calls[0])
 
 
 def test_successful_card_refresh_runs_canonical_and_public_snapshots(monkeypatch):
