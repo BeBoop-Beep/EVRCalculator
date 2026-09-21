@@ -774,11 +774,11 @@ def resolve_cards_canonical_through(
     is the same date gate consumed by the cohort engine, preventing an
     in-progress Set Value publication from causing repeated incremental work.
     """
-    coverage = (client.table("pokemon_set_value_daily_history_coverage")
-                .select("set_id").eq("has_history", True))
-    if set_ids:
-        coverage = coverage.in_("set_id", sorted(set_ids))
-    if not list(coverage.limit(1).execute().data or []):
+    coverage_rows = list(client.rpc(
+        "get_pokemon_market_explorer_set_history_coverage_v1",
+        {"p_set_ids": sorted(set_ids) if set_ids else None},
+    ).execute().data or [])
+    if not coverage_rows:
         raise RuntimeError("cards market publication has no scoped history")
 
     quality = (client.table("pokemon_market_date_quality").select("market_date")
