@@ -1,4 +1,4 @@
-name: Onboarding VM canary 2026-09-20
+name: Onboarding VM recovery 2026-09-20
 
 on:
   push:
@@ -9,47 +9,64 @@ permissions:
   contents: read
 
 jobs:
-  vm-canary:
+  vm-recovery:
     runs-on: self-hosted
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
-      - name: Inspect runner and sync production checkout
+      - name: Sync production checkout to main
         shell: bash
         run: |
           set -euo pipefail
-          echo "host=$(hostname)"
-          echo "user=$(whoami)"
           cd /home/ubuntu/repos/EVRCalculator
-          echo "before=$(git rev-parse HEAD)"
-          git status --short
           git fetch origin main
           git switch --detach origin/main
-          echo "after=$(git rev-parse HEAD)"
+          echo "VM_SHA=$(git rev-parse HEAD)"
           git log -1 --oneline
 
-      - name: Run focused onboarding tests
+      - name: Sync corrected catalog metadata
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          ./.venv/bin/python -m pytest -q             backend/tests/unit/db/test_pokemon_set_onboarding_repository_v2.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py             backend/tests/unit/scripts/test_run_pending_pokemon_set_onboarding.py
+          retry() {
+            local n=1
+            until "$@"; do
+              if [ "$n" -ge 5 ]; then
+                return 1
+              fi
+              echo "retry $n/5 after transient failure: $*"
+              n=$((n+1))
+              sleep 15
+            done
+          }
+          retry ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebration --apply
+          retry ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me06DeltaReign --apply
+          retry ./.venv/bin/python backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebrationClassicCollection --apply
 
-      - name: Advance Delta Reign one step
+      - name: Build targeted sealed snapshots
         shell: bash
         run: |
+          set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          set +e
-          ./.venv/bin/python backend/scripts/run_pending_pokemon_set_onboarding.py             --commit             --job-id 99f3ab90-6240-48d1-a117-a0dc685d0f5f             --max-jobs 1             --json
-          code=$?
-          echo "DELTA_EXIT=$code"
-          exit 0
+          for key in me30thCelebration me06DeltaReign me30thCelebrationClassicCollection; do
+            echo "=== sealed snapshot $key ==="
+            set +e
+            ./.venv/bin/python backend/scripts/build_pokemon_set_sealed_market_snapshots.py --set-id "$key" --commit
+            code=$?
+            set -e
+            echo "sealed_snapshot_exit[$key]=$code"
+          done
 
-      - name: Advance Classic Collection one step
+      - name: Build targeted set-page snapshots
         shell: bash
         run: |
+          set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          set +e
-          ./.venv/bin/python backend/scripts/run_pending_pokemon_set_onboarding.py             --commit             --job-id d895a879-f353-4b93-a6da-ef93a8351a1e             --max-jobs 1             --json
-          code=$?
-          echo "CLASSIC_EXIT=$code"
-          exit 0
+          for key in me30thCelebration me06DeltaReign me30thCelebrationClassicCollection; do
+            echo "=== set page $key ==="
+            set +e
+            ./.venv/bin/python backend/scripts/build_pokemon_set_page_snapshots.py --set-id "$key" --commit
+            code=$?
+            set -e
+            echo "set_page_exit[$key]=$code"
+          done
