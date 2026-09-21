@@ -31,7 +31,6 @@ import logging
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -45,14 +44,10 @@ logger = logging.getLogger(__name__)
 TAG = "[publish-if-needed]"
 
 REBUILD_SCRIPT = _PROJECT_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
-LOCK_HELD_EXIT_CODE = 4
 
 STATUS_NOOP_NOT_COMPLETE = "noop_batch_not_complete"
 STATUS_NOOP_ALREADY_CURRENT = "noop_already_current"
-STATUS_NOOP_ALREADY_RUNNING = "noop_already_running"
 STATUS_NOOP_CURRENCY_UNKNOWN = "noop_currency_unknown"
-STATUS_GATE_AUTHORITY_UNAVAILABLE = "gate_authority_unavailable"
-STATUS_GATE_INVALID_CONTRACT = "gate_invalid_contract"
 STATUS_PUBLISHED = "published"
 STATUS_PUBLISH_FAILED = "publish_failed"
 STATUS_INVALID_MARKET_DATE = "invalid_market_date"
@@ -62,8 +57,6 @@ _NONZERO_EXIT_STATUSES = (
     STATUS_INVALID_MARKET_DATE,
     STATUS_PUBLISH_FAILED,
     STATUS_NOOP_CURRENCY_UNKNOWN,
-    STATUS_GATE_AUTHORITY_UNAVAILABLE,
-    STATUS_GATE_INVALID_CONTRACT,
 )
 
 
@@ -75,72 +68,32 @@ def _resolve_market_date(explicit: Optional[str]) -> str:
     return _market_date_iso()
 
 
-def _batch_gate_decision(
-    client,
-    market_date: str,
-    *,
-    evaluator=None,
-    client_factory=None,
-    sleep_fn=time.sleep,
-    max_attempts: int = 3,
-):
-    """Return the structured publication-gate decision with transient retries.
+def _batch_complete(client, market_date: str) -> bool:
+    """Independent completeness check using the SAME gate the refresh uses.
 
-    ``evaluate_publication_gate`` intentionally catches authority read errors and
-    returns ``blocked_authority_unavailable`` rather than raising. That is the
-    correct fail-closed behavior for publishers, but a fallback scheduler must
-    not collapse that classification into the same harmless no-op used for a
-    genuinely incomplete batch. Retry only that transient/unknown authority
-    class with a fresh service-role client, then return the final structured
-    decision so the caller can exit nonzero if the authority remains unknown.
+    Read-only: never requeues or mutates. Batch completion authority stays in
+    ``run_batch_completion_and_repair`` / ``complete_scrape_batch_if_ready``.
     """
-    from backend.db.services.publication_gate import (
-        REASON_BLOCKED_AUTHORITY_UNAVAILABLE,
-        evaluate_publication_gate,
+    from backend.db.services.publication_gate import evaluate_publication_gate
+
+    decision = evaluate_publication_gate(client, market_date=market_date)
+    logger.info(
+        "%s gate check market_date=%s allowed=%s reason_code=%s",
+        TAG, market_date, decision.allowed, decision.reason_code,
     )
-
-    check = evaluator or evaluate_publication_gate
-    factory = client_factory
-    if factory is None:
-        from backend.db.clients.supabase_client import create_service_role_client
-        factory = create_service_role_client
-
-    current_client = client
-    attempts = max(1, int(max_attempts or 1))
-    for attempt in range(1, attempts + 1):
-        decision = check(current_client, market_date=market_date)
-        logger.info(
-            "%s gate check market_date=%s allowed=%s reason_code=%s attempt=%s/%s",
-            TAG, market_date, decision.allowed, decision.reason_code, attempt, attempts,
-        )
-        if decision.reason_code != REASON_BLOCKED_AUTHORITY_UNAVAILABLE:
-            return decision
-        if attempt >= attempts:
-            return decision
-        delay = min(5.0 * attempt, 10.0)
-        logger.warning(
-            "%s batch authority unavailable for market_date=%s; retrying in %.1fs",
-            TAG, market_date, delay,
-        )
-        sleep_fn(delay)
-        current_client = factory()
-
-    return decision
+    return bool(decision.allowed)
 
 
 def _already_current(client, market_date: str) -> "PublicationCurrencyStatus":
     from backend.db.services.post_scrape_publication_trigger import (
         evaluate_post_scrape_publication_currency,
     )
-
     return evaluate_post_scrape_publication_currency(client, market_date)
 
 
 def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dict:
     from backend.db.services.post_scrape_publication_trigger import (
-        PUBLICATION_LOCK_PATH,
         PublicationCurrencyStatus,
-        _default_lock_is_held,
         is_valid_market_date,
     )
 
@@ -151,65 +104,9 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
     if client is None:
         from backend.db.clients.supabase_client import supabase as client  # type: ignore
 
-    from backend.db.services.publication_gate import (
-        REASON_BLOCKED_AUTHORITY_UNAVAILABLE,
-        REASON_BLOCKED_INCOMPLETE,
-        REASON_BLOCKED_INVALID_BATCH_CONTRACT,
-        REASON_BLOCKED_NO_BATCH,
-    )
-
-    gate = _batch_gate_decision(client, market_date)
-    if not gate.allowed:
-        if gate.reason_code in {REASON_BLOCKED_INCOMPLETE, REASON_BLOCKED_NO_BATCH}:
-            logger.info(
-                "%s batch not complete for market_date=%s reason_code=%s; no-op",
-                TAG, market_date, gate.reason_code,
-            )
-            return {
-                "market_date": market_date,
-                "status": STATUS_NOOP_NOT_COMPLETE,
-                "gate_reason_code": gate.reason_code,
-            }
-        if gate.reason_code == REASON_BLOCKED_AUTHORITY_UNAVAILABLE:
-            logger.error(
-                "%s batch authority unavailable for market_date=%s after retries; failing closed",
-                TAG, market_date,
-            )
-            return {
-                "market_date": market_date,
-                "status": STATUS_GATE_AUTHORITY_UNAVAILABLE,
-                "gate_reason_code": gate.reason_code,
-            }
-        if gate.reason_code == REASON_BLOCKED_INVALID_BATCH_CONTRACT:
-            logger.error(
-                "%s invalid batch contract for market_date=%s; refusing publication",
-                TAG, market_date,
-            )
-            return {
-                "market_date": market_date,
-                "status": STATUS_GATE_INVALID_CONTRACT,
-                "gate_reason_code": gate.reason_code,
-            }
-        logger.error(
-            "%s publication gate blocked for market_date=%s reason_code=%s; treating as invalid contract",
-            TAG, market_date, gate.reason_code,
-        )
-        return {
-            "market_date": market_date,
-            "status": STATUS_GATE_INVALID_CONTRACT,
-            "gate_reason_code": gate.reason_code,
-        }
-
-    if _default_lock_is_held(PUBLICATION_LOCK_PATH):
-        logger.info(
-            "%s publication already running for market_date=%s; no-op",
-            TAG, market_date,
-        )
-        return {
-            "market_date": market_date,
-            "status": STATUS_NOOP_ALREADY_RUNNING,
-            "lock_path": PUBLICATION_LOCK_PATH,
-        }
+    if not _batch_complete(client, market_date):
+        logger.info("%s batch not complete for market_date=%s; no-op", TAG, market_date)
+        return {"market_date": market_date, "status": STATUS_NOOP_NOT_COMPLETE}
 
     currency_status = _already_current(client, market_date)
     if currency_status is PublicationCurrencyStatus.CURRENT:
@@ -226,11 +123,6 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
     if exit_code == 0:
         logger.info("%s publication complete for market_date=%s", TAG, market_date)
         return {"market_date": market_date, "status": STATUS_PUBLISHED, "exit_code": exit_code}
-    if exit_code == LOCK_HELD_EXIT_CODE:
-        logger.info(
-            "%s publication already running for market_date=%s; safe no-op", TAG, market_date
-        )
-        return {"market_date": market_date, "status": STATUS_NOOP_ALREADY_RUNNING, "exit_code": exit_code}
 
     logger.error(
         "%s publication FAILED market_date=%s exit_code=%s", TAG, market_date, exit_code
