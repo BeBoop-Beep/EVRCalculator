@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-coverage-rpc-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -436,6 +436,28 @@ jobs:
                 -q
               cd "$REPO"
               git worktree remove --force "$WT"
+              ;;
+
+            market-explorer-coverage-rpc-smoke)
+              cd "$REPO"
+              echo "== service-role PostgREST coverage RPC smoke =="
+              SMOKE="/tmp/market_explorer_coverage_rpc_smoke.py"
+              printf '%s\n' \
+                'import time' \
+                'from backend.db.clients.supabase_client import create_service_role_client' \
+                'c = create_service_role_client()' \
+                'child = "a787aa9f-dbc3-47c0-bfe9-0045b9516a67"' \
+                'for i in range(1, 4):' \
+                '    started = time.monotonic()' \
+                '    rows = list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1", {"p_set_ids": None}).execute().data or [])' \
+                '    elapsed = time.monotonic() - started' \
+                '    ids = {str(r.get("set_id")) for r in rows}' \
+                '    print({"attempt": i, "elapsedSeconds": round(elapsed, 3), "rows": len(rows), "classicCollectionPresent": child in ids})' \
+                '    if len(rows) != 166 or child not in ids:' \
+                '        raise SystemExit(7)' \
+                > "$SMOKE"
+              PYTHONPATH="$REPO" "$PY" "$SMOKE"
+              rm -f "$SMOKE"
               ;;
 
             market-explorer-currency-tests)
