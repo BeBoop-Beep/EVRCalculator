@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-db-diagnose",
-  "request_id": "market-explorer-db-diagnose-direct-20260920"
+  "operation": "market-explorer-sync-db-password",
+  "request_id": "market-explorer-sync-db-password-20260920"
 }
