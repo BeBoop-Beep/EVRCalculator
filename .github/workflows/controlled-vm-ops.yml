@@ -593,9 +593,9 @@ jobs:
 
             market-explorer-pipeline-runtime-cutover)
               cd "$REPO"
-              TARGET_REF="origin/ops/vm-market-explorer-consolidated-runtime-20260921"
+              TARGET_REF="origin/ops/vm-market-explorer-post-sentinel-20260921"
               WT="/tmp/EVRCalculator-market-explorer-pipeline-runtime-cutover"
-              git fetch origin ops/vm-market-explorer-consolidated-runtime-20260921
+              git fetch origin ops/vm-market-explorer-post-sentinel-20260921
 
               if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
                 echo "Refusing consolidated cutover: unexpected dirty paths:"
