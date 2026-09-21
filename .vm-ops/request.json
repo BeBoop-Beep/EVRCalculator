@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-manual-one-shot",
-  "request_id": "market-explorer-manual-one-shot-post-batching-20260921"
+  "operation": "market-explorer-cron-observe",
+  "request_id": "market-explorer-cron-observe-20260921-1553"
 }
