@@ -29,6 +29,21 @@ def test_route_directory_rpc_projects_published_targets_inside_postgres():
     assert "from anon, authenticated" in sql
 
 
+
+
+def test_current_route_directory_migration_never_expands_rankings_publication_json():
+    sql = (
+        ROOT
+        / "backend/db/migrations/20260921183500_restore_slim_pokemon_set_route_directory.sql"
+    ).read_text()
+    lowered = sql.lower()
+    assert "pokemon_explore_rankings_snapshot_latest" not in lowered
+    assert "jsonb_array_elements" not in lowered
+    assert "set_pack_score_rankings_latest" not in lowered
+    assert "null::numeric as pack_score" in lowered
+    assert "null::integer as pack_rank" in lowered
+    assert "grant execute" in lowered and "service_role" in lowered
+
 def test_route_directory_has_no_noncanonical_relational_fallback():
     source = (ROOT / "backend/db/services/pokemon_set_route_directory_service.py").read_text()
     assert 'table("explore_rip_statistics_latest")' not in source
