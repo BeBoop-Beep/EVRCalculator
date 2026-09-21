@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-db-diagnose",
-  "request_id": "market-explorer-db-diagnose-postsync-20260920"
+  "operation": "market-explorer-worker-cutover",
+  "request_id": "market-explorer-worker-cutover-after-auth-20260920"
 }
