@@ -199,3 +199,95 @@ def test_runtime_module_contains_no_exact_retired_v1_relation_literals():
     assert "pokemon_market_explorer_card_daily_states" not in strings
     assert "pokemon_market_explorer_card_daily_coverage" not in strings
     assert "pokemon_card_variant_market_price_intervals" not in strings
+
+class _BatchRpcRequest:
+    def __init__(self, client, name, params):
+        self.client = client
+        self.name = name
+        self.params = dict(params)
+        self.start = 0
+        self.end = 999
+
+    def range(self, start, end):
+        self.start, self.end = start, end
+        return self
+
+    def execute(self):
+        self.client.rpc_calls.append((self.name, dict(self.params)))
+        if self.name == orch.AUTHORITY_RPC:
+            rows = [
+                {
+                    "card_variant_id": f"variant-{set_id}",
+                    "canonical_card_id": f"card-{set_id}",
+                    "set_id": set_id,
+                }
+                for set_id in self.params["p_set_ids"]
+            ]
+            return _Response(rows[self.start:self.end + 1])
+        if self.name == orch.CURRENT_METADATA_REFRESH_RPC:
+            return _Response({
+                "setCount": len(self.params["p_set_ids"]),
+                "insertedRows": len(self.params["p_set_ids"]),
+                "deletedRows": 0,
+            })
+        raise AssertionError(self.name)
+
+
+class _EmptyQuery:
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def range(self, _start, _end):
+        return self
+
+    def execute(self):
+        return _Response([])
+
+
+class _BatchClient:
+    def __init__(self):
+        self.rpc_calls = []
+
+    def rpc(self, name, params):
+        return _BatchRpcRequest(self, name, params)
+
+    def table(self, _name):
+        return _EmptyQuery()
+
+
+def test_current_authority_rows_are_batched_by_set_scope(monkeypatch):
+    client = _BatchClient()
+    set_ids = [f"set-{index:03d}" for index in range(95)]
+    monkeypatch.setattr(orch, "load_retired_predecessor_ids_global", lambda _client: set())
+
+    rows = orch.load_current_authority_rows(client, set_ids)
+
+    calls = [payload for name, payload in client.rpc_calls if name == orch.AUTHORITY_RPC]
+    assert [len(payload["p_set_ids"]) for payload in calls] == [40, 40, 15]
+    assert all(len(payload["p_set_ids"]) <= orch.CURRENT_METADATA_SET_BATCH for payload in calls)
+    assert {row["set_id"] for row in rows} == set(set_ids)
+
+
+def test_current_metadata_refresh_rpc_is_batched_by_set_scope(monkeypatch):
+    client = _BatchClient()
+    set_ids = [f"set-{index:03d}" for index in range(95)]
+    monkeypatch.setattr(orch, "resolve_tracked_set_ids", lambda _client: set_ids)
+    monkeypatch.setattr(
+        orch,
+        "load_current_authority_rows",
+        lambda _client, ids: [
+            {"card_variant_id": f"variant-{set_id}", "set_id": set_id}
+            for set_id in ids
+        ],
+    )
+
+    report = orch.refresh_current_metadata(client, commit=True)
+
+    calls = [
+        payload for name, payload in client.rpc_calls
+        if name == orch.CURRENT_METADATA_REFRESH_RPC
+    ]
+    assert [len(payload["p_set_ids"]) for payload in calls] == [40, 40, 15]
+    assert report.sets_considered == 95
+    assert report.expected_row_count == 95
+
