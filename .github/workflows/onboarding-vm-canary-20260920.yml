@@ -6,29 +6,13 @@ on:
       - ops/onboarding-vm-canary-20260920
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
     runs-on: self-hosted
     timeout-minutes: 20
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Clean temporary credential probe
-        shell: bash
-        run: |
-          set -euo pipefail
-          REPO=/home/ubuntu/repos/EVRCalculator
-          WT=/home/ubuntu/repos/onboarding-token-probe-20260920
-          cd "$REPO"
-          if [ -d "$WT" ]; then
-            git worktree remove --force "$WT" || true
-          fi
-          git branch -D automation/onboarding-token-probe-20260920 2>/dev/null || true
-          gh auth setup-git
-          git push origin --delete automation/onboarding-token-probe-20260920 2>/dev/null || true
-
       - name: Test autonomy feature branch in isolated worktree
         shell: bash
         run: |
