@@ -106,20 +106,7 @@ jobs:
             set -a
             . backend/.env
             set +a
-            "$PY" - <<'PY'
-import json
-from backend.db.clients.supabase_client import create_service_role_client
-c = create_service_role_client()
-target = "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
-rows = list(c.table("price_storage_v2_shadow_queue").select("id,set_id,market_date,status,attempts,last_error,source_completed_at,started_at,completed_at,updated_at").eq("market_date","2026-09-21").eq("set_id",target).execute().data or [])
-print("terminal_queue_row="+json.dumps(rows,default=str,sort_keys=True))
-sets = list(c.table("sets").select("id,name,canonical_key").eq("id",target).execute().data or [])
-print("terminal_set="+json.dumps(sets,default=str,sort_keys=True))
-statuses = list(c.table("price_storage_v2_shadow_queue").select("status,attempts").eq("market_date","2026-09-21").execute().data or [])
-from collections import Counter
-print("projection_status_counts="+json.dumps(Counter(str(r.get("status")) for r in statuses),sort_keys=True))
-print("projection_attempt_counts="+json.dumps(Counter(str(r.get("attempts")) for r in statuses),sort_keys=True))
-PY
+            "$PY" -c 'import json; from collections import Counter; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); target="75cd439d-aaa2-41cb-86f3-2fefa5b26e29"; rows=list(c.table("price_storage_v2_shadow_queue").select("id,set_id,market_date,status,attempts,last_error,source_completed_at,started_at,completed_at,updated_at").eq("market_date","2026-09-21").eq("set_id",target).execute().data or []); print("terminal_queue_row="+json.dumps(rows,default=str,sort_keys=True)); sets=list(c.table("sets").select("id,name,canonical_key").eq("id",target).execute().data or []); print("terminal_set="+json.dumps(sets,default=str,sort_keys=True)); statuses=list(c.table("price_storage_v2_shadow_queue").select("status,attempts").eq("market_date","2026-09-21").execute().data or []); print("projection_status_counts="+json.dumps(Counter(str(r.get("status")) for r in statuses),sort_keys=True)); print("projection_attempt_counts="+json.dumps(Counter(str(r.get("attempts")) for r in statuses),sort_keys=True))'
           )
           echo "price_projection_probe_rc=$?"
 
