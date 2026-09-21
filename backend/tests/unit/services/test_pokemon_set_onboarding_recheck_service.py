@@ -535,3 +535,76 @@ def test_provider_failure_never_marks_availability_changed(monkeypatch):
     assert item["availability_changed"] is False
     assert item["card_listing_count_changed"] is False
     assert item["sealed_listing_count_changed"] is False
+
+def test_explicit_due_rows_bypass_repository_due_query(monkeypatch):
+    explicit = [_row(id="explicit-job", source_set_id="777")]
+    monkeypatch.setattr(
+        service.jobs,
+        "list_rechecks_v2",
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("explicit due_rows must bypass the repository due query")
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(1),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_count",
+        lambda requester, url, label: 2,
+    )
+    monkeypatch.setattr(
+        service.jobs,
+        "reconcile_discovery_v2",
+        lambda **kwargs: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(
+        commit=True,
+        limit=5,
+        max_provider_requests=10,
+        due_rows=explicit,
+    )
+
+    assert result["due_checked"] == 1
+    assert result["identities"][0]["job_id"] == "explicit-job"
+    assert result["identities"][0]["source_set_id"] == "777"
+
+
+def test_explicit_due_rows_still_respect_limit(monkeypatch):
+    explicit = [_row(id=f"job-{i}", source_set_id=str(800 + i)) for i in range(4)]
+    monkeypatch.setattr(
+        service.jobs,
+        "list_rechecks_v2",
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("explicit due_rows must bypass the repository due query")
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(1),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_count",
+        lambda requester, url, label: 1,
+    )
+    monkeypatch.setattr(
+        service.jobs,
+        "reconcile_discovery_v2",
+        lambda **kwargs: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(
+        commit=False,
+        limit=2,
+        max_provider_requests=10,
+        due_rows=explicit,
+    )
+
+    assert result["due_checked"] == 2
+    assert [row["job_id"] for row in result["identities"]] == ["job-0", "job-1"]
+
