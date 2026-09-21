@@ -333,8 +333,10 @@ def _process_projection_job_staged(
     )
 
     completed_stages: List[str] = []
+    failed_stage: Optional[str] = None
     try:
         for rpc_name, params in stages:
+            failed_stage = rpc_name
             run_snapshot_operation_with_retry(
                 lambda op_client, name=rpc_name, args=params: op_client.rpc(
                     name, args
@@ -345,8 +347,10 @@ def _process_projection_job_staged(
                 client_factory=client_factory,
             )
             completed_stages.append(rpc_name)
+            failed_stage = None
     except Exception as exc:
-        error = f"{type(exc).__name__}: {exc}"[:2000]
+        stage = failed_stage or "unknown"
+        error = f"stage={stage}; {type(exc).__name__}: {exc}"[:2000]
         _finish_projection_job(
             job,
             status="failed",
@@ -358,6 +362,7 @@ def _process_projection_job_staged(
             "set_id": set_id,
             "status": "failed",
             "completed_stages": completed_stages,
+            "failed_stage": stage,
             "error_type": type(exc).__name__,
         }
 
