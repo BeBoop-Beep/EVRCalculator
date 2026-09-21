@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from backend.alerts import post_scrape_publication_watchdog as watchdog
 
 
@@ -16,6 +18,19 @@ BATCH = {
 
 def _gate(allowed=True, reason_code="allowed_complete"):
     return SimpleNamespace(allowed=allowed, reason_code=reason_code)
+
+
+@pytest.fixture(autouse=True)
+def _projection_ready(monkeypatch):
+    monkeypatch.setattr(
+        watchdog,
+        "evaluate_price_projection_gate",
+        lambda _client, market_date: SimpleNamespace(
+            ready=True,
+            reason_code="price_projection_ready",
+            to_dict=lambda: {"ready": True, "market_date": market_date},
+        ),
+    )
 
 
 def test_locked_publisher_with_recent_progress_is_healthy():
@@ -105,3 +120,112 @@ def test_gate_authority_failure_blocks_relaunch():
     assert result["healthy"] is False
     assert result["failure_code"] == "blocked_authority_unavailable"
     assert calls == []
+
+
+
+def test_projection_lag_advances_one_chunk_and_waits_without_launch():
+    projection = SimpleNamespace(
+        ready=False,
+        reason_code="price_projection_not_ready",
+        to_dict=lambda: {
+            "ready": False,
+            "expected_set_count": 165,
+            "complete_set_count": 100,
+            "terminal_failed_set_count": 0,
+        },
+    )
+    trigger_calls = []
+    advance_calls = []
+
+    def advance(_client, market_date, *, process_limit):
+        advance_calls.append((market_date, process_limit))
+        return {
+            "after": {
+                "ready": False,
+                "expected_set_count": 165,
+                "complete_set_count": 120,
+                "terminal_failed_set_count": 0,
+            }
+        }
+
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: False,
+            trigger=lambda *_a, **_k: trigger_calls.append(True),
+            projection_checker=lambda _client, _date: projection,
+            projection_advancer=advance,
+        )
+
+    assert result["healthy"] is True
+    assert result["status"] == "price_projection_advancing"
+    assert advance_calls == [("2026-09-20", 20)]
+    assert trigger_calls == []
+
+
+def test_projection_becomes_ready_after_advance_then_can_launch():
+    projection = SimpleNamespace(
+        ready=False,
+        reason_code="price_projection_not_ready",
+        to_dict=lambda: {
+            "ready": False,
+            "expected_set_count": 165,
+            "complete_set_count": 160,
+            "terminal_failed_set_count": 0,
+        },
+    )
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: False,
+            projection_checker=lambda _client, _date: projection,
+            projection_advancer=lambda *_a, **_k: {
+                "after": {
+                    "ready": True,
+                    "expected_set_count": 165,
+                    "complete_set_count": 165,
+                    "terminal_failed_set_count": 0,
+                }
+            },
+            trigger=lambda market_date: {
+                "market_date": market_date,
+                "status": "launch_requested",
+                "pid": 123,
+            },
+        )
+    assert result["healthy"] is True
+    assert result["status"] == "relaunch_requested"
+
+
+def test_terminal_projection_failure_never_launches():
+    projection = SimpleNamespace(
+        ready=False,
+        reason_code="price_projection_not_ready",
+        to_dict=lambda: {
+            "ready": False,
+            "expected_set_count": 165,
+            "complete_set_count": 164,
+            "terminal_failed_set_count": 1,
+            "terminal_failed_set_ids": ["set-bad"],
+        },
+    )
+    trigger_calls = []
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: False,
+            trigger=lambda *_a, **_k: trigger_calls.append(True),
+            projection_checker=lambda _client, _date: projection,
+        )
+    assert result["healthy"] is False
+    assert result["status"] == "price_projection_terminal_failure"
+    assert trigger_calls == []
