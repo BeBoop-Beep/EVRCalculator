@@ -323,10 +323,13 @@ jobs:
               git log -3 --oneline
               echo "== matching processes =="
               pgrep -af 'run_market_explorer_maintained_cache_prewarm' || true
+              ps -eo pid,lstart,etime,cmd | grep '[r]un_market_explorer_maintained_cache_prewarm' || true
               echo "== lock owner =="
               /usr/bin/fuser -v /tmp/market-explorer-prewarm.lock 2>&1 || true
-              echo "== prewarm log tail =="
-              tail -n 180 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
+              echo "== prewarm log recent signals =="
+              tail -n 80 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null | grep -E 'maintained_cache|preparedRefresh|stopReason|targetMarketDate|status|failed|error|advanced|alreadyCurrent|manual|fingerprint|HTTP Request' | tail -n 35 || true
+              echo "== prewarm log final lines =="
+              tail -n 25 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
               echo "== prewarm log metadata =="
               stat -c 'mtime=%y size=%s' "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
               ;;
