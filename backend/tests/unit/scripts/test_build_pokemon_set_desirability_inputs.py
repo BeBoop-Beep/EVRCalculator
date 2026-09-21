@@ -243,6 +243,14 @@ _CATALOG_SET_ROW = {
 _NORMAL_SET_ROW = {
     "id": "set-normal-1", "name": "Some Normal Set",
     "canonical_key": "someNormalSet", "pokemon_api_set_id": None, "catalog_only": False,
+    "is_subset": False, "counts_toward_parent_set_value": False,
+    "counts_toward_parent_opening": False,
+}
+_SUBSET_SET_ROW = {
+    "id": "set-subset-1", "name": "Some Classic Collection",
+    "canonical_key": "someClassicCollection", "pokemon_api_set_id": None,
+    "catalog_only": False, "is_subset": True,
+    "counts_toward_parent_set_value": True, "counts_toward_parent_opening": True,
 }
 
 
@@ -282,7 +290,7 @@ def test_catalog_only_fallback_rows_carry_explicit_eligibility_fields(monkeypatc
     assert "opening simulation" in row["eligibility_reason"]
 
 
-def test_non_catalog_set_rows_omit_eligibility_overrides_and_use_table_defaults(monkeypatch):
+def test_non_catalog_root_rows_write_explicit_normal_eligibility(monkeypatch):
     captured_rows = []
     _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "001/120")], canonical_rows=[])
     monkeypatch.setattr(
@@ -294,9 +302,30 @@ def test_non_catalog_set_rows_omit_eligibility_overrides_and_use_table_defaults(
 
     assert len(captured_rows) == 1
     row = captured_rows[0]
-    for field in ("catalog_role", "set_value_eligible", "opening_eligible",
-                  "canonical_review_status", "eligibility_reason"):
-        assert field not in row
+    assert row["catalog_role"] == "main"
+    assert row["set_value_eligible"] is True
+    assert row["opening_eligible"] is True
+    assert row["canonical_review_status"] == "approved"
+    assert row["eligibility_reason"] is None
+
+
+def test_non_catalog_subset_rows_match_established_subset_eligibility(monkeypatch):
+    captured_rows = []
+    _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "CC01")], canonical_rows=[])
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured_rows.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_SUBSET_SET_ROW, dry_run=False)
+
+    assert len(captured_rows) == 1
+    row = captured_rows[0]
+    assert row["catalog_role"] == "subset"
+    assert row["set_value_eligible"] is True
+    assert row["opening_eligible"] is True
+    assert row["canonical_review_status"] == "approved"
+    assert row["eligibility_reason"] == "pack_pulled_subset_card"
 
 
 def test_authoritative_canonical_row_is_preserved_even_for_a_catalog_only_set(monkeypatch):
