@@ -34,14 +34,55 @@ jobs:
           exec 9>/tmp/pokemon-catalog-recheck.lock
           flock -n 9 || { echo "catalog recheck already active; safe no-op"; exit 0; }
 
-          # Do not overlap the price scraper or the post-scrape publisher.
-          exec 8>/tmp/pokemon-scrape-dispatcher.lock
-          flock -w 600 8 || { echo "scrape dispatcher stayed active for 10m; defer catalog refresh"; exit 0; }
+          # Do not overlap a REAL card-price scrape or the post-scrape publisher.
+          # The every-minute dispatcher can spend several minutes doing idle
+          # completion/publication audits even when no scrape job exists, so its
+          # process lock is not a reliable proxy for scraping activity.
+          REPO=/home/ubuntu/repos/EVRCalculator
+          cd "$REPO"
+
+          set +e
+          ./.venv/bin/python - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          client = create_service_role_client()
+          active_jobs = list(
+              client.table("scrape_jobs")
+              .select("id,status,batch_id,market_date")
+              .in_("status", ["pending", "running"])
+              .limit(5)
+              .execute()
+              .data
+              or []
+          )
+          active_runs = list(
+              client.table("scrape_job_runs")
+              .select("id,status,job_type,market_date,batch_id")
+              .eq("status", "running")
+              .eq("job_type", "price_scrape")
+              .limit(5)
+              .execute()
+              .data
+              or []
+          )
+          if active_jobs or active_runs:
+              print(
+                  "active price scrape detected; defer catalog refresh "
+                  f"jobs={len(active_jobs)} runs={len(active_runs)}"
+              )
+              raise SystemExit(75)
+          print("active price scrape jobs=0 runs=0")
+          PY
+          guard_code=$?
+          set -e
+          if [ "$guard_code" -eq 75 ]; then
+            exit 0
+          fi
+          test "$guard_code" -eq 0
+
           exec 7>/tmp/pokemon-post-scrape-publication.lock
           flock -n 7 || { echo "post-scrape publisher active; defer catalog refresh"; exit 0; }
 
-          REPO=/home/ubuntu/repos/EVRCalculator
-          cd "$REPO"
           git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
           git fetch origin main
           git switch main
