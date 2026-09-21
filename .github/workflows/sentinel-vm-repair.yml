@@ -16,7 +16,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Reconcile VM, repair V2 queue, and publish Sep 21
+      - name: Reconcile VM, repair Sep 21 V2 queue, publish, and validate Sentinel
         shell: bash
         run: |
           set +e
@@ -25,6 +25,7 @@ jobs:
           LIVE=/home/ubuntu/repos/EVRCalculator
           PY=$LIVE/.venv/bin/python
           MARKET_DATE=2026-09-21
+          BLACK_BOLT_SET_ID=41a0ac1c-27ca-444b-8665-8ba35e583a3b
           PUBLICATION_LOCK=/tmp/pokemon-post-scrape-publication.lock
           WATCHDOG_LOCK=/tmp/post-scrape-publication-watchdog.lock
 
@@ -42,23 +43,30 @@ jobs:
           echo "head=$(git rev-parse HEAD)"
           TRACKED="$(git status --porcelain --untracked-files=no)"
           printf 'tracked_status=%s\n' "$TRACKED"
-          if [ "$(git branch --show-current)" != "main" ]; then echo "FATAL non-main"; exit 3; fi
-          if [ -n "$TRACKED" ]; then echo "FATAL tracked changes"; exit 4; fi
+          if [ "$(git branch --show-current)" != "main" ]; then
+            echo "FATAL non-main checkout"
+            exit 3
+          fi
+          if [ -n "$TRACKED" ]; then
+            echo "FATAL tracked changes"
+            exit 4
+          fi
           if ! /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then
             echo "FATAL publication lock active; refusing live checkout mutation"
             exit 5
           fi
 
           git fetch origin main --quiet || exit 6
-          echo "origin_main=$(git rev-parse origin/main)"
+          ORIGIN_MAIN="$(git rev-parse origin/main)"
           AHEAD="$(git rev-list --count origin/main..HEAD)"
           BEHIND="$(git rev-list --count HEAD..origin/main)"
+          echo "origin_main=$ORIGIN_MAIN"
           echo "ahead=$AHEAD behind=$BEHIND"
 
           if [ "$AHEAD" -gt 0 ]; then
             command -v gh >/dev/null 2>&1 || exit 7
             gh auth setup-git || exit 7
-            BACKUP="backup/vm-pre-repair-v2-20260921-$GITHUB_RUN_ID"
+            BACKUP="backup/vm-pre-repair-v3-20260921-$GITHUB_RUN_ID"
             git push origin HEAD:"refs/heads/$BACKUP" || exit 7
             echo "backup_branch=$BACKUP"
           fi
@@ -71,8 +79,8 @@ jobs:
 
           echo "=== install canonical crontab ==="
           crontab infra/oracle/tcgplayer-scraper-pokemon.crontab || exit 9
-          crontab -l > /tmp/sentinel-repair-v2-current.cron
-          diff -u /tmp/sentinel-repair-v2-current.cron infra/oracle/tcgplayer-scraper-pokemon.crontab
+          crontab -l > /tmp/sentinel-repair-v3-current.cron
+          diff -u /tmp/sentinel-repair-v3-current.cron infra/oracle/tcgplayer-scraper-pokemon.crontab
           CRON_DIFF_RC=$?
           echo "cron_diff_rc=$CRON_DIFF_RC"
           if [ "$CRON_DIFF_RC" -ne 0 ]; then exit 10; fi
@@ -93,36 +101,130 @@ jobs:
           echo "compile_rc=$COMPILE_RC"
           if [ "$COMPILE_RC" -ne 0 ]; then exit 12; fi
 
-          echo "=== queue preflight after targeted recovery ==="
+          echo "=== rearm only Black Bolt terminal 57014 after interval-tail optimization ==="
           (
             set -a
             . backend/.env
             set +a
-            "$PY" -c 'import json,sys; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); rows=list(c.table("price_storage_v2_shadow_queue").select("id,set_id,status,attempts,last_error").eq("market_date","2026-09-21").execute().data or []); bad=[r for r in rows if r.get("status") in ("failed","processing") or (r.get("status")=="pending" and int(r.get("attempts") or 0)>=5)]; print("queue_preflight_bad="+json.dumps(bad,default=str,sort_keys=True)); sys.exit(0 if not bad else 21)'
-          )
-          PREFLIGHT_RC=$?
-          echo "queue_preflight_rc=$PREFLIGHT_RC"
-          if [ "$PREFLIGHT_RC" -ne 0 ]; then exit "$PREFLIGHT_RC"; fi
+            MARKET_DATE="$MARKET_DATE" BLACK_BOLT_SET_ID="$BLACK_BOLT_SET_ID" "$PY" - <<'PY'
+import json
+import os
+from datetime import datetime, timezone
 
-          echo "=== advance Price Storage V2 with corrected staged worker ==="
+from backend.db.clients.supabase_client import create_service_role_client
+
+client = create_service_role_client()
+market_date = os.environ["MARKET_DATE"]
+set_id = os.environ["BLACK_BOLT_SET_ID"]
+
+rows = list(
+    client.table("price_storage_v2_shadow_queue")
+    .select("id,set_id,status,attempts,last_error,source_completed_at,updated_at")
+    .eq("market_date", market_date)
+    .eq("set_id", set_id)
+    .execute().data or []
+)
+print("black_bolt_before=" + json.dumps(rows, default=str, sort_keys=True))
+if len(rows) != 1:
+    raise SystemExit("expected exactly one Black Bolt projection row")
+
+row = rows[0]
+status = str(row.get("status") or "")
+attempts = int(row.get("attempts") or 0)
+error = str(row.get("last_error") or "")
+
+if status == "complete":
+    print("black_bolt_rearm=already_complete")
+elif status in {"pending", "processing"}:
+    print("black_bolt_rearm=already_retryable_or_active")
+elif status == "failed" and attempts >= 5 and ("57014" in error or "statement timeout" in error.lower()):
+    now = datetime.now(timezone.utc).isoformat()
+    result = (
+        client.table("price_storage_v2_shadow_queue")
+        .update({
+            "status": "pending",
+            "attempts": 4,
+            "started_at": None,
+            "completed_at": None,
+            "last_error": "rearmed after optimized V2 interval-tail sync 20260921184345",
+            "updated_at": now,
+        })
+        .eq("id", row["id"])
+        .eq("status", "failed")
+        .eq("attempts", attempts)
+        .execute()
+    )
+    if not (result.data or []):
+        raise SystemExit("Black Bolt compare-and-set rearm lost race")
+    print("black_bolt_rearm=rearmed_one_final_attempt")
+else:
+    raise SystemExit(
+        "refusing Black Bolt rearm for unexpected state: "
+        + json.dumps(row, default=str, sort_keys=True)
+    )
+
+all_rows = list(
+    client.table("price_storage_v2_shadow_queue")
+    .select("id,set_id,status,attempts,last_error")
+    .eq("market_date", market_date)
+    .execute().data or []
+)
+unexpected_terminal = [
+    r for r in all_rows
+    if str(r.get("status") or "") == "failed" and int(r.get("attempts") or 0) >= 5
+]
+print("terminal_rows_after_rearm=" + json.dumps(unexpected_terminal, default=str, sort_keys=True))
+if unexpected_terminal:
+    raise SystemExit("unexpected terminal projection failures remain")
+PY
+          )
+          REARM_RC=$?
+          echo "targeted_rearm_rc=$REARM_RC"
+          if [ "$REARM_RC" -ne 0 ]; then exit 21; fi
+
+          echo "=== advance Price Storage V2 with staged worker ==="
           READY=0
-          for round in $(seq 1 24); do
+          for round in $(seq 1 30); do
             echo "projection_round=$round"
             (
               set -a
               . backend/.env
               set +a
-              "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.price_storage_v2_projection_gate import advance_price_projection_once; c=create_service_role_client(); r=advance_price_projection_once(c,"2026-09-21",process_limit=20); a=r.get("after") or {}; print("PROJECTION_AFTER="+json.dumps(a,sort_keys=True)); print("PROJECTION_READY="+("1" if a.get("ready") else "0")); print("PROJECTION_TERMINAL="+str(a.get("terminal_failed_set_count",0)))'
-            ) > /tmp/projection-round-v2.txt 2>&1
-            ADV_RC=$?
-            cat /tmp/projection-round-v2.txt
-            echo "projection_advance_rc=$ADV_RC"
+              MARKET_DATE="$MARKET_DATE" "$PY" - <<'PY'
+import json
+import os
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.price_storage_v2_projection_gate import advance_price_projection_once
 
-            if grep -q 'PROJECTION_TERMINAL=[1-9]' /tmp/projection-round-v2.txt; then
+client = create_service_role_client()
+market_date = os.environ["MARKET_DATE"]
+report = advance_price_projection_once(client, market_date, process_limit=10)
+after = report.get("after") or {}
+print("PROJECTION_AFTER=" + json.dumps(after, sort_keys=True))
+print("PROJECTION_READY=" + ("1" if after.get("ready") else "0"))
+print("PROJECTION_TERMINAL=" + str(after.get("terminal_failed_set_count", 0)))
+if after.get("terminal_failed_set_count", 0):
+    terminal_ids = set(after.get("terminal_failed_set_ids") or [])
+    rows = list(
+        client.table("price_storage_v2_shadow_queue")
+        .select("id,set_id,status,attempts,last_error,updated_at")
+        .eq("market_date", market_date)
+        .execute().data or []
+    )
+    terminal = [row for row in rows if str(row.get("set_id")) in terminal_ids]
+    print("PROJECTION_TERMINAL_ROWS=" + json.dumps(terminal, default=str, sort_keys=True))
+PY
+            ) > /tmp/projection-round-v3.txt 2>&1
+            ADV_RC=$?
+            cat /tmp/projection-round-v3.txt
+            echo "projection_advance_rc=$ADV_RC"
+            if [ "$ADV_RC" -ne 0 ]; then exit 22; fi
+
+            if grep -q 'PROJECTION_TERMINAL=[1-9]' /tmp/projection-round-v3.txt; then
               echo "FATAL terminal projection failure detected"
-              exit 22
+              exit 23
             fi
-            if grep -q 'PROJECTION_READY=1' /tmp/projection-round-v2.txt; then
+            if grep -q 'PROJECTION_READY=1' /tmp/projection-round-v3.txt; then
               READY=1
               echo "projection_ready_round=$round"
               break
@@ -132,7 +234,7 @@ jobs:
 
           if [ "$READY" -ne 1 ]; then
             echo "FATAL projection not ready after bounded rounds"
-            exit 23
+            exit 24
           fi
 
           echo "=== launch canonical post-scrape publication ==="
@@ -140,20 +242,18 @@ jobs:
             set -a
             . backend/.env
             set +a
-            "$PY" -m backend.alerts.post_scrape_publication_watchdog --recover-stalled --recover-superseded
+            "$PY" -m backend.alerts.post_scrape_publication_watchdog               --recover-stalled               --recover-superseded
           )
           WATCH_RC=$?
           echo "post_scrape_watchdog_rc=$WATCH_RC"
 
-          # Manual watchdog invocation has completed; release the cron/watchdog
-          # exclusion lock while the detached publisher owns its own lock.
           flock -u 8
 
           echo "=== wait for public Sep 21 authority ==="
           CURRENT=0
           for i in $(seq 1 50); do
             DATE="$(
-              curl --fail --silent --show-error --retry 2 --retry-delay 3 --max-time 45                 https://evrcalculator.onrender.com/explore/set-value-market               | "$PY" -c 'import json,sys; p=json.load(sys.stdin); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))'               2>/dev/null
+              curl --fail --silent --show-error --retry 2 --retry-delay 3 --max-time 45                 https://evrcalculator.onrender.com/explore/set-value-market               | "$PY" -c 'import json,sys; p=json.load(sys.stdin); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))'                 2>/dev/null
             )"
             echo "public_market_poll=$i date=$DATE"
             if [ "$DATE" = "$MARKET_DATE" ]; then
@@ -169,14 +269,14 @@ jobs:
             sleep 30
           done
           echo "public_market_current=$CURRENT"
-          if [ "$CURRENT" -ne 1 ]; then exit 24; fi
+          if [ "$CURRENT" -ne 1 ]; then exit 25; fi
 
-          echo "=== Sentinel Fast/Public canaries; recovery remains forced off ==="
+          echo "=== Sentinel Fast/Public canaries; recovery forced off ==="
           (
             set -a
             . backend/.env
             set +a
-            SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"             SENTINEL_RECOVERY_ENABLED=false             SENTINEL_RECOVERY_EXECUTION_READY=false             "$PY" -m backend.sentinel.operational --profile fast
+            SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"               SENTINEL_RECOVERY_ENABLED=false               SENTINEL_RECOVERY_EXECUTION_READY=false               "$PY" -m backend.sentinel.operational --profile fast
           )
           FAST_RC=$?
           echo "sentinel_fast_rc=$FAST_RC"
@@ -185,7 +285,7 @@ jobs:
             set -a
             . backend/.env
             set +a
-            SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"             SENTINEL_RECOVERY_ENABLED=false             SENTINEL_RECOVERY_EXECUTION_READY=false             "$PY" -m backend.sentinel.operational --profile public
+            SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"               SENTINEL_RECOVERY_ENABLED=false               SENTINEL_RECOVERY_EXECUTION_READY=false               "$PY" -m backend.sentinel.operational --profile public
           )
           PUBLIC_RC=$?
           echo "sentinel_public_rc=$PUBLIC_RC"
@@ -203,10 +303,29 @@ jobs:
             set -a
             . backend/.env
             set +a
-            "$PY" -c 'import json; from collections import Counter; from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate; c=create_service_role_client(); d=evaluate_price_projection_gate(c,"2026-09-21"); print("projection_final="+json.dumps(d.to_dict(),sort_keys=True)); rows=list(c.table("price_storage_v2_shadow_queue").select("status,attempts").eq("market_date","2026-09-21").execute().data or []); print("projection_queue_statuses="+json.dumps(Counter(str(r.get("status")) for r in rows),sort_keys=True))'
-          )
-          print("projection_queue_statuses=" + json.dumps(Counter(str(r.get("status")) for r in rows), sort_keys=True))
-          PY
+            MARKET_DATE="$MARKET_DATE" "$PY" - <<'PY'
+import json
+import os
+from collections import Counter
+
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
+
+client = create_service_role_client()
+market_date = os.environ["MARKET_DATE"]
+decision = evaluate_price_projection_gate(client, market_date)
+print("projection_final=" + json.dumps(decision.to_dict(), sort_keys=True))
+rows = list(
+    client.table("price_storage_v2_shadow_queue")
+    .select("status,attempts")
+    .eq("market_date", market_date)
+    .execute().data or []
+)
+print(
+    "projection_queue_statuses="
+    + json.dumps(Counter(str(row.get("status")) for row in rows), sort_keys=True)
+)
+PY
           )
 
           curl --fail --silent --show-error --max-time 45             https://evrcalculator.onrender.com/explore/set-value-market           | "$PY" -c 'import json,sys; p=json.load(sys.stdin); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date"))); print("public_market_set_count="+str(len(p.get("sets") or [])))'
@@ -216,10 +335,7 @@ jobs:
           echo "sentinel_env_gates_end"
 
           echo "publication_log_tail_begin"
-          tail -n 80 publication.log 2>/dev/null || true
+          tail -n 100 publication.log 2>/dev/null || true
           echo "publication_log_tail_end"
 
-          # A nonzero profile means a real check remains unhealthy, but the repair
-          # must never enable recovery implicitly. Preserve the canary results for
-          # operator review without hiding a healthy publication.
           echo "canary_summary fast=$FAST_RC public=$PUBLIC_RC"
