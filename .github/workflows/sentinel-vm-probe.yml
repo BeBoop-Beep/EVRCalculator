@@ -13,15 +13,102 @@ permissions:
 jobs:
   probe:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Probe
         shell: bash
         run: |
-          set -x
-          cd /home/ubuntu/repos/EVRCalculator
+          set +e
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          LOCK=/tmp/pokemon-post-scrape-publication.lock
+
+          cd "$LIVE" || exit 1
+          echo "=== checkout ==="
           echo "branch=$(git branch --show-current)"
           echo "head=$(git rev-parse HEAD)"
           git status --short --untracked-files=no
-          echo "cron:"
-          crontab -l || true
+
+          git fetch origin main --quiet
+          echo "fetch_rc=$?"
+          echo "origin_main=$(git rev-parse origin/main)"
+          echo "behind_main=$(git rev-list --count HEAD..origin/main)"
+          echo "ahead_main=$(git rev-list --count origin/main..HEAD)"
+
+          echo "=== publication process ==="
+          ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          if /usr/bin/flock -n "$LOCK" -c true; then
+            echo "publication_lock=free"
+          else
+            echo "publication_lock=held"
+          fi
+          if [ -f publication.log ]; then
+            echo "publication_log_age_seconds=$(( $(date +%s) - $(stat -c %Y publication.log) ))"
+          else
+            echo "publication_log_age_seconds=missing"
+          fi
+
+          echo "=== cron diff against origin/main ==="
+          crontab -l > /tmp/sentinel-current.cron 2>/dev/null || true
+          git show origin/main:infra/oracle/tcgplayer-scraper-pokemon.crontab > /tmp/sentinel-canonical.cron
+          diff -u /tmp/sentinel-current.cron /tmp/sentinel-canonical.cron || true
+
+          echo "=== sentinel env ==="
+          for key in SENTINEL_STATE_WRITES_ENABLED SENTINEL_PERSISTENCE_SCHEMA_READY SENTINEL_RECOVERY_ENABLED SENTINEL_RECOVERY_EXECUTION_READY SENTINEL_AI_ENABLED SENTINEL_BACKEND_BASE_URL SENTINEL_RUNTIME_REPO_PATH SENTINEL_EXPECTED_RELEASE_BRANCH SENTINEL_WATCH_HOST SENTINEL_COMPONENT; do
+            line="$(grep "^$key=" backend/.env 2>/dev/null | tail -1)"
+            if [ -z "$line" ]; then
+              echo "$key=absent"
+            else
+              echo "$line"
+            fi
+          done
+          if grep -q '^SENTINEL_DEADMAN_PING_URL=.' backend/.env 2>/dev/null; then echo "SENTINEL_DEADMAN_PING_URL=present"; else echo "SENTINEL_DEADMAN_PING_URL=absent"; fi
+          if grep -q '^SENTINEL_EXPECTED_RELEASE_SHA=.' backend/.env 2>/dev/null; then echo "SENTINEL_EXPECTED_RELEASE_SHA=present"; else echo "SENTINEL_EXPECTED_RELEASE_SHA=absent"; fi
+
+          echo "=== live fast canary, recovery forced off ==="
+          (
+            set -a
+            . backend/.env
+            set +a
+            SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile fast
+          )
+          echo "fast_canary_rc=$?"
+
+          echo "=== live public canary, recovery forced off ==="
+          (
+            set -a
+            . backend/.env
+            set +a
+            SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile public
+          )
+          echo "public_canary_rc=$?"
+
+          echo "=== market freshness watchdog ==="
+          (
+            set -a
+            . backend/.env
+            set +a
+            "$PY" -m backend.alerts.market_freshness_watchdog
+          )
+          echo "market_freshness_watchdog_rc=$?"
+
+          echo "=== public Market endpoint ==="
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 --retry-all-errors --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market > /tmp/sentinel-public-market.json
+          echo "public_market_curl_rc=$?"
+          if [ -s /tmp/sentinel-public-market.json ]; then
+            "$PY" -c 'import json; p=json.load(open("/tmp/sentinel-public-market.json")); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date"))); print("public_market_set_count="+str(len(p.get("sets") or [])))'
+          fi
+
+          echo "=== log tails ==="
+          echo "publication_log_tail_begin"
+          tail -n 100 publication.log 2>/dev/null || true
+          echo "publication_log_tail_end"
+          echo "post_scrape_watchdog_tail_begin"
+          tail -n 80 backend/logs/post_scrape_publication_watchdog.log 2>/dev/null || true
+          echo "post_scrape_watchdog_tail_end"
+          echo "sentinel_fast_tail_begin"
+          tail -n 50 backend/logs/sentinel_fast.log 2>/dev/null || true
+          echo "sentinel_fast_tail_end"
+          echo "sentinel_public_tail_begin"
+          tail -n 50 backend/logs/sentinel_public.log 2>/dev/null || true
+          echo "sentinel_public_tail_end"
