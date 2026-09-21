@@ -466,9 +466,9 @@ jobs:
 
             market-explorer-currency-cutover)
               cd "$REPO"
-              TARGET_REF="origin/ops/vm-market-explorer-worker-cutover-20260920"
+              TARGET_REF="origin/fix/market-explorer-v2-publication-currency-20260921"
               WT="/tmp/EVRCalculator-market-explorer-currency-cutover"
-              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+              git fetch origin fix/market-explorer-v2-publication-currency-20260921
 
               if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
                 echo "Refusing currency cutover: unexpected dirty paths:"
