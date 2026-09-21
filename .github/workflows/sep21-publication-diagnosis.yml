@@ -1,4 +1,4 @@
-name: Retire superseded Sep 20 publisher
+name: Validate publication supersession recovery
 
 on:
   push:
@@ -11,102 +11,25 @@ permissions:
   contents: read
 
 jobs:
-  recover:
+  validate:
     runs-on: self-hosted
     timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
     steps:
-      - name: Verify supersession, SIGTERM exact child, sync main
+      - name: Checkout supersession branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/publication-supersession-recovery-20260921
+          persist-credentials: false
+      - name: Compile and run watchdog tests
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          WRAPPER_PID=184482
-          REFRESH_PID=184500
-          OLD_DATE=2026-09-20
-          NEW_DATE=2026-09-21
-          echo '=== PRECONDITIONS ==='
-          wrapper_args="$(ps -p "$WRAPPER_PID" -o args= || true)"
-          refresh_args="$(ps -p "$REFRESH_PID" -o args= || true)"
-          refresh_ppid="$(ps -p "$REFRESH_PID" -o ppid= | tr -d ' ' || true)"
-          echo "wrapper=$wrapper_args"
-          echo "refresh=$refresh_args"
-          echo "refresh_ppid=$refresh_ppid"
-          [[ "$wrapper_args" == *"rebuild_snapshots_after_scrape.sh $OLD_DATE"* ]]
-          [[ "$refresh_args" == *"refresh_stale_public_snapshots.py --commit --market-date $OLD_DATE"* ]]
-          [[ "$refresh_ppid" == "$WRAPPER_PID" ]]
-          echo
-          echo '=== LATEST COMPLETE BATCH ==='
-          set -a
-          . backend/.env
-          set +a
-          latest="$(./.venv/bin/python - <<'PY'
-          from backend.db.clients.supabase_client import create_service_role_client
-          c=create_service_role_client()
-          rows=(c.table('pokemon_scrape_batches')
-              .select('id,market_date,status,promoted_at,missing_set_count')
-              .eq('status','complete')
-              .order('market_date',desc=True)
-              .limit(1).execute().data or [])
-          if not rows:
-              raise SystemExit('no complete batch')
-          row=rows[0]
-          if not row.get('promoted_at') or int(row.get('missing_set_count') or 0) != 0:
-              raise SystemExit(f'latest complete batch is not safely promoted: {row}')
-          print(str(row.get('market_date') or '')[:10])
-          PY
-          )"
-          echo "latest_complete_market_date=$latest"
-          [[ "$latest" == "$NEW_DATE" ]]
-          [[ "$latest" > "$OLD_DATE" ]]
-          echo
-          echo '=== GRACEFUL RETIREMENT ==='
-          kill -TERM "$REFRESH_PID"
-          for i in $(seq 1 30); do
-            if ! kill -0 "$REFRESH_PID" 2>/dev/null; then
-              echo "refresh child exited after ${i}s"
-              break
-            fi
-            sleep 1
-          done
-          if kill -0 "$REFRESH_PID" 2>/dev/null; then
-            echo 'refresh child did not exit after SIGTERM grace period'
-            exit 3
-          fi
-          for i in $(seq 1 30); do
-            if ! kill -0 "$WRAPPER_PID" 2>/dev/null; then
-              echo "wrapper exited after ${i}s"
-              break
-            fi
-            sleep 1
-          done
-          if kill -0 "$WRAPPER_PID" 2>/dev/null; then
-            echo 'wrapper still alive; refusing further signals'
-            exit 4
-          fi
-          if fuser /tmp/pokemon-post-scrape-publication.lock >/dev/null 2>&1; then
-            echo 'publication lock still held unexpectedly'
-            fuser -v /tmp/pokemon-post-scrape-publication.lock 2>&1 || true
-            exit 5
-          fi
-          echo 'publication lock released'
-          echo
-          echo '=== SYNC PRODUCTION MAIN ==='
-          git status --short
-          EXTRA_DIRTY="$(git status --porcelain | grep -v 'payload_debug.json' || true)"
-          if [ -n "$EXTRA_DIRTY" ]; then
-            echo 'unexpected dirty code paths:'
-            echo "$EXTRA_DIRTY"
-            exit 6
-          fi
-          if git status --porcelain -- payload_debug.json | grep -q .; then
-            git stash push -m 'payload-debug-before-sep21-recovery' -- payload_debug.json
-          fi
-          git fetch origin
-          git switch main
-          git pull --ff-only origin main
-          echo -n 'deployed_head='
-          git rev-parse HEAD
-          git status --short
-          echo
-          echo '=== INSTALLED WATCHDOG CRON ==='
-          crontab -l | grep -E 'post-scrape-publication-watchdog|publish_post_scrape_if_needed' || true
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile backend/alerts/post_scrape_publication_watchdog.py
+          "$PY" -m pytest -q backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py
+          grep -F -- '--recover-stalled --recover-superseded' infra/oracle/tcgplayer-scraper-pokemon.crontab >/dev/null
+          echo 'supersession_cron_flag=PASS'
