@@ -1946,6 +1946,52 @@ def _record_stale(summary: RefreshSummary, result: FreshnessResult) -> None:
         summary.stale_snapshot_families.add(result.family)
 
 
+def _daily_top_chase_history_rows(
+    dashboard_row: Mapping[str, Any],
+    history_rows: Sequence[Mapping[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Return the exact current-market-date Top Chase rows for daily publication.
+
+    The canonical SQL daily refresh persists only the current market date, not
+    every historical point of the current Top-10 cards. Dedicated repair and
+    backfill scripts retain full-history rewrite behavior; this helper is used
+    only by the ordinary stale-refresh publication path.
+
+    Fail closed when the dashboard advertises Top Chase cards but the current
+    date slice does not carry the exact same unique rank cardinality. A dashboard
+    must never advance beyond its persisted daily-history authority.
+    """
+    market_date = str(dashboard_row.get("latest_market_date") or "")[:10]
+    if not market_date:
+        raise RuntimeError("market dashboard missing latest_market_date for Top Chase daily-history write")
+
+    top_cards = dashboard_row.get("top_chase_cards_json")
+    expected_count = len(top_cards) if isinstance(top_cards, list) else 0
+    current_rows = [
+        dict(row)
+        for row in history_rows
+        if str((row or {}).get("snapshot_date") or "")[:10] == market_date
+    ]
+    ranks = [row.get("rank") for row in current_rows if row.get("rank") is not None]
+    unique_ranks = {int(rank) for rank in ranks}
+
+    if expected_count == 0:
+        if current_rows:
+            raise RuntimeError(
+                f"Top Chase daily-history slice has {len(current_rows)} row(s) for {market_date} "
+                "but dashboard has no Top Chase cards"
+            )
+        return []
+
+    expected_ranks = set(range(1, expected_count + 1))
+    if len(current_rows) != expected_count or unique_ranks != expected_ranks:
+        raise RuntimeError(
+            "Top Chase daily-history current-date slice is incomplete: "
+            f"market_date={market_date} expected_count={expected_count} "
+            f"row_count={len(current_rows)} ranks={sorted(unique_ranks)}"
+        )
+    return current_rows
+
 def _maybe_rebuild_coordinated_market(
     client: Any,
     plan: SetRefreshPlan,
@@ -1979,10 +2025,11 @@ def _maybe_rebuild_coordinated_market(
             on_conflict="set_id",
             commit=True,
         )
+        daily_history_rows = _daily_top_chase_history_rows(dashboard_row, history_rows)
         upsert_rows(
             op_client,
             "pokemon_set_top_chase_card_daily_history",
-            history_rows,
+            daily_history_rows,
             on_conflict="set_id,snapshot_date,rank",
             commit=True,
         )
