@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarketExplorerChart from "./MarketExplorerChart";
 import MarketExplorerDetails from "./MarketExplorerDetails";
-import MarketExplorerSeriesCard from "./MarketExplorerSeriesCard";
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
 import MarketExplorerConstituents from "./MarketExplorerConstituents";
 import MarketExplorerActiveMarkets from "./MarketExplorerActiveMarkets";
@@ -15,7 +14,6 @@ import MarketExplorerContextRanking from "./MarketExplorerContextRanking";
 import MarketExplorerExactBasket from "./MarketExplorerExactBasket";
 import { buildPreparedSeries } from "@/lib/explore/marketExplorerPrepared.mjs";
 import {
-  buildAssetMarketModel,
   buildBenchmarkModel,
   buildExplorerTimeframeOptions,
   resolveExplorerTimeframe,
@@ -102,7 +100,8 @@ export default function MarketExplorerClient({
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   const [compareUpgradeVisible, setCompareUpgradeVisible] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [builderMode, setBuilderMode] = useState("exact");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
@@ -172,7 +171,7 @@ export default function MarketExplorerClient({
     message: optionsMessage,
     retry: retryOptions,
     isRetrying: optionsRetrying,
-  } = useMarketExplorerFilterOptions({ isAuthenticated, authRevision: auth?.authRevision || 0, enabled: canBuildCustomMarkets });
+  } = useMarketExplorerFilterOptions({ isAuthenticated, authRevision: auth?.authRevision || 0, enabled: isAuthenticated && canComparePreparedMarkets });
 
   // Era & Sets sets a research SCOPE, never a series — see the hook.
   const timeframe = resolveExplorerTimeframe(overview, requestedTimeframe);
@@ -194,18 +193,30 @@ export default function MarketExplorerClient({
       setCompareUpgradeVisible(true);
       return "upgrade";
     }
-    if (!preparedActiveKeys.length) { clearAllSelection(); clearAllQueries(); }
-    setPreparedActiveKeys((current) => current.includes(seriesId) ? current : [...current, seriesId].slice(0, 25));
-    return "added";
-  }, [canComparePreparedMarkets, clearAllQueries, clearAllSelection, preparedActiveKeys.length]);
+    let outcome = "added";
+    setPreparedActiveKeys((current) => {
+      if (current.includes(seriesId)) {
+        outcome = "removed";
+        return current.filter((key) => key !== seriesId);
+      }
+      return [...current, seriesId].slice(0, 25);
+    });
+    if (outcome === "added") setRequestedDetailSeriesId(seriesId);
+    return outcome;
+  }, [canComparePreparedMarkets]);
 
+  // Comparison-capable users accumulate markets. Selecting a third market must
+  // never silently delete the first two; active prepared markets toggle in
+  // place and can be removed from the same surface that added them.
   const selectPrepared = useCallback((seriesId) => {
+    if (canComparePreparedMarkets) return comparePrepared(seriesId);
     setPreparedActiveKeys([seriesId]);
     setRequestedDetailSeriesId(seriesId);
     clearAllSelection();
     clearAllQueries();
     setHiddenSeriesKeys(new Set());
-  }, [clearAllQueries, clearAllSelection]);
+    return "replaced";
+  }, [canComparePreparedMarkets, clearAllQueries, clearAllSelection, comparePrepared]);
 
   // A canonical prepared deep link is a selection, not an addition to the
   // legacy default asset pair. Resolve it through the same replacement path
@@ -240,12 +251,7 @@ export default function MarketExplorerClient({
     }
   }, [canComparePreparedMarkets, replacePrepared, selectedSeriesIds]);
 
-  // Asset Market is the ASSET CLASSES only. Per-Set Chase is a ranking mode
-  // applied to cards, not a fourth asset, so it moved to Benchmarks.
-  const assetEntries = useMemo(
-    () => buildAssetMarketModel(overview, assetUniverse),
-    [overview, assetUniverse]
-  );
+  // Per-Set Chase remains available as a benchmark inside Custom Filters.
   const benchmarkEntries = useMemo(
     () => buildBenchmarkModel(overview, assetUniverse),
     [overview, assetUniverse]
@@ -286,10 +292,6 @@ export default function MarketExplorerClient({
     else { setFiltersOpen(true); setMobileToolsOpen(true); }
   }, []);
 
-  // Only the PUBLISHED asset-class cards get a top-level card; the graded
-  // placeholder is a disabled rail option, not a card with no numbers in it.
-  const assetCards = assetEntries;
-
   if (!overview || !overview.families?.length) {
     return (
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Market Explorer">
@@ -312,10 +314,6 @@ export default function MarketExplorerClient({
       data-market-explorer-access-mode={accessMode}
       className="grid min-w-0 gap-3 desk:grid-cols-[minmax(19rem,22rem)_minmax(0,1fr)] desk:items-start desk:gap-4"
     >
-      <header data-market-explorer-product-header className="px-1 pb-2 pt-1 desk:col-span-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">Market Explorer</h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">Explore. Compare. Build your own Pokémon markets.</p>
-      </header>
       {compareUpgradeVisible ? (
         <section data-market-explorer-compare-upgrade role="status" className={`${styles.surfaceQuiet} set-glass-surface fixed left-1/2 top-20 z-[80] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 px-4 py-4 shadow-2xl`}>
           <div className="flex flex-wrap items-start gap-3">
@@ -341,35 +339,50 @@ export default function MarketExplorerClient({
           <p className={styles.explorerZoneDescription}>Browse published Set, Era, and curated markets.</p>
         </div>
         <MarketExplorerBrowse directory={preparedDirectory} directoryStatus={preparedDirectoryStatus} activeKeys={preparedActiveKeys}
-          canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared} onBuild={() => setBuilderOpen(true)} />
+          canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared}
+          onBuild={() => { setBuilderMode("exact"); setBuilderOpen(true); }} />
         <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
-          <MarketExplorerRarityMarkets directory={preparedDirectory} activeKeys={preparedActiveKeys} onSelect={selectPrepared} />
+          <MarketExplorerRarityMarkets
+            directory={preparedDirectory}
+            rarityOptions={options?.segments || []}
+            activeKeys={preparedActiveKeys}
+            activeSeries={querySeries}
+            canUse={canComparePreparedMarkets}
+            onUpgrade={() => setCompareUpgradeVisible(true)}
+            onSelect={selectPrepared}
+            onAddQuery={addQuery}
+            onRemoveQuery={removeQuery}
+          />
           <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
-        </div>
-        <div data-market-explorer-sidebar-section="filter" className="border-t border-[var(--border-subtle)] px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Filter · Premium</p>
-          <button type="button" data-market-explorer-filter-toggle aria-expanded={filtersOpen} aria-controls="market-explorer-custom-filters" disabled={!canBuildCustomMarkets} onClick={() => setFiltersOpen((open) => !open)} className="mt-2 flex min-h-10 w-full items-center justify-between rounded-md border border-[var(--border-subtle)] px-3 text-left text-xs font-semibold text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60">
-            <span>Custom Filters{!canBuildCustomMarkets ? " · Locked" : ""}</span><span aria-hidden="true">{filtersOpen ? "−" : "+"}</span>
-          </button>
-          <div id="market-explorer-custom-filters" hidden={!filtersOpen} className="mt-2 overflow-hidden rounded-md border border-[var(--border-subtle)]">
-            <MarketExplorerQueryBuilder presentation="sidebar" optionsProvided options={options} optionsStatus={optionsStatus} optionsMessage={optionsMessage}
-              onRetryOptions={retryOptions} optionsRetrying={optionsRetrying} benchmarkEntries={benchmarkEntries}
-              preparedSeries={comparableSeries} activeSeries={selectedSeries} onAddPrepared={addPrepared} onAddQuery={addQuery}
-              onUpdateQuery={updateQuery} editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? null : editingSeries}
-              onCancelEdit={() => setEditingSeriesId(null)} onToggleBenchmark={toggleMarket} selectedSeriesCount={selectedSeries.length}
-              isAuthenticated={isAuthenticated} currentPlan={indexPlan} accessMode={accessMode} coverageSummary={coverageSummary} />
-          </div>
         </div>
         </section>
       </aside>
         <dialog ref={builderDialogRef} role="dialog" aria-modal="true" aria-hidden={!builderOpen} data-market-explorer-builder-overlay data-market-explorer-zone="build" className={builderOpen ? "fixed inset-0 z-[9999] m-0 flex h-full max-h-none w-full max-w-none items-stretch justify-center border-0 bg-slate-950/80 p-0 backdrop-blur-sm desk:items-center desk:p-6" : "hidden"} aria-labelledby="build-markets-zone-heading">
-          <div className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[var(--surface-page)] shadow-2xl desk:h-[82vh] desk:max-h-[86vh] desk:w-[min(74rem,calc(100vw-3rem))] desk:rounded-2xl`}>
-            <div data-market-explorer-build-path="exact" className="flex min-h-0 flex-1 flex-col">
-              <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
-                onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} onClose={() => setBuilderOpen(false)} />
+          <div className={\`\${styles.explorerZone} \${styles.surfaceQuiet} set-glass-surface flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[var(--surface-page)] shadow-2xl desk:h-[86vh] desk:max-h-[90vh] desk:w-[min(78rem,calc(100vw-3rem))] desk:rounded-2xl\`}>
+            <div className="flex flex-none items-center gap-2 border-b border-[var(--border-subtle)] px-4 py-2 sm:px-6" role="tablist" aria-label="Build Your Market method">
+              <button type="button" role="tab" aria-selected={builderMode === "exact"} onClick={() => setBuilderMode("exact")} className={\`min-h-10 rounded-md border px-4 text-xs font-semibold \${builderMode === "exact" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}\`}>Cards &amp; Products</button>
+              <button type="button" role="tab" aria-selected={builderMode === "filters"} onClick={() => setBuilderMode("filters")} className={\`min-h-10 rounded-md border px-4 text-xs font-semibold \${builderMode === "filters" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}\`}>Custom Filters{!canBuildCustomMarkets ? " · Premium" : ""}</button>
             </div>
+            {builderMode === "exact" ? (
+              <div data-market-explorer-build-path="exact" className="flex min-h-0 flex-1 flex-col">
+                <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
+                  onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} onClose={() => setBuilderOpen(false)} />
+              </div>
+            ) : (
+              <div data-market-explorer-build-path="filters" className="min-h-0 flex-1 overflow-y-auto">
+                <MarketExplorerQueryBuilder presentation="sidebar" optionsProvided options={options} optionsStatus={optionsStatus} optionsMessage={optionsMessage}
+                  onRetryOptions={retryOptions} optionsRetrying={optionsRetrying} benchmarkEntries={benchmarkEntries}
+                  preparedSeries={comparableSeries} activeSeries={selectedSeries} onAddPrepared={addPrepared} onAddQuery={addQuery}
+                  onUpdateQuery={updateQuery} editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? null : editingSeries}
+                  onCancelEdit={() => setEditingSeriesId(null)} onToggleBenchmark={toggleMarket} selectedSeriesCount={selectedSeries.length}
+                  isAuthenticated={isAuthenticated} currentPlan={indexPlan} accessMode={accessMode} coverageSummary={coverageSummary} />
+                <div className="sticky bottom-0 flex justify-end border-t border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-4 py-3 backdrop-blur sm:px-6">
+                  <button type="button" onClick={() => setBuilderOpen(false)} className="min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--text-primary)]">Close</button>
+                </div>
+              </div>
+            )}
           </div>
         </dialog>
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks
@@ -378,19 +391,13 @@ export default function MarketExplorerClient({
       <section
         data-market-explorer-analysis
         data-market-explorer-zone="compare"
-        className={`order-2 flex min-w-0 flex-col ${styles.explorerZone} ${styles.explorerZonePrimary} ${styles.surfaceQuiet} set-glass-surface desk:order-none desk:col-start-2`}
+        className="order-2 flex min-w-0 flex-col desk:order-none desk:col-start-2"
         aria-labelledby="compare-markets-zone-heading"
       >
         <div className="sr-only">
           <p className={styles.explorerZoneEyebrow}>02 / Research</p>
           <h2 id="compare-markets-zone-heading" className={styles.explorerZoneTitle}>Compare &amp; Analyze</h2>
           <p className={styles.explorerZoneDescription}>Inspect active markets on one timeline, then examine composition and context.</p>
-        </div>
-        <div data-market-explorer-signals className="order-3 border-t border-[var(--border-subtle)] px-3 py-3 sm:px-4">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Market overview</p>
-          <div className="grid grid-cols-3 gap-2 desk:gap-3">
-            {assetCards.map((entry) => <MarketExplorerSeriesCard key={entry.key} entry={entry} timeframe={timeframe} timeframeLabel={timeframeLabel} />)}
-          </div>
         </div>
         <div data-market-explorer-active-strip className="order-1 min-w-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
           <MarketExplorerActiveMarkets
@@ -436,7 +443,12 @@ export default function MarketExplorerClient({
           -> Selected Set Analysis (Set markets only) -> Methodology. These are
           full-width research sections; no desktop split or empty non-Set
           placeholder belongs in this workspace. */}
-      <div data-market-explorer-compare-results className="order-4 border-t border-[var(--border-subtle)]">
+      <div data-market-explorer-research-peek className="order-4 mt-1 border-t border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,.24),rgba(2,6,23,.62))] px-3 py-3 sm:px-4">
+        <button type="button" data-market-explorer-view-details aria-expanded={detailsOpen} onClick={() => setDetailsOpen((open) => !open)} className="mx-auto flex min-h-11 w-full max-w-xl items-center justify-center rounded-xl border border-white/10 bg-white/[.035] px-5 text-sm font-semibold text-[var(--text-primary)] shadow-[inset_0_1px_rgba(255,255,255,.04)] backdrop-blur transition-colors hover:border-[rgba(45,212,191,.45)] hover:bg-[rgba(45,212,191,.07)]">
+          {detailsOpen ? "Hide Constituents & Comparison" : "View Constituents & Comparison"}
+        </button>
+      </div>
+      {detailsOpen ? <div data-market-explorer-compare-results className="order-5 border-t border-[var(--border-subtle)]">
         <MarketExplorerDetails
           // VISIBLE, not merely active: comparison reflects what the chart is
           // currently showing ("compare what I see"). A hidden market stays a
@@ -455,10 +467,10 @@ export default function MarketExplorerClient({
           <MarketExplorerContextRanking market={activeDetailMarket} timeframe={timeframe}
             canUse={canComparePreparedMarkets} onUpgrade={() => setCompareUpgradeVisible(true)} />
         ) : null}
-      </div>
+      </div> : null}
       </section>
 
-      <div className="order-5 desk:col-span-2"><MarketExplorerMethodology /></div>
+      <div className="order-6 desk:col-span-2"><MarketExplorerMethodology /></div>
     </div>
   );
 }
