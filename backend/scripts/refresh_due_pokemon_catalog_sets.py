@@ -7,7 +7,7 @@ publishes its card catalog.
 
 The flow is bounded:
   recheck due identities -> refresh changed/lagging catalog sets only ->
-  canonical-only projection -> targeted public snapshots.
+  artwork hydration -> first Collector/desirability build -> targeted public snapshots.
 
 Provider failures never trigger a refresh, and dry-run performs no DB/Git mutation.
 """
@@ -122,7 +122,13 @@ def _run(command: list[str]) -> Dict[str, Any]:
     }
 
 
-def _planned_commands(canonical_key: str, *, has_processable_cards: bool) -> list[list[str]]:
+def _planned_commands(
+    canonical_key: str,
+    *,
+    set_id: str,
+    set_name: str,
+    has_processable_cards: bool,
+) -> list[list[str]]:
     commands = [
         [
             sys.executable,
@@ -137,11 +143,26 @@ def _planned_commands(canonical_key: str, *, has_processable_cards: bool) -> lis
             [
                 [
                     sys.executable,
+                    "backend/scripts/sync_pokemon_images.py",
+                    "--sets",
+                    set_name,
+                    "--apply",
+                ],
+                [
+                    sys.executable,
                     "backend/scripts/build_pokemon_set_desirability_inputs.py",
                     "--set",
                     canonical_key,
                     "--commit",
-                    "--canonical-only",
+                    "--log-level",
+                    "INFO",
+                ],
+                [
+                    sys.executable,
+                    "backend/scripts/sync_pokemon_collector_identities.py",
+                    "--set-id",
+                    set_id,
+                    "--commit",
                 ],
                 [
                     sys.executable,
@@ -278,6 +299,8 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
 
         commands = _planned_commands(
             canonical_key,
+            set_id=set_id,
+            set_name=str(set_row.get("name") or canonical_key),
             has_processable_cards=processable_count > 0,
         )
         entry: Dict[str, Any] = {
@@ -333,9 +356,18 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
             result = _run(command)
             entry["results"].append(result)
             if result["exit_code"] != 0:
-                # Canonical projection is critical when processable cards exist.
-                if "build_pokemon_set_desirability_inputs.py" in command:
-                    entry["status"] = "canonical_projection_failed"
+                # A card-bearing catalog refresh is not complete until artwork,
+                # first-pass desirability, and Collector identities all succeed.
+                critical_status = None
+                if "sync_pokemon_images.py" in command:
+                    critical_status = "pokemon_api_image_sync_failed"
+                elif "build_pokemon_set_desirability_inputs.py" in command:
+                    critical_status = "desirability_first_build_failed"
+                elif "sync_pokemon_collector_identities.py" in command:
+                    critical_status = "collector_identity_sync_failed"
+
+                if critical_status is not None:
+                    entry["status"] = critical_status
                     critical_failures += 1
                     if item.get("job_id"):
                         retry_at = _retry_at()
