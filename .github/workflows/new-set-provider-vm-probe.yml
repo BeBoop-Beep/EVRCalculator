@@ -1,0 +1,56 @@
+name: New Set Provider VM Probe
+
+on:
+  push:
+    branches: [fix/new-set-card-enrichment-20260922]
+    paths:
+      - '.github/workflows/new-set-provider-vm-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe configured card metadata providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+
+          python - <<'PY'
+          import json, os
+          from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient
+          from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient
+
+          print("provider_env=" + json.dumps({
+              "pokemon_tcg_api_key": bool(os.getenv("POKEMON_TCG_API_KEY")),
+              "scrydex_api_key": bool(os.getenv("SCRYDEX_API_KEY")),
+              "scrydex_team_id": bool(os.getenv("SCRYDEX_TEAM_ID")),
+          }, sort_keys=True))
+
+          result = {}
+          try:
+              row = PokemonTCGAPIClient().resolve_set("ME: 30th Celebration")
+              result["pokemon_tcg_api"] = {"status": "resolved", "id": row.get("id"), "name": row.get("name")}
+          except Exception as exc:
+              result["pokemon_tcg_api"] = {"status": "unavailable", "error_type": type(exc).__name__, "message": str(exc)[:500]}
+
+          try:
+              client = ScrydexPokemonClient()
+              row = client.resolve_set("ME: 30th Celebration")
+              result["scrydex"] = {
+                  "status": "resolved", "id": row.get("id"), "name": row.get("name"),
+                  "authenticated": client.authenticated,
+              }
+          except Exception as exc:
+              result["scrydex"] = {"status": "unavailable", "error_type": type(exc).__name__, "message": str(exc)[:500]}
+
+          print("provider_probe=" + json.dumps(result, sort_keys=True))
+          PY
