@@ -115,3 +115,27 @@ def test_multi_set_manual_run_does_not_attach_one_set_identity(monkeypatch, tmp_
     assert not any(key in finalized["metadata"] for key in METRICS)
     assert run_metrics_qualify(row) is False
     assert resolve_run_set_id(row, {}) is None
+
+
+def test_targeted_enrichment_failure_is_nonfatal_after_valid_price_scrape(
+        monkeypatch, tmp_path):
+    import backend.db.services.pokemon_post_scrape_card_enrichment as enrichment_service
+
+    def fail_enrichment(**_kwargs):
+        raise RuntimeError("pokemon api unavailable")
+
+    monkeypatch.setattr(
+        enrichment_service,
+        "enrich_scraped_set_card_metadata",
+        fail_enrichment,
+    )
+
+    report, _, _ = _run(monkeypatch, tmp_path)
+    result = report["results"][0]
+
+    assert result["status"] == "success"
+    assert report["sets_succeeded"] == 1
+    assert report["sets_failed"] == 0
+    assert result["card_metadata_enrichment"]["status"] == "failed_nonfatal"
+    assert result["card_metadata_enrichment"]["error_type"] == "RuntimeError"
+    assert "pokemon api unavailable" in result["card_metadata_enrichment"]["error"]
