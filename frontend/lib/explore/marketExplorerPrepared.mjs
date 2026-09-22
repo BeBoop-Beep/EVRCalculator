@@ -16,16 +16,19 @@ export function buildPreparedSeries(rows = [], history = []) {
   }
   return rows.map((row) => {
     const end = row.comparison_as_of;
+    const published = row.window_movements || {};
     const changes = {
-      "7D": change(row.return_7d_pct, startFor(end, 7), end), "30D": change(row.return_30d_pct, startFor(end, 30), end),
-      "90D": change(row.return_90d_pct, startFor(end, 90), end), "3M": change(row.return_90d_pct, startFor(end, 90), end), "1Y": change(row.return_1y_pct, startFor(end, 365), end),
-      SinceTracking: change(null),
+      "7D": published["7D"] || change(row.return_7d_pct, startFor(end, 7), end),
+      "30D": published["30D"] || change(row.return_30d_pct, startFor(end, 30), end),
+      "3M": published["3M"] || change(row.return_90d_pct, startFor(end, 90), end),
+      "6M": published["6M"] || change(null),
+      "1Y": published["1Y"] || change(row.return_1y_pct, startFor(end, 365), end),
+      SinceTracking: published.SinceTracking || change(null),
     };
     const color = resolveSeriesIdentityColor(row.market_key, row.market_key);
     return {
       key: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
       marketType: row.market_type, setId: row.set_id, eraId: row.era_id, parentEraId: row.parent_era_id,
-      generationId: row.generation_id, preparedSeriesKey: row.prepared_series_key,
       available: true, historyAvailable: row.history_available, basketValue: row.comparison_value,
       browseValue: row.current_value, sourceAsOf: row.source_as_of, comparisonAsOf: end,
       indexValue: row.comparison_index_value, historyStartDate: row.history_start_date,
@@ -35,7 +38,7 @@ export function buildPreparedSeries(rows = [], history = []) {
         relative7D: row.relative_7d_vs_era_pct, relative30D: row.relative_30d_vs_era_pct,
         relative90D: row.relative_90d_vs_era_pct, relative1Y: row.relative_1y_vs_era_pct,
       },
-      sourceStatus: row.source_status, metadata: row.metadata || {},
+      sourceStatus: row.source_status, constituentCount: row.constituent_count ?? null, metadata: row.metadata || {},
       color, softColor: softSeriesColor(color),
     };
   });

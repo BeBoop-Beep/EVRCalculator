@@ -4,12 +4,11 @@ import { useMemo, useState } from "react";
 import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
 import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
-import { MARKET_CHART_VIEW_INDEX } from "./marketPerformanceDomain.mjs";
+import { MARKET_CHART_VIEW_INDEX, MARKET_CHART_VIEW_PERFORMANCE } from "./marketPerformanceDomain.mjs";
 import {
   describeUnavailableWindow,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs";
-import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 
 // The Explorer's comparison chart.
 //
@@ -25,20 +24,10 @@ import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interp
 // chart is computed in the browser.
 //
 // The legend names each ACTIVE series and its return over the selected window.
-// With one visible series, the line uses the published selected-window
-// direction. Comparisons keep each series' identity color.
+// Series identity is the market's own color; the return's green/red is
+// performance semantics only.
 const PERFORMANCE_NOTE = "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
 const INDEX_NOTE = "Canonical Market Index. Timeframe changes which dates are shown; index levels remain based on each market's lifetime chain-linked history.";
-
-export function colorExplorerVisibleSeries(model, visibleCount) {
-  if (visibleCount !== 1 || model?.series?.length !== 1) return model;
-  const entry = model.series[0];
-  const percent = entry.change?.available === true ? entry.change.percent : null;
-  const color = typeof percent === "number" && Number.isFinite(percent)
-    ? percent > 0 ? POSITIVE_VALUE_COLOR : percent < 0 ? NEGATIVE_VALUE_COLOR : entry.color
-    : entry.color;
-  return { ...model, series: [{ ...entry, color }] };
-}
 
 export default function MarketExplorerChart({
   overview,
@@ -49,12 +38,11 @@ export default function MarketExplorerChart({
   timeframeOptions = [],
   onTimeframeChange,
   onClearGraph,
+  openCanvas = false,
 }) {
-  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_INDEX);
+  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_PERFORMANCE);
   const visibleModel = useMemo(
-    () => (timeframe ? colorExplorerVisibleSeries(
-      buildExplorerChartModel(overview, selectedSeries, timeframe), selectedSeries.length,
-    ) : null),
+    () => (timeframe ? buildExplorerChartModel(overview, selectedSeries, timeframe) : null),
     [overview, selectedSeries, timeframe]
   );
   // "All" is each series' OWN tracked history, so the spoken span label is
@@ -78,7 +66,7 @@ export default function MarketExplorerChart({
             />
           </div>
         </div>
-        <div className="mt-2 flex items-start gap-3 pt-1">
+        <div className="mt-2 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-2">
           <div className="min-w-0 flex-1">
           <p className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
           {timeframe === "All" ? (
@@ -134,7 +122,8 @@ export default function MarketExplorerChart({
               model={visibleModel}
               timeframe={timeframe}
               viewMode={viewMode}
-              plotClassName="h-[24rem] tab:h-[30rem] desk:h-[38rem] 2xl:h-[42rem]"
+              plotClassName="h-[24rem] tab:h-[30rem] desk:h-[40rem] 2xl:h-[46rem]"
+              minimal={openCanvas}
             />
           )
           : (

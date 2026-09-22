@@ -171,8 +171,8 @@ from backend.db.services.market_explorer_options_snapshot import (
     read_market_explorer_options_snapshot,
 )
 from backend.db.services.market_explorer_prepared_directory import (
-    read_prepared_comparison, read_prepared_directory, read_prepared_history,
-    read_prepared_screen, read_set_context_ranking, read_prepared_constituents,
+    read_prepared_comparison_bundle, read_prepared_directory,
+    read_prepared_screen, read_set_context_ranking,
 )
 from backend.db.services.market_explorer_exact_basket import (
     MarketExplorerExactBasketUnavailable, run_exact_basket_v2,
@@ -1451,45 +1451,13 @@ def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
         raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
     keys = list(dict.fromkeys(payload.marketKeys))
     try:
-        return {"markets": read_prepared_comparison(service_read_client, keys),
-                "history": read_prepared_history(service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None)}
+        return read_prepared_comparison_bundle(
+            service_read_client,
+            keys,
+            payload.startDate.isoformat() if payload.startDate else None,
+        )
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "PREPARED_COMPARISON_INVALID"}, status_code=400)
-
-
-@app.get("/market/explorer/prepared-constituents")
-def get_market_explorer_prepared_constituents(
-    marketKey: str, generationId: UUID, afterRank: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=100),
-    authorization: Optional[str] = Header(default=None, alias="authorization"),
-    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
-):
-    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
-    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
-        raise HTTPException(status_code=403, detail={"message": "Prepared constituents require Index Plus.", "requiredPlan": "plus"})
-    try:
-        page = read_prepared_constituents(service_read_client, marketKey, str(generationId), afterRank, limit)
-    except ValueError as exc:
-        return JSONResponse(content={"message": str(exc), "code": "INVALID_CURSOR"}, status_code=400)
-    except Exception:
-        logger.exception("/market/explorer/prepared-constituents failed", extra={"market_key": marketKey})
-        return JSONResponse(content={"message": "Prepared constituents are temporarily unavailable", "code": "PREPARED_CONSTITUENTS_FAILED"}, status_code=503)
-    code = page.get("code")
-    if code:
-        status = {"UNKNOWN_MARKET": 404, "GENERATION_MISMATCH": 409, "INVALID_CURSOR": 400}.get(code, 503)
-        return JSONResponse(content={"message": page.get("availabilityReason"), **page}, status_code=status)
-    if page.get("asset") == "cards" and page.get("availability") == "available":
-        try:
-            from backend.db.services.market_explorer_constituent_movement import enrich_card_constituent_page
-            enriched = enrich_card_constituent_page(service_read_client, {
-                "items": page.get("rows") or [], "as_of": page.get("priceAsOf"),
-            })
-            page["rows"] = enriched["items"]
-            for item in page["rows"]:
-                item.setdefault("changes", {})["90D"] = item.get("changes", {}).get("3M")
-        except Exception:
-            logger.exception("Prepared constituent movement enrichment failed", extra={"market_key": marketKey})
-    return page
 
 
 @app.get("/market/explorer/prepared-screen")
