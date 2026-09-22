@@ -11,7 +11,7 @@ from backend.domain.pokemon.market_index import resolve_window_baselines
 V2_DAILY_TABLE = "pokemon_market_explorer_card_daily_states_v2_shadow"
 V2_INTERVAL_TABLE = "pokemon_market_price_intervals_v2_shadow"
 QUALITY_TABLE = "pokemon_market_date_quality"
-WINDOWS = ("1D", "7D", "30D", "3M")
+WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking")
 
 
 def _execute_rows(query: Any) -> list[dict[str, Any]]:
