@@ -354,9 +354,12 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
             # Image hydration and canonical projection are both critical once a
             # provider has processable cards. Snapshot publication after either
             # failure would leave a partially-onboarded public card surface.
-            if "sync_pokemon_images.py" in command:
+            if any(str(part).endswith("sync_pokemon_images.py") for part in command):
                 entry["status"] = "pokemon_api_image_sync_failed"
-            elif "build_pokemon_set_desirability_inputs.py" in command:
+            elif any(
+                str(part).endswith("build_pokemon_set_desirability_inputs.py")
+                for part in command
+            ):
                 entry["status"] = "canonical_projection_failed"
             else:
                 snapshot_warnings += 1
