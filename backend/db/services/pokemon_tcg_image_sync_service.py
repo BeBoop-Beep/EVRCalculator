@@ -1,3 +1,4 @@
+import logging
 import re
 import sys
 import os
@@ -8,7 +9,10 @@ from typing import Any, Dict, List, Optional
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient
+from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient, PokemonTCGAPIError
+from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient, ScrydexPokemonError
+
+logger = logging.getLogger(__name__)
 from backend.db.repositories.card_variant_repository import (
     get_card_variants_by_card_ids,
     update_card_variant_image_sync_fields_batch,
@@ -107,8 +111,73 @@ _GENERIC_BALL_DESCRIPTOR_RE = re.compile(
 class PokemonTCGImageSyncService:
     """One-way sync of Pokemon TCG image URLs onto existing card_variants rows."""
 
-    def __init__(self, client: Optional[PokemonTCGAPIClient] = None):
+    def __init__(
+        self,
+        client: Optional[PokemonTCGAPIClient] = None,
+        scrydex_client: Optional[ScrydexPokemonClient] = None,
+    ):
         self.client = client or PokemonTCGAPIClient()
+        self.scrydex_client = scrydex_client or ScrydexPokemonClient()
+
+    def _resolve_provider_set(self, set_name: str) -> Dict[str, Any]:
+        """Resolve a current provider identity without making Scrydex mandatory.
+
+        The legacy PokemonTCG endpoint remains the first compatibility path.
+        Newly released sets can appear in Scrydex before that endpoint; only a
+        miss/failure crosses to Scrydex.
+        """
+        try:
+            return self.client.resolve_set(set_name)
+        except Exception as legacy_exc:
+            try:
+                resolved = self.scrydex_client.resolve_set(set_name)
+                logger.info(
+                    "[pokemon-image-sync] resolved via Scrydex fallback set=%s id=%s legacy_error=%s",
+                    set_name,
+                    resolved.get("id"),
+                    type(legacy_exc).__name__,
+                )
+                return resolved
+            except Exception:
+                logger.exception("[pokemon-image-sync] provider set resolution failed set=%s", set_name)
+                raise legacy_exc
+
+    def _fetch_provider_cards(self, set_id: str, *, set_name: str) -> tuple[List[Dict[str, Any]], str]:
+        """Materialize one complete provider checklist before any DB write."""
+        legacy_error: Optional[Exception] = None
+        try:
+            rows = list(self.client.iter_cards_for_set(set_id))
+            if rows:
+                return rows, "pokemontcg"
+        except PokemonTCGAPIError as exc:
+            # A partial/incomplete legacy checklist is an integrity failure, not
+            # evidence that the set is absent from that provider. Fail closed so
+            # a provider switch can never convert a truncated fetch into writes.
+            # Only an explicit provider miss (404) may cross to Scrydex.
+            if exc.status_code != 404:
+                raise
+            legacy_error = exc
+
+        try:
+            rows = list(self.scrydex_client.iter_image_cards_for_set(set_id))
+            if rows:
+                logger.info(
+                    "[pokemon-image-sync] cards via Scrydex fallback set=%s id=%s rows=%s legacy_error=%s",
+                    set_name,
+                    set_id,
+                    len(rows),
+                    type(legacy_error).__name__ if legacy_error else "empty",
+                )
+                return rows, "scrydex"
+        except ScrydexPokemonError:
+            logger.exception("[pokemon-image-sync] Scrydex fallback failed set=%s id=%s", set_name, set_id)
+            if legacy_error is not None:
+                raise legacy_error
+            raise
+
+        if legacy_error is not None:
+            raise legacy_error
+        return [], "none"
 
     def sync_set(self, set_name: str, dry_run: bool = True) -> Dict[str, object]:
         internal_set_id = get_set_id_by_name(set_name)
@@ -137,12 +206,15 @@ class PokemonTCGImageSyncService:
             api_set_ids_to_fetch = [pokemon_api_set_id]
         else:
             api_set_search_name = TARGET_SET_API_SEARCH_NAMES.get(set_name, set_name)
-            api_set = self.client.resolve_set(api_set_search_name)
+            api_set = self._resolve_provider_set(api_set_search_name)
             api_set_ids_to_fetch = [api_set["id"]]
 
         api_cards = []
+        provider_sources: List[str] = []
         for api_set_id in api_set_ids_to_fetch:
-            api_cards.extend(self.client.iter_cards_for_set(api_set_id))
+            fetched, provider_source = self._fetch_provider_cards(api_set_id, set_name=set_name)
+            api_cards.extend(fetched)
+            provider_sources.append(provider_source)
 
         internal_cards = get_all_cards_for_set(internal_set_id)
         card_ids = [card["id"] for card in internal_cards]
@@ -176,6 +248,7 @@ class PokemonTCGImageSyncService:
             "image_source_kind": image_source_mapping.match_kind if image_source_mapping else None,
             "image_source_is_borrowed": bool(image_source_api_set_ids),
             "api_cards_fetched": len(api_cards),
+            "provider_sources": provider_sources,
             "internal_cards_loaded": len(internal_cards),
             "internal_variants_loaded": len(variants),
         }

@@ -187,3 +187,36 @@ def test_complete_fetch_preserves_existing_matching_behavior(wiring):
     # The image-only master ball variant must not inherit the API id.
     assert "pokemon_tcg_api_id" not in variant_updates[103]
     assert variant_updates[102]["pokemon_tcg_api_id"] == "me5-2"
+
+
+
+class _FakeScrydex:
+    def __init__(self, cards):
+        self.cards = list(cards)
+        self.calls = []
+
+    def resolve_set(self, set_name):
+        return {"id": "me55", "name": set_name}
+
+    def iter_image_cards_for_set(self, set_id):
+        self.calls.append(set_id)
+        yield from self.cards
+
+
+def test_image_sync_falls_back_to_scrydex_when_legacy_provider_fails(wiring):
+    legacy_error = PokemonTCGAPIError(
+        "legacy set not available",
+        path="/cards",
+        retryable=False,
+        status_code=404,
+    )
+    legacy = _FakeClient(error=legacy_error)
+    scrydex = _FakeScrydex([_api_card(1, "Tropius"), _api_card(2, "Pikachu")])
+    service = PokemonTCGImageSyncService(client=legacy, scrydex_client=scrydex)
+
+    result = service.sync_set(set_name="Pitch Black", dry_run=False)
+
+    assert result["updated_card_rows"] == 3
+    assert result["updated_variant_rows"] == 3
+    assert result["api_fetch_summary"]["provider_sources"] == ["scrydex"]
+    assert scrydex.calls == ["me5"]

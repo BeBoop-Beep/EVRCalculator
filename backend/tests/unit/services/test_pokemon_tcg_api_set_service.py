@@ -176,3 +176,47 @@ def test_connection_error_retries_then_succeeds_keyless():
 
     assert rows[0]["id"] == "me5"
     assert sleeps == [2.1]
+
+
+
+class _ScrydexMetadata:
+    def resolve_set(self, name):
+        assert name == "30th Celebration"
+        return {
+            "id": "me55",
+            "name": "30th Celebration",
+            "series": "Mega Evolution",
+            "releaseDate": "2026-09-16",
+            "printedTotal": 128,
+            "total": 161,
+            "ptcgoCode": "M3",
+            "images": {
+                "symbol": "https://images.scrydex.com/pokemon/me55-symbol/symbol",
+                "logo": "https://images.scrydex.com/pokemon/me55-logo/logo",
+            },
+        }
+
+
+def test_fetch_targeted_sets_uses_scrydex_when_legacy_returns_no_match():
+    session = _Session([_Response(payload={"data": []})])
+
+    rows = fetch_targeted_sets(
+        "30th Celebration",
+        "",
+        session=session,
+        scrydex_client=_ScrydexMetadata(),
+    )
+
+    assert rows == [{
+        "id": "me55",
+        "name": "30th Celebration",
+        "series": "Mega Evolution",
+        "releaseDate": "2026-09-16",
+        "printedTotal": 128,
+        "total": 161,
+        "ptcgoCode": "M3",
+        "images": {
+            "symbol": "https://images.scrydex.com/pokemon/me55-symbol/symbol",
+            "logo": "https://images.scrydex.com/pokemon/me55-logo/logo",
+        },
+    }]

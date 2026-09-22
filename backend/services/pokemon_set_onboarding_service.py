@@ -487,6 +487,19 @@ class OnboardingEngine:
                     if not (card_ok or sealed_ok):
                         return StepOutcome("retry", step, evidence, "catalog_initial_scrape_verification_failed")
                     if evidence.get("cards_populated"):
+                        # A price scrape can discover cards before the metadata
+                        # provider has filled image/API identity. Hydrate it in
+                        # the SAME first-scrape cycle instead of waiting for an
+                        # operator to notice blank cards later.
+                        image_sync = self.command_runner(
+                            [sys.executable, "backend/scripts/sync_pokemon_images.py", "--sets", name, "--apply"],
+                            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                        )
+                        evidence["initial_image_sync_exit_code"] = image_sync.returncode
+                        evidence["initial_image_sync_stdout_tail"] = image_sync.stdout[-2000:]
+                        evidence["initial_image_sync_stderr_tail"] = image_sync.stderr[-2000:]
+                        if image_sync.returncode:
+                            return StepOutcome("retry", step, evidence, "catalog_initial_image_sync_failed")
                         canonical = self.command_runner(
                             [
                                 sys.executable,
@@ -508,6 +521,46 @@ class OnboardingEngine:
                 required = ("cards_populated", "variants_populated", "market_prices_populated", "resolved_market_date")
                 if not all(evidence.get(field) for field in required):
                     return StepOutcome("retry", step, evidence, "initial_scrape_verification_failed")
+
+                # Initial scrape now owns first-pass card metadata hydration.
+                # The later images step stays as an idempotent coverage gate,
+                # but newly scraped cards should already carry provider IDs and
+                # artwork before Set Value / Collector work begins.
+                threshold = float(os.getenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90"))
+                if evidence.get("cards_populated") and float(evidence.get("image_coverage") or 0.0) < threshold:
+                    image_sync = self.command_runner(
+                        [sys.executable, "backend/scripts/sync_pokemon_images.py", "--sets", name, "--apply"],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["initial_image_sync_exit_code"] = image_sync.returncode
+                    evidence["initial_image_sync_stdout_tail"] = image_sync.stdout[-2000:]
+                    evidence["initial_image_sync_stderr_tail"] = image_sync.stderr[-2000:]
+                    if image_sync.returncode:
+                        return StepOutcome("retry", step, evidence, "initial_image_sync_failed")
+
+                    canonical = self.command_runner(
+                        [
+                            sys.executable,
+                            "backend/scripts/build_pokemon_set_desirability_inputs.py",
+                            "--set", key, "--commit", "--canonical-only",
+                        ],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["initial_canonical_sync_exit_code"] = canonical.returncode
+                    evidence["initial_canonical_sync_stdout_tail"] = canonical.stdout[-2000:]
+                    evidence["initial_canonical_sync_stderr_tail"] = canonical.stderr[-2000:]
+                    if canonical.returncode:
+                        return StepOutcome("retry", step, evidence, "initial_canonical_metadata_sync_failed")
+
+                    evidence = {
+                        **evidence,
+                        **self.set_evidence_collector(key),
+                        "image_coverage_threshold": threshold,
+                        "initial_image_sync_exit_code": image_sync.returncode,
+                        "initial_canonical_sync_exit_code": canonical.returncode,
+                    }
+                    if float(evidence.get("image_coverage") or 0.0) < threshold:
+                        return StepOutcome("retry", step, evidence, "initial_image_fetch_incomplete")
                 return _next(step, evidence)
             return outcome
         if step == "set_value":
