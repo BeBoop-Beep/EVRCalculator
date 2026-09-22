@@ -95,3 +95,57 @@ def test_formula_drift_blocks_before_persistence_or_promotion(monkeypatch):
     client=_Client(); result=subject.execute(client,as_of=date(2026,9,18),now=datetime.now(timezone.utc),commit=True,hooks=hooks)
     assert "V7_FROZEN_FORMULA_DRIFT_BLOCKER" in result["error"]
     assert client.calls==[]
+
+
+def test_delta_report_allows_new_set_membership_but_not_removal():
+    previous = [{"set_id":"old","score_status":"scored","collector_appeal_score":50}]
+    built = {
+        "cards": [],
+        "manifest": {"analysis": {"cardArtistStatusCounts": {}}},
+        "sets": [
+            {"set_id":"old","collector_appeal":51,"F_delta":0,"entering_cards":[],"leaving_cards":[]},
+            {"set_id":"new","collector_appeal":40,"F_delta":None,"entering_cards":[],"leaving_cards":[]},
+        ],
+    }
+    report = subject.delta_report(previous, built)
+    assert report["membershipAdded"] == ["new"]
+    assert report["membershipRemoved"] == []
+
+    try:
+        subject.delta_report(
+            [{"set_id":"old","score_status":"scored","collector_appeal_score":50},
+             {"set_id":"removed","score_status":"scored","collector_appeal_score":40}],
+            built,
+        )
+    except RuntimeError as exc:
+        assert "removed existing sets" in str(exc)
+    else:
+        raise AssertionError("membership removal must fail closed")
+
+
+def test_force_model_rebuild_uses_fresh_sources_and_promotes(monkeypatch):
+    monkeypatch.setattr(subject,"build_plan",lambda *_a,**_k:_plan(True))
+    paged_results=iter((
+        [{"set_id":"s","score_status":"scored","collector_appeal_score":50}],
+        [],
+    ))
+    monkeypatch.setattr(subject,"_paged",lambda _factory:next(paged_results))
+    built={
+        "manifest":{"formulaFingerprint":subject.FROZEN_FORMULA_FINGERPRINT,"analysis":{}},
+        "cards":[],
+        "sets":[{"set_id":"s","collector_appeal":51,"F_delta":0,"entering_cards":[],"leaving_cards":[]}],
+    }
+    hooks=_hooks(build=lambda *_a: built)
+    client=_Client(inserted=128)
+    result=subject.execute(
+        client,
+        as_of=date(2026,9,22),
+        now=datetime.now(timezone.utc),
+        commit=True,
+        hooks=hooks,
+        force_model_rebuild=True,
+    )
+    assert result["status"] == "COLLECTOR_HISTORY_APPENDED"
+    assert result["dueSources"] == []
+    assert result["forceModelRebuild"] is True
+    assert any(name=="promote_pokemon_collector_v7_with_set_page_generation" for name,_ in client.calls)

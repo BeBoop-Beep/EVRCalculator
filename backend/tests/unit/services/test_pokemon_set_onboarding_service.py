@@ -375,3 +375,59 @@ def test_initial_scrape_hydrates_missing_card_metadata_before_advancing():
         for command in joined
     )
     assert outcome.evidence["image_coverage"] == 1.0
+
+
+def test_images_step_builds_static_and_collector_layers_for_released_non_simulation_set():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append([str(part) for part in command])
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: {
+            "catalog_only": False,
+            "supports_opening_simulation": False,
+            "image_coverage": 1.0,
+            "resolved_market_date": "2026-09-22",
+        },
+    )
+    outcome = engine.run_step(_job("images"))
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "publication_gate"
+    joined = [" ".join(command) for command in calls]
+    assert any("sync_pokemon_images.py --sets Future Set --apply" in line for line in joined)
+    assert any(
+        "build_pokemon_set_desirability_inputs.py --set futureSet --commit --log-level INFO" in line
+        for line in joined
+    )
+    assert any(
+        "operationalize_historical_rip.py --as-of-date 2026-09-22 --commit --force-model-rebuild" in line
+        for line in joined
+    )
+
+
+def test_images_step_non_simulation_collector_failure_retries():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append([str(part) for part in command])
+        failed = any(str(part).endswith("operationalize_historical_rip.py") for part in command)
+        return CompletedProcess(command, 2 if failed else 0, stdout="", stderr="collector blocked" if failed else "")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: {
+            "catalog_only": False,
+            "supports_opening_simulation": False,
+            "image_coverage": 1.0,
+            "resolved_market_date": "2026-09-22",
+        },
+    )
+    outcome = engine.run_step(_job("images"))
+    assert outcome.kind == "retry"
+    assert outcome.error_code == "collector_membership_refresh_failed"

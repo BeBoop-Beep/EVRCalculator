@@ -587,6 +587,51 @@ class OnboardingEngine:
                 evidence["image_coverage_threshold"] = threshold
                 if evidence["image_coverage"] < threshold:
                     return StepOutcome("retry", step, evidence, "image_fetch_incomplete")
+
+                # Released market sets that intentionally do not support opening
+                # simulation must not stall forever at pull-model acquisition.
+                # Build every desirability layer that is valid without simulation,
+                # then force the frozen Collector Appeal model to re-evaluate
+                # catalog membership using the already-fresh source authority.
+                if not evidence.get("catalog_only") and not evidence.get("supports_opening_simulation"):
+                    desirability = self.command_runner(
+                        [
+                            sys.executable,
+                            "backend/scripts/build_pokemon_set_desirability_inputs.py",
+                            "--set", key, "--commit", "--log-level", "INFO",
+                        ],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["static_desirability_exit_code"] = desirability.returncode
+                    evidence["static_desirability_stdout_tail"] = desirability.stdout[-2000:]
+                    evidence["static_desirability_stderr_tail"] = desirability.stderr[-2000:]
+                    if desirability.returncode:
+                        return StepOutcome("retry", step, evidence, "static_desirability_build_failed")
+
+                    market_date = str(evidence.get("resolved_market_date") or "").strip()
+                    if not market_date:
+                        return StepOutcome("retry", step, evidence, "collector_refresh_market_date_missing")
+                    collector = self.command_runner(
+                        [
+                            sys.executable,
+                            "backend/scripts/operationalize_historical_rip.py",
+                            "--as-of-date", market_date,
+                            "--commit",
+                            "--force-model-rebuild",
+                        ],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["collector_membership_refresh_exit_code"] = collector.returncode
+                    evidence["collector_membership_refresh_stdout_tail"] = collector.stdout[-2000:]
+                    evidence["collector_membership_refresh_stderr_tail"] = collector.stderr[-2000:]
+                    if collector.returncode:
+                        return StepOutcome("retry", step, evidence, "collector_membership_refresh_failed")
+
+                    # No pull-model/simulation stages are applicable to this set.
+                    # Continue at the publication gate after static/collector
+                    # enrichment succeeds rather than manufacturing simulation data.
+                    return StepOutcome("advance", "publication_gate", evidence)
+
                 return _next(step, evidence)
             return outcome
         if step == "rarity_census":

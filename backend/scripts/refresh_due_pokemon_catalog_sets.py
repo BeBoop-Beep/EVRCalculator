@@ -122,7 +122,12 @@ def _run(command: list[str]) -> Dict[str, Any]:
     }
 
 
-def _planned_commands(canonical_key: str, *, has_processable_cards: bool) -> list[list[str]]:
+def _planned_commands(
+    canonical_key: str,
+    *,
+    set_name: str,
+    has_processable_cards: bool,
+) -> list[list[str]]:
     commands = [
         [
             sys.executable,
@@ -133,8 +138,18 @@ def _planned_commands(canonical_key: str, *, has_processable_cards: bool) -> lis
         ]
     ]
     if has_processable_cards:
+        # Price ingestion does not populate provider identity/artwork. Hydrate
+        # images before canonical projection so a catalog/new-set refresh cannot
+        # publish structurally complete cards with blank artwork.
         commands.extend(
             [
+                [
+                    sys.executable,
+                    "backend/scripts/sync_pokemon_images.py",
+                    "--sets",
+                    set_name,
+                    "--apply",
+                ],
                 [
                     sys.executable,
                     "backend/scripts/build_pokemon_set_desirability_inputs.py",
@@ -278,6 +293,7 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
 
         commands = _planned_commands(
             canonical_key,
+            set_name=str(set_row.get("name") or canonical_key),
             has_processable_cards=processable_count > 0,
         )
         entry: Dict[str, Any] = {
@@ -332,20 +348,32 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
         for command in commands[start_index:]:
             result = _run(command)
             entry["results"].append(result)
-            if result["exit_code"] != 0:
-                # Canonical projection is critical when processable cards exist.
-                if "build_pokemon_set_desirability_inputs.py" in command:
-                    entry["status"] = "canonical_projection_failed"
-                    critical_failures += 1
-                    if item.get("job_id"):
-                        retry_at = _retry_at()
-                        try:
-                            _set_provider_next_check_at(supabase, str(item["job_id"]), retry_at)
-                            entry["retry_scheduled_at"] = retry_at
-                        except Exception as exc:
-                            entry["retry_schedule_error"] = str(exc)
-                    break
+            if result["exit_code"] == 0:
+                continue
+
+            # Image hydration and canonical projection are both critical once a
+            # provider has processable cards. Snapshot publication after either
+            # failure would leave a partially-onboarded public card surface.
+            if any(str(part).endswith("sync_pokemon_images.py") for part in command):
+                entry["status"] = "pokemon_api_image_sync_failed"
+            elif any(
+                str(part).endswith("build_pokemon_set_desirability_inputs.py")
+                for part in command
+            ):
+                entry["status"] = "canonical_projection_failed"
+            else:
                 snapshot_warnings += 1
+                continue
+
+            critical_failures += 1
+            if item.get("job_id"):
+                retry_at = _retry_at()
+                try:
+                    _set_provider_next_check_at(supabase, str(item["job_id"]), retry_at)
+                    entry["retry_scheduled_at"] = retry_at
+                except Exception as exc:
+                    entry["retry_schedule_error"] = str(exc)
+            break
         else:
             entry["status"] = (
                 "refreshed_with_snapshot_warnings" if snapshot_warnings else "refreshed"
