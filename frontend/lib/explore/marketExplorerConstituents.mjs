@@ -167,7 +167,7 @@ export function buildConstituentColumns(asset, movementWindow) {
   const window = normalizeConstituentMovementWindow(movementWindow);
   return [
     ...base,
-    { key: "changes", label: `${window} Change`, align: "right", change: true, window },
+    { key: "changes", label: `${window === "SinceTracking" ? "Since Tracking" : window} Change`, align: "right", change: true, window },
   ];
 }
 
