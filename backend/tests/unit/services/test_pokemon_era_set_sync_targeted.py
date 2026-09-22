@@ -32,3 +32,69 @@ def test_targeted_sync_filters_to_set_and_owning_era(monkeypatch, tmp_path):
     assert report["summary"]["sets_discovered"] == 1
     assert report["summary"]["eras_discovered"] == 1
     assert [row["canonical_key"] for row in report["sets"]] == ["target"]
+
+
+def test_config_era_override_is_explicit_and_folder_is_default():
+    class DefaultConfig:
+        pass
+
+    class OverrideConfig:
+        ERA_CANONICAL_KEY = "megaEvolutionEra"
+
+    assert service._resolve_config_era_canonical_key(DefaultConfig, "otherEra") == "otherEra"
+    assert service._resolve_config_era_canonical_key(OverrideConfig, "otherEra") == "megaEvolutionEra"
+
+
+def test_set_payload_carries_subset_structure():
+    source = {
+        "canonical_key": "child",
+        "name": "Child",
+        "release_date": "2026-09-16",
+        "set_type": None,
+        "abbreviation": None,
+        "set_code": None,
+        "pokemon_api_set_id": None,
+        "symbol_image_url": None,
+        "logo_image_url": None,
+        "source_config_path": "child.py",
+        "card_details_url": "cards",
+        "sealed_details_url": "sealed",
+        "catalog_only": True,
+        "supports_opening_simulation": False,
+        "is_subset": True,
+        "subset_type": "classic_collection",
+        "counts_toward_parent_set_value": True,
+        "counts_toward_parent_opening": True,
+    }
+    payload = service._build_set_payload(source, "tcg", "era", None)
+    assert "is_subset" not in payload
+    assert payload["subset_type"] == "classic_collection"
+    assert payload["counts_toward_parent_set_value"] is True
+    assert payload["counts_toward_parent_opening"] is True
+    assert payload["catalog_only"] is True
+    assert payload["ready_for_daily_scrape"] is False
+
+
+def test_generated_is_subset_is_never_written_directly():
+    source = {
+        "canonical_key": "child",
+        "name": "Child",
+        "release_date": "2026-09-16",
+        "set_type": None,
+        "abbreviation": None,
+        "set_code": None,
+        "pokemon_api_set_id": None,
+        "symbol_image_url": None,
+        "logo_image_url": None,
+        "source_config_path": "child.py",
+        "card_details_url": "cards",
+        "sealed_details_url": "sealed",
+        "catalog_only": True,
+        "supports_opening_simulation": False,
+        "is_subset": True,
+        "subset_type": "classic_collection",
+        "counts_toward_parent_set_value": True,
+        "counts_toward_parent_opening": True,
+    }
+    payload = service._build_set_payload(source, "tcg", "era", None)
+    assert "is_subset" not in payload

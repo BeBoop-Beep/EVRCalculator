@@ -746,18 +746,46 @@ def _scrape_one_set(
                     raise RuntimeError(
                         f"scrape market-date mismatch: write={outcome.get('marketDate')} "
                         f"postcondition={market_date}")
-                from backend.db.services.scrape_postcondition import verify_tcgplayer_source_variant_persistence
-                postcondition_started = time.perf_counter()
-                postcondition = verify_tcgplayer_source_variant_persistence(
-                    outcome.get("setId"), market_date, outcome.get("sourceVariantKeys", []))
-                postcondition["postconditionMs"] = round(
-                    (time.perf_counter() - postcondition_started) * 1000, 3)
-                outcome.update(postcondition)
-                if not postcondition.get("success"):
-                    raise RuntimeError(
-                        "incomplete_source_variant_persistence: "
-                        f"{postcondition['reconciledSourceVariantCount']}/"
-                        f"{postcondition['acceptedVariantGroups']} exact-day source variants")
+
+                # Catalog-only provider identities can legitimately be sealed-only
+                # before singles exist. They can also expose only Code Card rows in
+                # TCGplayer's Cards product type (First Partner Collection 2026 is
+                # a real production example). Do not fail the entire catalog
+                # refresh on a card-variant postcondition that has no accepted
+                # variants to reconcile. Missing-required-field rows are NOT
+                # exempted: only a genuinely empty card surface or an all-code-card
+                # surface is considered an intentional zero.
+                raw_rows = int(outcome.get("rawRows") or 0)
+                accepted_groups = int(outcome.get("acceptedVariantGroups") or 0)
+                dropped_code_cards = int(outcome.get("dropped_other_code_card") or 0)
+                catalog_empty_card_side = (
+                    bool(getattr(config_cls, "CATALOG_ONLY", False))
+                    and cards_count == 0
+                    and sealed_count > 0
+                    and accepted_groups == 0
+                    and (raw_rows == 0 or dropped_code_cards == raw_rows)
+                )
+                if catalog_empty_card_side:
+                    outcome.update({
+                        "acceptedVariantGroups": 0,
+                        "reconciledSourceVariantCount": 0,
+                        "sourceCoverageRatio": None,
+                        "missingSourceVariantKeys": [],
+                        "cardPostconditionStatus": "not_applicable_catalog_empty_or_code_cards_only",
+                    })
+                else:
+                    from backend.db.services.scrape_postcondition import verify_tcgplayer_source_variant_persistence
+                    postcondition_started = time.perf_counter()
+                    postcondition = verify_tcgplayer_source_variant_persistence(
+                        outcome.get("setId"), market_date, outcome.get("sourceVariantKeys", []))
+                    postcondition["postconditionMs"] = round(
+                        (time.perf_counter() - postcondition_started) * 1000, 3)
+                    outcome.update(postcondition)
+                    if not postcondition.get("success"):
+                        raise RuntimeError(
+                            "incomplete_source_variant_persistence: "
+                            f"{postcondition['reconciledSourceVariantCount']}/"
+                            f"{postcondition['acceptedVariantGroups']} exact-day source variants")
             return {
                 "canonical_key": canonical_key,
                 "status": "success",

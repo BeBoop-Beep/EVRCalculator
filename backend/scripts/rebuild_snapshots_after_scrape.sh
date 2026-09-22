@@ -44,6 +44,7 @@ PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
 # descriptor is opened for the life of this process, so the lock releases
 # automatically on any exit path (success, failure, or signal).
 LOCK_PATH="${POST_SCRAPE_PUBLICATION_LOCK_PATH:-/tmp/pokemon-post-scrape-publication.lock}"
+LOCK_HELD_EXIT_CODE=4
 if ! command -v flock >/dev/null 2>&1; then
   printf '[post-scrape-publication] %s FATAL flock not available; refusing to publish unlocked\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -51,9 +52,9 @@ if ! command -v flock >/dev/null 2>&1; then
 fi
 exec {LOCK_FD}>"${LOCK_PATH}"
 if ! flock -n "${LOCK_FD}"; then
-  printf '[post-scrape-publication] %s already running (lock_path=%s held); safe no-op, exiting 0\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${LOCK_PATH}"
-  exit 0
+  printf '[post-scrape-publication] %s already running (lock_path=%s held); safe no-op, exit_code=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${LOCK_PATH}" "${LOCK_HELD_EXIT_CODE}"
+  exit "${LOCK_HELD_EXIT_CODE}"
 fi
 
 # Explicit market date support (recovery + the immediate post-scrape trigger):
@@ -97,8 +98,28 @@ fi
 
 cd "${REPO_ROOT}"
 
-# `set -e` would abort before the exit status could be logged and classified, so
-# each stage captures its own status explicitly.
+# Price Storage V2 is now in the canonical selected-price lineage. A complete
+# scrape batch is not publishable until that exact scrape cohort has been
+# projected through card_variant_price_current_v2 / canonical selected prices.
+# This check is read-only; the separate liveness watchdog advances the queue.
+PROJECTION_CMD=(
+  "${PYTHON_BIN}" backend/scripts/check_price_storage_v2_projection_ready.py
+  --market-date "${MARKET_DATE}"
+)
+log "command: ${PROJECTION_CMD[*]}"
+PROJECTION_STATUS=0
+"${PROJECTION_CMD[@]}" || PROJECTION_STATUS=$?
+log "price projection readiness exit_status=${PROJECTION_STATUS}"
+if [[ "${PROJECTION_STATUS}" -eq 3 ]]; then
+  log "DEFERRED Price Storage V2 projection is not ready for market_date=${MARKET_DATE}; preserving previous good snapshots"
+  exit 3
+fi
+if [[ "${PROJECTION_STATUS}" -ne 0 ]]; then
+  log "FAILED Price Storage V2 projection authority could not be verified for market_date=${MARKET_DATE}"
+  exit "${PROJECTION_STATUS}"
+fi
+
+# `set -e` would abort before the exit status could be logged and classified, so# each stage captures its own status explicitly.
 REFRESH_CMD=(
   "${PYTHON_BIN}" backend/scripts/refresh_stale_public_snapshots.py
   --commit

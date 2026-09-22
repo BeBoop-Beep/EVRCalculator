@@ -1,0 +1,85 @@
+name: Sentinel Live Observe
+# queued after Sep 21 repair for post-repair verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sentinel-live-observe.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  observe:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/sentinel-continuation-20260921
+          fetch-depth: 1
+
+      - name: Capture live publication and Sentinel state
+        shell: bash
+        run: |
+          set +e
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          REPORT=$RUNNER_TEMP/sentinel-live-observe.txt
+          LOCK=/tmp/pokemon-post-scrape-publication.lock
+          : > "$REPORT"
+          exec > >(tee -a "$REPORT") 2>&1
+
+          echo "utc_now=$(date -u +%FT%TZ)"
+          echo "phoenix_now=$(TZ=America/Phoenix date +%FT%T%z)"
+          cd "$LIVE" || exit 1
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          git fetch origin main --quiet
+          echo "origin_main=$(git rev-parse origin/main)"
+          echo "tracked_status_begin"
+          git status --short --untracked-files=no
+          echo "tracked_status_end"
+
+          if /usr/bin/flock -n "$LOCK" -c true; then
+            echo "publication_lock=free"
+          else
+            echo "publication_lock=held"
+          fi
+
+          echo "publication_processes_begin"
+          ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep
+          echo "publication_processes_end"
+
+          echo "publication_log_tail_begin"
+          tail -n 180 publication.log 2>/dev/null
+          echo "publication_log_tail_end"
+
+          echo "watchdog_log_tail_begin"
+          tail -n 80 backend/logs/post_scrape_publication_watchdog.log 2>/dev/null
+          echo "watchdog_log_tail_end"
+
+          (
+            set -a
+            . backend/.env
+            set +a
+            "$PY" -c 'import json; from collections import Counter; from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate; c=create_service_role_client(); d=evaluate_price_projection_gate(c,"2026-09-21"); print("projection="+json.dumps(d.to_dict(),sort_keys=True)); rows=list(c.table("price_storage_v2_shadow_queue").select("status,attempts,last_error,set_id").eq("market_date","2026-09-21").execute().data or []); print("queue_statuses="+json.dumps(Counter(str(r.get("status")) for r in rows),sort_keys=True)); print("queue_bad="+json.dumps([r for r in rows if r.get("status")!="complete"],default=str,sort_keys=True)[:12000])'
+          )
+          echo "db_probe_rc=$?"
+
+          curl --fail --silent --show-error --retry 2 --retry-delay 3 --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market > "$RUNNER_TEMP/market.json"
+          CURL_RC=$?
+          echo "public_curl_rc=$CURL_RC"
+          if [ "$CURL_RC" -eq 0 ]; then
+            MARKET_JSON="$RUNNER_TEMP/market.json" "$PY" -c 'import json,os; p=json.load(open(os.environ["MARKET_JSON"])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date"))); print("public_market_set_count="+str(len(p.get("sets") or [])))'
+          fi
+
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p ops/assistant
+          cp "$REPORT" ops/assistant/sentinel-live-observe.txt
+          git config user.name "inDex ops runner"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/sentinel-live-observe.txt
+          git commit -m "ops: capture live Sentinel observation"
+          git push origin HEAD:ops/sentinel-continuation-20260921

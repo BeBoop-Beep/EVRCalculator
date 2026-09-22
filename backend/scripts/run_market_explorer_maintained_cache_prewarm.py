@@ -71,8 +71,8 @@ DEFAULT_MIN_AVAILABLE_MEMORY_MB = 512.0
 DEFAULT_MIN_AVAILABLE_MEMORY_PERCENT = 25.0
 DEFAULT_MAX_LOAD_PER_CPU = 1.5
 DEFAULT_FAILURE_COOLDOWN_SECONDS = 900.0
-PREPARED_REFRESH_RPC = "refresh_pokemon_market_explorer_prepared_if_current_v1"
-PREPARED_DB_TIMEOUT_SECONDS = 120  # guarded dry runs measured about 55 seconds
+PREPARED_REFRESH_RPC = "run_market_explorer_guarded_publisher_v1"
+PREPARED_DB_TIMEOUT_SECONDS = 240  # guarded dry runs measured about 55 seconds
 PREPARED_DB_CONNECT_TIMEOUT_SECONDS = 10
 
 
@@ -96,8 +96,8 @@ def _prepared_db_error(exc: Exception) -> str:
 
 
 def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[str, Any]:
-    """Run the same service-only guard in one bounded database transaction."""
-    import psycopg  # optional until the scheduled publisher has a DB credential
+    """Run the least-privilege guarded publisher in one bounded DB transaction."""
+    import psycopg
 
     with psycopg.connect(
         _prepared_db_dsn(), connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
@@ -108,47 +108,23 @@ def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[s
                 cursor.execute("select set_config('statement_timeout', %s, true)",
                                (f"{PREPARED_DB_TIMEOUT_SECONDS}s",))
                 cursor.execute("select set_config('lock_timeout', '5s', true)")
-                if commit:
-                    cursor.execute("""
-                        select g.generation_id
-                        from public.pokemon_market_explorer_prepared_serving_v1 p
-                        join public.pokemon_market_explorer_prepared_generations_v1 g
-                          on g.generation_id=p.generation_id
-                        join public.pokemon_explore_set_value_snapshot_latest s
-                          on s.tcg='pokemon' and s.scope='market'
-                        where g.comparison_as_of=%s::date
-                          and g.source_as_of->>'sets'=s.market_date::text
-                          and g.source_as_of->>'sealed'=s.market_date::text
-                          and s.updated_at<=g.generated_at
-                          and not exists (
-                            select 1 from public.pokemon_market_explorer_query_cache c
-                            where c.cache_kind='maintained' and c.last_built_at>g.generated_at
-                          )
-                          and not exists (
-                            select 1 from public.pokemon_set_market_dashboard_snapshot_latest d
-                            where d.updated_at>g.generated_at
-                          )
-                          and not exists (
-                            select 1 from public.pokemon_set_sealed_market_snapshot_latest d
-                            where d.updated_at>g.generated_at
-                          )
-                    """, (target_market_date,))
-                    existing = cursor.fetchone()
-                    if existing:
-                        conn.rollback()
-                        return {"status": "already_current", "generationId": str(existing[0])}
                 cursor.execute(
-                    "select public.refresh_pokemon_market_explorer_prepared_if_current_v1(%s::date)",
+                    f"select public.{PREPARED_REFRESH_RPC}(%s::date)",
                     (target_market_date,),
                 )
                 row = cursor.fetchone()
-                result = row[0] if row else None
+                payload = row[0] if row else None
                 if commit:
                     conn.commit()
-                else:
-                    conn.rollback()
-                return {"status": "refreshed" if commit else "verified_rollback_only",
-                        "result": result}
+                    if isinstance(payload, dict) and payload.get("status") == "already_current":
+                        return {
+                            "status": "already_current",
+                            "generationId": str(payload.get("generationId") or ""),
+                            "result": payload,
+                        }
+                    return {"status": "refreshed", "result": payload}
+                conn.rollback()
+                return {"status": "verified_rollback_only", "result": payload}
         except Exception:
             conn.rollback()
             raise

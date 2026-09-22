@@ -13,9 +13,13 @@ from typing import Any, Callable, Dict, Optional
 
 from backend.services.pokemon_onboarding_git_service import GitAdapter, GitSettings
 from backend.services.pokemon_set_config_generation_service import (
-    apply_approved_pull_model, generate_one_set_config,
+    apply_approved_pull_model,
+    generate_catalog_only_set_config,
+    generate_one_set_config,
+    provider_catalog_era_hint,
 )
 from backend.services.pokemon_tcg_api_set_service import fetch_targeted_sets, resolve_set_metadata
+from backend.services.tcgplayer_set_catalog_service import build_priceguide_urls
 from backend.services.pokemon_onboarding_publication_service import evaluate_onboarding_publication_readiness
 from backend.services.pokemon_onboarding_simulation_service import (
     latest_simulation_evidence, parse_simulation_json,
@@ -63,7 +67,8 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
     set_result = (
         supabase.table("sets")
         .select("id,canonical_key,name,pokemon_api_set_id,release_date,card_details_url,"
-                "sealed_details_url,symbol_image_url,logo_image_url,ready_for_daily_scrape")
+                "sealed_details_url,symbol_image_url,logo_image_url,ready_for_daily_scrape,"
+                "catalog_only,supports_opening_simulation")
         .eq("canonical_key", canonical_key).limit(1).execute()
     )
     if not set_result.data:
@@ -95,6 +100,22 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
         (str(row["captured_at"]) for row in prices if row.get("captured_at")),
         default=None,
     )
+    sealed_products = (
+        supabase.table("sealed_products").select("id").eq("set_id", set_id).limit(1000).execute().data or []
+    )
+    sealed_product_ids = [row["id"] for row in sealed_products if row.get("id")]
+    sealed_prices: list[Dict[str, Any]] = []
+    for start in range(0, len(sealed_product_ids), 250):
+        sealed_prices.extend(
+            supabase.table("sealed_product_price_observations")
+            .select("sealed_product_id,captured_at,market_price")
+            .in_("sealed_product_id", sealed_product_ids[start:start + 250])
+            .gt("market_price", 0).order("captured_at", desc=True).limit(1000).execute().data or []
+        )
+    latest_sealed = max(
+        (str(row["captured_at"]) for row in sealed_prices if row.get("captured_at")),
+        default=None,
+    )
     rarity_counts: Dict[str, int] = {}
     for row in cards:
         rarity = " ".join(str(row.get("rarity") or "").strip().lower().split())
@@ -117,10 +138,16 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
     return {
         "set_id": set_id, "set_row": set_row, "public_set_correct": True,
         "ready_for_daily_scrape": bool(set_row.get("ready_for_daily_scrape")),
+        "catalog_only": bool(set_row.get("catalog_only")),
+        "supports_opening_simulation": bool(set_row.get("supports_opening_simulation")),
         "cards_populated": bool(cards), "card_count": len(cards),
         "variants_populated": bool(variants), "variant_count": len(variants),
         "market_prices_populated": bool(prices), "price_observation_count": len(prices),
         "resolved_market_date": latest[:10] if latest else None,
+        "sealed_products_populated": bool(sealed_products), "sealed_product_count": len(sealed_products),
+        "sealed_market_prices_populated": bool(sealed_prices),
+        "sealed_price_observation_count": len(sealed_prices),
+        "resolved_sealed_market_date": latest_sealed[:10] if latest_sealed else None,
         "rarity_census": rarity_counts,
         "image_coverage": (images_present / len(variants)) if variants else 0.0,
         "cards_with_images": cards_with_images, "variants_with_images": images_present,
@@ -262,23 +289,89 @@ class OnboardingEngine:
         name = str(job["source_set_name"])
 
         if step == "metadata_resolution":
+            hint = provider_catalog_era_hint(name)
+            raw_confidence = metadata.get("confidence")
+            if raw_confidence is None:
+                raw_confidence = (metadata.get("discovery_evidence") or {}).get("confidence")
+            try:
+                provider_confidence = float(raw_confidence or 0.0)
+            except (TypeError, ValueError):
+                provider_confidence = 0.0
+
+            def provider_only(reason: str, diagnostics: Optional[Dict[str, Any]] = None) -> Optional[StepOutcome]:
+                source_id = str(job.get("source_set_id") or "").strip()
+                if hint is None or provider_confidence < 0.90 or not source_id.isdigit():
+                    return None
+                card_url, sealed_url = build_priceguide_urls(int(source_id))
+                era_folder, era_label = hint
+                return _next(step, {
+                    "provider_catalog_only": True,
+                    "provider_metadata_reason": reason,
+                    "provider_confidence": provider_confidence,
+                    "provider_era_folder": era_folder,
+                    "provider_era_label": era_label,
+                    "source_set_id": source_id,
+                    "card_details_url": card_url,
+                    "sealed_details_url": sealed_url,
+                    **(diagnostics or {}),
+                })
+
             try:
                 rows = fetch_targeted_sets(
                     name, os.getenv("POKEMON_TCG_API_KEY", ""),
                     timeout_seconds=float(os.getenv("POKEMON_ONBOARDING_PROVIDER_TIMEOUT_SECONDS", "15")),
                 )
             except Exception as exc:
+                # A missing/deprecated API credential must not make a strongly
+                # validated TCGplayer expansion invisible forever. Only explicit
+                # trusted provider-era prefixes are allowed through this fallback;
+                # arbitrary catalog names still retry rather than being guessed.
+                if "Missing POKEMON_TCG_API_KEY" in str(exc):
+                    fallback = provider_only("pokemon_api_key_unavailable", {"error": str(exc)})
+                    if fallback is not None:
+                        return fallback
                 return StepOutcome("retry", step, {"error": str(exc)}, "pokemon_api_unavailable")
             resolution = resolve_set_metadata(name, rows, expected_api_id=job.get("pokemon_api_set_id"))
-            if resolution.status != "resolved":
-                kind = "manual_review" if resolution.status in {"ambiguous", "identity_conflict"} else "wait"
-                return StepOutcome(kind, step, resolution.diagnostics, f"pokemon_api_{resolution.status}")
-            return _next(step, {"pokemon_api_set": resolution.set_data, **resolution.diagnostics})
+            if resolution.status == "resolved":
+                return _next(step, {"pokemon_api_set": resolution.set_data, **resolution.diagnostics})
+            if resolution.status == "not_found":
+                fallback = provider_only("pokemon_api_not_found", resolution.diagnostics)
+                if fallback is not None:
+                    return fallback
+                return StepOutcome("wait", step, resolution.diagnostics, "pokemon_api_not_found")
+            return StepOutcome(
+                "manual_review", step, resolution.diagnostics, f"pokemon_api_{resolution.status}"
+            )
 
         if step == "source_registration":
-            api_set = metadata.get("steps", {}).get("metadata_resolution", {}).get("pokemon_api_set")
-            if not api_set:
+            resolved = metadata.get("steps", {}).get("metadata_resolution", {})
+            api_set = resolved.get("pokemon_api_set")
+            provider_catalog_only = bool(resolved.get("provider_catalog_only"))
+            if not api_set and not provider_catalog_only:
                 return StepOutcome("manual_review", step, {}, "missing_resolved_metadata")
+
+            # Idempotent resume: source may already have been merged/deployed
+            # while the durable onboarding job was waiting. Do not create a
+            # duplicate worktree/branch/PR in that case.
+            if provider_catalog_only:
+                existing_canonical = __import__(
+                    "backend.scripts.bootstrap_pokemon_set_configs", fromlist=["normalize_set_key"]
+                ).normalize_set_key(name)
+                existing_era = str(resolved.get("provider_era_folder") or "")
+                existing_config = (
+                    REPO_ROOT / "backend/constants/tcg/pokemon" / existing_era
+                    / f"{existing_canonical}.py"
+                )
+                if existing_era and existing_config.exists():
+                    return _next(step, {
+                        "canonical_key": existing_canonical,
+                        "era_folder": existing_era,
+                        "provider_era_folder": existing_era,
+                        "provider_catalog_only": True,
+                        "source_deployed": True,
+                        "config_path": str(existing_config),
+                    })
+
             if self.no_git or self.git_settings.mode == "disabled":
                 return StepOutcome(
                     "wait", step,
@@ -286,21 +379,47 @@ class OnboardingEngine:
                     "source_pr_pending",
                 )
             if not self.execute:
-                return StepOutcome(
-                    "advance", step,
-                    {"dry_run": True, "planned_action": "prepare_worktree+commit+push_and_open_pr",
-                     "pokemon_api_set": api_set},
-                )
+                evidence = {
+                    "dry_run": True,
+                    "planned_action": "prepare_worktree+commit+push_and_open_pr",
+                }
+                if api_set:
+                    evidence["pokemon_api_set"] = api_set
+                else:
+                    evidence["provider_catalog_only"] = True
+                    evidence["provider_era_folder"] = resolved.get("provider_era_folder")
+                return StepOutcome("advance", step, evidence)
+
             adapter = GitAdapter(REPO_ROOT, self.git_settings, runner=self.command_runner)
+            canonical_source_name = str(api_set["name"]) if api_set else name
             canonical = __import__(
                 "backend.scripts.bootstrap_pokemon_set_configs", fromlist=["normalize_set_key"]
-            ).normalize_set_key(api_set["name"])
+            ).normalize_set_key(canonical_source_name)
             worktree, branch = adapter.prepare_worktree(canonical)
-            generated = generate_one_set_config(
-                worktree, api_set,
-                card_details_url=metadata["card_details_url"],
-                sealed_details_url=metadata["sealed_details_url"],
-            )
+            if api_set:
+                card_url = metadata.get("card_details_url")
+                sealed_url = metadata.get("sealed_details_url")
+                if not card_url or not sealed_url:
+                    source_id = str(job.get("source_set_id") or "")
+                    if source_id.isdigit():
+                        card_url, sealed_url = build_priceguide_urls(int(source_id))
+                generated = generate_one_set_config(
+                    worktree, api_set,
+                    card_details_url=str(card_url),
+                    sealed_details_url=str(sealed_url),
+                )
+            else:
+                source_id = str(job.get("source_set_id") or "").strip()
+                card_url = str(resolved["card_details_url"])
+                sealed_url = str(resolved["sealed_details_url"])
+                generated = generate_catalog_only_set_config(
+                    worktree,
+                    source_set_name=name,
+                    source_set_id=source_id,
+                    card_details_url=card_url,
+                    sealed_details_url=sealed_url,
+                    era_folder=str(resolved["provider_era_folder"]),
+                )
             expected = list(generated.changed_paths)
             validation = self.command_runner(
                 [sys.executable, "-m", "py_compile", str(generated.config_path)],
@@ -309,11 +428,12 @@ class OnboardingEngine:
             if validation.returncode:
                 return StepOutcome("manual_review", step, {"stderr": validation.stderr}, "config_validation_failed")
             sha = adapter.commit_expected_files(worktree, expected, f"Onboard Pokemon set {generated.canonical_key}")
-            pr = adapter.push_and_open_pr(worktree, branch, f"Onboard Pokemon set: {api_set['name']}")
+            pr = adapter.push_and_open_pr(worktree, branch, f"Onboard Pokemon set: {name}")
             return StepOutcome(
                 "wait", "awaiting_source_deploy",
                 {
                     "canonical_key": generated.canonical_key, "era_folder": generated.era_folder,
+                    "provider_catalog_only": provider_catalog_only,
                     "source_branch": branch, "source_commit_sha": sha, **pr,
                 },
                 pr["status"],
@@ -341,14 +461,51 @@ class OnboardingEngine:
             outcome = self._command(step, ["backend/scripts/sync_pokemon_eras_and_sets.py", "--set", key, "--apply"])
             if self.execute and outcome.kind == "advance":
                 evidence = self.set_evidence_collector(key)
-                if not evidence["public_set_correct"] or not evidence["ready_for_daily_scrape"]:
+                if not evidence["public_set_correct"]:
+                    return StepOutcome("retry", step, evidence, "db_registration_verification_failed")
+                if not evidence["ready_for_daily_scrape"] and not evidence.get("catalog_only"):
                     return StepOutcome("retry", step, evidence, "db_registration_verification_failed")
                 return _next(step, evidence)
             return outcome
         if step == "initial_scrape":
-            outcome = self._command(step, ["backend/scripts/run_pokemon_set_scrape.py", "--run", "--set", key])
+            before = self.set_evidence_collector(key) if self.execute else {}
+            target_flag = "--catalog-set" if before.get("catalog_only") else "--set"
+            outcome = self._command(
+                step, ["backend/scripts/run_pokemon_set_scrape.py", "--run", target_flag, key]
+            )
             if self.execute and outcome.kind == "advance":
                 evidence = self.set_evidence_collector(key)
+                if evidence.get("catalog_only"):
+                    card_ok = (
+                        evidence.get("cards_populated")
+                        and evidence.get("variants_populated")
+                        and evidence.get("market_prices_populated")
+                    )
+                    sealed_ok = (
+                        evidence.get("sealed_products_populated")
+                        and evidence.get("sealed_market_prices_populated")
+                    )
+                    if not (card_ok or sealed_ok):
+                        return StepOutcome("retry", step, evidence, "catalog_initial_scrape_verification_failed")
+                    if evidence.get("cards_populated"):
+                        canonical = self.command_runner(
+                            [
+                                sys.executable,
+                                "backend/scripts/build_pokemon_set_desirability_inputs.py",
+                                "--set", key, "--commit", "--canonical-only",
+                            ],
+                            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                        )
+                        evidence["canonical_only_exit_code"] = canonical.returncode
+                        evidence["canonical_only_stdout_tail"] = canonical.stdout[-2000:]
+                        evidence["canonical_only_stderr_tail"] = canonical.stderr[-2000:]
+                        if canonical.returncode:
+                            return StepOutcome(
+                                "retry", step, evidence, "catalog_canonical_projection_failed"
+                            )
+                    return StepOutcome(
+                        "complete", step, {**evidence, "catalog_only_onboarding_complete": True}
+                    )
                 required = ("cards_populated", "variants_populated", "market_prices_populated", "resolved_market_date")
                 if not all(evidence.get(field) for field in required):
                     return StepOutcome("retry", step, evidence, "initial_scrape_verification_failed")

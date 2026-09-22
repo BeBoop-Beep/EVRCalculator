@@ -1,0 +1,96 @@
+name: Pokemon Catalog Recheck Refresh
+
+on:
+  schedule:
+    # Recovery slots from 09:05 through 16:05 America/Phoenix (UTC-7 year-round).
+    # If the first run is deferred by an active scrape/publication lock, later
+    # slots retry. After a successful recheck, provider_next_check_at advances
+    # 24h, so the remaining slots become cheap no-ops.
+    - cron: '5 16-23 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pokemon-catalog-recheck-refresh.yml'
+      - 'backend/scripts/refresh_due_pokemon_catalog_sets.py'
+      - 'backend/services/pokemon_set_onboarding_recheck_service.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pokemon-catalog-recheck-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Recheck and refresh changed catalog sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec 9>/tmp/pokemon-catalog-recheck.lock
+          flock -n 9 || { echo "catalog recheck already active; safe no-op"; exit 0; }
+
+          # Do not overlap a REAL card-price scrape or the post-scrape publisher.
+          # The every-minute dispatcher can spend several minutes doing idle
+          # completion/publication audits even when no scrape job exists, so its
+          # process lock is not a reliable proxy for scraping activity.
+          REPO=/home/ubuntu/repos/EVRCalculator
+          cd "$REPO"
+
+          set +e
+          ./.venv/bin/python - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          client = create_service_role_client()
+          active_jobs = list(
+              client.table("scrape_jobs")
+              .select("id,status,batch_id,market_date")
+              .in_("status", ["pending", "running"])
+              .limit(5)
+              .execute()
+              .data
+              or []
+          )
+          active_runs = list(
+              client.table("scrape_job_runs")
+              .select("id,status,job_type,market_date,batch_id")
+              .eq("status", "running")
+              .eq("job_type", "price_scrape")
+              .limit(5)
+              .execute()
+              .data
+              or []
+          )
+          if active_jobs or active_runs:
+              print(
+                  "active price scrape detected; defer catalog refresh "
+                  f"jobs={len(active_jobs)} runs={len(active_runs)}"
+              )
+              raise SystemExit(75)
+          print("active price scrape jobs=0 runs=0")
+          PY
+          guard_code=$?
+          set -e
+          if [ "$guard_code" -eq 75 ]; then
+            exit 0
+          fi
+          test "$guard_code" -eq 0
+
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -n 7 || { echo "post-scrape publisher active; defer catalog refresh"; exit 0; }
+
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main
+          git switch main
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Refusing catalog refresh: unexpected dirty production checkout" >&2
+            git status --short >&2
+            exit 2
+          fi
+          git pull --ff-only origin main
+
+          ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --commit             --limit 25             --max-provider-requests 50

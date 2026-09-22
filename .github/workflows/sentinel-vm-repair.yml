@@ -1,0 +1,169 @@
+name: Sentinel VM Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sentinel-vm-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Reconcile VM, repair Sep 21 V2 queue, publish, and validate Sentinel
+        # Retry after terminal-row starvation fix (PR #293).
+        shell: bash
+        run: |
+          set +e
+          set -u
+
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          MARKET_DATE=2026-09-21
+          BLACK_BOLT_SET_ID=41a0ac1c-27ca-444b-8665-8ba35e583a3b
+          PUBLICATION_LOCK=/tmp/pokemon-post-scrape-publication.lock
+          WATCHDOG_LOCK=/tmp/post-scrape-publication-watchdog.lock
+
+          cd "$LIVE" || exit 1
+
+          echo "=== acquire post-scrape watchdog lock ==="
+          exec 8>"$WATCHDOG_LOCK"
+          flock -w 180 8
+          LOCK_RC=$?
+          echo "watchdog_lock_rc=$LOCK_RC"
+          if [ "$LOCK_RC" -ne 0 ]; then exit 2; fi
+
+          echo "=== checkout preconditions ==="
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          TRACKED="$(git status --porcelain --untracked-files=no)"
+          printf 'tracked_status=%s\n' "$TRACKED"
+          if [ "$(git branch --show-current)" != "main" ]; then echo "FATAL non-main checkout"; exit 3; fi
+          if [ -n "$TRACKED" ]; then echo "FATAL tracked changes"; exit 4; fi
+
+          if ! /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then
+            echo "=== replace proven slow current-date publisher before syncing optimized fastpath ==="
+            set -a
+            . backend/.env
+            set +a
+            MARKET_DATE="$MARKET_DATE" "$PY" -c 'import json,os; from backend.alerts import post_scrape_publication_watchdog as w; d=os.environ["MARKET_DATE"]; i=w._validate_active_publication_identity(w._default_all_publication_processes()); print("active_publication_identity="+json.dumps(i,default=str,sort_keys=True)); (i.get("ok") or (_ for _ in ()).throw(SystemExit(51))); (str(i.get("market_date") or "") == d or (_ for _ in ()).throw(SystemExit(52))); (min(int(i.get("wrapper_age_seconds") or 0),int(i.get("refresh_age_seconds") or 0)) >= 1200 or (_ for _ in ()).throw(SystemExit(53))); w._default_terminate_process(int(i["refresh_pid"])); print("slow_current_refresh_sigterm_pid="+str(i["refresh_pid"]))'
+            REPLACE_RC=$?
+            echo "replace_slow_current_rc=$REPLACE_RC"
+            if [ "$REPLACE_RC" -ne 0 ]; then exit 5; fi
+
+            RELEASED=0
+            for i in $(seq 1 24); do
+              if /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then
+                RELEASED=1
+                echo "publication_lock_released_after_sigterm_seconds=$((i*5))"
+                break
+              fi
+              sleep 5
+            done
+            if [ "$RELEASED" -ne 1 ]; then
+              echo "FATAL publication lock remained held after bounded SIGTERM wait"
+              exit 5
+            fi
+          fi
+
+          git fetch origin main --quiet || exit 6
+          ORIGIN_MAIN="$(git rev-parse origin/main)"
+          AHEAD="$(git rev-list --count origin/main..HEAD)"
+          BEHIND="$(git rev-list --count HEAD..origin/main)"
+          echo "origin_main=$ORIGIN_MAIN"
+          echo "ahead=$AHEAD behind=$BEHIND"
+
+          if [ "$AHEAD" -gt 0 ]; then
+            command -v gh >/dev/null 2>&1 || exit 7
+            gh auth setup-git || exit 7
+            BACKUP="backup/vm-pre-repair-v4-20260921-$GITHUB_RUN_ID"
+            git push origin HEAD:"refs/heads/$BACKUP" || exit 7
+            echo "backup_branch=$BACKUP"
+          fi
+
+          echo "=== sync live checkout to canonical main ==="
+          git reset --hard origin/main || exit 8
+          LIVE_HEAD="$(git rev-parse HEAD)"
+          echo "live_head=$LIVE_HEAD"
+          echo "tracked_after=$(git status --porcelain --untracked-files=no)"
+
+          echo "=== install canonical crontab ==="
+          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab || exit 9
+          crontab -l > /tmp/sentinel-repair-v4-current.cron
+          diff -u /tmp/sentinel-repair-v4-current.cron infra/oracle/tcgplayer-scraper-pokemon.crontab
+          CRON_DIFF_RC=$?
+          echo "cron_diff_rc=$CRON_DIFF_RC"
+          if [ "$CRON_DIFF_RC" -ne 0 ]; then exit 10; fi
+
+          echo "=== focused validation ==="
+          set -a
+          . backend/.env
+          set +a
+          "$PY" -m pytest -q backend/tests/unit/sentinel/test_state_persistence_retry.py backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py backend/tests/unit/scripts/test_refresh_target_date_fastpath.py
+          TEST_RC=$?
+          echo "focused_tests_rc=$TEST_RC"
+          if [ "$TEST_RC" -ne 0 ]; then exit 11; fi
+
+          "$PY" -m py_compile backend/sentinel/state.py backend/alerts/post_scrape_publication_watchdog.py backend/db/services/price_storage_v2_projection_gate.py backend/scripts/recover_price_projection_market_date.py
+          COMPILE_RC=$?
+          echo "compile_rc=$COMPILE_RC"
+          if [ "$COMPILE_RC" -ne 0 ]; then exit 12; fi
+
+          echo "=== bounded Price Storage V2 recovery ==="
+          "$PY" -m backend.scripts.recover_price_projection_market_date --market-date "$MARKET_DATE" --rearm-terminal-set-id "$BLACK_BOLT_SET_ID" --expected-error-substring 57014 --process-limit 10 --max-rounds 30 --sleep-seconds 5
+          RECOVERY_RC=$?
+          echo "price_projection_recovery_rc=$RECOVERY_RC"
+          if [ "$RECOVERY_RC" -ne 0 ]; then exit 21; fi
+
+          echo "=== launch canonical post-scrape publication ==="
+          "$PY" -m backend.alerts.post_scrape_publication_watchdog --recover-stalled --recover-superseded
+          WATCH_RC=$?
+          echo "post_scrape_watchdog_rc=$WATCH_RC"
+
+          flock -u 8
+
+          echo "=== wait for public Sep 21 authority ==="
+          CURRENT=0
+          for i in $(seq 1 100); do
+            DATE="$(curl --fail --silent --show-error --retry 2 --retry-delay 3 --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market | "$PY" -c 'import json,sys; p=json.load(sys.stdin); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' 2>/dev/null)"
+            echo "public_market_poll=$i date=$DATE"
+            if [ "$DATE" = "$MARKET_DATE" ]; then CURRENT=1; break; fi
+            if /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then echo "publication_lock=free"; else echo "publication_lock=held"; fi
+            tail -n 10 publication.log 2>/dev/null || true
+            sleep 30
+          done
+          echo "public_market_current=$CURRENT"
+          if [ "$CURRENT" -ne 1 ]; then exit 22; fi
+
+          echo "=== Sentinel Fast/Public canaries; recovery forced off ==="
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile fast
+          FAST_RC=$?
+          echo "sentinel_fast_rc=$FAST_RC"
+
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile public
+          PUBLIC_RC=$?
+          echo "sentinel_public_rc=$PUBLIC_RC"
+
+          echo "=== final production state ==="
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "origin_main=$(git rev-parse origin/main)"
+          if /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then echo "publication_lock_final=free"; else echo "publication_lock_final=held"; fi
+
+          "$PY" -c 'import json; from collections import Counter; from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate; c=create_service_role_client(); d=evaluate_price_projection_gate(c,"2026-09-21"); print("projection_final="+json.dumps(d.to_dict(),sort_keys=True)); rows=list(c.table("price_storage_v2_shadow_queue").select("status,attempts").eq("market_date","2026-09-21").execute().data or []); print("projection_queue_statuses="+json.dumps(Counter(str(r.get("status")) for r in rows),sort_keys=True))'
+          curl --fail --silent --show-error --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market | "$PY" -c 'import json,sys; p=json.load(sys.stdin); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date"))); print("public_market_set_count="+str(len(p.get("sets") or [])))'
+
+          echo "sentinel_env_gates_begin"
+          grep -E '^SENTINEL_(STATE_WRITES_ENABLED|PERSISTENCE_SCHEMA_READY|RECOVERY_ENABLED|RECOVERY_EXECUTION_READY)=' backend/.env || true
+          echo "sentinel_env_gates_end"
+
+          echo "publication_log_tail_begin"
+          tail -n 100 publication.log 2>/dev/null || true
+          echo "publication_log_tail_end"
+
+          echo "canary_summary fast=$FAST_RC public=$PUBLIC_RC"

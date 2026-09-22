@@ -432,3 +432,201 @@ def test_dry_run_computes_card_quality_evidence_with_no_db_mutation(monkeypatch)
     assert discovery_json["card_catalog_status"] == "code_cards_only"
     assert discovery_json["raw_card_listing_count"] == 3
     assert discovery_json["processable_card_listing_count"] == 0
+
+def test_positive_card_catalog_appearing_from_unknown_is_refresh_worthy(monkeypatch):
+    monkeypatch.setattr(
+        service.jobs, "list_rechecks_v2",
+        lambda **k: [_row(
+            provider_card_listing_count=None,
+            provider_sealed_listing_count=12,
+            provider_discovery_json={},
+        )],
+    )
+    monkeypatch.setattr(
+        service, "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(30),
+    )
+    monkeypatch.setattr(service, "_fetch_listing_count", lambda requester, url, label: 12)
+    monkeypatch.setattr(
+        service.jobs, "reconcile_discovery_v2",
+        lambda **k: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(commit=True, limit=5)
+    item = result["identities"][0]
+
+    assert item["previous_card_listing_count"] is None
+    assert item["card_listing_count_changed"] is True
+    assert item["sealed_listing_count_changed"] is False
+    assert item["availability_changed"] is True
+    assert item["discovery_json"]["availability_changed"] is True
+
+
+def test_first_observed_zero_does_not_trigger_refresh(monkeypatch):
+    monkeypatch.setattr(
+        service.jobs, "list_rechecks_v2",
+        lambda **k: [_row(
+            provider_card_listing_count=None,
+            provider_sealed_listing_count=12,
+            provider_discovery_json={},
+        )],
+    )
+    monkeypatch.setattr(service, "_fetch_listing_rows", lambda requester, url, label: [])
+    monkeypatch.setattr(service, "_fetch_listing_count", lambda requester, url, label: 12)
+    monkeypatch.setattr(
+        service.jobs, "reconcile_discovery_v2",
+        lambda **k: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(commit=True, limit=5)
+    item = result["identities"][0]
+
+    assert item["card_listing_count"] == 0
+    assert item["card_listing_count_changed"] is False
+    assert item["availability_changed"] is False
+
+
+def test_code_cards_becoming_processable_triggers_refresh_even_when_raw_count_is_same(monkeypatch):
+    monkeypatch.setattr(
+        service.jobs, "list_rechecks_v2",
+        lambda **k: [_row(
+            provider_card_listing_count=3,
+            provider_sealed_listing_count=9,
+            provider_discovery_json={"processable_card_listing_count": 0},
+        )],
+    )
+    monkeypatch.setattr(
+        service, "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(3),
+    )
+    monkeypatch.setattr(service, "_fetch_listing_count", lambda requester, url, label: 9)
+    monkeypatch.setattr(
+        service.jobs, "reconcile_discovery_v2",
+        lambda **k: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(commit=True, limit=5)
+    item = result["identities"][0]
+
+    assert item["card_listing_count_changed"] is False
+    assert item["processable_cards_became_available"] is True
+    assert item["availability_changed"] is True
+
+
+def test_provider_failure_never_marks_availability_changed(monkeypatch):
+    monkeypatch.setattr(
+        service.jobs, "list_rechecks_v2",
+        lambda **k: [_row(
+            provider_card_listing_count=4,
+            provider_sealed_listing_count=8,
+            provider_discovery_json={"processable_card_listing_count": 4},
+        )],
+    )
+    monkeypatch.setattr(service, "_fetch_listing_rows", lambda requester, url, label: None)
+    monkeypatch.setattr(service, "_fetch_listing_count", lambda requester, url, label: None)
+    monkeypatch.setattr(
+        service.jobs, "reconcile_discovery_v2",
+        lambda **k: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(commit=True, limit=5)
+    item = result["identities"][0]
+
+    assert item["availability_changed"] is False
+    assert item["card_listing_count_changed"] is False
+    assert item["sealed_listing_count_changed"] is False
+
+def test_explicit_due_rows_bypass_repository_due_query(monkeypatch):
+    explicit = [_row(job_id="explicit-job", source_set_id="777")]
+    monkeypatch.setattr(
+        service.jobs,
+        "list_rechecks_v2",
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("explicit due_rows must bypass the repository due query")
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(1),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_count",
+        lambda requester, url, label: 2,
+    )
+    monkeypatch.setattr(
+        service.jobs,
+        "reconcile_discovery_v2",
+        lambda **kwargs: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(
+        commit=True,
+        limit=5,
+        max_provider_requests=10,
+        due_rows=explicit,
+    )
+
+    assert result["due_checked"] == 1
+    assert result["identities"][0]["job_id"] == "explicit-job"
+    assert result["identities"][0]["source_set_id"] == "777"
+
+
+def test_explicit_due_rows_still_respect_limit(monkeypatch):
+    explicit = [_row(job_id=f"job-{i}", source_set_id=str(800 + i)) for i in range(4)]
+    monkeypatch.setattr(
+        service.jobs,
+        "list_rechecks_v2",
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("explicit due_rows must bypass the repository due query")
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(1),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_count",
+        lambda requester, url, label: 1,
+    )
+    monkeypatch.setattr(
+        service.jobs,
+        "reconcile_discovery_v2",
+        lambda **kwargs: {"disposition": "observed_existing"},
+    )
+
+    result = service.run_recheck(
+        commit=False,
+        limit=2,
+        max_provider_requests=10,
+        due_rows=explicit,
+    )
+
+    assert result["due_checked"] == 2
+    assert [row["job_id"] for row in result["identities"]] == ["job-0", "job-1"]
+
+def test_rpc_job_id_field_is_preserved_in_result(monkeypatch):
+    explicit = [_row(job_id="rpc-job-id", source_set_id="999")]
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_rows",
+        lambda requester, url, label: _processable_rows(1),
+    )
+    monkeypatch.setattr(
+        service,
+        "_fetch_listing_count",
+        lambda requester, url, label: 1,
+    )
+
+    result = service.run_recheck(
+        commit=False,
+        limit=5,
+        max_provider_requests=10,
+        due_rows=explicit,
+    )
+
+    assert result["identities"][0]["job_id"] == "rpc-job-id"
+

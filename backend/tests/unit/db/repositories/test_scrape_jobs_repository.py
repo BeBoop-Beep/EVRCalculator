@@ -268,3 +268,65 @@ def test_rest_fallback_ready_set_ids_filter_catalog_only(monkeypatch):
     _install_fake_db(monkeypatch, fake_db)
 
     assert repo._fetch_scrape_ready_set_ids() == ["set-daily"]
+
+
+
+class _Transient57014(Exception):
+    code = "57014"
+
+
+class _BatchRpcResult:
+    def __init__(self, client):
+        self.client = client
+
+    def execute(self):
+        if self.client.fail:
+            raise _Transient57014("canceling statement due to statement timeout")
+        return SimpleNamespace(
+            data=[{
+                "id": 57,
+                "market_date": "2026-09-20",
+                "status": "running",
+                "expected_set_count": 165,
+                "queued_set_count": 165,
+            }]
+        )
+
+
+class _BatchRetryClient:
+    def __init__(self, *, fail):
+        self.fail = fail
+        self.params = None
+
+    def rpc(self, name, params):
+        assert name == "create_daily_scrape_batch"
+        self.params = dict(params)
+        return _BatchRpcResult(self)
+
+
+def test_create_daily_scrape_batch_retries_transient_statement_timeout_with_fresh_client():
+    clients = [
+        _BatchRetryClient(fail=True),
+        _BatchRetryClient(fail=False),
+    ]
+    calls = {"count": 0}
+
+    def factory():
+        client = clients[calls["count"]]
+        calls["count"] += 1
+        return client
+
+    batch = repo.create_daily_scrape_batch(
+        market_date="2026-09-20",
+        timezone_name="America/Phoenix",
+        trigger_source="scheduled",
+        client_factory=factory,
+    )
+
+    assert calls["count"] == 2
+    assert batch["id"] == 57
+    assert clients[1].params == {
+        "p_timezone": "America/Phoenix",
+        "p_trigger_source": "scheduled",
+        "p_market_date": "2026-09-20",
+    }

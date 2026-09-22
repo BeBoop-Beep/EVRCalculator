@@ -10,6 +10,7 @@ EXPECTED_SUBSETS = {
     "crownZenithGalarianGallery": ("crownZenith", "galarian_gallery"),
     "hiddenFatesShinyVault": ("hiddenFates", "shiny_vault"),
     "lostOriginTrainerGallery": ("lostOrigin", "trainer_gallery"),
+    "me30thCelebrationClassicCollection": ("me30thCelebration", "classic_collection"),
     "shiningFatesShinyVault": ("shiningFates", "shiny_vault"),
     "silverTempestTrainerGallery": ("silverTempest", "trainer_gallery"),
 }
@@ -36,3 +37,13 @@ def test_child_subsets_are_not_independent_opening_roots():
     supported = set(supported_opening_set_keys())
     assert supported.isdisjoint(EXPECTED_SUBSETS)
     assert len(supported) == 22
+
+
+def test_me30th_parent_is_a_normal_scrape_ready_root():
+    config = build_valid_set_key_registry()["config_map"]["me30thCelebration"]
+    flags = resolve_config_lifecycle_flags(config)
+    assert flags["parent_canonical_key"] is None
+    assert flags["is_subset"] is False
+    assert flags["catalog_only"] is False
+    assert flags["ready_for_daily_scrape"] is True
+    assert flags["supports_opening_simulation"] is False

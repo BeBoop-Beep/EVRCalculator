@@ -471,3 +471,40 @@ def test_fast_registry_recovery_signatures_are_the_only_initial_mutating_checks(
     assert fast.get("market.freshness").confirm_after == 2
     assert fast.get("scrape.queue_leases").confirm_after == 1
     assert PUBLICATION_RUNBOOK != LEASE_RUNBOOK
+
+
+
+def test_publication_recovery_does_not_claim_success_when_publisher_already_running():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(store)
+    live_failure = lambda *a, **k: CheckResult.failure(
+        "market.freshness",
+        failure_code="market_publication_stale",
+        authority_identity="2026-09-11",
+        checked_at=NOW,
+    )
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        publish_if_needed_fn=lambda *a, **k: {
+            "market_date": "2026-09-11",
+            "status": "noop_already_running",
+            "exit_code": 4,
+        },
+        gate_evaluator=lambda *a, **k: SimpleNamespace(
+            allowed=True, reason_code="allowed_complete", batch_id=48
+        ),
+        market_freshness_checker=live_failure,
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+    )
+
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+
+    assert report["action"] == "blocked"
+    attempt = store.get_latest_recovery_attempt(incident.id, PUBLICATION_RUNBOOK)
+    assert attempt is not None
+    assert attempt.result_json["execution"]["result"]["status"] == "noop_already_running"

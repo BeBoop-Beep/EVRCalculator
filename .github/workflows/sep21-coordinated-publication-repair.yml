@@ -1,0 +1,201 @@
+name: Sep 21 Coordinated Publication Repair
+# Retriggered after self-hosted runner recovery; keep publisher foreground-bound.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sep21-coordinated-publication-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/sentinel-continuation-20260921
+          fetch-depth: 1
+
+      - name: Replace stale publisher, sync main, publish Sep 21, and validate
+        shell: bash
+        run: |
+          set -uo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          TARGET=2026-09-21
+          PUBLICATION_LOCK=/tmp/pokemon-post-scrape-publication.lock
+          WATCHDOG_LOCK=/tmp/post-scrape-publication-watchdog.lock
+          REPORT=$RUNNER_TEMP/sep21-coordinated-publication-repair.txt
+
+          : > "$REPORT"
+          exec > >(tee -a "$REPORT") 2>&1
+
+          echo "=== Sep 21 coordinated publication repair ==="
+          echo "utc_now=$(date -u +%FT%TZ)"
+          echo "phoenix_now=$(TZ=America/Phoenix date +%FT%T%z)"
+
+          cd "$LIVE" || exit 1
+
+          exec 8>"$WATCHDOG_LOCK"
+          flock -w 180 8
+          LOCK_RC=$?
+          echo "watchdog_lock_rc=$LOCK_RC"
+          if [ "$LOCK_RC" -ne 0 ]; then exit 2; fi
+
+          echo "=== live checkout before ==="
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          TRACKED="$(git status --porcelain --untracked-files=no)"
+          printf 'tracked_status=%s\n' "$TRACKED"
+          if [ "$(git branch --show-current)" != "main" ]; then echo "FATAL non-main checkout"; exit 3; fi
+          if [ -n "$TRACKED" ]; then echo "FATAL tracked changes"; exit 4; fi
+
+          git fetch origin main --quiet || exit 5
+          ORIGIN_MAIN="$(git rev-parse origin/main)"
+          AHEAD="$(git rev-list --count origin/main..HEAD)"
+          BEHIND="$(git rev-list --count HEAD..origin/main)"
+          echo "origin_main=$ORIGIN_MAIN ahead=$AHEAD behind=$BEHIND"
+          if [ "$AHEAD" -gt 0 ]; then
+            echo "FATAL live checkout is ahead of origin/main; refusing destructive reset"
+            exit 6
+          fi
+
+          if ! /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then
+            echo "=== exact active publisher replacement ==="
+            set -a
+            . backend/.env
+            set +a
+            TARGET="$TARGET" "$PY" -c 'import json,os; from backend.alerts import post_scrape_publication_watchdog as w; target=os.environ["TARGET"]; ident=w._validate_active_publication_identity(w._default_all_publication_processes()); print("active_identity="+json.dumps(ident,default=str,sort_keys=True)); (ident.get("ok") or (_ for _ in ()).throw(SystemExit(61))); (str(ident.get("market_date") or "") == target or (_ for _ in ()).throw(SystemExit(62))); w._default_terminate_process(int(ident["refresh_pid"])); print("sigterm_refresh_pid="+str(ident["refresh_pid"]))'
+            STOP_RC=$?
+            echo "publisher_replace_rc=$STOP_RC"
+            if [ "$STOP_RC" -ne 0 ]; then exit 7; fi
+
+            RELEASED=0
+            for i in $(seq 1 24); do
+              if /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then
+                RELEASED=1
+                echo "publication_lock_released_after_seconds=$((i*5))"
+                break
+              fi
+              sleep 5
+            done
+            if [ "$RELEASED" -ne 1 ]; then
+              echo "FATAL publication lock did not release after exact refresh SIGTERM"
+              exit 8
+            fi
+          else
+            echo "publication_lock_before_sync=free"
+          fi
+
+          echo "=== sync production VM to current main ==="
+          git reset --hard origin/main || exit 9
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "origin_main_after=$(git rev-parse origin/main)"
+          echo "tracked_after=$(git status --porcelain --untracked-files=no)"
+
+          crontab infra/oracle/tcgplayer-scraper-pokemon.crontab || exit 10
+          crontab -l > "$RUNNER_TEMP/current.cron"
+          diff -u "$RUNNER_TEMP/current.cron" infra/oracle/tcgplayer-scraper-pokemon.crontab
+          CRON_RC=$?
+          echo "cron_diff_rc=$CRON_RC"
+          if [ "$CRON_RC" -ne 0 ]; then exit 11; fi
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== focused source validation ==="
+          "$PY" -m py_compile backend/scripts/refresh_stale_public_snapshots.py backend/alerts/post_scrape_publication_watchdog.py
+          COMPILE_RC=$?
+          echo "compile_rc=$COMPILE_RC"
+          if [ "$COMPILE_RC" -ne 0 ]; then exit 12; fi
+
+          "$PY" -m pytest -q backend/tests/unit/scripts/test_refresh_target_date_fastpath.py backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py
+          TEST_RC=$?
+          echo "focused_tests_rc=$TEST_RC"
+          if [ "$TEST_RC" -ne 0 ]; then exit 13; fi
+
+          echo "=== production fast-path preflight ==="
+          TARGET="$TARGET" "$PY" -c 'import json,os,sys; from backend.scripts import refresh_stale_public_snapshots as r; c=r.get_client(); ids=r._load_completed_scrape_set_ids(c,os.environ["TARGET"]); print("completed_scrape_ids="+str(len(ids or []))); out=r._load_target_snapshot_market_dates(c,sorted(ids or []),window="365d") if ids is not None else None; print("fastpath_preload="+("ready" if out is not None else "unreadable")); print("cards_preloaded="+str(len(out[0]) if out else 0)); print("market_preloaded="+str(len(out[1]) if out else 0)); sys.exit(0 if ids is not None and out is not None else 41)'
+          PREFLIGHT_RC=$?
+          echo "fastpath_preflight_rc=$PREFLIGHT_RC"
+          if [ "$PREFLIGHT_RC" -ne 0 ]; then exit 14; fi
+
+          echo "=== pre-publication authority ==="
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market > "$RUNNER_TEMP/before-market.json"
+          BEFORE_RC=$?
+          echo "before_public_curl_rc=$BEFORE_RC"
+          if [ "$BEFORE_RC" -eq 0 ]; then
+            MARKET_JSON="$RUNNER_TEMP/before-market.json" "$PY" -c 'import json,os; p=json.load(open(os.environ["MARKET_JSON"])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("before_public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date"))); print("before_public_market_set_count="+str(len(p.get("sets") or [])))'
+          fi
+
+          echo "=== canonical direct publication ==="
+          timeout 6600 backend/scripts/rebuild_snapshots_after_scrape.sh "$TARGET"
+          PUBLISH_RC=$?
+          echo "canonical_publication_rc=$PUBLISH_RC"
+          if [ "$PUBLISH_RC" -ne 0 ]; then
+            tail -n 220 publication.log 2>/dev/null || true
+            exit 15
+          fi
+
+          echo "=== maintained Explorer cache prewarm ==="
+          "$PY" -m backend.scripts.run_market_explorer_maintained_cache_prewarm --commit
+          PREWARM_RC=$?
+          echo "explorer_prewarm_rc=$PREWARM_RC"
+
+          echo "=== production database coherence ==="
+          TARGET="$TARGET" "$PY" -c 'import json,os; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); target=os.environ["TARGET"]; sets=list(c.table("sets").select("id,canonical_key,ready_for_daily_scrape,catalog_only").execute().data or []); tracked=[r for r in sets if r.get("ready_for_daily_scrape") and not r.get("catalog_only")]; tracked_ids={str(r["id"]) for r in tracked if r.get("id")}; cards=list(c.table("pokemon_set_cards_snapshot_latest").select("set_id,pricing_market_date:payload_json->meta->pricingContract->>latestMarketDate").execute().data or []); card_ids={str(r["set_id"]) for r in cards if r.get("set_id") and str(r.get("pricing_market_date") or "")[:10] == target}; dash=list(c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date").eq("window_key","365d").eq("latest_market_date",target).execute().data or []); dash_ids={str(r["set_id"]) for r in dash if r.get("set_id")}; print("tracked_daily="+str(len(tracked_ids))); print("cards_target="+str(len(card_ids & tracked_ids))); print("dashboard_target="+str(len(dash_ids & tracked_ids))); print("cards_missing="+json.dumps(sorted(tracked_ids-card_ids)[:30])); print("dashboard_missing="+json.dumps(sorted(tracked_ids-dash_ids)[:30])); g=list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,set_count,updated_at").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or []); print("global_set_value="+json.dumps(g,default=str,sort_keys=True)); rr=list(c.table("pokemon_explore_rankings_snapshot_latest").select("ranking_payload_json,updated_at").eq("tcg","pokemon").eq("scope","rip-statistics").limit(1).execute().data or []); meta=(rr[0].get("ranking_payload_json") or {}).get("meta") if rr else {}; snap=(meta or {}).get("snapshot") or {}; print("rankings_market_date="+str(snap.get("marketDate") or (meta or {}).get("marketDate"))); targets=["prismaticEvolutions","skyridge"]; chosen=[r for r in sets if r.get("canonical_key") in targets]; print("chosen_sets="+json.dumps(chosen,default=str,sort_keys=True)); ids=[str(r["id"]) for r in chosen]; crows=list(c.table("pokemon_set_cards_snapshot_latest").select("set_id,updated_at,pricing_market_date:payload_json->meta->pricingContract->>latestMarketDate").in_("set_id",ids).execute().data or []) if ids else []; drows=list(c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date,updated_at").eq("window_key","365d").in_("set_id",ids).execute().data or []) if ids else []; print("chosen_cards="+json.dumps(crows,default=str,sort_keys=True)); print("chosen_dashboard="+json.dumps(drows,default=str,sort_keys=True))'
+          DB_RC=$?
+          echo "db_coherence_rc=$DB_RC"
+          if [ "$DB_RC" -ne 0 ]; then exit 16; fi
+
+          echo "=== public authority after publication ==="
+          CURRENT=0
+          for i in $(seq 1 12); do
+            curl --fail --silent --show-error --retry 2 --retry-delay 3 --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market > "$RUNNER_TEMP/after-market.json"
+            CURL_RC=$?
+            if [ "$CURL_RC" -eq 0 ]; then
+              DATE="$(MARKET_JSON="$RUNNER_TEMP/after-market.json" "$PY" -c 'import json,os; p=json.load(open(os.environ["MARKET_JSON"])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))')"
+            else
+              DATE=""
+            fi
+            echo "public_poll=$i date=$DATE curl_rc=$CURL_RC"
+            if [ "$DATE" = "$TARGET" ]; then CURRENT=1; break; fi
+            sleep 15
+          done
+          echo "public_market_current=$CURRENT"
+          if [ "$CURRENT" -ne 1 ]; then exit 17; fi
+
+          MARKET_JSON="$RUNNER_TEMP/after-market.json" "$PY" -c 'import json,os; p=json.load(open(os.environ["MARKET_JSON"])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print("after_public_market_date="+str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date"))); print("after_public_market_set_count="+str(len(p.get("sets") or [])))'
+
+          echo "=== Sentinel observation canaries ==="
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile fast
+          FAST_RC=$?
+          echo "sentinel_fast_rc=$FAST_RC"
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" SENTINEL_RECOVERY_ENABLED=false SENTINEL_RECOVERY_EXECUTION_READY=false "$PY" -m backend.sentinel.operational --profile public
+          PUBLIC_RC=$?
+          echo "sentinel_public_rc=$PUBLIC_RC"
+
+          echo "=== final lock and log tail ==="
+          if /usr/bin/flock -n "$PUBLICATION_LOCK" -c true; then echo "publication_lock_final=free"; else echo "publication_lock_final=held"; fi
+          tail -n 160 publication.log 2>/dev/null || true
+          echo "canary_summary fast=$FAST_RC public=$PUBLIC_RC prewarm=$PREWARM_RC"
+
+          flock -u 8
+
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p ops/assistant
+          cp "$REPORT" ops/assistant/sep21-coordinated-publication-repair.txt
+          git config user.name "inDex ops runner"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/sep21-coordinated-publication-repair.txt
+          git commit -m "ops: capture Sep 21 coordinated publication repair"
+          git push origin HEAD:ops/sentinel-continuation-20260921
+
+          if [ "$FAST_RC" -ne 0 ] || [ "$PUBLIC_RC" -ne 0 ]; then
+            exit 18
+          fi

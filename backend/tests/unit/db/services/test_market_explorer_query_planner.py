@@ -177,12 +177,24 @@ class WatermarkClient:
             "comparison_as_of": "2026-08-27",
         }]
 
+    def rpc(self, name, payload):
+        if name != "get_pokemon_market_explorer_set_history_coverage_v1":
+            raise AssertionError(name)
+        if not self.has_history:
+            rows = []
+        else:
+            requested = payload.get("p_set_ids")
+            if requested and "set-a" not in requested:
+                rows = []
+            else:
+                rows = [{
+                    "set_id": "set-a",
+                    "first_snapshot_date": "2026-08-01",
+                    "latest_snapshot_date": self.coverage_latest,
+                }]
+        return type("Response", (), {"data": rows, "execute": lambda self: self})()
+
     def table(self, name):
-        if name == "pokemon_set_value_daily_history_coverage":
-            rows = ([{"set_id": "set-a", "has_history": True,
-                      "latest_snapshot_date": self.coverage_latest}]
-                    if self.has_history else [])
-            return WatermarkQuery(rows)
         if name == "pokemon_market_date_quality":
             return WatermarkQuery(self.quality)
         if name == "sets":

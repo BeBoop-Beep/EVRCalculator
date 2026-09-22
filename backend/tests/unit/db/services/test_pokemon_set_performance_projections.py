@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 import pytest
 
 from backend.db.services import pokemon_public_snapshot_service as snapshots
@@ -27,6 +28,21 @@ def test_route_directory_rpc_projects_published_targets_inside_postgres():
     assert "security invoker" in sql
     assert "from anon, authenticated" in sql
 
+
+
+
+def test_current_route_directory_migration_never_expands_rankings_publication_json():
+    sql = (
+        ROOT
+        / "backend/db/migrations/20260921183500_restore_slim_pokemon_set_route_directory.sql"
+    ).read_text()
+    lowered = sql.lower()
+    assert "pokemon_explore_rankings_snapshot_latest" not in lowered
+    assert "jsonb_array_elements" not in lowered
+    assert "set_pack_score_rankings_latest" not in lowered
+    assert "null::numeric as pack_score" in lowered
+    assert "null::integer as pack_rank" in lowered
+    assert "grant execute" in lowered and "service_role" in lowered
 
 def test_route_directory_has_no_noncanonical_relational_fallback():
     source = (ROOT / "backend/db/services/pokemon_set_route_directory_service.py").read_text()
@@ -155,3 +171,88 @@ def test_market_signals_missing_and_incomplete_contracts(monkeypatch, rows, stat
         snapshots.get_pokemon_set_market_signals_snapshot_payload("75cd439d-aaa2-41cb-86f3-2fefa5b26e29")
     assert exc.value.status_code == status
     assert exc.value.code == code
+
+
+def _route_directory_rows():
+    return [
+        {
+            "target_id": "42a3740d-4778-4857-9c28-e116f34b51f3",
+            "name": "Neo Destiny",
+            "canonical_key": "neoDestiny",
+            "release_date": "2002-02-28",
+            "era": {"id": "neo", "name": "Neo"},
+            "pack_score": None,
+            "relative_pack_score": None,
+            "pack_rank": None,
+            "pack_tier": None,
+            "ranked_set_count": None,
+        },
+        {
+            "target_id": "set-2",
+            "name": "Another Set",
+            "canonical_key": "anotherSet",
+            "release_date": "2001-01-01",
+            "era": None,
+            "pack_score": 50,
+            "relative_pack_score": 50,
+            "pack_rank": 10,
+            "pack_tier": "B",
+            "ranked_set_count": 20,
+        },
+    ]
+
+
+def test_route_directory_enriches_canonical_card_counts_without_changing_membership(monkeypatch):
+    route_rows = _route_directory_rows()
+    calls = []
+
+    def retry(_operation, *, operation_name, **_kwargs):
+        calls.append(operation_name)
+        if operation_name == "pokemon_set_route_directory":
+            return SimpleNamespace(data=route_rows)
+        if operation_name == "pokemon_set_route_directory_card_counts":
+            return SimpleNamespace(
+                data=[
+                    {"set_id": "42a3740d-4778-4857-9c28-e116f34b51f3", "card_count": 113},
+                    {"set_id": "set-2", "card_count": 42},
+                ]
+            )
+        raise AssertionError(operation_name)
+
+    monkeypatch.setattr(directory, "run_public_read_with_retry", retry)
+
+    payload = directory.get_pokemon_set_route_directory_payload(limit=200)
+
+    assert [row["target_id"] for row in payload["targets"]] == [
+        "42a3740d-4778-4857-9c28-e116f34b51f3",
+        "set-2",
+    ]
+    assert payload["targets"][0]["card_count"] == 113
+    assert payload["targets"][0]["cardCount"] == 113
+    assert payload["targets"][1]["card_count"] == 42
+    assert payload["meta"]["cardCountSource"] == "get_pokemon_canonical_card_counts_by_set"
+    assert calls == [
+        "pokemon_set_route_directory",
+        "pokemon_set_route_directory_card_counts",
+    ]
+
+
+def test_route_directory_card_count_failure_never_breaks_route_membership(monkeypatch):
+    route_rows = _route_directory_rows()
+
+    def retry(_operation, *, operation_name, **_kwargs):
+        if operation_name == "pokemon_set_route_directory":
+            return SimpleNamespace(data=route_rows)
+        if operation_name == "pokemon_set_route_directory_card_counts":
+            raise TimeoutError("temporary count lookup failure")
+        raise AssertionError(operation_name)
+
+    monkeypatch.setattr(directory, "run_public_read_with_retry", retry)
+
+    payload = directory.get_pokemon_set_route_directory_payload(limit=200)
+
+    assert len(payload["targets"]) == 2
+    assert payload["targets"][0]["target_id"] == "42a3740d-4778-4857-9c28-e116f34b51f3"
+    assert payload["targets"][0]["card_count"] is None
+    assert payload["targets"][1]["card_count"] is None
+    assert payload["meta"]["cardCountSource"] == "unavailable"

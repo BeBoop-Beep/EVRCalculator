@@ -219,10 +219,11 @@ def test_the_lock_wraps_both_the_refresh_and_the_audit(script_code):
     assert lock_at < refresh_at < audit_at, "the lock must be acquired before either stage runs"
 
 
-def test_a_held_lock_is_a_safe_no_op_not_a_failure(script_text):
+def test_a_held_lock_has_a_distinct_safe_noop_exit_code(script_text):
     lock_at = script_text.index("flock -n")
-    tail = script_text[lock_at:lock_at + 400]
-    assert "exit 0" in tail
+    tail = script_text[lock_at:lock_at + 600]
+    assert "LOCK_HELD_EXIT_CODE=4" in script_text
+    assert 'exit "${LOCK_HELD_EXIT_CODE}"' in tail
     assert "already running" in tail or "no-op" in tail
 
 

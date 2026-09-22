@@ -113,6 +113,7 @@ def test_release_for_retry_v2_is_fenced_by_lease_token_and_expected_step(monkeyp
     assert params["p_lease_token"] == "secret-token"
     assert params["p_expected_step"] == "market_snapshots"
     assert params["p_fields"]["status"] == "retry"
+    assert params["p_fields"]["current_step"] == "market_snapshots"
     assert params["p_fields"]["last_error_code"] == "step_failed"
 
 
