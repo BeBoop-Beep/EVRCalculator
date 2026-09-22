@@ -510,6 +510,62 @@ def _wire_process_single_set(monkeypatch, *, cards, canonical_rows):
     )
 
 
+
+def test_process_single_set_promotes_fallback_identity_after_image_hydration(monkeypatch):
+    """A newly hydrated Scrydex/PokemonTCG id must replace, not duplicate, a fallback canonical id."""
+    cards = [{
+        "id": "legacy-1",
+        "set_id": "set-normal-1",
+        "name": "Ultra Ball",
+        "rarity": "Uncommon",
+        "card_number": "001/120",
+        "pokemon_tcg_api_id": "me55c-1",
+        "image_small_url": "https://images.scrydex.com/pokemon/me55c-1/small",
+        "image_large_url": "https://images.scrydex.com/pokemon/me55c-1/large",
+    }]
+    canonical_rows = [{
+        "id": "fallback-1",
+        "set_id": "set-normal-1",
+        "pokemon_tcg_api_card_id": "fallback:set-normal-1:001/120:ultra ball",
+        "name": "Ultra Ball",
+        "number": "1",
+        "source": combined.FALLBACK_SOURCE,
+    }]
+    _wire_process_single_set(
+        monkeypatch,
+        cards=cards,
+        canonical_rows=canonical_rows,
+    )
+    upserts = []
+    monkeypatch.setattr(
+        combined,
+        "_upsert_canonical_rows",
+        lambda _client, rows: upserts.extend(rows) or len(rows),
+    )
+    client = _CanonicalPromoteClient()
+
+    result = combined._process_single_set(
+        client=client,
+        set_row={
+            **_NORMAL_SET_ROW,
+            "id": "set-normal-1",
+            "pokemon_api_set_id": "me55c",
+        },
+        dry_run=False,
+    )
+
+    assert result["rows_upsert_planned"] == 1
+    assert result["rows_identity_promoted"] == 1
+    assert result["rows_upserted"] == 1
+    assert upserts == [], "promotion must update the existing canonical row, never insert a duplicate"
+    assert len(client.updates) == 1
+    field, canonical_id, payload = client.updates[0]
+    assert (field, canonical_id) == ("id", "fallback-1")
+    assert payload["pokemon_tcg_api_card_id"] == "me55c-1"
+    assert payload["name"] == "Ultra Ball"
+    assert payload["image_small_url"].endswith("/me55c-1/small")
+
+
 def test_catalog_only_fallback_rows_carry_explicit_eligibility_fields(monkeypatch):
     captured_rows = []
     _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "001/120")], canonical_rows=[])
