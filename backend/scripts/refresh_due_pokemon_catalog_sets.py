@@ -349,28 +349,29 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
         for command in commands[start_index:]:
             result = _run(command)
             entry["results"].append(result)
-            if result["exit_code"] != 0:
-                # API enrichment and canonical projection are both critical
-                # once processable cards exist.  Publishing snapshots after a
-                # failed image sync would recreate the exact "cards exist but
-                # card art/API identity is missing" state this lane repairs.
-                if "sync_pokemon_images.py" in command:
-                    entry["status"] = "pokemon_api_image_sync_failed"
-                    critical_failures += 1
-                elif "build_pokemon_set_desirability_inputs.py" in command:
-                    entry["status"] = "canonical_projection_failed"
-                    critical_failures += 1
-                else:
-                    snapshot_warnings += 1
-                    continue
-                    if item.get("job_id"):
-                        retry_at = _retry_at()
-                        try:
-                            _set_provider_next_check_at(supabase, str(item["job_id"]), retry_at)
-                            entry["retry_scheduled_at"] = retry_at
-                        except Exception as exc:
-                            entry["retry_schedule_error"] = str(exc)
-                    break
+            if result["exit_code"] == 0:
+                continue
+
+            # API enrichment and canonical projection are both critical once
+            # processable cards exist. Publishing snapshots after either fails
+            # would leave a partially-onboarded card surface.
+            if "sync_pokemon_images.py" in command:
+                entry["status"] = "pokemon_api_image_sync_failed"
+            elif "build_pokemon_set_desirability_inputs.py" in command:
+                entry["status"] = "canonical_projection_failed"
+            else:
+                snapshot_warnings += 1
+                continue
+
+            critical_failures += 1
+            if item.get("job_id"):
+                retry_at = _retry_at()
+                try:
+                    _set_provider_next_check_at(supabase, str(item["job_id"]), retry_at)
+                    entry["retry_scheduled_at"] = retry_at
+                except Exception as exc:
+                    entry["retry_schedule_error"] = str(exc)
+            break
         else:
             entry["status"] = (
                 "refreshed_with_snapshot_warnings" if snapshot_warnings else "refreshed"
