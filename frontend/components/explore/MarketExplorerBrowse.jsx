@@ -3,6 +3,18 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { groupPreparedDirectory } from "@/lib/explore/marketExplorerPrepared.mjs";
 
 const CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Markets"]];
+const QUICK_COPY = {
+  Obtainable: ["Obtainable Cards", "Lower-priced cards grouped as a card market."],
+  Intermediate: ["Intermediate Cards", "Mid-priced cards grouped as a card market."],
+  Premium: ["Premium Cards", "Higher-priced cards grouped as a card market."],
+  "New Releases": ["New Release Cards", "Cards from newer releases."],
+  Established: ["Established Cards", "Cards from established releases."],
+  "Global Top 10": ["Global Top 10 Cards", "The ten highest-ranked cards in the global card market."],
+};
+const displayMarket = (market) => {
+  const copy = market?.market_type === "curated" ? QUICK_COPY[market.label] : null;
+  return { label: copy?.[0] || market.label, description: copy?.[1] || null };
+};
 
 export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], canCompare, onSelect, onCompare, onBuild }) {
   const [open, setOpen] = useState(null);
@@ -31,9 +43,10 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
   const row = (market, index) => {
     const active = activeKeys.includes(market.market_key);
     const highlighted = index === highlightedIndex;
+    const display = displayMarket(market);
     return <li key={market.market_key} role="option" aria-selected={active} id={`${listboxId}-${index}`} className={`flex items-center gap-2 rounded-md border-l-2 ${active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.12)]" : highlighted ? "border-sky-400/60 bg-sky-400/[.08]" : "border-transparent"}`}>
-      <button type="button" data-prepared-market={market.market_key} data-search-highlighted={highlighted ? "true" : "false"} aria-pressed={active} onClick={() => choose(market.market_key)} className="min-w-0 flex-1 px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"><strong className={`block truncate text-xs ${active ? "font-bold text-[rgb(45,212,191)]" : "text-[var(--text-primary)]"}`}>{market.label}{active ? <span aria-label="Active market"> ✓</span> : null}</strong><span className="text-[10px] text-[var(--text-secondary)]">{market.current_value == null ? "Value unavailable" : `$${Number(market.current_value).toLocaleString()}`}</span></button>
-      <button type="button" data-compare-market={market.market_key} onClick={() => onCompare(market.market_key)} className="mr-1 rounded border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)]">+ Compare{canCompare ? "" : " with Index+"}</button>
+      <button type="button" data-prepared-market={market.market_key} data-search-highlighted={highlighted ? "true" : "false"} aria-pressed={active} onClick={() => choose(market.market_key)} className="min-w-0 flex-1 px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"><strong className={`block truncate text-xs ${active ? "font-bold text-[rgb(45,212,191)]" : "text-[var(--text-primary)]"}`}>{display.label}{active ? <span aria-label="Active market"> ✓</span> : null}</strong>{display.description ? <span className="block text-[9px] text-[var(--text-secondary)]">{display.description}</span> : null}<span className="text-[10px] text-[var(--text-secondary)]">{market.current_value == null ? "Value unavailable" : `${Number(market.current_value).toLocaleString()}`}</span></button>
+      <button type="button" data-compare-market={market.market_key} aria-pressed={active} onClick={() => onCompare(market.market_key)} className={`mr-1 rounded border px-2 py-1 text-[10px] font-semibold ${active ? "border-[rgba(248,113,113,.45)] text-[rgb(248,113,113)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{active ? "Remove" : `+ Compare${canCompare ? "" : " with Index+"}`}</button>
     </li>;
   };
   let rowIndex = 0;
