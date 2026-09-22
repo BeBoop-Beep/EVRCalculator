@@ -18,7 +18,6 @@ import {
   projectMarketChartValues,
 } from "./marketPerformanceDomain.mjs";
 import { formatIndexValue, formatMarketDate, formatShortDate } from "@/lib/explore/marketOverviewPresentation.mjs";
-import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 
 // Purpose-built dual-series index chart.
 //
@@ -32,6 +31,8 @@ import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interp
 // never share this axis.
 const VIEW_WIDTH = 100;
 const VIEW_HEIGHT = 46;
+const POSITIVE_MARKET_VALUE_COLOR = "rgba(45,212,191,0.96)";
+const NEGATIVE_MARKET_VALUE_COLOR = "rgba(248,113,113,0.92)";
 const PLOT_TOP = 3;
 const PLOT_BOTTOM = 43;
 
@@ -330,11 +331,11 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
                         {isIndexView ? (
                           <>
                             <span className="block" style={{ color: reading.color }}>Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
-                            <span className="block text-[9px] font-normal" style={{ color: reading.performanceValue > 0 ? POSITIVE_VALUE_COLOR : reading.performanceValue < 0 ? NEGATIVE_VALUE_COLOR : "var(--text-secondary)" }}>{timeframe} Performance {reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                            <span className="block text-[9px] font-normal" style={{ color: reading.performanceValue > 0 ? POSITIVE_MARKET_VALUE_COLOR : reading.performanceValue < 0 ? NEGATIVE_MARKET_VALUE_COLOR : "var(--text-secondary)" }}>{timeframe} Performance {reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
                           </>
                         ) : (
                           <>
-                            <span className="block" style={{ color: reading.performanceValue > 0 ? POSITIVE_VALUE_COLOR : reading.performanceValue < 0 ? NEGATIVE_VALUE_COLOR : reading.color }}>{reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                            <span className="block" style={{ color: reading.performanceValue > 0 ? POSITIVE_MARKET_VALUE_COLOR : reading.performanceValue < 0 ? NEGATIVE_MARKET_VALUE_COLOR : reading.color }}>{reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
                             <span className="block text-[9px] font-normal" style={{ color: reading.color }}>Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
                           </>
                         )}
