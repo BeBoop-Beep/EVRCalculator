@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarketExplorerChart from "./MarketExplorerChart";
 import MarketExplorerDetails from "./MarketExplorerDetails";
-import MarketExplorerSeriesCard from "./MarketExplorerSeriesCard";
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
 import MarketExplorerConstituents from "./MarketExplorerConstituents";
 import MarketExplorerActiveMarkets from "./MarketExplorerActiveMarkets";
@@ -15,7 +14,6 @@ import MarketExplorerContextRanking from "./MarketExplorerContextRanking";
 import MarketExplorerExactBasket from "./MarketExplorerExactBasket";
 import { buildPreparedSeries } from "@/lib/explore/marketExplorerPrepared.mjs";
 import {
-  buildAssetMarketModel,
   buildBenchmarkModel,
   buildExplorerTimeframeOptions,
   resolveExplorerTimeframe,
@@ -264,10 +262,6 @@ export default function MarketExplorerClient({
 
   // Asset Market is the ASSET CLASSES only. Per-Set Chase is a ranking mode
   // applied to cards, not a fourth asset, so it moved to Benchmarks.
-  const assetEntries = useMemo(
-    () => buildAssetMarketModel(overview, assetUniverse),
-    [overview, assetUniverse]
-  );
   const benchmarkEntries = useMemo(
     () => buildBenchmarkModel(overview, assetUniverse),
     [overview, assetUniverse]
@@ -307,10 +301,6 @@ export default function MarketExplorerClient({
     setBuilderMode(series.spec?.membershipMode === "explicit" ? "exact" : "filters");
     setBuilderOpen(true);
   }, []);
-
-  // Only the PUBLISHED asset-class cards get a top-level card; the graded
-  // placeholder is a disabled rail option, not a card with no numbers in it.
-  const assetCards = assetEntries;
 
   if (!overview || !overview.families?.length) {
     return (
