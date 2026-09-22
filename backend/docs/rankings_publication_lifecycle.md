@@ -20,13 +20,14 @@ The publisher's existing payload validation remains the final defensive boundary
 an orchestration and operations contract; it does not replace or loosen publisher validation.
 
 Before step 2 launches missing work, the orchestrator records the Phoenix execution date for
-diagnostics but does not treat a date rollover as a publication blocker. Modern calculation runs carry
-the promoted `calculation_runs.market_date`, and `calculation_history_daily_latest` uses that business
-date (falling back to `created_at::date` only for legacy rows). A run executed after midnight can
-therefore repair a missing set for the prior promoted market date: the runner receives the explicit
-`--market-date`, persists it on the replacement run, and the freshness gate re-verifies the exact
-promoted-date cohort. The legacy `DEFERRED_SIMULATION_DATE_ROLLOVER` reason remains historical
-lifecycle vocabulary but is no longer emitted by the daily orchestrator.
+diagnostics. Modern calculation runs carry the promoted `calculation_runs.market_date`, and
+`calculation_history_daily_latest` uses that business date (falling back to `created_at::date` only
+for legacy rows). A run executed after midnight can therefore repair a missing set for the prior
+promoted market date while that date is still the latest promoted price authority: the runner receives
+the explicit `--market-date`, persists it on the replacement run, and the freshness gate re-verifies
+the exact promoted-date cohort. Once a newer scrape batch is promoted, historical simulation repair is
+refused because current price inputs could otherwise be mislabeled as older evidence. The legacy
+`DEFERRED_SIMULATION_DATE_ROLLOVER` reason code is retained for that superseded-authority refusal.
 
 ## Failure behavior
 
