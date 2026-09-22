@@ -1,0 +1,40 @@
+name: Market Explorer PR300 Focused Tests
+
+on:
+  push:
+    branches: [ops/market-explorer-finish-20260921]
+    paths:
+      - '.github/workflows/market-explorer-pr300-tests-20260921.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout synthetic PR merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/BeBoop-Beep/EVRCalculator.git repo
+          cd repo
+          git fetch origin refs/pull/300/merge
+          git checkout --detach FETCH_HEAD
+          echo "merge_head=$(git rev-parse HEAD)"
+          echo "parent1=$(git rev-parse HEAD^1)"
+          echo "parent2=$(git rev-parse HEAD^2)"
+      - name: Install focused test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd repo
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest
+      - name: Run merged Market Explorer focused suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd repo
+          python -m pytest -q             backend/tests/unit/db/services/test_market_explorer_query_planner.py             backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py             backend/tests/unit/db/services/test_post_scrape_publication_trigger.py             backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py
