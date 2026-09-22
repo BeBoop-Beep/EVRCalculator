@@ -7,9 +7,11 @@ on:
       - 'backend/scripts/refresh_due_pokemon_catalog_sets.py'
       - 'backend/scripts/operationalize_historical_rip.py'
       - 'backend/services/pokemon_set_onboarding_service.py'
+      - 'backend/db/services/pokemon_tcg_image_sync_service.py'
       - 'backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py'
       - 'backend/tests/unit/scripts/test_operationalize_historical_rip.py'
       - 'backend/tests/unit/services/test_pokemon_set_onboarding_service.py'
+      - 'backend/tests/unit/db/services/test_pokemon_tcg_image_sync_service.py'
       - '.github/workflows/test-new-set-enrichment-integrity.yml'
 
 permissions:
@@ -38,10 +40,12 @@ jobs:
           python -m py_compile \
             backend/scripts/refresh_due_pokemon_catalog_sets.py \
             backend/scripts/operationalize_historical_rip.py \
-            backend/services/pokemon_set_onboarding_service.py
+            backend/services/pokemon_set_onboarding_service.py \
+            backend/db/services/pokemon_tcg_image_sync_service.py
       - name: Run focused regressions
         run: |
           python -m pytest -q \
             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py \
             backend/tests/unit/scripts/test_operationalize_historical_rip.py \
-            backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+            backend/tests/unit/services/test_pokemon_set_onboarding_service.py \
+            backend/tests/unit/db/services/test_pokemon_tcg_image_sync_service.py
