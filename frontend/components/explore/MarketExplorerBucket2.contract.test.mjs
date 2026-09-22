@@ -66,7 +66,18 @@ test("Build modal unifies exact Cards/Products and Custom Filters", async () => 
   assert.match(picker, /Cards/);
   assert.match(picker, /Products/);
   assert.match(picker, /Custom Filters/);
-  assert.match(client, /setBuilderInitialScope\("filters"\)/);
+  assert.match(client, /setBuilderInitialScope\(series\.spec\?\.membershipMode === "explicit" \? \(series\.spec\?\.asset === "sealed" \? "sealed" : "cards"\) : "filters"\)/);
   assert.match(client, /setBuilderOpen\(true\)/);
   assert.match(query, /presentation === "sidebar"/);
+});
+
+
+test("Index+ prepared selection accumulates and compare controls toggle Remove without clearing other lanes", async () => {
+  const client = await read("./MarketExplorerClient.jsx");
+  const browse = await read("./MarketExplorerBrowse.jsx");
+  assert.match(client, /if \(canComparePreparedMarkets\)[\s\S]*setPreparedActiveKeys\(\(current\) => current\.includes\(seriesId\) \? current : \[\.\.\.current, seriesId\]\.slice\(0, 25\)\)/);
+  assert.match(client, /setPreparedActiveKeys\(\(current\) => \{[\s\S]*current\.includes\(seriesId\)[\s\S]*current\.filter\(\(key\) => key !== seriesId\)/);
+  const paidBlock = client.slice(client.indexOf("if (canComparePreparedMarkets)"), client.indexOf("// Basic remains the single-market browsing lane."));
+  assert.doesNotMatch(paidBlock, /clearAllSelection\(|clearAllQueries\(/);
+  assert.match(browse, /active \? "Remove"/);
 });
