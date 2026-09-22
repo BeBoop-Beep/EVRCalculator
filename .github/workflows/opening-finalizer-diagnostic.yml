@@ -1,0 +1,37 @@
+name: Opening Finalizer Diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/opening-finalizer-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run Sep 21 sealed-product finalizer with live env
+        shell: bash
+        run: |
+          set -uo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          set -a
+          . /home/ubuntu/repos/EVRCalculator/backend/.env
+          set +a
+          echo "head=$(git rev-parse HEAD)"
+          "$PY" backend/scripts/finalize_sealed_product_rip.py --market-date 2026-09-21 --json
+          RC=$?
+          echo "finalizer_rc=$RC"
+          exit $RC
