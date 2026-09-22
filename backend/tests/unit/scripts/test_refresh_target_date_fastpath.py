@@ -141,10 +141,15 @@ class _Transient522(Exception):
     code = 522
 
 
+class _Transient57014(Exception):
+    code = "57014"
+
+
 class _FastpathQuery:
     def __init__(self, client, table):
         self.client = client
         self.table_name = table
+        self.values = []
 
     def select(self, *_args):
         return self
@@ -153,20 +158,34 @@ class _FastpathQuery:
         return self
 
     def in_(self, _column, values):
+        self.values = list(values)
         self.client.in_batches.append((self.table_name, list(values)))
         return self
 
     def execute(self):
         if self.client.fail:
             raise _Transient522("Cloudflare 522 connection timed out")
-        return SimpleNamespace(data=list(self.client.rows.get(self.table_name, [])))
+        if self.client.fail_above is not None and len(self.values) > self.client.fail_above:
+            raise _Transient57014("canceling statement due to statement timeout")
+        if self.values:
+            wanted = set(self.values)
+            data = [
+                row for row in self.client.rows.get(self.table_name, [])
+                if str(row.get("set_id")) in wanted
+            ]
+        else:
+            data = list(self.client.rows.get(self.table_name, []))
+        self.client.successful_batches.append((self.table_name, list(self.values)))
+        return SimpleNamespace(data=data)
 
 
 class _FastpathClient:
-    def __init__(self, *, fail=False, rows=None):
+    def __init__(self, *, fail=False, rows=None, fail_above=None):
         self.fail = fail
         self.rows = dict(rows or {})
+        self.fail_above = fail_above
         self.in_batches = []
+        self.successful_batches = []
 
     def table(self, name):
         return _FastpathQuery(self, name)
@@ -306,3 +325,51 @@ def test_target_date_preload_uses_bounded_batches_to_avoid_statement_timeout():
     assert cards_batches == [20, 20, 5]
     assert market_batches == [20, 20, 5]
     assert max(cards_batches + market_batches) <= refresh.TARGET_DATE_PRELOAD_BATCH_SIZE
+
+
+def test_target_date_preload_adaptively_splits_persistent_statement_timeout():
+    set_ids = [f"set-{i}" for i in range(25)]
+    rows = {
+        "pokemon_set_cards_snapshot_latest": [
+            {
+                "set_id": set_id,
+                "updated_at": "2026-09-21T12:00:00Z",
+                "pricing_market_date": "2026-09-20",
+                "snapshot_market_date": "2026-09-20",
+            }
+            for set_id in set_ids
+        ],
+        "pokemon_set_market_dashboard_snapshot_latest": [
+            {
+                "set_id": set_id,
+                "latest_market_date": "2026-09-20",
+                "updated_at": "2026-09-21T12:00:00Z",
+            }
+            for set_id in set_ids
+        ],
+    }
+    client = _FastpathClient(rows=rows, fail_above=6)
+
+    loaded = refresh._load_target_snapshot_market_dates(
+        client,
+        set_ids,
+        window="365d",
+        replacement_client_factory=lambda: client,
+        sleep=lambda _seconds: None,
+    )
+
+    assert loaded is not None
+    cards, market = loaded
+    assert set(cards) == set(set_ids)
+    assert set(market) == set(set_ids)
+
+    successful_sizes = [
+        len(values)
+        for _table, values in client.successful_batches
+        if values
+    ]
+    assert successful_sizes
+    assert max(successful_sizes) <= 6
+    # Proves we actually attempted a larger chunk and recovered by splitting
+    # instead of silently starting with only tiny batches.
+    assert any(len(values) > 6 for _table, values in client.in_batches)
