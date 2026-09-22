@@ -30,6 +30,7 @@ def _recheck_item(**overrides):
 def _catalog_set(**overrides):
     row = {
         "id": "set-1",
+        "name": "ME06: Delta Reign",
         "canonical_key": "me06DeltaReign",
         "catalog_only": True,
         "ready_for_daily_scrape": False,
@@ -100,6 +101,10 @@ def test_dry_run_plans_refresh_without_running_commands(monkeypatch):
         for cmd in refresh["planned_commands"]
     )
     assert any(
+        any(part.endswith("sync_pokemon_images.py") for part in cmd)
+        for cmd in refresh["planned_commands"]
+    )
+    assert any(
         any(part.endswith("build_pokemon_set_desirability_inputs.py") for part in cmd)
         for cmd in refresh["planned_commands"]
     )
@@ -158,6 +163,7 @@ def test_code_cards_only_catalog_still_refreshes_sealed_without_card_projection(
     assert any("run_pokemon_set_scrape.py" in line for line in commands)
     assert any("build_pokemon_set_sealed_market_snapshots.py" in line for line in commands)
     assert any("build_pokemon_set_page_snapshots.py" in line for line in commands)
+    assert not any("sync_pokemon_images.py" in line for line in commands)
     assert not any("build_pokemon_set_desirability_inputs.py" in line for line in commands)
     assert not any("build_pokemon_set_cards_snapshots.py" in line for line in commands)
 
@@ -258,10 +264,44 @@ def test_successful_card_refresh_runs_canonical_and_public_snapshots(monkeypatch
     assert timer_calls == []
     joined = [" ".join(command) for command in calls]
     assert any("run_pokemon_set_scrape.py" in line for line in joined)
+    assert any("sync_pokemon_images.py" in line for line in joined)
     assert any("build_pokemon_set_desirability_inputs.py" in line for line in joined)
+    image_index = next(i for i, line in enumerate(joined) if "sync_pokemon_images.py" in line)
+    canonical_index = next(i for i, line in enumerate(joined) if "build_pokemon_set_desirability_inputs.py" in line)
+    assert image_index < canonical_index
     assert any("build_pokemon_set_cards_snapshots.py" in line for line in joined)
     assert any("build_pokemon_set_sealed_market_snapshots.py" in line for line in joined)
     assert any("build_pokemon_set_page_snapshots.py" in line for line in joined)
+
+
+def test_image_sync_failure_is_critical_and_reschedules_short_retry(monkeypatch):
+    timer_calls = _patch_common(monkeypatch)
+    calls = []
+
+    def fake_run(command):
+        calls.append(command)
+        failed = any(part.endswith("sync_pokemon_images.py") for part in command)
+        return {
+            "command": command,
+            "exit_code": 1 if failed else 0,
+            "stdout_tail": "",
+            "stderr_tail": "api image sync failed" if failed else "",
+        }
+
+    monkeypatch.setattr(script, "_run", fake_run)
+    monkeypatch.setattr(script, "_retry_at", lambda: "2026-09-21T19:00:00+00:00")
+
+    report = script.run(commit=True, limit=5, max_provider_requests=10)
+
+    assert report["status"] == "failed"
+    assert report["critical_failures"] == 1
+    refresh = report["refreshes"][0]
+    assert refresh["status"] == "pokemon_api_image_sync_failed"
+    assert refresh["retry_scheduled_at"] == "2026-09-21T19:00:00+00:00"
+    assert timer_calls == [("job-1", "2026-09-21T19:00:00+00:00")]
+    joined = [" ".join(command) for command in calls]
+    assert any("sync_pokemon_images.py" in line for line in joined)
+    assert not any("build_pokemon_set_desirability_inputs.py" in line for line in joined)
 
 
 def test_graduated_identity_is_pruned_before_provider_recheck_dry_run(monkeypatch):
