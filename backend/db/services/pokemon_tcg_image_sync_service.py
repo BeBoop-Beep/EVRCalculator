@@ -354,6 +354,7 @@ class PokemonTCGImageSyncService:
             "cards_matched_by_cleaned_name": 0,
             "cards_matched_duplicate_parallel_rows": 0,
             "cards_matched_by_number_only_unique": 0,
+            "cards_matched_by_number_relaxed_name_unique": 0,
             "cards_unmatched": 0,
             "cards_ambiguous": 0,
         }
@@ -496,8 +497,22 @@ class PokemonTCGImageSyncService:
                 strict_match_cards = strict_number_candidates
                 strict_match_strategy = "number_only_unique"
             elif len(strict_number_candidates) > 1:
-                strict_match_strategy = "ambiguous"
-                strict_reason = "Multiple internal cards matched normalized number"
+                # Some subset/checklist providers retain the original printing's
+                # number, so multiple internal cards can share the same normalized
+                # number. Resolve only punctuation / trailing-descriptor drift and
+                # only when that leaves exactly ONE same-number candidate.
+                api_identity_name = self._normalize_card_identity_name(api_card.get("name"))
+                relaxed_name_candidates = [
+                    candidate
+                    for candidate in strict_number_candidates
+                    if self._normalize_card_identity_name(candidate.get("name")) == api_identity_name
+                ]
+                if api_identity_name and len(relaxed_name_candidates) == 1:
+                    strict_match_cards = relaxed_name_candidates
+                    strict_match_strategy = "number_relaxed_name_unique"
+                else:
+                    strict_match_strategy = "ambiguous"
+                    strict_reason = "Multiple internal cards matched normalized number"
             else:
                 strict_match_strategy = "unmatched"
                 strict_reason = "No internal cards matched normalized number+name or unique number"
@@ -512,6 +527,8 @@ class PokemonTCGImageSyncService:
                 card_matching_summary["cards_matched_duplicate_parallel_rows"] += len(strict_match_cards)
             elif strict_match_strategy == "number_only_unique":
                 card_matching_summary["cards_matched_by_number_only_unique"] += 1
+            elif strict_match_strategy == "number_relaxed_name_unique":
+                card_matching_summary["cards_matched_by_number_relaxed_name_unique"] += 1
             elif strict_match_strategy in ("ambiguous", "ambiguous_cleaned_name"):
                 card_matching_summary["cards_ambiguous"] += 1
             else:
@@ -932,6 +949,22 @@ class PokemonTCGImageSyncService:
             "card_match_preview": card_match_preview,
             "variant_match_preview": variant_match_preview,
         }
+
+    @staticmethod
+    def _normalize_card_identity_name(name: Optional[str]) -> Optional[str]:
+        """Normalize provider/internal names for a guarded same-number fallback.
+
+        This deliberately does less than fuzzy matching: punctuation differences
+        are collapsed and a trailing parenthetical legacy descriptor is ignored.
+        Callers MUST also require the same normalized card number and exactly one
+        matching candidate before accepting the result.
+        """
+        if not name:
+            return None
+        text = " ".join(str(name).strip().casefold().split())
+        text = re.sub(r"\([^)]*\)\s*$", "", text).strip()
+        text = re.sub(r"[^a-z0-9]+", " ", text)
+        return " ".join(text.split()) or None
 
     @staticmethod
     def _normalize_card_name(name: Optional[str], card_number: Optional[str] = None) -> Optional[str]:
