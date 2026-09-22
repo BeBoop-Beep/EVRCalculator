@@ -5,13 +5,13 @@ import fs from "node:fs";
 const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const client = read("./MarketExplorerClient.jsx");
 const chart = read("./MarketExplorerChart.jsx");
-const signal = read("./MarketExplorerSeriesCard.jsx");
 const styles = read("./explore.module.css");
 
 test("desktop is one rail plus a right chart-first research canvas", () => {
-  assert.match(styles, /grid-template-areas:[\s\S]*?"rail signals"[\s\S]*?"rail active"[\s\S]*?"rail chart"/);
-  assert.match(styles, /grid-template-columns: 18rem minmax\(0, 1fr\)/);
-  assert.match(styles, /position: sticky/);
+  assert.match(client, /desk:grid-cols-\[minmax\(19rem,22rem\)_minmax\(0,1fr\)\]/);
+  assert.match(client, /data-market-explorer-sidebar/);
+  assert.match(client, /data-market-explorer-graph/);
+  assert.ok(client.indexOf("data-market-explorer-sidebar") < client.indexOf("data-market-explorer-graph"));
 });
 
 test("the redundant Market Overview signal cards are removed from the Explorer canvas", () => {
