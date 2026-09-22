@@ -25,6 +25,10 @@ from backend.constants.tcg.pokemon import historical_catalog_image_sources as ca
 TARGET_SET_API_SEARCH_NAMES = {
     "Prismatic Evolutions": "Prismatic Evolutions",
     "Scarlet and Violet 151": "151",
+    # Internal source names preserve the TCGplayer "ME:" series prefix; card
+    # metadata providers generally publish the expansion name without it.
+    "ME: 30th Celebration": "30th Celebration",
+    "ME: 30th Celebration Classic Collection": "30th Celebration Classic Collection",
 }
 
 IMAGE_ONLY_SPECIAL_TYPES = {"pokeball", "poke ball", "master ball", "masterball"}
