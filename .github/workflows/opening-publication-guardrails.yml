@@ -1,0 +1,68 @@
+name: Opening Publication Guardrails
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'backend/db/services/opening_simulation_gate.py'
+      - 'backend/scripts/run_daily_opening_publication.py'
+      - 'backend/db/services/rankings_publication_lifecycle.py'
+      - 'backend/db/services/public_read_retry.py'
+      - 'backend/db/services/calculation_run_persistence_service.py'
+      - 'backend/db/repositories/calculation_runs_repository.py'
+      - 'backend/scripts/run_all_v2_sets.py'
+      - 'backend/tests/unit/db/services/test_opening_simulation_gate.py'
+      - 'backend/tests/unit/scripts/test_run_daily_opening_publication.py'
+      - 'backend/tests/unit/db/test_calculation_market_date_migration.py'
+      - 'backend/db/migrations/*calculation_run_market_date*'
+      - 'backend/db/migrations/*autoanalyze*'
+      - 'infra/local/run_simulations*'
+      - '.github/workflows/opening-publication-guardrails.yml'
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'backend/db/services/opening_simulation_gate.py'
+      - 'backend/scripts/run_daily_opening_publication.py'
+      - 'backend/db/services/rankings_publication_lifecycle.py'
+      - 'backend/db/services/public_read_retry.py'
+      - 'backend/db/services/calculation_run_persistence_service.py'
+      - 'backend/db/repositories/calculation_runs_repository.py'
+      - 'backend/scripts/run_all_v2_sets.py'
+      - 'backend/tests/unit/db/services/test_opening_simulation_gate.py'
+      - 'backend/tests/unit/scripts/test_run_daily_opening_publication.py'
+      - 'backend/tests/unit/db/test_calculation_market_date_migration.py'
+      - 'backend/db/migrations/*calculation_run_market_date*'
+      - 'backend/db/migrations/*autoanalyze*'
+      - 'infra/local/run_simulations*'
+      - '.github/workflows/opening-publication-guardrails.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test runtime
+        run: python -m pip install -q pytest numpy==2.4.3 pandas==2.2.3 scipy psutil supabase==2.28.3 python-dotenv==1.2.2
+      - name: Opening publication regressions
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/db/services/test_opening_simulation_gate.py \
+            backend/tests/unit/scripts/test_run_daily_opening_publication.py \
+            backend/tests/unit/db/test_calculation_market_date_migration.py \
+            backend/tests/unit/db/services/test_public_read_retry.py \
+            backend/tests/unit/db/services/test_rankings_publication_lifecycle.py
+          bash -n infra/local/run_simulations.sh
+          git diff --check
