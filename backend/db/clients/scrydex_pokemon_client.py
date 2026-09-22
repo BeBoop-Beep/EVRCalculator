@@ -201,7 +201,7 @@ class ScrydexPokemonClient:
         # while Scrydex stores the official expansion name without that provider
         # prefix (e.g. "ME: 30th Celebration" -> "30th Celebration").
         search_name = re.sub(
-            r"^ME(?:\\d+(?:\\.\\d+)?)?\\s*:\\s*",
+            r"^ME(?:\d+(?:\.\d+)?)?\s*:\s*",
             "",
             raw_name,
             flags=re.IGNORECASE,
