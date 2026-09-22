@@ -290,6 +290,7 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
     )
 
     rows_to_upsert: List[Dict[str, Any]] = []
+    rows_to_update_by_id: List[Tuple[str, Dict[str, Any]]] = []
     skipped_missing_required = 0
     matched_pokemon_cards = 0
     non_pokemon_cards = 0
@@ -354,36 +355,63 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
             if reference.get("pokedex_number") is not None
         ]
 
-        rows_to_upsert.append(
-            {
-                "set_id": set_id,
-                "pokemon_tcg_api_card_id": api_card_id,
-                "name": name,
-                "supertype": supertype,
-                "subtypes": subtypes,
-                "rarity": str(card.get("rarity") or "").strip() or None,
-                "number": number,
-                "printed_number": printed_number,
-                "artist": None,
-                "pokemon_tcg_api_set_id": str(set_row.get("pokemon_api_set_id") or "").strip() or None,
-                "national_pokedex_numbers": pokedex_numbers,
-                "image_small_url": str(card.get("image_small_url") or "").strip() or None,
-                "image_large_url": str(card.get("image_large_url") or "").strip() or None,
-                "source": FALLBACK_SOURCE,
-                "source_payload": {
-                    "source_table": "public.cards",
-                    "source_card_id": card.get("id"),
-                    "match_method": FALLBACK_MATCH_METHOD,
-                    "matched_pokedex_number": pokedex_numbers[0] if len(pokedex_numbers) == 1 else None,
-                    "matched_pokedex_numbers": pokedex_numbers,
-                },
-                **catalog_only_eligibility_overrides(set_row),
-            }
-        )
+        payload = {
+            "set_id": set_id,
+            "pokemon_tcg_api_card_id": api_card_id,
+            "name": name,
+            "supertype": supertype,
+            "subtypes": subtypes,
+            "rarity": str(card.get("rarity") or "").strip() or None,
+            "number": number,
+            "printed_number": printed_number,
+            "artist": None,
+            "pokemon_tcg_api_set_id": str(set_row.get("pokemon_api_set_id") or "").strip() or None,
+            "national_pokedex_numbers": pokedex_numbers,
+            "image_small_url": str(card.get("image_small_url") or "").strip() or None,
+            "image_large_url": str(card.get("image_large_url") or "").strip() or None,
+            "source": FALLBACK_SOURCE,
+            "source_payload": {
+                "source_table": "public.cards",
+                "source_card_id": card.get("id"),
+                "match_method": FALLBACK_MATCH_METHOD,
+                "matched_pokedex_number": pokedex_numbers[0] if len(pokedex_numbers) == 1 else None,
+                "matched_pokedex_numbers": pokedex_numbers,
+            },
+            **catalog_only_eligibility_overrides(set_row),
+        }
+
+        # A card can gain an authoritative Scrydex/PokemonTCG id during the
+        # image-hydration step after a fallback canonical row was already
+        # created. Upserting the new id would leave the old fallback:* row
+        # behind and duplicate the same card. Promote that existing canonical
+        # row in place instead.
+        existing_external_id = str((existing or {}).get("pokemon_tcg_api_card_id") or "").strip()
+        if (
+            existing
+            and existing.get("id")
+            and str(existing.get("source") or "") in {"", FALLBACK_SOURCE}
+            and existing_external_id
+            and existing_external_id != api_card_id
+        ):
+            rows_to_update_by_id.append((str(existing["id"]), payload))
+        else:
+            rows_to_upsert.append(payload)
 
     rows_upserted = 0
-    if not dry_run and rows_to_upsert:
-        rows_upserted = _upsert_canonical_rows(client, rows_to_upsert)
+    rows_identity_promoted = 0
+    if not dry_run:
+        for canonical_id, payload in rows_to_update_by_id:
+            result = (
+                client.table("pokemon_canonical_cards")
+                .update({**payload, "updated_at": datetime.now(timezone.utc).isoformat()})
+                .eq("id", canonical_id)
+                .execute()
+            )
+            count = len(result.data or []) or 1
+            rows_identity_promoted += count
+            rows_upserted += count
+        if rows_to_upsert:
+            rows_upserted += _upsert_canonical_rows(client, rows_to_upsert)
 
     return {
         "set_id": set_id,
@@ -392,7 +420,8 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
         "cards_rows": len(cards),
         "preexisting_canonical_rows": len(canonical_rows),
         "rows_missing_before": max(0, len(cards) - len(canonical_rows)),
-        "rows_upsert_planned": len(rows_to_upsert),
+        "rows_upsert_planned": len(rows_to_upsert) + len(rows_to_update_by_id),
+        "rows_identity_promoted": rows_identity_promoted if not dry_run else len(rows_to_update_by_id),
         "rows_upserted": rows_upserted,
         "rows_skipped_missing_required": skipped_missing_required,
         "matched_pokemon_cards": matched_pokemon_cards,
