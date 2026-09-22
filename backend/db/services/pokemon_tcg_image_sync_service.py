@@ -146,7 +146,7 @@ class PokemonTCGImageSyncService:
             rows = list(self.client.iter_cards_for_set(set_id))
             if rows:
                 return rows, "pokemontcg"
-        except (PokemonTCGAPIError, Exception) as exc:
+        except PokemonTCGAPIError as exc:
             legacy_error = exc
 
         try:
