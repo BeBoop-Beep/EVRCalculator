@@ -21,6 +21,10 @@ test("optimizable hosts are routed through the Next image optimizer", () => {
     optimizedImageUrl("https://images.scrydex.com/pokemon/me4-logo/logo", 384),
     "/_next/image?url=https%3A%2F%2Fimages.scrydex.com%2Fpokemon%2Fme4-logo%2Flogo&w=384&q=75",
   );
+  assert.equal(
+    optimizedImageUrl("https://assets.tcgdex.net/en/me/30th/001/low.webp", 256),
+    "/_next/image?url=https%3A%2F%2Fassets.tcgdex.net%2Fen%2Fme%2F30th%2F001%2Flow.webp&w=256&q=75",
+  );
 });
 
 test("sources this origin cannot optimize are returned untouched", () => {
@@ -75,6 +79,6 @@ test("the optimizable host list matches next.config.mjs remotePatterns", () => {
   const config = readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
   const configured = [...config.matchAll(/hostname:\s*"([^"]+)"/g)].map((m) => m[1]).sort();
   const source = readFileSync(path.join(process.cwd(), "lib/images/remoteImageDelivery.mjs"), "utf8");
-  const allowed = [...source.matchAll(/"(images\.[^"]+)"/g)].map((m) => m[1]).sort();
+  const allowed = [...source.matchAll(/"((?:images\.[^"]+)|(?:assets\.tcgdex\.net))"/g)].map((m) => m[1]).sort();
   assert.deepEqual(allowed, configured);
 });
