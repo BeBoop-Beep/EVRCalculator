@@ -9,21 +9,26 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: backfill-30th-celebration-metadata
+  cancel-in-progress: false
+
 jobs:
   backfill:
     runs-on: self-hosted
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
-      - name: Hydrate 30th Celebration cards and rebuild read models
+      - name: Hydrate 30th Celebration cards and repair Market publication
         shell: bash
         run: |
           set -euo pipefail
           LIVE=/home/ubuntu/repos/EVRCalculator
           PY="$LIVE/.venv/bin/python"
           LOCK=/tmp/pokemon-post-scrape-publication.lock
+          TARGET=2026-09-21
 
           exec 9>"$LOCK"
-          flock -w 1200 9
+          flock -w 1800 9
 
           cd "$LIVE"
           test "$(git branch --show-current)" = "main"
@@ -36,67 +41,58 @@ jobs:
           . backend/.env
           set +a
 
+          echo "=== provider preflight: free TCGdex authority ==="
           "$PY" - <<'PY'
-          import os
-          print("provider_env", {
-              "legacy_key_present": bool(os.getenv("POKEMON_TCG_API_KEY")),
-              "scrydex_key_present": bool(os.getenv("SCRYDEX_API_KEY")),
-              "scrydex_team_present": bool(os.getenv("SCRYDEX_TEAM_ID")),
-          })
-          PY
+          from backend.db.clients.tcgdex_pokemon_client import TCGdexPokemonClient
 
-          # Persist the provider identities/images now carried by the merged
-          # source configs. This is idempotent and intentionally precedes the
-          # image/card enrichment scripts, which resolve provider identity from
-          # the sets table.
-          "$PY" backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebration --apply
-          "$PY" backend/scripts/sync_pokemon_eras_and_sets.py --set me30thCelebrationClassicCollection --apply
-
-          # Prove the exact current provider identities are reachable and
-          # complete before any image/canonical writes.
-          "$PY" - <<'PY'
-          from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient
-          c=ScrydexPokemonClient()
-          expected={"me55":161,"me55c":30}
-          for set_id,count in expected.items():
-              meta=c.get_set(set_id)
-              cards=c.fetch_cards_for_set(set_id)
-              print("scrydex_probe", {
-                  "set_id":set_id,
-                  "name":meta.get("name"),
-                  "reported_total":meta.get("total"),
-                  "fetched_cards":len(cards),
+          c=TCGdexPokemonClient(detail_delay_seconds=0)
+          expected={
+              "ME: 30th Celebration":158,
+              "ME: 30th Celebration Classic Collection":30,
+          }
+          for name,count in expected.items():
+              detail=c.resolve_set_detail(name)
+              cards=detail.get("cards") or []
+              print("tcgdex_set_probe", {
+                  "requested_name":name,
+                  "provider_id":detail.get("id"),
+                  "provider_name":detail.get("name"),
+                  "card_count":len(cards),
+                  "release_date":detail.get("releaseDate"),
+                  "cards_with_art":sum(bool(card.get("image")) for card in cards),
               })
-              assert str(meta.get("id")) == set_id
-              assert len(cards) == count, (set_id,len(cards),count)
-              assert all((card.get("images") or {}).get("small") or (card.get("images") or {}).get("large") for card in cards)
+              assert len(cards) == count, (name,len(cards),count)
           PY
 
+          echo "=== hydrate card + variant artwork ==="
           "$PY" backend/scripts/sync_pokemon_images.py             --sets "ME: 30th Celebration" "ME: 30th Celebration Classic Collection"             --apply
 
+          echo "=== hydrate canonical card details from TCGdex ==="
           "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --canonical-only --log-level INFO
           "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --canonical-only --log-level INFO
 
-          # Refresh Explorer's canonical current metadata so Market/Explorer
-          # movers can consume the newly hydrated card identities/images.
+          echo "=== refresh Explorer current metadata ==="
           "$PY" - <<'PY'
           from backend.db.clients.supabase_client import create_service_role_client
+
           c=create_service_role_client()
           keys=["me30thCelebration","me30thCelebrationClassicCollection"]
-          rows=list(c.table("sets").select("id,canonical_key").in_("canonical_key",keys).execute().data or [])
+          rows=list(
+              c.table("sets")
+              .select("id,canonical_key")
+              .in_("canonical_key",keys)
+              .execute().data or []
+          )
           ids=[str(row["id"]) for row in rows if row.get("id")]
           assert len(ids) == 2, rows
           result=c.rpc(
               "refresh_pokemon_market_explorer_card_current_metadata",
-              {"p_set_ids": ids},
+              {"p_set_ids":ids},
           ).execute()
-          print("explorer_current_metadata_refresh", result.data)
+          print("explorer_current_metadata_refresh",result.data)
           PY
 
-          # Rebuild the two set-local card/market read models without re-running
-          # the broad Market Date gate. Sep 21 is already persisted READY for
-          # the exact 156-root cohort; this operation only republishes these
-          # set-local snapshots after metadata enrichment.
+          echo "=== rebuild affected set-local read models ==="
           "$PY" - <<'PY'
           from backend.db.clients.supabase_client import create_service_role_client
           from backend.scripts.pokemon_snapshot_builders import (
@@ -119,65 +115,228 @@ jobs:
               sid=str(set_row["id"])
               with snapshot_service_client_scope(c):
                   refresh_canonical_card_market_prices_for_set(c,sid,commit=True)
-                  cards_row,dashboard_row,history_rows=build_coordinated_set_market_snapshot_rows(set_row,client=c)
-                  upsert_row(c,"pokemon_set_cards_snapshot_latest",cards_row,on_conflict="set_id",commit=True)
-                  upsert_rows(c,"pokemon_set_top_chase_card_daily_history",history_rows,on_conflict="set_id,snapshot_date,rank",commit=True)
-                  upsert_row(c,"pokemon_set_market_dashboard_snapshot_latest",dashboard_row,on_conflict="set_id,window_key",commit=True)
+                  cards_row,dashboard_row,history_rows=build_coordinated_set_market_snapshot_rows(
+                      set_row,client=c
+                  )
+                  upsert_row(
+                      c,"pokemon_set_cards_snapshot_latest",cards_row,
+                      on_conflict="set_id",commit=True
+                  )
+                  upsert_rows(
+                      c,"pokemon_set_top_chase_card_daily_history",history_rows,
+                      on_conflict="set_id,snapshot_date,rank",commit=True
+                  )
+                  upsert_row(
+                      c,"pokemon_set_market_dashboard_snapshot_latest",dashboard_row,
+                      on_conflict="set_id,window_key",commit=True
+                  )
               print("set_market_snapshot_rebuilt",key)
 
-          # The parent has a public set route today. Rebuild it so all card
-          # surfaces see the new image/provider metadata immediately.
           parent=by["me30thCelebration"]
           page_row=build_set_page_snapshot_row(parent,client=c)
-          upsert_row(c,"pokemon_set_page_snapshot_latest",page_row,on_conflict="set_id",commit=True)
+          upsert_row(
+              c,"pokemon_set_page_snapshot_latest",page_row,
+              on_conflict="set_id",commit=True
+          )
           print("set_page_snapshot_rebuilt","me30thCelebration")
           PY
 
+          echo "=== prove metadata/image acceptance ==="
           "$PY" - <<'PY'
           from backend.db.clients.supabase_client import create_service_role_client
+
           c=create_service_role_client()
           keys=["me30thCelebration","me30thCelebrationClassicCollection"]
-          sets=list(c.table("sets").select("id,canonical_key,pokemon_api_set_id,symbol_image_url,logo_image_url").in_("canonical_key",keys).execute().data or [])
+          sets=list(
+              c.table("sets")
+              .select("id,canonical_key")
+              .in_("canonical_key",keys)
+              .execute().data or []
+          )
           by={row["canonical_key"]:row for row in sets}
-          expected={"me30thCelebration":("me55",158),"me30thCelebrationClassicCollection":("me55c",30)}
+          expected={"me30thCelebration":158,"me30thCelebrationClassicCollection":30}
 
-          for key,(api_id,internal_count) in expected.items():
-              row=by[key]
-              sid=row["id"]
-              assert row.get("pokemon_api_set_id") == api_id, row
-              cards=list(c.table("cards").select("id,pokemon_tcg_api_id,image_small_url,image_large_url").eq("set_id",sid).limit(500).execute().data or [])
-              ids=[x["id"] for x in cards]
+          for key,expected_count in expected.items():
+              sid=by[key]["id"]
+              cards=list(
+                  c.table("cards")
+                  .select("id,image_small_url,image_large_url")
+                  .eq("set_id",sid).limit(500).execute().data or []
+              )
+              ids=[row["id"] for row in cards]
               variants=[]
               for start in range(0,len(ids),200):
-                  variants.extend(c.table("card_variants").select("id,image_small_url,image_large_url").in_("card_id",ids[start:start+200]).execute().data or [])
-              canonical=list(c.table("pokemon_canonical_cards").select("id,pokemon_tcg_api_card_id,name,number,source,image_small_url,image_large_url").eq("set_id",sid).limit(500).execute().data or [])
-              fallback=[x for x in canonical if str(x.get("source") or "")=="tcgplayer_cards_fallback"]
-              duplicate_identities={}
-              for x in canonical:
-                  identity=(str(x.get("number") or "").lstrip("0") or "0",str(x.get("name") or "").strip().casefold())
-                  duplicate_identities[identity]=duplicate_identities.get(identity,0)+1
-              duplicates=[k for k,v in duplicate_identities.items() if v>1]
+                  variants.extend(
+                      c.table("card_variants")
+                      .select("id,image_small_url,image_large_url")
+                      .in_("card_id",ids[start:start+200])
+                      .execute().data or []
+                  )
+              canonical=list(
+                  c.table("pokemon_canonical_cards")
+                  .select("id,name,number,source,image_small_url,image_large_url")
+                  .eq("set_id",sid).limit(500).execute().data or []
+              )
+              fallback=[
+                  row for row in canonical
+                  if str(row.get("source") or "")=="tcgplayer_cards_fallback"
+              ]
+              tcgdex=[
+                  row for row in canonical
+                  if str(row.get("source") or "")=="tcgdex"
+              ]
+              identities={}
+              for row in canonical:
+                  ident=(
+                      str(row.get("number") or "").lstrip("0") or "0",
+                      str(row.get("name") or "").strip().casefold(),
+                  )
+                  identities[ident]=identities.get(ident,0)+1
+              duplicates=[ident for ident,count in identities.items() if count>1]
+
               report={
                   "key":key,
                   "cards":len(cards),
-                  "cards_with_api_id":sum(bool(x.get("pokemon_tcg_api_id")) for x in cards),
-                  "cards_with_images":sum(bool(x.get("image_small_url") or x.get("image_large_url")) for x in cards),
+                  "cards_with_images":sum(
+                      bool(row.get("image_small_url") or row.get("image_large_url"))
+                      for row in cards
+                  ),
                   "variants":len(variants),
-                  "variants_with_images":sum(bool(x.get("image_small_url") or x.get("image_large_url")) for x in variants),
+                  "variants_with_images":sum(
+                      bool(row.get("image_small_url") or row.get("image_large_url"))
+                      for row in variants
+                  ),
                   "canonical":len(canonical),
+                  "canonical_tcgdex":len(tcgdex),
+                  "canonical_with_images":sum(
+                      bool(row.get("image_small_url") or row.get("image_large_url"))
+                      for row in canonical
+                  ),
                   "fallback_canonical":len(fallback),
                   "duplicate_canonical_identities":len(duplicates),
               }
               print("metadata_acceptance",report)
-              assert len(cards) == internal_count, report
-              assert report["cards_with_api_id"] == internal_count, report
-              assert report["cards_with_images"] == internal_count, report
+              assert len(cards) == expected_count, report
+              assert report["cards_with_images"] == expected_count, report
               assert report["variants_with_images"] == report["variants"], report
+              assert len(canonical) == expected_count, report
+              assert report["canonical_tcgdex"] == expected_count, report
+              assert report["canonical_with_images"] == expected_count, report
               assert report["fallback_canonical"] == 0, report
               assert report["duplicate_canonical_identities"] == 0, report
 
           parent_id=by["me30thCelebration"]["id"]
-          snap=list(c.table("pokemon_set_cards_snapshot_latest").select("payload_json").eq("set_id",parent_id).limit(1).execute().data or [])
-          assert snap and "images.scrydex.com" in str(snap[0].get("payload_json") or {}), "parent cards snapshot has no Scrydex image"
+          snap=list(
+              c.table("pokemon_set_cards_snapshot_latest")
+              .select("payload_json")
+              .eq("set_id",parent_id).limit(1).execute().data or []
+          )
+          assert snap, "parent cards snapshot missing"
+          payload_text=str(snap[0].get("payload_json") or {})
+          assert (
+              "assets.tcgdex.net" in payload_text
+              or "images.scrydex.com" in payload_text
+          ), "parent cards snapshot has no hydrated artwork"
           print("THIRTIETH_METADATA_BACKFILL=PASS")
+          PY
+
+          echo "=== repair Set Market / Explorer publication from persisted READY authority ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.build_pokemon_explore_set_value_snapshot import build
+          from backend.scripts.publish_market_explorer_filter_options import run_publication
+
+          target="2026-09-21"
+          c=create_service_role_client()
+
+          quality=list(
+              c.table("pokemon_market_date_quality")
+              .select("status,cohort_set_count,qualifying_set_count")
+              .eq("tcg","pokemon").eq("market_date",target)
+              .limit(1).execute().data or []
+          )
+          assert quality, "missing persisted Market Date Quality"
+          q=quality[0]
+          assert q.get("status") in {"READY","LEGACY_VERIFIED"}, q
+          assert int(q.get("cohort_set_count") or 0) == 156, q
+          assert int(q.get("qualifying_set_count") or 0) == 156, q
+
+          index_rows=list(
+              c.table("pokemon_market_index_daily_history")
+              .select("index_key,set_count,card_count")
+              .eq("tcg","pokemon").eq("market_date",target)
+              .in_("index_key",["raw","top10"])
+              .execute().data or []
+          )
+          index_by={row["index_key"]:row for row in index_rows}
+          assert set(index_by)=={"raw","top10"}, index_rows
+          assert all(int(row.get("set_count") or 0)==156 for row in index_rows), index_rows
+          print("persisted_market_authority",{"quality":q,"index":index_rows})
+
+          # The command entrypoint re-runs the expensive quality query and can
+          # hit Supabase 57014 even though this exact authority is already
+          # persisted READY. Invoke the same builder directly after proving the
+          # persisted authority above; no gate semantics are weakened.
+          row=build(client=c,market_date=target,commit=True)
+          print("set_market_snapshot_rebuilt",{
+              "market_date":row.get("market_date"),
+              "set_count":row.get("set_count"),
+          })
+
+          options=run_publication(c)
+          print("explorer_options_republished",options)
+          PY
+
+          echo "=== final Market / Explorer acceptance ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          c=create_service_role_client()
+          set_id="8dbf97f7-b7e8-4ff5-883a-0bb3356291bf"
+
+          snap=list(
+              c.table("pokemon_explore_set_value_snapshot_latest")
+              .select("market_date,set_count,payload_json")
+              .eq("tcg","pokemon").eq("scope","market")
+              .limit(1).execute().data or []
+          )
+          assert snap, "missing Set Market snapshot"
+          row=snap[0]
+          assert str(row.get("market_date"))[:10] == "2026-09-21", row.get("market_date")
+          assert int(row.get("set_count") or 0) == 156, row.get("set_count")
+          sets=(row.get("payload_json") or {}).get("sets") or []
+          assert any(
+              str(item.get("set_id") or item.get("setId") or "") == set_id
+              or str(item.get("canonical_key") or item.get("canonicalKey") or "")=="me30thCelebration"
+              for item in sets
+          ), "30th missing from Set Market"
+
+          directory=list(
+              c.table("pokemon_market_explorer_prepared_serving_directory_v1")
+              .select("market_key,label,set_id,source_as_of,comparison_as_of")
+              .eq("set_id",set_id)
+              .execute().data or []
+          )
+          assert directory, "30th missing from Explorer prepared directory"
+
+          options=list(
+              c.table("pokemon_market_explorer_options_snapshots")
+              .select("source_as_of,payload_json,published_at")
+              .eq("tcg","pokemon").eq("is_current",True)
+              .order("published_at",desc=True).limit(1).execute().data or []
+          )
+          assert options, "missing Explorer options"
+          payload_text=str(options[0].get("payload_json") or {})
+          assert (
+              set_id in payload_text
+              or "ME: 30th Celebration" in payload_text
+              or "me30thCelebration" in payload_text
+          ), "30th missing from Explorer options"
+
+          print("THIRTIETH_MARKET_EXPLORER_REPAIR=PASS",{
+              "market_date":row.get("market_date"),
+              "set_count":row.get("set_count"),
+              "directory_rows":len(directory),
+              "options_source_as_of":options[0].get("source_as_of"),
+          })
           PY
