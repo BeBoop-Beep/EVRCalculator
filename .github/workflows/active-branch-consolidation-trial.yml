@@ -80,6 +80,27 @@ jobs:
             git merge --no-ff --no-edit -X theirs origin/main
           fi
 
+          # Several 30th/provider files were independently redesigned on both
+          # develop and production main. A textual strategy merge can splice
+          # incompatible function bodies even when Git reports no unresolved
+          # conflict. Main is the newer production-tested authority for these
+          # exact files, so take the complete main blobs before layering the
+          # remaining active branches.
+          git checkout origin/main -- \
+            backend/constants/tcg/pokemon/megaEvolutionEra/me30thCelebrationClassicCollection.py \
+            backend/constants/tcg/pokemon/otherEra/me30thCelebration.py \
+            backend/db/clients/scrydex_pokemon_client.py \
+            backend/db/services/pokemon_tcg_image_sync_service.py \
+            backend/scripts/ingest_pokemon_canonical_cards.py \
+            backend/scripts/sync_pokemon_images.py \
+            backend/services/pokemon_set_onboarding_service.py \
+            backend/tests/unit/db/clients/test_scrydex_pokemon_client.py \
+            backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+          if ! git diff --quiet; then
+            git add -A
+            git commit -m "chore: reconcile production pokemon provider authority"
+          fi
+
           # This is the only current Sep-22 branch with substantive code newer
           # than production main: canonical IDs discovered during image hydration
           # must promote fallback canonical identities in place.
