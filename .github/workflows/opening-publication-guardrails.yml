@@ -5,6 +5,9 @@ on:
     branches: [develop]
     paths:
       - 'backend/db/services/opening_simulation_gate.py'
+      - 'backend/db/services/explore_rip_statistics_service.py'
+      - 'backend/scripts/pokemon_explore_rankings_publisher.py'
+      - 'backend/scripts/pokemon_snapshot_builders.py'
       - 'backend/scripts/run_daily_opening_publication.py'
       - 'backend/db/services/rankings_publication_lifecycle.py'
       - 'backend/db/services/public_read_retry.py'
@@ -22,6 +25,9 @@ on:
     branches: [develop]
     paths:
       - 'backend/db/services/opening_simulation_gate.py'
+      - 'backend/db/services/explore_rip_statistics_service.py'
+      - 'backend/scripts/pokemon_explore_rankings_publisher.py'
+      - 'backend/scripts/pokemon_snapshot_builders.py'
       - 'backend/scripts/run_daily_opening_publication.py'
       - 'backend/db/services/rankings_publication_lifecycle.py'
       - 'backend/db/services/public_read_retry.py'
@@ -60,9 +66,11 @@ jobs:
         run: |
           python -m pytest -q \
             backend/tests/unit/db/services/test_opening_simulation_gate.py \
+            backend/tests/unit/db/services/test_explore_rip_statistics_service.py \
             backend/tests/unit/scripts/test_run_daily_opening_publication.py \
             backend/tests/unit/db/test_calculation_market_date_migration.py \
             backend/tests/unit/db/services/test_public_read_retry.py \
             backend/tests/unit/db/services/test_rankings_publication_lifecycle.py
+          python -m py_compile backend/scripts/pokemon_explore_rankings_publisher.py backend/scripts/pokemon_snapshot_builders.py
           bash -n infra/local/run_simulations.sh
           git diff --check
