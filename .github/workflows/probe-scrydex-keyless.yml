@@ -1,0 +1,27 @@
+name: Scrydex Keyless Probe
+
+on:
+  push:
+    branches: [fix/30th-scrydex-market-sync-20260922]
+    paths:
+      - '.github/workflows/probe-scrydex-keyless.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe unauthenticated Scrydex expansion endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          CODE="$(curl -sS -o /tmp/body.json -w '%{http_code}'             'https://api.scrydex.com/pokemon/v1/en/expansions/me55' || true)"
+          echo "scrydex_keyless_http=$CODE"
+          python - <<'PY'
+          from pathlib import Path
+          body=Path("/tmp/body.json").read_text(errors="replace") if Path("/tmp/body.json").exists() else ""
+          print("scrydex_body_prefix="+body[:500].replace("\n"," "))
+          PY
