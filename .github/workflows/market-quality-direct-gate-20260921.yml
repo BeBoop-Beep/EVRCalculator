@@ -1,0 +1,199 @@
+name: Market Quality Direct Gate 2026-09-21
+
+on:
+  push:
+    branches: [ops/market-explorer-hosted-finish-20260921]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install direct PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check "psycopg[binary]==3.3.6"
+
+      - name: Execute unchanged Market publication gate over direct PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          import json
+          import os
+          from dataclasses import asdict
+          from types import SimpleNamespace
+
+          import psycopg
+          from psycopg import sql
+          from psycopg.rows import dict_row
+          from psycopg.types.json import Jsonb
+
+          from backend.db.services.market_publication_gate import enforce_market_publication_gate
+
+          DSN = (os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL") or "").strip()
+          if not DSN:
+              raise SystemExit("direct PostgreSQL credential missing")
+
+          def adapt(value):
+              if isinstance(value, (dict, list)):
+                  return Jsonb(value)
+              return value
+
+          class Query:
+              def __init__(self, conn, table):
+                  self.conn = conn
+                  self.table = table
+                  self.columns = ["*"]
+                  self.filters = []
+                  self.orders = []
+                  self._limit = None
+                  self._range = None
+                  self.upsert_rows = None
+                  self.conflict = None
+
+              def select(self, columns):
+                  self.columns = [part.strip() for part in str(columns).split(",") if part.strip()]
+                  return self
+
+              def eq(self, column, value):
+                  self.filters.append(("eq", column, value))
+                  return self
+
+              def lte(self, column, value):
+                  self.filters.append(("lte", column, value))
+                  return self
+
+              def lt(self, column, value):
+                  self.filters.append(("lt", column, value))
+                  return self
+
+              def in_(self, column, values):
+                  self.filters.append(("in", column, list(values)))
+                  return self
+
+              def order(self, column, desc=False):
+                  self.orders.append((column, bool(desc)))
+                  return self
+
+              def limit(self, value):
+                  self._limit = int(value)
+                  return self
+
+              def range(self, start, end):
+                  self._range = (int(start), int(end))
+                  return self
+
+              def upsert(self, rows, on_conflict):
+                  self.upsert_rows = list(rows)
+                  self.conflict = [x.strip() for x in str(on_conflict).split(",") if x.strip()]
+                  return self
+
+              def execute(self):
+                  if self.upsert_rows is not None:
+                      if not self.upsert_rows:
+                          return SimpleNamespace(data=[])
+                      cols = list(self.upsert_rows[0].keys())
+                      conflict = self.conflict or []
+                      assignments = [c for c in cols if c not in conflict]
+                      stmt = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT ({}) DO UPDATE SET {}").format(
+                          sql.Identifier("public", self.table),
+                          sql.SQL(",").join(map(sql.Identifier, cols)),
+                          sql.SQL(",").join(sql.Placeholder() for _ in cols),
+                          sql.SQL(",").join(map(sql.Identifier, conflict)),
+                          sql.SQL(",").join(
+                              sql.SQL("{} = EXCLUDED.{}").format(sql.Identifier(c), sql.Identifier(c))
+                              for c in assignments
+                          ),
+                      )
+                      with self.conn.cursor() as cur:
+                          for row in self.upsert_rows:
+                              cur.execute(stmt, [adapt(row.get(c)) for c in cols])
+                      return SimpleNamespace(data=[])
+
+                  selected = sql.SQL("*") if self.columns == ["*"] else sql.SQL(",").join(
+                      sql.Identifier(c) for c in self.columns
+                  )
+                  stmt = sql.SQL("SELECT {} FROM {}").format(
+                      selected, sql.Identifier("public", self.table)
+                  )
+                  params = []
+                  where = []
+                  for op, column, value in self.filters:
+                      ident = sql.Identifier(column)
+                      if op == "eq":
+                          where.append(sql.SQL("{} = {}").format(ident, sql.Placeholder()))
+                          params.append(value)
+                      elif op == "lte":
+                          where.append(sql.SQL("{} <= {}").format(ident, sql.Placeholder()))
+                          params.append(value)
+                      elif op == "lt":
+                          where.append(sql.SQL("{} < {}").format(ident, sql.Placeholder()))
+                          params.append(value)
+                      elif op == "in":
+                          values = list(value)
+                          if not values:
+                              where.append(sql.SQL("FALSE"))
+                          else:
+                              where.append(sql.SQL("{} IN ({})").format(
+                                  ident, sql.SQL(",").join(sql.Placeholder() for _ in values)
+                              ))
+                              params.extend(values)
+                  if where:
+                      stmt += sql.SQL(" WHERE ") + sql.SQL(" AND ").join(where)
+                  if self.orders:
+                      stmt += sql.SQL(" ORDER BY ") + sql.SQL(",").join(
+                          sql.SQL("{} {}").format(sql.Identifier(c), sql.SQL("DESC" if d else "ASC"))
+                          for c, d in self.orders
+                      )
+                  if self._range is not None:
+                      start, end = self._range
+                      stmt += sql.SQL(" LIMIT {} OFFSET {}").format(
+                          sql.Literal(end - start + 1), sql.Literal(start)
+                      )
+                  elif self._limit is not None:
+                      stmt += sql.SQL(" LIMIT {}").format(sql.Literal(self._limit))
+                  with self.conn.cursor(row_factory=dict_row) as cur:
+                      cur.execute(stmt, params)
+                      return SimpleNamespace(data=cur.fetchall())
+
+          class DirectClient:
+              def __init__(self, conn):
+                  self.conn = conn
+              def table(self, name):
+                  return Query(self.conn, name)
+
+          with psycopg.connect(DSN, autocommit=False) as conn:
+              conn.execute("SET LOCAL statement_timeout = '120s'")
+              conn.execute("SET LOCAL lock_timeout = '5s'")
+              client = DirectClient(conn)
+              result = enforce_market_publication_gate(
+                  client,
+                  commit=True,
+                  market_date="2026-09-21",
+                  force_publish=False,
+                  entry_point="Market Explorer final closure",
+                  persist=True,
+                  mode="required",
+              )
+              payload = {
+                  "proceed": result.proceed,
+                  "exitCode": result.exit_code,
+                  "decision": asdict(result.decision),
+              }
+              print("market_quality_gate=" + json.dumps(payload, sort_keys=True, default=str))
+              conn.commit()
+              if not result.proceed or result.decision.status != "READY":
+                  raise SystemExit(result.exit_code or 3)
+              print("MARKET_QUALITY_DIRECT_GATE=PASS")
+          PY
