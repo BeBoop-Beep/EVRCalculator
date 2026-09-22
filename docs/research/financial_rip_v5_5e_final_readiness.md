@@ -158,3 +158,55 @@ No application code was changed in this bucket (only a diagnostic script, a migr
 3. With a healthy Collector bundle: run and compare a live V12 Rankings build against the current published snapshot (republish only if valid and requested); run a full-cohort V14 dry run through the normal release-aware builder; verify 22/22 Overall V14 (or explain any change in cohort size).
 4. Decide whether to authorize the queued autovacuum-threshold migration (`20260922013800_...sql`) to prevent the fixed symptom from recurring as these tables grow.
 5. Re-run the full 5E-A + 5E-B focused regression suite and push for CI once code changes (if any) land.
+
+## Prompt 5E-B addendum — post-outage retry, Collector confirmed, V12 dry-run finding
+
+The Supabase outage recorded above cleared. This addendum re-attempts the blocked work with a live database and corrects the picture with new evidence.
+
+### Collector — resolved
+
+`get_collector_appeal_bundle(force_refresh=True)` succeeded on retry (91.7 s build, no errors). The earlier three failures were the platform outage, not a separate structural defect in `pokemon_set_value_daily_history` — no code or query change was needed.
+
+- Identity: `collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2` (formula fingerprint `95bc037c...`), matching the version already required by `overall_rip_v14_for`/`compute_overall_rip_v14`.
+- Coverage: 172 sets scanned, **22/22 of the supported cohort `available`**, 0 missing.
+- **Collector Appeal V5 authority is current.** No refresh/publish was needed: the contract (confirmed by reading `collector_appeal_service.py`) is a set-level model with no `calculation_run_id` dependency, so "current" for Collector means "the live bundle builds and covers the cohort," which it now does.
+
+### V12 — corrected finding (not a republish; the published snapshot is already correct)
+
+I compared the **published** `pokemon_explore_rankings_snapshot_latest` (scope `rip-statistics`, `updated_at` 2026-09-18T05:02:57Z) target-by-target against the gate-verified 2026-09-15 cohort's `calculation_run_id`s (`resolve_research_cohort(market_date="2026-09-15")`, the same resolver the Chase rebuild and 5E-A both used): **all 22 run IDs match exactly.** The publish timestamp of Sep 18 is when the snapshot was last (re)built, not evidence of staleness — its content already is the correct, current, verified V12 authority. The earlier characterization ("stuck since Sep 18") conflated build time with content currency.
+
+I then attempted a live dry rebuild through the **normal, un-pinned production builder** (`explore_rip_statistics_service.get_rip_statistics_targets_payload()`, the same function `pokemon_explore_rankings_publisher.build_explore_rankings_snapshot_row`/`publish_explore_rip_rankings_snapshot` calls). It raised, correctly:
+
+```
+RuntimeError: Refusing stale Rankings Top Chase publication for set_id=0f7e51e2-...
+(Phantasmal Flames): target run dd0f2f3e-... != set-page chase run 5591e78c-...
+```
+
+**Root cause of the refusal (new finding, verified against production data):** `explore_rip_statistics_latest` always selects the *newest* `calculation_run_id` per set, unconditionally — it has no cohort-wide freshness pin (unlike `resolve_research_cohort`/`opening_simulation_gate`, which require the *whole* cohort to reach one verified date before promoting it). Separately from the read-path timeout fixed above, **21 of the 22 supported sets now carry a newer (2026-09-18, `run_at` 17:03–18:08) simulation run that has not passed the daily freshness gate** (`resolve_cohort_date`: every date from 09-16 through 09-21 still fails verification; 09-15 remains the last fully-verified date). Set-page (`pokemon_set_page_snapshot_latest`, the Top Chase authority `_load_rankings_top_chase_lookup` requires to match) has correctly not been rebuilt for these unverified runs, so the raw builder's cross-artifact run-match check refuses rather than mixing a newer, unverified simulation with older, verified Set-page/Chase authority.
+
+**This refusal is correct and must not be weakened.** Forcing it past this check (or adding a date pin ad hoc under time pressure) would either require declaring the still-unverified 2026-09-18 cohort "current" without it passing the gate (relaxing exact-run matching, explicitly disallowed) or rebuilding Set-page/Chase for an unverified cohort (fabricating downstream authority for unverified upstream data, also disallowed). Neither is done.
+
+**Conclusion: no republish was performed, because none is needed or safe.** The published V12 snapshot already is the correct, current, verified authority; the raw builder cannot currently reproduce it cleanly only because unrelated, unverified speculative reruns exist for 21/22 sets outside the normal daily cycle. This is a real, newly-identified architectural gap (the production Rankings builder has no cohort-date pin the way the finalization/gate services do) but is not in scope to design and land safely in this bucket.
+
+### V14 — unchanged from the main 5E-B report
+
+The same 21-of-22 unverified-rerun problem is the deeper explanation for the 5E-A/5E-B "1/22 Overall V14 ready" result: Chase/Set-page/Collector are all correctly pinned to the 09-15 verified cohort, while the raw per-target read picks up the newer, unverified runs for 21 sets, so the run-match check inside `overall_rip_v14_for` correctly refuses them. A clean, full-cohort V14 dry run through the *normal* (un-pinned) builder cannot be produced right now for the same structural reason V12's re-derivation cannot: no date pin exists to keep the builder on the one verified generation while stray newer runs sit in `calculation_runs`.
+
+### Revised final status
+
+`FINANCIAL_RIP_V5_CURRENT_AUTHORITY_REFRESH_BLOCKED`
+
+Smallest remaining blocker reclassified: **authority mismatch** (not Collector — Collector is resolved; not the read path — that is fixed and verified). Precisely: 21 of 22 supported sets have simulation reruns (2026-09-18) that have not passed the multi-day cohort freshness gate, and the production Rankings builder has no mechanism to pin its read to the one verified generation (2026-09-15) while those unverified reruns exist alongside it. The published V12 snapshot is unaffected and remains correct. V12 is still canonical.
+
+### What is fully resolved in this bucket
+
+- Read-path timeout: root cause found (never-analyzed tables) and fixed (`ANALYZE`), verified stable post-outage.
+- Chase Accessibility: confirmed current for all 22 sets against the verified cohort.
+- Collector Appeal: confirmed current, live bundle rebuild succeeds for 22/22.
+- Published V12 Rankings snapshot: confirmed to already be the correct, current, verified authority — no action needed.
+
+### What remains for the next bucket
+
+1. Decide how to treat the 21 sets' 2026-09-18 reruns: either let the normal daily cohort-verification cycle catch up to them naturally (no code change), or (separately, carefully) add an explicit cohort-date pin to the production Rankings builder so it can be safely re-run against one verified generation even when newer, unverified runs exist — this is new production code and needs its own design/review, not a rushed fix.
+2. Re-attempt the V12/V14 comparison once one of the above resolves the 21-set mismatch.
+3. Authorize (or not) the queued autoanalyze-threshold migration.
