@@ -354,3 +354,96 @@ def test_currency_is_unknown_when_explorer_v2_authority_errors(monkeypatch):
     )
     assert status == trigger.PublicationCurrencyStatus.UNKNOWN
 
+
+
+class _GlobalMarketCurrencyQuery:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def limit(self, *_args):
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=list(self.rows))
+
+
+class _GlobalMarketCurrencyClient:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def table(self, name):
+        assert name == trigger.GLOBAL_MARKET_AUTHORITY_TABLE
+        return _GlobalMarketCurrencyQuery(self.rows)
+
+
+def test_currency_shortcuts_full_audit_when_global_market_is_behind(monkeypatch):
+    client = _GlobalMarketCurrencyClient([{"market_date": "2026-09-20"}])
+    monkeypatch.setattr(
+        trigger,
+        "_market_explorer_v2_current",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("Explorer coverage must not run once staleness is proven")
+        ),
+    )
+
+    status = trigger.evaluate_post_scrape_publication_currency(
+        client,
+        "2026-09-21",
+        audit_runner=lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("heavy audit must be skipped when global Market is behind")
+        ),
+    )
+
+    assert status == trigger.PublicationCurrencyStatus.STALE
+
+
+def test_currency_shortcuts_full_audit_when_global_market_row_is_missing(monkeypatch):
+    client = _GlobalMarketCurrencyClient([])
+    monkeypatch.setattr(
+        trigger,
+        "_market_explorer_v2_current",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("Explorer coverage must not run once staleness is proven")
+        ),
+    )
+
+    status = trigger.evaluate_post_scrape_publication_currency(
+        client,
+        "2026-09-21",
+        audit_runner=lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("heavy audit must be skipped when global Market is missing")
+        ),
+    )
+
+    assert status == trigger.PublicationCurrencyStatus.STALE
+
+
+def test_current_global_market_still_requires_full_audit_and_explorer(monkeypatch):
+    client = _GlobalMarketCurrencyClient([{"market_date": "2026-09-21"}])
+    seen = {"audit": 0, "explorer": 0}
+
+    def audit_runner(_client, market_date, phase):
+        seen["audit"] += 1
+        return _ExplorerCurrencyAuditReport(market_date, True)
+
+    def explorer(_client, market_date):
+        seen["explorer"] += 1
+        assert market_date == "2026-09-21"
+        return True
+
+    monkeypatch.setattr(trigger, "_market_explorer_v2_current", explorer)
+
+    status = trigger.evaluate_post_scrape_publication_currency(
+        client,
+        "2026-09-21",
+        audit_runner=audit_runner,
+    )
+
+    assert status == trigger.PublicationCurrencyStatus.CURRENT
+    assert seen == {"audit": 1, "explorer": 1}
