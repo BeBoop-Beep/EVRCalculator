@@ -1,0 +1,70 @@
+name: Sep22 Base Retry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sep22-base-retry.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  retry:
+    runs-on: self-hosted
+    timeout-minutes: 45
+    steps:
+      - name: Retry Base scrape exactly once
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          LOCK=/tmp/pokemon-scrape-dispatcher.lock
+          TARGET=2026-09-22
+          BASE_ID=0010d2ec-894e-4c17-855d-5de6ff6fd204
+
+          exec 8>"$LOCK"
+          flock -w 120 8
+
+          cd "$LIVE"
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git fetch origin main --quiet
+          git reset --hard origin/main
+          echo "live_head=$(git rev-parse HEAD)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          rows=list(c.table("scrape_jobs").select("id,set_id,status,attempts,max_attempts,error_code").eq("market_date","2026-09-22").eq("set_id","0010d2ec-894e-4c17-855d-5de6ff6fd204").order("id",desc=True).limit(1).execute().data or [])
+          assert rows, "Base Sep22 job missing"
+          row=rows[0]
+          assert row.get("status") == "pending", row
+          assert int(row.get("attempts") or 0) == 3, row
+          assert int(row.get("max_attempts") or 0) == 4, row
+          print("base_retry_preflight", row)
+          PY
+
+          SCRAPE_DRAIN_MAX_JOBS=1 "$PY" backend/scripts/run_next_scrape_job.py --market-date "$TARGET"
+
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          rows=list(c.table("scrape_jobs").select("id,set_id,status,attempts,max_attempts,error_code,error_message,completed_at").eq("market_date","2026-09-22").eq("set_id","0010d2ec-894e-4c17-855d-5de6ff6fd204").order("id",desc=True).limit(1).execute().data or [])
+          assert rows, "Base Sep22 job missing after retry"
+          row=rows[0]
+          print("base_retry_result", row)
+          assert row.get("status") == "completed", row
+          batch=list(c.table("pokemon_scrape_batches").select("id,status,expected_set_count,succeeded_set_count,failed_set_count,missing_set_count").eq("market_date","2026-09-22").order("id",desc=True).limit(1).execute().data or [])
+          assert batch, "Sep22 batch missing"
+          print("batch_after_base_retry", batch[0])
+          assert int(batch[0].get("succeeded_set_count") or 0) >= int(batch[0].get("expected_set_count") or 0), batch[0]
+          assert int(batch[0].get("failed_set_count") or 0) == 0, batch[0]
+          PY
+
+          echo "SEP22_BASE_RETRY=PASS"
