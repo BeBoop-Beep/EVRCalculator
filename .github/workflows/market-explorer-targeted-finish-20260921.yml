@@ -63,7 +63,7 @@ jobs:
 
           echo "=== repair any remaining Sep 21 tracked set-history laggards ==="
           STALE_FILE="$(mktemp)"
-          "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); [print(str(r.get("set_id") or "")) for r in rows if str(r.get("latest_snapshot_date") or "")[:10] < day]' > "$STALE_FILE"
+          "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); [print(str(r.get("set_id") or "")) for r in rows if not str(r.get("latest_snapshot_date") or "")[:10] or str(r.get("latest_snapshot_date") or "")[:10] < day]' > "$STALE_FILE"
           STALE_COUNT="$(grep -c . "$STALE_FILE" || true)"
           echo "set_history_laggards_before_repair=$STALE_COUNT"
           while IFS= read -r SET_ID; do
@@ -111,9 +111,9 @@ jobs:
               echo "prepared_handoff=$PREPARED"
               break
             fi
-            if [ "$PREPARED" = "failed" ] && [ "$PREPARED_ERROR" = "direct_db_credential_missing" ]; then
+            if [ "$PREPARED" = "failed" ] && [[ "$PREPARED_ERROR" == direct_db_* ]]; then
               DONE=2
-              echo "prepared_handoff=external_required"
+              echo "prepared_handoff=external_required error=$PREPARED_ERROR"
               break
             fi
           done
