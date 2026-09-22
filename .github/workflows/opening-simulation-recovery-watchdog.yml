@@ -10,8 +10,10 @@ on:
   schedule:
     # Windows remains the primary 10:00 America/Phoenix runner. These bounded
     # recovery slots begin 2.5h later and repeat hourly through 16:30. A healthy
-    # current cohort is a cheap no-op; recent simulation activity also defers so
-    # this watchdog never races an in-flight Windows run.
+    # current cohort plus a matching Rankings publication is a cheap no-op;
+    # recent simulation activity defers simulation repair so this watchdog never
+    # races an in-flight Windows run. A healthy cohort with stale downstream
+    # publication still resumes the idempotent publication pipeline.
     - cron: '30 19-23 * * *'
 
 permissions:
@@ -102,6 +104,28 @@ jobs:
               age_minutes = (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds() / 60.0
               recent_activity = age_minutes < 45.0
 
+          source_runs = {
+              str(x.set_id): str(x.calculation_run_id)
+              for x in report.statuses
+              if x.set_id and x.calculation_run_id and x.status == "current"
+          }
+          ranking_rows = list(
+              client.table("pokemon_explore_rankings_snapshot_latest")
+              .select("ranking_payload_json,updated_at")
+              .eq("tcg", "pokemon")
+              .eq("scope", "rip-statistics")
+              .limit(1)
+              .execute().data or []
+          )
+          ranking_payload = (ranking_rows[0].get("ranking_payload_json") or {}) if ranking_rows else {}
+          published_runs = {
+              str(t.get("set_id") or t.get("target_id")): str(t.get("calculation_run_id"))
+              for t in (ranking_payload.get("targets") or [])
+              if (t.get("set_id") or t.get("target_id")) and t.get("calculation_run_id")
+          }
+          rankings_match_current_cohort = bool(report.ok and source_runs and published_runs == source_runs)
+          downstream_recovery_needed = bool(report.ok and not rankings_match_current_cohort)
+
           decision = {
               "target": str(target),
               "ok": bool(report.ok),
@@ -116,7 +140,13 @@ jobs:
               "newest_parent_created_at": newest,
               "newest_parent_age_minutes": age_minutes,
               "recent_activity": recent_activity,
-              "needs_recovery": bool(not report.ok and not recent_activity),
+              "rankings_target_count": len(published_runs),
+              "rankings_match_current_cohort": rankings_match_current_cohort,
+              "downstream_recovery_needed": downstream_recovery_needed,
+              "needs_recovery": bool(
+                  (not report.ok and not recent_activity)
+                  or downstream_recovery_needed
+              ),
           }
           print(json.dumps(decision, sort_keys=True))
           PY
