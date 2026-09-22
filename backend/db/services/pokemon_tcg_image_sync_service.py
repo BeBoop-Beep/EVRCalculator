@@ -10,6 +10,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient, PokemonTCGAPIError
 from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient, ScrydexPokemonError
+
+logger = logging.getLogger(__name__)
 from backend.db.repositories.card_variant_repository import (
     get_card_variants_by_card_ids,
     update_card_variant_image_sync_fields_batch,
@@ -147,6 +149,12 @@ class PokemonTCGImageSyncService:
             if rows:
                 return rows, "pokemontcg"
         except PokemonTCGAPIError as exc:
+            # A partial/incomplete legacy checklist is an integrity failure, not
+            # evidence that the set is absent from that provider. Fail closed so
+            # a provider switch can never convert a truncated fetch into writes.
+            # Only an explicit provider miss (404) may cross to Scrydex.
+            if exc.status_code != 404:
+                raise
             legacy_error = exc
 
         try:
