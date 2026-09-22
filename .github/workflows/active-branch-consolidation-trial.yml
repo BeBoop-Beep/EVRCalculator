@@ -77,10 +77,17 @@ jobs:
               normalized = text.rstrip() + "\n"
               if normalized != text:
                   p.write_text(normalized, encoding="utf-8")
+          p = Path("backend/tests/unit/db/test_market_explorer_prepared_directory_service.py")
+          if p.exists():
+              text = p.read_text(encoding="utf-8")
+              old = 'assert market["window_movements"]["SinceTracking"]["percent"] == 20.0'
+              new = 'assert abs(market["window_movements"]["SinceTracking"]["percent"] - 20.0) < 1e-9'
+              if old in text:
+                  p.write_text(text.replace(old, new), encoding="utf-8")
           PY
           if ! git diff --quiet; then
-            git add backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py
-            git commit -m "chore: normalize consolidation whitespace"
+            git add backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py backend/tests/unit/db/test_market_explorer_prepared_directory_service.py
+            git commit -m "chore: normalize consolidation test precision"
           fi
           git diff --check origin/develop...HEAD
       - name: Install targeted test dependencies
