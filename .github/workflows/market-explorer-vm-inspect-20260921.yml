@@ -1,0 +1,40 @@
+name: Market Explorer VM Inspect 2026-09-21
+
+on:
+  push:
+    branches: [ops/market-explorer-finish-20260921]
+    paths:
+      - '.github/workflows/market-explorer-vm-inspect-20260921.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Inspect live checkout ownership
+        shell: bash
+        run: |
+          set +e
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          cd "$LIVE" || exit 1
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          git fetch origin main --quiet
+          echo "origin_main=$(git rev-parse origin/main)"
+          echo "status_begin"
+          git status --porcelain
+          echo "status_end"
+          echo "branches_containing_head_begin"
+          git branch -a --contains HEAD || true
+          echo "branches_containing_head_end"
+          echo "reflog_begin"
+          git reflog -n 20 --date=iso || true
+          echo "reflog_end"
+          echo "processes_begin"
+          pgrep -af 'git|pytest|rebuild_snapshots_after_scrape|refresh_pokemon_market_snapshots|market_explorer|sentinel' || true
+          echo "processes_end"
+          if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then echo "publication_lock=free"; else echo "publication_lock=held"; fi
+          if /usr/bin/flock -n /tmp/post-scrape-publication-watchdog.lock -c true; then echo "watchdog_lock=free"; else echo "watchdog_lock=held"; fi
