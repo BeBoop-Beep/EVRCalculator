@@ -26,6 +26,6 @@ jobs:
           import json
           p=json.load(open("/tmp/runs.json"))
           for r in p.get("workflow_runs") or []:
-              if r.get("name") in {"Sep22 Market Publication Repair","Pokemon Catalog Recheck Refresh","Opening Simulation Recovery Watchdog","RIP Recovery Diagnostic 2026-09-22"} or r.get("status") in {"queued","in_progress","pending","waiting"}:
+              if r.get("name") in {"Repair Sep22 Market Publication","Sep22 Market Publication Repair","Repair Sep21 Market Publication","Pokemon Catalog Recheck Refresh","Opening Simulation Recovery Watchdog","RIP Recovery Diagnostic 2026-09-22"} or r.get("status") in {"queued","in_progress","pending","waiting"}:
                   print(json.dumps({"id":r.get("id"),"name":r.get("name"),"status":r.get("status"),"conclusion":r.get("conclusion"),"head_branch":r.get("head_branch"),"head_sha":r.get("head_sha"),"event":r.get("event"),"created_at":r.get("created_at"),"updated_at":r.get("updated_at"),"run_attempt":r.get("run_attempt")},sort_keys=True))
           PY
