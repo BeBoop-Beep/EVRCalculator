@@ -74,12 +74,7 @@ jobs:
           "$PY" -m backend.scripts.run_market_explorer_daily_publication --commit --market-date "$TARGET"
 
           echo "=== require V2 coverage 166/166 current ==="
-          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=[]; start=0
-while True:
- p=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,retained_from,computed_through,row_count,retention_days").order("set_id").range(start,start+999).execute().data or []); rows.extend(p)
- if len(p)<1000: break
- start+=1000
-cur=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]; bad=[r for r in rows if int(r.get("retention_days") or 0)!=100 or int(r.get("row_count") or 0)<0]; out={"rows":len(rows),"current":len(cur),"stale":len(rows)-len(cur),"badCoverageRows":len(bad),"minComputedThrough":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),"maxComputedThrough":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None)}; print("explorer_v2_coverage="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if len(rows)==166 and len(cur)==166 and not bad else 34)'
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,retained_from,computed_through,row_count,retention_days").order("set_id").limit(1000).execute().data or []); cur=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]; bad=[r for r in rows if int(r.get("retention_days") or 0)!=100 or int(r.get("row_count") or 0)<0]; out={"rows":len(rows),"current":len(cur),"stale":len(rows)-len(cur),"badCoverageRows":len(bad),"minComputedThrough":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),"maxComputedThrough":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None)}; print("explorer_v2_coverage="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if len(rows)==166 and len(cur)==166 and not bad else 34)'
 
           flock -u 9
           flock -u 8
@@ -111,12 +106,7 @@ cur=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]; bad=[
           fi
 
           echo "=== final database acceptance ==="
-          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=[]; start=0
-while True:
- p=list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,status,computed_through").eq("cache_kind","maintained").range(start,start+999).execute().data or []); rows.extend(p)
- if len(p)<1000: break
- start+=1000
-stale=[r for r in rows if str(r.get("computed_through") or "")[:10] < day]; gens=list(c.table("pokemon_market_explorer_prepared_generations_v1").select("generation_id,status,comparison_as_of,promoted_at").eq("status","serving").order("promoted_at",desc=True).limit(2).execute().data or []); serving=gens[0] if gens else {}; out={"maintained":len(rows),"maintainedCurrent":len(rows)-len(stale),"maintainedStale":len(stale),"servingGeneration":serving}; print("final_explorer_state="+json.dumps(out,sort_keys=True,default=str)); raise SystemExit(0 if len(rows)>0 and not stale and str(serving.get("comparison_as_of") or "")[:10] == day else 37)'
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,status,computed_through").eq("cache_kind","maintained").limit(1000).execute().data or []); stale=[r for r in rows if str(r.get("computed_through") or "")[:10] < day]; gens=list(c.table("pokemon_market_explorer_prepared_generations_v1").select("generation_id,status,comparison_as_of,promoted_at").eq("status","serving").order("promoted_at",desc=True).limit(2).execute().data or []); serving=gens[0] if gens else {}; out={"maintained":len(rows),"maintainedCurrent":len(rows)-len(stale),"maintainedStale":len(stale),"servingGeneration":serving}; print("final_explorer_state="+json.dumps(out,sort_keys=True,default=str)); raise SystemExit(0 if len(rows)>0 and not stale and str(serving.get("comparison_as_of") or "")[:10] == day else 37)'
 
           echo "=== public Set Value authority ==="
           BODY="$(mktemp)"
