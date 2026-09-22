@@ -19,11 +19,11 @@ cache territory -- precomputing those would be exactly the unbounded
 "cache everything" mistake this script exists to avoid.
 
 SOURCE OF TRUTH FOR "WHAT IS FINITE AND BROAD". Never a hardcoded list:
-eras, rarity segments, price segments and release-age cohorts are all read
-from `build_market_explorer_filter_options`, the same canonical registry
-the frontend's options endpoint and the Builder/Screens UI already consume.
-A future taxonomy addition or removal is picked up automatically the next
-time this script runs.
+eras, the full canonical rarity taxonomy, price segments and release-age
+cohorts are all read from `build_market_explorer_filter_options`, the same
+canonical registry the frontend's options endpoint and the Builder/Screens UI
+already consume. A future taxonomy addition or removal is picked up
+automatically the next time this script runs.
 
 IDENTITY, NOT DUPLICATION. Each candidate spec is normalized through the
 exact same `normalize_query_spec`/`query_fingerprint` the Builder and every
@@ -111,13 +111,13 @@ def discover_candidate_specs(client: Any) -> list[tuple[str, str, dict[str, Any]
         spec = normalize_query_spec(asset=ASSET_CARDS, mode=MODE_ALL, era_ids=[era_id])
         candidates.append((f"era:{era.get('label')}", "era", spec))
 
-    segments = ((options.get("cardSegments") or options.get("segments") or {}).get("segments") or [])
-    for segment in segments:
-        key = str(segment.get("key") or "")
+    rarities = ((options.get("cardRarities") or {}).get("rarities") or [])
+    for rarity in rarities:
+        key = str(rarity.get("key") or "")
         if not key:
             continue
         spec = normalize_query_spec(asset=ASSET_CARDS, mode=MODE_ALL, segment_ids=[key])
-        candidates.append((f"rarity:{segment.get('label')}", "rarity_segment", spec))
+        candidates.append((f"rarity:{rarity.get('label')}", "rarity_segment", spec))
 
     for price_segment in (options.get("priceSegments") or {}).get(ASSET_CARDS) or []:
         segment_id = str(price_segment.get("id") or "")
