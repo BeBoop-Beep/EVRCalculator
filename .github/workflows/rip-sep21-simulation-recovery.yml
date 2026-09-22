@@ -1,0 +1,45 @@
+name: RIP Sep21 Simulation Recovery
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/rip-sep21-simulation-recovery.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: self-hosted
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Rebuild and verify Sep 21 simulation cohort
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          LOCK=/tmp/pokemon-opening-simulation-recovery.lock
+          cd "$GITHUB_WORKSPACE"
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+
+          echo "workspace_head=$(git rev-parse HEAD)"
+          echo "target_market_date=2026-09-21"
+
+          exec 9>"$LOCK"
+          if ! flock -n 9; then
+            echo "FATAL: another opening-simulation recovery is active"
+            exit 75
+          fi
+
+          "$PY" -m backend.scripts.run_daily_opening_publication             --market-date 2026-09-21             --skip-snapshots             --json
