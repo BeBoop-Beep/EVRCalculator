@@ -1,0 +1,35 @@
+name: Pokemon Onboarding First-Build Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/scripts/refresh_due_pokemon_catalog_sets.py'
+      - 'backend/services/pokemon_set_onboarding_service.py'
+      - 'backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py'
+      - 'backend/tests/unit/services/test_pokemon_set_onboarding_service.py'
+      - '.github/workflows/test-pokemon-onboarding-first-build.yml'
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Compile changed modules
+        run: |
+          python -m py_compile \
+            backend/scripts/refresh_due_pokemon_catalog_sets.py \
+            backend/services/pokemon_set_onboarding_service.py
+      - name: Run focused regressions
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py \
+            backend/tests/unit/services/test_pokemon_set_onboarding_service.py
