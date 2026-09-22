@@ -1,0 +1,131 @@
+name: Hosted 30th Backfill Attempt
+
+on:
+  push:
+    branches: [ops/hosted-30th-backfill-attempt-20260922]
+    paths:
+      - '.github/workflows/hosted-30th-backfill-attempt-20260922.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      POKEMON_TCG_API_KEY: ${{ secrets.POKEMON_TCG_API_KEY }}
+      SCRYDEX_API_KEY: ${{ secrets.SCRYDEX_API_KEY }}
+      SCRYDEX_TEAM_ID: ${{ secrets.SCRYDEX_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check hosted production credentials
+        id: creds
+        shell: bash
+        run: |
+          if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "HOSTED_PROD_CREDS=AVAILABLE"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "HOSTED_PROD_CREDS=UNAVAILABLE"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.creds.outputs.available == 'true'
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend runtime
+        if: steps.creds.outputs.available == 'true'
+        run: python -m pip install -q -r backend/requirements.txt
+
+      - name: Hydrate 30th metadata and artwork
+        if: steps.creds.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python backend/scripts/sync_pokemon_images.py             --sets "ME: 30th Celebration" "ME: 30th Celebration Classic Collection"             --apply
+          python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --canonical-only --log-level INFO
+          python backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --canonical-only --log-level INFO
+
+      - name: Refresh 30th read models and Market publication
+        if: steps.creds.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.pokemon_snapshot_builders import (
+              build_coordinated_set_market_snapshot_rows,
+              build_set_page_snapshot_row,
+              refresh_canonical_card_market_prices_for_set,
+              snapshot_service_client_scope,
+              upsert_row,
+              upsert_rows,
+          )
+          from backend.scripts.build_pokemon_explore_set_value_snapshot import build as build_set_market
+          from backend.scripts.publish_market_explorer_filter_options import run_publication
+
+          c=create_service_role_client()
+          keys=["me30thCelebration","me30thCelebrationClassicCollection"]
+          rows=list(c.table("sets").select("*").in_("canonical_key",keys).execute().data or [])
+          by={str(row.get("canonical_key")):row for row in rows}
+          assert set(by)==set(keys), by.keys()
+          ids=[str(by[key]["id"]) for key in keys]
+
+          c.rpc("refresh_pokemon_market_explorer_card_current_metadata",{"p_set_ids":ids}).execute()
+
+          for key in keys:
+              set_row=by[key]
+              sid=str(set_row["id"])
+              with snapshot_service_client_scope(c):
+                  refresh_canonical_card_market_prices_for_set(c,sid,commit=True)
+                  cards_row,dashboard_row,history_rows=build_coordinated_set_market_snapshot_rows(set_row,client=c)
+                  upsert_row(c,"pokemon_set_cards_snapshot_latest",cards_row,on_conflict="set_id",commit=True)
+                  upsert_rows(c,"pokemon_set_top_chase_card_daily_history",history_rows,on_conflict="set_id,snapshot_date,rank",commit=True)
+                  upsert_row(c,"pokemon_set_market_dashboard_snapshot_latest",dashboard_row,on_conflict="set_id,window_key",commit=True)
+
+          page_row=build_set_page_snapshot_row(by["me30thCelebration"],client=c)
+          upsert_row(c,"pokemon_set_page_snapshot_latest",page_row,on_conflict="set_id",commit=True)
+
+          target="2026-09-21"
+          quality=list(c.table("pokemon_market_date_quality").select("status,cohort_set_count,qualifying_set_count").eq("tcg","pokemon").eq("market_date",target).limit(1).execute().data or [])
+          assert quality and quality[0].get("status") in {"READY","LEGACY_VERIFIED"}, quality
+          assert int(quality[0].get("cohort_set_count") or 0)==156, quality
+          assert int(quality[0].get("qualifying_set_count") or 0)==156, quality
+          idx=list(c.table("pokemon_market_index_daily_history").select("index_key,set_count").eq("tcg","pokemon").eq("market_date",target).in_("index_key",["raw","top10"]).execute().data or [])
+          assert len(idx)==2 and all(int(x.get("set_count") or 0)==156 for x in idx), idx
+
+          row=build_set_market(client=c,market_date=target,commit=True)
+          print("hosted_set_market",row.get("market_date"),row.get("set_count"))
+          print("hosted_options",run_publication(c))
+          PY
+
+      - name: Verify hosted repair
+        if: steps.creds.outputs.available == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          expected={"me30thCelebration":158,"me30thCelebrationClassicCollection":30}
+          rows=list(c.table("sets").select("id,canonical_key").in_("canonical_key",list(expected)).execute().data or [])
+          by={x["canonical_key"]:x for x in rows}
+          for key,n in expected.items():
+              sid=by[key]["id"]
+              cards=list(c.table("cards").select("id,image_small_url,image_large_url").eq("set_id",sid).limit(500).execute().data or [])
+              canon=list(c.table("pokemon_canonical_cards").select("source,image_small_url,image_large_url").eq("set_id",sid).limit(500).execute().data or [])
+              assert len(cards)==n and sum(bool(x.get("image_small_url") or x.get("image_large_url")) for x in cards)==n,(key,len(cards))
+              assert len(canon)==n and sum(str(x.get("source") or "")=="tcgdex" for x in canon)==n,(key,len(canon))
+          snap=list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,set_count,payload_json").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or [])
+          assert snap and str(snap[0].get("market_date"))[:10]=="2026-09-21" and int(snap[0].get("set_count") or 0)==156,snap
+          assert "me30thCelebration" in str(snap[0].get("payload_json") or {}), "30th absent from Set Market"
+          print("HOSTED_30TH_BACKFILL=PASS")
+          PY
