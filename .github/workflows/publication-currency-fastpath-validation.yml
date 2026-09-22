@@ -1,0 +1,40 @@
+name: Publication Currency Fastpath Validation
+
+on:
+  push:
+    branches:
+      - fix/publication-currency-stale-fastpath-20260921
+    paths:
+      - '.github/workflows/publication-currency-fastpath-validation.yml'
+      - 'backend/db/services/post_scrape_publication_trigger.py'
+      - 'backend/tests/unit/db/services/test_post_scrape_publication_trigger.py'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/publication-currency-stale-fastpath-20260921
+          fetch-depth: 1
+      - name: Run focused validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          set -a
+          . /home/ubuntu/repos/EVRCalculator/backend/.env
+          set +a
+          "$PY" -m py_compile backend/db/services/post_scrape_publication_trigger.py
+          "$PY" -m pytest -q backend/tests/unit/db/services/test_post_scrape_publication_trigger.py backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py backend/tests/unit/scripts/test_publish_post_scrape_gate_tristate.py
+          mkdir -p ops/assistant
+          printf 'PASS %s\n' "$(date -u +%FT%TZ)" > ops/assistant/publication-currency-fastpath-validation-pass.txt
+          git config user.name "inDex ops runner"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/publication-currency-fastpath-validation-pass.txt
+          git commit -m "test: record publication currency fastpath validation pass"
+          git push origin HEAD:fix/publication-currency-stale-fastpath-20260921
