@@ -10,8 +10,12 @@ outside the Market root universe or by whether a set supports simulations.
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
+
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.data_service_health import classify_data_service_error
 
 from backend.db.services.pokemon_market_rollout_cohort import (
     MARKET_ROOT_AUTHORITY_CUTOVER_DATE,
@@ -28,7 +32,7 @@ QUALITY_TABLE = "pokemon_market_date_quality"
 SOURCE_TABLE = "pokemon_set_value_daily_history"
 INDEX_TABLE = "pokemon_market_index_daily_history"
 PAGE_SIZE = 1000
-IN_CHUNK_SIZE = 100
+IN_CHUNK_SIZE = 20
 
 # v2: 2026-09-10+ cohort membership now resolves from the frozen
 # pokemon_market_root_authority table instead of the certification-sensitive
@@ -230,14 +234,29 @@ def valuation_set_ids_for_date(
     if not set_ids:
         return present
     ids = list(set_ids)
+    current_client = client
     for start in range(0, len(ids), IN_CHUNK_SIZE):
         chunk = ids[start:start + IN_CHUNK_SIZE]
-        rows = _paged(lambda chunk=chunk: client.table(SOURCE_TABLE)
-                      .select("set_id,snapshot_date,set_value,priced_card_count,value_scope")
-                      .in_("set_id", chunk)
-                      .in_("value_scope", list(REQUIRED_VALUE_SCOPES))
-                      .eq("snapshot_date", day)
-                      .order("set_id", desc=False))
+        rows = None
+        for attempt in range(1, 4):
+            try:
+                rows = _paged(lambda chunk=chunk, active=current_client: active.table(SOURCE_TABLE)
+                              .select("set_id,snapshot_date,set_value,priced_card_count,value_scope")
+                              .in_("set_id", chunk)
+                              .in_("value_scope", list(REQUIRED_VALUE_SCOPES))
+                              .eq("snapshot_date", day)
+                              .order("set_id", desc=False))
+                break
+            except Exception as exc:
+                failure = classify_data_service_error(exc)
+                if attempt >= 3 or not failure.transient:
+                    raise
+                time.sleep(0.25 * (2 ** (attempt - 1)))
+                current_client = create_service_role_client()
+        if rows is None:
+            raise RuntimeError(
+                f"Market valuation read produced no result for {day} chunk starting at {start}"
+            )
         for row in rows:
             scope = str(row.get("value_scope") or "")
             if scope not in present:
