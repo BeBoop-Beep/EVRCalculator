@@ -1,0 +1,44 @@
+name: Publication Currency Fastpath Hosted Validation
+
+on:
+  push:
+    branches:
+      - fix/publication-currency-stale-fastpath-20260921
+    paths:
+      - '.github/workflows/publication-currency-fastpath-hosted-validation.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/publication-currency-stale-fastpath-20260921
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest
+      - name: Run focused tests and record pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile backend/db/services/post_scrape_publication_trigger.py
+          python -m pytest -q backend/tests/unit/db/services/test_post_scrape_publication_trigger.py backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py backend/tests/unit/scripts/test_publish_post_scrape_gate_tristate.py
+          mkdir -p ops/assistant
+          printf 'PASS %s\n' "$(date -u +%FT%TZ)" > ops/assistant/publication-currency-fastpath-hosted-pass.txt
+          git config user.name "inDex CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/publication-currency-fastpath-hosted-pass.txt
+          git commit -m "test: record hosted currency-fastpath validation pass"
+          git push origin HEAD:fix/publication-currency-stale-fastpath-20260921
