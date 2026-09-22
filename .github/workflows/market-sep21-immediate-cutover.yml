@@ -1,0 +1,309 @@
+name: Market Sep21 Immediate Cutover
+
+on:
+  push:
+    branches: [ops/market-explorer-finish-20260921]
+    paths:
+      - '.github/workflows/market-sep21-immediate-cutover.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cutover:
+    runs-on: self-hosted
+    timeout-minutes: 45
+    steps:
+      - name: Recover stale watchdog lock and advance public Market
+        shell: bash
+        run: |
+          set -uo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          TARGET=2026-09-21
+          WATCH_LOCK=/tmp/post-scrape-publication-watchdog.lock
+          PUB_LOCK=/tmp/pokemon-post-scrape-publication.lock
+
+          cd "$LIVE" || exit 1
+          echo "=== preflight ==="
+          echo "utc=$(date -u +%FT%TZ)"
+          echo "branch=$(git branch --show-current)"
+          echo "head=$(git rev-parse HEAD)"
+          echo "watchdog_lock_before=$(/usr/bin/flock -n "$WATCH_LOCK" -c true && echo free || echo held)"
+          echo "publication_lock_before=$(/usr/bin/flock -n "$PUB_LOCK" -c true && echo free || echo held)"
+          echo "relevant_processes_begin"
+          ps -eo pid=,ppid=,etimes=,args= | grep -E 'post_scrape_publication_watchdog|rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          echo "relevant_processes_end"
+
+          # A cron watchdog should be a short-lived check. The prior targeted
+          # finisher proved this lock remained held for >15 minutes after the
+          # publication runner itself had exited. Recover only an exact canonical
+          # watchdog process, and never touch an active canonical publisher.
+          if ! /usr/bin/flock -n "$WATCH_LOCK" -c true; then
+            if ! /usr/bin/flock -n "$PUB_LOCK" -c true; then
+              echo "FATAL both watchdog and publication locks are held; refusing ambiguous recovery"
+              exit 20
+            fi
+
+            "$PY" - <<'PY'
+import os
+import signal
+import subprocess
+import sys
+import time
+
+LOCK = "/tmp/post-scrape-publication-watchdog.lock"
+MODULE = "backend.alerts.post_scrape_publication_watchdog"
+
+raw = subprocess.run(
+    ["ps", "-eo", "pid=,ppid=,etimes=,args="],
+    capture_output=True,
+    text=True,
+    check=True,
+).stdout.splitlines()
+
+rows = []
+for line in raw:
+    parts = line.strip().split(None, 3)
+    if len(parts) != 4:
+        continue
+    try:
+        pid, ppid, age = map(int, parts[:3])
+    except ValueError:
+        continue
+    rows.append({"pid": pid, "ppid": ppid, "age": age, "args": parts[3]})
+
+python_rows = [
+    row for row in rows
+    if MODULE in row["args"]
+    and " -m " in f" {row['args']} "
+]
+flock_rows = [
+    row for row in rows
+    if LOCK in row["args"]
+    and "flock" in row["args"]
+    and MODULE in row["args"]
+]
+
+print("canonical_watchdog_python=" + repr(python_rows))
+print("canonical_watchdog_flock=" + repr(flock_rows))
+
+if len(python_rows) != 1:
+    print("FATAL exact watchdog python identity is ambiguous", file=sys.stderr)
+    raise SystemExit(21)
+py = python_rows[0]
+if py["age"] < 600:
+    print(f"FATAL watchdog is only {py['age']}s old; refusing recovery", file=sys.stderr)
+    raise SystemExit(22)
+
+# TERM the worker first. Its canonical flock parent should then unwind and
+# release the lock naturally.
+os.kill(py["pid"], signal.SIGTERM)
+print(f"watchdog_sigterm_pid={py['pid']} age={py['age']}")
+time.sleep(5)
+
+# If the canonical flock wrapper is still alive after its child exited, TERM
+# only the exact wrapper that owns this exact lock/module command.
+for row in flock_rows:
+    try:
+        os.kill(row["pid"], 0)
+    except ProcessLookupError:
+        continue
+    if row["age"] >= 600:
+        os.kill(row["pid"], signal.SIGTERM)
+        print(f"watchdog_flock_sigterm_pid={row['pid']} age={row['age']}")
+PY
+            RECOVER_RC=$?
+            echo "watchdog_recovery_rc=$RECOVER_RC"
+            if [ "$RECOVER_RC" -ne 0 ]; then exit "$RECOVER_RC"; fi
+
+            RELEASED=0
+            for i in $(seq 1 12); do
+              if /usr/bin/flock -n "$WATCH_LOCK" -c true; then
+                RELEASED=1
+                echo "watchdog_lock_released_after_seconds=$((i*5))"
+                break
+              fi
+              sleep 5
+            done
+            if [ "$RELEASED" -ne 1 ]; then
+              echo "FATAL watchdog lock still held after bounded exact recovery"
+              exit 23
+            fi
+          fi
+
+          echo "=== acquire coordination locks ==="
+          exec 8>"$WATCH_LOCK"
+          flock -w 60 8 || exit 24
+          exec 9>"$PUB_LOCK"
+          flock -w 60 9 || exit 25
+
+          echo "=== sync live checkout ==="
+          test "$(git branch --show-current)" = "main" || exit 26
+          test -z "$(git status --porcelain --untracked-files=no)" || exit 27
+          git fetch origin main --quiet || exit 28
+          AHEAD="$(git rev-list --count origin/main..HEAD)"
+          echo "ahead_of_origin_main=$AHEAD"
+          [ "$AHEAD" -eq 0 ] || exit 29
+          git reset --hard origin/main || exit 30
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "origin_main=$(git rev-parse origin/main)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== authorities before cutover ==="
+          "$PY" - <<'PY'
+import json
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
+
+c = create_service_role_client()
+target = "2026-09-21"
+decision = evaluate_price_projection_gate(c, target)
+print("price_projection=" + json.dumps(decision.to_dict(), sort_keys=True, default=str))
+if not decision.ready:
+    raise SystemExit(31)
+
+quality = list(
+    c.table("pokemon_market_date_quality")
+    .select("status")
+    .eq("tcg", "pokemon")
+    .eq("market_date", target)
+    .limit(1)
+    .execute().data or []
+)
+status = str((quality[0] if quality else {}).get("status") or "")
+print("market_quality=" + status)
+if status not in {"READY", "LEGACY_VERIFIED"}:
+    raise SystemExit(32)
+
+rows = list(
+    c.rpc(
+        "get_pokemon_market_explorer_set_history_coverage_v1",
+        {"p_set_ids": None},
+    ).execute().data or []
+)
+current = [
+    r for r in rows
+    if str(r.get("latest_snapshot_date") or "")[:10] >= target
+]
+print(
+    "set_history=" + json.dumps(
+        {
+            "total": len(rows),
+            "current": len(current),
+            "stale": len(rows) - len(current),
+            "minLatest": min(
+                (str(r.get("latest_snapshot_date") or "")[:10] for r in rows),
+                default=None,
+            ),
+            "maxLatest": max(
+                (str(r.get("latest_snapshot_date") or "")[:10] for r in rows),
+                default=None,
+            ),
+        },
+        sort_keys=True,
+    )
+)
+if not rows or len(current) != len(rows):
+    raise SystemExit(33)
+PY
+          AUTH_RC=$?
+          echo "authority_rc=$AUTH_RC"
+          [ "$AUTH_RC" -eq 0 ] || exit "$AUTH_RC"
+
+          echo "=== publish compact Set Value authority ==="
+          "$PY" -m backend.scripts.build_pokemon_explore_set_value_snapshot             --commit --market-date "$TARGET"
+          SET_VALUE_RC=$?
+          echo "set_value_snapshot_rc=$SET_VALUE_RC"
+          [ "$SET_VALUE_RC" -eq 0 ] || exit 34
+
+          echo "=== advance Explorer V2 ==="
+          "$PY" -m backend.scripts.run_market_explorer_daily_publication             --commit --market-date "$TARGET"
+          EXPLORER_RC=$?
+          echo "explorer_v2_rc=$EXPLORER_RC"
+          [ "$EXPLORER_RC" -eq 0 ] || exit 35
+
+          echo "=== verify exact Explorer V2 coverage ==="
+          "$PY" - <<'PY'
+import json
+from backend.db.clients.supabase_client import create_service_role_client
+c = create_service_role_client()
+target = "2026-09-21"
+tracked = list(
+    c.rpc(
+        "get_pokemon_market_explorer_set_history_coverage_v1",
+        {"p_set_ids": None},
+    ).execute().data or []
+)
+expected = {str(r.get("set_id")) for r in tracked if r.get("set_id")}
+rows = list(
+    c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
+    .select("set_id,computed_through,row_count,retention_days")
+    .limit(1000)
+    .execute().data or []
+)
+by_id = {str(r.get("set_id")): r for r in rows if r.get("set_id")}
+stale = sorted(
+    sid for sid in expected
+    if str((by_id.get(sid) or {}).get("computed_through") or "")[:10] < target
+)
+missing = sorted(expected - set(by_id))
+extra = sorted(set(by_id) - expected)
+bad = [
+    r for r in rows
+    if int(r.get("retention_days") or 0) != 100
+    or int(r.get("row_count") or 0) < 0
+]
+out = {
+    "expected": len(expected),
+    "rows": len(rows),
+    "stale": len(stale),
+    "missing": len(missing),
+    "extra": len(extra),
+    "bad": len(bad),
+}
+print("explorer_v2_coverage=" + json.dumps(out, sort_keys=True))
+if not expected or missing or extra or stale or bad:
+    raise SystemExit(36)
+PY
+          COVERAGE_RC=$?
+          echo "coverage_rc=$COVERAGE_RC"
+          [ "$COVERAGE_RC" -eq 0 ] || exit "$COVERAGE_RC"
+
+          flock -u 9
+          flock -u 8
+
+          echo "=== public cutover ==="
+          CURRENT=0
+          for i in $(seq 1 12); do
+            BODY="$(mktemp)"
+            CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+            DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+            COUNT="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); x=p.get("sets"); print(len(x) if isinstance(x,list) else -1)' "$BODY" 2>/dev/null || true)"
+            rm -f "$BODY"
+            echo "public_poll=$i http=$CODE date=$DATE sets=$COUNT"
+            if [ "$CODE" = "200" ] && [ "$DATE" = "$TARGET" ]; then
+              CURRENT=1
+              break
+            fi
+            sleep 10
+          done
+          echo "public_market_current=$CURRENT"
+          [ "$CURRENT" -eq 1 ] || exit 37
+
+          echo "=== Sentinel observation canaries ==="
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"             SENTINEL_RECOVERY_ENABLED=false             SENTINEL_RECOVERY_EXECUTION_READY=false             "$PY" -m backend.sentinel.operational --profile fast
+          FAST_RC=$?
+          echo "sentinel_fast_rc=$FAST_RC"
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"             SENTINEL_RECOVERY_ENABLED=false             SENTINEL_RECOVERY_EXECUTION_READY=false             "$PY" -m backend.sentinel.operational --profile public
+          PUBLIC_RC=$?
+          echo "sentinel_public_rc=$PUBLIC_RC"
+
+          if [ "$FAST_RC" -ne 0 ] || [ "$PUBLIC_RC" -ne 0 ]; then
+            exit 38
+          fi
+
+          echo "MARKET_SEP21_IMMEDIATE_CUTOVER=PASS"
