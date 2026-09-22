@@ -506,9 +506,48 @@ def _refresh_authoritative_canonical_cards(
                 "rows_upserted": 0, "reason": str(exc)}
     if not rows:
         return {"status": "unavailable_empty_checklist", "rows_found": 0, "rows_upserted": 0}
-    written = 0 if dry_run else _upsert_canonical_rows(client, rows)
-    return {"status": "dry_run" if dry_run else "refreshed", "source": "pokemon_tcg_api",
-            "rows_found": len(rows), "rows_upserted": written}
+
+    # Promote identity-poor fallback rows IN PLACE before inserting provider
+    # rows. Without this reconciliation, a set scraped before provider metadata
+    # existed would retain its fallback:* canonical rows and gain a second copy
+    # keyed by the authoritative API id when metadata later appeared.
+    existing_rows = _list_canonical_for_set(client, set_id)
+    fallback_by_identity = {
+        _canonical_identity(str(row.get("number") or ""), str(row.get("name") or "")): row
+        for row in existing_rows
+        if str(row.get("source") or "") == FALLBACK_SOURCE
+    }
+    rows_to_upsert: List[Dict[str, Any]] = []
+    promoted = 0
+    for row in rows:
+        key = _canonical_identity(str(row.get("number") or ""), str(row.get("name") or ""))
+        fallback = fallback_by_identity.get(key)
+        if not fallback or not fallback.get("id"):
+            rows_to_upsert.append(row)
+            continue
+        if dry_run:
+            promoted += 1
+            continue
+        update_payload = dict(row)
+        update_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+        result = (
+            client.table("pokemon_canonical_cards")
+            .update(update_payload)
+            .eq("id", fallback["id"])
+            .execute()
+        )
+        promoted += len(result.data or []) or 1
+
+    inserted_or_updated = 0 if dry_run else _upsert_canonical_rows(client, rows_to_upsert)
+    written = promoted + inserted_or_updated
+    return {
+        "status": "dry_run" if dry_run else "refreshed",
+        "source": "pokemon_tcg_api",
+        "rows_found": len(rows),
+        "rows_promoted_from_fallback": promoted,
+        "rows_upserted_by_api_id": inserted_or_updated,
+        "rows_upserted": written,
+    }
 
 
 def _build_links(
