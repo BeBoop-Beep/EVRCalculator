@@ -359,12 +359,16 @@ def test_image_sync_failure_is_critical_and_reschedules_short_retry(monkeypatch)
 
     def fake_run(command):
         calls.append(command)
-        failed = any(part.endswith("sync_pokemon_images.py") for part in command)
+        is_image = any(str(part).endswith("sync_pokemon_images.py") for part in command)
+        # The contract under test is order-sensitive: scrape succeeds first and
+        # image hydration is the next critical operation.
+        if len(calls) == 2:
+            assert is_image, command
         return {
             "command": command,
-            "exit_code": 1 if failed else 0,
+            "exit_code": 1 if len(calls) == 2 else 0,
             "stdout_tail": "",
-            "stderr_tail": "image sync failed" if failed else "",
+            "stderr_tail": "image sync failed" if len(calls) == 2 else "",
         }
 
     monkeypatch.setattr(script, "_run", fake_run)
