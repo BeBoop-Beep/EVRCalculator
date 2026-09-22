@@ -680,30 +680,17 @@ def orchestrate(
     summary.simulation_execution_date = current_simulation_date
     print(f"{TAG} market_date={resolved_market_date} eligible={before.eligible_count} pending={len(pending)}")
 
-    # Simulation history is dated from actual Phoenix execution time. After a
-    # rollover, running yesterday's missing work can only create today's point;
-    # it can never repair yesterday's promoted cohort.
+    # Since calculation-run market-date persistence landed, execution date and
+    # simulation-source market date are separate authorities. A failed promoted
+    # cohort can therefore be repaired after midnight: run_all_v2_sets receives
+    # --market-date below and persists that exact date on the replacement run.
+    # Keep execution date as diagnostics only; never block a valid repair merely
+    # because the wall clock rolled over.
     if pending and current_simulation_date != resolved_market_date:
-        from backend.db.services.rankings_publication_lifecycle import (
-            deferred_simulation_rollover_readiness,
+        print(
+            f"{TAG} historical_repair market_date={resolved_market_date} "
+            f"execution_date={current_simulation_date} pending={len(pending)}"
         )
-        report = deferred_simulation_rollover_readiness(
-            market_date=resolved_market_date,
-            simulation_date=current_simulation_date,
-            expected_count=before.eligible_count,
-            current_count=sum(1 for item in before.statuses if item.status == "current"),
-            pending_keys=pending,
-        )
-        summary.latest_simulation_date_by_set = _latest_dates(before)
-        summary.error = report.detail
-        summary.exit_code = GATE_DEFERRED_EXIT_CODE
-        attempt_id = _persist_rankings_deferral(client, report) if not dry_run else None
-        _set_rankings_outcome(summary, RankingsPublicationOutcome(
-            classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
-            reason_code=report.reason_code, reason_detail=report.detail,
-            attempt_id=attempt_id, publication_required=True, publication_attempted=False,
-        ))
-        return summary
 
     outcomes = run_simulations_for_sets(
         pending,
@@ -873,7 +860,7 @@ def orchestrate(
         if refresh_code == 0:
             summary.snapshot_publication_status = "published"
             # A DEFERRED_WITH_ATTEMPT outcome may already have been set above
-            # (rollover / cohort-incomplete / sealed-product-finalization
+            # (cohort-incomplete / sealed-product-finalization
             # branches, none of which `return` early) - that is the accurate,
             # already-persisted-attempt classification for why rankings_branch_ready
             # is False, and must never be overwritten by the weaker "operator
