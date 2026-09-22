@@ -34,10 +34,9 @@ const codeOf = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*
 
 // --- the route ------------------------------------------------------------
 
-test("the route exists at /Market/Explorer with the locked header copy", () => {
+test("the route exists at /Market/Explorer without redundant product chrome", () => {
   assert.ok(fs.existsSync(path.resolve(here, "page.js")));
-  assert.match(client, />Market Explorer<\/h1>/);
-  assert.match(client, /Explore\. Compare\. Build your own Pokémon markets\./);
+  assert.doesNotMatch(client, /data-market-explorer-product-header/);
   assert.match(client, /Compare &amp; Analyze/);
   assert.match(explorerPage, /path: "\/Market\/Explorer"/);
 });
@@ -238,7 +237,7 @@ test("the future filter state model is declared now so later phases extend it", 
 // --- component architecture ----------------------------------------------
 
 test("the workspace is composed, not one giant page component", () => {
-  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerQueryBuilder", "MarketExplorerExactBasket", "MarketExplorerSeriesCard"]) {
+  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerQueryBuilder", "MarketExplorerExactBasket", "MarketExplorerRarityMarkets"]) {
     assert.ok(client.includes(component), component);
   }
   assert.equal((client.match(/<MarketExplorerQueryBuilder/g) || []).length, 1);

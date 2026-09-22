@@ -325,11 +325,11 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
                         {isIndexView ? (
                           <>
                             <span className="block">Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
-                            <span className="block text-[9px] font-normal text-[var(--text-secondary)]">{timeframe} Performance {reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                            <span className="block text-[9px] font-semibold" style={{ color: reading.performanceValue > 0 ? "rgb(52,211,153)" : reading.performanceValue < 0 ? "rgb(248,113,113)" : "var(--text-secondary)" }}>{timeframe} Performance {reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "▲ +" : reading.performanceValue < 0 ? "▼ " : ""}${reading.performanceValue.toFixed(2)}%`}</span>
                           </>
                         ) : (
                           <>
-                            <span className="block">{reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                            <span className="block" style={{ color: reading.performanceValue > 0 ? "rgb(52,211,153)" : reading.performanceValue < 0 ? "rgb(248,113,113)" : "var(--text-secondary)" }}>{reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "▲ +" : reading.performanceValue < 0 ? "▼ " : ""}${reading.performanceValue.toFixed(2)}%`}</span>
                             <span className="block text-[9px] font-normal text-[var(--text-secondary)]">Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
                           </>
                         )}

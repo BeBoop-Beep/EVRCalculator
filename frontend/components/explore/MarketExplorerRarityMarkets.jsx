@@ -1,6 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
-import { normalizeQuerySpec, QUERY_ASSET_CARDS } from "@/lib/explore/marketExplorerQuery.mjs";
+import React, { useMemo, useState } from "react";
+import { normalizeQuerySpec, QUERY_ASSET_CARDS } from "../../lib/explore/marketExplorerQuery.mjs";
 
 const clean = (value) => String(value || "").trim().toLowerCase();
 const isSingleRarityQuery = (series, segmentId) => {
@@ -53,7 +53,10 @@ export default function MarketExplorerRarityMarkets({
 
   const options = useMemo(() => {
     const canonical = (Array.isArray(rarityOptions) ? rarityOptions : [])
-      .map((entry) => ({ id: String(entry.id || ""), label: String(entry.label || entry.name || entry.id || "") }))
+      .map((entry) => ({
+        id: String(entry.key || entry.id || ""),
+        label: String(entry.label || entry.name || entry.key || entry.id || ""),
+      }))
       .filter((entry) => entry.id && entry.label);
     if (canonical.length) return canonical;
     return directory

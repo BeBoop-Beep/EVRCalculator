@@ -6,7 +6,7 @@ const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
 
 test("Market Explorer uses a graph-first desktop workspace and compact mobile controls", async () => {
   const source = await read("./MarketExplorerClient.jsx");
-  assert.match(source, />Market Explorer<\/h1>/);
+  assert.doesNotMatch(source, /data-market-explorer-product-header/);
   assert.match(source, /data-market-explorer-workspace/);
   assert.match(source, /desk:grid-cols-\[minmax\(19rem,22rem\)_minmax\(0,1fr\)\]/);
   assert.match(source, /data-market-explorer-sidebar/);
@@ -16,22 +16,21 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
 
   const explore = source.indexOf('data-market-explorer-zone="explore"');
   const compare = source.indexOf('data-market-explorer-zone="compare"');
-  const filter = source.indexOf('data-market-explorer-sidebar-section="filter"');
   const build = source.indexOf('data-market-explorer-zone="build"');
   const sidebarEnd = source.indexOf("</aside>", explore);
   const active = source.indexOf("data-market-explorer-active-strip", compare);
   const graph = source.indexOf("data-market-explorer-graph", compare);
-  const overview = source.indexOf("data-market-explorer-signals", compare);
   const results = source.indexOf("data-market-explorer-compare-results", compare);
-  assert.ok(explore >= 0 && compare >= 0 && filter >= 0 && build >= 0);
-  assert.ok(filter < sidebarEnd && sidebarEnd < build && build < compare, "sidebar tools precede the independent overlay and graph");
+  assert.ok(explore >= 0 && compare >= 0 && build >= 0);
+  assert.ok(sidebarEnd < build && build < compare, "browse rail precedes the unified builder overlay and graph");
   assert.ok(source.indexOf("<MarketExplorerBrowse", explore) < compare);
   assert.ok(source.indexOf("<MarketExplorerScreens", explore) < compare);
   assert.ok(active < graph && graph < results);
-  assert.match(source.slice(overview, overview + 160), /order-3/);
   assert.match(source.slice(graph, graph + 120), /order-2/);
-  assert.ok(source.indexOf("<MarketExplorerQueryBuilder", filter) > filter);
+  assert.equal(source.indexOf('data-market-explorer-sidebar-section="filter"'), -1);
+  assert.ok(source.indexOf("<MarketExplorerQueryBuilder", build) > build);
   assert.ok(source.indexOf("<MarketExplorerExactBasket", build) > build);
+  assert.ok(source.indexOf("View Constituents & Comparison", graph) > graph);
   assert.equal(source.match(/<MarketExplorerBrowse/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerScreens/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerQueryBuilder/g)?.length, 1);

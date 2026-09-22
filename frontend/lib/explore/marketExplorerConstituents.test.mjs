@@ -76,12 +76,12 @@ const movingCards = {
 };
 
 test("the movement column follows the selected window", () => {
-  for (const window of ["1D", "7D", "30D", "3M"]) {
+  for (const window of CONSTITUENT_MOVEMENT_WINDOWS) {
     const model = resolveSeriesConstituents(movingCards, { movementWindow: window });
     const column = model.columns.at(-1);
     assert.equal(column.change, true);
     assert.equal(column.window, window);
-    assert.equal(column.label, `${window} Change`);
+    assert.equal(column.label, `${window === "SinceTracking" ? "Since Tracking" : window} Change`);
     assert.equal(column.align, "right");
   }
 });
@@ -89,7 +89,7 @@ test("the movement column follows the selected window", () => {
 test("7D is the default and an unknown window falls back to it rather than throwing", () => {
   assert.equal(resolveSeriesConstituents(movingCards).movementWindow, "7D");
   assert.equal(
-    resolveSeriesConstituents(movingCards, { movementWindow: "6M" }).movementWindow,
+    resolveSeriesConstituents(movingCards, { movementWindow: "2Y" }).movementWindow,
     "7D"
   );
 });
@@ -150,7 +150,7 @@ test("prepared and dynamic markets expose one identical movement contract", () =
 });
 
 test("the frontend windows mirror the backend contract exactly", () => {
-  assert.deepEqual([...CONSTITUENT_MOVEMENT_WINDOWS], ["1D", "7D", "30D", "3M"]);
+  assert.deepEqual([...CONSTITUENT_MOVEMENT_WINDOWS], ["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]);
 });
 
 test("the sealed PARENT's roster resolves as sealed, not as cards", () => {
