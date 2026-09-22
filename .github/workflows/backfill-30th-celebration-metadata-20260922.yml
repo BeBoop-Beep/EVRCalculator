@@ -82,8 +82,15 @@ jobs:
           "$PY" - <<'PY'
           from backend.db.clients.supabase_client import create_service_role_client
           c=create_service_role_client()
-          result=c.rpc("refresh_pokemon_market_explorer_card_current_metadata").execute()
-          print("explorer_current_metadata_refresh_rows", len(result.data or []))
+          keys=["me30thCelebration","me30thCelebrationClassicCollection"]
+          rows=list(c.table("sets").select("id,canonical_key").in_("canonical_key",keys).execute().data or [])
+          ids=[str(row["id"]) for row in rows if row.get("id")]
+          assert len(ids) == 2, rows
+          result=c.rpc(
+              "refresh_pokemon_market_explorer_card_current_metadata",
+              {"p_set_ids": ids},
+          ).execute()
+          print("explorer_current_metadata_refresh", result.data)
           PY
 
           # Rebuild the two set-local card/market read models without re-running
