@@ -687,6 +687,38 @@ def orchestrate(
     # Keep execution date as diagnostics only; never block a valid repair merely
     # because the wall clock rolled over.
     if pending and current_simulation_date != resolved_market_date:
+        latest_promoted_market_date, latest_error = resolve_market_date(client, None)
+        if latest_error or not latest_promoted_market_date:
+            summary.error = latest_error or "could not resolve latest promoted market authority"
+            summary.exit_code = EXIT_CANNOT_START
+            _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+                reason_code="LATEST_PROMOTED_MARKET_DATE_UNREADABLE",
+                reason_detail=summary.error,
+            ))
+            return summary
+        if latest_promoted_market_date != resolved_market_date:
+            from backend.db.services.rankings_publication_lifecycle import (
+                deferred_simulation_rollover_readiness,
+            )
+            report = deferred_simulation_rollover_readiness(
+                market_date=resolved_market_date,
+                simulation_date=current_simulation_date,
+                latest_promoted_market_date=latest_promoted_market_date,
+                expected_count=before.eligible_count,
+                current_count=sum(1 for item in before.statuses if item.status == "current"),
+                pending_keys=pending,
+            )
+            summary.latest_simulation_date_by_set = _latest_dates(before)
+            summary.error = report.detail
+            summary.exit_code = GATE_DEFERRED_EXIT_CODE
+            attempt_id = _persist_rankings_deferral(client, report) if not dry_run else None
+            _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+                reason_code=report.reason_code, reason_detail=report.detail,
+                attempt_id=attempt_id, publication_required=True, publication_attempted=False,
+            ))
+            return summary
         print(
             f"{TAG} historical_repair market_date={resolved_market_date} "
             f"execution_date={current_simulation_date} pending={len(pending)}"
