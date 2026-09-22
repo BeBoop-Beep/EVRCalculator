@@ -1,4 +1,5 @@
 name: Repair Sep22 Market Publication
+# Explicit retry after 13:56 Phoenix verification; uses stale-publisher recovery + bounded Set Value repair.
 
 on:
   push:
