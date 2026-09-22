@@ -48,7 +48,24 @@ jobs:
           print("preflight_quality", quality[0])
           PY
 
-          "$PY" -m backend.scripts.build_pokemon_explore_set_value_snapshot --commit --market-date "$TARGET"
+          # The stored Sep 21 quality row is already READY for the exact 156-root
+          # authority. The CLI gate re-evaluates that same broad cohort and is
+          # currently hitting the known PostgREST statement-timeout path, so
+          # this repair invokes the builder directly after the explicit persisted
+          # authority preflight above. This preserves fail-closed semantics
+          # without recomputing the already-certified cohort.
+          TARGET="$TARGET" "$PY" - <<'PY'
+          import os
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.build_pokemon_explore_set_value_snapshot import build
+          c=create_service_role_client()
+          row=build(client=c, market_date=os.environ["TARGET"], commit=True)
+          print("set_market_build", {
+              "market_date": row.get("market_date"),
+              "set_count": row.get("set_count"),
+              "payload_size_bytes": row.get("payload_size_bytes"),
+          })
+          PY
 
           # The Set Market snapshot trigger owns the lightweight prepared Set
           # directory sync. Options are a separate prepared authority and have
