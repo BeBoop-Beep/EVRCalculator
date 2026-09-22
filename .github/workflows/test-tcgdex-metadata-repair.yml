@@ -3,8 +3,6 @@ name: TCGdex Metadata Repair Tests
 on:
   push:
     branches: [fix/tcgdex-free-metadata-fallback-20260922]
-    paths:
-      - '.github/workflows/test-tcgdex-metadata-repair.yml'
 
 permissions:
   contents: read
