@@ -1,4 +1,5 @@
 name: Opening Finalizer Diagnostic
+# Retrigger after narrow finalizer read 8dd28cb9.
 
 on:
   push:
