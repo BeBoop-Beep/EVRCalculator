@@ -45,6 +45,7 @@ from backend.scripts.run_pokemon_set_scrape import (  # noqa: E402
     build_valid_set_key_registry,
     normalize_set_key_filter,
 )
+from backend.db.clients.tcgdex_pokemon_client import TCGdexPokemonClient, TCGdexError  # noqa: E402
 from backend.scripts.ingest_pokemon_canonical_cards import (  # noqa: E402
     build_canonical_row as build_authoritative_canonical_row,
     fetch_api_set as fetch_authoritative_api_set,
@@ -55,6 +56,7 @@ from backend.scripts.ingest_pokemon_canonical_cards import (  # noqa: E402
 logger = logging.getLogger(__name__)
 
 FALLBACK_SOURCE = "tcgplayer_cards_fallback"
+TCGDEX_SOURCE = "tcgdex"
 FALLBACK_MATCH_METHOD = "name_exact_or_alias"
 UPSERT_BATCH_SIZE = 250
 
@@ -465,6 +467,182 @@ def catalog_only_eligibility_overrides(set_row: Dict[str, Any]) -> Dict[str, Any
     }
 
 
+
+def _tcgdex_provider_name_key(value: Any) -> str:
+    """Normalize only provider spelling noise; preserve Top/Bottom distinctions."""
+    normalized = normalize_pokemon_name_key(value)
+    normalized = re.sub(
+        r"\((?:team plasma|delta species|prime)\)",
+        " ",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    normalized = _strip_name_tokens(normalized)
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized.casefold())
+    return " ".join(normalized.split())
+
+
+def _refresh_tcgdex_canonical_cards(
+    *, client: Any, set_row: Dict[str, Any], dry_run: bool,
+    tcgdex_client: Optional[TCGdexPokemonClient] = None,
+) -> Dict[str, Any]:
+    """Hydrate canonical metadata from TCGdex without inventing PokemonTCG IDs.
+
+    TCGdex is a free public metadata authority with its own identifiers. Those
+    identifiers are retained only in source_payload; the legacy
+    pokemon_tcg_api_card_id stays stable so existing canonical/market links do
+    not break. Matching prefers exact number+name and then unique normalized
+    name, which also supports reprint-style Classic Collection cards whose
+    TCGdex local IDs are sequential rather than the original printed numbers.
+    """
+    set_id = str(set_row.get("id") or "").strip()
+    set_name = str(set_row.get("name") or "").strip()
+    if not set_id or not set_name:
+        return {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0}
+
+    provider = tcgdex_client or TCGdexPokemonClient()
+    try:
+        provider_cards = provider.fetch_card_details_for_set_name(set_name)
+    except Exception as exc:
+        logger.warning(
+            "[desirability-inputs] TCGdex metadata unavailable for %s: %s",
+            set_row.get("canonical_key") or set_id,
+            exc,
+        )
+        return {
+            "status": "unavailable_using_fallback",
+            "source": TCGDEX_SOURCE,
+            "rows_found": 0,
+            "rows_upserted": 0,
+            "reason": str(exc),
+        }
+
+    internal_cards = _list_cards_for_set(client, set_id)
+    canonical_rows = _list_canonical_for_set(client, set_id)
+    canonical_by_identity = {
+        _canonical_identity(str(row.get("number") or ""), str(row.get("name") or "")): row
+        for row in canonical_rows
+    }
+    provider_by_identity: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+    provider_by_name: Dict[str, List[Dict[str, Any]]] = {}
+    for row in provider_cards:
+        number = _canonical_number(str(row.get("number") or ""))
+        name_key = _tcgdex_provider_name_key(row.get("name"))
+        if number and name_key:
+            provider_by_identity.setdefault((number, name_key), []).append(row)
+        if name_key:
+            provider_by_name.setdefault(name_key, []).append(row)
+
+    references = _list_pokemon_reference(client)
+    reference_lookup = _build_reference_lookup(references)
+    overrides = catalog_only_eligibility_overrides(set_row)
+
+    planned: List[Tuple[Optional[str], Dict[str, Any]]] = []
+    unmatched: List[Dict[str, Any]] = []
+    ambiguous: List[Dict[str, Any]] = []
+
+    for card in internal_cards:
+        printed_number = str(card.get("card_number") or "").strip()
+        number = _canonical_number(printed_number)
+        name = str(card.get("name") or "").strip()
+        if not number or not name:
+            continue
+
+        name_key = _tcgdex_provider_name_key(name)
+        candidates = provider_by_identity.get((number, name_key), [])
+        match_method = "number_name"
+        if len(candidates) != 1:
+            candidates = provider_by_name.get(name_key, [])
+            match_method = "unique_name"
+        if len(candidates) != 1:
+            bucket = ambiguous if len(candidates) > 1 else unmatched
+            if len(bucket) < 20:
+                bucket.append({
+                    "name": name,
+                    "printed_number": printed_number,
+                    "candidate_count": len(candidates),
+                })
+            continue
+
+        provider_row = candidates[0]
+        existing = canonical_by_identity.get(_canonical_identity(number, name))
+        existing_source = str((existing or {}).get("source") or "")
+        if existing and existing_source not in {"", FALLBACK_SOURCE, TCGDEX_SOURCE}:
+            # Never downgrade an existing authoritative PokemonTCG/Scrydex row.
+            continue
+
+        pokedex_numbers = list(provider_row.get("national_pokedex_numbers") or [])
+        if not pokedex_numbers and str(provider_row.get("supertype") or "").casefold() in {"pokemon", "pokémon"}:
+            pokedex_numbers = [
+                int(reference["pokedex_number"])
+                for reference in _match_references_for_card_name(
+                    name=name,
+                    reference_lookup=reference_lookup,
+                )
+                if reference.get("pokedex_number") is not None
+            ]
+
+        stable_external_id = (
+            str((existing or {}).get("pokemon_tcg_api_card_id") or "").strip()
+            or str(card.get("pokemon_tcg_api_id") or "").strip()
+            or _fallback_api_card_id(set_id=set_id, number=printed_number, name=name)
+        )
+        payload = {
+            "set_id": set_id,
+            "pokemon_tcg_api_card_id": stable_external_id,
+            "name": name,
+            "supertype": provider_row.get("supertype"),
+            "subtypes": list(provider_row.get("subtypes") or []),
+            "rarity": provider_row.get("rarity") or str(card.get("rarity") or "").strip() or None,
+            "number": number,
+            "printed_number": printed_number,
+            "artist": provider_row.get("artist"),
+            "national_pokedex_numbers": pokedex_numbers,
+            "image_small_url": provider_row.get("image_small_url") or card.get("image_small_url"),
+            "image_large_url": provider_row.get("image_large_url") or card.get("image_large_url"),
+            "source": TCGDEX_SOURCE,
+            "source_payload": {
+                "provider": TCGDEX_SOURCE,
+                "tcgdex_card_id": provider_row.get("tcgdex_card_id"),
+                "match_method": match_method,
+                "raw": provider_row.get("source_payload") or {},
+            },
+            **overrides,
+        }
+        planned.append((str(existing.get("id")) if existing and existing.get("id") else None, payload))
+
+    written = 0
+    if not dry_run:
+        inserts: List[Dict[str, Any]] = []
+        for existing_id, payload in planned:
+            if existing_id:
+                update_payload = {**payload, "updated_at": datetime.now(timezone.utc).isoformat()}
+                result = (
+                    client.table("pokemon_canonical_cards")
+                    .update(update_payload)
+                    .eq("id", existing_id)
+                    .execute()
+                )
+                written += len(result.data or []) or 1
+            else:
+                inserts.append(payload)
+        if inserts:
+            written += _upsert_canonical_rows(client, inserts)
+
+    return {
+        "status": "dry_run" if dry_run else "refreshed",
+        "source": TCGDEX_SOURCE,
+        "provider_rows_found": len(provider_cards),
+        "internal_cards_found": len(internal_cards),
+        "rows_matched": len(planned),
+        "rows_unmatched": len(unmatched),
+        "rows_ambiguous": len(ambiguous),
+        "unmatched_examples": unmatched,
+        "ambiguous_examples": ambiguous,
+        "rows_upserted": written,
+    }
+
+
 def _refresh_authoritative_canonical_cards(
     *, client: Any, set_row: Dict[str, Any], dry_run: bool,
 ) -> Dict[str, Any]:
@@ -479,8 +657,12 @@ def _refresh_authoritative_canonical_cards(
     """
     api_set_id = str(set_row.get("pokemon_api_set_id") or "").strip()
     set_id = str(set_row.get("id") or "").strip()
-    if not api_set_id or not set_id:
+    if not set_id:
         return {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0}
+    if not api_set_id:
+        return _refresh_tcgdex_canonical_cards(
+            client=client, set_row=set_row, dry_run=dry_run,
+        )
     try:
         api_set = fetch_authoritative_api_set(api_set_id)
         api_cards = fetch_authoritative_cards(api_set_id)
@@ -498,17 +680,59 @@ def _refresh_authoritative_canonical_cards(
         ]
     except Exception as exc:
         logger.warning(
-            "[desirability-inputs] authoritative canonical refresh unavailable for %s: %s; "
-            "continuing with TCGplayer fallback",
+            "[desirability-inputs] PokemonTCG/Scrydex canonical refresh unavailable for %s: %s; "
+            "trying free TCGdex metadata",
             set_row.get("canonical_key") or set_id, exc,
         )
-        return {"status": "unavailable_using_fallback", "rows_found": 0,
-                "rows_upserted": 0, "reason": str(exc)}
+        tcgdex = _refresh_tcgdex_canonical_cards(
+            client=client, set_row=set_row, dry_run=dry_run,
+        )
+        tcgdex["upstream_error"] = str(exc)
+        return tcgdex
     if not rows:
         return {"status": "unavailable_empty_checklist", "rows_found": 0, "rows_upserted": 0}
-    written = 0 if dry_run else _upsert_canonical_rows(client, rows)
-    return {"status": "dry_run" if dry_run else "refreshed", "source": "pokemon_tcg_api",
-            "rows_found": len(rows), "rows_upserted": written}
+
+    # Promote identity-poor fallback rows IN PLACE before inserting provider
+    # rows. Without this reconciliation, a set scraped before provider metadata
+    # existed would retain its fallback:* canonical rows and gain a second copy
+    # keyed by the authoritative API id when metadata later appeared.
+    existing_rows = _list_canonical_for_set(client, set_id)
+    fallback_by_identity = {
+        _canonical_identity(str(row.get("number") or ""), str(row.get("name") or "")): row
+        for row in existing_rows
+        if str(row.get("source") or "") == FALLBACK_SOURCE
+    }
+    rows_to_upsert: List[Dict[str, Any]] = []
+    promoted = 0
+    for row in rows:
+        key = _canonical_identity(str(row.get("number") or ""), str(row.get("name") or ""))
+        fallback = fallback_by_identity.get(key)
+        if not fallback or not fallback.get("id"):
+            rows_to_upsert.append(row)
+            continue
+        if dry_run:
+            promoted += 1
+            continue
+        update_payload = dict(row)
+        update_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+        result = (
+            client.table("pokemon_canonical_cards")
+            .update(update_payload)
+            .eq("id", fallback["id"])
+            .execute()
+        )
+        promoted += len(result.data or []) or 1
+
+    inserted_or_updated = 0 if dry_run else _upsert_canonical_rows(client, rows_to_upsert)
+    written = promoted + inserted_or_updated
+    return {
+        "status": "dry_run" if dry_run else "refreshed",
+        "source": "pokemon_tcg_api",
+        "rows_found": len(rows),
+        "rows_promoted_from_fallback": promoted,
+        "rows_upserted_by_api_id": inserted_or_updated,
+        "rows_upserted": written,
+    }
 
 
 def _build_links(

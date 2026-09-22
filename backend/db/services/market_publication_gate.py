@@ -23,6 +23,7 @@ from backend.db.services.market_date_quality import (
     STATUS_INCOMPLETE,
     STATUS_LEGACY_VERIFIED,
     STATUS_READY,
+    MARKET_QUALITY_CONTRACT_VERSION,
     evaluate_market_date_quality,
     persist_market_date_quality,
     resolve_latest_accepted_market_date,
@@ -162,6 +163,50 @@ def _blocked_without_evaluation(
         decision=decision, proceed=False, exit_code=MARKET_GATE_DEFERRED_EXIT_CODE)
 
 
+
+def _read_persisted_accepted_quality(client: Any, market_date: str) -> Optional[dict]:
+    """Return the exact current-contract persisted READY/LEGACY verdict, if any.
+
+    A persisted accepted quality row is already the durable Market publication
+    authority used by accepted-date readers. Re-evaluating that same date on
+    every downstream artifact build is unnecessary and, under DB pressure, can
+    fail with SQLSTATE 57014 after the verdict was already proven and persisted.
+
+    Only accepted rows fast-path publication. Missing, INCOMPLETE or DEGRADED
+    rows still fall through to a fresh evaluation so repaired source evidence
+    can advance normally.
+    """
+    day = str(market_date)[:10]
+    rows = list(
+        client.table("pokemon_market_date_quality")
+        .select(
+            "market_date,status,contract_version,cohort_set_count,"
+            "qualifying_set_count,missing_set_ids,cohort_fingerprint,evidence_json"
+        )
+        .eq("tcg", "pokemon")
+        .eq("market_date", day)
+        .eq("contract_version", MARKET_QUALITY_CONTRACT_VERSION)
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        return None
+    row = dict(rows[0])
+    status = str(row.get("status") or "")
+    if status not in ACCEPTED_STATUSES:
+        return None
+    return {
+        "marketDate": day,
+        "status": status,
+        "contractVersion": str(row.get("contract_version") or ""),
+        "cohortSetCount": int(row.get("cohort_set_count") or 0),
+        "qualifyingSetCount": int(row.get("qualifying_set_count") or 0),
+        "missingSetIds": list(row.get("missing_set_ids") or []),
+        "cohortFingerprint": str(row.get("cohort_fingerprint") or ""),
+        "evidence": dict(row.get("evidence_json") or {}),
+    }
+
+
 def enforce_market_publication_gate(
     client: Any,
     *,
@@ -213,15 +258,32 @@ def enforce_market_publication_gate(
             REASON_BLOCKED_NO_EVIDENCE,
             commit=commit, entry_point=entry_point, market_date=None)
 
+    evaluation = None
     try:
-        evaluation = evaluate_market_date_quality(client, target)
+        evaluation = _read_persisted_accepted_quality(client, target)
+        if evaluation is not None:
+            logger.info(
+                "%s using persisted accepted quality authority for %s (status=%s)",
+                _GATE_TAG, target, evaluation.get("status"),
+            )
     except Exception as exc:
-        reason = (f"Market Date Quality could not be evaluated for {target} ({exc}); "
-                  "blocking publication (fail-closed)")
-        logger.error("%s %s", _GATE_TAG, reason)
-        return _blocked_without_evaluation(
-            reason, REASON_BLOCKED_AUTHORITY_UNAVAILABLE,
-            commit=commit, entry_point=entry_point, market_date=target)
+        # The persisted-row shortcut is an optimization, not a weakening of
+        # the gate. If this narrow read fails, fall back to the full evaluator.
+        logger.warning(
+            "%s persisted quality read failed for %s (%s); falling back to fresh evaluation",
+            _GATE_TAG, target, exc,
+        )
+
+    if evaluation is None:
+        try:
+            evaluation = evaluate_market_date_quality(client, target)
+        except Exception as exc:
+            reason = (f"Market Date Quality could not be evaluated for {target} ({exc}); "
+                      "blocking publication (fail-closed)")
+            logger.error("%s %s", _GATE_TAG, reason)
+            return _blocked_without_evaluation(
+                reason, REASON_BLOCKED_AUTHORITY_UNAVAILABLE,
+                commit=commit, entry_point=entry_point, market_date=target)
     status = str(evaluation.get("status") or "")
     reason_code = _REASON_BY_STATUS.get(status, REASON_BLOCKED_NO_EVIDENCE)
     allowed = status in ACCEPTED_STATUSES

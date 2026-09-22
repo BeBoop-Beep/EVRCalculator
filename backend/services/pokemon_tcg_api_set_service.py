@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Iterable, Optional
 import requests
 
 from backend.scripts.bootstrap_pokemon_set_configs import API_URL
+from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient
 from backend.services.tcgplayer_set_catalog_service import normalize_name, token_overlap_score
 
 REQUIRED_FIELDS = (
@@ -32,7 +33,7 @@ def _project(row: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def fetch_targeted_sets(
+def _fetch_legacy_targeted_sets(
     name: str,
     api_key: str,
     *,
@@ -91,6 +92,52 @@ def fetch_targeted_sets(
         raise last_exception
     return []
 
+
+
+def fetch_targeted_sets(
+    name: str,
+    api_key: str,
+    *,
+    timeout_seconds: float = 15.0,
+    session: Optional[requests.Session] = None,
+    max_attempts: int = 3,
+    sleep: Callable[[float], None] = time.sleep,
+    scrydex_client: Optional[ScrydexPokemonClient] = None,
+) -> list[Dict[str, Any]]:
+    """Resolve new-set metadata from legacy PokemonTCG, then Scrydex on miss.
+
+    Supplying an explicit HTTP session without a Scrydex client preserves the
+    old isolated-test/diagnostic contract and never opens a surprise second
+    network boundary. Normal production calls have no explicit session and
+    therefore self-heal when a newly released expansion exists only in Scrydex.
+    """
+    legacy_error: Optional[BaseException] = None
+    try:
+        rows = _fetch_legacy_targeted_sets(
+            name,
+            api_key,
+            timeout_seconds=timeout_seconds,
+            session=session,
+            max_attempts=max_attempts,
+            sleep=sleep,
+        )
+        if rows:
+            return rows
+    except (requests.RequestException, requests.HTTPError) as exc:
+        legacy_error = exc
+
+    if session is not None and scrydex_client is None:
+        if legacy_error is not None:
+            raise legacy_error
+        return []
+
+    provider = scrydex_client or ScrydexPokemonClient()
+    try:
+        return [provider.resolve_set(name)]
+    except Exception:
+        if legacy_error is not None:
+            raise legacy_error
+        return []
 
 def resolve_set_metadata(
     tcgplayer_name: str, rows: Iterable[Dict[str, Any]], *,

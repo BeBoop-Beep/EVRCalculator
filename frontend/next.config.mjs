@@ -18,7 +18,7 @@ const nextConfig = {
 		optimizePackageImports: ["recharts"],
 	},
 	images: {
-		// EXACTLY the two hosts that serve set/card artwork today — never a
+		// Only the explicitly reviewed hosts that serve set/card artwork today — never a
 		// wildcard. `/_next/image` is a fetch-and-transform endpoint, so every
 		// host listed here is a host this origin will proxy on request.
 		//
@@ -31,6 +31,7 @@ const nextConfig = {
 		remotePatterns: [
 			{ protocol: "https", hostname: "images.pokemontcg.io" },
 			{ protocol: "https", hostname: "images.scrydex.com" },
+			{ protocol: "https", hostname: "assets.tcgdex.net" },
 		],
 	},
 	async redirects() {

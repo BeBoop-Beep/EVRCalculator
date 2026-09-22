@@ -1,3 +1,4 @@
+import logging
 import re
 import sys
 import os
@@ -9,7 +10,14 @@ from typing import Any, Dict, List, Optional
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient, PokemonTCGAPIError
-from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient, ScrydexPokemonAPIError
+from backend.db.clients.tcgdex_pokemon_client import TCGdexPokemonClient, TCGdexError
+from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient, ScrydexPokemonError
+from backend.db.clients.scrydex_public_artwork_client import (
+    ScrydexPublicArtworkClient,
+    ScrydexPublicArtworkError,
+)
+
+logger = logging.getLogger(__name__)
 from backend.db.repositories.card_variant_repository import (
     get_card_variants_by_card_ids,
     update_card_variant_image_sync_fields_batch,
@@ -77,6 +85,8 @@ _IMAGE_MATCH_STRIP_DESCRIPTORS: List[str] = sorted(
         "quick ball",  "dusk ball",   "timer ball",
         "nest ball",   "dive ball",   "net ball",
         "repeat ball", "ultra ball",  "great ball",
+        # Provider-only historical/reprint descriptors.
+        "team plasma", "delta species", "prime",
         # Holo / reverse / foil variants
         "reverse holo", "reverse-holo", "cosmos holo", "cracked ice holo",
         "parallel foil", "non-holo", "non holo",
@@ -120,10 +130,147 @@ class PokemonTCGImageSyncService:
     def __init__(
         self,
         client: Optional[PokemonTCGAPIClient] = None,
+        tcgdex_client: Optional[TCGdexPokemonClient] = None,
         scrydex_client: Optional[ScrydexPokemonClient] = None,
+        scrydex_public_artwork_client: Optional[ScrydexPublicArtworkClient] = None,
     ):
         self.client = client or PokemonTCGAPIClient()
+        self.tcgdex_client = tcgdex_client or TCGdexPokemonClient()
         self.scrydex_client = scrydex_client or ScrydexPokemonClient()
+        self.scrydex_public_artwork_client = (
+            scrydex_public_artwork_client or ScrydexPublicArtworkClient()
+        )
+
+    def _resolve_provider_set(self, set_name: str) -> Dict[str, Any]:
+        """Resolve a provider identity with a free TCGdex middle path.
+
+        Legacy PokemonTCG remains first for existing joins. TCGdex is next
+        because it is public/keyless and can publish new English checklists
+        before the legacy endpoint. Scrydex remains an optional final provider
+        when configured.
+        """
+        try:
+            return self.client.resolve_set(set_name)
+        except Exception as legacy_exc:
+            try:
+                resolved = self.tcgdex_client.resolve_set(set_name)
+                logger.info(
+                    "[pokemon-image-sync] resolved via TCGdex fallback set=%s id=%s legacy_error=%s",
+                    set_name,
+                    resolved.get("id"),
+                    type(legacy_exc).__name__,
+                )
+                return {"id": resolved.get("id"), "name": resolved.get("name"), "provider": "tcgdex"}
+            except Exception as tcgdex_exc:
+                try:
+                    resolved = self.scrydex_client.resolve_set(set_name)
+                    logger.info(
+                        "[pokemon-image-sync] resolved via Scrydex fallback set=%s id=%s "
+                        "legacy_error=%s tcgdex_error=%s",
+                        set_name,
+                        resolved.get("id"),
+                        type(legacy_exc).__name__,
+                        type(tcgdex_exc).__name__,
+                    )
+                    return resolved
+                except Exception:
+                    logger.exception("[pokemon-image-sync] provider set resolution failed set=%s", set_name)
+                    raise legacy_exc
+
+    def _fetch_provider_cards(self, set_id: str, *, set_name: str) -> tuple[List[Dict[str, Any]], str]:
+        """Materialize one complete provider checklist before any DB write.
+
+        A partial legacy checklist still fails closed. An explicit legacy 404
+        may fall through to TCGdex. If TCGdex has a checklist but no artwork
+        (currently true for 30th Classic Collection), Scrydex gets one optional
+        chance to supply the missing images; if it is unavailable, the complete
+        TCGdex rows are returned honestly with null images.
+        """
+        legacy_error: Optional[Exception] = None
+        try:
+            rows = list(self.client.iter_cards_for_set(set_id))
+            if rows:
+                return rows, "pokemontcg"
+        except PokemonTCGAPIError as exc:
+            if exc.status_code != 404:
+                raise
+            legacy_error = exc
+
+        tcgdex_rows: List[Dict[str, Any]] = []
+        tcgdex_error: Optional[Exception] = None
+        try:
+            tcgdex_rows = list(self.tcgdex_client.iter_image_cards_for_set_name(set_name))
+            if tcgdex_rows and any(
+                row.get("image_small_url") or row.get("image_large_url")
+                for row in tcgdex_rows
+            ):
+                logger.info(
+                    "[pokemon-image-sync] cards via free TCGdex fallback set=%s rows=%s",
+                    set_name,
+                    len(tcgdex_rows),
+                )
+                return tcgdex_rows, "tcgdex"
+        except TCGdexError as exc:
+            tcgdex_error = exc
+            logger.warning(
+                "[pokemon-image-sync] TCGdex fallback unavailable set=%s error=%s",
+                set_name,
+                exc,
+            )
+
+        # TCGdex currently exposes the complete 30th Classic checklist but
+        # no artwork. When a Scrydex set identity is already known, its public
+        # expansion page exposes the same card image CDN links without API
+        # credentials. One bounded page request is enough for the whole set.
+        try:
+            public_rows = self.scrydex_public_artwork_client.fetch_image_cards_for_set(
+                set_name=set_name,
+                scrydex_set_id=set_id,
+            )
+            if public_rows:
+                logger.info(
+                    "[pokemon-image-sync] cards via Scrydex public artwork set=%s id=%s rows=%s",
+                    set_name,
+                    set_id,
+                    len(public_rows),
+                )
+                return public_rows, "scrydex_public_artwork"
+        except ScrydexPublicArtworkError as exc:
+            logger.warning(
+                "[pokemon-image-sync] Scrydex public artwork unavailable set=%s id=%s error=%s",
+                set_name,
+                set_id,
+                exc,
+            )
+
+        try:
+            rows = list(self.scrydex_client.iter_image_cards_for_set(set_id))
+            if rows:
+                logger.info(
+                    "[pokemon-image-sync] cards via Scrydex fallback set=%s id=%s rows=%s "
+                    "legacy_error=%s tcgdex_rows=%s",
+                    set_name,
+                    set_id,
+                    len(rows),
+                    type(legacy_error).__name__ if legacy_error else "empty",
+                    len(tcgdex_rows),
+                )
+                return rows, "scrydex"
+        except ScrydexPokemonError as exc:
+            logger.warning(
+                "[pokemon-image-sync] Scrydex fallback unavailable set=%s id=%s error=%s",
+                set_name,
+                set_id,
+                exc,
+            )
+
+        if tcgdex_rows:
+            return tcgdex_rows, "tcgdex_no_artwork"
+        if tcgdex_error is not None and legacy_error is None:
+            raise tcgdex_error
+        if legacy_error is not None:
+            raise legacy_error
+        return [], "none"
 
     def sync_set(self, set_name: str, dry_run: bool = True) -> Dict[str, object]:
         internal_set_id = get_set_id_by_name(set_name)
@@ -155,30 +302,15 @@ class PokemonTCGImageSyncService:
             api_set_ids_to_fetch = [pokemon_api_set_id]
         else:
             api_set_search_name = TARGET_SET_API_SEARCH_NAMES.get(set_name, set_name)
-            try:
-                api_set = self.client.resolve_set(api_set_search_name)
-                api_set_ids_to_fetch = [api_set["id"]]
-            except PokemonTCGAPIError as primary_exc:
-                # Do not manufacture a PokemonTCG.io identity when that catalog
-                # simply has not published the set yet. Scrydex is an independent
-                # metadata/image source, so its ids are used only to fetch and
-                # match images/details; they are never persisted into columns
-                # named pokemon_tcg_api_id.
-                fallback_reason = str(primary_exc)
-                try:
-                    api_set = self.scrydex_client.resolve_set(set_name)
-                    api_set_ids_to_fetch = [api_set["id"]]
-                    metadata_provider = "scrydex"
-                    active_client = self.scrydex_client
-                except ScrydexPokemonAPIError as fallback_exc:
-                    raise ValueError(
-                        f"No card metadata provider could resolve set {set_name!r}: "
-                        f"PokemonTCG.io={primary_exc}; Scrydex={fallback_exc}"
-                    ) from fallback_exc
+            api_set = self._resolve_provider_set(api_set_search_name)
+            api_set_ids_to_fetch = [api_set["id"]]
 
         api_cards = []
+        provider_sources: List[str] = []
         for api_set_id in api_set_ids_to_fetch:
-            api_cards.extend(active_client.iter_cards_for_set(api_set_id))
+            fetched, provider_source = self._fetch_provider_cards(api_set_id, set_name=set_name)
+            api_cards.extend(fetched)
+            provider_sources.append(provider_source)
 
         internal_cards = get_all_cards_for_set(internal_set_id)
         card_ids = [card["id"] for card in internal_cards]
@@ -214,6 +346,7 @@ class PokemonTCGImageSyncService:
             "image_source_kind": image_source_mapping.match_kind if image_source_mapping else None,
             "image_source_is_borrowed": bool(image_source_api_set_ids),
             "api_cards_fetched": len(api_cards),
+            "provider_sources": provider_sources,
             "internal_cards_loaded": len(internal_cards),
             "internal_variants_loaded": len(variants),
         }

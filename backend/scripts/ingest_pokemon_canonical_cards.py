@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient  # noqa: E402
+
 
 API_BASE_URL = "https://api.pokemontcg.io/v2"
 API_PAGE_SIZE = 250
@@ -77,6 +79,7 @@ def require_env() -> None:
     missing = [
         name
         for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
+        for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
         if not os.getenv(name)
     ]
     if missing:
@@ -86,6 +89,7 @@ def require_env() -> None:
 
 
 def build_headers() -> Dict[str, str]:
+    headers = {
     headers = {
         "Accept": "application/json",
         "User-Agent": "EVRCalculator/1.0",
@@ -153,7 +157,7 @@ def request_json(path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str
     return payload
 
 
-def fetch_api_set(api_set_id: str) -> Dict[str, Any]:
+def _fetch_legacy_api_set(api_set_id: str) -> Dict[str, Any]:
     payload = request_json(f"/sets/{api_set_id}")
     data = payload.get("data")
     if not isinstance(data, dict):
@@ -163,7 +167,7 @@ def fetch_api_set(api_set_id: str) -> Dict[str, Any]:
     return data
 
 
-def fetch_cards_for_api_set(api_set_id: str) -> List[Dict[str, Any]]:
+def _fetch_legacy_cards_for_api_set(api_set_id: str) -> List[Dict[str, Any]]:
     cards: List[Dict[str, Any]] = []
     seen_ids: Set[str] = set()
     page = 1
@@ -232,6 +236,48 @@ def fetch_cards_for_api_set(api_set_id: str) -> List[Dict[str, Any]]:
         )
     return cards
 
+
+
+def fetch_api_set(api_set_id: str) -> Dict[str, Any]:
+    """Read expansion metadata from the legacy endpoint, then Scrydex on miss.
+
+    Scrydex is the current continuation of the Pokemon card metadata dataset
+    and often publishes brand-new expansions before api.pokemontcg.io. The
+    returned compatibility shape is identical for downstream canonical-card
+    builders.
+    """
+    legacy_error: Optional[Exception] = None
+    try:
+        return _fetch_legacy_api_set(api_set_id)
+    except Exception as exc:
+        legacy_error = exc
+    try:
+        return ScrydexPokemonClient().get_set(api_set_id)
+    except Exception as exc:
+        raise PokemonCanonicalIngestionError(
+            f"Pokemon metadata unavailable for set {api_set_id!r} from legacy API and Scrydex: "
+            f"legacy={type(legacy_error).__name__}; scrydex={type(exc).__name__}"
+        ) from exc
+
+
+def fetch_cards_for_api_set(api_set_id: str) -> List[Dict[str, Any]]:
+    """Return a complete provider checklist, falling back atomically to Scrydex."""
+    legacy_error: Optional[Exception] = None
+    try:
+        rows = _fetch_legacy_cards_for_api_set(api_set_id)
+        if rows:
+            return rows
+    except Exception as exc:
+        legacy_error = exc
+    try:
+        rows = ScrydexPokemonClient().fetch_cards_for_set(api_set_id)
+        return rows
+    except Exception as exc:
+        raise PokemonCanonicalIngestionError(
+            f"Pokemon cards unavailable for set {api_set_id!r} from legacy API and Scrydex: "
+            f"legacy={type(legacy_error).__name__ if legacy_error else 'empty'}; "
+            f"scrydex={type(exc).__name__}"
+        ) from exc
 
 def to_optional_int(value: Any) -> Optional[int]:
     try:

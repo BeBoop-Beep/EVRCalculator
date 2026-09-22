@@ -192,6 +192,7 @@ def test_generated_component_version_triple_matches_public_reader_exactly():
 
 def test_authoritative_refresh_replaces_identity_poor_fallback_metadata(monkeypatch):
     monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 84})
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: [])
     monkeypatch.setattr(
         combined, "fetch_authoritative_cards",
         lambda _set_id: [
@@ -212,7 +213,10 @@ def test_authoritative_refresh_replaces_identity_poor_fallback_metadata(monkeypa
         dry_run=False,
     )
 
-    assert result == {"status": "refreshed", "source": "pokemon_tcg_api", "rows_found": 2, "rows_upserted": 2}
+    assert result == {
+        "status": "refreshed", "source": "pokemon_tcg_api", "rows_found": 2,
+        "rows_promoted_from_fallback": 0, "rows_upserted_by_api_id": 2, "rows_upserted": 2,
+    }
     assert written[0]["supertype"] == "Pokémon"
     assert written[0]["national_pokedex_numbers"] == [877]
     assert written[1]["supertype"] == "Trainer"
@@ -220,18 +224,247 @@ def test_authoritative_refresh_replaces_identity_poor_fallback_metadata(monkeypa
     assert all(row["source"] == "pokemon_tcg_api" for row in written)
 
 
-def test_authoritative_refresh_falls_back_cleanly_when_provider_is_not_ready(monkeypatch):
+
+
+class _CanonicalPromoteQuery:
+    def __init__(self, updates):
+        self.updates = updates
+        self.payload = None
+
+    def update(self, payload):
+        self.payload = dict(payload)
+        return self
+
+    def eq(self, field, value):
+        self.updates.append((field, value, self.payload))
+        return self
+
+    def execute(self):
+        return type("Res", (), {"data": [{"id": "fallback-1"}]})()
+
+
+class _CanonicalPromoteClient:
+    def __init__(self):
+        self.updates = []
+
+    def table(self, name):
+        assert name == "pokemon_canonical_cards"
+        return _CanonicalPromoteQuery(self.updates)
+
+
+def test_authoritative_refresh_promotes_matching_fallback_row_in_place(monkeypatch):
+    monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 128})
+    monkeypatch.setattr(
+        combined,
+        "fetch_authoritative_cards",
+        lambda _set_id: [{
+            "id": "me55-1", "name": "Bulbasaur", "number": "1",
+            "supertype": "Pokémon", "subtypes": ["Basic"],
+            "nationalPokedexNumbers": [1], "set": {"id": "me55"},
+            "images": {"small": "small", "large": "large"},
+        }],
+    )
+    monkeypatch.setattr(
+        combined,
+        "_list_canonical_for_set",
+        lambda _client, _set_id: [{
+            "id": "fallback-1",
+            "pokemon_tcg_api_card_id": "fallback:set-1:1:bulbasaur",
+            "name": "Bulbasaur", "number": "1", "source": combined.FALLBACK_SOURCE,
+        }],
+    )
+    upserts = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: upserts.extend(rows) or len(rows),
+    )
+    client = _CanonicalPromoteClient()
+
+    result = combined._refresh_authoritative_canonical_cards(
+        client=client,
+        set_row={"id": "set-1", "canonical_key": "me30thCelebration", "pokemon_api_set_id": "me55"},
+        dry_run=False,
+    )
+
+    assert result["rows_promoted_from_fallback"] == 1
+    assert result["rows_upserted_by_api_id"] == 0
+    assert upserts == []
+    assert client.updates[0][0:2] == ("id", "fallback-1")
+    assert client.updates[0][2]["pokemon_tcg_api_card_id"] == "me55-1"
+    assert client.updates[0][2]["source"] == "pokemon_tcg_api"
+
+
+def test_authoritative_refresh_tries_tcgdex_when_legacy_provider_is_not_ready(monkeypatch):
     monkeypatch.setattr(
         combined, "fetch_authoritative_api_set",
         lambda _set_id: (_ for _ in ()).throw(RuntimeError("not published yet")),
     )
+    seen = {}
+    def tcgdex_fallback(**kwargs):
+        seen.update(kwargs)
+        return {
+            "status": "refreshed", "source": combined.TCGDEX_SOURCE,
+            "rows_found": 2, "rows_upserted": 2,
+        }
+    monkeypatch.setattr(combined, "_refresh_tcgdex_canonical_cards", tcgdex_fallback)
+
     result = combined._refresh_authoritative_canonical_cards(
         client=object(),
-        set_row={"id": "set-1", "canonical_key": "futureSet", "pokemon_api_set_id": "future"},
+        set_row={
+            "id": "set-1", "name": "Future Set", "canonical_key": "futureSet",
+            "pokemon_api_set_id": "future",
+        },
         dry_run=False,
     )
-    assert result["status"] == "unavailable_using_fallback"
-    assert result["rows_upserted"] == 0
+
+    assert result["source"] == combined.TCGDEX_SOURCE
+    assert result["rows_upserted"] == 2
+    assert "not published yet" in result["upstream_error"]
+    assert seen["set_row"]["canonical_key"] == "futureSet"
+
+
+
+
+class _FakeTCGdexCanonical:
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self.names = []
+
+    def fetch_card_details_for_set_name(self, set_name):
+        self.names.append(set_name)
+        return list(self.rows)
+
+
+def test_tcgdex_refresh_enriches_fallback_row_in_place_without_relabeling_external_id(monkeypatch):
+    cards = [{
+        "id": "legacy-1", "set_id": "set-1", "name": "Exeggcute",
+        "rarity": "Common", "card_number": "001/128",
+        "pokemon_tcg_api_id": None, "image_small_url": None, "image_large_url": None,
+    }]
+    canonical = [{
+        "id": "canon-1", "set_id": "set-1",
+        "pokemon_tcg_api_card_id": "fallback:set-1:001/128:exeggcute",
+        "name": "Exeggcute", "number": "1", "source": combined.FALLBACK_SOURCE,
+    }]
+    provider = _FakeTCGdexCanonical([{
+        "tcgdex_card_id": "30th-001", "name": "Exeggcute", "number": "001",
+        "supertype": "Pokémon", "subtypes": ["Basic"], "rarity": "Common",
+        "artist": "Nelnal", "national_pokedex_numbers": [102],
+        "image_small_url": "https://assets.tcgdex.net/en/me/30th/001/low.webp",
+        "image_large_url": "https://assets.tcgdex.net/en/me/30th/001/high.webp",
+        "source_payload": {"id": "30th-001"},
+    }])
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda *_a: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda *_a: canonical)
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda *_a: [])
+    client = _CanonicalPromoteClient()
+
+    result = combined._refresh_tcgdex_canonical_cards(
+        client=client,
+        set_row={
+            "id": "set-1", "name": "ME: 30th Celebration",
+            "canonical_key": "me30thCelebration", "catalog_only": False,
+            "is_subset": False,
+        },
+        dry_run=False,
+        tcgdex_client=provider,
+    )
+
+    assert result["rows_matched"] == 1
+    assert result["rows_upserted"] == 1
+    payload = client.updates[0][2]
+    assert payload["pokemon_tcg_api_card_id"] == canonical[0]["pokemon_tcg_api_card_id"]
+    assert payload["source"] == combined.TCGDEX_SOURCE
+    assert payload["source_payload"]["tcgdex_card_id"] == "30th-001"
+    assert payload["artist"] == "Nelnal"
+    assert payload["national_pokedex_numbers"] == [102]
+    assert payload["image_small_url"].startswith("https://assets.tcgdex.net/")
+
+
+def test_tcgdex_refresh_uses_unique_name_when_classic_local_ids_are_reindexed(monkeypatch):
+    cards = [{
+        "id": "legacy-1", "set_id": "set-1", "name": "Charizard",
+        "rarity": "Rare", "card_number": "4/102",
+        "pokemon_tcg_api_id": None, "image_small_url": None, "image_large_url": None,
+    }]
+    canonical = [{
+        "id": "canon-1", "set_id": "set-1",
+        "pokemon_tcg_api_card_id": "fallback:set-1:4/102:charizard",
+        "name": "Charizard", "number": "4", "source": combined.FALLBACK_SOURCE,
+    }]
+    provider = _FakeTCGdexCanonical([{
+        "tcgdex_card_id": "30th-c-001", "name": "Charizard", "number": "001",
+        "supertype": "Pokémon", "subtypes": ["Stage2"], "rarity": "None",
+        "artist": "Mitsuhiro Arita", "national_pokedex_numbers": [],
+        "image_small_url": None, "image_large_url": None,
+        "source_payload": {"id": "30th-c-001"},
+    }])
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda *_a: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda *_a: canonical)
+    monkeypatch.setattr(
+        combined, "_list_pokemon_reference",
+        lambda *_a: [{"id": "ref-6", "pokedex_number": 6,
+                      "canonical_name": "charizard", "display_name": "Charizard"}],
+    )
+    client = _CanonicalPromoteClient()
+
+    result = combined._refresh_tcgdex_canonical_cards(
+        client=client,
+        set_row={
+            "id": "set-1", "name": "ME: 30th Celebration Classic Collection",
+            "canonical_key": "me30thCelebrationClassicCollection",
+            "catalog_only": False, "is_subset": True,
+            "counts_toward_parent_set_value": True,
+            "counts_toward_parent_opening": True,
+        },
+        dry_run=False,
+        tcgdex_client=provider,
+    )
+
+    assert result["rows_matched"] == 1
+    payload = client.updates[0][2]
+    assert payload["printed_number"] == "4/102", "local provider index must not replace printed identity"
+    assert payload["national_pokedex_numbers"] == [6]
+    assert payload["source_payload"]["match_method"] == "unique_name"
+    assert payload["catalog_role"] == "subset"
+
+
+def test_tcgdex_refresh_refuses_ambiguous_unique_name_matches(monkeypatch):
+    cards = [
+        {"id": "a", "name": "Darkrai & Cresselia Legend(Top)", "rarity": "LEGEND",
+         "card_number": "99/102", "pokemon_tcg_api_id": None,
+         "image_small_url": None, "image_large_url": None},
+        {"id": "b", "name": "Darkrai & Cresselia Legend(Bottom)", "rarity": "LEGEND",
+         "card_number": "100/102", "pokemon_tcg_api_id": None,
+         "image_small_url": None, "image_large_url": None},
+    ]
+    provider = _FakeTCGdexCanonical([
+        {"tcgdex_card_id": "30th-c-016", "name": "Darkrai & Cresselia LEGEND", "number": "016",
+         "supertype": "Pokémon", "subtypes": ["LEGEND"], "rarity": "LEGEND",
+         "artist": "A", "national_pokedex_numbers": [], "source_payload": {}},
+        {"tcgdex_card_id": "30th-c-017", "name": "Darkrai & Cresselia LEGEND", "number": "017",
+         "supertype": "Pokémon", "subtypes": ["LEGEND"], "rarity": "LEGEND",
+         "artist": "B", "national_pokedex_numbers": [], "source_payload": {}},
+    ])
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda *_a: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda *_a: [])
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda *_a: [])
+
+    result = combined._refresh_tcgdex_canonical_cards(
+        client=object(),
+        set_row={
+            "id": "set-1", "name": "ME: 30th Celebration Classic Collection",
+            "canonical_key": "me30thCelebrationClassicCollection",
+            "catalog_only": False, "is_subset": True,
+            "counts_toward_parent_set_value": True,
+            "counts_toward_parent_opening": True,
+        },
+        dry_run=True,
+        tcgdex_client=provider,
+    )
+
+    assert result["rows_matched"] == 0
+    assert result["rows_ambiguous"] == 0 or result["rows_unmatched"] == 2
 
 
 # --- Catalog-only canonical sync (narrow path) -----------------------------------

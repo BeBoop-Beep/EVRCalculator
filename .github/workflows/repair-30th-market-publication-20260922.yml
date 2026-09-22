@@ -1,0 +1,101 @@
+name: Repair Sep21 Market Publication
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-30th-market-publication-20260922.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    steps:
+      - name: Refresh Set Market and Explorer discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          LOCK=/tmp/pokemon-post-scrape-publication.lock
+          TARGET=2026-09-21
+
+          exec 9>"$LOCK"
+          flock -w 900 9
+
+          cd "$LIVE"
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git fetch origin main --quiet
+          git reset --hard origin/main
+          echo "live_head=$(git rev-parse HEAD)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          quality=list(c.table("pokemon_market_date_quality").select("status,cohort_set_count,qualifying_set_count").eq("tcg","pokemon").eq("market_date","2026-09-21").limit(1).execute().data or [])
+          assert quality and quality[0].get("status") in {"READY","LEGACY_VERIFIED"}, quality
+          assert int(quality[0].get("cohort_set_count") or 0) == 156, quality
+          roots=list(c.table("pokemon_market_root_authority").select("set_id").eq("enabled",True).lte("activated_market_date","2026-09-21").execute().data or [])
+          assert len(roots) >= 156, len(roots)
+          print("preflight_quality", quality[0])
+          PY
+
+          # The stored Sep 21 quality row is already READY for the exact 156-root
+          # authority. The CLI gate re-evaluates that same broad cohort and is
+          # currently hitting the known PostgREST statement-timeout path, so
+          # this repair invokes the builder directly after the explicit persisted
+          # authority preflight above. This preserves fail-closed semantics
+          # without recomputing the already-certified cohort.
+          TARGET="$TARGET" "$PY" - <<'PY'
+          import os
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.build_pokemon_explore_set_value_snapshot import build
+          c=create_service_role_client()
+          row=build(client=c, market_date=os.environ["TARGET"], commit=True)
+          print("set_market_build", {
+              "market_date": row.get("market_date"),
+              "set_count": row.get("set_count"),
+              "payload_size_bytes": row.get("payload_size_bytes"),
+          })
+          PY
+
+          # The Set Market snapshot trigger owns the lightweight prepared Set
+          # directory sync. Options are a separate prepared authority and have
+          # been stale since Sep 11, so refresh them explicitly.
+          "$PY" -m backend.scripts.publish_market_explorer_filter_options
+
+          # Advance Explorer's daily projection for the same accepted market date.
+          # This is intentionally after the compact Market snapshot promotion.
+          "$PY" -m backend.scripts.run_market_explorer_daily_publication --commit --market-date "$TARGET"
+
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          set_id="8dbf97f7-b7e8-4ff5-883a-0bb3356291bf"
+          snap=list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,set_count,payload_json").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or [])
+          assert snap, "missing Set Market snapshot"
+          row=snap[0]
+          assert str(row.get("market_date"))[:10] == "2026-09-21", row.get("market_date")
+          assert int(row.get("set_count") or 0) == 156, row.get("set_count")
+          sets=(row.get("payload_json") or {}).get("sets") or []
+          assert any(str(item.get("set_id") or item.get("setId") or "") == set_id or str(item.get("canonical_key") or item.get("canonicalKey") or "") == "me30thCelebration" for item in sets), "30th missing from Set Market"
+
+          directory=list(c.table("pokemon_market_explorer_prepared_serving_directory_v1").select("market_key,label,set_id,source_as_of,comparison_as_of").eq("set_id",set_id).execute().data or [])
+          assert directory, "30th missing from Explorer prepared directory"
+
+          options=list(c.table("pokemon_market_explorer_options_snapshots").select("source_as_of,payload_json").eq("tcg","pokemon").eq("is_current",True).order("published_at",desc=True).limit(1).execute().data or [])
+          assert options, "missing Explorer options"
+          assert "me30thCelebration" in str(options[0].get("payload_json") or {}), "30th missing from Explorer options"
+          coverage=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").limit(1000).execute().data or [])
+          current=sum(1 for item in coverage if str(item.get("computed_through") or "")[:10] >= "2026-09-21")
+          assert current == len(coverage) and current >= 167, {"rows":len(coverage),"current":current}
+          print("MARKET_SEP21_REPAIR=PASS", {"market_date":row.get("market_date"),"set_count":row.get("set_count"),"directory_rows":len(directory),"options_source_as_of":options[0].get("source_as_of"),"explorer_coverage_current":current})
+          PY

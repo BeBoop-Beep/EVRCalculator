@@ -1,0 +1,202 @@
+name: Opening Simulation Recovery Watchdog
+# Retrigger after Sep 21 finalizer recovery ad4e99bc.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/opening-simulation-recovery-watchdog.yml'
+  schedule:
+    # Windows remains the primary 10:00 America/Phoenix runner. These bounded
+    # recovery slots begin 30m later and repeat hourly through 16:30. A healthy
+    # current cohort plus a matching Rankings publication is a cheap no-op;
+    # recent simulation activity defers simulation repair so this watchdog never
+    # races an in-flight Windows run. A healthy cohort with stale downstream
+    # publication still resumes the idempotent publication pipeline.
+    - cron: '30 17-23 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opening-simulation-recovery-watchdog
+  cancel-in-progress: false
+
+jobs:
+  recover-if-needed:
+    runs-on: self-hosted
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Transitional authority: the opening-publication reliability repair is
+          # certified on develop. Remove this explicit ref when that lineage is
+          # promoted to main.
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build isolated recovery runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/opening-watchdog-venv"
+          PY="$RUNNER_TEMP/opening-watchdog-venv/bin/python"
+          "$PY" -m pip install -q --upgrade pip
+          "$PY" -m pip install -q -r backend/requirements.txt psutil scipy==1.18.1
+
+      - name: Resolve promoted authority and decide whether recovery is safe
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$RUNNER_TEMP/opening-watchdog-venv/bin/python"
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+
+          ENV_EXPORTS="$("$PY" - <<'PY'
+          import os, re, shlex, sys
+          from dotenv import dotenv_values
+          values = dotenv_values("/home/ubuntu/repos/EVRCalculator/backend/.env")
+          for key, value in values.items():
+              if value is None or key in os.environ:
+                  continue
+              if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+                  raise SystemExit(f"invalid env key {key!r}")
+              print(f"export {key}={shlex.quote(value)}")
+          PY
+          )"
+          eval "$ENV_EXPORTS"
+
+          "$PY" - <<'PY' > "$RUNNER_TEMP/opening-watchdog-preflight.json"
+          import json
+          from datetime import datetime, timezone
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.opening_simulation_gate import evaluate_opening_simulation_freshness
+          from backend.scripts.audit_opening_analytics_publication import resolve_market_date
+
+          client = create_service_role_client()
+          target, error = resolve_market_date(client, None)
+          if error or not target:
+              raise SystemExit(f"cannot resolve latest promoted market date: {error}")
+          report = evaluate_opening_simulation_freshness(client, market_date=target)
+
+          latest_rows = list(
+              client.table("calculation_runs")
+              .select("id,created_at,target_id,market_date")
+              .eq("target_type", "set")
+              .eq("market_date", target)
+              .order("created_at", desc=True)
+              .limit(1)
+              .execute().data or []
+          )
+          newest = latest_rows[0].get("created_at") if latest_rows else None
+          recent_activity = False
+          age_minutes = None
+          if newest:
+              parsed = datetime.fromisoformat(str(newest).replace("Z", "+00:00"))
+              age_minutes = (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds() / 60.0
+              recent_activity = age_minutes < 45.0
+
+          source_runs = {
+              str(x.set_id): str(x.calculation_run_id)
+              for x in report.statuses
+              if x.set_id and x.calculation_run_id and x.status == "current"
+          }
+          ranking_rows = list(
+              client.table("pokemon_explore_rankings_snapshot_latest")
+              .select("ranking_payload_json,updated_at")
+              .eq("tcg", "pokemon")
+              .eq("scope", "rip-statistics")
+              .limit(1)
+              .execute().data or []
+          )
+          ranking_payload = (ranking_rows[0].get("ranking_payload_json") or {}) if ranking_rows else {}
+          published_runs = {
+              str(t.get("set_id") or t.get("target_id")): str(t.get("calculation_run_id"))
+              for t in (ranking_payload.get("targets") or [])
+              if (t.get("set_id") or t.get("target_id")) and t.get("calculation_run_id")
+          }
+          rankings_match_current_cohort = bool(report.ok and source_runs and published_runs == source_runs)
+          downstream_recovery_needed = bool(report.ok and not rankings_match_current_cohort)
+
+          decision = {
+              "target": str(target),
+              "ok": bool(report.ok),
+              "eligible": report.eligible_count,
+              "current": report.current_count,
+              "failed": report.failed_count,
+              "error": report.error,
+              "failures": [
+                  {"set": x.canonical_key, "status": x.status, "reason": x.reason}
+                  for x in report.failures
+              ],
+              "newest_parent_created_at": newest,
+              "newest_parent_age_minutes": age_minutes,
+              "recent_activity": recent_activity,
+              "rankings_target_count": len(published_runs),
+              "rankings_match_current_cohort": rankings_match_current_cohort,
+              "downstream_recovery_needed": downstream_recovery_needed,
+              "needs_recovery": bool(
+                  (not report.ok and not recent_activity)
+                  or downstream_recovery_needed
+              ),
+          }
+          print(json.dumps(decision, sort_keys=True))
+          PY
+
+          cat "$RUNNER_TEMP/opening-watchdog-preflight.json"
+          TARGET="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["target"])' "$RUNNER_TEMP/opening-watchdog-preflight.json")"
+          NEEDS="$("$PY" -c 'import json,sys; print("true" if json.load(open(sys.argv[1]))["needs_recovery"] else "false")' "$RUNNER_TEMP/opening-watchdog-preflight.json")"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "needs_recovery=$NEEDS" >> "$GITHUB_OUTPUT"
+
+      - name: Recover exact promoted cohort and publish
+        if: steps.preflight.outputs.needs_recovery == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$RUNNER_TEMP/opening-watchdog-venv/bin/python"
+          TARGET="${{ steps.preflight.outputs.target }}"
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+
+          ENV_EXPORTS="$("$PY" - <<'PY'
+          import os, re, shlex
+          from dotenv import dotenv_values
+          values = dotenv_values("/home/ubuntu/repos/EVRCalculator/backend/.env")
+          for key, value in values.items():
+              if value is None or key in os.environ:
+                  continue
+              if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+                  raise SystemExit(f"invalid env key {key!r}")
+              print(f"export {key}={shlex.quote(value)}")
+          PY
+          )"
+          eval "$ENV_EXPORTS"
+
+          exec 9>/tmp/pokemon-opening-simulation-recovery.lock
+          if ! flock -n 9; then
+            echo "opening simulation recovery already active; defer to next watchdog slot"
+            exit 0
+          fi
+
+          echo "recovering promoted simulation authority target=$TARGET head=$(git rev-parse HEAD)"
+          "$PY" -m backend.scripts.run_daily_opening_publication --market-date "$TARGET" --json
+
+      - name: Verify current cohort after watchdog
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A recovery may have been intentionally deferred for recent activity.
+          # The next scheduled slot will retry. This step is diagnostic only.
+          echo "watchdog_target=${{ steps.preflight.outputs.target }}"
+          echo "watchdog_recovery_requested=${{ steps.preflight.outputs.needs_recovery }}"
