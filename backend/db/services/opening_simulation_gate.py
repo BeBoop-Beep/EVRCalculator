@@ -258,83 +258,110 @@ _PAGE_SIZE = 1000
 def _load_simulation_rows(
     client: Any,
     set_ids: Sequence[str],
+    *,
+    market_date: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-    """Load narrow calculation-run authority without expanding history views.
+    """Load the freshness cohort without scanning the full history view.
 
-    calculation_history_trend is intentionally not used here. That view expands
-    daily-history windows (including correlated P95 carry-forward work), and the
-    daily scheduler has repeatedly hit Postgres statement_timeout before it can
-    even decide which sets need simulation work.
+    Current promoted-date checks read calculation_runs directly. Since migration
+    076 every new simulation carries the explicit promoted market_date and the
+    canonical daily history view uses that value as its business-date identity.
+    Reading the entire calculation_history_trend view just to locate one date
+    forces Postgres to rank/expand years of history and can exceed the API-role
+    statement timeout.
 
-    The canonical daily view identity rule is reproduced directly from its
-    source table: business date is market_date for modern runs, falling back to
-    created_at::date for legacy rows; one row per target and business date uses
-    the newest created_at; only expected_value / combined runs participate.
-
-    The caller still validates the selected run against simulation_run_summary.
-    A parent calculation row whose child persistence failed therefore remains
-    INVALID rather than masquerading as current.
+    The direct path selects only runs for the requested market date, keeps the
+    newest same-date retry per set, and performs a tiny per-set lookup only for
+    targets missing that date so diagnostics still report their latest date.
+    Legacy callers/fakes fall back to the historical paged view.
     """
     if not set_ids:
         return [], None
 
-    columns = (
-        "id,target_type,target_id,valuation_method,market_date,created_at,"
-        "simulated_mean_pack_value_vs_pack_cost,"
-        "simulated_median_pack_value_vs_pack_cost"
-    )
-    raw_rows: List[Dict[str, Any]] = []
-    offset = 0
-    try:
-        while True:
-            query = (
+    if market_date:
+        columns = "id,target_id,market_date,created_at," + ",".join(REQUIRED_OPVC_FIELDS)
+        try:
+            result = (
                 client.table("calculation_runs")
                 .select(columns)
                 .eq("target_type", "set")
                 .in_("target_id", list(set_ids))
-                .in_("valuation_method", ["expected_value", "combined"])
-                .order("created_at", desc=False)
+                .eq("market_date", market_date)
+                .order("created_at", desc=True)
+                .execute()
             )
+            current_by_set: Dict[str, Dict[str, Any]] = {}
+            for raw in list((result.data if result else []) or []):
+                target_id = _to_text(raw.get("target_id"))
+                run_id = _to_text(raw.get("id"))
+                if not target_id or not run_id or target_id in current_by_set:
+                    continue
+                current_by_set[target_id] = {
+                    "snapshot_date": _date_key(raw.get("market_date")) or market_date,
+                    "target_id": target_id,
+                    "calculation_run_id": run_id,
+                    **{field: raw.get(field) for field in REQUIRED_OPVC_FIELDS},
+                }
+
+            rows = list(current_by_set.values())
+            missing_ids = [str(set_id) for set_id in set_ids if str(set_id) not in current_by_set]
+            for target_id in missing_ids:
+                latest = (
+                    client.table("calculation_runs")
+                    .select("id,target_id,market_date,created_at")
+                    .eq("target_type", "set")
+                    .eq("target_id", target_id)
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                latest_rows = list((latest.data if latest else []) or [])
+                if not latest_rows:
+                    continue
+                raw = latest_rows[0]
+                run_id = _to_text(raw.get("id"))
+                snapshot_date = _date_key(raw.get("market_date")) or _date_key(raw.get("created_at"))
+                if not run_id or not snapshot_date:
+                    continue
+                rows.append({
+                    "snapshot_date": snapshot_date,
+                    "target_id": target_id,
+                    "calculation_run_id": run_id,
+                    **{field: None for field in REQUIRED_OPVC_FIELDS},
+                })
+            return rows, None
+        except Exception:
+            logger.warning(
+                "%s direct promoted-date run lookup failed; falling back to history view",
+                _GATE_TAG,
+                exc_info=True,
+            )
+
+    columns = "snapshot_date,target_id,calculation_run_id," + ",".join(REQUIRED_OPVC_FIELDS)
+    rows: List[Dict[str, Any]] = []
+    offset = 0
+    try:
+        while True:
+            query = (
+                client.table("calculation_history_trend")
+                .select(columns)
+                .eq("target_type", "set")
+                .in_("target_id", list(set_ids))
+            )
+            query = query.order("snapshot_date", desc=False)
             page_query = getattr(query, "range", None)
             if page_query is None:
                 result = query.execute()
-                raw_rows = list((result.data if result else []) or [])
-                break
-            result = run_batch_read_with_retry(
-                lambda: query.range(offset, offset + _PAGE_SIZE - 1).execute(),
-                operation_name=f"opening_simulation_gate.calculation_runs_page.{offset}",
-            )
+                return list((result.data if result else []) or []), None
+            result = query.range(offset, offset + _PAGE_SIZE - 1).execute()
             page = list((result.data if result else []) or [])
-            raw_rows.extend(page)
+            rows.extend(page)
             if len(page) < _PAGE_SIZE:
-                break
+                return rows, None
             offset += _PAGE_SIZE
     except Exception as exc:
-        logger.warning("%s simulation authority read failed", _GATE_TAG, exc_info=True)
+        logger.warning("%s simulation history read failed", _GATE_TAG, exc_info=True)
         return [], f"simulation history read failed ({exc})"
-
-    # Match the canonical daily view's row_number(created_at DESC) semantics
-    # locally. Because rows are fetched oldest to newest, a later assignment
-    # wins for duplicate same-day runs.
-    selected: Dict[Tuple[str, str], Dict[str, Any]] = {}
-    for row in raw_rows:
-        target_id = _to_text(row.get("target_id"))
-        business_date = _date_key(row.get("market_date")) or _date_key(row.get("created_at"))
-        if not target_id or not business_date:
-            continue
-        selected[(target_id, business_date)] = {
-            "target_id": target_id,
-            "snapshot_date": business_date,
-            "calculation_run_id": _to_text(row.get("id")),
-            "simulated_mean_pack_value_vs_pack_cost": row.get(
-                "simulated_mean_pack_value_vs_pack_cost"
-            ),
-            "simulated_median_pack_value_vs_pack_cost": row.get(
-                "simulated_median_pack_value_vs_pack_cost"
-            ),
-        }
-
-    return list(selected.values()), None
 
 def _load_summary_run_ids(client: Any, run_ids: Sequence[str]) -> Tuple[set, Optional[str]]:
     if not run_ids:
@@ -425,7 +452,7 @@ def evaluate_opening_simulation_freshness(
     }
 
     set_ids = [text for row in set_rows if (text := _to_text(row.get("id")))]
-    simulation_rows, history_error = _load_simulation_rows(client, set_ids)
+    simulation_rows, history_error = _load_simulation_rows(\n        client, set_ids, market_date=resolved_market_date\n    )
     if history_error:
         return OpeningSimulationFreshnessReport(market_date=resolved_market_date, error=history_error)
 
