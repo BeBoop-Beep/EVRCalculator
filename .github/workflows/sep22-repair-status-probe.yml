@@ -5,6 +5,10 @@ on:
     branches: [ops/sep22-repair-status-probe]
     paths:
       - '.github/workflows/sep22-repair-status-probe.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/sep22-repair-status-probe.yml'
 
 permissions:
   actions: read
