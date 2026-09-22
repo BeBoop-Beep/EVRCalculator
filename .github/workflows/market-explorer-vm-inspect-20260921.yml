@@ -35,6 +35,10 @@ jobs:
           echo "reflog_end"
           echo "processes_begin"
           pgrep -af 'git|pytest|rebuild_snapshots_after_scrape|refresh_pokemon_market_snapshots|market_explorer|sentinel' || true
+          ps -eo pid,ppid,etimes,stat,cmd --forest | grep -E 'rebuild_snapshots_after_scrape|refresh_pokemon_market_snapshots|build_pokemon|market_explorer|PID' | grep -v grep || true
           echo "processes_end"
+          echo "publication_tail_begin"
+          tail -n 100 publication.log 2>/dev/null || true
+          echo "publication_tail_end"
           if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then echo "publication_lock=free"; else echo "publication_lock=held"; fi
           if /usr/bin/flock -n /tmp/post-scrape-publication-watchdog.lock -c true; then echo "watchdog_lock=free"; else echo "watchdog_lock=held"; fi
