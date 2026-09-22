@@ -18,16 +18,17 @@ simulation for the promoted market date?* This module is that question.
 
 Contract
 --------
-``calculation_history_trend`` is a view over ``calculation_history_daily_latest``,
-whose ``snapshot_date`` is ``calculation_runs.created_at::date`` — the day the
-simulation actually ran. Two consequences shape this gate:
+``calculation_history_trend`` is a view over ``calculation_history_daily_latest``.
+For modern runs its ``snapshot_date`` is the explicit promoted
+``calculation_runs.market_date``; legacy rows with no market date fall back to
+``calculation_runs.created_at::date``. Two consequences shape this gate:
 
-* A simulation's date cannot be back-dated. Aligning the simulation date with
-  the promoted market date means running the batch on that day, after promotion.
-* The view already collapses each (target_type, target_id, snapshot_date) to the
-  latest run (``row_number() ... = 1``), so re-running a set on a day it already
-  covered replaces its point instead of duplicating it. Reruns are therefore
-  idempotent by construction; this module never needs to delete or dedupe rows.
+* A failed promoted-day cohort CAN be repaired after midnight because the
+  simulation runner persists the requested promoted market date explicitly.
+  Execution time and simulation-source market date are separate authorities.
+* The view collapses each (target_type, target_id, snapshot_date) to the latest
+  run (``row_number() ... = 1``), so re-running a set for the same market date
+  replaces its authoritative daily point without deleting history.
 
 The view LEFT JOINs ``simulation_run_summary``, so a run whose summary row is
 missing surfaces as NULL ratios rather than as a missing row. A NULL required
@@ -40,6 +41,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+from backend.db.services.public_read_retry import run_batch_read_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +280,10 @@ def _load_simulation_rows(
                 # Client stub without range() support (unit fakes): one read.
                 result = query.execute()
                 return list((result.data if result else []) or []), None
-            result = query.range(offset, offset + _PAGE_SIZE - 1).execute()
+            result = run_batch_read_with_retry(
+                lambda: query.range(offset, offset + _PAGE_SIZE - 1).execute(),
+                operation_name=f"opening_simulation_gate.history_page.{offset}",
+            )
             page = list((result.data if result else []) or [])
             rows.extend(page)
             if len(page) < _PAGE_SIZE:
