@@ -97,6 +97,7 @@ TABLE_COLUMNS = {
         "set_id", "payload_json", "title_card_json", "market_summary_json", "as_of", "updated_at",
     },
     "pokemon_set_value_daily_history": {"set_id", "snapshot_date", "set_value", "value_scope"},
+    "pokemon_set_top_chase_card_daily_history": {"set_id", "snapshot_date", "rank"},
     "sealed_products": {"id", "set_id", "name"},
     "sealed_product_price_observations": {"sealed_product_id", "captured_at"},
     "pokemon_explore_rankings_snapshot_latest": {
@@ -331,6 +332,9 @@ def _market_fixtures(market_date=MARKET_DATE):
             # real query filters out. If the fake ignored .eq/.gte these would
             # corrupt the canonical set value and the section would fail.
             {"set_id": SET_ID, "snapshot_date": market_date, "set_value": 999.0, "value_scope": "hits"},
+        ],
+        "pokemon_set_top_chase_card_daily_history": [
+            {"set_id": SET_ID, "snapshot_date": market_date, "rank": 1},
         ],
         "sealed_products": [{"id": "sp-1", "set_id": SET_ID, "name": "Alpha Booster Box"}],
         "sealed_product_price_observations": [
