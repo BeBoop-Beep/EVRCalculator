@@ -9,12 +9,12 @@ on:
       - '.github/workflows/opening-simulation-recovery-watchdog.yml'
   schedule:
     # Windows remains the primary 10:00 America/Phoenix runner. These bounded
-    # recovery slots begin 2.5h later and repeat hourly through 16:30. A healthy
+    # recovery slots begin 30m later and repeat hourly through 16:30. A healthy
     # current cohort plus a matching Rankings publication is a cheap no-op;
     # recent simulation activity defers simulation repair so this watchdog never
     # races an in-flight Windows run. A healthy cohort with stale downstream
     # publication still resumes the idempotent publication pipeline.
-    - cron: '30 19-23 * * *'
+    - cron: '30 17-23 * * *'
 
 permissions:
   contents: read
