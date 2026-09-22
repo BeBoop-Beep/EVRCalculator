@@ -30,6 +30,7 @@ jobs:
           REPO=/home/ubuntu/repos/EVRCalculator
           PY="$REPO/.venv/bin/python"
           STATE=/home/ubuntu/state/multi_source_pricing
+          export PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}"
           OP="$(printf '%s' "$VM_REQUEST_MESSAGE" | head -n1)"
           case "$OP" in
             "p6-vm: hostkeys")
