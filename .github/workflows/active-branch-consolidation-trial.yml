@@ -44,9 +44,25 @@ jobs:
             else
               echo "MERGE_CONFLICT $branch"
               git status --short
-              echo "conflict_files:"
-              git diff --name-only --diff-filter=U
-              exit 20
+              mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+              unresolved=0
+              for path in "${conflicts[@]}"; do
+                case "$path" in
+                  .github/workflows/*)
+                    echo "keeping develop deletion for temporary workflow conflict: $path"
+                    git rm -f -- "$path"
+                    ;;
+                  *)
+                    echo "UNRESOLVED_CONFLICT $path"
+                    unresolved=1
+                    ;;
+                esac
+              done
+              if [ "$unresolved" -ne 0 ]; then
+                exit 20
+              fi
+              git commit --no-edit
+              echo "MERGE_OK_WITH_DEVELOP_WORKFLOW_DELETION $branch"
             fi
           done
           echo "trial_head=$(git rev-parse HEAD)"
