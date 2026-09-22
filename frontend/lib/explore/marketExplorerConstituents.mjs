@@ -51,11 +51,11 @@ export const PENDING_PUBLICATION_MESSAGE =
 /**
  * The movement windows the table offers, and the default.
  *
- * Mirrors the backend's CONSTITUENT_MOVEMENT_WINDOWS exactly. 7D is the default
- * because 1D on a daily-observed market is mostly noise and 30D is too slow to
- * show what changed this week.
+ * Mirrors the backend's CONSTITUENT_MOVEMENT_WINDOWS exactly. 7D is the default,
+ * while longer horizons stay available for quick composition checks without
+ * leaving the constituent drill-down.
  */
-export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze(["1D", "7D", "30D", "3M"]);
+export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze(["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]);
 export const DEFAULT_CONSTITUENT_MOVEMENT_WINDOW = "7D";
 
 export function normalizeConstituentMovementWindow(requested) {
