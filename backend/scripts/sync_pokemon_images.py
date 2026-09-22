@@ -13,7 +13,6 @@ DEFAULT_SETS = ["Prismatic Evolutions", "Scarlet and Violet 151"]
 REQUIRED_ENV_VARS = [
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
-    "POKEMON_TCG_API_KEY",
 ]
 
 
@@ -21,10 +20,19 @@ def load_backend_env() -> None:
     env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
     load_dotenv(env_path, override=True)
 
-    key = os.getenv("POKEMON_TCG_API_KEY")
     print("SCRIPT FILE:", __file__)
     print("ENV PATH:", env_path)
-    print("KEY LOADED:", bool(key), "len=", len(key) if key else 0, "start=", repr(key[:4]) if key else None, "end=", repr(key[-4:]) if key else None)
+    print(
+        "PROVIDER AUTH:",
+        json.dumps(
+            {
+                "pokemon_tcg_api_key": bool(os.getenv("POKEMON_TCG_API_KEY")),
+                "scrydex_api_key": bool(os.getenv("SCRYDEX_API_KEY")),
+                "scrydex_team_id": bool(os.getenv("SCRYDEX_TEAM_ID")),
+            },
+            sort_keys=True,
+        ),
+    )
 
 
 def validate_required_env() -> None:
@@ -37,7 +45,7 @@ def validate_required_env() -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Sync Pokemon TCG image URLs into card_variants")
+    parser = argparse.ArgumentParser(description="Sync Pokemon card image URLs from available metadata providers")
     parser.add_argument(
         "--sets",
         nargs="+",
