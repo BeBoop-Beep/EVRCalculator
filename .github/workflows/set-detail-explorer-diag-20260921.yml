@@ -1,0 +1,150 @@
+name: Set Detail and Explorer Shared Outage Diagnosis
+
+on:
+  push:
+    branches:
+      - ops/set-detail-explorer-diag-20260921
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - name: Sync diagnostic worktree from current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/home/ubuntu/repos/set-detail-explorer-diag
+          cd "$REPO"
+          git fetch origin main
+          if [ -d "$WT" ]; then
+            git worktree remove --force "$WT" || true
+          fi
+          git worktree add --detach "$WT" origin/main
+          ln -s "$REPO/backend/.env" "$WT/backend/.env"
+          echo "MAIN_SHA=$(git -C "$WT" rev-parse HEAD)"
+
+      - name: Probe live frontend routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe() {
+            label="$1"; url="$2"; tmp="$(mktemp)"
+            echo "=== LIVE $label ==="
+            set +e
+            curl -L --max-time 40 -sS               -w 'http=%{http_code} start=%{time_starttransfer} total=%{time_total} bytes=%{size_download}\n'               -o "$tmp" "$url"
+            code=$?
+            set -e
+            echo "curl_exit=$code"
+            echo "route_loader=$(grep -o 'Loading Rip Statistics\|Loading inDex' "$tmp" 2>/dev/null | wc -l)"
+            echo "set_intelligence_loader=$(grep -o 'Loading set intelligence' "$tmp" 2>/dev/null | wc -l)"
+            echo "error_text=$(grep -o 'Something went wrong\|RIP Statistics unavailable' "$tmp" 2>/dev/null | wc -l)"
+            echo "body_head:"
+            head -c 700 "$tmp" || true
+            echo
+            rm -f "$tmp"
+          }
+          probe "Explorer" "https://inthedex.io/Explorer"
+          probe "Pitch Black" "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
+          probe "Delta Reign" "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
+          probe "30th Celebration" "https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"
+
+      - name: Start current backend locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          WT=/home/ubuntu/repos/set-detail-explorer-diag
+          cd "$WT"
+          nohup /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m uvicorn backend.api.main:app             --host 127.0.0.1 --port 8011 >/tmp/set-detail-diag-backend.log 2>&1 &
+          echo $! >/tmp/set-detail-diag-backend.pid
+          for n in $(seq 1 30); do
+            if curl -fsS --max-time 2 http://127.0.0.1:8011/docs >/dev/null; then
+              echo "LOCAL_BACKEND_READY=true"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "LOCAL_BACKEND_READY=false"
+          tail -n 120 /tmp/set-detail-diag-backend.log || true
+          exit 1
+
+      - name: Probe current backend contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          SET_ID=472f851c-2e41-4c80-b6fc-8478d1d92730
+          probe() {
+            label="$1"; path="$2"; tmp="$(mktemp)"
+            echo "=== LOCAL API $label ==="
+            set +e
+            curl --max-time 30 -sS               -w 'http=%{http_code} start=%{time_starttransfer} total=%{time_total} bytes=%{size_download}\n'               -o "$tmp" "http://127.0.0.1:8011$path"
+            code=$?
+            set -e
+            echo "curl_exit=$code"
+            echo "body_head:"
+            head -c 800 "$tmp" || true
+            echo
+            rm -f "$tmp"
+          }
+          probe "route directory" "/tcgs/pokemon/set-route-directory?limit=500"
+          probe "Pitch Black shell" "/tcgs/pokemon/sets/$SET_ID/shell"
+          probe "Pitch Black RIP bootstrap" "/tcgs/pokemon/sets/$SET_ID/rip/bootstrap"
+          probe "Pitch Black overview" "/tcgs/pokemon/sets/$SET_ID/overview?window=365d"
+
+          echo "=== OPENAPI explore candidates ==="
+          curl -fsS http://127.0.0.1:8011/openapi.json > /tmp/set-detail-openapi.json
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
+          import json
+          d=json.load(open("/tmp/set-detail-openapi.json"))
+          for p in sorted(d.get("paths",{})):
+              if "explore" in p.lower() or "set-route" in p.lower():
+                  print(p)
+          PY
+
+      - name: Audit production snapshot state directly
+        shell: bash
+        run: |
+          set -euo pipefail
+          WT=/home/ubuntu/repos/set-detail-explorer-diag
+          cd "$WT"
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
+          import json, time
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          pitch="472f851c-2e41-4c80-b6fc-8478d1d92730"
+
+          def timed(label, fn):
+              t=time.perf_counter()
+              try:
+                  value=fn()
+                  return {"label":label,"ms":round((time.perf_counter()-t)*1000,1),"ok":True,"value":value}
+              except Exception as exc:
+                  return {"label":label,"ms":round((time.perf_counter()-t)*1000,1),"ok":False,"error":type(exc).__name__,"message":str(exc)}
+
+          checks=[]
+          checks.append(timed("route_rpc",lambda: len(c.rpc("get_pokemon_set_route_directory",{"p_limit":500}).execute().data or [])))
+          checks.append(timed("pitch_page_snapshot",lambda: len(c.table("pokemon_set_page_snapshot_latest").select("set_id,as_of,updated_at").eq("set_id",pitch).execute().data or [])))
+          checks.append(timed("pitch_market_snapshots",lambda: len(c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,window_key,latest_market_date,updated_at").eq("set_id",pitch).execute().data or [])))
+          checks.append(timed("explore_rankings",lambda: c.table("pokemon_explore_rankings_snapshot_latest").select("scope,updated_at").eq("tcg","pokemon").execute().data or []))
+          checks.append(timed("explore_set_value",lambda: c.table("pokemon_explore_set_value_snapshot_latest").select("scope,market_date,updated_at").eq("tcg","pokemon").execute().data or []))
+          print(json.dumps(checks,default=str))
+          PY
+
+      - name: Backend log tail and cleanup
+        if: always()
+        shell: bash
+        run: |
+          echo "=== LOCAL BACKEND LOG ==="
+          tail -n 240 /tmp/set-detail-diag-backend.log 2>/dev/null || true
+          if [ -f /tmp/set-detail-diag-backend.pid ]; then
+            kill "$(cat /tmp/set-detail-diag-backend.pid)" 2>/dev/null || true
+          fi
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/home/ubuntu/repos/set-detail-explorer-diag
+          rm -f "$WT/backend/.env" 2>/dev/null || true
+          cd "$REPO"
+          git worktree remove --force "$WT" 2>/dev/null || true
