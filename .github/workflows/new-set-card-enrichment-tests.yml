@@ -36,3 +36,28 @@ jobs:
             backend/tests/unit/db/clients/test_scrydex_pokemon_client.py \
             backend/tests/unit/services/test_pokemon_tcg_image_sync_catalog_sources.py \
             backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+      - name: Smoke live keyless Scrydex 30th metadata
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          SUPABASE_ANON_KEY: test-anon-key
+        run: |
+          python - <<'PY'
+          from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient
+          client = ScrydexPokemonClient()
+          main = client.resolve_set("ME: 30th Celebration")
+          classic = client.resolve_set("ME: 30th Celebration Classic Collection")
+          assert main["id"] == "me55", main
+          assert classic["id"] == "me55c", classic
+          main_cards = list(client.iter_cards_for_set(main["id"]))
+          classic_cards = list(client.iter_cards_for_set(classic["id"]))
+          assert len(main_cards) >= 158, len(main_cards)
+          assert len(classic_cards) == 30, len(classic_cards)
+          assert sum(bool(row.get("image_small_url")) for row in main_cards) >= 158
+          assert sum(bool(row.get("image_small_url")) for row in classic_cards) == 30
+          print({
+              "main": {"id": main["id"], "cards": len(main_cards)},
+              "classic": {"id": classic["id"], "cards": len(classic_cards)},
+              "authenticated": client.authenticated,
+          })
+          PY
