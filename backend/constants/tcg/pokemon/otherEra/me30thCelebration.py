@@ -9,13 +9,13 @@ class SetMe30thCelebrationConfig(BaseSetConfig):
     # syncing the public catalog to the correct era.
     ERA_CANONICAL_KEY = "megaEvolutionEra"
 
-    # SET_ID means Pokemon API set ID; this catalog still has no unique API match.
-    SET_ID = None
+    # Verified against the live Pokemon TCG API catalog on 2026-09-21.
+    SET_ID = 'me55'
     RELEASE_DATE = '2026-09-16'
-    PRINTED_TOTAL = None
-    TOTAL = None
-    SYMBOL_IMAGE_URL = None
-    LOGO_IMAGE_URL = None
+    PRINTED_TOTAL = 128
+    TOTAL = 161
+    SYMBOL_IMAGE_URL = 'https://images.scrydex.com/pokemon/me55-symbol/symbol'
+    LOGO_IMAGE_URL = 'https://images.scrydex.com/pokemon/me55-logo/logo'
 
     # Authoritative TCGplayer catalog identity from the cold-start baseline.
     TCGPLAYER_SET_ID = '24722'
