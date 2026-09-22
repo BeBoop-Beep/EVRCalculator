@@ -6,7 +6,12 @@ on:
     paths:
       - 'backend/scripts/refresh_due_pokemon_catalog_sets.py'
       - 'backend/services/pokemon_set_onboarding_service.py'
+      - 'backend/scripts/build_pokemon_collector_appeal_v6_corrected_successor.py'
+      - 'backend/scripts/build_pokemon_collector_appeal_v7_expanded.py'
+      - 'backend/scripts/build_atomic_set_page_snapshot_generation.py'
+      - 'backend/scripts/extend_current_pokemon_collector_v7_set.py'
       - 'backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py'
+      - 'backend/tests/unit/scripts/test_extend_current_pokemon_collector_v7_set.py'
       - 'backend/tests/unit/services/test_pokemon_set_onboarding_service.py'
       - '.github/workflows/test-pokemon-onboarding-first-build.yml'
 
@@ -27,9 +32,14 @@ jobs:
         run: |
           python -m py_compile \
             backend/scripts/refresh_due_pokemon_catalog_sets.py \
-            backend/services/pokemon_set_onboarding_service.py
+            backend/services/pokemon_set_onboarding_service.py \
+            backend/scripts/build_pokemon_collector_appeal_v6_corrected_successor.py \
+            backend/scripts/build_pokemon_collector_appeal_v7_expanded.py \
+            backend/scripts/build_atomic_set_page_snapshot_generation.py \
+            backend/scripts/extend_current_pokemon_collector_v7_set.py
       - name: Run focused regressions
         run: |
           python -m pytest -q \
             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py \
-            backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+            backend/tests/unit/services/test_pokemon_set_onboarding_service.py \
+            backend/tests/unit/scripts/test_extend_current_pokemon_collector_v7_set.py
