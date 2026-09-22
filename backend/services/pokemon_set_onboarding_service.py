@@ -487,6 +487,44 @@ class OnboardingEngine:
                     if not (card_ok or sealed_ok):
                         return StepOutcome("retry", step, evidence, "catalog_initial_scrape_verification_failed")
                     if evidence.get("cards_populated"):
+                        # Catalog-only onboarding completes at this step, so it
+                        # never reaches the normal later "images" step. Enrich
+                        # freshly scraped cards here before canonical projection;
+                        # otherwise a set can publish cards/prices with no Pokemon
+                        # TCG API identity or artwork indefinitely.
+                        image_sync = self.command_runner(
+                            [
+                                sys.executable,
+                                "backend/scripts/sync_pokemon_images.py",
+                                "--sets", name, "--apply",
+                            ],
+                            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                        )
+                        evidence["image_sync_exit_code"] = image_sync.returncode
+                        evidence["image_sync_stdout_tail"] = image_sync.stdout[-2000:]
+                        evidence["image_sync_stderr_tail"] = image_sync.stderr[-2000:]
+                        if image_sync.returncode:
+                            return StepOutcome(
+                                "retry", step, evidence, "catalog_image_sync_failed"
+                            )
+
+                        # Re-read the durable state after the image writer rather
+                        # than trusting subprocess output. This is the same
+                        # coverage contract used by the normal onboarding image
+                        # step.
+                        evidence = {
+                            **evidence,
+                            **self.set_evidence_collector(key),
+                        }
+                        threshold = float(
+                            os.getenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90")
+                        )
+                        evidence["image_coverage_threshold"] = threshold
+                        if float(evidence.get("image_coverage") or 0.0) < threshold:
+                            return StepOutcome(
+                                "retry", step, evidence, "catalog_image_fetch_incomplete"
+                            )
+
                         canonical = self.command_runner(
                             [
                                 sys.executable,
