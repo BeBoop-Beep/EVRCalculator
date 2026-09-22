@@ -86,9 +86,9 @@ class Client:
 
 
 def test_candidate_discovery_covers_era_rarity_price_and_release_age_axes():
-    """Items 4/5/6: maintained spec discovery includes canonical rarity
-    segments, price segments, and release-age cohorts -- pulled from the
-    live options registry, never a hardcoded list."""
+    """Maintained spec discovery includes the full canonical rarity taxonomy,
+    price segments, and release-age cohorts -- pulled from the live options
+    registry, never a hardcoded list."""
     with patch.object(prov, "build_market_explorer_filter_options", return_value=FAKE_OPTIONS):
         candidates = prov.discover_candidate_specs(Client())
     kinds = {kind for _, kind, _ in candidates}
@@ -114,12 +114,11 @@ def test_no_compound_or_pokemon_axis_is_ever_discovered():
         assert active_axes == 1, spec
 
 
-def test_filter_only_rarity_is_never_discovered_for_maintained_provisioning():
+def test_full_canonical_rarity_taxonomy_is_discovered_for_maintained_provisioning():
     with patch.object(prov, "build_market_explorer_filter_options", return_value=FAKE_OPTIONS):
         candidates = prov.discover_candidate_specs(Client())
     rarity_ids = {spec["segmentIds"][0] for _, kind, spec in candidates if kind == "rarity_segment"}
-    assert rarity_ids == {"specialIllustrationRare", "illustrationRare"}
-    assert "legend" not in rarity_ids
+    assert rarity_ids == {"specialIllustrationRare", "illustrationRare", "legend"}
 
 
 def test_semantically_identical_screen_and_builder_spec_share_one_fingerprint():
