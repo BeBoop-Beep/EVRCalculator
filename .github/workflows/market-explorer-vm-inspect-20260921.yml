@@ -1,4 +1,5 @@
 name: Market Explorer VM Inspect 2026-09-21
+# probe: post-write-phase
 
 on:
   push:
