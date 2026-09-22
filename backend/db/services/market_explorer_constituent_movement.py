@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from typing import Any, Callable, Mapping
 
 from backend.domain.pokemon.constituent_movement import build_constituent_movements
@@ -30,12 +30,18 @@ def _paged(query_factory: Callable[[], Any], *, page_size: int = 1000) -> list[d
 
 
 def _published_dates(client: Any, as_of: str) -> list[str]:
+    """All approved market dates through as_of for truthful long baselines.
+
+    Price rows remain bounded: only the resolved boundary dates are fetched
+    below, and dates outside the V2 daily retention window use interval
+    point-in-time lookup. Limiting this calendar to the daily retention window
+    would silently redefine 6M/1Y/SinceTracking as roughly 100-day movements.
+    """
     end = date.fromisoformat(str(as_of)[:10])
-    start = end - timedelta(days=100)
-    rows = _execute_rows(
-        client.table(QUALITY_TABLE).select("market_date")
+    rows = _paged(
+        lambda: client.table(QUALITY_TABLE).select("market_date")
         .eq("tcg", "pokemon").in_("status", ["READY", "LEGACY_VERIFIED"])
-        .gte("market_date", start.isoformat()).lte("market_date", end.isoformat())
+        .lte("market_date", end.isoformat())
         .order("market_date")
     )
     return [str(row.get("market_date"))[:10] for row in rows if row.get("market_date")]
