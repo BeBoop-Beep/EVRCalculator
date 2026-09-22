@@ -1,0 +1,35 @@
+name: Probe Scrydex Public Artwork
+
+on:
+  push:
+    branches: [fix/tcgdex-free-metadata-fallback-20260922]
+    paths:
+      - '.github/workflows/probe-scrydex-public-artwork.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Parse Classic Collection public artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re, urllib.request
+          url="https://scrydex.com/pokemon/expansions/30th-celebration-classic-collection/me55c"
+          req=urllib.request.Request(url,headers={"User-Agent":"EVRCalculator/1.0"})
+          html=urllib.request.urlopen(req,timeout=30).read().decode("utf-8","replace")
+          image_ids=sorted(set(re.findall(r'https://images\.scrydex\.com/pokemon/(me55c-[^/"?]+)/(?:small|large)',html)))
+          href_ids=sorted(set(re.findall(r'/pokemon/cards/[^"?#]+/(me55c-[^"?#?]+)',html)))
+          print("html_bytes",len(html))
+          print("image_id_count",len(image_ids))
+          print("href_id_count",len(href_ids))
+          print("image_ids",image_ids)
+          print("href_ids",href_ids)
+          assert len(image_ids) == 30
+          assert set(image_ids) == set(href_ids)
+          PY
