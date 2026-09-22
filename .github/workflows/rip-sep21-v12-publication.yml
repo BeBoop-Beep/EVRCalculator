@@ -1,0 +1,141 @@
+name: RIP Sep21 V12 Publication
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/rip-sep21-v12-publication.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build isolated publication runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/rip-publication-venv"
+          "$RUNNER_TEMP/rip-publication-venv/bin/python" -m pip install -q --upgrade pip
+          "$RUNNER_TEMP/rip-publication-venv/bin/python" -m pip install -q -r backend/requirements.txt psutil scipy==1.18.1
+
+      - name: Require Sep 21 to remain latest promoted and 22/22 verified
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$RUNNER_TEMP/rip-publication-venv/bin/python"
+          cd "$GITHUB_WORKSPACE"
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.opening_simulation_gate import evaluate_opening_simulation_freshness
+          from backend.scripts.audit_opening_analytics_publication import resolve_market_date
+
+          target="2026-09-21"
+          c=create_service_role_client()
+          latest,error=resolve_market_date(c,None)
+          print("latest_promoted="+str(latest))
+          if error or latest != target:
+              raise SystemExit("refusing publication: latest promoted authority is not "+target)
+          report=evaluate_opening_simulation_freshness(c,market_date=target)
+          payload={
+              "ok":report.ok,
+              "eligible":report.eligible_count,
+              "current":report.current_count,
+              "failed":report.failed_count,
+              "runs":{str(x.set_id):str(x.calculation_run_id) for x in report.statuses if x.calculation_run_id},
+              "failures":[{"key":x.canonical_key,"status":x.status,"reason":x.reason} for x in report.failures],
+          }
+          print("freshness="+json.dumps(payload,sort_keys=True))
+          if not report.ok or report.current_count != 22 or report.eligible_count != 22:
+              raise SystemExit("refusing publication: simulation cohort is not exactly 22/22 verified")
+          PY
+
+      - name: Publish canonical V12 chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$RUNNER_TEMP/rip-publication-venv/bin/python"
+          LOCK=/tmp/pokemon-opening-simulation-recovery.lock
+          cd "$GITHUB_WORKSPACE"
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          exec 9>"$LOCK"
+          if ! flock -n 9; then
+            echo "FATAL: simulation recovery is still active"
+            exit 75
+          fi
+          "$PY" -m backend.scripts.run_daily_opening_publication --market-date 2026-09-21 --json
+
+      - name: Verify exact published cohort
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$RUNNER_TEMP/rip-publication-venv/bin/python"
+          cd "$GITHUB_WORKSPACE"
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.opening_simulation_gate import evaluate_opening_simulation_freshness
+
+          target="2026-09-21"
+          c=create_service_role_client()
+          report=evaluate_opening_simulation_freshness(c,market_date=target)
+          expected={str(x.set_id):str(x.calculation_run_id) for x in report.statuses if x.calculation_run_id}
+          rows=list(c.table("pokemon_explore_rankings_snapshot_latest")
+              .select("ranking_payload_json,updated_at")
+              .eq("tcg","pokemon").eq("scope","rip-statistics").limit(1).execute().data or [])
+          if not rows:
+              raise SystemExit("no published RIP rankings snapshot")
+          payload=rows[0].get("ranking_payload_json") or {}
+          meta=payload.get("meta") or {}
+          snap=meta.get("snapshot") or {}
+          published_date=str(snap.get("marketDate") or meta.get("marketDate") or "")[:10]
+          actual={
+              str(t.get("set_id") or t.get("target_id")):str(t.get("calculation_run_id"))
+              for t in payload.get("targets") or []
+              if t.get("calculation_run_id") and (t.get("overallRipV12") or {}).get("rank") is not None
+          }
+          print("published_market_date="+published_date)
+          print("expected_run_count="+str(len(expected)))
+          print("published_run_count="+str(len(actual)))
+          if published_date != target:
+              raise SystemExit("published rankings market date mismatch")
+          if actual != expected:
+              print("expected="+json.dumps(expected,sort_keys=True))
+              print("actual="+json.dumps(actual,sort_keys=True))
+              raise SystemExit("published rankings run authority mismatch")
+          chase=list(c.table("pokemon_set_chase_accessibility_snapshot_latest")
+              .select("set_id,calculation_run_id,status").execute().data or [])
+          chase_map={str(r.get("set_id")):str(r.get("calculation_run_id")) for r in chase if r.get("status")=="ready"}
+          mismatches={sid:(run,chase_map.get(sid)) for sid,run in expected.items() if chase_map.get(sid)!=run}
+          print("chase_ready="+str(len(chase_map)))
+          if mismatches:
+              print("chase_mismatches="+json.dumps(mismatches,sort_keys=True))
+              raise SystemExit("Chase Accessibility authority mismatch after publication")
+          PY
