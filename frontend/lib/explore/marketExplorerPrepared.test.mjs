@@ -55,3 +55,22 @@ test("browse-only Sets remain selectable while comparison history is unavailable
   assert.equal(series.historyAvailable, false);
   assert.deepEqual(series.trend, []);
 });
+
+
+test("prepared comparison consumes server-published 3M 6M 1Y Since Tracking and constituent count", () => {
+  const windowMovements = {
+    "3M": { available: true, percent: 8.5, startDate: "2026-06-23", endDate: "2026-09-21", coverage: "full" },
+    "6M": { available: true, percent: 12.4, startDate: "2026-04-11", endDate: "2026-09-21", coverage: "partial", isSinceFirstAvailable: true },
+    "1Y": { available: true, percent: 12.4, startDate: "2026-04-11", endDate: "2026-09-21", coverage: "partial", isSinceFirstAvailable: true },
+    SinceTracking: { available: true, percent: 12.4, startDate: "2026-04-11", endDate: "2026-09-21", coverage: "full" },
+  };
+  const [series] = buildPreparedSeries(
+    [{ ...set, comparison_as_of: "2026-09-21", window_movements: windowMovements, constituent_count: 266 }],
+    [{ market_key: "set:s1", market_date: "2026-09-21", index_value: 112.4, tracked_value: 130 }],
+  );
+  assert.equal(series.familyChanges["3M"].percent, 8.5);
+  assert.equal(series.familyChanges["6M"].percent, 12.4);
+  assert.equal(series.familyChanges["1Y"].isSinceFirstAvailable, true);
+  assert.equal(series.familyChanges.SinceTracking.startDate, "2026-04-11");
+  assert.equal(series.constituentCount, 266);
+});
