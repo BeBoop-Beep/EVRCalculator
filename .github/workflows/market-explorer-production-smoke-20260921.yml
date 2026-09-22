@@ -52,6 +52,7 @@ jobs:
             const context = await browser.newContext({ viewport });
             const page = await context.newPage();
             const pageErrors = [];
+            const sameOrigin4xx = [];
             const sameOrigin5xx = [];
             const failedCoreRequests = [];
             const consoleErrors = [];
@@ -63,8 +64,11 @@ jobs:
             page.on("response", (response) => {
               try {
                 const url = new URL(response.url());
+                if (url.origin === new URL(origin).origin && response.status() >= 400 && response.status() < 500) {
+                  sameOrigin4xx.push({ url: response.url(), status: response.status(), method: response.request().method() });
+                }
                 if (url.origin === new URL(origin).origin && response.status() >= 500) {
-                  sameOrigin5xx.push({ url: response.url(), status: response.status() });
+                  sameOrigin5xx.push({ url: response.url(), status: response.status(), method: response.request().method() });
                 }
               } catch {}
             });
@@ -164,6 +168,7 @@ jobs:
               upgradeVisible,
               consoleErrors,
               pageErrors,
+              sameOrigin4xx,
               sameOrigin5xx,
               failedCoreRequests,
             });
