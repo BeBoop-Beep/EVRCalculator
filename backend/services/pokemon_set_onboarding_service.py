@@ -45,6 +45,8 @@ STEP_ORDER = (
     "initial_scrape",
     "set_value",
     "images",
+    "desirability_first_pass",
+    "collector_identity_sync",
     "rarity_census",
     "pull_model_source",
     "awaiting_pull_model_deploy",
@@ -500,20 +502,36 @@ class OnboardingEngine:
                         evidence["initial_image_sync_stderr_tail"] = image_sync.stderr[-2000:]
                         if image_sync.returncode:
                             return StepOutcome("retry", step, evidence, "catalog_initial_image_sync_failed")
-                        canonical = self.command_runner(
+                        first_build = self.command_runner(
                             [
                                 sys.executable,
                                 "backend/scripts/build_pokemon_set_desirability_inputs.py",
-                                "--set", key, "--commit", "--canonical-only",
+                                "--set", key, "--commit", "--log-level", "INFO",
                             ],
                             cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
                         )
-                        evidence["canonical_only_exit_code"] = canonical.returncode
-                        evidence["canonical_only_stdout_tail"] = canonical.stdout[-2000:]
-                        evidence["canonical_only_stderr_tail"] = canonical.stderr[-2000:]
-                        if canonical.returncode:
+                        evidence["desirability_first_build_exit_code"] = first_build.returncode
+                        evidence["desirability_first_build_stdout_tail"] = first_build.stdout[-2000:]
+                        evidence["desirability_first_build_stderr_tail"] = first_build.stderr[-2000:]
+                        if first_build.returncode:
                             return StepOutcome(
-                                "retry", step, evidence, "catalog_canonical_projection_failed"
+                                "retry", step, evidence, "catalog_desirability_first_build_failed"
+                            )
+
+                        collector_sync = self.command_runner(
+                            [
+                                sys.executable,
+                                "backend/scripts/sync_pokemon_collector_identities.py",
+                                "--set-id", str(evidence.get("set_id") or ""), "--commit",
+                            ],
+                            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                        )
+                        evidence["collector_identity_sync_exit_code"] = collector_sync.returncode
+                        evidence["collector_identity_sync_stdout_tail"] = collector_sync.stdout[-2000:]
+                        evidence["collector_identity_sync_stderr_tail"] = collector_sync.stderr[-2000:]
+                        if collector_sync.returncode:
+                            return StepOutcome(
+                                "retry", step, evidence, "catalog_collector_identity_sync_failed"
                             )
                     return StepOutcome(
                         "complete", step, {**evidence, "catalog_only_onboarding_complete": True}
@@ -589,6 +607,24 @@ class OnboardingEngine:
                     return StepOutcome("retry", step, evidence, "image_fetch_incomplete")
                 return _next(step, evidence)
             return outcome
+        if step == "desirability_first_pass":
+            # Build set-local desirability immediately after metadata/artwork is
+            # authoritative. This pass must not wait for a pull model: roster and
+            # card-level Collector inputs are useful before simulation, while
+            # frequency-dependent Collector Appeal may correctly remain unavailable.
+            return self._command(step, [
+                "backend/scripts/build_pokemon_set_desirability_inputs.py", "--set", key,
+                "--commit", "--log-level", "INFO",
+            ])
+        if step == "collector_identity_sync":
+            evidence = self.set_evidence_collector(key)
+            set_id = str(evidence.get("set_id") or "")
+            if not set_id:
+                return StepOutcome("retry", step, evidence, "collector_identity_set_missing")
+            return self._command(step, [
+                "backend/scripts/sync_pokemon_collector_identities.py",
+                "--set-id", set_id, "--commit",
+            ], evidence=evidence)
         if step == "rarity_census":
             census = metadata.get("rarity_census") or self.set_evidence_collector(key).get("rarity_census")
             if not census:
