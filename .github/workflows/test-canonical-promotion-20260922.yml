@@ -1,0 +1,32 @@
+name: Canonical Promotion Focused Test
+
+on:
+  push:
+    branches: [fix/canonical-id-promotion-after-image-hydration-20260922]
+    paths:
+      - '.github/workflows/test-canonical-promotion-20260922.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_ANON_KEY: test-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/canonical-id-promotion-after-image-hydration-20260922
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: |
+          python -m pip install pytest
+          python -m pip install -r backend/requirements.txt
+      - run: python -m pytest -q backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py
