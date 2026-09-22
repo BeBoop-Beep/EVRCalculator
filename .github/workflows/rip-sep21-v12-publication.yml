@@ -1,6 +1,7 @@
 name: RIP Sep21 V12 Publication
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop]
     paths:
@@ -12,7 +13,7 @@ permissions:
 jobs:
   publish:
     runs-on: self-hosted
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
         with:
