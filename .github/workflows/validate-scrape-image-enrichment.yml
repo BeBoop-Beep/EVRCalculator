@@ -1,0 +1,40 @@
+name: Validate Scrape Image Enrichment
+
+on:
+  push:
+    branches: [fix/scrape-image-enrichment-20260921]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/validate-scrape-image-enrichment.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest
+      - name: Compile changed runtime
+        run: |
+          python -m py_compile \
+            backend/db/services/pokemon_post_scrape_card_enrichment.py \
+            backend/scripts/ingest_pokemon_canonical_cards.py \
+            backend/scripts/run_pokemon_set_scrape.py
+      - name: Run focused regression suite
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/db/services/test_pokemon_post_scrape_card_enrichment.py \
+            backend/tests/unit/db/clients/test_pokemon_tcg_api_client.py \
+            backend/tests/unit/services/test_pokemon_set_config_generation_service.py \
+            backend/tests/unit/db/test_pokemon_subset_structural_registry.py \
+            backend/tests/unit/scripts/test_run_pokemon_set_scrape_manual_evidence.py \
+            backend/tests/unit/scripts/test_run_pokemon_set_scrape_catalog_set_mode.py
