@@ -12,6 +12,9 @@ permissions:
 jobs:
   focused:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
     timeout-minutes: 20
     steps:
       - name: Checkout synthetic PR merge
