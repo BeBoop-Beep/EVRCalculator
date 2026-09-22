@@ -17,7 +17,7 @@ const noop = () => {};
 function category(renderer, id) { return renderer.root.findByProps({ "data-market-directory-category": id }); }
 function rows(renderer) { return renderer.root.findAll((node) => node.type === "button" && node.props?.["data-prepared-market"]); }
 
-test("prepared categories populate, filter, switch, select, close, and preserve active feedback", async () => {
+test("prepared categories populate, filter, switch, select, stay open, and preserve active feedback", async () => {
   const selected = [];
   const originalFetch = globalThis.fetch;
   let fetches = 0;
@@ -39,21 +39,67 @@ test("prepared categories populate, filter, switch, select, close, and preserve 
     assert.equal(rows(renderer).length, 6);
     const quickSearch = renderer.root.findByProps({ "data-market-browser-search": true });
     await act(async () => quickSearch.props.onChange({ target: { value: "top" } }));
-    assert.equal(rows(renderer)[0].props.children[0].props.children[0], "Global Top 10");
+    assert.equal(rows(renderer)[0].props.children[0].props.children[0], "Global Top 10 Cards");
     await act(async () => rows(renderer)[0].props.onClick());
     assert.deepEqual(selected, ["curated:global-top10"]);
-    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 0);
+    // Selecting a market must NOT close the menu: this is the additive
+    // multi-select workflow (open Sets -> click Base -> stays open -> click
+    // Fossil -> stays open). Only outside-click/Escape/toggle should close it.
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
 
     await act(async () => { renderer.update(<MarketExplorerBrowse {...props} activeKeys={["curated:global-top10"]} />); });
-    await act(async () => category(renderer, "quick").props.onClick());
+    // The menu is still open on "quick" (selecting no longer auto-closes it),
+    // so re-clicking the same category button would toggle it closed instead
+    // of reopening it — no click needed here.
     assert.equal(rows(renderer).find((row) => row.props["data-prepared-market"] === "curated:global-top10").props["aria-pressed"], true);
+    // Search is deliberately preserved across a selection (mid multi-select),
+    // so clear it explicitly before exercising keyboard nav over the full list.
     const keyboard = renderer.root.findByProps({ "data-market-browser-search": true });
+    await act(async () => keyboard.props.onChange({ target: { value: "" } }));
     await act(async () => keyboard.props.onKeyDown({ key: "ArrowDown", preventDefault: noop }));
     await act(async () => keyboard.props.onKeyDown({ key: "Enter", preventDefault: noop }));
     assert.equal(selected.at(-1), "curated:intermediate");
     assert.equal(fetches, 0);
   } finally {
     globalThis.fetch = originalFetch;
+    renderer?.unmount();
+  }
+});
+
+test("multiple Sets remain selected across successive picks without the menu closing", async () => {
+  const selected = [];
+  let renderer;
+  const props = { directory, activeKeys: [], canCompare: true, onSelect: (key) => selected.push(key), onCompare: noop, onBuild: noop };
+  try {
+    await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse {...props} />, { createNodeMock: () => ({ focus: noop }) }); });
+    await act(async () => category(renderer, "sets").props.onClick());
+    const firstKey = rows(renderer)[0].props["data-prepared-market"];
+    await act(async () => rows(renderer)[0].props.onClick());
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+    const secondKey = rows(renderer)[1].props["data-prepared-market"];
+    await act(async () => rows(renderer)[1].props.onClick());
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+    const thirdKey = rows(renderer)[2].props["data-prepared-market"];
+    await act(async () => rows(renderer)[2].props.onClick());
+    assert.deepEqual(selected, [firstKey, secondKey, thirdKey]);
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+  } finally {
+    renderer?.unmount();
+  }
+});
+
+test("Quick Markets stay selected together and do not delete prior selections", async () => {
+  const selected = [];
+  let renderer;
+  const props = { directory, activeKeys: [], canCompare: true, onSelect: (key) => selected.push(key), onCompare: noop, onBuild: noop };
+  try {
+    await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse {...props} />, { createNodeMock: () => ({ focus: noop }) }); });
+    await act(async () => category(renderer, "quick").props.onClick());
+    await act(async () => rows(renderer)[0].props.onClick());
+    await act(async () => rows(renderer)[1].props.onClick());
+    assert.deepEqual(selected, ["curated:obtainable", "curated:intermediate"]);
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+  } finally {
     renderer?.unmount();
   }
 });
