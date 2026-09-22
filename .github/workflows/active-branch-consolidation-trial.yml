@@ -69,6 +69,19 @@ jobs:
             fi
           done
           echo "merged_head=$(git rev-parse HEAD)"
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py")
+          if p.exists():
+              text = p.read_text(encoding="utf-8")
+              normalized = text.rstrip() + "\n"
+              if normalized != text:
+                  p.write_text(normalized, encoding="utf-8")
+          PY
+          if ! git diff --quiet; then
+            git add backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py
+            git commit -m "chore: normalize consolidation whitespace"
+          fi
           git diff --check origin/develop...HEAD
       - name: Install targeted test dependencies
         run: |
