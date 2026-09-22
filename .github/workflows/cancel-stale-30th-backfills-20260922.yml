@@ -1,0 +1,33 @@
+name: Cancel Stale 30th Backfills
+
+on:
+  push:
+    branches: [ops/cancel-stale-30th-backfills-20260922]
+    paths:
+      - '.github/workflows/cancel-stale-30th-backfills-20260922.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Cancel obsolete queued Scrydex backfills
+        shell: bash
+        run: |
+          set -euo pipefail
+          for RUN_ID in 35757698151 35757777128; do
+            STATUS="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '.status')"
+            echo "run=$RUN_ID status_before=$STATUS"
+            if [ "$STATUS" = "queued" ] || [ "$STATUS" = "in_progress" ]; then
+              gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/cancel"
+              echo "run=$RUN_ID cancel_requested=true"
+            else
+              echo "run=$RUN_ID cancel_requested=false"
+            fi
+          done
