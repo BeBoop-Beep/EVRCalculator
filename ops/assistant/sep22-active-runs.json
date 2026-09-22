@@ -1,0 +1,74 @@
+[
+  {
+    "conclusion": null,
+    "created_at": "2026-09-22T19:52:37Z",
+    "event": "push",
+    "head_branch": "ops/sep22-run-status-20260922",
+    "head_sha": "542216f7694c7431ba631dfed9ab323bd8151f48",
+    "id": 35776595121,
+    "name": "Pattern Overlay Guardrails",
+    "run_attempt": 1,
+    "status": "in_progress",
+    "updated_at": "2026-09-22T19:52:43Z"
+  },
+  {
+    "conclusion": null,
+    "created_at": "2026-09-22T19:52:37Z",
+    "event": "push",
+    "head_branch": "ops/sep22-run-status-20260922",
+    "head_sha": "542216f7694c7431ba631dfed9ab323bd8151f48",
+    "id": 35776595015,
+    "name": "Sep22 Active Run Status",
+    "run_attempt": 1,
+    "status": "in_progress",
+    "updated_at": "2026-09-22T19:52:41Z"
+  },
+  {
+    "conclusion": null,
+    "created_at": "2026-09-22T19:49:04Z",
+    "event": "push",
+    "head_branch": "ops/sep22-market-repair-20260922",
+    "head_sha": "8bff4d8d727f110530d99801813dab236e235e30",
+    "id": 35776211686,
+    "name": "Sep22 Market Publication Repair",
+    "run_attempt": 1,
+    "status": "queued",
+    "updated_at": "2026-09-22T19:49:04Z"
+  },
+  {
+    "conclusion": null,
+    "created_at": "2026-09-22T19:31:58Z",
+    "event": "schedule",
+    "head_branch": "main",
+    "head_sha": "7b2c00f5cb384d419670fbaef0078ba8d7c6a4e2",
+    "id": 35774394570,
+    "name": "Opening Simulation Recovery Watchdog",
+    "run_attempt": 1,
+    "status": "queued",
+    "updated_at": "2026-09-22T19:42:39Z"
+  },
+  {
+    "conclusion": null,
+    "created_at": "2026-09-22T19:17:18Z",
+    "event": "schedule",
+    "head_branch": "main",
+    "head_sha": "4a9712d0f823161a2b7c8cbf446b6d3d3d70811f",
+    "id": 35772810623,
+    "name": "Pokemon Catalog Recheck Refresh",
+    "run_attempt": 1,
+    "status": "pending",
+    "updated_at": "2026-09-22T19:17:19Z"
+  },
+  {
+    "conclusion": null,
+    "created_at": "2026-09-22T18:59:37Z",
+    "event": "push",
+    "head_branch": "main",
+    "head_sha": "737ecafe266bc3f1de589274b345268d1e91ff6b",
+    "id": 35770847769,
+    "name": "Backfill 30th Celebration Metadata",
+    "run_attempt": 1,
+    "status": "queued",
+    "updated_at": "2026-09-22T18:59:37Z"
+  }
+]
