@@ -1,0 +1,134 @@
+name: Market Explorer Targeted Finish 2026-09-21
+
+on:
+  push:
+    branches: [ops/market-explorer-finish-20260921]
+    paths:
+      - '.github/workflows/market-explorer-targeted-finish-20260921.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  finish:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Advance Sep 21 Explorer authorities, caches, and prepared generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          TARGET=2026-09-21
+          PUB_LOCK=/tmp/pokemon-post-scrape-publication.lock
+          WATCH_LOCK=/tmp/post-scrape-publication-watchdog.lock
+          CACHE_LOCK=/tmp/market-explorer-prewarm.lock
+
+          cd "$LIVE"
+          echo "=== wait for canonical-publication owner ==="
+          exec 8>"$WATCH_LOCK"
+          flock -w 900 8
+          exec 9>"$PUB_LOCK"
+          flock -w 900 9
+
+          echo "=== sync clean production checkout to current main ==="
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git fetch origin main --quiet
+          git reset --hard origin/main
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "origin_main=$(git rev-parse origin/main)"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== require merged Explorer runtime ==="
+          grep -q 'MARKET_EXPLORER_V2_COVERAGE_TABLE' backend/db/services/post_scrape_publication_trigger.py
+          grep -q 'psycopg\[binary\]==3.3.6' backend/requirements.txt
+          "$PY" -c 'import psycopg; print("psycopg="+psycopg.__version__)'
+          "$PY" -c 'import os; ok=bool(os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")); print("direct_db_credential_present="+str(ok).lower()); raise SystemExit(0 if ok else 31)'
+
+          echo "=== require Price Storage V2 ready ==="
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate; c=create_service_role_client(); d=evaluate_price_projection_gate(c,"2026-09-21"); print("price_storage_gate="+json.dumps(d.to_dict(),sort_keys=True,default=str)); raise SystemExit(0 if d.ready else 32)'
+
+          echo "=== ensure Sep 21 canonical Market date is READY ==="
+          STATUS="$("$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); r=list(c.table("pokemon_market_date_quality").select("status").eq("tcg","pokemon").eq("market_date","2026-09-21").limit(1).execute().data or []); print(str((r[0] if r else {}).get("status") or ""))')"
+          echo "market_quality_before=$STATUS"
+          if [ "$STATUS" != "READY" ] && [ "$STATUS" != "LEGACY_VERIFIED" ]; then
+            "$PY" -m backend.scripts.build_pokemon_market_index_history --commit --market-date "$TARGET"
+          fi
+
+          echo "=== ensure Explorer-only Classic Collection history ==="
+          "$PY" -m backend.scripts.backfill_pokemon_set_value_daily_history             --set-id me30thCelebrationClassicCollection             --start-date "$TARGET"             --end-date "$TARGET"             --commit
+
+          echo "=== require 166/166 tracked set-history authority ==="
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); current=[r for r in rows if str(r.get("latest_snapshot_date") or "")[:10] >= day]; out={"total":len(rows),"current":len(current),"stale":len(rows)-len(current),"minLatest":min((str(r.get("latest_snapshot_date") or "")[:10] for r in rows),default=None),"maxLatest":max((str(r.get("latest_snapshot_date") or "")[:10] for r in rows),default=None)}; print("explorer_set_history="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if len(rows)==166 and len(current)==166 else 33)'
+
+          echo "=== publish compact Set Value market snapshot ==="
+          "$PY" -m backend.scripts.build_pokemon_explore_set_value_snapshot --commit --market-date "$TARGET"
+
+          echo "=== advance and transactionally verify Explorer V2 daily projection ==="
+          "$PY" -m backend.scripts.run_market_explorer_daily_publication --commit --market-date "$TARGET"
+
+          echo "=== require V2 coverage 166/166 current ==="
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=[]; start=0
+while True:
+ p=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,retained_from,computed_through,row_count,retention_days").order("set_id").range(start,start+999).execute().data or []); rows.extend(p)
+ if len(p)<1000: break
+ start+=1000
+cur=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]; bad=[r for r in rows if int(r.get("retention_days") or 0)!=100 or int(r.get("row_count") or 0)<0]; out={"rows":len(rows),"current":len(cur),"stale":len(rows)-len(cur),"badCoverageRows":len(bad),"minComputedThrough":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),"maxComputedThrough":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None)}; print("explorer_v2_coverage="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if len(rows)==166 and len(cur)==166 and not bad else 34)'
+
+          flock -u 9
+          flock -u 8
+
+          echo "=== drain maintained caches one process at a time ==="
+          exec 7>"$CACHE_LOCK"
+          flock -w 600 7
+          DONE=0
+          for i in $(seq 1 45); do
+            echo "prewarm_iteration=$i"
+            OUT="$("$PY" -m backend.scripts.run_market_explorer_maintained_cache_prewarm --commit --market-date "$TARGET" --max-caches 1)"
+            printf '%s\n' "$OUT"
+            FAILED="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(int(d.get("failed") or 0))')"
+            if [ "$FAILED" -ne 0 ]; then
+              echo "FATAL maintained-cache/prepared worker failed"
+              exit 35
+            fi
+            PREPARED="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); p=d.get("preparedRefresh") or {}; print(str(p.get("status") or ""))')"
+            if [ "$PREPARED" = "refreshed" ] || [ "$PREPARED" = "already_current" ]; then
+              DONE=1
+              echo "prepared_handoff=$PREPARED"
+              break
+            fi
+          done
+          flock -u 7
+          if [ "$DONE" -ne 1 ]; then
+            echo "FATAL cache backlog did not reach prepared handoff within 45 isolated workers"
+            exit 36
+          fi
+
+          echo "=== final database acceptance ==="
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=[]; start=0
+while True:
+ p=list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,status,computed_through").eq("cache_kind","maintained").range(start,start+999).execute().data or []); rows.extend(p)
+ if len(p)<1000: break
+ start+=1000
+stale=[r for r in rows if str(r.get("computed_through") or "")[:10] < day]; gens=list(c.table("pokemon_market_explorer_prepared_generations_v1").select("generation_id,status,comparison_as_of,promoted_at").eq("status","serving").order("promoted_at",desc=True).limit(2).execute().data or []); serving=gens[0] if gens else {}; out={"maintained":len(rows),"maintainedCurrent":len(rows)-len(stale),"maintainedStale":len(stale),"servingGeneration":serving}; print("final_explorer_state="+json.dumps(out,sort_keys=True,default=str)); raise SystemExit(0 if len(rows)>0 and not stale and str(serving.get("comparison_as_of") or "")[:10] == day else 37)'
+
+          echo "=== public Set Value authority ==="
+          BODY="$(mktemp)"
+          CURRENT=0
+          for i in $(seq 1 12); do
+            CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+            DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+            echo "public_market_poll=$i http=$CODE date=$DATE"
+            if [ "$CODE" = "200" ] && [ "$DATE" = "$TARGET" ]; then CURRENT=1; break; fi
+            sleep 10
+          done
+          rm -f "$BODY"
+          test "$CURRENT" -eq 1
+
+          echo "MARKET_EXPLORER_SEP21_FINISH=PASS"
