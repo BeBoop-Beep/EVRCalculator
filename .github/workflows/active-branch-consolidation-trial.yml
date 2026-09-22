@@ -1,0 +1,56 @@
+name: Active Branch Consolidation Trial
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/active-branch-consolidation-trial.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trial:
+    if: github.event.head_commit.message == 'ops: trial active branch consolidation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+      - name: Trial merge active substantive branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "inDex consolidation"
+          git config user.email "actions@users.noreply.github.com"
+          branches=(
+            fix/new-set-card-enrichment-20260922
+            fix/market-explorer-durable-pipeline-20260921
+            fix/market-explorer-ui-closure-20260921
+            fix/market-explorer-direct-db-worker-20260920
+            ops/pokemon-new-set-onboarding-20260920-r2
+            fix/price-projection-transient-retry-20260921
+            fix/publication-currency-stale-fastpath-20260921
+            fix/publication-fastpath-preload-chunking-20260921
+            fix/pokemon-tcg-optional-auth-20260921
+          )
+          git fetch origin "${branches[@]}" develop
+          echo "start=$(git rev-parse HEAD)"
+          for branch in "${branches[@]}"; do
+            echo "=== MERGE TRIAL: $branch ==="
+            if git merge --no-ff --no-edit "origin/$branch"; then
+              echo "MERGE_OK $branch"
+            else
+              echo "MERGE_CONFLICT $branch"
+              git status --short
+              echo "conflict_files:"
+              git diff --name-only --diff-filter=U
+              exit 20
+            fi
+          done
+          echo "trial_head=$(git rev-parse HEAD)"
+          echo "trial_files_changed_vs_origin_develop:"
+          git diff --stat origin/develop...HEAD
+          echo "TRIAL_COMPLETE_NO_PUSH"
