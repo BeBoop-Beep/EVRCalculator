@@ -120,3 +120,32 @@ def test_authenticated_scrydex_requires_and_sends_key_and_team_together():
     assert len(rows) == 1
     assert session.calls[0]["headers"]["X-Api-Key"] == "secret"
     assert session.calls[0]["headers"]["X-Team-ID"] == "team-1"
+
+
+
+def test_resolve_set_strips_tcgplayer_me_prefix_before_scrydex_search():
+    session = _Session([
+        _Response({
+            "status": "success",
+            "data": [{
+                "id": "me55",
+                "name": "30th Celebration",
+                "series": "Mega Evolution",
+                "code": "M3",
+                "total": 161,
+                "printed_total": 128,
+                "release_date": "2026/09/16",
+                "logo": "logo",
+                "symbol": "symbol",
+            }],
+            "page": 1,
+            "pageSize": 50,
+            "totalCount": 1,
+        }),
+    ])
+    client = ScrydexPokemonClient(session=session, sleep=lambda _delay: None)
+
+    row = client.resolve_set("ME: 30th Celebration")
+
+    assert row["id"] == "me55"
+    assert session.calls[0]["params"]["q"] == 'name:"30th Celebration"'
