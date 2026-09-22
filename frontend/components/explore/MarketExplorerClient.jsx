@@ -388,7 +388,7 @@ export default function MarketExplorerClient({
             {builderMode === "exact" ? (
               <div data-market-explorer-build-path="exact" className="flex min-h-0 flex-1 flex-col">
                 <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries?.spec?.membershipMode === "explicit" ? editingSeries : null}
-                  onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} onClose={() => setBuilderOpen(false)} />
+                  onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} onClose={() => setBuilderOpen(false)} showClose={false} />
               </div>
             ) : (
               <div data-market-explorer-build-path="filters" className="min-h-0 flex-1 overflow-y-auto">
