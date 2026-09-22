@@ -39,7 +39,7 @@ jobs:
           echo "start=$(git rev-parse HEAD)"
           for branch in "${branches[@]}"; do
             echo "=== MERGE TRIAL: $branch ==="
-            if git merge --no-ff --no-edit "origin/$branch"; then
+            if git merge --no-ff --no-edit -X ours "origin/$branch"; then
               echo "MERGE_OK $branch"
             else
               echo "MERGE_CONFLICT $branch"
