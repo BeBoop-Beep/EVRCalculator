@@ -1,4 +1,5 @@
 name: Opening Simulation Recovery Watchdog
+# Retrigger after promoted-cohort freshness read fix bcb26e96.
 
 on:
   workflow_dispatch:
