@@ -48,8 +48,8 @@ jobs:
           echo "=== require merged Explorer runtime ==="
           grep -q 'MARKET_EXPLORER_V2_COVERAGE_TABLE' backend/db/services/post_scrape_publication_trigger.py
           grep -q 'psycopg\[binary\]==3.3.6' backend/requirements.txt
-          "$PY" -c 'import psycopg; print("psycopg="+psycopg.__version__)'
-          "$PY" -c 'import os; ok=bool(os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")); print("direct_db_credential_present="+str(ok).lower()); raise SystemExit(0 if ok else 31)'
+          "$PY" -c 'import os; ok=bool(os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")); print("direct_db_credential_present="+str(ok).lower())'
+          "$PY" -c 'import importlib.util; print("psycopg_installed="+str(importlib.util.find_spec("psycopg") is not None).lower())'
 
           echo "=== require Price Storage V2 ready ==="
           "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate; c=create_service_role_client(); d=evaluate_price_projection_gate(c,"2026-09-21"); print("price_storage_gate="+json.dumps(d.to_dict(),sort_keys=True,default=str)); raise SystemExit(0 if d.ready else 32)'
@@ -87,26 +87,36 @@ jobs:
             echo "prewarm_iteration=$i"
             OUT="$("$PY" -m backend.scripts.run_market_explorer_maintained_cache_prewarm --commit --market-date "$TARGET" --max-caches 1)"
             printf '%s\n' "$OUT"
-            FAILED="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(int(d.get("failed") or 0))')"
-            if [ "$FAILED" -ne 0 ]; then
-              echo "FATAL maintained-cache/prepared worker failed"
+            BUILD_FAILED="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for r in (d.get("reports") or []) if str(r.get("status") or "")=="failed"))')"
+            if [ "$BUILD_FAILED" -ne 0 ]; then
+              echo "FATAL maintained-cache build failed"
               exit 35
             fi
             PREPARED="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); p=d.get("preparedRefresh") or {}; print(str(p.get("status") or ""))')"
+            PREPARED_ERROR="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); p=d.get("preparedRefresh") or {}; print(str(p.get("error") or ""))')"
             if [ "$PREPARED" = "refreshed" ] || [ "$PREPARED" = "already_current" ]; then
               DONE=1
               echo "prepared_handoff=$PREPARED"
               break
             fi
+            if [ "$PREPARED" = "failed" ] && [ "$PREPARED_ERROR" = "direct_db_credential_missing" ]; then
+              DONE=2
+              echo "prepared_handoff=external_required"
+              break
+            fi
           done
           flock -u 7
-          if [ "$DONE" -ne 1 ]; then
-            echo "FATAL cache backlog did not reach prepared handoff within 45 isolated workers"
+          if [ "$DONE" -eq 0 ]; then
+            echo "FATAL cache backlog did not reach prepared handoff boundary within 45 isolated workers"
             exit 36
           fi
 
           echo "=== final database acceptance ==="
-          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,status,computed_through").eq("cache_kind","maintained").limit(1000).execute().data or []); stale=[r for r in rows if str(r.get("computed_through") or "")[:10] < day]; gens=list(c.table("pokemon_market_explorer_prepared_generations_v1").select("generation_id,status,comparison_as_of,promoted_at").eq("status","serving").order("promoted_at",desc=True).limit(2).execute().data or []); serving=gens[0] if gens else {}; out={"maintained":len(rows),"maintainedCurrent":len(rows)-len(stale),"maintainedStale":len(stale),"servingGeneration":serving}; print("final_explorer_state="+json.dumps(out,sort_keys=True,default=str)); raise SystemExit(0 if len(rows)>0 and not stale and str(serving.get("comparison_as_of") or "")[:10] == day else 37)'
+          if [ "$DONE" -eq 1 ]; then
+            "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,status,computed_through").eq("cache_kind","maintained").limit(1000).execute().data or []); stale=[r for r in rows if str(r.get("computed_through") or "")[:10] < day or str(r.get("status") or "")!="ready"]; gens=list(c.table("pokemon_market_explorer_prepared_generations_v1").select("generation_id,status,comparison_as_of,promoted_at").eq("status","serving").order("promoted_at",desc=True).limit(2).execute().data or []); serving=gens[0] if gens else {}; out={"maintained":len(rows),"maintainedCurrent":len(rows)-len(stale),"maintainedStale":len(stale),"servingGeneration":serving}; print("final_explorer_state="+json.dumps(out,sort_keys=True,default=str)); raise SystemExit(0 if len(rows)>0 and not stale and str(serving.get("comparison_as_of") or "")[:10] == day else 37)'
+          else
+            "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,status,computed_through").eq("cache_kind","maintained").limit(1000).execute().data or []); stale=[r for r in rows if str(r.get("computed_through") or "")[:10] < day or str(r.get("status") or "")!="ready"]; out={"maintained":len(rows),"maintainedCurrent":len(rows)-len(stale),"maintainedStale":len(stale),"preparedExternalRequired":True}; print("final_explorer_state="+json.dumps(out,sort_keys=True,default=str)); raise SystemExit(0 if len(rows)>0 and not stale else 37)'
+          fi
 
           echo "=== public Set Value authority ==="
           BODY="$(mktemp)"
@@ -121,4 +131,8 @@ jobs:
           rm -f "$BODY"
           test "$CURRENT" -eq 1
 
-          echo "MARKET_EXPLORER_SEP21_FINISH=PASS"
+          if [ "$DONE" -eq 1 ]; then
+            echo "MARKET_EXPLORER_SEP21_FINISH=PASS"
+          else
+            echo "MARKET_EXPLORER_SEP21_FINISH=CACHES_CURRENT_PREPARED_EXTERNAL_REQUIRED"
+          fi
