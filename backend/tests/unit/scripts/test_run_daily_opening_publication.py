@@ -555,33 +555,36 @@ def test_simulations_run_before_snapshots_are_built(patched):
     assert summary.snapshot_publication_status == "published"
 
 
-def test_previous_day_rollover_defers_without_launching_simulation(monkeypatch, patched):
-    persisted = []
-    monkeypatch.setattr(orchestrator, "_persist_rankings_deferral", lambda _client, report: persisted.append(report))
-    client = _client([_history(STALE_DATE)])
+def test_previous_day_rollover_repairs_with_explicit_market_date(patched):
+    # Modern calculation runs persist the promoted market_date explicitly, so
+    # execution on the following Phoenix day is a valid repair, not a reason to
+    # defer. The fake history advances after the simulated repair just like the
+    # real calculation_history view does.
+    client = _client([_history(STALE_DATE), _history(MARKET_DATE)])
 
     summary = _orchestrate(client, simulation_execution_date="2026-08-02")
 
-    assert not [call for call in patched if call[0] == "simulate"]
-    assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
-    assert summary.rankings_readiness_reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+    assert ("simulate", ["alpha"]) in patched
     assert summary.simulation_execution_date == "2026-08-02"
-    assert "cannot be backdated" in summary.error
-    assert persisted and persisted[0].reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+    assert summary.verification_passed is True
+    assert summary.exit_code == EXIT_OK
+    assert summary.rankings_readiness_reason_code != "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
 
-def test_rollover_dry_run_never_persists_attempt(monkeypatch, patched):
+def test_rollover_dry_run_does_not_persist_a_deferral(monkeypatch, patched):
     monkeypatch.setattr(
         orchestrator,
         "_persist_rankings_deferral",
         lambda *_a, **_k: pytest.fail("dry-run must not persist a publication attempt"),
     )
     summary = _orchestrate(
-        _client([_history(STALE_DATE)]),
+        _client([_history(STALE_DATE), _history(MARKET_DATE)]),
         simulation_execution_date="2026-08-02",
         dry_run=True,
     )
-    assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
+    assert ("simulate", ["alpha"]) in patched
+    assert summary.verification_passed is True
+    assert summary.rankings_readiness_reason_code != "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
 
 def test_mixed_current_day_cohort_runs_only_stale_sets(monkeypatch, patched):
@@ -1297,20 +1300,29 @@ def test_state_published_outcome_survives_to_the_final_summary(monkeypatch, patc
     assert outcome["publication_attempted"] is True
 
 
-def test_state_deferred_with_attempt_outcome_from_rollover(monkeypatch, patched):
-    """(2) DEFERRED_WITH_ATTEMPT — classification/attempt/reason retained, legacy status='deferred'."""
+def test_state_deferred_with_attempt_outcome_from_incomplete_cohort(monkeypatch, patched):
+    """(2) DEFERRED_WITH_ATTEMPT — a genuinely incomplete cohort remains fail-closed."""
     monkeypatch.setattr(
-        orchestrator, "_persist_rankings_deferral", lambda _client, _report: "attempt-rollover"
+        orchestrator, "_persist_rankings_deferral", lambda _client, _report: "attempt-incomplete"
     )
-    client = _client([_history(STALE_DATE)])
+
+    def failing_sims(set_keys, **_kwargs):
+        patched.append(("simulate", list(set_keys)))
+        return [
+            orchestrator.SimulationOutcome(canonical_key=key, succeeded=False, reason="boom")
+            for key in set_keys
+        ]
+
+    monkeypatch.setattr(orchestrator, "run_simulations_for_sets", failing_sims)
+    client = _client([_history(STALE_DATE), _history(STALE_DATE)])
 
     summary = _orchestrate(client, simulation_execution_date="2026-08-02")
 
     assert summary.rankings_publication_status == "deferred"
     outcome = summary.rankings_publication_outcome
     assert outcome["classification"] == CLASSIFICATION_DEFERRED_WITH_ATTEMPT
-    assert outcome["attempt_id"] == "attempt-rollover"
-    assert outcome["reason_code"] == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+    assert outcome["attempt_id"] == "attempt-incomplete"
+    assert outcome["reason_code"] == "DEFERRED_SIMULATION_COHORT_INCOMPLETE"
     assert outcome["publication_attempted"] is False
 
 
