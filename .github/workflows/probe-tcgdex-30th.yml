@@ -23,7 +23,7 @@ jobs:
           base="https://api.tcgdex.net/v2/en"
           with urllib.request.urlopen(base+"/sets", timeout=20) as r:
               sets=json.load(r)
-          matches=[x for x in sets if "30th celebration" in str(x.get("name") or "").casefold()]
+          matches=[x for x in sets if "30th" in str(x.get("name") or "").casefold() or "classic collection" in str(x.get("name") or "").casefold()]
           print("matches="+json.dumps(matches,sort_keys=True))
           assert matches, "TCGdex has no 30th Celebration match"
           for item in matches:
@@ -43,18 +43,25 @@ jobs:
                   "sample":cards[:3],
               },sort_keys=True))
               if cards:
-                  cid=cards[0]["id"]
-                  with urllib.request.urlopen(base+"/cards/"+cid, timeout=20) as r:
-                      card=json.load(r)
-                  print("card_detail="+json.dumps({
-                      "id":card.get("id"),
-                      "name":card.get("name"),
-                      "localId":card.get("localId"),
-                      "category":card.get("category"),
-                      "rarity":card.get("rarity"),
-                      "illustrator":card.get("illustrator"),
-                      "dexId":card.get("dexId"),
-                      "image":card.get("image"),
-                      "set":card.get("set"),
-                  },sort_keys=True))
+                  sample_ids=[cards[0]["id"]]
+                  for local in ("023","053","126","158"):
+                      found=next((x for x in cards if str(x.get("localId"))==local),None)
+                      if found: sample_ids.append(found["id"])
+                  for cid in dict.fromkeys(sample_ids):
+                      with urllib.request.urlopen(base+"/cards/"+cid, timeout=20) as r:
+                          card=json.load(r)
+                      print("card_detail="+json.dumps({
+                          "id":card.get("id"),
+                          "name":card.get("name"),
+                          "localId":card.get("localId"),
+                          "category":card.get("category"),
+                          "rarity":card.get("rarity"),
+                          "illustrator":card.get("illustrator"),
+                          "dexId":card.get("dexId"),
+                          "types":card.get("types"),
+                          "stage":card.get("stage"),
+                          "suffix":card.get("suffix"),
+                          "image":card.get("image"),
+                          "set":card.get("set"),
+                      },sort_keys=True))
           PY
