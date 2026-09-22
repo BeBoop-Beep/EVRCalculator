@@ -39,7 +39,7 @@ test("prepared categories populate, filter, switch, select, close, and preserve 
     assert.equal(rows(renderer).length, 6);
     const quickSearch = renderer.root.findByProps({ "data-market-browser-search": true });
     await act(async () => quickSearch.props.onChange({ target: { value: "top" } }));
-    assert.equal(rows(renderer)[0].props.children[0].props.children[0], "Global Top 10");
+    assert.equal(rows(renderer)[0].props.children[0].props.children[0], "Global Top 10 Cards");
     await act(async () => rows(renderer)[0].props.onClick());
     assert.deepEqual(selected, ["curated:global-top10"]);
     assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 0);
