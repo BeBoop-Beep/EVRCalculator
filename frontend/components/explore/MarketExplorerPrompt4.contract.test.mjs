@@ -14,10 +14,9 @@ test("desktop is one rail plus a right chart-first research canvas", () => {
   assert.match(styles, /position: sticky/);
 });
 
-test("signals are informational and include the honest Graded placeholder", () => {
-  assert.doesNotMatch(signal, /aria-pressed|onToggle|<button/);
-  assert.match(signal, /Coming soon/);
-  assert.match(client, /data-market-explorer-signals/);
+test("the redundant Market Overview signal cards are removed from the Explorer canvas", () => {
+  assert.doesNotMatch(client, /data-market-explorer-signals|<MarketExplorerSeriesCard/);
+  assert.doesNotMatch(client, /Market overview/);
 });
 
 test("there is one active strip above the chart and no chart visibility legend", () => {
@@ -28,7 +27,8 @@ test("there is one active strip above the chart and no chart visibility legend",
 });
 
 test("the main plot is materially larger and transparent enough for page artwork", () => {
-  assert.match(chart, /desk:h-\[38rem\].*2xl:h-\[42rem\]/);
+  assert.match(chart, /desk:h-\[40rem\].*2xl:h-\[46rem\]/);
+  assert.match(chart, /minimal=\{openCanvas\}/);
   assert.doesNotMatch(client, /marketExplorerAnalysis} set-glass-surface/);
 });
 
