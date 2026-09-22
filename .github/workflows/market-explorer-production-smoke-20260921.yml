@@ -1,0 +1,182 @@
+name: Market Explorer Production Smoke 2026-09-21
+
+on:
+  push:
+    branches:
+      - ops/market-explorer-production-smoke-20260921
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run production Explorer browser smoke
+        env:
+          EXPLORER_URL: https://www.inthedex.io/Market/Explorer
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from "@playwright/test";
+
+          const origin = process.env.EXPLORER_URL;
+          const browser = await chromium.launch({ headless: true });
+          const evidence = { origin, viewports: [] };
+
+          function assert(condition, message) {
+            if (!condition) throw new Error(message);
+          }
+
+          async function smokeViewport(name, viewport, interactive) {
+            const context = await browser.newContext({ viewport });
+            const page = await context.newPage();
+            const pageErrors = [];
+            const sameOrigin5xx = [];
+            const failedCoreRequests = [];
+            const consoleErrors = [];
+
+            page.on("pageerror", (error) => pageErrors.push(String(error?.message || error)));
+            page.on("console", (message) => {
+              if (message.type() === "error") consoleErrors.push(message.text());
+            });
+            page.on("response", (response) => {
+              try {
+                const url = new URL(response.url());
+                if (url.origin === new URL(origin).origin && response.status() >= 500) {
+                  sameOrigin5xx.push({ url: response.url(), status: response.status() });
+                }
+              } catch {}
+            });
+            page.on("requestfailed", (request) => {
+              try {
+                const url = new URL(request.url());
+                const type = request.resourceType();
+                if (
+                  url.origin === new URL(origin).origin &&
+                  ["document", "xhr", "fetch"].includes(type) &&
+                  request.failure()?.errorText !== "net::ERR_ABORTED"
+                ) {
+                  failedCoreRequests.push({
+                    url: request.url(),
+                    resourceType: type,
+                    error: request.failure()?.errorText || "request failed",
+                  });
+                }
+              } catch {}
+            });
+
+            const nav = await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 90000 });
+            assert(nav && nav.status() < 400, `${name}: navigation status ${nav?.status()}`);
+
+            const workspace = page.locator("[data-market-explorer-workspace]");
+            await workspace.waitFor({ state: "visible", timeout: 60000 });
+            const heading = page.getByRole("heading", { name: "Market Explorer", exact: true });
+            await heading.waitFor({ state: "visible", timeout: 30000 });
+
+            const accessMode = await workspace.getAttribute("data-market-explorer-access-mode");
+            assert(accessMode === "basic", `${name}: anonymous access mode was ${accessMode || "missing"}`);
+
+            const dimensions = await page.evaluate(() => ({
+              innerWidth: window.innerWidth,
+              bodyScrollWidth: document.body.scrollWidth,
+              documentScrollWidth: document.documentElement.scrollWidth,
+            }));
+            assert(
+              dimensions.bodyScrollWidth <= dimensions.innerWidth + 1 &&
+                dimensions.documentScrollWidth <= dimensions.innerWidth + 1,
+              `${name}: horizontal overflow ${JSON.stringify(dimensions)}`,
+            );
+
+            const unavailable = page.getByText("Market directory is temporarily unavailable.", { exact: true });
+            assert((await unavailable.count()) === 0, `${name}: prepared directory unavailable`);
+
+            let preparedStatus = null;
+            let preparedCount = null;
+            let upgradeVisible = null;
+
+            if (interactive) {
+              await page.locator('[data-market-directory-category="sets"]').click();
+              await page.locator("[data-market-directory-popover]").waitFor({ state: "visible", timeout: 15000 });
+              const preparedRows = page.locator("[data-prepared-market]");
+              preparedCount = await preparedRows.count();
+              assert(preparedCount > 0, `${name}: no prepared Set markets rendered`);
+
+              const first = preparedRows.first();
+              const preparedResponsePromise = page.waitForResponse(
+                (response) =>
+                  response.url().includes("/api/market/explorer/prepared") &&
+                  response.request().method() === "POST",
+                { timeout: 45000 },
+              );
+              await first.click();
+              const preparedResponse = await preparedResponsePromise;
+              preparedStatus = preparedResponse.status();
+              assert(preparedStatus === 200, `${name}: prepared market POST returned ${preparedStatus}`);
+
+              await page.locator('[data-market-directory-category="sets"]').click();
+              await page.locator("[data-market-directory-popover]").waitFor({ state: "visible", timeout: 15000 });
+              const compare = page.locator("[data-compare-market]").first();
+              assert((await compare.count()) === 1, `${name}: Compare control missing`);
+              await compare.click();
+              const upgrade = page.locator("[data-market-explorer-compare-upgrade]");
+              await upgrade.waitFor({ state: "visible", timeout: 10000 });
+              upgradeVisible = await upgrade.isVisible();
+              assert(upgradeVisible, `${name}: Basic compare upgrade boundary did not render`);
+            }
+
+            await page.waitForTimeout(1500);
+
+            assert(pageErrors.length === 0, `${name}: page errors: ${JSON.stringify(pageErrors)}`);
+            assert(sameOrigin5xx.length === 0, `${name}: same-origin 5xx: ${JSON.stringify(sameOrigin5xx)}`);
+            assert(
+              failedCoreRequests.length === 0,
+              `${name}: failed core requests: ${JSON.stringify(failedCoreRequests)}`,
+            );
+
+            evidence.viewports.push({
+              name,
+              viewport,
+              accessMode,
+              dimensions,
+              preparedCount,
+              preparedStatus,
+              upgradeVisible,
+              consoleErrors,
+              pageErrors,
+              sameOrigin5xx,
+              failedCoreRequests,
+            });
+
+            await context.close();
+          }
+
+          try {
+            await smokeViewport("desktop", { width: 1440, height: 1000 }, true);
+            await smokeViewport("mobile", { width: 390, height: 844 }, false);
+            console.log("MARKET_EXPLORER_PRODUCTION_SMOKE=PASS");
+            console.log(JSON.stringify(evidence, null, 2));
+          } finally {
+            await browser.close();
+          }
+          NODE
