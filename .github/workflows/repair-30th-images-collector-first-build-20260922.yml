@@ -1,0 +1,297 @@
+name: Repair 30th Images and Collector First Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-30th-images-collector-first-build-20260922.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-30th-images-collector-first-build
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    steps:
+      - name: Hydrate artwork and publish first Collector build
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+
+          exec 9>/tmp/pokemon-new-set-first-build.lock
+          flock -w 1800 9
+          exec 8>/tmp/pokemon-scrape-dispatcher.lock
+          flock -w 1800 8
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -w 1800 7
+
+          cd "$LIVE"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main --quiet
+          git switch main
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git reset --hard origin/main
+          echo "live_head=$(git rev-parse HEAD)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== TCGdex provider preflight ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.tcgdex_pokemon_client import TCGdexPokemonClient
+
+          expected = {
+              "ME: 30th Celebration": 158,
+              "ME: 30th Celebration Classic Collection": 30,
+          }
+          client = TCGdexPokemonClient(detail_delay_seconds=0)
+          for name, count in expected.items():
+              detail = client.resolve_set_detail(name)
+              cards = detail.get("cards") or []
+              report = {
+                  "name": name,
+                  "provider_id": detail.get("id"),
+                  "provider_name": detail.get("name"),
+                  "cards": len(cards),
+                  "cards_with_art": sum(bool(row.get("image")) for row in cards),
+              }
+              print("provider_preflight", report)
+              assert len(cards) == count, report
+              assert report["cards_with_art"] == count, report
+          PY
+
+          echo "=== image hydration ==="
+          "$PY" backend/scripts/sync_pokemon_images.py \
+            --sets "ME: 30th Celebration" "ME: 30th Celebration Classic Collection" \
+            --apply
+
+          echo "=== full first-pass desirability ==="
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py \
+            --set me30thCelebration --commit --log-level INFO
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py \
+            --set me30thCelebrationClassicCollection --commit --log-level INFO
+
+          echo "=== Collector identity hydration ==="
+          "$PY" backend/scripts/sync_pokemon_collector_identities.py \
+            --set-id 8dbf97f7-b7e8-4ff5-883a-0bb3356291bf --commit
+          "$PY" backend/scripts/sync_pokemon_collector_identities.py \
+            --set-id a787aa9f-dbc3-47c0-bfe9-0045b9516a67 --commit
+
+          echo "=== atomically extend current Collector V7 to 30th parent ==="
+          "$PY" backend/scripts/extend_current_pokemon_collector_v7_set.py \
+            --set me30thCelebration --commit --publish
+
+          echo "=== rebuild Classic local card/page snapshots ==="
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py \
+            --set-id me30thCelebrationClassicCollection --commit
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py \
+            --set-id me30thCelebrationClassicCollection --commit
+
+          echo "=== acceptance ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          c = create_service_role_client()
+          targets = {
+              "me30thCelebration": ("8dbf97f7-b7e8-4ff5-883a-0bb3356291bf", 158, False),
+              "me30thCelebrationClassicCollection": ("a787aa9f-dbc3-47c0-bfe9-0045b9516a67", 30, True),
+          }
+
+          current = list(
+              c.table("pokemon_collector_appeal_current")
+              .select("model_run_id,model_version,as_of_date")
+              .eq("scope", "pokemon")
+              .limit(1)
+              .execute().data or []
+          )
+          assert current, "current Collector V7 pointer missing"
+          current_run = str(current[0]["model_run_id"])
+          assert str(current[0].get("model_version") or "").startswith(
+              "pokemon_collector_appeal_v7_"
+          ), current[0]
+
+          for key, (set_id, expected, is_subset) in targets.items():
+              cards = list(
+                  c.table("cards")
+                  .select("id,image_small_url,image_large_url")
+                  .eq("set_id", set_id)
+                  .limit(500)
+                  .execute().data or []
+              )
+              card_ids = [str(row["id"]) for row in cards]
+              variants = []
+              for start in range(0, len(card_ids), 200):
+                  variants.extend(
+                      c.table("card_variants")
+                      .select("id,image_small_url,image_large_url")
+                      .in_("card_id", card_ids[start:start + 200])
+                      .execute().data or []
+                  )
+              canonical = list(
+                  c.table("pokemon_canonical_cards")
+                  .select(
+                      "id,name,supertype,source,artist,image_small_url,image_large_url"
+                  )
+                  .eq("set_id", set_id)
+                  .limit(500)
+                  .execute().data or []
+              )
+              canonical_ids = [str(row["id"]) for row in canonical]
+              desirability_links = []
+              identity_links = []
+              for start in range(0, len(canonical_ids), 200):
+                  chunk = canonical_ids[start:start + 200]
+                  desirability_links.extend(
+                      c.table("pokemon_card_desirability_links")
+                      .select("pokemon_canonical_card_id")
+                      .in_("pokemon_canonical_card_id", chunk)
+                      .execute().data or []
+                  )
+                  identity_links.extend(
+                      c.table("pokemon_card_collector_entity_links")
+                      .select("pokemon_canonical_card_id,link_role")
+                      .in_("pokemon_canonical_card_id", chunk)
+                      .eq("active", True)
+                      .execute().data or []
+                  )
+
+              hit_rows = list(
+                  c.table("pokemon_set_hit_desirability_summaries")
+                  .select("set_id")
+                  .eq("set_id", set_id)
+                  .execute().data or []
+              )
+              component_rows = list(
+                  c.table("pokemon_set_desirability_component_scores")
+                  .select("set_id")
+                  .eq("set_id", set_id)
+                  .execute().data or []
+              )
+              opening_rows = list(
+                  c.table("pokemon_set_opening_desirability_scores")
+                  .select("set_id")
+                  .eq("set_id", set_id)
+                  .execute().data or []
+              )
+
+              report = {
+                  "key": key,
+                  "cards": len(cards),
+                  "card_images": sum(
+                      bool(row.get("image_small_url") or row.get("image_large_url"))
+                      for row in cards
+                  ),
+                  "variants": len(variants),
+                  "variant_images": sum(
+                      bool(row.get("image_small_url") or row.get("image_large_url"))
+                      for row in variants
+                  ),
+                  "canonical": len(canonical),
+                  "canonical_tcgdex": sum(
+                      str(row.get("source") or "") == "tcgdex" for row in canonical
+                  ),
+                  "canonical_images": sum(
+                      bool(row.get("image_small_url") or row.get("image_large_url"))
+                      for row in canonical
+                  ),
+                  "canonical_artists": sum(bool(row.get("artist")) for row in canonical),
+                  "desirability_links": len(desirability_links),
+                  "collector_identity_links": len(identity_links),
+                  "hit_rows": len(hit_rows),
+                  "component_rows": len(component_rows),
+                  "opening_rows": len(opening_rows),
+              }
+              print("first_build_acceptance", report)
+              assert report["cards"] == expected, report
+              assert report["card_images"] == expected, report
+              assert report["variant_images"] == report["variants"], report
+              assert report["canonical"] == expected, report
+              assert report["canonical_tcgdex"] == expected, report
+              assert report["canonical_images"] == expected, report
+              assert report["canonical_artists"] > 0, report
+              assert report["desirability_links"] > 0, report
+              assert report["hit_rows"] > 0, report
+              assert report["component_rows"] > 0, report
+              # Opening rows are allowed to be unavailable when no approved pull
+              # model exists; zero must not be converted into a fabricated score.
+
+              current_roster = list(
+                  c.table("pokemon_set_collector_desirability_scores")
+                  .select("set_id,collector_desirability_score")
+                  .eq("model_run_id", current_run)
+                  .eq("set_id", set_id)
+                  .execute().data or []
+              )
+              current_appeal = list(
+                  c.table("pokemon_set_collector_appeal_scores")
+                  .select(
+                      "set_id,collector_roster_desirability_score,"
+                      "collector_appeal_score,score_status,score_status_reason"
+                  )
+                  .eq("model_run_id", current_run)
+                  .eq("set_id", set_id)
+                  .execute().data or []
+              )
+              if is_subset:
+                  # Subsets contribute to the parent opening/set-value universe;
+                  # they are not standalone Collector V7 roots.
+                  assert not current_roster, current_roster
+                  assert not current_appeal, current_appeal
+              else:
+                  assert len(current_roster) == 1, current_roster
+                  assert current_roster[0].get("collector_desirability_score") is not None
+                  assert len(current_appeal) == 1, current_appeal
+                  assert current_appeal[0].get("collector_roster_desirability_score") is not None
+                  assert current_appeal[0].get("score_status") in {"scored", "unavailable"}
+
+          parent_cards = list(
+              c.table("pokemon_set_cards_snapshot_latest")
+              .select("cards_json")
+              .eq("set_id", targets["me30thCelebration"][0])
+              .limit(1)
+              .execute().data or []
+          )
+          assert parent_cards, "30th card snapshot missing"
+          first = (parent_cards[0].get("cards_json") or [])[0]
+          assert first.get("image_small_url") or first.get("image_large_url"), first
+
+          parent_page = list(
+              c.table("pokemon_set_page_snapshot_latest")
+              .select("payload_json")
+              .eq("set_id", targets["me30thCelebration"][0])
+              .limit(1)
+              .execute().data or []
+          )
+          assert parent_page, "30th set-page snapshot missing"
+          contract = (parent_page[0].get("payload_json") or {}).get(
+              "publicCollectorAppealContractV1"
+          )
+          assert contract, "30th set page missing current Collector contract"
+          roster = ((contract.get("components") or {}).get("rosterDesirability") or {})
+          assert roster.get("score") is not None, contract
+
+          print(
+              "THIRTIETH_IMAGES_COLLECTOR_FIRST_BUILD=PASS",
+              {
+                  "collector_model_run_id": current_run,
+                  "collector_model_version": current[0].get("model_version"),
+                  "parent_collector_status": (
+                      list(
+                          c.table("pokemon_set_collector_appeal_scores")
+                          .select("score_status")
+                          .eq("model_run_id", current_run)
+                          .eq("set_id", targets["me30thCelebration"][0])
+                          .execute().data or []
+                      )[0]["score_status"]
+                  ),
+              },
+          )
+          PY
