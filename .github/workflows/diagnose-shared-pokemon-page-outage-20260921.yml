@@ -1,0 +1,183 @@
+name: Diagnose shared Pokemon page outage
+
+on:
+  push:
+    branches:
+      - ops/diagnose-shared-pokemon-page-outage-20260921
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - name: Sync current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          git fetch origin main
+          git switch main
+          git reset --hard origin/main
+          echo "VM_SHA=$(git rev-parse HEAD)"
+
+      - name: Probe live Explorer and set routes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          probe() {
+            label="$1"
+            url="$2"
+            tmp="$(mktemp)"
+            hdr="$(mktemp)"
+            echo "=== $label ==="
+            start="$(date +%s)"
+            set +e
+            curl -L --max-time 45 -sS -D "$hdr" -o "$tmp" "$url"
+            code=$?
+            set -e
+            end="$(date +%s)"
+            echo "elapsed_seconds=$((end-start))"
+            echo "curl_exit=$code"
+            head -n 20 "$hdr" || true
+            echo "bytes=$(wc -c < "$tmp" 2>/dev/null || echo 0)"
+            echo "route_loader_count=$(grep -o 'Loading Rip Statistics\|Loading inDex\|Loading set intelligence' "$tmp" 2>/dev/null | wc -l)"
+            echo "error_count=$(grep -o 'Something went wrong\|RIP Statistics unavailable' "$tmp" 2>/dev/null | wc -l)"
+            echo "html_tail:"
+            tail -c 800 "$tmp" 2>/dev/null || true
+            echo
+            rm -f "$tmp" "$hdr"
+          }
+
+          probe "Explorer" "https://inthedex.io/Explorer"
+          probe "Pitch Black set" "https://inthedex.io/TCGs/Pokemon/Sets/pitch-black"
+          probe "Delta Reign set" "https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign"
+          probe "30th Celebration set" "https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration"
+
+      - name: Resolve backend base and probe shared endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+
+          BASE="$(./.venv/bin/python - <<'PY'
+          from pathlib import Path
+          from dotenv import dotenv_values
+          candidates = [
+              Path("frontend/.env.production.local"),
+              Path("frontend/.env.production"),
+              Path("frontend/.env.local"),
+              Path("frontend/.env"),
+              Path("backend/.env"),
+          ]
+          for p in candidates:
+              if not p.exists():
+                  continue
+              values = dotenv_values(p)
+              for key in ("BACKEND_API_BASE_URL","NEXT_PUBLIC_BACKEND_API_BASE_URL"):
+                  value = str(values.get(key) or "").strip()
+                  if value:
+                      print(value.rstrip("/"))
+                      raise SystemExit
+          PY
+          )"
+
+          if [ -z "$BASE" ]; then
+            echo "backend_base_resolved=false"
+            exit 0
+          fi
+
+          echo "backend_base_resolved=true"
+          SET_ID="472f851c-2e41-4c80-b6fc-8478d1d92730"
+
+          probe_api() {
+            label="$1"
+            path="$2"
+            tmp="$(mktemp)"
+            hdr="$(mktemp)"
+            echo "=== API $label ==="
+            start="$(date +%s)"
+            set +e
+            curl --max-time 30 -sS -D "$hdr" -o "$tmp" "$BASE$path"
+            code=$?
+            set -e
+            end="$(date +%s)"
+            echo "elapsed_seconds=$((end-start))"
+            echo "curl_exit=$code"
+            head -n 20 "$hdr" || true
+            echo "bytes=$(wc -c < "$tmp" 2>/dev/null || echo 0)"
+            echo "body_head:"
+            head -c 600 "$tmp" 2>/dev/null || true
+            echo
+            rm -f "$tmp" "$hdr"
+          }
+
+          probe_api "route directory" "/tcgs/pokemon/set-route-directory?limit=500"
+          probe_api "Pitch Black shell" "/tcgs/pokemon/sets/$SET_ID/shell"
+          probe_api "Pitch Black RIP bootstrap" "/tcgs/pokemon/sets/$SET_ID/rip/bootstrap"
+          probe_api "Pitch Black overview" "/tcgs/pokemon/sets/$SET_ID/overview?window=365d"
+          probe_api "Explore rankings" "/tcgs/pokemon/explore/rankings"
+          probe_api "Explore set values" "/tcgs/pokemon/explore/set-values"
+
+      - name: Inspect snapshot state
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          ./.venv/bin/python - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          c = create_service_role_client()
+          pitch = "472f851c-2e41-4c80-b6fc-8478d1d92730"
+          out = {}
+
+          def q(table, columns="*", **eqs):
+              query = c.table(table).select(columns)
+              for key, value in eqs.items():
+                  query = query.eq(key, value)
+              return list(query.limit(5).execute().data or [])
+
+          checks = [
+              ("pitch_page","pokemon_set_page_snapshot_latest","set_id",pitch),
+              ("pitch_market","pokemon_set_market_dashboard_snapshot_latest","set_id",pitch),
+              ("rankings","pokemon_explore_rankings_snapshot_latest","tcg","pokemon"),
+              ("set_values","pokemon_explore_set_value_snapshot_latest","tcg","pokemon"),
+          ]
+          for name, table, field, value in checks:
+              try:
+                  rows=q(table, "*", **{field:value})
+                  out[name]=[
+                      {k:r.get(k) for k in (
+                          "set_id","scope","market_date","latest_market_date",
+                          "as_of","updated_at","source_updated_at"
+                      ) if k in r}
+                      for r in rows
+                  ]
+              except Exception as exc:
+                  out[name]={"error":type(exc).__name__,"message":str(exc)}
+
+          print(json.dumps(out, default=str))
+          PY
+
+      - name: Inspect recent backend and publication processes
+        shell: bash
+        run: |
+          set -euo pipefail
+          date -Is
+          pgrep -af 'uvicorn|gunicorn|fastapi|refresh_stale_public_snapshots|rebuild_snapshots_after_scrape|run_next_scrape_job' || true
+          echo "=== publication lock ==="
+          if flock -n /tmp/pokemon-post-scrape-publication.lock -c 'true'; then
+            echo "publication_lock_free=true"
+          else
+            echo "publication_lock_free=false"
+          fi
+          echo "=== dispatcher lock ==="
+          if flock -n /tmp/pokemon-scrape-dispatcher.lock -c 'true'; then
+            echo "dispatcher_lock_free=true"
+          else
+            echo "dispatcher_lock_free=false"
+          fi
