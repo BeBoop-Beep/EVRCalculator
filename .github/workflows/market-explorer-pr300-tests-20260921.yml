@@ -41,4 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           cd repo
-          python -m pytest -q             backend/tests/unit/db/services/test_market_explorer_query_planner.py             backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py             backend/tests/unit/db/services/test_post_scrape_publication_trigger.py             backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py
+          python -m pytest -q             backend/tests/unit/db/services/test_market_explorer_query_planner.py             backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py             backend/tests/unit/db/services/test_post_scrape_publication_trigger.py             backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+            backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+            backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py \
+            backend/tests/unit/test_market_explorer_v2_runtime_cutover.py
