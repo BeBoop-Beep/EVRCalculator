@@ -14,7 +14,7 @@ function editItems(series) {
   return (spec.instruments || []).map((item) => ({ ...(metadata.get(`${item.asset}:${item.instrumentId}`) || {}), ...item }));
 }
 
-export default function MarketExplorerExactBasket({ currentPlan, editingSeries, onAddQuery, onUpdateQuery, onCancelEdit, onClose }) {
+export default function MarketExplorerExactBasket({ currentPlan, editingSeries, initialScope = "all", customFilters = null, onAddQuery, onUpdateQuery, onCancelEdit, onClose }) {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -42,5 +42,5 @@ export default function MarketExplorerExactBasket({ currentPlan, editingSeries, 
     } catch (error) { setStatus("error"); setMessage(error?.message || "Unable to build your market."); }
   };
   const cancelEdit = editingExact ? () => { onCancelEdit?.(); onClose?.(); } : null;
-  return <MarketExplorerExactItemPicker selectedItems={items} onChange={setItems} onClose={onClose} onCancelEdit={cancelEdit} onBuild={() => build(false)} onSaveAsNew={editingExact ? () => build(true) : null} buildLabel={editingExact ? "Update Market" : "Build Market"} buildStatus={status} buildMessage={message} executionLocked={!premium} />;
+  return <MarketExplorerExactItemPicker selectedItems={items} onChange={setItems} initialScope={initialScope} customFilters={customFilters} onClose={onClose} onCancelEdit={cancelEdit} onBuild={() => build(false)} onSaveAsNew={editingExact ? () => build(true) : null} buildLabel={editingExact ? "Update Market" : "Build Market"} buildStatus={status} buildMessage={message} executionLocked={!premium} />;
 }
