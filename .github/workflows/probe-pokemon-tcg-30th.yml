@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
-          import json, urllib.parse, urllib.request
+          import json, time, urllib.error, urllib.parse, urllib.request
 
           base = "https://api.pokemontcg.io/v2/sets"
           params = urllib.parse.urlencode({
@@ -27,20 +27,30 @@ jobs:
               "orderBy": "-releaseDate",
               "select": "id,name,series,releaseDate,printedTotal,total,images",
           })
-          req = urllib.request.Request(
-              base + "?" + params,
-              headers={"Accept":"application/json","User-Agent":"EVRCalculator/1.0"},
-          )
-          with urllib.request.urlopen(req, timeout=30) as response:
-              payload = json.load(response)
-          rows = list(payload.get("data") or [])
+          url = base + "?" + params
+          payload = None
+          for attempt in range(1, 5):
+              req = urllib.request.Request(
+                  url,
+                  headers={"Accept":"application/json","User-Agent":"EVRCalculator/1.0"},
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as response:
+                      payload = json.load(response)
+                  break
+              except urllib.error.HTTPError as exc:
+                  print(f"attempt={attempt} http={exc.code}")
+                  if exc.code not in {408,425,429,500,502,503,504} or attempt == 4:
+                      raise
+                  time.sleep(max(2.1, 2 ** (attempt - 1)))
+          rows = list((payload or {}).get("data") or [])
           needles = ("30th", "celebr", "classic", "mega")
           matches = [
               row for row in rows
               if any(n in (str(row.get("name") or "") + " " + str(row.get("series") or "")).lower()
                      for n in needles)
           ]
-          print("totalCount=", payload.get("totalCount"))
+          print("totalCount=", (payload or {}).get("totalCount"))
           print("matches=", json.dumps(matches[:100], indent=2, sort_keys=True))
           print("newest30=", json.dumps(rows[:30], indent=2, sort_keys=True))
           PY
