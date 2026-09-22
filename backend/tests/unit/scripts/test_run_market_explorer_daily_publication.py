@@ -290,4 +290,3 @@ def test_current_metadata_refresh_rpc_is_batched_by_set_scope(monkeypatch):
     assert [len(payload["p_set_ids"]) for payload in calls] == [40, 40, 15]
     assert report.sets_considered == 95
     assert report.expected_row_count == 95
-

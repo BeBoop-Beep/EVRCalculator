@@ -109,5 +109,5 @@ def test_prepared_comparison_bundle_enriches_server_owned_metrics_and_count():
     market = result["markets"][0]
     assert market["constituent_count"] == 42
     assert market["window_movements"]["SinceTracking"]["available"] is True
-    assert market["window_movements"]["SinceTracking"]["percent"] == 20.0
+    assert abs(market["window_movements"]["SinceTracking"]["percent"] - 20.0) < 1e-9
     assert len(result["history"]) == 2
