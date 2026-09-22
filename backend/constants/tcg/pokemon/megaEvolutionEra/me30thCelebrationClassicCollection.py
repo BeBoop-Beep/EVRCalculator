@@ -15,12 +15,13 @@ class SetMe30thCelebrationClassicCollectionConfig(BaseSetConfig):
     # subset of 30th Celebration. Match the established Celebrations/Classic
     # Collection contract: scrape it independently, but roll its cards into the
     # parent set-value/opening universe rather than exposing it as a root set.
-    SET_ID = None
+    # Verified direct subset identity in the live Pokemon TCG API catalog.
+    SET_ID = 'me55c'
     RELEASE_DATE = '2026-09-16'
     PRINTED_TOTAL = 30
     TOTAL = 30
-    SYMBOL_IMAGE_URL = None
-    LOGO_IMAGE_URL = None
+    SYMBOL_IMAGE_URL = 'https://images.scrydex.com/pokemon/me55c-symbol/symbol'
+    LOGO_IMAGE_URL = 'https://images.scrydex.com/pokemon/me55c-logo/logo'
 
     TCGPLAYER_SET_ID = '24837'
     TCGPLAYER_SET_NAME = 'ME: 30th Celebration Classic Collection'
