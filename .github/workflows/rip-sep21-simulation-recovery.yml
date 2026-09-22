@@ -1,6 +1,7 @@
 name: RIP Sep21 Simulation Recovery
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop]
     paths:
@@ -12,7 +13,7 @@ permissions:
 jobs:
   recover:
     runs-on: self-hosted
-    timeout-minutes: 150
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,4 +61,22 @@ jobs:
             exit 75
           fi
 
-          "$PY" -m backend.scripts.run_daily_opening_publication --market-date 2026-09-21 --skip-snapshots --json
+          final_rc=1
+          for pass in 1 2 3; do
+            echo "recovery_pass=$pass"
+            set +e
+            "$PY" -m backend.scripts.run_daily_opening_publication --market-date 2026-09-21 --skip-snapshots --json
+            rc=$?
+            set -e
+            echo "recovery_pass=$pass rc=$rc"
+            if [ "$rc" -eq 0 ]; then
+              final_rc=0
+              break
+            fi
+            final_rc=$rc
+            if [ "$pass" -lt 3 ]; then
+              echo "bounded recovery retry in 120s; completed sets will be skipped by the freshness gate"
+              sleep 120
+            fi
+          done
+          exit "$final_rc"
