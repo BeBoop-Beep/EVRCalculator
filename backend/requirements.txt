@@ -11,3 +11,4 @@ pandas==2.2.3
 numpy==2.4.3
 playwright==1.60.0
 pytrends==4.9.2
+psycopg[binary]==3.3.6
