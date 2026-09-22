@@ -147,3 +147,85 @@ def test_a_normal_api_backed_set_is_completely_unaffected(wired):
     assert summary["pokemon_api_set_id"] == "sv8"
     assert summary["image_source_is_borrowed"] is False
     assert summary["api_set_id_used"] == "sv8"
+
+
+
+class _MissingPokemonClient(_FakeClient):
+    def resolve_set(self, set_name):
+        self.resolved_names.append(set_name)
+        raise sync_module.PokemonTCGAPIError("not published yet")
+
+
+class _FakeScrydexClient:
+    def __init__(self, cards_by_set_id=None):
+        self._cards_by_set_id = cards_by_set_id or {}
+        self.resolved_names = []
+        self.requested_set_ids = []
+
+    def resolve_set(self, set_name):
+        self.resolved_names.append(set_name)
+        return {"id": "me55", "name": "30th Celebration"}
+
+    def iter_cards_for_set(self, set_id):
+        self.requested_set_ids.append(set_id)
+        return list(self._cards_by_set_id.get(set_id, []))
+
+
+def test_new_set_without_pokemon_api_identity_falls_back_to_scrydex(wired):
+    wired(
+        {"id": "set-30", "canonical_key": "me30thCelebration",
+         "name": "ME: 30th Celebration", "pokemon_api_set_id": None},
+        [{"id": "card-1", "name": "Pikachu ex", "card_number": "1"}],
+    )
+    old = _MissingPokemonClient()
+    scrydex = _FakeScrydexClient({
+        "me55": [{
+            "pokemon_tcg_api_id": "me55-1",
+            "name": "Pikachu ex",
+            "number": "1",
+            "image_small_url": "https://images.scrydex.com/pokemon/me55-1/small",
+            "image_large_url": "https://images.scrydex.com/pokemon/me55-1/large",
+            "metadata_provider": "scrydex",
+        }],
+    })
+    service = sync_module.PokemonTCGImageSyncService(client=old, scrydex_client=scrydex)
+
+    result = service.sync_set("ME: 30th Celebration", dry_run=True)
+
+    assert old.resolved_names == ["ME: 30th Celebration"]
+    assert scrydex.resolved_names == ["ME: 30th Celebration"]
+    assert scrydex.requested_set_ids == ["me55"]
+    assert result["api_fetch_summary"]["metadata_provider"] == "scrydex"
+    assert result["prepared_card_updates"] == 1
+
+
+def test_scrydex_fallback_never_claims_a_pokemon_tcg_api_identity(wired, monkeypatch):
+    written = []
+    wired(
+        {"id": "set-30", "canonical_key": "me30thCelebration",
+         "name": "ME: 30th Celebration", "pokemon_api_set_id": None},
+        [{"id": "card-1", "name": "Pikachu ex", "card_number": "1"}],
+    )
+    monkeypatch.setattr(
+        sync_module,
+        "update_card_image_sync_fields_batch",
+        lambda updates: written.extend(updates) or len(updates),
+    )
+    service = sync_module.PokemonTCGImageSyncService(
+        client=_MissingPokemonClient(),
+        scrydex_client=_FakeScrydexClient({
+            "me55": [{
+                "pokemon_tcg_api_id": "me55-1",
+                "name": "Pikachu ex",
+                "number": "1",
+                "image_small_url": "https://images.scrydex.com/pokemon/me55-1/small",
+                "image_large_url": "https://images.scrydex.com/pokemon/me55-1/large",
+                "metadata_provider": "scrydex",
+            }],
+        }),
+    )
+
+    service.sync_set("ME: 30th Celebration", dry_run=False)
+
+    assert written
+    assert all("pokemon_tcg_api_id" not in row for row in written)
