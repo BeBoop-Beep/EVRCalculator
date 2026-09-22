@@ -1,4 +1,4 @@
-name: Inspect live frontend deployment consistency
+name: Inspect live client-only bundles
 
 on:
   push:
@@ -11,86 +11,61 @@ permissions:
 jobs:
   inspect:
     runs-on: self-hosted
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
-      - name: Deployment identity and nav target
+      - name: Probe correct Explorer and redirect behavior
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== live deployment identity ==="
-          curl -fsSL --max-time 20 https://inthedex.io/api/sentinel/build
-          echo
+          for url in             'https://inthedex.io/Market/Explorer'             'https://inthedex.io/TCGs/Pokemon/Sets/pitch-black'
+          do
+            echo "=== $url ==="
+            curl -sS -L --max-time 30               -w 'effective=%{url_effective} http=%{http_code} start=%{time_starttransfer} total=%{time_total} bytes=%{size_download}\n'               -o /tmp/live-page.html "$url"
+            echo "loader_set=$(grep -o 'Loading set intelligence' /tmp/live-page.html | wc -l)"
+            echo "loader_root=$(grep -o 'Loading Rip Statistics\|Loading inDex' /tmp/live-page.html | wc -l)"
+            echo "errors=$(grep -o 'ChunkLoadError\|Something went wrong\|RIP Statistics unavailable' /tmp/live-page.html | wc -l)"
+          done
 
-          echo "=== catalog Explorer href ==="
-          tmp="$(mktemp)"
-          curl -fsSL --max-time 30 https://inthedex.io/TCGs/Pokemon/Sets -o "$tmp"
-          python3 - "$tmp" <<'PY'
-          import re,sys
-          text=open(sys.argv[1],encoding="utf-8",errors="ignore").read()
-          for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', text, re.S):
-              label=re.sub(r'<[^>]+>',' ',m.group(2))
-              label=' '.join(label.split())
-              if 'Explorer' in label:
-                  print("explorer_href",m.group(1),"label",label[:120])
+          echo "=== static chunk redirect example ==="
+          src="$(grep -oE '<script[^>]+src="[^"]+"' /tmp/live-page.html | head -n1 | sed -E 's/.*src="([^"]+)"/\1/')"
+          echo "src=$src"
+          curl -sS -D - -o /dev/null --max-time 20 "https://inthedex.io$src" | sed -n '1,20p'
+          echo "followed:"
+          curl -sS -L -D - -o /dev/null --max-time 20 "https://inthedex.io$src" | sed -n '1,35p'
+
+      - name: Inspect set-page route chunk and webpack runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 30 https://inthedex.io/TCGs/Pokemon/Sets/pitch-black -o /tmp/pitch.html
+          python3 - <<'PY'
+          import re,subprocess,urllib.parse
+          html=open('/tmp/pitch.html',encoding='utf-8',errors='ignore').read()
+          srcs=sorted(set(re.findall(r'<script[^>]+src="([^"]+)"',html)))
+          page=[s for s in srcs if '/app/TCGs/Pokemon/Sets/%5BsetSlug%5D/page-' in s]
+          runtime=[s for s in srcs if '/webpack-' in s]
+          print('page_chunk',page)
+          print('runtime_chunk',runtime)
+          for label,arr in [('page',page),('runtime',runtime)]:
+              for src in arr:
+                  url=urllib.parse.urljoin('https://inthedex.io/',src)
+                  out=f'/tmp/{label}.js'
+                  p=subprocess.run(['curl','-fsSL','--max-time','30',url,'-o',out])
+                  print(label,'download_exit',p.returncode)
+                  if p.returncode==0:
+                      data=open(out,encoding='utf-8',errors='ignore').read()
+                      print(label,'bytes',len(data))
+                      for token in ['PokemonSetRichPageClient','Loading set intelligence','ChunkLoadError','__webpack_require__','static/chunks']:
+                          print(label,token,token in data)
+                      ids=sorted(set(re.findall(r'\.e\((\d+)\)',data)))
+                      print(label,'async_chunk_ids',ids[:80])
           PY
-          rm -f "$tmp"
 
-      - name: Check every Pitch Black script chunk
+      - name: Check available browser runtimes
         shell: bash
         run: |
           set -euo pipefail
-          tmp="$(mktemp)"
-          curl -fsSL --max-time 30 https://inthedex.io/TCGs/Pokemon/Sets/pitch-black -o "$tmp"
-          python3 - "$tmp" <<'PY'
-          import re,sys,subprocess,urllib.parse
-          text=open(sys.argv[1],encoding="utf-8",errors="ignore").read()
-          srcs=sorted(set(re.findall(r'<script[^>]+src="([^"]+)"',text)))
-          print("script_count",len(srcs))
-          bad=[]
-          for src in srcs:
-              url=urllib.parse.urljoin("https://inthedex.io/TCGs/Pokemon/Sets/pitch-black",src)
-              p=subprocess.run([
-                  "curl","-sS","-o","/tmp/chunk.body","-w",
-                  "%{http_code} %{time_total} %{size_download}",
-                  "--max-time","20",url
-              ],capture_output=True,text=True)
-              line=f"{p.stdout.strip()} {src}"
-              print(line)
-              if not p.stdout.startswith("200 "):
-                  bad.append(line)
-          print("bad_script_count",len(bad))
-          if bad:
-              print("bad_scripts",bad)
-          print("html_error_markers")
-          for pattern in [
-              r'ChunkLoadError.{0,300}',
-              r'TimeoutError.{0,300}',
-              r'Failed to load.{0,300}',
-              r'NEXT_[A-Z_]+.{0,300}',
-              r'"digest":"[^"]+"',
-          ]:
-              hits=re.findall(pattern,text,re.I|re.S)
-              if hits:
-                  print(pattern, hits[:10])
-          PY
-          rm -f "$tmp"
-
-      - name: Probe Next RSC responses
-        shell: bash
-        run: |
-          set -euo pipefail
-          probe() {
-            label="$1"; url="$2"; tmp="$(mktemp)"
-            echo "=== $label ==="
-            set +e
-            curl --max-time 35 -sS               -H 'RSC: 1'               -H 'Next-Url: /TCGs/Pokemon/Sets'               -H 'Accept: */*'               -w 'http=%{http_code} type=%{content_type} start=%{time_starttransfer} total=%{time_total} bytes=%{size_download}\n'               -o "$tmp" "$url"
-            code=$?
-            set -e
-            echo "curl_exit=$code"
-            echo "body_head:"
-            head -c 1600 "$tmp" || true
-            echo
-            rm -f "$tmp"
-          }
-          probe "Pitch Black RSC" 'https://inthedex.io/TCGs/Pokemon/Sets/pitch-black?_rsc=diag1'
-          probe "Catalog RSC" 'https://inthedex.io/TCGs/Pokemon/Sets?_rsc=diag2'
+          for cmd in chromium chromium-browser google-chrome google-chrome-stable firefox node npm; do
+            printf '%s=' "$cmd"
+            command -v "$cmd" || true
+          done
