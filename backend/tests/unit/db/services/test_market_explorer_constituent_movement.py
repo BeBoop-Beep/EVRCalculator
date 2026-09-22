@@ -76,9 +76,14 @@ def test_page_movement_uses_bounded_v2_daily_rows_when_baselines_exist():
 
     enriched = movement.enrich_card_constituent_page(client, page)
 
-    assert enriched["items"][0]["changes"] == pytest.approx(
+    changes = enriched["items"][0]["changes"]
+    assert {key: changes[key] for key in ("1D", "7D", "30D", "3M")} == pytest.approx(
         {"1D": 20, "7D": 50, "30D": 140, "3M": 200}
     )
+    assert set(changes) == {"1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"}
+    assert changes["6M"] is None
+    assert changes["1Y"] is None
+    assert changes["SinceTracking"] is None
     assert enriched["items"][1]["changes"]["1D"] == pytest.approx(20)
     assert client.executions.count(movement.V2_DAILY_TABLE) == 1
     assert client.executions.count(movement.V2_INTERVAL_TABLE) == 0
@@ -106,10 +111,47 @@ def test_missing_v2_daily_baselines_fall_back_to_v2_intervals_not_v1():
         "items": [{"cardVariantId": "exact", "marketPrice": 10}],
     })
 
-    assert set(enriched["items"][0]["changes"]) == {"1D", "7D", "30D", "3M"}
+    assert set(enriched["items"][0]["changes"]) == {
+        "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"
+    }
     assert client.executions.count(movement.V2_DAILY_TABLE) == 1
     assert client.executions.count(movement.V2_INTERVAL_TABLE) == 1
 
+
+
+def test_long_windows_use_full_approved_calendar_and_interval_prices():
+    end = date(2026, 9, 6)
+    quality = [
+        {"market_date": (end - timedelta(days=offset)).isoformat()}
+        for offset in range(400, -1, -1)
+    ]
+    client = Client({
+        movement.QUALITY_TABLE: quality,
+        movement.V2_DAILY_TABLE: [
+            {"card_variant_id": "long", "market_date": "2026-09-05", "market_price": 9},
+        ],
+        movement.V2_INTERVAL_TABLE: [
+            {
+                "card_variant_id": "long",
+                "set_id": "set-a",
+                "market_price": 5,
+                "valid_from": "2025-01-01",
+                "valid_to": "2026-09-01",
+            },
+        ],
+    })
+
+    enriched = movement.enrich_card_constituent_page(client, {
+        "as_of": "2026-09-06",
+        "items": [{"cardVariantId": "long", "marketPrice": 10}],
+    })
+
+    changes = enriched["items"][0]["changes"]
+    assert changes["6M"] == pytest.approx(100)
+    assert changes["1Y"] == pytest.approx(100)
+    assert changes["SinceTracking"] == pytest.approx(100)
+    assert enriched["movement_windows"]["SinceTracking"]["startDate"] == quality[0]["market_date"]
+    assert client.executions.count(movement.V2_INTERVAL_TABLE) == 1
 
 def test_module_contains_no_exact_retired_v1_relation_literals():
     tree = ast.parse(inspect.getsource(movement))
