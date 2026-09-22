@@ -102,3 +102,21 @@ def test_scrydex_auth_headers_are_optional_and_never_partial():
     headers = auth.calls[0][1]["headers"]
     assert headers["X-Api-Key"] == "secret"
     assert headers["X-Team-ID"] == "team"
+
+
+
+def test_unauthenticated_401_is_a_clear_nonretryable_credential_error():
+    session = _Session([_Response({"error": "unauthorized"}, status_code=401)])
+    client = ScrydexPokemonClient(
+        api_key="", team_id="", session=session, max_attempts=3,
+        sleep=lambda _delay: None, jitter=lambda _a, _b: 0.0,
+    )
+
+    try:
+        client.resolve_set("30th Celebration")
+    except Exception as exc:
+        assert "SCRYDEX_API_KEY" in str(exc)
+        assert "SCRYDEX_TEAM_ID" in str(exc)
+        assert getattr(exc, "retryable", True) is False
+    else:
+        raise AssertionError("expected Scrydex credential error")
