@@ -21,9 +21,12 @@ def _job(step, metadata=None):
 def test_step_order_places_pre_and_post_desirability_around_simulation():
     assert STEP_ORDER.index("images") < STEP_ORDER.index("desirability_first_pass")
     assert STEP_ORDER.index("desirability_first_pass") < STEP_ORDER.index("collector_identity_sync")
-    assert STEP_ORDER.index("collector_identity_sync") < STEP_ORDER.index("pull_model_source")
+    assert STEP_ORDER.index("collector_identity_sync") < STEP_ORDER.index("collector_model_first_build")
+    assert STEP_ORDER.index("collector_model_first_build") < STEP_ORDER.index("pull_model_source")
     assert STEP_ORDER.index("desirability_pre_sim") < STEP_ORDER.index("simulation")
     assert STEP_ORDER.index("simulation") < STEP_ORDER.index("desirability_post_sim")
+    assert STEP_ORDER.index("desirability_post_sim") < STEP_ORDER.index("collector_model_post_sim")
+    assert STEP_ORDER.index("collector_model_post_sim") < STEP_ORDER.index("publication_gate")
     assert STEP_ORDER.index("explore_rankings") < STEP_ORDER.index("set_page_snapshot")
 
 
@@ -63,9 +66,45 @@ def test_collector_identity_sync_is_scoped_to_registered_set():
     outcome = engine.run_step(_job("collector_identity_sync"))
 
     assert outcome.kind == "advance"
-    assert outcome.step == "rarity_census"
+    assert outcome.step == "collector_model_first_build"
     joined = " ".join(calls[0])
     assert "sync_pokemon_collector_identities.py --set-id set-uuid --commit" in joined
+
+
+def test_collector_model_first_build_is_atomic_publication_command():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    outcome = OnboardingEngine(execute=True, command_runner=runner).run_step(
+        _job("collector_model_first_build")
+    )
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "rarity_census"
+    joined = " ".join(calls[0])
+    assert "extend_current_pokemon_collector_v7_set.py" in joined
+    assert "--set futureSet --commit --publish" in joined
+
+
+def test_collector_model_post_sim_runs_before_publication_gate():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    outcome = OnboardingEngine(execute=True, command_runner=runner).run_step(
+        _job("collector_model_post_sim")
+    )
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "publication_gate"
+    joined = " ".join(calls[0])
+    assert "extend_current_pokemon_collector_v7_set.py" in joined
+    assert "--set futureSet --commit --publish" in joined
 
 
 def test_pending_pull_model_blocks_simulation():
