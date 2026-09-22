@@ -1,5 +1,5 @@
 name: Opening Finalizer Diagnostic
-# Retrigger after narrow finalizer read 8dd28cb9.
+# Retrigger after collector keyset repair a8871b10.
 
 on:
   push:
