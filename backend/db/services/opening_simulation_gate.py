@@ -452,7 +452,9 @@ def evaluate_opening_simulation_freshness(
     }
 
     set_ids = [text for row in set_rows if (text := _to_text(row.get("id")))]
-    simulation_rows, history_error = _load_simulation_rows(\n        client, set_ids, market_date=resolved_market_date\n    )
+    simulation_rows, history_error = _load_simulation_rows(
+        client, set_ids, market_date=resolved_market_date
+    )
     if history_error:
         return OpeningSimulationFreshnessReport(market_date=resolved_market_date, error=history_error)
 
