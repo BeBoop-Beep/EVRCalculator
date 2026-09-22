@@ -6,6 +6,12 @@ on:
       - fix/publication-currency-stale-fastpath-20260921
     paths:
       - '.github/workflows/publication-currency-fastpath-hosted-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/db/services/post_scrape_publication_trigger.py'
+      - 'backend/tests/unit/db/services/test_post_scrape_publication_trigger.py'
+      - '.github/workflows/publication-currency-fastpath-hosted-validation.yml'
 
 permissions:
   contents: write
