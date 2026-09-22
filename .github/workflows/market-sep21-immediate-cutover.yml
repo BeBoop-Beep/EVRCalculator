@@ -54,6 +54,25 @@ jobs:
             [ "$RELEASED" -eq 1 ] || exit 23
           fi
 
+          echo "=== wait for active canonical publisher to finish ==="
+          PUB_FREE=0
+          for i in $(seq 1 240); do
+            if /usr/bin/flock -n "$PUB_LOCK" -c true; then
+              PUB_FREE=1
+              echo "publication_lock_became_free_after_seconds=$(( (i-1) * 10 ))"
+              break
+            fi
+            if [ "$i" -eq 1 ] || [ $((i % 6)) -eq 0 ]; then
+              echo "publication_wait_seconds=$(( (i-1) * 10 ))"
+              ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+              if [ -f publication.log ]; then
+                echo "publication_log_age_seconds=$(( $(date +%s) - $(stat -c %Y publication.log) ))"
+              fi
+            fi
+            sleep 10
+          done
+          [ "$PUB_FREE" -eq 1 ] || exit 25
+
           echo "=== acquire coordination locks ==="
           exec 8>"$WATCH_LOCK"
           flock -w 60 8 || exit 24
