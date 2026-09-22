@@ -47,6 +47,7 @@ STEP_ORDER = (
     "images",
     "desirability_first_pass",
     "collector_identity_sync",
+    "collector_model_first_build",
     "rarity_census",
     "pull_model_source",
     "awaiting_pull_model_deploy",
@@ -55,6 +56,7 @@ STEP_ORDER = (
     "simulation_preflight",
     "simulation",
     "desirability_post_sim",
+    "collector_model_post_sim",
     "publication_gate",
     "market_snapshots",
     "explore_rankings",
@@ -625,6 +627,11 @@ class OnboardingEngine:
                 "backend/scripts/sync_pokemon_collector_identities.py",
                 "--set-id", set_id, "--commit",
             ], evidence=evidence)
+        if step == "collector_model_first_build":
+            return self._command(step, [
+                "backend/scripts/extend_current_pokemon_collector_v7_set.py",
+                "--set", key, "--commit", "--publish",
+            ])
         if step == "rarity_census":
             census = metadata.get("rarity_census") or self.set_evidence_collector(key).get("rarity_census")
             if not census:
@@ -744,6 +751,11 @@ class OnboardingEngine:
             return self._command(step, [
                 "backend/scripts/build_pokemon_set_desirability_inputs.py", "--set", key,
                 "--commit", "--log-level", "INFO",
+            ])
+        if step == "collector_model_post_sim":
+            return self._command(step, [
+                "backend/scripts/extend_current_pokemon_collector_v7_set.py",
+                "--set", key, "--commit", "--publish",
             ])
         if step == "publication_gate":
             evidence = self.set_evidence_collector(key)
