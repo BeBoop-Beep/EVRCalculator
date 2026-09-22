@@ -192,6 +192,7 @@ def test_generated_component_version_triple_matches_public_reader_exactly():
 
 def test_authoritative_refresh_replaces_identity_poor_fallback_metadata(monkeypatch):
     monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 84})
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: [])
     monkeypatch.setattr(
         combined, "fetch_authoritative_cards",
         lambda _set_id: [
@@ -212,12 +213,85 @@ def test_authoritative_refresh_replaces_identity_poor_fallback_metadata(monkeypa
         dry_run=False,
     )
 
-    assert result == {"status": "refreshed", "source": "pokemon_tcg_api", "rows_found": 2, "rows_upserted": 2}
+    assert result == {
+        "status": "refreshed", "source": "pokemon_tcg_api", "rows_found": 2,
+        "rows_promoted_from_fallback": 0, "rows_upserted_by_api_id": 2, "rows_upserted": 2,
+    }
     assert written[0]["supertype"] == "Pokémon"
     assert written[0]["national_pokedex_numbers"] == [877]
     assert written[1]["supertype"] == "Trainer"
     assert written[1]["subtypes"] == ["Supporter"]
     assert all(row["source"] == "pokemon_tcg_api" for row in written)
+
+
+
+
+class _CanonicalPromoteQuery:
+    def __init__(self, updates):
+        self.updates = updates
+        self.payload = None
+
+    def update(self, payload):
+        self.payload = dict(payload)
+        return self
+
+    def eq(self, field, value):
+        self.updates.append((field, value, self.payload))
+        return self
+
+    def execute(self):
+        return type("Res", (), {"data": [{"id": "fallback-1"}]})()
+
+
+class _CanonicalPromoteClient:
+    def __init__(self):
+        self.updates = []
+
+    def table(self, name):
+        assert name == "pokemon_canonical_cards"
+        return _CanonicalPromoteQuery(self.updates)
+
+
+def test_authoritative_refresh_promotes_matching_fallback_row_in_place(monkeypatch):
+    monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 128})
+    monkeypatch.setattr(
+        combined,
+        "fetch_authoritative_cards",
+        lambda _set_id: [{
+            "id": "me55-1", "name": "Bulbasaur", "number": "1",
+            "supertype": "Pokémon", "subtypes": ["Basic"],
+            "nationalPokedexNumbers": [1], "set": {"id": "me55"},
+            "images": {"small": "small", "large": "large"},
+        }],
+    )
+    monkeypatch.setattr(
+        combined,
+        "_list_canonical_for_set",
+        lambda _client, _set_id: [{
+            "id": "fallback-1",
+            "pokemon_tcg_api_card_id": "fallback:set-1:1:bulbasaur",
+            "name": "Bulbasaur", "number": "1", "source": combined.FALLBACK_SOURCE,
+        }],
+    )
+    upserts = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: upserts.extend(rows) or len(rows),
+    )
+    client = _CanonicalPromoteClient()
+
+    result = combined._refresh_authoritative_canonical_cards(
+        client=client,
+        set_row={"id": "set-1", "canonical_key": "me30thCelebration", "pokemon_api_set_id": "me55"},
+        dry_run=False,
+    )
+
+    assert result["rows_promoted_from_fallback"] == 1
+    assert result["rows_upserted_by_api_id"] == 0
+    assert upserts == []
+    assert client.updates[0][0:2] == ("id", "fallback-1")
+    assert client.updates[0][2]["pokemon_tcg_api_card_id"] == "me55-1"
+    assert client.updates[0][2]["source"] == "pokemon_tcg_api"
 
 
 def test_authoritative_refresh_falls_back_cleanly_when_provider_is_not_ready(monkeypatch):
