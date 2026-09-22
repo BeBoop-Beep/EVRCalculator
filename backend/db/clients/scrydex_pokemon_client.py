@@ -58,9 +58,12 @@ def _front_image(images: Any) -> Dict[str, Any]:
 class ScrydexPokemonClient:
     """Small Scrydex adapter exposing the same card-image interface as PokemonTCGAPIClient.
 
-    Authentication is optional. When SCRYDEX_API_KEY and SCRYDEX_TEAM_ID are both
-    configured they are sent; otherwise requests use Scrydex's reduced-rate
-    unauthenticated access and are deliberately throttled.
+    SCRYDEX_API_KEY and SCRYDEX_TEAM_ID are sent only when both are configured.
+    The constructor deliberately permits missing credentials so offline tests and
+    provider discovery can instantiate the adapter, but live Scrydex currently
+    rejects unauthenticated API requests. A 401/403 is therefore surfaced as a
+    typed credential error instead of being retried or silently treated as an
+    empty catalog.
     """
 
     def __init__(
@@ -144,6 +147,17 @@ class ScrydexPokemonClient:
                     delay = self._retry_delay(attempt)
                 self._sleep(max(DEFAULT_KEYLESS_DELAY_SECONDS if not self.authenticated else 0.0, min(delay, 30.0)))
                 continue
+            if status in {401, 403}:
+                credential_hint = (
+                    " Configure SCRYDEX_API_KEY and SCRYDEX_TEAM_ID."
+                    if not self.authenticated
+                    else " Verify SCRYDEX_API_KEY and SCRYDEX_TEAM_ID."
+                )
+                raise ScrydexPokemonAPIError(
+                    f"Scrydex request to {path} was rejected with HTTP {status}.{credential_hint}",
+                    status_code=status,
+                    retryable=False,
+                )
             if status >= 400:
                 raise ScrydexPokemonAPIError(
                     f"Scrydex request to {path} failed with HTTP {status}.",
