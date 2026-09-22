@@ -97,3 +97,42 @@ def test_cohort_set_ids_for_date_sep10_uses_lightweight_resolver(monkeypatch):
     result = mdq.cohort_set_ids_for_date(client, "2026-09-10")
     assert result == ["a", "b", "c"]
     assert seen["market_date"] == "2026-09-10"
+
+
+def test_valuation_reads_use_small_chunks_and_fresh_client_retry(monkeypatch):
+    from types import SimpleNamespace
+
+    ids = [f"33333333-0000-0000-0000-{i:012d}" for i in range(45)]
+    rows = [
+        {"set_id": set_id, "snapshot_date": "2026-09-22", "set_value": 10,
+         "priced_card_count": 5, "value_scope": scope}
+        for set_id in ids for scope in ("standard", "top10")
+    ]
+
+    class _FailingQuery(_Query):
+        def execute(self):
+            raise RuntimeError("canceling statement due to statement timeout code 57014")
+
+    class _FailingClient(_Client):
+        def table(self, name):
+            if name == mdq.SOURCE_TABLE:
+                return _FailingQuery(self.tables.get(name, []))
+            return super().table(name)
+
+    healthy = _Client({mdq.SOURCE_TABLE: rows})
+    monkeypatch.setattr(
+        mdq, "classify_data_service_error",
+        lambda _exc: SimpleNamespace(transient=True),
+    )
+    monkeypatch.setattr(mdq, "create_service_role_client", lambda: healthy)
+    monkeypatch.setattr(mdq.time, "sleep", lambda _seconds: None)
+
+    result = mdq.valuation_set_ids_for_date(
+        _FailingClient({mdq.SOURCE_TABLE: rows}),
+        "2026-09-22",
+        ids,
+    )
+
+    assert mdq.IN_CHUNK_SIZE == 20
+    assert result["standard"] == set(ids)
+    assert result["top10"] == set(ids)
