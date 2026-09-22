@@ -32,12 +32,14 @@ jobs:
           python -m py_compile \
             backend/db/services/pokemon_post_scrape_card_enrichment.py \
             backend/scripts/ingest_pokemon_canonical_cards.py \
+            backend/scripts/enrich_pokemon_set_card_metadata.py \
             backend/scripts/run_pokemon_set_scrape.py
       - name: Run focused regression suite
         run: |
           python -m pytest -q \
             backend/tests/unit/db/services/test_pokemon_post_scrape_card_enrichment.py \
             backend/tests/unit/db/clients/test_pokemon_tcg_api_client.py \
+            backend/tests/unit/scripts/test_ingest_pokemon_canonical_cards_keyless.py \
             backend/tests/unit/services/test_pokemon_set_config_generation_service.py \
             backend/tests/unit/db/test_pokemon_subset_structural_registry.py \
             backend/tests/unit/scripts/test_run_pokemon_set_scrape_manual_evidence.py \
