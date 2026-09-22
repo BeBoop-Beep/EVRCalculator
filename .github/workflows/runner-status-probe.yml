@@ -1,0 +1,55 @@
+name: Runner Status Probe
+
+on:
+  push:
+    branches:
+      - ops/runner-status-probe-20260921
+    paths:
+      - '.github/workflows/runner-status-probe.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/runner-status-probe-20260921
+      - name: Query repository self-hosted runner status
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runners?per_page=100"             > /tmp/runners.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path("/tmp/runners.json").read_text())
+          rows=[]
+          for r in p.get("runners") or []:
+              rows.append({
+                  "id": r.get("id"),
+                  "name": r.get("name"),
+                  "os": r.get("os"),
+                  "status": r.get("status"),
+                  "busy": r.get("busy"),
+                  "labels": [x.get("name") for x in (r.get("labels") or [])],
+              })
+          print(json.dumps({"total_count":p.get("total_count"),"runners":rows},indent=2,sort_keys=True))
+          Path("ops/assistant").mkdir(parents=True,exist_ok=True)
+          Path("ops/assistant/runner-status-probe.json").write_text(
+              json.dumps({"total_count":p.get("total_count"),"runners":rows},indent=2,sort_keys=True)+"\n"
+          )
+          PY
+
+          git config user.name "inDex ops runner probe"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/runner-status-probe.json
+          git commit -m "ops: capture self-hosted runner status"
+          git push origin HEAD:ops/runner-status-probe-20260921
