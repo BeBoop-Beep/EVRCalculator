@@ -111,6 +111,39 @@ def update_sealed_product_enrichment(row_id: Any, values: Dict[str, Any]) -> Lis
     return list(response.data or [])
 
 
+
+# Batch finalization only needs these scalar authority fields.  Using the full
+# product read model here pulls several large JSONB payloads per row and caused
+# production PostgREST statement timeouts for the 22-set cohort.
+_FINALIZATION_INPUT_FIELDS = (
+    "id,calculation_run_id,set_id,"
+    "financial_rip_v3_score,"
+    "financial_rip_v4_score,financial_rip_v4_version"
+)
+
+
+def get_sealed_product_finalization_inputs_for_runs(
+    calculation_run_ids: Sequence[Any],
+) -> List[Dict[str, Any]]:
+    """Minimal rows required by sealed-product RIP enrichment.
+
+    The explicit run list remains the cohort boundary.  This deliberately does
+    not select distribution statistics or historical RIP payload JSON because
+    the finalizer never reads them.
+    """
+    ids = [str(value) for value in calculation_run_ids if value is not None]
+    if not ids:
+        return []
+    response = (
+        supabase.table(TABLE)
+        .select(_FINALIZATION_INPUT_FIELDS)
+        .in_("calculation_run_id", ids)
+        .order("calculation_run_id")
+        .order("id")
+        .execute()
+    )
+    return list(response.data or [])
+
 def get_sealed_product_results_for_runs(calculation_run_ids: Sequence[Any]) -> List[Dict[str, Any]]:
     """Every product row belonging to an EXPLICIT list of calculation runs.
 
