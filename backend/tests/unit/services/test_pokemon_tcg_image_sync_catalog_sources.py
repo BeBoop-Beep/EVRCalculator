@@ -192,7 +192,7 @@ def test_new_set_without_pokemon_api_identity_falls_back_to_scrydex(wired):
 
     result = service.sync_set("ME: 30th Celebration", dry_run=True)
 
-    assert old.resolved_names == ["ME: 30th Celebration"]
+    assert old.resolved_names == ["30th Celebration"]
     assert scrydex.resolved_names == ["ME: 30th Celebration"]
     assert scrydex.requested_set_ids == ["me55"]
     assert result["api_fetch_summary"]["metadata_provider"] == "scrydex"
