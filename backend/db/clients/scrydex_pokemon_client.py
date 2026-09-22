@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 from typing import Any, Dict, Iterator, List, Optional
 
@@ -195,11 +196,21 @@ class ScrydexPokemonClient:
         return project_expansion_to_pokemontcg(data)
 
     def resolve_set(self, set_name: str) -> Dict[str, Any]:
-        target = " ".join(str(set_name or "").strip().casefold().split())
+        raw_name = str(set_name or "").strip()
+        # TCGplayer prefixes current Mega Evolution catalog names with ME/ME##,
+        # while Scrydex stores the official expansion name without that provider
+        # prefix (e.g. "ME: 30th Celebration" -> "30th Celebration").
+        search_name = re.sub(
+            r"^ME(?:\\d+(?:\\.\\d+)?)?\\s*:\\s*",
+            "",
+            raw_name,
+            flags=re.IGNORECASE,
+        ).strip() or raw_name
+        target = " ".join(search_name.casefold().split())
         payload = self._request_json(
             "/expansions",
             {
-                "q": f'name:"{str(set_name).strip()}"',
+                "q": f'name:"{search_name}"',
                 "page": 1,
                 "pageSize": 50,
                 "select": "id,name,series,code,total,printed_total,release_date,logo,symbol",
