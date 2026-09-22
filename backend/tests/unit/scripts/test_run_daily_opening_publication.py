@@ -571,6 +571,36 @@ def test_previous_day_rollover_repairs_with_explicit_market_date(patched):
     assert summary.rankings_readiness_reason_code != "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
 
+def test_rollover_repair_refuses_superseded_price_authority(monkeypatch, patched):
+    import backend.scripts.audit_opening_analytics_publication as audit_module
+
+    def resolve_with_newer_authority(_client, explicit):
+        if explicit:
+            return str(explicit)[:10], None
+        return "2026-08-02", None
+
+    monkeypatch.setattr(audit_module, "resolve_market_date", resolve_with_newer_authority)
+    persisted = []
+    monkeypatch.setattr(
+        orchestrator,
+        "_persist_rankings_deferral",
+        lambda _client, report: persisted.append(report) or "attempt-superseded",
+    )
+
+    summary = _orchestrate(
+        _client([_history(STALE_DATE)]),
+        market_date=MARKET_DATE,
+        simulation_execution_date="2026-08-02",
+    )
+
+    assert not [call for call in patched if call[0] == "simulate"]
+    assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
+    assert summary.rankings_readiness_reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+    assert "latest=2026-08-02" in summary.error
+    assert "refusing historical reconstruction" in summary.error
+    assert persisted and persisted[0].reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+
+
 def test_rollover_dry_run_does_not_persist_a_deferral(monkeypatch, patched):
     monkeypatch.setattr(
         orchestrator,
