@@ -46,6 +46,7 @@ from backend.scripts.run_pokemon_set_scrape import (  # noqa: E402
     normalize_set_key_filter,
 )
 from backend.db.clients.tcgdex_pokemon_client import TCGdexPokemonClient, TCGdexError  # noqa: E402
+from backend.db.services.supabase_persistence_retry import run_with_transient_retry  # noqa: E402
 from backend.scripts.ingest_pokemon_canonical_cards import (  # noqa: E402
     build_canonical_row as build_authoritative_canonical_row,
     fetch_api_set as fetch_authoritative_api_set,
@@ -617,11 +618,17 @@ def _refresh_tcgdex_canonical_cards(
         for existing_id, payload in planned:
             if existing_id:
                 update_payload = {**payload, "updated_at": datetime.now(timezone.utc).isoformat()}
-                result = (
-                    client.table("pokemon_canonical_cards")
-                    .update(update_payload)
-                    .eq("id", existing_id)
-                    .execute()
+                def update_existing(_attempt: int, *, existing_id=existing_id, update_payload=update_payload):
+                    return (
+                        client.table("pokemon_canonical_cards")
+                        .update(update_payload)
+                        .eq("id", existing_id)
+                        .execute()
+                    )
+
+                result = run_with_transient_retry(
+                    update_existing,
+                    operation_name="refresh_tcgdex_canonical_card",
                 )
                 written += len(result.data or []) or 1
             else:
@@ -1195,10 +1202,18 @@ def _upsert_canonical_rows(client: Any, rows: Sequence[Dict[str, Any]]) -> int:
     payload = [dict(row, updated_at=now) for row in rows]
     written = 0
     for chunk in _chunked(payload, UPSERT_BATCH_SIZE):
-        result = (
-            client.table("pokemon_canonical_cards")
-            .upsert(list(chunk), on_conflict="pokemon_tcg_api_card_id")
-            .execute()
+        chunk_rows = list(chunk)
+
+        def upsert_chunk(_attempt: int, *, chunk_rows=chunk_rows):
+            return (
+                client.table("pokemon_canonical_cards")
+                .upsert(chunk_rows, on_conflict="pokemon_tcg_api_card_id")
+                .execute()
+            )
+
+        result = run_with_transient_retry(
+            upsert_chunk,
+            operation_name="upsert_pokemon_canonical_cards",
         )
         written += len(result.data or [])
     return written
