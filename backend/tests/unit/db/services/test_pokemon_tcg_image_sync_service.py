@@ -424,8 +424,8 @@ def test_same_number_relaxed_name_fallback_resolves_unique_classic_identity(monk
 def test_relaxed_name_fallback_stays_ambiguous_when_multiple_same_number_names_match(monkeypatch):
     recorder = _Recorder()
     internal_cards = [
-        _internal_card("a", "11/101", "Genesect EX"),
-        _internal_card("b", "11/999", "Genesect-EX"),
+        _internal_card("a", "11/101", "Genesect EX(Team Plasma)"),
+        _internal_card("b", "11/999", "Genesect EX(Alt Art)"),
     ]
     variants = [_variant("va", "a"), _variant("vb", "b")]
 
