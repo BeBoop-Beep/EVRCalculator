@@ -13,6 +13,7 @@ import pytest
 
 from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIError
 from backend.db.clients.tcgdex_pokemon_client import TCGdexError
+from backend.db.clients.scrydex_public_artwork_client import ScrydexPublicArtworkError
 from backend.db.services import pokemon_tcg_image_sync_service as sync_module
 from backend.db.services.pokemon_tcg_image_sync_service import PokemonTCGImageSyncService
 
@@ -209,6 +210,19 @@ class _FakeTCGdex:
         yield from self.cards
 
 
+class _FakeScrydexPublic:
+    def __init__(self, cards=None, error=None):
+        self.cards = list(cards or [])
+        self.error = error
+        self.calls = []
+
+    def fetch_image_cards_for_set(self, *, set_name, scrydex_set_id):
+        self.calls.append((set_name, scrydex_set_id))
+        if self.error:
+            raise self.error
+        return list(self.cards)
+
+
 class _FakeScrydex:
     def __init__(self, cards):
         self.cards = list(cards)
@@ -232,8 +246,10 @@ def test_image_sync_falls_back_to_scrydex_when_legacy_provider_fails(wiring):
     legacy = _FakeClient(error=legacy_error)
     scrydex = _FakeScrydex([_api_card(1, "Tropius"), _api_card(2, "Pikachu")])
     tcgdex = _FakeTCGdex(error=TCGdexError("not available"))
+    public = _FakeScrydexPublic(error=ScrydexPublicArtworkError("not available"))
     service = PokemonTCGImageSyncService(
-        client=legacy, tcgdex_client=tcgdex, scrydex_client=scrydex
+        client=legacy, tcgdex_client=tcgdex, scrydex_client=scrydex,
+        scrydex_public_artwork_client=public,
     )
 
     result = service.sync_set(set_name="Pitch Black", dry_run=False)
@@ -304,11 +320,53 @@ def test_tcgdex_checklist_without_artwork_can_fall_through_to_scrydex(wiring):
         }
     ])
     scrydex = _FakeScrydex([_api_card(1, "Tropius")])
+    public = _FakeScrydexPublic(error=ScrydexPublicArtworkError("not available"))
     service = PokemonTCGImageSyncService(
         client=legacy, tcgdex_client=tcgdex, scrydex_client=scrydex,
+        scrydex_public_artwork_client=public,
     )
 
     result = service.sync_set(set_name="Pitch Black", dry_run=False)
 
     assert result["api_fetch_summary"]["provider_sources"] == ["scrydex"]
     assert scrydex.calls == ["me5"]
+
+
+
+def test_tcgdex_without_artwork_uses_free_scrydex_public_page_before_api(wiring):
+    legacy_error = PokemonTCGAPIError(
+        "legacy set not available",
+        path="/cards",
+        retryable=False,
+        status_code=404,
+    )
+    legacy = _FakeClient(error=legacy_error)
+    tcgdex = _FakeTCGdex(cards=[{
+        "pokemon_tcg_api_id": None,
+        "tcgdex_card_id": "30th-c-001",
+        "number": "1",
+        "name": "Tropius",
+        "image_small_url": None,
+        "image_large_url": None,
+    }])
+    public_cards = [{
+        "pokemon_tcg_api_id": "me55c-1",
+        "number": "1",
+        "name": "Tropius",
+        "image_small_url": "https://images.scrydex.com/pokemon/me55c-1/small",
+        "image_large_url": "https://images.scrydex.com/pokemon/me55c-1/large",
+    }]
+    public = _FakeScrydexPublic(cards=public_cards)
+    scrydex = _FakeScrydex([_api_card(1, "Tropius")])
+    service = PokemonTCGImageSyncService(
+        client=legacy, tcgdex_client=tcgdex, scrydex_client=scrydex,
+        scrydex_public_artwork_client=public,
+    )
+
+    result = service.sync_set(set_name="Pitch Black", dry_run=False)
+
+    assert result["api_fetch_summary"]["provider_sources"] == ["scrydex_public_artwork"]
+    assert public.calls == [("Pitch Black", "me5")]
+    assert scrydex.calls == [], "public artwork should avoid authenticated API dependency"
+    card_updates = {row["card_id"]: row for row in wiring.card_update_batches[0]}
+    assert card_updates[1]["image_small_url"].startswith("https://images.scrydex.com/")
