@@ -259,40 +259,82 @@ def _load_simulation_rows(
     client: Any,
     set_ids: Sequence[str],
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Load narrow calculation-run authority without expanding history views.
+
+    calculation_history_trend is intentionally not used here. That view expands
+    daily-history windows (including correlated P95 carry-forward work), and the
+    daily scheduler has repeatedly hit Postgres statement_timeout before it can
+    even decide which sets need simulation work.
+
+    The canonical daily view identity rule is reproduced directly from its
+    source table: business date is market_date for modern runs, falling back to
+    created_at::date for legacy rows; one row per target and business date uses
+    the newest created_at; only expected_value / combined runs participate.
+
+    The caller still validates the selected run against simulation_run_summary.
+    A parent calculation row whose child persistence failed therefore remains
+    INVALID rather than masquerading as current.
+    """
     if not set_ids:
         return [], None
 
-    columns = "snapshot_date,target_id,calculation_run_id," + ",".join(REQUIRED_OPVC_FIELDS)
-    rows: List[Dict[str, Any]] = []
+    columns = (
+        "id,target_type,target_id,valuation_method,market_date,created_at,"
+        "simulated_mean_pack_value_vs_pack_cost,"
+        "simulated_median_pack_value_vs_pack_cost"
+    )
+    raw_rows: List[Dict[str, Any]] = []
     offset = 0
     try:
         while True:
             query = (
-                client.table("calculation_history_trend")
+                client.table("calculation_runs")
                 .select(columns)
                 .eq("target_type", "set")
                 .in_("target_id", list(set_ids))
+                .in_("valuation_method", ["expected_value", "combined"])
+                .order("created_at", desc=False)
             )
-            # A stable sort is what makes the pages disjoint.
-            query = query.order("snapshot_date", desc=False)
             page_query = getattr(query, "range", None)
             if page_query is None:
-                # Client stub without range() support (unit fakes): one read.
                 result = query.execute()
-                return list((result.data if result else []) or []), None
+                raw_rows = list((result.data if result else []) or [])
+                break
             result = run_batch_read_with_retry(
                 lambda: query.range(offset, offset + _PAGE_SIZE - 1).execute(),
-                operation_name=f"opening_simulation_gate.history_page.{offset}",
+                operation_name=f"opening_simulation_gate.calculation_runs_page.{offset}",
             )
             page = list((result.data if result else []) or [])
-            rows.extend(page)
+            raw_rows.extend(page)
             if len(page) < _PAGE_SIZE:
-                return rows, None
+                break
             offset += _PAGE_SIZE
     except Exception as exc:
-        logger.warning("%s simulation history read failed", _GATE_TAG, exc_info=True)
+        logger.warning("%s simulation authority read failed", _GATE_TAG, exc_info=True)
         return [], f"simulation history read failed ({exc})"
 
+    # Match the canonical daily view's row_number(created_at DESC) semantics
+    # locally. Because rows are fetched oldest to newest, a later assignment
+    # wins for duplicate same-day runs.
+    selected: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for row in raw_rows:
+        target_id = _to_text(row.get("target_id"))
+        business_date = _date_key(row.get("market_date")) or _date_key(row.get("created_at"))
+        if not target_id or not business_date:
+            continue
+        selected[(target_id, business_date)] = {
+            "target_id": target_id,
+            "snapshot_date": business_date,
+            "calculation_run_id": _to_text(row.get("id")),
+            "simulated_mean_pack_value_vs_pack_cost": row.get(
+                "simulated_mean_pack_value_vs_pack_cost"
+            ),
+            "simulated_median_pack_value_vs_pack_cost": row.get(
+                "simulated_median_pack_value_vs_pack_cost"
+            ),
+        }
+
+    return list(selected.values()), None
 
 def _load_summary_run_ids(client: Any, run_ids: Sequence[str]) -> Tuple[set, Optional[str]]:
     if not run_ids:
