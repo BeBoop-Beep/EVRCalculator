@@ -19,9 +19,53 @@ def _job(step, metadata=None):
 
 
 def test_step_order_places_pre_and_post_desirability_around_simulation():
+    assert STEP_ORDER.index("images") < STEP_ORDER.index("desirability_first_pass")
+    assert STEP_ORDER.index("desirability_first_pass") < STEP_ORDER.index("collector_identity_sync")
+    assert STEP_ORDER.index("collector_identity_sync") < STEP_ORDER.index("pull_model_source")
     assert STEP_ORDER.index("desirability_pre_sim") < STEP_ORDER.index("simulation")
     assert STEP_ORDER.index("simulation") < STEP_ORDER.index("desirability_post_sim")
     assert STEP_ORDER.index("explore_rankings") < STEP_ORDER.index("set_page_snapshot")
+
+
+
+def test_desirability_first_pass_runs_before_pull_model():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    outcome = OnboardingEngine(execute=True, command_runner=runner).run_step(
+        _job("desirability_first_pass")
+    )
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "collector_identity_sync"
+    joined = " ".join(calls[0])
+    assert "build_pokemon_set_desirability_inputs.py" in joined
+    assert "--set futureSet" in joined
+    assert "--commit" in joined
+    assert "--canonical-only" not in joined
+
+
+def test_collector_identity_sync_is_scoped_to_registered_set():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: {"set_id": "set-uuid"},
+    )
+    outcome = engine.run_step(_job("collector_identity_sync"))
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "rarity_census"
+    joined = " ".join(calls[0])
+    assert "sync_pokemon_collector_identities.py --set-id set-uuid --commit" in joined
 
 
 def test_pending_pull_model_blocks_simulation():
@@ -300,6 +344,56 @@ def test_initial_scrape_uses_catalog_target_and_completes_for_sealed_only_set():
     assert outcome.evidence["catalog_only_onboarding_complete"] is True
     assert "--catalog-set" in calls[0]
     assert "--set" not in calls[0]
+
+
+
+def test_catalog_card_initial_scrape_builds_desirability_and_collector_identities():
+    calls = []
+    evidence_reads = iter([
+        {
+            "catalog_only": True,
+            "cards_populated": True,
+            "variants_populated": True,
+            "market_prices_populated": True,
+            "sealed_products_populated": False,
+            "sealed_market_prices_populated": False,
+            "set_id": "catalog-set-id",
+        },
+        {
+            "catalog_only": True,
+            "cards_populated": True,
+            "variants_populated": True,
+            "market_prices_populated": True,
+            "sealed_products_populated": False,
+            "sealed_market_prices_populated": False,
+            "set_id": "catalog-set-id",
+        },
+    ])
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+    )
+    outcome = engine.run_step(_provider_job("initial_scrape"))
+
+    assert outcome.kind == "complete"
+    joined = [" ".join(map(str, command)) for command in calls]
+    assert any("sync_pokemon_images.py" in command for command in joined)
+    assert any(
+        "build_pokemon_set_desirability_inputs.py --set futureSet --commit --log-level INFO"
+        in command
+        for command in joined
+    )
+    assert any(
+        "sync_pokemon_collector_identities.py --set-id catalog-set-id --commit"
+        in command
+        for command in joined
+    )
 
 
 def test_provider_source_registration_resumes_when_config_already_deployed(monkeypatch, tmp_path):
