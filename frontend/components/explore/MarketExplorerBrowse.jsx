@@ -39,7 +39,7 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
     setOpen(null); setSearch(""); setHighlightedIndex(0);
     if (restoreFocus) requestAnimationFrame(() => trigger?.focus());
   };
-  const choose = (key) => { onSelect(key); close(); };
+  const choose = (key) => { onSelect(key); setSearch(""); setHighlightedIndex(0); };
   const row = (market, index) => {
     const active = activeKeys.includes(market.market_key);
     const highlighted = index === highlightedIndex;
