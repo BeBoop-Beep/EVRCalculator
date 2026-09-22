@@ -1,4 +1,4 @@
-name: Active Branch Consolidation Trial
+name: Active Branch Consolidation
 
 on:
   push:
@@ -7,18 +7,21 @@ on:
       - '.github/workflows/active-branch-consolidation-trial.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  trial:
+  consolidate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
           ref: develop
           fetch-depth: 0
-      - name: Trial merge active substantive branches
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Merge active substantive branches
         shell: bash
         run: |
           set -euo pipefail
@@ -38,7 +41,7 @@ jobs:
           git fetch origin "${branches[@]}" develop
           echo "start=$(git rev-parse HEAD)"
           for branch in "${branches[@]}"; do
-            echo "=== MERGE TRIAL: $branch ==="
+            echo "=== MERGE: $branch ==="
             if git merge --no-ff --no-edit -X ours "origin/$branch"; then
               echo "MERGE_OK $branch"
             else
@@ -49,7 +52,7 @@ jobs:
               for path in "${conflicts[@]}"; do
                 case "$path" in
                   .github/workflows/*)
-                    echo "keeping develop deletion for temporary workflow conflict: $path"
+                    echo "keeping develop deletion for superseded workflow conflict: $path"
                     git rm -f -- "$path"
                     ;;
                   *)
@@ -65,7 +68,28 @@ jobs:
               echo "MERGE_OK_WITH_DEVELOP_WORKFLOW_DELETION $branch"
             fi
           done
-          echo "trial_head=$(git rev-parse HEAD)"
-          echo "trial_files_changed_vs_origin_develop:"
-          git diff --stat origin/develop...HEAD
-          echo "TRIAL_COMPLETE_NO_PUSH"
+          echo "merged_head=$(git rev-parse HEAD)"
+          git diff --check origin/develop...HEAD
+      - name: Install targeted test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Run consolidation regression tests
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          SUPABASE_ANON_KEY: test-anon-key
+        run: |
+          pytest -q             backend/tests/unit/db/clients/test_scrydex_pokemon_client.py             backend/tests/unit/services/test_pokemon_tcg_image_sync_catalog_sources.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py             backend/tests/unit/db/services/test_market_explorer_direct_publisher.py             backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py             backend/tests/unit/db/test_market_explorer_prepared_directory_service.py             backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py             backend/tests/unit/scripts/test_refresh_target_date_fastpath.py             backend/tests/unit/services/test_pokemon_tcg_api_set_service.py
+      - name: Reconcile concurrent develop and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin develop
+          if [ "$(git rev-parse origin/develop)" != "$(git merge-base HEAD origin/develop)" ]; then
+            echo "develop advanced during consolidation; merging latest develop and favoring its concurrent edits on conflicts"
+            git merge --no-edit -X theirs origin/develop
+          fi
+          git diff --check origin/develop...HEAD
+          git push origin HEAD:develop
+          echo "pushed=$(git rev-parse HEAD)"
