@@ -12,6 +12,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient, PokemonTCGAPIError
 from backend.db.clients.tcgdex_pokemon_client import TCGdexPokemonClient, TCGdexError
 from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient, ScrydexPokemonError
+from backend.db.clients.scrydex_public_artwork_client import (
+    ScrydexPublicArtworkClient,
+    ScrydexPublicArtworkError,
+)
 
 logger = logging.getLogger(__name__)
 from backend.db.repositories.card_variant_repository import (
@@ -77,6 +81,8 @@ _IMAGE_MATCH_STRIP_DESCRIPTORS: List[str] = sorted(
         "quick ball",  "dusk ball",   "timer ball",
         "nest ball",   "dive ball",   "net ball",
         "repeat ball", "ultra ball",  "great ball",
+        # Provider-only historical/reprint descriptors.
+        "team plasma", "delta species", "prime",
         # Holo / reverse / foil variants
         "reverse holo", "reverse-holo", "cosmos holo", "cracked ice holo",
         "parallel foil", "non-holo", "non holo",
@@ -117,10 +123,14 @@ class PokemonTCGImageSyncService:
         client: Optional[PokemonTCGAPIClient] = None,
         tcgdex_client: Optional[TCGdexPokemonClient] = None,
         scrydex_client: Optional[ScrydexPokemonClient] = None,
+        scrydex_public_artwork_client: Optional[ScrydexPublicArtworkClient] = None,
     ):
         self.client = client or PokemonTCGAPIClient()
         self.tcgdex_client = tcgdex_client or TCGdexPokemonClient()
         self.scrydex_client = scrydex_client or ScrydexPokemonClient()
+        self.scrydex_public_artwork_client = (
+            scrydex_public_artwork_client or ScrydexPublicArtworkClient()
+        )
 
     def _resolve_provider_set(self, set_name: str) -> Dict[str, Any]:
         """Resolve a provider identity with a free TCGdex middle path.
@@ -196,6 +206,31 @@ class PokemonTCGImageSyncService:
             logger.warning(
                 "[pokemon-image-sync] TCGdex fallback unavailable set=%s error=%s",
                 set_name,
+                exc,
+            )
+
+        # TCGdex currently exposes the complete 30th Classic checklist but
+        # no artwork. When a Scrydex set identity is already known, its public
+        # expansion page exposes the same card image CDN links without API
+        # credentials. One bounded page request is enough for the whole set.
+        try:
+            public_rows = self.scrydex_public_artwork_client.fetch_image_cards_for_set(
+                set_name=set_name,
+                scrydex_set_id=set_id,
+            )
+            if public_rows:
+                logger.info(
+                    "[pokemon-image-sync] cards via Scrydex public artwork set=%s id=%s rows=%s",
+                    set_name,
+                    set_id,
+                    len(public_rows),
+                )
+                return public_rows, "scrydex_public_artwork"
+        except ScrydexPublicArtworkError as exc:
+            logger.warning(
+                "[pokemon-image-sync] Scrydex public artwork unavailable set=%s id=%s error=%s",
+                set_name,
+                set_id,
                 exc,
             )
 
