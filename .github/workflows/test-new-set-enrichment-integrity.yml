@@ -22,6 +22,7 @@ jobs:
     env:
       SUPABASE_URL: https://example.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: test-only-placeholder
+      SUPABASE_ANON_KEY: test-only-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
