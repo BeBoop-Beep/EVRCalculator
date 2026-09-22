@@ -46,11 +46,10 @@ from backend.domain.pokemon.market_index import resolve_window_baselines
 
 CONSTITUENT_MOVEMENT_CONTRACT_VERSION = "pokemon-constituent-movement-v1"
 
-#: The compact windows the table offers. Deliberately four, not the full
-#: ``WINDOWS`` tuple: the table shows ONE at a time behind a local selector, and
-#: publishing 6M/1Y/SinceTracking as well would double the payload for controls
-#: that do not exist.
-CONSTITUENT_MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M")
+#: The movement windows exposed by the constituent drill-down. The table still
+#: shows ONE movement column at a time, but the selector now spans the same
+#: useful horizons as the market comparison surface, including Since Tracking.
+CONSTITUENT_MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking")
 
 
 def _price(value: Any) -> float | None:
