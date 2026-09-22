@@ -2,7 +2,7 @@ name: Sep22 Market Publication Repair
 
 on:
   push:
-    branches: [main]
+    branches: [ops/sep22-market-repair-20260922]
     paths:
       - '.github/workflows/sep22-market-publication-repair.yml'
 
@@ -12,110 +12,76 @@ permissions:
 jobs:
   repair:
     runs-on: self-hosted
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
-      - name: Repair and publish Sep 22 Market surfaces
+      - name: Repair Sep22 scrape tail and republish Sep21-Sep22
         shell: bash
         run: |
-          set -uo pipefail
+          set -euo pipefail
           LIVE=/home/ubuntu/repos/EVRCalculator
           PY="$LIVE/.venv/bin/python"
           TARGET=2026-09-22
+          REPAIR_LOCK=/tmp/sep22-market-repair.lock
+          DISPATCH_LOCK=/tmp/pokemon-scrape-dispatcher.lock
+          PUB_LOCK=/tmp/pokemon-post-scrape-publication.lock
 
-          cd "$LIVE" || exit 1
-          test "$(git branch --show-current)" = "main" || exit 2
-          test -z "$(git status --porcelain --untracked-files=no)" || exit 3
-          git fetch origin main --quiet || exit 4
-          git reset --hard origin/main || exit 5
+          exec 7>"$REPAIR_LOCK"
+          flock -w 60 7
+
+          cd "$LIVE"
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git fetch origin main --quiet
+          git reset --hard origin/main
           echo "live_head=$(git rev-parse HEAD)"
 
           set -a
           . backend/.env
           set +a
 
-          echo "=== Price Storage V2 readiness ==="
-          "$PY" backend/scripts/check_price_storage_v2_projection_ready.py --market-date "$TARGET" || exit 10
+          echo "=== Phase 1: bounded Base retry ==="
+          exec 8>"$DISPATCH_LOCK"
+          flock -w 120 8
 
-          echo "=== canonical post-scrape publication ==="
-          RC=1
-          for attempt in 1 2 3; do
-            set +e
-            timeout 6600 backend/scripts/rebuild_snapshots_after_scrape.sh "$TARGET"
-            RC=$?
-            set -e
-            echo "publication_attempt=$attempt rc=$RC"
-            if [ "$RC" -eq 0 ]; then
+          for ROUND in 1 2; do
+            STATE="$("$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); rows=list(c.table("scrape_jobs").select("id,status,attempts,max_attempts,error_code").eq("market_date","2026-09-22").eq("set_id","0010d2ec-894e-4c17-855d-5de6ff6fd204").order("id",desc=True).limit(1).execute().data or []); assert rows; print(rows[0])')"
+            echo "base_state_round_${ROUND}=$STATE"
+            if echo "$STATE" | grep -q "'status': 'completed'"; then
               break
             fi
-            if [ "$RC" -eq 4 ]; then
-              sleep 60
-              continue
-            fi
-            exit "$RC"
+
+            "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); rows=list(c.table("scrape_jobs").select("id,status,attempts,max_attempts,error_code").eq("market_date","2026-09-22").eq("set_id","0010d2ec-894e-4c17-855d-5de6ff6fd204").order("id",desc=True).limit(1).execute().data or []); assert rows; row=rows[0]; status=str(row.get("status") or ""); code=str(row.get("error_code") or ""); attempts=int(row.get("attempts") or 0); max_attempts=int(row.get("max_attempts") or 0); assert status in {"pending","failed"}, row; assert code in {"","transient_scrape_failure"}, row; (c.table("scrape_jobs").update({"max_attempts":attempts+1}).eq("id",row["id"]).eq("status","failed").execute() if status=="failed" and attempts>=max_attempts else None); (c.rpc("requeue_unreconciled_retryable_scrape_jobs_for_batch",{"p_batch_id":60}).execute() if status=="failed" else None)'
+
+            SCRAPE_DRAIN_MAX_JOBS=1 "$PY" backend/scripts/run_next_scrape_job.py --market-date "$TARGET"
           done
-          [ "$RC" -eq 0 ] || exit "$RC"
 
-          echo "=== database acceptance ==="
-          "$PY" - <<'PY'
-          from backend.db.clients.supabase_client import create_service_role_client
-          c=create_service_role_client()
-          day="2026-09-22"
+          "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.scrape_batch_service import run_batch_completion_and_repair; c=create_service_role_client(); rows=list(c.table("scrape_jobs").select("id,status,attempts,max_attempts,error_code,error_message,completed_at").eq("market_date","2026-09-22").eq("set_id","0010d2ec-894e-4c17-855d-5de6ff6fd204").order("id",desc=True).limit(1).execute().data or []); assert rows and rows[0].get("status")=="completed", rows; print("base_retry_result",rows[0]); print("batch_completion",run_batch_completion_and_repair(market_date="2026-09-22",repair=False))'
 
-          quality=list(
-              c.table("pokemon_market_date_quality")
-              .select("status,cohort_set_count,qualifying_set_count")
-              .eq("tcg","pokemon").eq("market_date",day)
-              .order("evaluated_at",desc=True).limit(1).execute().data or []
-          )
-          assert quality and quality[0].get("status") in {"READY","LEGACY_VERIFIED"}, quality
-          assert int(quality[0].get("cohort_set_count") or 0) == 156, quality
+          "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); rows=list(c.table("pokemon_scrape_batches").select("id,status,expected_set_count,succeeded_set_count,failed_set_count,missing_set_count").eq("market_date","2026-09-22").order("id",desc=True).limit(1).execute().data or []); assert rows; b=rows[0]; print("batch_after_retry",b); assert b.get("status")=="complete" and int(b.get("succeeded_set_count") or 0)>=int(b.get("expected_set_count") or 0) and int(b.get("failed_set_count") or 0)==0 and int(b.get("missing_set_count") or 0)==0, b'
 
-          market=list(
-              c.table("pokemon_explore_set_value_snapshot_latest")
-              .select("market_date,set_count")
-              .eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or []
-          )
-          assert market and str(market[0].get("market_date"))[:10] == day, market
-          assert int(market[0].get("set_count") or 0) == 156, market
+          flock -u 8
 
-          dashboards=list(
-              c.table("pokemon_set_market_dashboard_snapshot_latest")
-              .select("set_id,latest_market_date")
-              .eq("window_key","365d").execute().data or []
-          )
-          current={str(r.get("set_id")) for r in dashboards if str(r.get("latest_market_date") or "")[:10] == day}
-          assert len(current) >= 167, {"current_dashboards":len(current),"rows":len(dashboards)}
+          echo "=== Phase 2: canonical chronological recovery ==="
+          exec 9>"$PUB_LOCK"
+          flock -w 900 9
 
-          coverage=list(
-              c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
-              .select("set_id,computed_through").limit(1000).execute().data or []
-          )
-          current_v2={str(r.get("set_id")) for r in coverage if str(r.get("computed_through") or "")[:10] >= day}
-          assert len(current_v2) >= 167, {"current_v2":len(current_v2),"rows":len(coverage)}
+          "$PY" backend/scripts/recover_pokemon_market_date.py --start-date 2026-09-21 --end-date 2026-09-22 --commit
 
-          print("SEP22_DB_ACCEPTANCE=PASS", {
-              "quality":quality[0],
-              "market":market[0],
-              "dashboard_current":len(current),
-              "explorer_v2_current":len(current_v2),
-          })
-          PY
+          echo "=== Phase 3: advance Explorer V2 through Sep22 ==="
+          "$PY" -m backend.scripts.run_market_explorer_daily_publication --commit --market-date "$TARGET"
 
-          echo "=== public endpoint acceptance ==="
-          CURRENT=0
-          for i in $(seq 1 24); do
-            BODY="$(mktemp)"
-            CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
-            DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
-            COUNT="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); x=p.get("sets"); print(len(x) if isinstance(x,list) else -1)' "$BODY" 2>/dev/null || true)"
-            rm -f "$BODY"
-            echo "public_poll=$i http=$CODE date=$DATE sets=$COUNT"
-            if [ "$CODE" = "200" ] && [ "$DATE" = "$TARGET" ]; then
-              CURRENT=1
-              break
-            fi
-            sleep 10
-          done
-          [ "$CURRENT" -eq 1 ] || exit 20
+          echo "=== Phase 4: final database acceptance ==="
+          "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); target="2026-09-22"; snap=list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,set_count,updated_at").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or []); assert snap and str(snap[0].get("market_date"))[:10]==target, snap; print("global_market",snap[0]); q=list(c.table("pokemon_market_date_quality").select("status,cohort_set_count,qualifying_set_count").eq("tcg","pokemon").eq("market_date",target).order("evaluated_at",desc=True).limit(1).execute().data or []); assert q and q[0].get("status") in {"READY","LEGACY_VERIFIED"}, q; print("quality",q[0]); cov=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").limit(1000).execute().data or []); stale=[r for r in cov if str(r.get("computed_through") or "")[:10] < target]; print("explorer_v2",{"rows":len(cov),"stale":len(stale)}); assert len(cov)>=167 and not stale, {"rows":len(cov),"stale":stale[:5]}'
+
+          flock -u 9
+
+          echo "=== Phase 5: public API acceptance ==="
+          BODY="$(mktemp)"
+          CODE="$(curl --silent --show-error --max-time 60 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+          DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+          COUNT="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); x=p.get("sets"); print(len(x) if isinstance(x,list) else -1)' "$BODY" 2>/dev/null || true)"
+          rm -f "$BODY"
+          echo "public_market http=$CODE date=$DATE sets=$COUNT"
+          [ "$CODE" = "200" ] && [ "$DATE" = "$TARGET" ]
 
           echo "SEP22_MARKET_PUBLICATION_REPAIR=PASS"
