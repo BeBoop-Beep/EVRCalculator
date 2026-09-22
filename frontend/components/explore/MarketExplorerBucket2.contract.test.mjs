@@ -1,3 +1,9 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
+
 test("Bucket 2 sidebar keeps Browse and Analyze while Custom Filters live in Build Your Market", async () => {
   const client = await read("./MarketExplorerClient.jsx");
   const picker = await read("./MarketExplorerExactItemPicker.jsx");
