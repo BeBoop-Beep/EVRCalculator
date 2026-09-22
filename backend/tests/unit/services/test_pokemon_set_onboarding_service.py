@@ -333,3 +333,45 @@ def test_provider_source_registration_resumes_when_config_already_deployed(monke
     assert outcome.evidence["canonical_key"] == "me06DeltaReign"
     assert outcome.evidence["era_folder"] == "megaEvolutionEra"
     assert outcome.evidence["source_deployed"] is True
+
+
+
+def test_initial_scrape_hydrates_missing_card_metadata_before_advancing():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    low = {
+        "catalog_only": False,
+        "cards_populated": True,
+        "variants_populated": True,
+        "market_prices_populated": True,
+        "resolved_market_date": "2026-09-21",
+        "image_coverage": 0.0,
+    }
+    high = {**low, "image_coverage": 1.0}
+    evidence = iter([
+        {"catalog_only": False},  # pre-scrape routing decision
+        low,                       # first post-scrape verification
+        high,                      # after metadata hydration
+    ])
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(next(evidence)),
+    )
+
+    outcome = engine.run_step(_job("initial_scrape"))
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "set_value"
+    joined = [" ".join(map(str, command)) for command in calls]
+    assert any("run_pokemon_set_scrape.py --run --set futureSet" in command for command in joined)
+    assert any("sync_pokemon_images.py --sets Future Set --apply" in command for command in joined)
+    assert any(
+        "build_pokemon_set_desirability_inputs.py --set futureSet --commit --canonical-only" in command
+        for command in joined
+    )
+    assert outcome.evidence["image_coverage"] == 1.0
