@@ -8,7 +8,8 @@ from typing import Any, Dict, List, Optional
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient
+from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient, PokemonTCGAPIError
+from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient, ScrydexPokemonAPIError
 from backend.db.repositories.card_variant_repository import (
     get_card_variants_by_card_ids,
     update_card_variant_image_sync_fields_batch,
@@ -24,6 +25,10 @@ from backend.constants.tcg.pokemon import historical_catalog_image_sources as ca
 TARGET_SET_API_SEARCH_NAMES = {
     "Prismatic Evolutions": "Prismatic Evolutions",
     "Scarlet and Violet 151": "151",
+    # Internal source names preserve the TCGplayer "ME:" series prefix; card
+    # metadata providers generally publish the expansion name without it.
+    "ME: 30th Celebration": "30th Celebration",
+    "ME: 30th Celebration Classic Collection": "30th Celebration Classic Collection",
 }
 
 IMAGE_ONLY_SPECIAL_TYPES = {"pokeball", "poke ball", "master ball", "masterball"}
@@ -105,10 +110,20 @@ _GENERIC_BALL_DESCRIPTOR_RE = re.compile(
 
 
 class PokemonTCGImageSyncService:
-    """One-way sync of Pokemon TCG image URLs onto existing card_variants rows."""
+    """One-way sync of provider card images onto existing cards/card_variants.
 
-    def __init__(self, client: Optional[PokemonTCGAPIClient] = None):
+    Existing PokemonTCG.io identities remain authoritative where present. Sets
+    that have no PokemonTCG.io identity/name match may fall back to Scrydex,
+    whose English expansion catalog often publishes brand-new sets first.
+    """
+
+    def __init__(
+        self,
+        client: Optional[PokemonTCGAPIClient] = None,
+        scrydex_client: Optional[ScrydexPokemonClient] = None,
+    ):
         self.client = client or PokemonTCGAPIClient()
+        self.scrydex_client = scrydex_client or ScrydexPokemonClient()
 
     def sync_set(self, set_name: str, dry_run: bool = True) -> Dict[str, object]:
         internal_set_id = get_set_id_by_name(set_name)
@@ -129,6 +144,9 @@ class PokemonTCGImageSyncService:
         )
         image_source_api_set_ids = list(image_source_mapping.api_set_ids) if image_source_mapping else []
 
+        metadata_provider = "pokemon_tcg_api"
+        active_client: Any = self.client
+        fallback_reason: Optional[str] = None
         if image_source_api_set_ids:
             api_set = {"id": image_source_api_set_ids[0], "name": set_name}
             api_set_ids_to_fetch = image_source_api_set_ids
@@ -137,12 +155,30 @@ class PokemonTCGImageSyncService:
             api_set_ids_to_fetch = [pokemon_api_set_id]
         else:
             api_set_search_name = TARGET_SET_API_SEARCH_NAMES.get(set_name, set_name)
-            api_set = self.client.resolve_set(api_set_search_name)
-            api_set_ids_to_fetch = [api_set["id"]]
+            try:
+                api_set = self.client.resolve_set(api_set_search_name)
+                api_set_ids_to_fetch = [api_set["id"]]
+            except PokemonTCGAPIError as primary_exc:
+                # Do not manufacture a PokemonTCG.io identity when that catalog
+                # simply has not published the set yet. Scrydex is an independent
+                # metadata/image source, so its ids are used only to fetch and
+                # match images/details; they are never persisted into columns
+                # named pokemon_tcg_api_id.
+                fallback_reason = str(primary_exc)
+                try:
+                    api_set = self.scrydex_client.resolve_set(set_name)
+                    api_set_ids_to_fetch = [api_set["id"]]
+                    metadata_provider = "scrydex"
+                    active_client = self.scrydex_client
+                except ScrydexPokemonAPIError as fallback_exc:
+                    raise ValueError(
+                        f"No card metadata provider could resolve set {set_name!r}: "
+                        f"PokemonTCG.io={primary_exc}; Scrydex={fallback_exc}"
+                    ) from fallback_exc
 
         api_cards = []
         for api_set_id in api_set_ids_to_fetch:
-            api_cards.extend(self.client.iter_cards_for_set(api_set_id))
+            api_cards.extend(active_client.iter_cards_for_set(api_set_id))
 
         internal_cards = get_all_cards_for_set(internal_set_id)
         card_ids = [card["id"] for card in internal_cards]
@@ -169,6 +205,8 @@ class PokemonTCGImageSyncService:
             "internal_set_name": set_name,
             "internal_set_id": internal_set_id,
             "pokemon_api_set_id": pokemon_api_set_id,
+            "metadata_provider": metadata_provider,
+            "provider_fallback_reason": fallback_reason,
             "api_set_id_used": api_set.get("id"),
             "api_set_name_used": api_set.get("name"),
             "api_set_ids_fetched": list(api_set_ids_to_fetch),
@@ -608,7 +646,7 @@ class PokemonTCGImageSyncService:
                     card_update_payload["image_small_url"] = api_card["image_small_url"]
                 if api_card.get("image_large_url"):
                     card_update_payload["image_large_url"] = api_card["image_large_url"]
-                if api_card.get("pokemon_tcg_api_id"):
+                if metadata_provider == "pokemon_tcg_api" and api_card.get("pokemon_tcg_api_id"):
                     card_update_payload["pokemon_tcg_api_id"] = api_card["pokemon_tcg_api_id"]
 
                 if len(card_update_payload) > 2:
@@ -628,7 +666,11 @@ class PokemonTCGImageSyncService:
 
                 for variant in card_variants:
                     existing_api_id = variant.get("pokemon_tcg_api_id")
-                    can_store_api_id = match_type == "exact" and not self._is_image_only_variant(variant)
+                    can_store_api_id = (
+                        metadata_provider == "pokemon_tcg_api"
+                        and match_type == "exact"
+                        and not self._is_image_only_variant(variant)
+                    )
 
                     if existing_api_id and can_store_api_id and existing_api_id != api_card.get("pokemon_tcg_api_id"):
                         skipped.append(
@@ -753,6 +795,7 @@ class PokemonTCGImageSyncService:
             "set_name": set_name,
             "internal_set_id": internal_set_id,
             "pokemon_api_set_id": pokemon_api_set_id,
+            "metadata_provider": metadata_provider,
             "api_set_id": api_set.get("id"),
             "api_set_name": api_set.get("name"),
             "dry_run": dry_run,

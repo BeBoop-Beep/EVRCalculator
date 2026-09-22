@@ -19,6 +19,8 @@ def _job(step, metadata=None):
 
 
 def test_step_order_places_pre_and_post_desirability_around_simulation():
+    assert STEP_ORDER.index("initial_scrape") < STEP_ORDER.index("images")
+    assert STEP_ORDER.index("images") < STEP_ORDER.index("set_value")
     assert STEP_ORDER.index("desirability_pre_sim") < STEP_ORDER.index("simulation")
     assert STEP_ORDER.index("simulation") < STEP_ORDER.index("desirability_post_sim")
     assert STEP_ORDER.index("explore_rankings") < STEP_ORDER.index("set_page_snapshot")
@@ -274,7 +276,7 @@ def test_db_registration_accepts_catalog_only_set_without_daily_scrape_readiness
     assert outcome.step == "initial_scrape"
 
 
-def test_initial_scrape_uses_catalog_target_and_completes_for_sealed_only_set():
+def test_initial_scrape_uses_catalog_target_and_routes_through_enrichment_boundary():
     calls = []
     def runner(command, **kwargs):
         calls.append(command)
@@ -296,8 +298,8 @@ def test_initial_scrape_uses_catalog_target_and_completes_for_sealed_only_set():
         set_evidence_collector=lambda _key: dict(evidence),
     )
     outcome = engine.run_step(_provider_job("initial_scrape"))
-    assert outcome.kind == "complete"
-    assert outcome.evidence["catalog_only_onboarding_complete"] is True
+    assert outcome.kind == "advance"
+    assert outcome.step == "images"
     assert "--catalog-set" in calls[0]
     assert "--set" not in calls[0]
 
@@ -333,3 +335,98 @@ def test_provider_source_registration_resumes_when_config_already_deployed(monke
     assert outcome.evidence["canonical_key"] == "me06DeltaReign"
     assert outcome.evidence["era_folder"] == "megaEvolutionEra"
     assert outcome.evidence["source_deployed"] is True
+
+
+
+def test_catalog_images_step_completes_without_provider_call_when_no_cards_exist():
+    calls = []
+    evidence = {
+        "catalog_only": True,
+        "cards_populated": False,
+        "sealed_products_populated": True,
+        "sealed_market_prices_populated": True,
+    }
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=lambda command, **kwargs: calls.append(command) or CompletedProcess(command, 0, stdout="", stderr=""),
+        set_evidence_collector=lambda _key: dict(evidence),
+    )
+
+    outcome = engine.run_step(_provider_job("images"))
+
+    assert outcome.kind == "complete"
+    assert outcome.evidence["catalog_only_onboarding_complete"] is True
+    assert outcome.evidence["image_enrichment_skipped"] == "no_cards"
+    assert calls == []
+
+
+def test_images_step_syncs_provider_then_refreshes_canonical_projection():
+    calls = []
+    evidence_reads = iter([
+        {
+            "catalog_only": False,
+            "cards_populated": True,
+            "image_coverage": 0.0,
+        },
+        {
+            "catalog_only": False,
+            "cards_populated": True,
+            "image_coverage": 1.0,
+        },
+    ])
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+    )
+    job = _job("images")
+    job["source_set_name"] = "Future Set"
+
+    outcome = engine.run_step(job)
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "set_value"
+    assert calls[0][1:] == [
+        "backend/scripts/sync_pokemon_images.py", "--sets", "Future Set", "--apply",
+    ]
+    assert calls[1][1:] == [
+        "backend/scripts/build_pokemon_set_desirability_inputs.py",
+        "--set", "futureSet", "--commit", "--canonical-only",
+    ]
+
+
+def test_card_bearing_catalog_images_step_enriches_then_completes():
+    calls = []
+    evidence_reads = iter([
+        {
+            "catalog_only": True,
+            "cards_populated": True,
+            "image_coverage": 0.0,
+        },
+        {
+            "catalog_only": True,
+            "cards_populated": True,
+            "image_coverage": 1.0,
+        },
+    ])
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+    )
+
+    outcome = engine.run_step(_provider_job("images"))
+
+    assert outcome.kind == "complete"
+    assert outcome.evidence["catalog_only_onboarding_complete"] is True
+    assert len(calls) == 2
