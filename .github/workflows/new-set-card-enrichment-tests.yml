@@ -27,6 +27,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest requests python-dotenv supabase
       - name: Run targeted enrichment tests
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          SUPABASE_ANON_KEY: test-anon-key
         run: |
           pytest -q \
             backend/tests/unit/db/clients/test_scrydex_pokemon_client.py \
