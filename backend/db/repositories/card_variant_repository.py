@@ -282,8 +282,35 @@ def load_active_simulation_excluded_variant_ids(client) -> Set[str]:
     }
 
 
+def _run_card_variant_image_sync_update(card_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Persist one idempotent card-variant image update with transient retries."""
+
+    def operation(client, _attempt):
+        res = (
+            client.table("card_variants")
+            .update(payload)
+            .eq("id", card_id)
+            .execute()
+        )
+        if res is None:
+            raise RuntimeError("Update card variant returned no response object")
+        updated = res.data
+        if not updated:
+            raise RuntimeError(f"Update returned no data for card_id={card_id}")
+        return updated[0]
+
+    return run_supabase_with_transient_retry(
+        operation,
+        operation_name="update_card_variant_image_sync_fields",
+    )
+
+
 def update_card_variant_image_sync_fields(card_id: str, update_fields: Dict[str, Any]) -> Dict[str, Any]:
-    """Update card image sync fields for a single card variant."""
+    """Update card image sync fields for a single card variant.
+
+    The update is idempotent by primary key, so transient PostgREST/database
+    failures such as SQLSTATE 57014 can be retried safely with a fresh client.
+    """
     payload = {
         key: value
         for key, value in update_fields.items()
@@ -294,63 +321,23 @@ def update_card_variant_image_sync_fields(card_id: str, update_fields: Dict[str,
     if not payload:
         raise ValueError("No non-null card variant sync fields were provided")
 
-    max_retries = 3
-    last_error = None
-
-    for attempt in range(max_retries):
-        try:
-            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = (
-                fresh_client.table("card_variants")
-                .update(payload)
-                .eq("id", card_id)
-                .execute()
-            )
-            if res is None:
-                raise RuntimeError("Update card variant returned no response object")
-            updated = res.data
-            if not updated:
-                raise RuntimeError(f"Update returned no data for card_id={card_id}")
-            return updated[0]
-        except APIError as e:
-            error_msg = str(e)
-            last_error = error_msg
-            duplicate_api_id_conflict = (
-                "23505" in error_msg
-                and "card_variants_pokemon_tcg_api_id_key" in error_msg
-                and "pokemon_tcg_api_id" in payload
-            )
-
-            if duplicate_api_id_conflict:
-                fallback_payload = {k: v for k, v in payload.items() if k != "pokemon_tcg_api_id"}
-                if fallback_payload:
-                    try:
-                        fallback_res = (
-                            fresh_client.table("card_variants")
-                            .update(fallback_payload)
-                            .eq("id", card_id)
-                            .execute()
-                        )
-                        if fallback_res and fallback_res.data:
-                            return fallback_res.data[0]
-                    except Exception:
-                        # Fall through to the regular error path below.
-                        pass
-
-            if "schema cache" in error_msg.lower() and attempt < max_retries - 1:
-                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
-                time.sleep(1)
-                continue
-            raise RuntimeError(f"Failed to update card variant sync fields: {error_msg}")
-        except RuntimeError as e:
-            last_error = str(e)
-            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            raise
-
-    raise RuntimeError(f"Failed to update card variant after {max_retries} retries: {last_error}")
-
+    try:
+        return _run_card_variant_image_sync_update(card_id, payload)
+    except APIError as e:
+        error_msg = str(e)
+        duplicate_api_id_conflict = (
+            "23505" in error_msg
+            and "card_variants_pokemon_tcg_api_id_key" in error_msg
+            and "pokemon_tcg_api_id" in payload
+        )
+        if duplicate_api_id_conflict:
+            fallback_payload = {k: v for k, v in payload.items() if k != "pokemon_tcg_api_id"}
+            if fallback_payload:
+                try:
+                    return _run_card_variant_image_sync_update(card_id, fallback_payload)
+                except Exception:
+                    pass
+        raise RuntimeError(f"Failed to update card variant sync fields: {error_msg}") from e
 
 def update_card_variant_image_sync_fields_batch(updates: List[Dict[str, Any]]) -> int:
     """Apply card image sync field updates sequentially and return the number of updated rows."""
