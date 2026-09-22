@@ -69,6 +69,11 @@ TABLE_COLUMNS = {
         # publication audit uses to derive the global Set Value cohort.
         "era_id", "has_sealed_details_url", "ready_for_daily_scrape",
     },
+    "calculation_runs": {
+        "id", "target_type", "target_id", "valuation_method", "market_date",
+        "created_at", "simulated_mean_pack_value_vs_pack_cost",
+        "simulated_median_pack_value_vs_pack_cost",
+    },
     "calculation_history_trend": {
         "target_type", "target_id", "snapshot_date", "calculation_run_id",
         "simulated_mean_pack_value_vs_pack_cost",
@@ -438,6 +443,7 @@ class _Client:
         self._summary = summary_rows
         self._tables = _market_fixtures() if tables is None else dict(tables)
         self._raise_on = dict(raise_on or {})
+        self.authority_reads = 0
         self.history_reads = 0
         self.ops = []
 
@@ -452,6 +458,29 @@ class _Client:
             return _Query(name, self._sets, self.ops)
         if name == "simulation_run_summary":
             return _Query(name, self._summary, self.ops)
+        if name == "calculation_runs":
+            index = min(self.authority_reads, len(self._history_pages) - 1)
+            self.authority_reads += 1
+            history = self._history_pages[index]
+            rows = []
+            for position, row in enumerate(history):
+                rows.append(
+                    {
+                        "id": row.get("calculation_run_id"),
+                        "target_type": row.get("target_type") or "set",
+                        "target_id": row.get("target_id"),
+                        "valuation_method": "combined",
+                        "market_date": row.get("snapshot_date"),
+                        "created_at": f"{row.get('snapshot_date')}T00:00:{position:02d}+00:00",
+                        "simulated_mean_pack_value_vs_pack_cost": row.get(
+                            "simulated_mean_pack_value_vs_pack_cost"
+                        ),
+                        "simulated_median_pack_value_vs_pack_cost": row.get(
+                            "simulated_median_pack_value_vs_pack_cost"
+                        ),
+                    }
+                )
+            return _Query(name, rows, self.ops)
         if name == "calculation_history_trend":
             index = min(self.history_reads, len(self._history_pages) - 1)
             self.history_reads += 1
