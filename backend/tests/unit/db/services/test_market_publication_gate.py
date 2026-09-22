@@ -254,3 +254,60 @@ def test_no_source_data_falls_back_to_public_authority(monkeypatch):
     monkeypatch.setattr(gate, "resolve_latest_market_source_date", lambda _c: None)
     monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", lambda *a, **k: "2026-08-17")
     assert gate.resolve_market_publication_date(_Recorder(), None) == "2026-08-17"
+
+
+def test_persisted_ready_quality_short_circuits_fresh_evaluation(monkeypatch):
+    evaluation = _stub(monkeypatch, STATUS_READY, market_date="2026-09-21")
+    monkeypatch.setattr(
+        gate,
+        "_read_persisted_accepted_quality",
+        lambda *_a, **_k: dict(evaluation),
+    )
+    monkeypatch.setattr(
+        gate,
+        "evaluate_market_date_quality",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("fresh evaluation must not run for persisted READY authority")
+        ),
+    )
+    result = gate.enforce_market_publication_gate(
+        _Recorder(), commit=True, market_date="2026-09-21", persist=False
+    )
+    assert result.proceed is True
+    assert result.decision.status == STATUS_READY
+
+
+def test_nonaccepted_persisted_quality_still_reevaluates(monkeypatch):
+    evaluation = _stub(monkeypatch, STATUS_READY, market_date="2026-09-22")
+    monkeypatch.setattr(gate, "_read_persisted_accepted_quality", lambda *_a, **_k: None)
+    calls = []
+    monkeypatch.setattr(
+        gate,
+        "evaluate_market_date_quality",
+        lambda *_a, **_k: calls.append(True) or dict(evaluation),
+    )
+    result = gate.enforce_market_publication_gate(
+        _Recorder(), commit=True, market_date="2026-09-22", persist=False
+    )
+    assert result.proceed is True
+    assert calls == [True]
+
+
+def test_persisted_quality_read_failure_falls_back_to_fresh_evaluation(monkeypatch):
+    evaluation = _stub(monkeypatch, STATUS_READY, market_date="2026-09-21")
+    monkeypatch.setattr(
+        gate,
+        "_read_persisted_accepted_quality",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("narrow read timeout")),
+    )
+    calls = []
+    monkeypatch.setattr(
+        gate,
+        "evaluate_market_date_quality",
+        lambda *_a, **_k: calls.append(True) or dict(evaluation),
+    )
+    result = gate.enforce_market_publication_gate(
+        _Recorder(), commit=True, market_date="2026-09-21", persist=False
+    )
+    assert result.proceed is True
+    assert calls == [True]
