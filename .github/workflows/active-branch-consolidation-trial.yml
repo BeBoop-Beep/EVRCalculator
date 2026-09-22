@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   trial:
-    if: ${{ github.event.head_commit.message == 'ops: trial active branch consolidation' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
