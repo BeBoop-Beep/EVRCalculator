@@ -66,7 +66,7 @@ test("Build modal unifies exact Cards/Products and Custom Filters", async () => 
   assert.match(picker, /Cards/);
   assert.match(picker, /Products/);
   assert.match(picker, /Custom Filters/);
-  assert.match(client, /setBuilderInitialScope\("filters"\)/);
+  assert.match(client, /setBuilderInitialScope\(series\.spec\?\.membershipMode === "explicit" \? \(series\.spec\?\.asset === "sealed" \? "sealed" : "cards"\) : "filters"\)/);
   assert.match(client, /setBuilderOpen\(true\)/);
   assert.match(query, /presentation === "sidebar"/);
 });
