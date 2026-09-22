@@ -147,7 +147,7 @@ function MovementWindowSelector({ value, onChange }) {
                 : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
             ].join(" ")}
           >
-            {window}
+            {window === "SinceTracking" ? "Since Tracking" : window}
           </button>
         );
       })}
@@ -270,7 +270,8 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
                     {column.change ? (
                       <ChangeCell row={row} window={column.window} label={cellValue(row, primaryColumn)} />
                     ) : column.primary ? (
-                      <span className="inline-flex min-w-0 items-center">
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className={asset === "sealed" ? "h-10 w-10 flex-none rounded object-contain" : "h-10 w-7 flex-none rounded object-cover"} /> : null}
                         <span className="min-w-0 truncate">{cellValue(row, column)}</span>
                         {asset === "cards" ? <VariantBadge row={row} /> : null}
                       </span>
@@ -286,6 +287,7 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
         {page.rows.map((row) => (
           <li key={rowKey(row)} data-market-constituent={rowKey(row)} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
             <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
+            {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className={asset === "sealed" ? "h-12 w-12 flex-none rounded object-contain" : "h-12 w-9 flex-none rounded object-cover"} /> : null}
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center">
                 <span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{cellValue(row, primaryColumn)}</span>
