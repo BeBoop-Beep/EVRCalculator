@@ -13,9 +13,9 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 import requests
 from dotenv import load_dotenv
 
-from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+from backend.db.clients.scrydex_pokemon_client import ScrydexPokemonClient  # noqa: E402
 
 
 API_BASE_URL = "https://api.pokemontcg.io/v2"
@@ -259,13 +259,6 @@ def fetch_cards_for_api_set(api_set_id: str) -> List[Dict[str, Any]]:
         legacy_error = exc
     try:
         rows = ScrydexPokemonClient().fetch_cards_for_set(api_set_id)
-        if rows:
-            logger.info(
-                "[canonical-ingest] Scrydex fallback set=%s rows=%s legacy=%s",
-                api_set_id,
-                len(rows),
-                type(legacy_error).__name__ if legacy_error else "empty",
-            )
         return rows
     except Exception as exc:
         raise PokemonCanonicalIngestionError(
