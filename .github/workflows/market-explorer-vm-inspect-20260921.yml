@@ -1,5 +1,5 @@
 name: Market Explorer VM Inspect 2026-09-21
-# probe: post-write-phase
+# probe: post-merge-lock-check
 
 on:
   push:
