@@ -1,0 +1,132 @@
+name: Active Branch Consolidation
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/active-branch-consolidation-trial.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_ANON_KEY: test-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Consolidate active branches with supersession-aware conflict resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "inDex consolidation"
+          git config user.email "actions@users.noreply.github.com"
+
+          POKEMON_BRANCH=fix/pokemon-market-membership-api-images-20260921
+          EXPLORER_BRANCH=ui/market-explorer-final-ux-20260921
+          git fetch origin "$POKEMON_BRANCH" "$EXPLORER_BRANCH" develop
+
+          # Pokémon image/API branch:
+          # current develop already moved catalog-only card sets into the shared
+          # images step, superseding this branch's older initial_scrape hook.
+          # Keep develop for conflicts, which preserves that newer architecture,
+          # while still accepting the branch's non-conflicting catalog-refresh
+          # image-sync work.
+          if ! git merge-base --is-ancestor "origin/$POKEMON_BRANCH" HEAD; then
+            git merge --no-ff --no-edit -X ours "origin/$POKEMON_BRANCH"
+            git checkout "origin/$POKEMON_BRANCH" -- backend/scripts/refresh_due_pokemon_catalog_sets.py backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py
+            git checkout origin/develop -- backend/services/pokemon_set_onboarding_service.py backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+            python - <<'PY'
+          from pathlib import Path
+          p = Path("backend/scripts/refresh_due_pokemon_catalog_sets.py")
+          text = p.read_text(encoding="utf-8")
+          text = text.replace(
+              'if "sync_pokemon_images.py" in command:',
+              'if any(str(part).endswith("sync_pokemon_images.py") for part in command):',
+          ).replace(
+              'elif "build_pokemon_set_desirability_inputs.py" in command:',
+              'elif any(str(part).endswith("build_pokemon_set_desirability_inputs.py") for part in command):',
+          )
+          p.write_text(text, encoding="utf-8")
+          PY
+            git rm -f --ignore-unmatch .github/workflows/test-pokemon-catalog-image-enrichment.yml
+            git add -A
+            git commit --amend --no-edit
+          fi
+
+          # Market Explorer final UX is the newest active UI lane. Prefer its
+          # conflict side while retaining all non-conflicting develop work.
+          if ! git merge-base --is-ancestor "origin/$EXPLORER_BRANCH" HEAD; then
+            git merge --no-ff --no-edit -X theirs "origin/$EXPLORER_BRANCH"
+            git rm -f --ignore-unmatch .github/workflows/market-explorer-final-ux-20260921.yml
+
+            # Final UX intentionally resolves SinceTracking through the interval
+            # authority when the bounded daily table cannot cover the full span.
+            python - <<'PY'
+          from pathlib import Path
+          p = Path("backend/tests/unit/db/services/test_market_explorer_constituent_movement.py")
+          text = p.read_text(encoding="utf-8")
+          text = text.replace(
+              'assert changes["SinceTracking"] is None',
+              'assert changes["SinceTracking"] == pytest.approx(200.0)',
+          )
+          text = text.replace(
+              'assert client.executions.count(movement.V2_INTERVAL_TABLE) == 0',
+              'assert client.executions.count(movement.V2_INTERVAL_TABLE) == 1',
+          )
+          p.write_text(text, encoding="utf-8")
+          PY
+            git add -A
+            git commit --amend --no-edit
+          fi
+
+          git diff --check origin/develop...HEAD
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest
+
+      - name: Run focused backend regressions
+        run: |
+          python -m pytest -q             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py             backend/tests/unit/db/services/test_market_explorer_constituent_movement.py             backend/tests/unit/scripts/test_provision_market_explorer_maintained_cards_axes.py             backend/tests/unit/db/services/test_market_explorer_direct_publisher.py             backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py
+
+      - name: Run focused frontend regressions and production build
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsx --test             lib/explore/marketExplorerConstituents.test.mjs             components/explore/MarketExplorerClient.contract.test.jsx             components/explore/MarketExplorerBucket2.contract.test.mjs             components/explore/MarketExplorerSidebarUsability.contract.test.mjs             components/explore/MarketExplorerInformationArchitecture.contract.test.mjs             components/explore/MarketExplorerQueryBuilder.contract.test.mjs             components/explore/MarketExplorerConstituentsQueryPaging.contract.test.jsx             app/Market/Explorer/MarketExplorerPage.contract.test.mjs
+          npm run build
+
+      - name: Reconcile concurrent develop, revalidate, push, and retire merged active branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin develop
+          if ! git merge-base --is-ancestor origin/develop HEAD; then
+            echo "develop advanced during consolidation; preserving newer develop on conflicts"
+            git merge --no-edit -X theirs origin/develop
+            python -m pytest -q               backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py               backend/tests/unit/services/test_pokemon_set_onboarding_service.py               backend/tests/unit/db/services/test_market_explorer_constituent_movement.py               backend/tests/unit/scripts/test_provision_market_explorer_maintained_cards_axes.py               backend/tests/unit/db/services/test_market_explorer_direct_publisher.py               backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py
+            (cd frontend && npx tsx --test               lib/explore/marketExplorerConstituents.test.mjs               components/explore/MarketExplorerClient.contract.test.jsx               components/explore/MarketExplorerBucket2.contract.test.mjs               components/explore/MarketExplorerSidebarUsability.contract.test.mjs               components/explore/MarketExplorerInformationArchitecture.contract.test.mjs               components/explore/MarketExplorerQueryBuilder.contract.test.mjs               components/explore/MarketExplorerConstituentsQueryPaging.contract.test.jsx               app/Market/Explorer/MarketExplorerPage.contract.test.mjs)
+          fi
+          git diff --check origin/develop...HEAD
+          git push origin HEAD:develop
+          git push origin --delete             fix/pokemon-market-membership-api-images-20260921             ui/market-explorer-final-ux-20260921
+          echo "pushed=$(git rev-parse HEAD)"

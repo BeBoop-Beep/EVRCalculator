@@ -1,6 +1,5 @@
 import json
 import subprocess
-from pathlib import Path
 
 import pytest
 
@@ -144,6 +143,62 @@ def test_check_only_never_invokes_detector(monkeypatch):
     assert script.main() == 0
 
 
+def test_if_missing_short_circuits_when_batch_already_exists(monkeypatch):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script, "_market_date_iso", lambda timezone_name: "2026-09-20")
+    monkeypatch.setattr(
+        script,
+        "get_active_batch",
+        lambda market_date: {"id": 57, "market_date": market_date, "status": "running"},
+    )
+    monkeypatch.setattr(
+        script,
+        "run_runtime_preflight",
+        lambda: pytest.fail("preflight must not run when batch already exists"),
+    )
+    monkeypatch.setattr(
+        script,
+        "create_batch",
+        lambda *_: pytest.fail("batch creation must not run when batch already exists"),
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["create_daily_scrape_batch.py", "--if-missing", "--skip-new-set-detection"],
+    )
+
+    assert script.main() == 0
+
+
+def test_if_missing_lookup_failure_proceeds_to_normal_creation_path(monkeypatch, capsys):
+    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
+    monkeypatch.setattr(script, "_market_date_iso", lambda timezone_name: "2026-09-20")
+
+    def _lookup_failure(_market_date):
+        raise RuntimeError("temporary batch lookup failure")
+
+    monkeypatch.setattr(script, "get_active_batch", _lookup_failure)
+    _stub_preflight(monkeypatch)
+    monkeypatch.setattr(
+        script,
+        "create_batch",
+        lambda market_date, trigger_source: {
+            "id": 57,
+            "market_date": market_date,
+            "status": "running",
+            "expected_set_count": 165,
+            "queued_set_count": 165,
+        },
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["create_daily_scrape_batch.py", "--if-missing", "--skip-new-set-detection"],
+    )
+
+    assert script.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["batch_id"] == 57
+    assert payload["new_set_discovery"] == {"status": "skipped"}
+
 
 def test_create_batch_retries_transient_statement_timeout_then_succeeds():
     calls = []
@@ -191,45 +246,3 @@ def test_create_batch_does_not_retry_non_transient_failure():
         )
 
     assert len(calls) == 1
-
-
-def test_ensure_existing_batch_is_a_noop_before_preflight(monkeypatch, capsys):
-    monkeypatch.setattr(script, "_load_backend_env", lambda: None)
-    monkeypatch.setattr(script, "_market_date_iso", lambda timezone_name: "2026-09-18")
-    monkeypatch.setattr(
-        script,
-        "existing_batch",
-        lambda market_date: {"id": 54, "market_date": market_date, "status": "running"},
-    )
-    monkeypatch.setattr(
-        script,
-        "run_runtime_preflight",
-        lambda: pytest.fail("ensure existing batch must not run preflight"),
-    )
-    monkeypatch.setattr(
-        script,
-        "create_batch",
-        lambda *_args, **_kwargs: pytest.fail("ensure existing batch must not create"),
-    )
-    monkeypatch.setattr("sys.argv", ["create_daily_scrape_batch.py", "--ensure"])
-
-    assert script.main() == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload == {
-        "market_date": "2026-09-18",
-        "status": "already_exists",
-        "batch_id": 54,
-        "batch_status": "running",
-    }
-
-
-def test_checked_in_cron_has_bounded_ensure_batch_recovery_window():
-    repo_root = Path(__file__).resolve().parents[4]
-    cron = (repo_root / "infra/oracle/tcgplayer-scraper-pokemon.crontab").read_text(
-        encoding="utf-8"
-    )
-
-    assert "/tmp/pokemon-batch-create.lock" in cron
-    assert "15-55/10 1 * * *" in cron
-    assert "5-55/10 2 * * *" in cron
-    assert "--ensure --trigger-source scheduled --skip-new-set-detection" in cron

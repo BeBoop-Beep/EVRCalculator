@@ -9,8 +9,8 @@ loudly under exactly one wrong construction.
 
 from __future__ import annotations
 
-import pytest
 import httpx
+import pytest
 from postgrest.exceptions import APIError
 
 from backend.db.services import pokemon_market_explorer_query_service as svc
@@ -148,12 +148,22 @@ class FakeClient:
         self.prices = prices if prices is not None else PRICES
 
     def rpc(self, name, payload):
-        """Reproduce the two server-side RPCs against the fixture panel.
+        """Reproduce the server-side RPCs against the fixture panel."""
+        if name == svc.SET_HISTORY_COVERAGE_RPC:
+            wanted = set(payload.get("p_set_ids") or [row["id"] for row in SETS])
+            return _RpcResult([
+                {
+                    "set_id": row["id"],
+                    "first_snapshot_date": DATES[0],
+                    "latest_snapshot_date": DATES[-1],
+                }
+                for row in SETS
+                if row["id"] in wanted and row.get("catalog_only") is not True
+            ])
 
-        The cohort aggregation mirrors the SQL: rank within each date, apply the
-        chase cutoff PER DATE, then sum the day's basket and the cohort common
-        with the previous observed day.
-        """
+        # Cohort aggregation mirrors SQL: rank within each date, apply the
+        # chase cutoff PER DATE, then sum the day's basket and cohort common
+        # with the previous observed day.
         rows = _panel(self.prices, payload["p_set_ids"], payload.get("p_card_ids"))
         start, end = payload["p_start_date"], payload["p_end_date"]
         rows = [row for row in rows if start <= row["market_date"] <= end]
@@ -219,10 +229,6 @@ class FakeClient:
         return _RpcResult(output)
 
     def table(self, name):
-        if name == "pokemon_set_value_daily_history_coverage":
-            return _Query([{"set_id": row["id"], "has_history": True,
-                            "first_snapshot_date": DATES[0],
-                            "latest_snapshot_date": DATES[-1]} for row in SETS])
         if name == "pokemon_market_date_quality":
             return _Query([
                 {"market_date": market_date, "tcg": "pokemon", "status": "READY"}
@@ -1173,19 +1179,22 @@ def test_a_statement_timeout_remains_plan_evidence_not_a_size_rejection():
 # ---------------------------------------------------------------------------
 
 def test_resolve_tracked_set_ids_excludes_catalog_only_sets():
-    """169 history-tracked sets, 4 catalog-only, must resolve to 165."""
+    """The indexed RPC owns history ∩ non-catalog-only membership."""
     history_ids = [f"set-{index}" for index in range(169)]
     catalog_only_ids = set(history_ids[:4])
+    rpc_rows = [
+        {"set_id": sid, "first_snapshot_date": "2026-01-01",
+         "latest_snapshot_date": "2026-09-20"}
+        for sid in history_ids if sid not in catalog_only_ids
+    ]
 
     class Client:
+        def rpc(self, name, payload):
+            assert name == svc.SET_HISTORY_COVERAGE_RPC
+            assert payload == {"p_set_ids": None}
+            return _RpcResult(rpc_rows)
+
         def table(self, name):
-            if name == "pokemon_set_value_daily_history_coverage":
-                return _Query([{"set_id": sid, "has_history": True} for sid in history_ids])
-            if name == "sets":
-                return _Query([
-                    {"id": sid, "catalog_only": sid in catalog_only_ids}
-                    for sid in history_ids
-                ])
             raise AssertionError(f"unexpected table read: {name}")
 
     result = svc.resolve_tracked_set_ids(Client())
@@ -1196,48 +1205,48 @@ def test_resolve_tracked_set_ids_excludes_catalog_only_sets():
 
 def test_resolve_tracked_set_ids_keeps_a_normal_tracked_set():
     class Client:
-        def table(self, name):
-            if name == "pokemon_set_value_daily_history_coverage":
-                return _Query([{"set_id": "set-normal", "has_history": True}])
-            if name == "sets":
-                return _Query([{"id": "set-normal", "catalog_only": False}])
-            raise AssertionError(f"unexpected table read: {name}")
+        def rpc(self, name, payload):
+            assert name == svc.SET_HISTORY_COVERAGE_RPC
+            assert payload == {"p_set_ids": None}
+            return _RpcResult([{
+                "set_id": "set-normal",
+                "first_snapshot_date": "2026-01-01",
+                "latest_snapshot_date": "2026-09-20",
+            }])
 
     assert svc.resolve_tracked_set_ids(Client()) == ["set-normal"]
 
 
 def test_resolve_tracked_set_ids_is_an_intersection_not_a_union():
-    """A catalog_only=false set with no tracked history stays untracked --
-    the contract is history INTERSECT non-catalog-only, not "every
-    non-catalog-only set"."""
+    """Only rows returned by the DB-owned coverage contract become tracked."""
 
     class Client:
-        def table(self, name):
-            if name == "pokemon_set_value_daily_history_coverage":
-                return _Query([{"set_id": "set-tracked", "has_history": True}])
-            if name == "sets":
-                return _Query([
-                    {"id": "set-tracked", "catalog_only": False},
-                    {"id": "set-untracked-no-history", "catalog_only": False},
-                ])
-            raise AssertionError(f"unexpected table read: {name}")
+        def rpc(self, name, payload):
+            assert name == svc.SET_HISTORY_COVERAGE_RPC
+            return _RpcResult([{
+                "set_id": "set-tracked",
+                "first_snapshot_date": "2026-01-01",
+                "latest_snapshot_date": "2026-09-20",
+            }])
 
     assert svc.resolve_tracked_set_ids(Client()) == ["set-tracked"]
 
 
-def test_resolve_tracked_set_ids_treats_missing_catalog_only_as_false():
-    """A `sets` row missing the column entirely must not be excluded --
-    `catalog_only` defaults FALSE in the schema."""
-
+def test_resolve_scope_history_bounds_uses_indexed_coverage_rpc():
     class Client:
-        def table(self, name):
-            if name == "pokemon_set_value_daily_history_coverage":
-                return _Query([{"set_id": "set-legacy-row", "has_history": True}])
-            if name == "sets":
-                return _Query([{"id": "set-legacy-row"}])  # no catalog_only key
-            raise AssertionError(f"unexpected table read: {name}")
+        def rpc(self, name, payload):
+            assert name == svc.SET_HISTORY_COVERAGE_RPC
+            assert payload == {"p_set_ids": ["set-a", "set-b"]}
+            return _RpcResult([
+                {"set_id": "set-a", "first_snapshot_date": "2026-04-07",
+                 "latest_snapshot_date": "2026-09-19"},
+                {"set_id": "set-b", "first_snapshot_date": "2026-05-01",
+                 "latest_snapshot_date": "2026-09-20"},
+            ])
 
-    assert svc.resolve_tracked_set_ids(Client()) == ["set-legacy-row"]
+    assert svc.resolve_scope_history_bounds(Client(), ["set-a", "set-b"]) == (
+        "2026-04-07", "2026-09-20",
+    )
 
 
 def test_filter_options_publication_excludes_catalog_only_sets(monkeypatch):

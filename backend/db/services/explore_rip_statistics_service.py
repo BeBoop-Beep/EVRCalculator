@@ -1954,6 +1954,59 @@ def _load_rankings_top_chase_lookup(
     return lookup
 
 
+def _assert_expected_simulation_run_authority(
+    rows: Iterable[Mapping[str, Any]],
+    expected_run_by_set: Mapping[str, str],
+) -> None:
+    """Fail closed when the live/latest view drifts from a verified cohort.
+
+    The freshness gate owns which exact calculation run is authoritative for
+    each simulation-supported set. The live RIP view is still useful as the
+    materialized calculation source, but "latest per set" is not publication
+    authority: partial reruns can otherwise mix generations. Extra rows are
+    allowed because the view may carry non-opening targets; every expected set
+    must be present on exactly the verified run.
+    """
+    expected = {
+        str(set_id): str(run_id)
+        for set_id, run_id in dict(expected_run_by_set or {}).items()
+        if set_id and run_id
+    }
+    if not expected:
+        return
+
+    actual = {
+        str(row.get("set_id")): str(row.get("calculation_run_id"))
+        for row in rows
+        if row.get("set_id") and row.get("calculation_run_id")
+    }
+    missing = sorted(set(expected) - set(actual))
+    mismatched = sorted(
+        set_id for set_id, run_id in expected.items()
+        if actual.get(set_id) is not None and actual.get(set_id) != run_id
+    )
+    if missing or mismatched:
+        details = []
+        if missing:
+            details.append("missing=" + ",".join(missing))
+        if mismatched:
+            details.append(
+                "mismatched="
+                + ",".join(
+                    f"{set_id}:{actual.get(set_id)}!={expected[set_id]}"
+                    for set_id in mismatched
+                )
+            )
+        raise ExploreRipStatisticsTargetsError(
+            status_code=503,
+            message=(
+                "RIP Statistics live view does not match the verified simulation cohort; "
+                + "; ".join(details)
+            ),
+            code="SIMULATION_COHORT_AUTHORITY_MISMATCH",
+        )
+
+
 def get_rip_statistics_targets_payload(
     limit: Any = DEFAULT_TARGETS_LIMIT,
     *,
@@ -1962,6 +2015,7 @@ def get_rip_statistics_targets_payload(
     release: Any = None,
     set_authority_rows_fn: Optional[Any] = None,
     artifact_loader: Optional[Any] = None,
+    expected_run_by_set: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     """Return available RIP targets and the best default target from persisted data.
 
@@ -2013,6 +2067,8 @@ def get_rip_statistics_targets_payload(
             message="No RIP Statistics targets found",
             code="TARGETS_NOT_FOUND",
         )
+
+    _assert_expected_simulation_run_authority(raw_rows, expected_run_by_set or {})
 
     ranked_rows = sorted(raw_rows, key=_build_rank_sort_key)
 

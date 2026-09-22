@@ -1,0 +1,82 @@
+name: RIP Sep21 Simulation Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/rip-sep21-simulation-recovery.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: self-hosted
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build isolated simulation runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/rip-recovery-venv"
+          "$RUNNER_TEMP/rip-recovery-venv/bin/python" -m pip install -q --upgrade pip
+          "$RUNNER_TEMP/rip-recovery-venv/bin/python" -m pip install -q -r backend/requirements.txt psutil scipy==1.18.1
+          "$RUNNER_TEMP/rip-recovery-venv/bin/python" - <<'PY'
+          import numpy, pandas, scipy, supabase
+          print("runtime_imports=ok")
+          print("numpy="+numpy.__version__)
+          print("pandas="+pandas.__version__)
+          print("scipy="+scipy.__version__)
+          PY
+
+      - name: Rebuild and verify Sep 21 simulation cohort
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$RUNNER_TEMP/rip-recovery-venv/bin/python"
+          LOCK=/tmp/pokemon-opening-simulation-recovery.lock
+          cd "$GITHUB_WORKSPACE"
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+
+          echo "workspace_head=$(git rev-parse HEAD)"
+          echo "target_market_date=2026-09-21"
+
+          exec 9>"$LOCK"
+          if ! flock -n 9; then
+            echo "FATAL: another opening-simulation recovery is active"
+            exit 75
+          fi
+
+          final_rc=1
+          for pass in 1 2 3; do
+            echo "recovery_pass=$pass"
+            set +e
+            "$PY" -m backend.scripts.run_daily_opening_publication --market-date 2026-09-21 --skip-snapshots --json
+            rc=$?
+            set -e
+            echo "recovery_pass=$pass rc=$rc"
+            if [ "$rc" -eq 0 ]; then
+              final_rc=0
+              break
+            fi
+            final_rc=$rc
+            if [ "$pass" -lt 3 ]; then
+              echo "bounded recovery retry in 120s; completed sets will be skipped by the freshness gate"
+              sleep 120
+            fi
+          done
+          exit "$final_rc"

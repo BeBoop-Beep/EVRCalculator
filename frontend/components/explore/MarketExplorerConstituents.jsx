@@ -147,7 +147,7 @@ function MovementWindowSelector({ value, onChange }) {
                 : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
             ].join(" ")}
           >
-            {window}
+            {window === "SinceTracking" ? "Since Tracking" : window}
           </button>
         );
       })}
@@ -186,7 +186,7 @@ function SeriesPicker({ series, activeId, onSelect }) {
 }
 
 /**
- * A query-built or prepared market's constituents, loaded a backend page at a time.
+ * A QUERY-BUILT market's constituents, loaded a backend page at a time.
  *
  * WHY THIS EXISTS SEPARATELY. `resolveSeriesConstituents` reads whatever rows
  * already arrived on the series object — correct for a prepared/parent
@@ -198,9 +198,7 @@ function SeriesPicker({ series, activeId, onSelect }) {
  * (`useMarketExplorerConstituentPage`), independent of the chart's, so a slow
  * or failed constituent page never blocks the rest of the workspace.
  */
-const PREVIEW_ROWS = 5;
-
-function QueryConstituentSection({ series, movementWindow, mode }) {
+function QueryConstituentSection({ series, movementWindow, onChangeMovementWindow }) {
   const asset = resolveSeriesAsset(series);
   const idField = asset === "sealed" ? "sealedProductId" : "canonicalCardId";
   // Query rows represent physical instruments. Legitimate card variants may
@@ -208,11 +206,7 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
   const rowKey = (row) => row.instrumentId || row.cardVariantId || row[idField] || row.rank;
   const columns = buildConstituentColumns(asset, movementWindow);
   const primaryColumn = columns.find((column) => column.primary);
-  const page = useMarketExplorerConstituentPage(series?.marketType
-    ? (series.generationId ? { marketKey: series.key, generationId: series.generationId } : null)
-    : series?.spec || null);
-  const displayedRows = mode === "preview" ? page.rows.slice(0, PREVIEW_ROWS) : page.rows;
-  const displayedColumns = mode === "preview" ? columns.filter((column) => column.primary || column.key === "rank" || column.key === "setName" || column.price || column.change) : columns;
+  const page = useMarketExplorerConstituentPage(series?.spec || null);
 
   if (page.isLoading && page.rows.length === 0) {
     return (
@@ -221,7 +215,7 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
       </p>
     );
   }
-  if (page.error && page.rows.length === 0) {
+  if (page.error) {
     return (
       <div className="px-3 pb-6 pt-1 sm:px-4">
         <p role="alert" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
@@ -238,38 +232,22 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
       </div>
     );
   }
-  if (page.availability === "notApplicable") {
-    return <p data-market-constituents-not-applicable className="px-3 pb-6 text-xs text-[var(--text-secondary)] sm:px-4">
-      {page.availabilityReason || "This market has no enumerable constituents."}
-    </p>;
-  }
 
   return (
     <>
-      {page.error ? (
-        <div className="px-3 pb-3 sm:px-4">
-          <p role="alert" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
-            {page.error} Previously loaded constituents remain available.
-          </p>
-          {mode === "expanded" ? <button type="button" data-market-constituents-page-retry onClick={page.loadMore}
-            className="mt-2 min-h-11 rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
-            Retry loading more
-          </button> : null}
-        </div>
-      ) : null}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 pb-2 sm:px-4">
         <span data-market-constituents-page-count className="text-[10px] text-[var(--text-secondary)]">
-          Showing <span className="tabular-nums">{displayedRows.length}</span> of{" "}
+          Showing <span className="tabular-nums">{page.rows.length}</span> of{" "}
           <span className="tabular-nums" data-market-constituents-count>{page.totalCount}</span>
           {asset === "sealed" ? " products" : " cards"}
           {page.asOf ? ` · as of ${page.asOf}` : ""}
         </span>
       </div>
-      <div data-market-constituents-table className={`hidden overflow-x-auto px-3 pb-2 sm:px-4 desk:block ${mode === "expanded" ? "max-h-[min(76vh,72rem)] overflow-y-auto" : ""}`} role={mode === "expanded" ? "region" : undefined} aria-label={mode === "expanded" ? "Constituent table" : undefined} tabIndex={mode === "expanded" ? 0 : undefined}>
+      <div data-market-constituents-table className="hidden overflow-x-auto px-3 pb-2 sm:px-4 desk:block">
         <table className="w-full min-w-[720px] text-left text-xs">
-          <thead className="sticky top-0 z-10 border-y border-[var(--border-subtle)] bg-[var(--surface-page)] text-[10px] uppercase tracking-[0.07em] text-[var(--text-secondary)]">
+          <thead className="border-y border-[var(--border-subtle)] text-[10px] uppercase tracking-[0.07em] text-[var(--text-secondary)]">
             <tr>
-              {displayedColumns.map((column) => (
+              {columns.map((column) => (
                 <th key={column.key} scope="col" className={`px-3 py-2 ${column.align === "right" ? "text-right" : ""}`}>
                   {column.label}
                 </th>
@@ -277,9 +255,9 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
             </tr>
           </thead>
           <tbody>
-            {displayedRows.map((row) => (
+            {page.rows.map((row) => (
               <tr key={rowKey(row)} data-market-constituent={rowKey(row)} className="border-b border-[var(--border-subtle)] last:border-0">
-                {displayedColumns.map((column) => (
+                {columns.map((column) => (
                   <td
                     key={column.key}
                     className={[
@@ -292,7 +270,8 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
                     {column.change ? (
                       <ChangeCell row={row} window={column.window} label={cellValue(row, primaryColumn)} />
                     ) : column.primary ? (
-                      <span className="inline-flex min-w-0 items-center">
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className={asset === "sealed" ? "h-10 w-10 flex-none rounded object-contain" : "h-10 w-7 flex-none rounded object-cover"} /> : null}
                         <span className="min-w-0 truncate">{cellValue(row, column)}</span>
                         {asset === "cards" ? <VariantBadge row={row} /> : null}
                       </span>
@@ -305,9 +284,10 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
         </table>
       </div>
       <ul data-market-constituents-cards className="space-y-1.5 px-3 pb-2 sm:px-4 desk:hidden">
-        {displayedRows.map((row) => (
+        {page.rows.map((row) => (
           <li key={rowKey(row)} data-market-constituent={rowKey(row)} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
             <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
+            {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className={asset === "sealed" ? "h-12 w-12 flex-none rounded object-contain" : "h-12 w-9 flex-none rounded object-cover"} /> : null}
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center">
                 <span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{cellValue(row, primaryColumn)}</span>
@@ -319,12 +299,11 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
             </span>
             <span className="flex flex-none flex-col items-end pt-0.5">
               <span className="text-xs font-semibold tabular-nums text-[var(--text-primary)]">{formatBasketValue(row.marketPrice)}</span>
-              <ChangeCell row={row} window={movementWindow} label={cellValue(row, primaryColumn)} />
             </span>
           </li>
         ))}
       </ul>
-      {mode === "expanded" && page.hasMore && !page.error ? (
+      {page.hasMore ? (
         <div className="px-3 pb-4 sm:px-4">
           <button
             type="button"
@@ -336,11 +315,11 @@ function QueryConstituentSection({ series, movementWindow, mode }) {
             {page.isLoadingMore ? "Loading more…" : `Load more (${page.totalCount - page.rows.length} remaining)`}
           </button>
         </div>
-      ) : mode === "expanded" && !page.hasMore ? (
+      ) : (
         <p data-market-constituents-page-complete className="px-3 pb-4 text-[10px] text-[var(--text-secondary)] sm:px-4">
           All {page.totalCount} constituents loaded.
         </p>
-      ) : null}
+      )}
     </>
   );
 }
@@ -350,10 +329,6 @@ export default function MarketExplorerConstituents({
   activeSeriesId = null,
   onSelectSeries,
   onEditSeries,
-  mode = "expanded",
-  onSeeMore,
-  onBackToChart,
-  backButtonRef,
 }) {
   // Local, unpersisted: which window you are reading is a posture, not
   // research, and it does not belong in the URL beside the chart's timeframe.
@@ -373,17 +348,11 @@ export default function MarketExplorerConstituents({
     (series) => series && series.available !== false && isEnumerableSeries(series)
   );
   const active = inspectable.find((series) => series.key === activeSeriesId) || null;
-  // Prepared directory markets and query-built markets page their canonical
-  // roster; parent snapshot segments keep reading their published summary.
-  const isQuerySourced = Boolean(active?.queryFingerprint || active?.marketType);
-  const model = resolveSeriesConstituents(active, {
-    movementWindow, previewLimit: mode === "preview" ? PREVIEW_ROWS : Number.MAX_SAFE_INTEGER,
-  });
+  // A QUERY-BUILT market pages its roster from the backend; a prepared/parent
+  // market keeps reading its already-published (small) summary.
+  const isQuerySourced = Boolean(active?.queryFingerprint);
+  const model = resolveSeriesConstituents(active, { movementWindow });
   const primaryColumn = model.columns.find((column) => column.primary);
-  const displayedColumns = mode === "preview"
-    ? model.columns.filter((column) => column.primary || column.key === "rank" || column.key === "setName" || column.price || column.change)
-    : model.columns;
-  const canInspect = isQuerySourced || model.availability === CONSTITUENTS_AVAILABLE;
 
   return (
     <section
@@ -393,16 +362,9 @@ export default function MarketExplorerConstituents({
       data-market-constituents-source={isQuerySourced ? "query-paged" : "published"}
       data-market-constituents-movement-window={model.movementWindow}
       data-market-constituents-has-movement={model.hasMovement ? "true" : "false"}
-      data-market-constituents-mode={mode}
       className="flex min-w-0 flex-col"
       aria-labelledby="market-constituents-heading"
     >
-      {mode === "expanded" && onBackToChart ? (
-        <button ref={backButtonRef} type="button" data-market-constituents-back onClick={onBackToChart}
-          className="mx-3 mt-3 min-h-11 self-start rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 sm:mx-4">
-          Back to chart
-        </button>
-      ) : null}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-3 py-3 sm:px-4">
         <h2 id="market-constituents-heading" className="text-[16px] font-semibold text-[var(--text-primary)]">
           Constituents
@@ -434,20 +396,13 @@ export default function MarketExplorerConstituents({
         {active?.instanceId && active?.spec?.membershipMode === "explicit" ? (
           <button type="button" data-market-constituents-edit-items onClick={() => onEditSeries?.(active)} className="min-h-9 rounded-md border border-[var(--border-subtle)] px-3 text-[11px] font-semibold text-[var(--text-secondary)]">Edit Items</button>
         ) : null}
-        {mode === "preview" && canInspect && onSeeMore ? (
-          <button type="button" data-market-constituents-see-more onClick={onSeeMore}
-            className="min-h-11 rounded-md border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
-            See more
-          </button>
-        ) : null}
       </div>
 
       <SeriesPicker series={inspectable} activeId={active?.key || null} onSelect={onSelectSeries} />
 
-      <div data-market-constituents-scroll className={mode === "expanded" ? "max-h-[75vh] overflow-y-auto desk:max-h-none desk:overflow-visible" : ""} role={mode === "expanded" ? "region" : undefined} aria-label={mode === "expanded" ? "Constituents" : undefined} tabIndex={mode === "expanded" ? 0 : undefined}>
       {isQuerySourced ? (
         // NEVER the 33k-row static path — always the paged backend consumer.
-        <QueryConstituentSection series={active} movementWindow={movementWindow} mode={mode} />
+        <QueryConstituentSection series={active} movementWindow={movementWindow} />
       ) : model.availability === CONSTITUENTS_AVAILABLE ? (
         <>
           {model.belowRequestedTopN ? (
@@ -468,11 +423,11 @@ export default function MarketExplorerConstituents({
 
           {/* Desktop: the full table, scrolling inside its own container so the
               page itself never scrolls sideways. */}
-          <div data-market-constituents-table className={`hidden overflow-x-auto px-3 pb-4 sm:px-4 desk:block ${mode === "expanded" ? "max-h-[min(76vh,72rem)] overflow-y-auto" : ""}`} role={mode === "expanded" ? "region" : undefined} aria-label={mode === "expanded" ? "Constituent table" : undefined} tabIndex={mode === "expanded" ? 0 : undefined}>
+          <div data-market-constituents-table className="hidden overflow-x-auto px-3 pb-4 sm:px-4 desk:block">
             <table className="w-full min-w-[720px] text-left text-xs">
-              <thead className="sticky top-0 z-10 border-y border-[var(--border-subtle)] bg-[var(--surface-page)] text-[10px] uppercase tracking-[0.07em] text-[var(--text-secondary)]">
+              <thead className="border-y border-[var(--border-subtle)] text-[10px] uppercase tracking-[0.07em] text-[var(--text-secondary)]">
                 <tr>
-                  {displayedColumns.map((column) => (
+                  {model.columns.map((column) => (
                     <th key={column.key} scope="col" className={`px-3 py-2 ${column.align === "right" ? "text-right" : ""}`}>
                       {column.label}
                     </th>
@@ -486,7 +441,7 @@ export default function MarketExplorerConstituents({
                     data-market-constituent={row[model.idField]}
                     className="border-b border-[var(--border-subtle)] last:border-0"
                   >
-                    {displayedColumns.map((column) => (
+                    {model.columns.map((column) => (
                       <td
                         key={column.key}
                         className={[
@@ -581,7 +536,6 @@ export default function MarketExplorerConstituents({
             : (model.reason || "Select a market to see what is inside it.")}
         </p>
       )}
-      </div>
     </section>
   );
 }

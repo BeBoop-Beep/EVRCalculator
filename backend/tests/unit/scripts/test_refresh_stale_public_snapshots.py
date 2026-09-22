@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -2694,3 +2695,66 @@ def test_market_snapshot_staleness_heavy_fetch_count_stays_bounded_per_set_as_ca
     combined_repr = "\n".join(repr(result) for result in results)
     for sentinel in sentinels:
         assert sentinel not in combined_repr
+
+
+
+def test_daily_top_chase_history_rows_keeps_only_current_market_date():
+    dashboard = {
+        "latest_market_date": "2026-09-20",
+        "top_chase_cards_json": [{"id": f"card-{rank}"} for rank in range(1, 11)],
+    }
+    rows = []
+    for day in ("2026-09-18", "2026-09-19", "2026-09-20"):
+        rows.extend(
+            {
+                "set_id": "set-1",
+                "snapshot_date": day,
+                "rank": rank,
+                "card_id": f"card-{rank}",
+                "market_price": 100 - rank,
+            }
+            for rank in range(1, 11)
+        )
+
+    current = refresh._daily_top_chase_history_rows(dashboard, rows)
+
+    assert len(current) == 10
+    assert {row["snapshot_date"] for row in current} == {"2026-09-20"}
+    assert {row["rank"] for row in current} == set(range(1, 11))
+
+
+def test_daily_top_chase_history_rows_fails_closed_when_current_slice_is_incomplete():
+    dashboard = {
+        "latest_market_date": "2026-09-20",
+        "top_chase_cards_json": [{"id": f"card-{rank}"} for rank in range(1, 11)],
+    }
+    rows = [
+        {
+            "set_id": "set-1",
+            "snapshot_date": "2026-09-20",
+            "rank": rank,
+            "card_id": f"card-{rank}",
+        }
+        for rank in range(1, 10)
+    ]
+
+    with pytest.raises(RuntimeError, match="current-date slice is incomplete"):
+        refresh._daily_top_chase_history_rows(dashboard, rows)
+
+
+def test_daily_top_chase_history_rows_allows_zero_when_dashboard_has_no_top_chase():
+    dashboard = {
+        "latest_market_date": "2026-09-20",
+        "top_chase_cards_json": [],
+    }
+
+    assert refresh._daily_top_chase_history_rows(dashboard, []) == []
+
+
+
+def test_top_chase_current_date_validation_precedes_first_coordinated_write():
+    source = inspect.getsource(refresh._maybe_rebuild_coordinated_market)
+    validate_at = source.index("_daily_top_chase_history_rows(")
+    first_write_at = source.index("upsert_row(")
+
+    assert validate_at < first_write_at

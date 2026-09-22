@@ -137,6 +137,7 @@ def _audit(**overrides):
         "global_set_value_target": _global_set_value_target(),
         "in_global_set_value_cohort": True,
         "canonical_set_value": 100.0,
+        "top_chase_daily_ranks": [1],
     }
     kwargs.update(overrides)
     return audit_market_set_row(**kwargs)
@@ -606,6 +607,9 @@ def _publication_db(**overrides):
         "pokemon_set_value_daily_history": [
             {"set_id": "set-1", "snapshot_date": DATE, "set_value": 100.0, "value_scope": "standard"}
         ],
+        "pokemon_set_top_chase_card_daily_history": [
+            {"set_id": "set-1", "snapshot_date": DATE, "rank": 1}
+        ],
         "sealed_products": [{"id": "sp-1", "set_id": "set-1", "name": "Test Set Booster Box"}],
         "sealed_product_price_observations": [
             {"sealed_product_id": "sp-1", "captured_at": f"{DATE}T09:00:00Z"}
@@ -631,6 +635,7 @@ def test_audit_reads_every_declared_source_table():
         "pokemon_set_cards_snapshot_latest",
         "pokemon_set_page_snapshot_latest",
         "pokemon_set_value_daily_history",
+        "pokemon_set_top_chase_card_daily_history",
         "sealed_products",
     ):
         assert table in client.reads, f"{table} was never read"
@@ -1441,3 +1446,46 @@ def test_later_chunk_failure_raises_not_silently_partial():
             client, "pokemon_set_market_dashboard_snapshot_latest",
             "set_id,top_chase_cards_json", set_ids, chunk_size=10,
         )
+
+
+
+def test_top_chase_persisted_current_date_rank_is_required():
+    row = _audit(top_chase_daily_ranks=[])
+
+    verdict = _section(row, SECTION_TOP_CHASE)
+    assert verdict.passed is False
+    assert "persisted Top Chase daily history" in verdict.detail
+    assert "observed=[]" in verdict.detail
+
+
+def test_top_chase_persisted_rank_set_must_match_dashboard_cardinality():
+    dashboard = _dashboard(
+        top_chase_cards_json=[
+            {"cardVariantId": "v1", "marketPrice": 12.5, "setId": "set-1"},
+            {"cardVariantId": "v2", "marketPrice": 9.5, "setId": "set-1"},
+        ],
+        top_chase_card_histories_json={
+            "v1": _history([PRIOR, DATE]),
+            "v2": _history([PRIOR, DATE]),
+        },
+    )
+    row = _audit(dashboard_row=dashboard, top_chase_daily_ranks=[1])
+
+    verdict = _section(row, SECTION_TOP_CHASE)
+    assert verdict.passed is False
+    assert "expected=[1, 2]" in verdict.detail
+    assert "observed=[1]" in verdict.detail
+
+
+def test_end_to_end_audit_fails_when_dashboard_is_current_but_persisted_top_chase_day_is_missing():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    client = _publication_db(
+        pokemon_set_top_chase_card_daily_history=[]
+    )
+    report = run_market_publication_audit(client, phase="post-scrape")
+
+    assert report.passed is False
+    assert SECTION_TOP_CHASE in report.to_dict()["failed_by_section"]
+    verdict = _section(report.rows[0], SECTION_TOP_CHASE)
+    assert "persisted Top Chase daily history" in verdict.detail

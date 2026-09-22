@@ -4579,12 +4579,21 @@ def build_explore_rankings_snapshot_row(
     *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None,
     rankings_top_chase_snapshot_rows: Optional[List[Dict[str, Any]]] = None,
     source_rankings_payload: Optional[Dict[str, Any]] = None,
+    expected_run_by_set: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     built_at = utc_now_iso()
     target_kwargs = {"limit": limit}
     if rankings_top_chase_snapshot_rows is not None:
         target_kwargs["rankings_top_chase_snapshot_rows"] = rankings_top_chase_snapshot_rows
+    if expected_run_by_set is not None:
+        target_kwargs["expected_run_by_set"] = expected_run_by_set
     payload = source_rankings_payload or get_rip_statistics_targets_payload(**target_kwargs)
+    if source_rankings_payload is not None and expected_run_by_set:
+        from backend.db.services.explore_rip_statistics_service import _assert_expected_simulation_run_authority
+        _assert_expected_simulation_run_authority(
+            list(payload.get("targets") or []),
+            expected_run_by_set,
+        )
     targets = list(payload.get("targets") or [])
     opening_targets = [target for target in targets if is_opening_set_row(target)]
     service_client = get_client()

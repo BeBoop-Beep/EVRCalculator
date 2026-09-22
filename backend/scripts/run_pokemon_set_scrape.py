@@ -746,18 +746,46 @@ def _scrape_one_set(
                     raise RuntimeError(
                         f"scrape market-date mismatch: write={outcome.get('marketDate')} "
                         f"postcondition={market_date}")
-                from backend.db.services.scrape_postcondition import verify_tcgplayer_source_variant_persistence
-                postcondition_started = time.perf_counter()
-                postcondition = verify_tcgplayer_source_variant_persistence(
-                    outcome.get("setId"), market_date, outcome.get("sourceVariantKeys", []))
-                postcondition["postconditionMs"] = round(
-                    (time.perf_counter() - postcondition_started) * 1000, 3)
-                outcome.update(postcondition)
-                if not postcondition.get("success"):
-                    raise RuntimeError(
-                        "incomplete_source_variant_persistence: "
-                        f"{postcondition['reconciledSourceVariantCount']}/"
-                        f"{postcondition['acceptedVariantGroups']} exact-day source variants")
+
+                # Catalog-only provider identities can legitimately be sealed-only
+                # before singles exist. They can also expose only Code Card rows in
+                # TCGplayer's Cards product type (First Partner Collection 2026 is
+                # a real production example). Do not fail the entire catalog
+                # refresh on a card-variant postcondition that has no accepted
+                # variants to reconcile. Missing-required-field rows are NOT
+                # exempted: only a genuinely empty card surface or an all-code-card
+                # surface is considered an intentional zero.
+                raw_rows = int(outcome.get("rawRows") or 0)
+                accepted_groups = int(outcome.get("acceptedVariantGroups") or 0)
+                dropped_code_cards = int(outcome.get("dropped_other_code_card") or 0)
+                catalog_empty_card_side = (
+                    bool(getattr(config_cls, "CATALOG_ONLY", False))
+                    and cards_count == 0
+                    and sealed_count > 0
+                    and accepted_groups == 0
+                    and (raw_rows == 0 or dropped_code_cards == raw_rows)
+                )
+                if catalog_empty_card_side:
+                    outcome.update({
+                        "acceptedVariantGroups": 0,
+                        "reconciledSourceVariantCount": 0,
+                        "sourceCoverageRatio": None,
+                        "missingSourceVariantKeys": [],
+                        "cardPostconditionStatus": "not_applicable_catalog_empty_or_code_cards_only",
+                    })
+                else:
+                    from backend.db.services.scrape_postcondition import verify_tcgplayer_source_variant_persistence
+                    postcondition_started = time.perf_counter()
+                    postcondition = verify_tcgplayer_source_variant_persistence(
+                        outcome.get("setId"), market_date, outcome.get("sourceVariantKeys", []))
+                    postcondition["postconditionMs"] = round(
+                        (time.perf_counter() - postcondition_started) * 1000, 3)
+                    outcome.update(postcondition)
+                    if not postcondition.get("success"):
+                        raise RuntimeError(
+                            "incomplete_source_variant_persistence: "
+                            f"{postcondition['reconciledSourceVariantCount']}/"
+                            f"{postcondition['acceptedVariantGroups']} exact-day source variants")
             return {
                 "canonical_key": canonical_key,
                 "status": "success",
@@ -1300,6 +1328,54 @@ def run_scraper(
                 results.append(result)
                 failed += 1
                 break
+
+            # Initial/manual exact-target scrapes are the right boundary for
+            # card-identity enrichment.  Queue-driven daily refreshes intentionally
+            # skip this: established sets should not pay Pokemon TCG API work on
+            # every price cycle.
+            if (
+                result.get("status") == "success"
+                and manual_set_id
+                and enable_db_ingestion
+                and int(result.get("cards_scraped") or 0) > 0
+            ):
+                try:
+                    from backend.db.services.pokemon_post_scrape_card_enrichment import (
+                        enrich_scraped_set_card_metadata,
+                    )
+
+                    enrichment = enrich_scraped_set_card_metadata(
+                        set_id=manual_set_id,
+                        set_name=str(target.get("name") or getattr(config_cls, "SET_NAME", canonical_key)),
+                        canonical_key=canonical_key,
+                        cards_scraped=int(result.get("cards_scraped") or 0),
+                        expected_api_set_id=getattr(config_cls, "SET_ID", None),
+                    )
+                    result["card_metadata_enrichment"] = enrichment
+                    logger.info(
+                        "%s post-scrape card enrichment set=%s status=%s api_set=%s",
+                        RUNNER_TAG,
+                        canonical_key,
+                        enrichment.get("status"),
+                        enrichment.get("pokemon_api_set_id"),
+                    )
+                except Exception as exc:
+                    # Price ingestion already passed all scrape postconditions.
+                    # Provider metadata is additive and retryable; never turn a
+                    # valid TCGplayer price refresh into a failed scrape because
+                    # the secondary Pokemon card API is unavailable.
+                    logger.warning(
+                        "%s post-scrape card enrichment failed set=%s error=%s",
+                        RUNNER_TAG,
+                        canonical_key,
+                        exc,
+                        exc_info=True,
+                    )
+                    result["card_metadata_enrichment"] = {
+                        "status": "failed_nonfatal",
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    }
 
             results.append(result)
 

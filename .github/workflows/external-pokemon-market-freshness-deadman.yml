@@ -1,0 +1,56 @@
+name: External Pokemon Market Freshness Dead-Man
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 09:15 America/Phoenix year-round (Arizona does not observe DST).
+    - cron: '15 16 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-market-freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check backend health
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl             --fail             --silent             --show-error             --retry 5             --retry-delay 15             --retry-all-errors             --max-time 30             https://evrcalculator.onrender.com/health             >/tmp/backend-health.json
+
+      - name: Require today's public Market authority
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl             --fail             --silent             --show-error             --retry 5             --retry-delay 15             --retry-all-errors             --max-time 60             https://evrcalculator.onrender.com/explore/set-value-market             >/tmp/set-value-market.json
+
+          EXPECTED_DATE="$(TZ=America/Phoenix date +%F)"
+          export EXPECTED_DATE
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/set-value-market.json").read_text())
+
+          candidates = [
+              payload.get("marketDate"),
+              (payload.get("meta") or {}).get("marketDate"),
+              ((payload.get("meta") or {}).get("snapshot") or {}).get("marketDate"),
+              payload.get("market_date"),
+          ]
+          actual = next((str(value)[:10] for value in candidates if value), None)
+          expected = os.environ["EXPECTED_DATE"]
+
+          print(f"expected_market_date={expected}")
+          print(f"public_market_date={actual}")
+
+          if actual != expected:
+              raise SystemExit(
+                  f"Public Pokemon Market is stale: expected {expected}, observed {actual!r}"
+              )
+          PY

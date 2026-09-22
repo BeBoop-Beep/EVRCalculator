@@ -1,0 +1,310 @@
+from types import SimpleNamespace
+
+import pytest
+
+from backend.db.services import price_storage_v2_projection_gate as gate
+
+
+class _Query:
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self.filters = {}
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, column, value):
+        self.filters[column] = value
+        return self
+
+    def execute(self):
+        rows = [
+            row for row in self.rows
+            if all(str(row.get(column)) == str(value) for column, value in self.filters.items())
+        ]
+        return SimpleNamespace(data=rows)
+
+
+class _Client:
+    def __init__(self, scrape_rows, queue_rows):
+        self.scrape_rows = scrape_rows
+        self.queue_rows = queue_rows
+
+    def table(self, name):
+        if name == "scrape_jobs":
+            return _Query(self.scrape_rows)
+        if name == "price_storage_v2_shadow_queue":
+            return _Query(self.queue_rows)
+        raise AssertionError(name)
+
+
+def _scrape(set_id, completed_at):
+    return {
+        "set_id": set_id,
+        "market_date": "2026-09-20",
+        "status": "completed",
+        "completed_at": completed_at,
+    }
+
+
+def _queue(set_id, *, status="complete", source_completed_at="2026-09-20T23:10:00+00:00", attempts=1):
+    return {
+        "set_id": set_id,
+        "market_date": "2026-09-20",
+        "status": status,
+        "attempts": attempts,
+        "source_completed_at": source_completed_at,
+        "completed_at": "2026-09-20T23:11:00+00:00",
+    }
+
+
+def test_projection_ready_requires_every_completed_scrape_set():
+    client = _Client(
+        [_scrape("a", "2026-09-20T23:01:00+00:00"), _scrape("b", "2026-09-20T23:02:00+00:00")],
+        [_queue("a"), _queue("b")],
+    )
+    result = gate.evaluate_price_projection_gate(client, "2026-09-20")
+    assert result.ready is True
+    assert result.expected_set_count == 2
+    assert result.complete_set_count == 2
+
+
+def test_pending_projection_blocks_publication():
+    client = _Client(
+        [_scrape("a", "2026-09-20T23:01:00+00:00"), _scrape("b", "2026-09-20T23:02:00+00:00")],
+        [_queue("a"), _queue("b", status="pending")],
+    )
+    result = gate.evaluate_price_projection_gate(client, "2026-09-20")
+    assert result.ready is False
+    assert result.pending_set_ids == ["b"]
+
+
+def test_complete_queue_row_for_older_scrape_attempt_is_not_ready():
+    client = _Client(
+        [_scrape("a", "2026-09-20T23:15:00+00:00")],
+        [_queue("a", source_completed_at="2026-09-20T23:10:00+00:00")],
+    )
+    result = gate.evaluate_price_projection_gate(client, "2026-09-20")
+    assert result.ready is False
+    assert result.complete_set_count == 0
+    assert result.stale_source_set_ids == ["a"]
+
+
+def test_terminal_failed_projection_is_exposed():
+    client = _Client(
+        [_scrape("a", "2026-09-20T23:01:00+00:00")],
+        [_queue("a", status="failed", attempts=5)],
+    )
+    result = gate.evaluate_price_projection_gate(client, "2026-09-20")
+    assert result.ready is False
+    assert result.failed_set_ids == ["a"]
+    assert result.terminal_failed_set_ids == ["a"]
+
+
+def test_authority_read_error_fails_closed():
+    class Broken:
+        def table(self, _name):
+            raise RuntimeError("db unavailable")
+    result = gate.evaluate_price_projection_gate(Broken(), "2026-09-20")
+    assert result.ready is False
+    assert result.reason_code == gate.REASON_AUTHORITY_UNAVAILABLE
+
+
+
+class _Transient57014(Exception):
+    code = "57014"
+
+
+class _DeterministicSqlError(Exception):
+    code = "42P01"
+
+
+class _RpcCall:
+    def __init__(self, *, error=None, data=None):
+        self.error = error
+        self.data = data
+
+    def execute(self):
+        if self.error is not None:
+            raise self.error
+        return SimpleNamespace(data=self.data)
+
+
+class _RpcClient:
+    def __init__(self, *, expected_rpc, expected_params=None, error=None, data=None):
+        self.expected_rpc = expected_rpc
+        self.expected_params = expected_params
+        self.error = error
+        self.data = data
+
+    def rpc(self, name, params):
+        assert name == self.expected_rpc
+        if self.expected_params is not None:
+            assert params == self.expected_params
+        return _RpcCall(error=self.error, data=self.data)
+
+
+def _job():
+    return {
+        "id": 1,
+        "set_id": "set-a",
+        "market_date": "2026-09-21",
+        "attempts": 1,
+    }
+
+
+def test_staged_job_retries_transient_stage_with_fresh_client(monkeypatch):
+    clients = [
+        _RpcClient(
+            expected_rpc="sync_price_storage_v2_set_date",
+            error=_Transient57014("canceling statement due to statement timeout"),
+        ),
+        _RpcClient(expected_rpc="sync_price_storage_v2_set_date", data={"ok": True}),
+        _RpcClient(expected_rpc="sync_price_observation_ranges_v2_set_date", data={"ok": True}),
+        _RpcClient(
+            expected_rpc="sync_pokemon_market_price_intervals_v2_shadow_set_from_date",
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="refresh_pokemon_canonical_card_market_prices_latest_for_set",
+            data=120,
+        ),
+    ]
+    state = {"index": 0}
+    finished = []
+
+    def factory():
+        client = clients[state["index"]]
+        state["index"] += 1
+        return client
+
+    monkeypatch.setattr(
+        gate,
+        "_finish_projection_job",
+        lambda job, *, status, last_error, client_factory: finished.append(
+            (status, last_error)
+        ),
+    )
+
+    report = gate._process_projection_job_staged(
+        _job(), client_factory=factory
+    )
+
+    assert state["index"] == 5
+    assert report["status"] == "complete"
+    assert len(report["completed_stages"]) == 4
+    assert finished == [("complete", None)]
+
+
+def test_staged_job_deterministic_failure_is_not_retried(monkeypatch):
+    clients = [
+        _RpcClient(
+            expected_rpc="sync_price_storage_v2_set_date",
+            error=_DeterministicSqlError("relation does not exist"),
+        ),
+    ]
+    state = {"index": 0}
+    finished = []
+
+    def factory():
+        client = clients[state["index"]]
+        state["index"] += 1
+        return client
+
+    monkeypatch.setattr(
+        gate,
+        "_finish_projection_job",
+        lambda job, *, status, last_error, client_factory: finished.append(
+            (status, last_error)
+        ),
+    )
+
+    report = gate._process_projection_job_staged(
+        _job(), client_factory=factory
+    )
+
+    assert state["index"] == 1
+    assert report["status"] == "failed"
+    assert report["completed_stages"] == []
+    assert report["failed_stage"] == "sync_price_storage_v2_set_date"
+    assert finished and finished[0][0] == "failed"
+    assert finished[0][1].startswith("stage=sync_price_storage_v2_set_date;")
+
+
+def test_failed_staged_job_does_not_starve_later_jobs(monkeypatch):
+    jobs = iter([
+        {"id": 1, "set_id": "bad", "market_date": "2026-09-21", "attempts": 1},
+        {"id": 2, "set_id": "good", "market_date": "2026-09-21", "attempts": 1},
+        None,
+    ])
+    monkeypatch.setattr(
+        gate,
+        "_claim_projection_job",
+        lambda *_a, **_k: next(jobs),
+    )
+    monkeypatch.setattr(
+        gate,
+        "_process_projection_job_staged",
+        lambda job, **_k: {
+            "id": job["id"],
+            "set_id": job["set_id"],
+            "status": "failed" if job["set_id"] == "bad" else "complete",
+        },
+    )
+
+    report = gate._process_projection_jobs_staged(
+        "2026-09-21",
+        process_limit=20,
+        client_factory=lambda: object(),
+    )
+
+    assert report["processed"] == 2
+    assert report["failed"] == 1
+    assert report["completed"] == 1
+    assert [row["set_id"] for row in report["jobs"]] == ["bad", "good"]
+
+
+def test_staged_interval_rpc_uses_start_date_contract(monkeypatch):
+    clients = [
+        _RpcClient(
+            expected_rpc="sync_price_storage_v2_set_date",
+            expected_params={"p_set_id": "set-a", "p_market_date": "2026-09-21"},
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="sync_price_observation_ranges_v2_set_date",
+            expected_params={"p_set_id": "set-a", "p_market_date": "2026-09-21"},
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="sync_pokemon_market_price_intervals_v2_shadow_set_from_date",
+            expected_params={"p_set_id": "set-a", "p_start_date": "2026-09-21"},
+            data={"ok": True},
+        ),
+        _RpcClient(
+            expected_rpc="refresh_pokemon_canonical_card_market_prices_latest_for_set",
+            expected_params={"target_set_id": "set-a"},
+            data=120,
+        ),
+    ]
+    state = {"index": 0}
+    finished = []
+
+    def factory():
+        client = clients[state["index"]]
+        state["index"] += 1
+        return client
+
+    monkeypatch.setattr(
+        gate,
+        "_finish_projection_job",
+        lambda job, *, status, last_error, client_factory: finished.append(
+            (status, last_error)
+        ),
+    )
+
+    report = gate._process_projection_job_staged(_job(), client_factory=factory)
+
+    assert report["status"] == "complete"
+    assert state["index"] == 4
+    assert finished == [("complete", None)]

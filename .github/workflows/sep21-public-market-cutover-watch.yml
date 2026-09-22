@@ -1,0 +1,51 @@
+name: Sep 21 Public Market Cutover Watch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sep21-public-market-cutover-watch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/sentinel-continuation-20260921
+          fetch-depth: 1
+
+      - name: Wait for Sep 21 public Market authority
+        shell: bash
+        run: |
+          set -uo pipefail
+          TARGET=2026-09-21
+          RESULT=""
+          DATE=""
+          COUNT="-1"
+          for i in $(seq 1 40); do
+            BODY="$(mktemp)"
+            CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+            DATE="$(python -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+            COUNT="$(python -c 'import json,sys; p=json.load(open(sys.argv[1])); x=p.get("sets"); print(len(x) if isinstance(x,list) else -1)' "$BODY" 2>/dev/null || true)"
+            rm -f "$BODY"
+            echo "poll=$i http=$CODE public_market_date=$DATE set_count=$COUNT"
+            if [ "$CODE" = "200" ] && [ "$DATE" = "$TARGET" ]; then
+              RESULT="PASS"
+              break
+            fi
+            sleep 30
+          done
+
+          mkdir -p ops/assistant
+          printf 'result=%s\ntarget=%s\nobserved=%s\nset_count=%s\nutc=%s\n' "$RESULT" "$TARGET" "$DATE" "$COUNT" "$(date -u +%FT%TZ)" > ops/assistant/public-market-cutover.txt
+          git config user.name "inDex public cutover watch"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/public-market-cutover.txt
+          git commit -m "ops: record Sep 21 public Market cutover" || true
+          git push origin HEAD:ops/sentinel-continuation-20260921
+          [ "$RESULT" = "PASS" ]

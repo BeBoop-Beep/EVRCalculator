@@ -4,7 +4,11 @@ from pathlib import Path
 import pytest
 
 from backend.services.pokemon_set_config_generation_service import (
-    ConfigGenerationError, apply_approved_pull_model, generate_one_set_config,
+    ConfigGenerationError,
+    apply_approved_pull_model,
+    generate_catalog_only_set_config,
+    generate_one_set_config,
+    provider_catalog_era_hint,
 )
 
 
@@ -139,3 +143,39 @@ def test_unknown_base_rarity_mapping_requires_review(tmp_path):
             root, "megaEvolutionEra", "futureSet", manifest,
             {"common": 25, "mystery": 20, "rare": 12},
         )
+
+
+def test_provider_catalog_era_hint_is_explicit_and_not_fuzzy():
+    assert provider_catalog_era_hint("ME06: Delta Reign") == ("megaEvolutionEra", "Mega Evolution")
+    assert provider_catalog_era_hint("ME: 30th Celebration") == ("megaEvolutionEra", "Mega Evolution")
+    assert provider_catalog_era_hint("First Partner Collection 2026") is None
+
+
+def test_catalog_only_generation_is_idempotent_and_non_simulating(tmp_path):
+    root = _checkout(tmp_path)
+    first = generate_catalog_only_set_config(
+        root,
+        source_set_name="ME06: Delta Reign",
+        source_set_id="24831",
+        card_details_url="https://tcg/cards",
+        sealed_details_url="https://tcg/sealed",
+        era_folder="megaEvolutionEra",
+    )
+    text = first.config_path.read_text(encoding="utf-8")
+    assert "TCGPLAYER_SET_ID = '24831'" in text
+    assert "CATALOG_ONLY = True" in text
+    assert "SUPPORTS_OPENING_SIMULATION = False" in text
+    assert "USE_MONTE_CARLO_V2 = False" in text
+    assert 'PULL_MODEL_STATUS = "unsupported"' in text
+    assert "'24831': 'me06DeltaReign'" in first.set_map_path.read_text(encoding="utf-8")
+    ast.parse(text)
+
+    second = generate_catalog_only_set_config(
+        root,
+        source_set_name="ME06: Delta Reign",
+        source_set_id="24831",
+        card_details_url="https://tcg/cards",
+        sealed_details_url="https://tcg/sealed",
+        era_folder="megaEvolutionEra",
+    )
+    assert second.changed_paths == ()

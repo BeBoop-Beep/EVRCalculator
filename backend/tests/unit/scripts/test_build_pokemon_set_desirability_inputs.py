@@ -243,6 +243,14 @@ _CATALOG_SET_ROW = {
 _NORMAL_SET_ROW = {
     "id": "set-normal-1", "name": "Some Normal Set",
     "canonical_key": "someNormalSet", "pokemon_api_set_id": None, "catalog_only": False,
+    "is_subset": False, "counts_toward_parent_set_value": False,
+    "counts_toward_parent_opening": False,
+}
+_SUBSET_SET_ROW = {
+    "id": "set-subset-1", "name": "Some Classic Collection",
+    "canonical_key": "someClassicCollection", "pokemon_api_set_id": None,
+    "catalog_only": False, "is_subset": True,
+    "counts_toward_parent_set_value": True, "counts_toward_parent_opening": True,
 }
 
 
@@ -257,6 +265,12 @@ def _wire_process_single_set(monkeypatch, *, cards, canonical_rows):
     monkeypatch.setattr(combined, "_list_cards_for_set", lambda _client, _set_id: cards)
     monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: canonical_rows)
     monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: [])
+    monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: set())
+    monkeypatch.setattr(
+        combined,
+        "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {},
+    )
     monkeypatch.setattr(
         combined, "_refresh_authoritative_canonical_cards",
         lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
@@ -282,7 +296,7 @@ def test_catalog_only_fallback_rows_carry_explicit_eligibility_fields(monkeypatc
     assert "opening simulation" in row["eligibility_reason"]
 
 
-def test_non_catalog_set_rows_omit_eligibility_overrides_and_use_table_defaults(monkeypatch):
+def test_non_catalog_root_rows_write_explicit_normal_eligibility(monkeypatch):
     captured_rows = []
     _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "001/120")], canonical_rows=[])
     monkeypatch.setattr(
@@ -294,9 +308,30 @@ def test_non_catalog_set_rows_omit_eligibility_overrides_and_use_table_defaults(
 
     assert len(captured_rows) == 1
     row = captured_rows[0]
-    for field in ("catalog_role", "set_value_eligible", "opening_eligible",
-                  "canonical_review_status", "eligibility_reason"):
-        assert field not in row
+    assert row["catalog_role"] == "main"
+    assert row["set_value_eligible"] is True
+    assert row["opening_eligible"] is True
+    assert row["canonical_review_status"] == "approved"
+    assert row["eligibility_reason"] is None
+
+
+def test_non_catalog_subset_rows_match_established_subset_eligibility(monkeypatch):
+    captured_rows = []
+    _wire_process_single_set(monkeypatch, cards=[_trainer_card("c1", "CC01")], canonical_rows=[])
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured_rows.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_SUBSET_SET_ROW, dry_run=False)
+
+    assert len(captured_rows) == 1
+    row = captured_rows[0]
+    assert row["catalog_role"] == "subset"
+    assert row["set_value_eligible"] is True
+    assert row["opening_eligible"] is True
+    assert row["canonical_review_status"] == "approved"
+    assert row["eligibility_reason"] == "pack_pulled_subset_card"
 
 
 def test_authoritative_canonical_row_is_preserved_even_for_a_catalog_only_set(monkeypatch):
@@ -426,3 +461,186 @@ def test_full_pipeline_mode_still_invokes_downstream_builders(monkeypatch):
     assert called == ["_build_links", "_build_summaries", "_build_components", "_build_opening"]
     assert "mode" not in report
     assert "links_report" in report
+
+
+
+def _ref(ref_id, pokedex, display, canonical=None):
+    return {
+        "id": ref_id,
+        "pokedex_number": pokedex,
+        "display_name": display,
+        "canonical_name": canonical or display.lower().replace(" ", "-"),
+    }
+
+
+def test_provider_fallback_reference_matching_uses_form_defaults_and_regional_prefixes():
+    refs = [
+        _ref(103, 103, "Exeggutor", "exeggutor"),
+        _ref(745, 745, "Lycanroc Midday", "lycanroc-midday"),
+        _ref(849, 849, "Toxtricity Amped", "toxtricity-amped"),
+        _ref(877, 877, "Morpeko Full Belly", "morpeko-full-belly"),
+        _ref(925, 925, "Maushold Family Of Four", "maushold-family-of-four"),
+    ]
+    lookup = combined._build_reference_lookup(refs)
+
+    assert [r["pokedex_number"] for r in combined._match_references_for_card_name(
+        name="Alolan Exeggutor", reference_lookup=lookup
+    )] == [103]
+    assert [r["pokedex_number"] for r in combined._match_references_for_card_name(
+        name="Lycanroc", reference_lookup=lookup
+    )] == [745]
+    assert [r["pokedex_number"] for r in combined._match_references_for_card_name(
+        name="Toxtricity", reference_lookup=lookup
+    )] == [849]
+    assert [r["pokedex_number"] for r in combined._match_references_for_card_name(
+        name="Morpeko", reference_lookup=lookup
+    )] == [877]
+    assert [r["pokedex_number"] for r in combined._match_references_for_card_name(
+        name="Maushold", reference_lookup=lookup
+    )] == [925]
+
+
+def test_provider_fallback_reference_matching_handles_vintage_modifiers_and_owner_names():
+    refs = [
+        _ref(251, 251, "Celebi", "celebi"),
+        _ref(248, 248, "Tyranitar", "tyranitar"),
+        _ref(649, 649, "Genesect", "genesect"),
+        _ref(376, 376, "Metagross", "metagross"),
+        _ref(169, 169, "Crobat", "crobat"),
+        _ref(39, 39, "Jigglypuff", "jigglypuff"),
+    ]
+    lookup = combined._build_reference_lookup(refs)
+
+    cases = {
+        "Shining Celebi": 251,
+        "Dark Tyranitar": 248,
+        "Genesect EX(Team Plasma)": 649,
+        "Metagross(Delta Species)": 376,
+        "Crobat G": 169,
+        "Erika's Jigglypuff": 39,
+    }
+    for name, expected in cases.items():
+        matches = combined._match_references_for_card_name(name=name, reference_lookup=lookup)
+        assert [r["pokedex_number"] for r in matches] == [expected]
+
+
+def test_provider_fallback_reference_matching_preserves_multi_pokemon_cards():
+    refs = [
+        _ref(25, 25, "Pikachu", "pikachu"),
+        _ref(644, 644, "Zekrom", "zekrom"),
+        _ref(488, 488, "Cresselia", "cresselia"),
+        _ref(491, 491, "Darkrai", "darkrai"),
+    ]
+    lookup = combined._build_reference_lookup(refs)
+
+    tag_team = combined._match_references_for_card_name(
+        name="Pikachu & Zekrom GX", reference_lookup=lookup
+    )
+    legend = combined._match_references_for_card_name(
+        name="Darkrai & Cresselia Legend(Bottom)", reference_lookup=lookup
+    )
+
+    assert [r["pokedex_number"] for r in tag_team] == [25, 644]
+    assert [r["pokedex_number"] for r in legend] == [488, 491]
+
+
+def test_provider_fallback_exact_trainer_authority_wins_over_pokemon_phrase_matching(monkeypatch):
+    cards = [
+        {"id": "n-card", "name": "N", "rarity": "Classic Collection",
+         "card_number": "101/101", "pokemon_tcg_api_id": None,
+         "image_small_url": None, "image_large_url": None},
+        {"id": "misty-card", "name": "Misty", "rarity": "Classic Collection",
+         "card_number": "18/132", "pokemon_tcg_api_id": None,
+         "image_small_url": None, "image_large_url": None},
+    ]
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda _client, _set_id: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: [])
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: [])
+    monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: {"n", "misty"})
+    monkeypatch.setattr(
+        combined, "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {},
+    )
+    monkeypatch.setattr(
+        combined, "_refresh_authoritative_canonical_cards",
+        lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
+    )
+    captured = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_SUBSET_SET_ROW, dry_run=False)
+
+    assert [row["supertype"] for row in captured] == ["Trainer", "Trainer"]
+    assert all(row["national_pokedex_numbers"] == [] for row in captured)
+
+
+def test_provider_fallback_multi_subjects_persist_all_pokedex_numbers(monkeypatch):
+    cards = [
+        {"id": "tag-card", "name": "Pikachu & Zekrom GX", "rarity": "Classic Collection",
+         "card_number": "33/181", "pokemon_tcg_api_id": None,
+         "image_small_url": None, "image_large_url": None},
+    ]
+    refs = [
+        _ref(25, 25, "Pikachu", "pikachu"),
+        _ref(644, 644, "Zekrom", "zekrom"),
+    ]
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda _client, _set_id: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: [])
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: refs)
+    monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: set())
+    monkeypatch.setattr(
+        combined, "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {},
+    )
+    monkeypatch.setattr(
+        combined, "_refresh_authoritative_canonical_cards",
+        lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
+    )
+    captured = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_SUBSET_SET_ROW, dry_run=False)
+
+    assert len(captured) == 1
+    assert captured[0]["supertype"] == "Pokémon"
+    assert captured[0]["national_pokedex_numbers"] == [25, 644]
+    assert captured[0]["source_payload"]["matched_pokedex_numbers"] == [25, 644]
+    assert captured[0]["source_payload"]["matched_pokedex_number"] is None
+
+
+
+def test_authoritative_non_pokemon_exact_name_supertype_wins_without_fuzzy_guess(monkeypatch):
+    cards = [
+        {"id": "switch-card", "name": "Switch", "rarity": "Common",
+         "card_number": "127/128", "pokemon_tcg_api_id": None,
+         "image_small_url": None, "image_large_url": None},
+    ]
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda _client, _set_id: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda _client, _set_id: [])
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda _client: [])
+    monkeypatch.setattr(combined, "_list_trainer_reference_names", lambda _client: set())
+    monkeypatch.setattr(
+        combined, "_list_authoritative_non_pokemon_name_supertypes",
+        lambda _client, _names: {"switch": "Trainer"},
+    )
+    monkeypatch.setattr(
+        combined, "_refresh_authoritative_canonical_cards",
+        lambda **kwargs: {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0},
+    )
+    captured = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: captured.extend(rows) or len(rows),
+    )
+
+    combined._process_single_set(client=object(), set_row=_NORMAL_SET_ROW, dry_run=False)
+
+    assert len(captured) == 1
+    assert captured[0]["supertype"] == "Trainer"
+    assert captured[0]["national_pokedex_numbers"] == []

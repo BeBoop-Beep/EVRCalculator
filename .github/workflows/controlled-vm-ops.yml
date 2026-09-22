@@ -1,0 +1,841 @@
+name: Controlled VM Ops
+
+on:
+  push:
+    branches:
+      - vm-ops-control
+    paths:
+      - ".vm-ops/request.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+
+jobs:
+  vm-ops:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 120
+    env:
+      VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+      ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ACTIONS_SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ACTIONS_POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+      ACTIONS_SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+    steps:
+      - name: Validate request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+
+          message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
+          match = re.fullmatch(
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
+              r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
+              r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
+              message,
+          )
+          if not match:
+              raise SystemExit(f"invalid controlled VM request message: {message!r}")
+
+          op, market_date, set_id, request_id = match.groups()
+          market_date = market_date or ""
+          set_id = set_id or ""
+          request_id = request_id or ""
+
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors"} and not market_date:
+              raise SystemExit(f"{op} requires market_date")
+          if op == "market-dashboard-set" and not set_id:
+              raise SystemExit("market-dashboard-set requires set_id")
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"VM_OPERATION={op}\n")
+              env.write(f"VM_MARKET_DATE={market_date}\n")
+              env.write(f"VM_SET_ID={set_id}\n")
+              env.write(f"VM_REQUEST_ID={request_id}\n")
+
+          print({
+              "operation": op,
+              "market_date": market_date,
+              "set_id": set_id,
+              "request_id": request_id,
+          })
+          PY
+
+      - name: Execute approved operation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO="/home/ubuntu/repos/EVRCalculator"
+          PY="$REPO/.venv/bin/python"
+
+          test -d "$REPO/.git" || { echo "Production repo missing: $REPO"; exit 2; }
+          test -x "$PY" || { echo "Production venv Python missing: $PY"; exit 2; }
+
+          case "$VM_OPERATION" in
+            status)
+              cd "$REPO"
+              echo "== request =="
+              echo "request_id=$VM_REQUEST_ID"
+              echo "== git =="
+              git status --short
+              git log -1 --oneline
+              echo "== host =="
+              hostname
+              uname -m
+              free -h
+              df -h /
+              ;;
+
+            market-explorer-cutover-status)
+              cd "$REPO"
+              echo "== credential presence (values never printed) =="
+              VM_DATABASE_URL=false
+              VM_SUPABASE_DB_URL=false
+              if grep -Eq '^[[:space:]]*DATABASE_URL=' backend/.env 2>/dev/null; then VM_DATABASE_URL=true; fi
+              if grep -Eq '^[[:space:]]*SUPABASE_DB_URL=' backend/.env 2>/dev/null; then VM_SUPABASE_DB_URL=true; fi
+              echo "vm_env_DATABASE_URL=$VM_DATABASE_URL"
+              echo "vm_env_SUPABASE_DB_URL=$VM_SUPABASE_DB_URL"
+              if [ -n "${ACTIONS_DATABASE_URL:-}" ]; then echo "actions_secret_DATABASE_URL=true"; else echo "actions_secret_DATABASE_URL=false"; fi
+              if [ -n "${ACTIONS_SUPABASE_DB_URL:-}" ]; then echo "actions_secret_SUPABASE_DB_URL=true"; else echo "actions_secret_SUPABASE_DB_URL=false"; fi
+              if [ -n "${ACTIONS_POSTGRES_URL:-}" ]; then echo "actions_secret_POSTGRES_URL=true"; else echo "actions_secret_POSTGRES_URL=false"; fi
+              if [ -n "${ACTIONS_SUPABASE_DATABASE_URL:-}" ]; then echo "actions_secret_SUPABASE_DATABASE_URL=true"; else echo "actions_secret_SUPABASE_DATABASE_URL=false"; fi
+
+              echo "== source availability =="
+              git fetch --all --prune
+              ACCEPTED_SHA="2d117b49"
+              if git cat-file -e "$ACCEPTED_SHA^{commit}" 2>/dev/null; then
+                echo "accepted_worker_commit_object_present=true"
+                git branch -r --contains "$ACCEPTED_SHA" || true
+              else
+                echo "accepted_worker_commit_object_present=false"
+              fi
+              if git show origin/develop:backend/scripts/run_market_explorer_maintained_cache_prewarm.py 2>/dev/null | grep -q 'direct_db_credential_missing'; then
+                echo "origin_develop_direct_db_worker=true"
+              else
+                echo "origin_develop_direct_db_worker=false"
+              fi
+              if git show origin/develop:backend/scripts/run_market_explorer_maintained_cache_prewarm.py 2>/dev/null | grep -q 'import psycopg'; then
+                echo "origin_develop_psycopg_worker=true"
+              else
+                echo "origin_develop_psycopg_worker=false"
+              fi
+              ;;
+
+            market-explorer-direct-worker-test)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-market-explorer-direct-worker"
+              git fetch origin fix/market-explorer-direct-db-worker-20260920
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" origin/fix/market-explorer-direct-db-worker-20260920
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_market_explorer_direct_publisher.py \
+                backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+                -q
+              ;;
+
+            market-explorer-install-db-env)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              umask 077
+              TARGET="$REPO/backend/.env"
+              TMP="$REPO/backend/.env.market-explorer.tmp"
+              awk '!/^DATABASE_URL=/' "$TARGET" > "$TMP"
+              NORMALIZED_DATABASE_URL="$ACTIONS_DATABASE_URL"
+              NORMALIZED_DATABASE_URL="${NORMALIZED_DATABASE_URL/postgresql:\/\/postgres./postgresql:\/\/market_explorer_publisher.}"
+              NORMALIZED_DATABASE_URL="${NORMALIZED_DATABASE_URL/postgres:\/\/postgres./postgres:\/\/market_explorer_publisher.}"
+              printf '%s\n' "DATABASE_URL=$NORMALIZED_DATABASE_URL" >> "$TMP"
+              chmod 600 "$TMP"
+              mv "$TMP" "$TARGET"
+              echo "DATABASE_URL installed; value suppressed."
+              stat -c 'owner=%U group=%G mode=%a' "$TARGET"
+              grep -q '^DATABASE_URL=' "$TARGET" && echo "DATABASE_URL_present=true"
+              ;;
+
+            market-explorer-worker-cutover)
+              cd "$REPO"
+              TARGET_REF="origin/ops/vm-market-explorer-worker-cutover-20260920"
+              WT="/tmp/EVRCalculator-market-explorer-cutover-verify"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+
+              if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "Refusing cutover: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+
+              "$PY" -m pip install --disable-pip-version-check -q 'psycopg[binary]==3.3.6'
+
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cp "$REPO/backend/.env" "$WT/backend/.env"
+              chmod 600 "$WT/backend/.env"
+
+              echo "== rollback-only verification on candidate source =="
+              cd "$WT"
+              "$PY" -c 'import json; import backend.scripts.run_market_explorer_maintained_cache_prewarm as worker; result=worker.refresh_prepared_if_current(None,target_market_date="2026-09-19",commit=False,verify=True); print(json.dumps(result,sort_keys=True,default=str)); raise SystemExit(6 if result.get("status")=="failed" else 0)'
+
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
+
+              echo "== installing verified runtime files =="
+              git checkout "$TARGET_REF" -- backend/scripts/run_market_explorer_maintained_cache_prewarm.py backend/requirements.txt
+              git diff --check --cached
+              git diff --cached --stat
+              git commit -m "ops(explorer): cut over guarded direct DB publisher"
+
+              echo "== post-cutover =="
+              git status --short
+              git log -2 --oneline
+              ;;
+
+            market-explorer-db-diagnose)
+              cd "$REPO"
+              DIAG="/tmp/market_explorer_db_diag.py"
+              printf '%s\n' \
+                'import os, socket' \
+                'from dotenv import load_dotenv' \
+                'load_dotenv("backend/.env")' \
+                'import psycopg' \
+                'from psycopg.conninfo import conninfo_to_dict' \
+                'dsn = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")' \
+                'assert dsn, "direct_db_credential_missing"' \
+                'parsed = conninfo_to_dict(dsn)' \
+                'password = parsed.get("password") or ""' \
+                'safe = {k: parsed.get(k) for k in ("host","port","user","dbname","sslmode")}' \
+                'safe["password_present"] = bool(password)' \
+                'print("parsed=" + repr(safe))' \
+                'try:' \
+                '    infos = socket.getaddrinfo(parsed.get("host"), int(parsed.get("port") or 5432), type=socket.SOCK_STREAM)' \
+                '    print("dns_ok=true address_count=%d families=%s" % (len(infos), sorted({i[0] for i in infos})))' \
+                'except Exception as exc:' \
+                '    print("dns_ok=false error_type=" + type(exc).__name__)' \
+                'try:' \
+                '    with psycopg.connect(dsn, connect_timeout=10) as conn:' \
+                '        with conn.cursor() as cur:' \
+                '            cur.execute("select current_user, current_database()")' \
+                '            row = cur.fetchone()' \
+                '            print("connect_ok=true current_user=%s current_database=%s" % row)' \
+                'except Exception as exc:' \
+                '    message = str(exc).replace(dsn, "<REDACTED_DSN>")' \
+                '    if password: message = message.replace(password, "<REDACTED_PASSWORD>")' \
+                '    print("connect_ok=false error_type=%s sqlstate=%s" % (type(exc).__name__, getattr(exc, "sqlstate", None)))' \
+                '    print("error=" + message[:800].replace(chr(10), " | "))' \
+                '    pooler_failed = True' \
+                'else:' \
+                '    pooler_failed = False' \
+                'user = parsed.get("user") or ""' \
+                'project_ref = user.split(".")[-1] if "." in user else "zwxzxuuawalvwioadhmf"' \
+                'direct_user = user.split(".")[0]' \
+                'direct_host = "db." + project_ref + ".supabase.co"' \
+                'direct_dsn = "host=%s port=5432 dbname=%s user=%s password=%s sslmode=require connect_timeout=10" % (direct_host, parsed.get("dbname") or "postgres", direct_user, password)' \
+                'try:' \
+                '    infos = socket.getaddrinfo(direct_host, 5432, type=socket.SOCK_STREAM)' \
+                '    print("direct_dns_ok=true address_count=%d families=%s" % (len(infos), sorted({i[0] for i in infos})))' \
+                'except Exception as exc:' \
+                '    print("direct_dns_ok=false error_type=" + type(exc).__name__)' \
+                'try:' \
+                '    with psycopg.connect(direct_dsn) as conn:' \
+                '        with conn.cursor() as cur:' \
+                '            cur.execute("select current_user, current_database()")' \
+                '            row = cur.fetchone()' \
+                '            print("direct_connect_ok=true current_user=%s current_database=%s" % row)' \
+                'except Exception as exc:' \
+                '    message = str(exc)' \
+                '    if password: message = message.replace(password, "<REDACTED_PASSWORD>")' \
+                '    print("direct_connect_ok=false error_type=%s sqlstate=%s" % (type(exc).__name__, getattr(exc, "sqlstate", None)))' \
+                '    print("direct_error=" + message[:800].replace(chr(10), " | "))' \
+                '    raise SystemExit(7 if pooler_failed else 8)' \
+                'if pooler_failed:' \
+                '    raise SystemExit(7)' \
+                > "$DIAG"
+              "$PY" "$DIAG"
+              rm -f "$DIAG"
+              ;;
+
+
+            market-explorer-sync-db-password)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              SYNC="/tmp/market_explorer_sync_db_password.py"
+              printf '%s\n' \
+                'import os, json, base64, hashlib, hmac, urllib.parse, urllib.request' \
+                'from dotenv import load_dotenv' \
+                'load_dotenv("backend/.env")' \
+                'dsn = os.environ["ACTIONS_DATABASE_URL"]' \
+                'parsed = urllib.parse.urlsplit(dsn)' \
+                'password = urllib.parse.unquote(parsed.password or "")' \
+                'assert password, "DATABASE_URL password missing"' \
+                'iterations = 4096' \
+                'salt = os.urandom(16)' \
+                'salted = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)' \
+                'client_key = hmac.new(salted, b"Client Key", hashlib.sha256).digest()' \
+                'stored_key = hashlib.sha256(client_key).digest()' \
+                'server_key = hmac.new(salted, b"Server Key", hashlib.sha256).digest()' \
+                'b64 = lambda b: base64.b64encode(b).decode("ascii")' \
+                'verifier = f"SCRAM-SHA-256${iterations}:{b64(salt)}${b64(stored_key)}:{b64(server_key)}"' \
+                'url = os.environ.get("SUPABASE_URL")' \
+                'key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")' \
+                'assert url and key, "Supabase service configuration missing"' \
+                'req = urllib.request.Request(url.rstrip("/") + "/rest/v1/rpc/set_market_explorer_publisher_password_verifier_v1", data=json.dumps({"p_verifier": verifier}).encode("utf-8"), headers={"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json"}, method="POST")' \
+                'with urllib.request.urlopen(req, timeout=30) as resp:' \
+                '    assert resp.status in (200, 204), "password sync failed"' \
+                'print("publisher_password_synced=true")' \
+                > "$SYNC"
+              ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" "$PY" "$SYNC"
+              rm -f "$SYNC"
+              ;;
+
+
+            market-explorer-cron-audit)
+              cd "$REPO"
+              echo "== repo =="
+              git status --short
+              git log -1 --oneline
+              echo "== matching cron entries =="
+              crontab -l 2>/dev/null | grep -E 'run_market_explorer_maintained_cache_prewarm|market_explorer.*prewarm' || true
+              echo "== matching processes =="
+              pgrep -af 'run_market_explorer_maintained_cache_prewarm' || true
+              echo "== recent Explorer prewarm logs =="
+              find "$REPO" -maxdepth 3 -type f \( -iname '*explorer*prewarm*.log' -o -iname '*market*explorer*.log' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 8 || true
+              ;;
+
+            market-explorer-cron-observe)
+              cd "$REPO"
+              echo "== repo =="
+              git status --short
+              git log -3 --oneline
+              echo "== matching processes =="
+              pgrep -af 'run_market_explorer_maintained_cache_prewarm' || true
+              ps -eo pid,lstart,etime,stat,pcpu,pmem,wchan:24,cmd | grep '[r]un_market_explorer_maintained_cache_prewarm' || true
+              for PID in $(pgrep -f 'python -m backend.scripts.run_market_explorer_maintained_cache_prewarm' || true); do
+                echo "pid=$PID state=$(awk '/^State:/{print $2,$3}' /proc/$PID/status 2>/dev/null || true) io=$(tr '\n' ' ' </proc/$PID/io 2>/dev/null || true)"
+              done
+              echo "== lock owner =="
+              /usr/bin/fuser -v /tmp/market-explorer-prewarm.lock 2>&1 || true
+              echo "== prewarm log recent signals =="
+              tail -n 80 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null | grep -E 'maintained_cache|preparedRefresh|stopReason|targetMarketDate|status|failed|error|advanced|alreadyCurrent|manual|fingerprint|HTTP Request' | tail -n 35 || true
+              echo "== prewarm log final lines =="
+              tail -n 25 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
+              echo "== prewarm log metadata =="
+              stat -c 'mtime=%y size=%s' "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
+              ;;
+
+            market-explorer-projection-audit)
+              cd "$REPO"
+              echo "== repo =="
+              git status --short
+              git log -3 --oneline
+              echo "== projection-related cron =="
+              crontab -l 2>/dev/null | grep -E 'market_explorer|Market.Explorer|publish_market_explorer|daily_projection|daily_publication|rebuild_snapshots_after_scrape' || true
+              echo "== projection-related processes =="
+              pgrep -af 'market_explorer|Market.Explorer' || true
+              echo "== live compact DB state =="
+              AUDIT="/tmp/market_explorer_projection_audit.py"
+              printf '%s\n' \
+                'from backend.db.clients.supabase_client import create_service_role_client' \
+                'c = create_service_role_client()' \
+                'fp = "7852c99b7a5bd0067cb1ddeffccce7214b78acc0a62e589383ba9f0bc51c993f"' \
+                'rows = list(c.table("pokemon_market_explorer_query_cache").select("query_fingerprint,normalized_spec,status,computed_from,computed_through,last_built_at,updated_at,build_expires_at,constituent_count").eq("query_fingerprint", fp).limit(1).execute().data or [])' \
+                'print({"fingerprintRow": rows[0] if rows else None})' \
+                'cov = list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,retained_from,computed_through,row_count,refreshed_at").execute().data or [])' \
+                'through = sorted({str(r.get("computed_through"))[:10] for r in cov if r.get("computed_through")})' \
+                'print({"v2CoverageRows": len(cov), "v2MinRetained": min((str(r.get("retained_from"))[:10] for r in cov if r.get("retained_from")), default=None), "v2MinThrough": min(through) if through else None, "v2MaxThrough": max(through) if through else None, "v2ThroughCounts": {d: sum(1 for r in cov if str(r.get("computed_through"))[:10] == d) for d in through}})' \
+                'quality = list(c.table("pokemon_market_date_quality").select("market_date,status").eq("tcg","pokemon").in_("status",["READY","LEGACY_VERIFIED"]).order("market_date", desc=True).limit(5).execute().data or [])' \
+                'print({"latestApprovedMarketDates": quality})' \
+                > "$AUDIT"
+              PYTHONPATH="$REPO" "$PY" "$AUDIT"
+              rm -f "$AUDIT"
+              echo "== relevant log files =="
+              find "$REPO/backend/logs" -maxdepth 1 -type f -iname '*market*explorer*' -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' 2>/dev/null | sort -r | head -n 20 || true
+              echo "== daily publication log tails =="
+              for LOG in "$REPO"/backend/logs/*market*explorer*daily*.log "$REPO"/backend/logs/*daily*market*explorer*.log; do
+                [ -f "$LOG" ] || continue
+                echo "--- $LOG ---"
+                tail -n 80 "$LOG"
+              done
+              ;;
+
+
+            market-explorer-currency-source-audit)
+              cd "$REPO"
+              echo "== repo =="
+              git log -3 --oneline
+              for PATHNAME in \
+                backend/db/services/post_scrape_publication_trigger.py \
+                backend/scripts/publish_post_scrape_if_needed.py \
+                backend/alerts/post_scrape_publication_watchdog.py; do
+                echo "== $PATHNAME =="
+                if [ -f "$PATHNAME" ]; then
+                  echo "exists=true tracked=$(git ls-files --error-unmatch "$PATHNAME" >/dev/null 2>&1 && echo true || echo false)"
+                  sha256sum "$PATHNAME"
+                  grep -nE 'price_projection|_default_publication_current|_already_current|trigger_post_scrape_publication_if_needed|run_watchdog' "$PATHNAME" | head -n 40 || true
+                else
+                  echo "exists=false"
+                fi
+              done
+              ;;
+
+            market-explorer-manual-one-shot)
+              cd "$REPO"
+              echo "== pre-run repo =="
+              git status --short
+              git log -1 --oneline
+              echo "== exact cron-equivalent manual invocation =="
+              set +e
+              /usr/bin/flock -n /tmp/market-explorer-prewarm.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_market_explorer_maintained_cache_prewarm --commit'
+              STATUS=$?
+              set -e
+              echo "manual_one_shot_status=$STATUS"
+              if [ "$STATUS" -ne 0 ]; then
+                exit "$STATUS"
+              fi
+              echo "== post-run =="
+              git status --short
+              git log -1 --oneline
+              ;;
+
+            market-explorer-durable-tests)
+              cd "$REPO"
+              TARGET_REF="origin/fix/market-explorer-durable-pipeline-20260921"
+              WT="/tmp/EVRCalculator-market-explorer-durable-tests"
+              git fetch origin fix/market-explorer-durable-pipeline-20260921
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cd "$WT"
+              echo "== durable candidate =="
+              git log -1 --oneline
+              git diff --check HEAD~1..HEAD
+              "$PY" -m py_compile \
+                backend/scripts/run_market_explorer_maintained_cache_prewarm.py \
+                backend/db/services/pokemon_market_explorer_query_service.py \
+                backend/db/services/market_explorer_query_planner.py \
+                backend/db/services/post_scrape_publication_trigger.py \
+                backend/scripts/publish_post_scrape_if_needed.py \
+                backend/scripts/run_market_explorer_daily_publication.py
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py \
+                backend/tests/unit/db/services/test_market_explorer_query_planner.py \
+                backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+                backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py \
+                backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
+
+            market-explorer-coverage-rpc-tests)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-market-explorer-coverage-rpc-tests"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" origin/ops/vm-market-explorer-worker-cutover-20260920
+              cd "$WT"
+              echo "== candidate =="
+              git log -1 --oneline
+              git diff --check
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py \
+                backend/tests/unit/db/services/test_market_explorer_query_planner.py \
+                backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
+
+            market-explorer-coverage-rpc-smoke)
+              cd "$REPO"
+              echo "== service-role PostgREST coverage RPC smoke =="
+              SMOKE="/tmp/market_explorer_coverage_rpc_smoke.py"
+              printf '%s\n' \
+                'import time' \
+                'from backend.db.clients.supabase_client import create_service_role_client' \
+                'c = create_service_role_client()' \
+                'child = "a787aa9f-dbc3-47c0-bfe9-0045b9516a67"' \
+                'for i in range(1, 4):' \
+                '    started = time.monotonic()' \
+                '    rows = list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1", {"p_set_ids": None}).execute().data or [])' \
+                '    elapsed = time.monotonic() - started' \
+                '    ids = {str(r.get("set_id")) for r in rows}' \
+                '    print({"attempt": i, "elapsedSeconds": round(elapsed, 3), "rows": len(rows), "classicCollectionPresent": child in ids})' \
+                '    if len(rows) != 166 or child not in ids:' \
+                '        raise SystemExit(7)' \
+                > "$SMOKE"
+              PYTHONPATH="$REPO" "$PY" "$SMOKE"
+              rm -f "$SMOKE"
+              ;;
+            market-explorer-coverage-direct-smoke)
+              cd "$REPO"
+              echo "== direct PostgreSQL coverage authority smoke =="
+              DIRECT="/tmp/market_explorer_coverage_direct_smoke.py"
+              printf '%s\n' \
+                'import os, time' \
+                'from dotenv import load_dotenv' \
+                'load_dotenv("backend/.env")' \
+                'import psycopg' \
+                'dsn = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")' \
+                'assert dsn, "direct_db_credential_missing"' \
+                'with psycopg.connect(dsn, connect_timeout=10, application_name="market_explorer_coverage_smoke") as conn:' \
+                '    conn.execute("set transaction read only")' \
+                '    with conn.cursor() as cur:' \
+                '        cur.execute("select current_user, has_function_privilege(current_user, %s, %s), has_table_privilege(current_user, %s, %s), has_table_privilege(current_user, %s, %s)", ("public.get_pokemon_market_explorer_set_history_coverage_v1(uuid[])", "EXECUTE", "public.sets", "SELECT", "public.pokemon_set_value_daily_history", "SELECT"))' \
+                '        print({"role": cur.fetchone()})' \
+                '        started = time.monotonic()' \
+                '        try:' \
+                '            cur.execute("select set_id, first_snapshot_date, latest_snapshot_date from public.get_pokemon_market_explorer_set_history_coverage_v1(null)")' \
+                '            rows = cur.fetchall()' \
+                '        except Exception as exc:' \
+                '            print({"coverageExecute": "failed", "sqlstate": getattr(exc, "sqlstate", None), "errorType": type(exc).__name__})' \
+                '            raise' \
+                '        print({"coverageExecute": "ok", "elapsedSeconds": round(time.monotonic()-started,3), "rows": len(rows)})' \
+                > "$DIRECT"
+              PYTHONPATH="$REPO" "$PY" "$DIRECT"
+              rm -f "$DIRECT"
+              ;;
+
+
+            market-explorer-currency-tests)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-market-explorer-currency-tests"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" origin/ops/vm-market-explorer-worker-cutover-20260920
+              cd "$WT"
+              echo "== candidate =="
+              git log -1 --oneline
+              git diff --check
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/db/services/test_post_scrape_publication_currency_v2.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+                backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py \
+                backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py \
+                backend/tests/unit/test_market_explorer_v2_runtime_cutover.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
+
+            market-explorer-currency-cutover)
+              cd "$REPO"
+              TARGET_REF="origin/ops/vm-market-explorer-worker-cutover-20260920"
+              WT="/tmp/EVRCalculator-market-explorer-currency-cutover"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+
+              if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "Refusing currency cutover: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+
+              git checkout "$TARGET_REF" -- \
+                backend/db/services/post_scrape_publication_trigger.py \
+                backend/scripts/publish_post_scrape_if_needed.py
+              git diff --check --cached
+              git diff --cached --stat
+              git commit -m "ops(explorer): include V2 in publication currency"
+              git log -3 --oneline
+              ;;
+
+            market-explorer-pipeline-runtime-cutover)
+              cd "$REPO"
+              TARGET_REF="origin/ops/vm-market-explorer-post-sentinel-20260921"
+              WT="/tmp/EVRCalculator-market-explorer-pipeline-runtime-cutover"
+              git fetch origin ops/vm-market-explorer-post-sentinel-20260921
+
+              if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "Refusing consolidated cutover: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+
+              "$PY" -m pip install --disable-pip-version-check -q 'psycopg[binary]==3.3.6'
+
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cp "$REPO/backend/.env" "$WT/backend/.env"
+              chmod 600 "$WT/backend/.env"
+
+              echo "== consolidated candidate tests =="
+              cd "$WT"
+              "$PY" -m py_compile \
+                backend/scripts/run_market_explorer_maintained_cache_prewarm.py \
+                backend/db/services/pokemon_market_explorer_query_service.py \
+                backend/db/services/market_explorer_query_planner.py \
+                backend/db/services/post_scrape_publication_trigger.py \
+                backend/scripts/publish_post_scrape_if_needed.py
+
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py \
+                backend/tests/unit/db/services/test_market_explorer_query_planner.py \
+                backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+                -q
+
+              echo "== live authority verification =="
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids; c=create_service_role_client(); ids=set(resolve_tracked_set_ids(c)); child="a787aa9f-dbc3-47c0-bfe9-0045b9516a67"; print({"tracked":len(ids),"classicCollectionPresent":child in ids}); raise SystemExit(0 if len(ids)==166 and child in ids else 7)'
+
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
+
+              echo "== install consolidated runtime =="
+              git checkout "$TARGET_REF" -- \
+                backend/scripts/run_market_explorer_maintained_cache_prewarm.py \
+                backend/db/services/pokemon_market_explorer_query_service.py \
+                backend/db/services/market_explorer_query_planner.py \
+                backend/db/services/post_scrape_publication_trigger.py \
+                backend/scripts/publish_post_scrape_if_needed.py \
+                backend/requirements.txt
+              git diff --check --cached
+              git diff --cached --stat
+              git commit -m "ops(explorer): install consolidated pipeline runtime"
+              echo "== post-cutover =="
+              git status --short
+              git log -4 --oneline
+              ;;
+
+            market-explorer-v2-repair)
+              cd "$REPO"
+              echo "== V2 repair preflight =="
+              git status --short
+              git log -3 --oneline
+              "$PY" -m backend.scripts.run_market_explorer_daily_publication \
+                --commit \
+                --market-date 2026-09-20
+              echo "== V2 repair complete =="
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids; c=create_service_role_client(); tracked=set(resolve_tracked_set_ids(c)); cov=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").execute().data or []); by={str(r.get("set_id")):str(r.get("computed_through") or "")[:10] for r in cov if r.get("set_id")}; missing=sorted(tracked-set(by)); stale=sorted(s for s in tracked if by.get(s,"")<"2026-09-20"); print({"tracked":len(tracked),"coverageRows":len(cov),"missing":len(missing),"stale":len(stale),"minThrough":min((by.get(s,"") for s in tracked),default=None),"maxThrough":max((by.get(s,"") for s in tracked),default=None)}); raise SystemExit(0 if not missing and not stale else 7)'
+              ;;
+
+            market-explorer-coverage-rpc-cutover)
+              cd "$REPO"
+              TARGET_REF="origin/ops/vm-market-explorer-worker-cutover-20260920"
+              WT="/tmp/EVRCalculator-market-explorer-coverage-rpc-cutover"
+              git fetch origin ops/vm-market-explorer-worker-cutover-20260920
+
+              if git status --porcelain | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "Refusing coverage cutover: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cp "$REPO/backend/.env" "$WT/backend/.env"
+              chmod 600 "$WT/backend/.env"
+
+              echo "== live indexed coverage RPC verification =="
+              cd "$WT"
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1", {"p_set_ids": None}).execute().data or []); ids={str(r.get("set_id")) for r in rows}; child="a787aa9f-dbc3-47c0-bfe9-0045b9516a67"; print({"rows":len(rows),"classicCollectionPresent":child in ids}); raise SystemExit(0 if len(rows)==166 and child in ids else 7)'
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
+
+              echo "== install runtime service files =="
+              git checkout "$TARGET_REF" -- \
+                backend/db/services/pokemon_market_explorer_query_service.py \
+                backend/db/services/market_explorer_query_planner.py
+              git diff --check --cached
+              git diff --cached --stat
+              git commit -m "ops(explorer): use indexed set history coverage"
+              echo "== post-cutover =="
+              git status --short
+              git log -2 --oneline
+              ;;
+
+            sync-main)
+              cd "$REPO"
+              if [ -n "$(git status --porcelain)" ]; then
+                echo "Refusing to switch a dirty production checkout."
+                git status --short
+                exit 3
+              fi
+              git fetch origin main
+              git switch --detach origin/main
+              git status --short
+              git log -1 --oneline
+              ;;
+
+            sync-main-preserve-payload-debug)
+              cd "$REPO"
+              git fetch origin main
+              DIRTY_PATHS="$(git status --porcelain | sed -E 's/^.. //')"
+              if [ -n "$DIRTY_PATHS" ] && [ "$DIRTY_PATHS" != "payload_debug.json" ]; then
+                echo "Refusing safe sync: unexpected dirty paths:"
+                git status --short
+                exit 3
+              fi
+              if [ -n "$DIRTY_PATHS" ] && ! git diff --quiet HEAD..origin/main -- payload_debug.json; then
+                echo "Refusing safe sync: origin/main changes payload_debug.json."
+                exit 3
+              fi
+              git switch --detach origin/main
+              git status --short
+              git log -1 --oneline
+              ;;
+
+            pytest-cards-market)
+              cd "$REPO"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$REPO" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_set_cards_market_analytics_service.py \
+                -q
+              ;;
+
+            pytest-cards-market-pr239)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-vmops-pr239"
+              git fetch origin fix/cards-market-adaptive-timeout-split-20260919
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" dc2b9f68d72014c7ab1c3d46372eef53c2fc26c3
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_pokemon_set_cards_market_analytics_service.py \
+                -q
+              ;;
+
+            set-market-snapshot)
+              cd "$REPO"
+              "$PY" backend/scripts/build_pokemon_explore_set_value_snapshot.py \
+                --commit \
+                --market-date "$VM_MARKET_DATE"
+              ;;
+
+            explorer-prewarm-one)
+              cd "$REPO"
+              "$PY" -m backend.scripts.run_market_explorer_maintained_cache_prewarm \
+                --commit \
+                --market-date "$VM_MARKET_DATE" \
+                --max-caches 1
+              ;;
+
+            market-dashboard-set)
+              cd "$REPO"
+              "$PY" backend/scripts/build_pokemon_market_dashboard_snapshots.py \
+                --set-id "$VM_SET_ID" \
+                --commit \
+                --market-date "$VM_MARKET_DATE"
+              ;;
+
+            repair-cards-market-errors)
+              cd "$REPO"
+              TOTAL=5
+              INDEX=0
+              FAILED=0
+
+              for SET_ID in \
+                5bb951fd-bb74-40d7-b496-cca5bf959515 \
+                332b2885-9354-4a29-ba52-03fca35594d1 \
+                a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2 \
+                78c7f000-9a9e-45ca-8233-8f36030f6019 \
+                0f7e51e2-5a78-4500-9c9c-f690e934a069 \
+              ; do
+                INDEX=$((INDEX + 1))
+                echo "===== cards-market repair $INDEX/$TOTAL set_id=$SET_ID ====="
+
+                set +e
+                "$PY" backend/scripts/build_pokemon_market_dashboard_snapshots.py \
+                  --set-id "$SET_ID" \
+                  --commit \
+                  --market-date "$VM_MARKET_DATE"
+                STATUS=$?
+                set -e
+
+                if [ "$STATUS" -ne 0 ]; then
+                  FAILED=$((FAILED + 1))
+                  echo "repair command failed set_id=$SET_ID status=$STATUS"
+                fi
+
+                sleep 10
+              done
+
+              echo "===== cards-market repair command summary ====="
+              echo "total=$TOTAL command_failures=$FAILED"
+              ;;
+
+            refresh-explorer-and-audit)
+              cd "$REPO"
+              echo "===== refresh prepared Explorer ====="
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); print(c.rpc("refresh_pokemon_market_explorer_prepared_directory_v1", {}).execute().data)'
+
+              echo "===== final Explorer audit ====="
+              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); d=list((c.table("pokemon_market_explorer_prepared_directory_v1").select("market_type,comparison_as_of,source_as_of,history_available,history_point_count").execute()).data or []); h=list((c.table("pokemon_market_explorer_prepared_history_v1").select("market_date").order("market_date", desc=True).limit(1).execute()).data or []); m=list((c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date,payload_json").eq("window_key","365d").gte("latest_market_date","2026-09-18").execute()).data or []); sets=[r for r in d if r.get("market_type")=="set"]; errors=[r for r in m if ((r.get("payload_json") or {}).get("cardsMarket") or {}).get("reason")=="error"]; print({"directoryRows":len(d),"setRows":len(sets),"setsWithHistory":sum(1 for r in sets if r.get("history_available") is True),"setsWithoutHistory":sum(1 for r in sets if r.get("history_available") is not True),"comparisonAsOf":sorted({str(r.get("comparison_as_of")) for r in d if r.get("comparison_as_of")}),"sourceAsOf":sorted({str(r.get("source_as_of")) for r in d if r.get("source_as_of")}),"maxPreparedHistoryDate":(h[0].get("market_date") if h else None),"remainingDashboardErrors":len(errors)})'
+              ;;
+
+            *)
+              echo "Unexpected operation after validation: $VM_OPERATION"
+              exit 4
+              ;;
+          esac

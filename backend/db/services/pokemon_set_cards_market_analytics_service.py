@@ -99,6 +99,22 @@ class PokemonSetCardsMarketAnalyticsError(Exception):
     pass
 
 
+def _is_statement_timeout(error: Exception) -> bool:
+    """Recognize PostgreSQL statement_timeout failures without depending on
+    one PostgREST client exception class.
+
+    supabase-py/postgrest exposes SQLSTATE 57014 as .code on APIError in
+    production, while tests and alternate clients may only preserve it in the
+    exception text. Keep the check narrow so unrelated RPC failures still
+    propagate immediately.
+    """
+    code = str(getattr(error, "code", "") or "")
+    text = str(error).lower()
+    return code == "57014" or (
+        "57014" in text and ("statement timeout" in text or "canceling statement" in text)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Constituent loading (IO)
 # ---------------------------------------------------------------------------
@@ -138,16 +154,34 @@ def load_card_constituent_rows(
     rows: List[Dict[str, Any]] = list(probe)
     cursor = first
     while cursor < last:
-        chunk_end = min(last - timedelta(days=1), cursor + timedelta(days=chunk_days - 1))
-        page = _call_constituent_rpc(client, set_id, cursor, chunk_end)
-        # A chunk that comes back exactly at the cap was almost certainly
-        # truncated. Silently accepting it would drop cards from the tail day
-        # and corrupt both the index and Set Value reconciliation, so narrow
-        # the window and retry rather than trusting the count.
-        while len(page) >= _RPC_MAX_ROWS_PER_RESPONSE and chunk_end > cursor:
-            chunk_days = max(_RPC_MIN_CHUNK_DAYS, chunk_days // 2)
-            chunk_end = min(chunk_end, cursor + timedelta(days=chunk_days - 1))
-            page = _call_constituent_rpc(client, set_id, cursor, chunk_end)
+        while True:
+            chunk_end = min(last - timedelta(days=1), cursor + timedelta(days=chunk_days - 1))
+            try:
+                page = _call_constituent_rpc(client, set_id, cursor, chunk_end)
+            except Exception as error:
+                # Production load can make a normally-safe multi-day call cross
+                # Postgres statement_timeout. Do not retry the same expensive
+                # shape: halve the date range and retry the smaller query. This
+                # preserves the exact constituent contract while reducing work.
+                if not _is_statement_timeout(error) or chunk_end <= cursor:
+                    raise
+                previous_days = chunk_days
+                chunk_days = max(_RPC_MIN_CHUNK_DAYS, chunk_days // 2)
+                logger.warning(
+                    "[cards-market] constituent RPC timeout set_id=%s range=%s..%s; "
+                    "shrinking chunk_days %s -> %s",
+                    set_id, cursor, chunk_end, previous_days, chunk_days,
+                )
+                continue
+
+            # A chunk that comes back exactly at the cap was almost certainly
+            # truncated. Silently accepting it would drop cards from the tail
+            # day and corrupt both the index and Set Value reconciliation, so
+            # narrow the window and retry rather than trusting the count.
+            if len(page) >= _RPC_MAX_ROWS_PER_RESPONSE and chunk_end > cursor:
+                chunk_days = max(_RPC_MIN_CHUNK_DAYS, chunk_days // 2)
+                continue
+            break
         if len(page) >= _RPC_MAX_ROWS_PER_RESPONSE:
             raise PokemonSetCardsMarketAnalyticsError(
                 f"{CARD_CONSTITUENT_RPC} hit the {_RPC_MAX_ROWS_PER_RESPONSE}-row response cap for "

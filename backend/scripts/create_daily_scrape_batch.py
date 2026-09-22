@@ -25,6 +25,9 @@ Usage:
 
     # Only alert (do not create) if today's batch is missing past deadline
     python backend/scripts/create_daily_scrape_batch.py --check-only
+
+    # Recovery/fallback schedule: no-op when the batch already exists
+    python backend/scripts/create_daily_scrape_batch.py --if-missing --skip-new-set-detection
 """
 
 from __future__ import annotations
@@ -229,12 +232,6 @@ def create_batch(
 
     raise RuntimeError(f"batch creation exhausted retries: {last_error}")
 
-
-def existing_batch(market_date: str) -> dict | None:
-    """Return today's existing batch for idempotent ensure-mode, if present."""
-    return get_active_batch(market_date)
-
-
 def check_only(market_date: str, deadline: str) -> int:
     batch = get_active_batch(market_date)
     if batch:
@@ -250,6 +247,38 @@ def check_only(market_date: str, deadline: str) -> int:
         logger.exception("%s failed to queue batch_not_created alert", BATCH_TAG)
     return 1
 
+
+def batch_exists_for_market_date(market_date: str) -> bool:
+    """Return True when a batch already exists; otherwise let creation proceed.
+
+    The fallback scheduler uses this to avoid repeating the full registry
+    preflight after the primary 01:05 run has already succeeded. If the lookup
+    itself is temporarily unavailable, return False so the normal preflight and
+    idempotent batch-creation path gets a chance to recover instead of silently
+    skipping the day.
+    """
+    try:
+        batch = get_active_batch(market_date)
+    except Exception as exc:
+        logger.warning(
+            "%s batch existence check unavailable for market_date=%s; proceeding to preflight/create: %s",
+            BATCH_TAG,
+            market_date,
+            exc,
+        )
+        return False
+
+    if not batch:
+        return False
+
+    logger.info(
+        "%s batch already exists for %s (id=%s status=%s); ensure-if-missing no-op",
+        BATCH_TAG,
+        market_date,
+        batch.get("id"),
+        batch.get("status"),
+    )
+    return True
 
 def run_new_set_discovery(timeout_seconds: int = DISCOVERY_TIMEOUT_SECONDS) -> dict:
     """Run bounded post-batch discovery; never raise into the batch critical path."""
@@ -297,12 +326,9 @@ def main() -> int:
         help="Do not create; alert if the batch is missing (deadline monitor).",
     )
     parser.add_argument(
-        "--ensure",
+        "--if-missing",
         action="store_true",
-        help=(
-            "Idempotent recovery mode: exit 0 if today's batch already exists; "
-            "otherwise run the normal preflight and create it."
-        ),
+        help="Recovery mode: exit 0 when the current market-date batch already exists; otherwise create it normally.",
     )
     parser.add_argument(
         "--preflight-only",
@@ -326,20 +352,8 @@ def main() -> int:
         if args.check_only:
             return check_only(market_date, deadline=datetime.now(timezone.utc).isoformat())
 
-        if args.ensure:
-            batch = existing_batch(market_date)
-            if batch:
-                logger.info(
-                    "%s ensure: batch already exists for %s (id=%s status=%s); no-op",
-                    BATCH_TAG, market_date, batch.get("id"), batch.get("status"),
-                )
-                print(json.dumps({
-                    "market_date": market_date,
-                    "status": "already_exists",
-                    "batch_id": batch.get("id"),
-                    "batch_status": batch.get("status"),
-                }, indent=2))
-                return 0
+        if args.if_missing and not args.preflight_only and batch_exists_for_market_date(market_date):
+            return 0
 
         # Registry parity is verified BEFORE the batch RPC. On failure this
         # raises, so no batch is created and no job is enqueued.

@@ -409,3 +409,45 @@ def test_completion_summary_reports_totals(caplog):
     assert "unique_cards=120" in caplog.text
     assert "reported_total=120" in caplog.text
     assert "pages_requested=2" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Keyless fallback
+# ---------------------------------------------------------------------------
+
+
+def test_keyless_client_omits_api_key_header(monkeypatch):
+    monkeypatch.delenv("POKEMON_TCG_API_KEY", raising=False)
+    session = _FakeSession([_cards_page([1], total_count=1)])
+    client = PokemonTCGAPIClient(
+        api_key=None,
+        session=session,
+        sleep=lambda _delay: None,
+        jitter=lambda _a, _b: 0.0,
+    )
+
+    result = client._request_json("/cards", {"q": "set.id:me5"})
+
+    assert result["totalCount"] == 1
+    assert "X-Api-Key" not in session.calls[0]["headers"]
+    assert session.calls[0]["headers"]["User-Agent"] == "EVRCalculator/1.0"
+
+
+def test_keyless_card_pagination_enforces_provider_minimum_delay(monkeypatch):
+    monkeypatch.delenv("POKEMON_TCG_API_KEY", raising=False)
+    session = _FakeSession([
+        _cards_page(range(1, 101)),
+        _cards_page(range(101, 121)),
+    ])
+    sleeps = []
+    client = PokemonTCGAPIClient(
+        api_key=None,
+        session=session,
+        sleep=sleeps.append,
+        jitter=lambda _a, _b: 0.0,
+    )
+
+    cards = list(client.iter_cards_for_set("me5", rate_limit_delay=0))
+
+    assert len(cards) == 120
+    assert sleeps == [2.1]
