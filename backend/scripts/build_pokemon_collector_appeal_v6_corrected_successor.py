@@ -5,7 +5,7 @@ import argparse, hashlib, json, math, os, statistics, sys, time
 from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Sequence
 
 from dotenv import load_dotenv
 from supabase import ClientOptions, create_client
@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 from backend.desirability.collector_appeal import collector_appeal_v4_frequency_index
 from backend.desirability.collector_appeal_inputs import load_pull_rate_model
 from backend.desirability.opening_appeal import union_probability_from_cards
-from backend.desirability.rarity_buckets import classify_rarity
+from backend.desirability.rarity_buckets import HIT_BUCKETS, classify_rarity
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.scripts.research_collector_c3b_playability_lift import build_playability, trainer_scores
 
@@ -64,6 +64,291 @@ def card_baseline(row: dict, composite: dict[str, float]) -> float:
     if row["subject_type"] == "trainer": return float(row["subject_appeal_percentile"])
     return 50.0
 
+
+def _current_v7_extension_set_ids(client) -> set[str]:
+    """Return set membership already sanctioned by the current V7 pointer.
+
+    The frozen research artifact remains authoritative for its historical cohort.
+    This lookup only preserves additive cohort extensions that have already been
+    promoted through the V7 publication boundary.
+    """
+    try:
+        current = (
+            client.table("pokemon_collector_appeal_current")
+            .select("model_run_id,model_version")
+            .eq("scope", "pokemon")
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if not current or not str(current[0].get("model_version") or "").startswith(
+            "pokemon_collector_appeal_v7_"
+        ):
+            return set()
+        run_id = str(current[0]["model_run_id"])
+        rows = paged(
+            lambda: client.table("pokemon_set_collector_desirability_scores")
+            .select("set_id")
+            .eq("model_run_id", run_id),
+            size=500,
+        )
+        return {str(row["set_id"]) for row in rows if row.get("set_id")}
+    except Exception:
+        # The frozen historical builder remains usable before the current-pointer
+        # tables are deployed; cohort expansion simply becomes unavailable.
+        return set()
+
+
+def _batched_rows_by_ids(client, table, columns, field, ids, *, extra=None):
+    rows = []
+    values = [str(value) for value in ids if value]
+    for start in range(0, len(values), 200):
+        query = client.table(table).select(columns).in_(field, values[start:start + 200])
+        if extra is not None:
+            query = extra(query)
+        rows.extend(query.execute().data or [])
+    return rows
+
+
+def _build_live_c3_rows(
+    client,
+    *,
+    set_ids: Sequence[str],
+    composite: dict[str, float],
+    trainer_by_id: dict[str, float],
+    play_by_name: dict[str, dict],
+) -> list[dict]:
+    """Build C3-compatible rows only for explicitly additive V7 set members.
+
+    This does not reinterpret the historical frozen artifact. It projects new
+    root sets through the same subject/playability contract so V6/V7 can append
+    them without changing any historical card score.
+    """
+    wanted = sorted({str(value) for value in set_ids if value})
+    if not wanted:
+        return []
+
+    set_rows = _batched_rows_by_ids(
+        client, "sets", "id,name,canonical_key,catalog_only,is_subset", "id", wanted
+    )
+    set_by_id = {str(row["id"]): row for row in set_rows}
+    if set(set_by_id) != set(wanted):
+        raise RuntimeError("Collector cohort extension set identity could not be resolved")
+    invalid = [
+        row.get("canonical_key")
+        for row in set_rows
+        if row.get("catalog_only") or row.get("is_subset")
+    ]
+    if invalid:
+        raise RuntimeError(f"Collector cohort extension requires root non-catalog sets: {invalid}")
+
+    cards = _batched_rows_by_ids(
+        client,
+        "pokemon_canonical_cards",
+        (
+            "id,set_id,pokemon_tcg_api_card_id,name,supertype,subtypes,rarity,"
+            "catalog_role,opening_eligible,canonical_review_status,source,"
+            "image_small_url,image_large_url"
+        ),
+        "set_id",
+        wanted,
+        extra=lambda q: q.eq("catalog_role", "main")
+        .eq("opening_eligible", True)
+        .eq("canonical_review_status", "approved"),
+    )
+    cards = [
+        row for row in cards
+        if str(row.get("supertype") or "").casefold() in {"pokémon", "pokemon", "trainer"}
+    ]
+    if not cards:
+        raise RuntimeError("Collector cohort extension has no eligible canonical cards")
+    incomplete = [
+        str(row.get("id"))
+        for row in cards
+        if str(row.get("source") or "") == "tcgplayer_cards_fallback"
+        or not (row.get("image_small_url") or row.get("image_large_url"))
+    ]
+    if incomplete:
+        raise RuntimeError(
+            f"Collector cohort extension requires authoritative metadata/artwork; incomplete={len(incomplete)}"
+        )
+
+    card_ids = [str(row["id"]) for row in cards]
+    pokemon_links = _batched_rows_by_ids(
+        client,
+        "pokemon_card_desirability_links",
+        "pokemon_canonical_card_id,pokemon_reference_id,contribution_weight,is_hit_eligible",
+        "pokemon_canonical_card_id",
+        card_ids,
+    )
+    pokemon_by_card = defaultdict(list)
+    for row in pokemon_links:
+        pokemon_by_card[str(row["pokemon_canonical_card_id"])].append(row)
+
+    pokemon_scores = paged(
+        lambda: client.table("pokemon_desirability_composite_scores")
+        .select("pokemon_reference_id,pokemon_name")
+        .eq("scoring_version", "pokemon_desirability_composite_v1")
+        .eq("fan_popularity_snapshot_id", 2)
+    )
+    pokemon_names = {
+        str(row["pokemon_reference_id"]): str(row["pokemon_name"])
+        for row in pokemon_scores
+    }
+
+    collector_links = _batched_rows_by_ids(
+        client,
+        "pokemon_card_collector_entity_links",
+        "pokemon_canonical_card_id,collector_entity_id,contribution_weight,link_role,active",
+        "pokemon_canonical_card_id",
+        card_ids,
+        extra=lambda q: q.eq("active", True).eq("link_role", "subject"),
+    )
+    trainer_by_card = defaultdict(list)
+    for row in collector_links:
+        trainer_by_card[str(row["pokemon_canonical_card_id"])].append(row)
+    trainer_entities = paged(
+        lambda: client.table("pokemon_collector_entity_reference")
+        .select("id,display_name")
+        .eq("entity_type", "trainer")
+        .eq("active", True)
+    )
+    trainer_names = {
+        str(row["id"]): str(row["display_name"]) for row in trainer_entities
+    }
+
+    functional_links = _batched_rows_by_ids(
+        client,
+        "pokemon_card_functional_links",
+        "pokemon_canonical_card_id,functional_reference_id,active",
+        "pokemon_canonical_card_id",
+        card_ids,
+        extra=lambda q: q.eq("active", True),
+    )
+    functional_by_card = {
+        str(row["pokemon_canonical_card_id"]): str(row["functional_reference_id"])
+        for row in functional_links
+        if row.get("functional_reference_id")
+    }
+    functional_ids = sorted(set(functional_by_card.values()))
+    functional_refs = _batched_rows_by_ids(
+        client,
+        "pokemon_card_functional_reference",
+        "id,functional_key",
+        "id",
+        functional_ids,
+        extra=lambda q: q.eq("active", True),
+    )
+    functional_keys = {
+        str(row["id"]): str(row["functional_key"]) for row in functional_refs
+    }
+
+    exception_payload = json.loads(
+        (ROOT / "backend/config/pokemon_collector_neutral_subject_exceptions_v1.json")
+        .read_text(encoding="utf-8")
+    )
+    exceptions = exception_payload.get("exceptions") or {}
+
+    rows = []
+    missing_pokemon_subjects = []
+    for card in cards:
+        cid = str(card["id"])
+        supertype = str(card.get("supertype") or "")
+        supertype_key = supertype.casefold()
+        subject_type: str
+        subject_identity: Optional[str]
+        baseline: float
+
+        if supertype_key in {"pokémon", "pokemon"}:
+            subjects = pokemon_by_card.get(cid, [])
+            if not subjects:
+                missing_pokemon_subjects.append(cid)
+                continue
+            weights = [float(row.get("contribution_weight") or 0) for row in subjects]
+            denominator = sum(weights) or 1.0
+            names = [
+                pokemon_names.get(str(row.get("pokemon_reference_id")))
+                for row in subjects
+            ]
+            if any(not name or name not in composite for name in names):
+                missing_pokemon_subjects.append(cid)
+                continue
+            baseline = sum(composite[str(name)] * weight for name, weight in zip(names, weights)) / denominator
+            subject_type = "pokemon"
+            subject_identity = " + ".join(str(name) for name in names)
+        else:
+            subjects = [
+                row for row in trainer_by_card.get(cid, [])
+                if str(row.get("collector_entity_id")) in trainer_by_id
+            ]
+            if subjects:
+                weights = [float(row.get("contribution_weight") or 0) for row in subjects]
+                denominator = sum(weights) or 1.0
+                baseline = sum(
+                    trainer_by_id[str(row["collector_entity_id"])] * weight
+                    for row, weight in zip(subjects, weights)
+                ) / denominator
+                subject_type = "trainer"
+                subject_identity = " + ".join(
+                    trainer_names.get(str(row["collector_entity_id"]), "unknown")
+                    for row in subjects
+                )
+            elif str(card.get("pokemon_tcg_api_card_id") or "") in exceptions:
+                exception = exceptions[str(card["pokemon_tcg_api_card_id"])]
+                baseline = float(exception["subjectAppeal"])
+                subject_type = "neutral_functional"
+                subject_identity = exception.get("classification")
+            else:
+                baseline = 50.0
+                subject_type = "neutral_functional"
+                subject_identity = None
+
+        functional_id = functional_by_card.get(cid)
+        functional_key = functional_keys.get(functional_id) if functional_id else None
+        play = play_by_name.get(str(functional_key or ""))
+        raw = play.get("rawScore") if play else None
+        confidence = play.get("confidence") if play else None
+        effective = 0.0 if raw is None or confidence is None else float(raw) * float(confidence)
+        play_points = (100.0 - baseline) * 0.20 * (effective / 100.0)
+        provisional = baseline + play_points
+
+        subject_links = pokemon_by_card.get(cid, [])
+        hit = (
+            any(bool(row.get("is_hit_eligible")) for row in subject_links)
+            if subject_links
+            else classify_rarity(card.get("rarity")).bucket in HIT_BUCKETS
+        )
+        rows.append(
+            {
+                "canonical_card_id": cid,
+                "card_name": card.get("name"),
+                "supertype": supertype,
+                "set_id": str(card["set_id"]),
+                "set_name": set_by_id[str(card["set_id"])].get("name"),
+                "pokemon_tcg_api_card_id": card.get("pokemon_tcg_api_card_id"),
+                "rarity": card.get("rarity"),
+                "subject_type": subject_type,
+                "subject_identity": subject_identity,
+                "subject_appeal_percentile": baseline,
+                "playability_functional_identity": functional_key,
+                "hit_eligibility": hit,
+                "final_card_collector_appeal": provisional,
+            }
+        )
+
+    if missing_pokemon_subjects:
+        raise RuntimeError(
+            "Collector cohort extension has Pokemon cards without complete subject authority: "
+            f"{len(missing_pokemon_subjects)}"
+        )
+    by_set = Counter(str(row["set_id"]) for row in rows)
+    missing_sets = [set_id for set_id in wanted if by_set.get(set_id, 0) == 0]
+    if missing_sets:
+        raise RuntimeError(f"Collector cohort extension produced no card rows for sets {missing_sets}")
+    return rows
+
+
 def _pokemon_trends(client, source_run_id: str) -> list[dict]:
     rows = paged(lambda: client.table("pokemon_collector_entity_observations").select(
         "raw_entity_name,normalized_observation_score,raw_row_json"
@@ -79,12 +364,18 @@ def _pokemon_trends(client, source_run_id: str) -> list[dict]:
 
 def build(client, *, pokemon_trends_source_run_id: str,
           trainer_12m_source_run_id: str, trainer_5y_source_run_id: str,
-          playability_source_run_id: str) -> dict:
+          playability_source_run_id: str,
+          additional_set_ids: Optional[Sequence[str]] = None) -> dict:
     trends = _pokemon_trends(client, pokemon_trends_source_run_id)
     fan = {r["pokemon_name"]: float(r["fan_popularity_score"]) for r in json.loads(UNIVERSE.read_text(encoding="utf-8"))}
     composite = {r["pokemon_name"]: .75 * fan[r["pokemon_name"]] + .25 * min(100.0, float(r["global_relative"])) for r in trends}
     if len(composite) != 1025: raise RuntimeError("complete Trends/fan composite coverage mismatch")
-    base = json.loads(BASE_C3.read_text(encoding="utf-8"))["shadowRows"]
+    frozen_base = json.loads(BASE_C3.read_text(encoding="utf-8"))["shadowRows"]
+    frozen_set_ids = {str(row["set_id"]) for row in frozen_base}
+    extension_set_ids = (
+        _current_v7_extension_set_ids(client)
+        | {str(value) for value in (additional_set_ids or []) if value}
+    ) - frozen_set_ids
     trainer_by_id = trainer_scores(client, trainer_12m_source_run_id, trainer_5y_source_run_id)
     refs = paged(lambda: client.table("pokemon_collector_entity_reference").select(
         "id,display_name").eq("entity_type", "trainer").eq("active", True))
@@ -95,6 +386,14 @@ def build(client, *, pokemon_trends_source_run_id: str,
         "id,functional_key").eq("active", True))
     play_by_name = {str(row["functional_key"]): play_by_id[str(row["id"])]
                     for row in functional if str(row["id"]) in play_by_id}
+    live_extension = _build_live_c3_rows(
+        client,
+        set_ids=sorted(extension_set_ids),
+        composite=composite,
+        trainer_by_id=trainer_by_id,
+        play_by_name=play_by_name,
+    )
+    base = [*frozen_base, *live_extension]
     cards=[]
     for source in base:
         if source["subject_type"] == "trainer":
@@ -120,7 +419,7 @@ def build(client, *, pokemon_trends_source_run_id: str,
     old={x["set_id"]:x for x in json.loads(OLD_C4.read_text(encoding="utf-8"))["sets"]}
     byset=defaultdict(list)
     for row in cards:
-        if row["set_id"] in old: byset[row["set_id"]].append(row)
+        byset[row["set_id"]].append(row)
     pull=load_pull_rate_model(client)
     ranking_payload=get_rip_statistics_targets_payload(limit=250,include_rankings_top_chase=False)
     snapshots={str(x.get("set_id") or x.get("target_id")):str(x.get("calculation_run_id")) for x in ranking_payload.get("targets") or [] if x.get("calculation_run_id")}
@@ -148,7 +447,8 @@ def build(client, *, pokemon_trends_source_run_id: str,
         final=max(0,min(100,df+mod)) if mod is not None else None
         oldf=((old.get(sid) or {}).get("frequency") or {}).get("card_gt50",{}).get("value")
         oldcount=((old.get(sid) or {}).get("frequency") or {}).get("card_gt50",{}).get("eligibleCards")
-        sets.append({"set_id":sid,"set_name":(old.get(sid) or {}).get("set_name"),"D_pokemon":dp,"S":s,"B":b,"D_trainer":dt,"trainer_lift_points":tl,"D_final":df,"old_desirable_card_count":oldcount,"corrected_desirable_card_count":len(eligible),"entering_cards":sorted(new_eligible-old_eligible),"leaving_cards":sorted(old_eligible-new_eligible),"old_F":oldf,"F":f,"F_delta":None if f is None or oldf is None else f-oldf,"frequency_index":idx,"frequency_modifier":mod,"collector_appeal":final,"calculation_run_id":snapshots.get(sid),"unavailable_reason":None if final is not None else "collector_appeal_unavailable_no_generalized_frequency"})
+        set_name=(old.get(sid) or {}).get("set_name") or next((r.get("set_name") for r in rows if r.get("set_name")), None)
+        sets.append({"set_id":sid,"set_name":set_name,"D_pokemon":dp,"S":s,"B":b,"D_trainer":dt,"trainer_lift_points":tl,"D_final":df,"old_desirable_card_count":oldcount,"corrected_desirable_card_count":len(eligible),"entering_cards":sorted(new_eligible-old_eligible),"leaving_cards":sorted(old_eligible-new_eligible),"old_F":oldf,"F":f,"F_delta":None if f is None or oldf is None else f-oldf,"frequency_index":idx,"frequency_modifier":mod,"collector_appeal":final,"calculation_run_id":snapshots.get(sid),"unavailable_reason":None if final is not None else "collector_appeal_unavailable_no_generalized_frequency"})
     ranked=sorted((x for x in sets if x["collector_appeal"] is not None),key=lambda x:(-x["collector_appeal"],x["set_id"]))
     for i,x in enumerate(ranked,1): x["rank"]=i
     freeze=json.loads(FREEZE.read_text(encoding="utf-8")); d_output_fp=canonical_hash([{k:x[k] for k in ("set_id","D_pokemon","D_trainer","trainer_lift_points","D_final")} for x in sorted(sets,key=lambda x:x["set_id"])])
