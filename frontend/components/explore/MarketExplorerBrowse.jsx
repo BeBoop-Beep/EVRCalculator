@@ -4,6 +4,20 @@ import { groupPreparedDirectory } from "@/lib/explore/marketExplorerPrepared.mjs
 
 const CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Markets"]];
 
+const QUICK_MARKET_PRESENTATION = Object.freeze({
+  "curated:obtainable": { label: "Obtainable Cards", description: "Cards below $10." },
+  "curated:intermediate": { label: "Intermediate Cards", description: "Cards from $10 to below $100." },
+  "curated:premium": { label: "Premium Cards", description: "Cards at $100 or more." },
+  "curated:new-releases": { label: "New Release Cards", description: "Cards from recently released sets." },
+  "curated:established": { label: "Established Cards", description: "Cards from established 2–5 year sets." },
+  "curated:global-top10": { label: "Global Top 10 Cards", description: "The prepared global Top 10 card market." },
+});
+
+const marketPresentation = (market) => QUICK_MARKET_PRESENTATION[market?.market_key] || {
+  label: market?.label || "Market",
+  description: null,
+};
+
 export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], canCompare, onSelect, onCompare, onBuild }) {
   const [open, setOpen] = useState(null);
   const [search, setSearch] = useState("");
@@ -31,9 +45,21 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
   const row = (market, index) => {
     const active = activeKeys.includes(market.market_key);
     const highlighted = index === highlightedIndex;
+    const presentation = marketPresentation(market);
     return <li key={market.market_key} role="option" aria-selected={active} id={`${listboxId}-${index}`} className={`flex items-center gap-2 rounded-md border-l-2 ${active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.12)]" : highlighted ? "border-sky-400/60 bg-sky-400/[.08]" : "border-transparent"}`}>
-      <button type="button" data-prepared-market={market.market_key} data-search-highlighted={highlighted ? "true" : "false"} aria-pressed={active} onClick={() => choose(market.market_key)} className="min-w-0 flex-1 px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"><strong className={`block truncate text-xs ${active ? "font-bold text-[rgb(45,212,191)]" : "text-[var(--text-primary)]"}`}>{market.label}{active ? <span aria-label="Active market"> ✓</span> : null}</strong><span className="text-[10px] text-[var(--text-secondary)]">{market.current_value == null ? "Value unavailable" : `$${Number(market.current_value).toLocaleString()}`}</span></button>
-      <button type="button" data-compare-market={market.market_key} onClick={() => onCompare(market.market_key)} className="mr-1 rounded border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--text-secondary)]">+ Compare{canCompare ? "" : " with Index+"}</button>
+      <button type="button" data-prepared-market={market.market_key} data-search-highlighted={highlighted ? "true" : "false"} aria-pressed={active} onClick={() => choose(market.market_key)} className="min-w-0 flex-1 px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70">
+        <strong className={`block truncate text-xs ${active ? "font-bold text-[rgb(45,212,191)]" : "text-[var(--text-primary)]"}`}>{presentation.label}{active ? <span aria-label="Active market"> ✓</span> : null}</strong>
+        {presentation.description ? <span data-quick-market-description className="block text-[10px] leading-snug text-[var(--text-secondary)]">{presentation.description}</span> : null}
+        <span className="text-[10px] text-[var(--text-secondary)]">{market.current_value == null ? "Value unavailable" : `${Number(market.current_value).toLocaleString()}`}</span>
+      </button>
+      <button
+        type="button"
+        data-compare-market={market.market_key}
+        onClick={() => onCompare(market.market_key)}
+        className={`mr-1 rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${active ? "border-red-300/30 text-red-200 hover:bg-red-300/[.08]" : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[rgba(45,212,191,.45)] hover:text-[rgb(45,212,191)]"}`}
+      >
+        {active ? "Remove" : `+ Compare${canCompare ? "" : " with Index+"}`}
+      </button>
     </li>;
   };
   let rowIndex = 0;
