@@ -16,7 +16,7 @@ from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_ret
 MODEL_RUN_ID="0efa3c8f-918d-49d7-ad5e-3ae37278058f"
 
 def main():
- ap=argparse.ArgumentParser(); ap.add_argument('--write-stage',action='store_true'); ap.add_argument('--publish-coordinated',action='store_true'); ap.add_argument('--collector-authority',choices=('canonical-v5','model-run'),default='canonical-v5'); ap.add_argument('--collector-model-run-id'); args=ap.parse_args(); started=time.perf_counter()
+ ap=argparse.ArgumentParser(); ap.add_argument('--write-stage',action='store_true'); ap.add_argument('--publish-coordinated',action='store_true'); ap.add_argument('--collector-authority',choices=('canonical-v5','model-run'),default='canonical-v5'); ap.add_argument('--collector-model-run-id'); ap.add_argument('--extra-fresh-set-id',action='append',default=[]); args=ap.parse_args(); started=time.perf_counter()
  load_dotenv(ROOT/'backend'/'.env'); c=create_client(os.environ['SUPABASE_URL'],os.environ['SUPABASE_SERVICE_ROLE_KEY'])
  existing=[]; start=0
  while True:
@@ -45,11 +45,18 @@ def main():
  frozen_runs={str(r.get('set_id') or r.get('target_id')):str(r.get('calculation_run_id')) for r in ranked}
  if len(frozen_runs)!=22 or any(not value or value=='None' for value in frozen_runs.values()):
   raise RuntimeError('refusing non-22 or incomplete frozen calculation-run cohort')
- fresh_set_ids=sorted(frozen_runs)
+ extra_fresh_set_ids=sorted(set(str(x) for x in (args.extra_fresh_set_id or []) if str(x)))
+ if extra_fresh_set_ids and args.collector_authority!='model-run':
+  raise RuntimeError('--extra-fresh-set-id requires --collector-authority model-run')
+ if any(set_id not in full_set_ids for set_id in extra_fresh_set_ids):
+  raise RuntimeError('extra fresh set is not in the current public set-page universe')
+ if any(set_id in frozen_runs for set_id in extra_fresh_set_ids):
+  raise RuntimeError('extra fresh set already belongs to the frozen 22-set cohort')
+ fresh_set_ids=sorted(set(frozen_runs) | set(extra_fresh_set_ids))
  fresh_by_id={set_id:by_id[set_id] for set_id in fresh_set_ids if set_id in by_id}
- if len(fresh_by_id)!=22: raise RuntimeError('frozen 22-set cohort identity could not be resolved')
+ if len(fresh_by_id)!=len(fresh_set_ids): raise RuntimeError('fresh set-page identity could not be resolved')
  set_ids=sorted(full_set_ids)
- carry_forward_set_ids=sorted(sid for sid in full_set_ids if sid not in frozen_runs)
+ carry_forward_set_ids=sorted(sid for sid in full_set_ids if sid not in fresh_set_ids)
  if len(fresh_set_ids)+len(carry_forward_set_ids)!=len(set_ids):
   raise RuntimeError('full-generation membership accounting failed to reconcile fresh + carry-forward sets')
  frozen_fingerprint=source_run_fingerprint(frozen_runs)
@@ -63,8 +70,13 @@ def main():
  else:
   v5=load_canonical_v5_collector_appeal(fresh_set_ids); collector=v5['payloads']; collector_version=COLLECTOR_APPEAL_V5_VERSION; collector_fingerprint=(v5['identity'] or {}).get('formulaFingerprint')
  scored=sum(((x.get('score_status')=='scored') if args.collector_authority=='model-run' else ((x.get('collectorAppeal') or {}).get('score') is not None)) for x in collector.values())
- if scored!=len(fresh_set_ids): raise RuntimeError('canonical Collector authority is incomplete for frozen cohort')
- summary={'fullGenerationExpectedSetCount':len(set_ids),'freshRebuiltSetCount':len(fresh_set_ids),'carriedForwardSetCount':len(carry_forward_set_ids),'collectorRows':len(collector),'scored':scored,'unavailable':len(collector)-scored,'collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'collectorModelRunId':args.collector_model_run_id,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs}
+ if set(collector)!=set(fresh_set_ids): raise RuntimeError('Collector authority is incomplete for requested fresh set-page cohort')
+ if args.collector_authority=='model-run':
+  frozen_scored=sum((collector.get(set_id) or {}).get('score_status')=='scored' for set_id in frozen_runs)
+  if frozen_scored!=len(frozen_runs): raise RuntimeError('canonical Collector authority is incomplete for frozen 22-set cohort')
+ elif scored!=len(fresh_set_ids):
+  raise RuntimeError('canonical Collector authority is incomplete for frozen cohort')
+ summary={'fullGenerationExpectedSetCount':len(set_ids),'freshRebuiltSetCount':len(fresh_set_ids),'extraFreshSetIds':extra_fresh_set_ids,'carriedForwardSetCount':len(carry_forward_set_ids),'collectorRows':len(collector),'scored':scored,'unavailable':len(collector)-scored,'collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'collectorModelRunId':args.collector_model_run_id,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs}
  latest_by_id={str(r['set_id']):r for r in existing_full_rows}
  def build_fresh_row(fresh_client,set_id):
   copied=build_set_page_snapshot_row(by_id[set_id],client=fresh_client,rankings_payload=rankings_payload); payload=dict(copied['payload_json']); payload.pop(PUBLIC_CONTRACT_KEY,None)
@@ -89,7 +101,7 @@ def main():
    run_snapshot_operation_with_retry(lambda fresh_client,set_id=set_id: build_row(fresh_client,set_id),operation_name='dry-run atomic set-page generation row',set_id=set_id)
   print(json.dumps({**summary,'mode':'dry-run'},indent=2)); return
  current=c.table('pokemon_set_page_snapshot_current_generation').select('generation_id').eq('scope','pokemon').single().execute().data
- identity={'builder':'build_atomic_set_page_snapshot_generation.py','sourceMode':'full_generation_fresh_plus_carry_forward','collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs,'rebuiltFreshSetIds':fresh_set_ids,'carriedForwardSetIds':carry_forward_set_ids,'carryForwardSourceGenerationId':current['generation_id']}
+ identity={'builder':'build_atomic_set_page_snapshot_generation.py','sourceMode':'full_generation_fresh_plus_carry_forward','collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs,'extraFreshSetIds':extra_fresh_set_ids,'rebuiltFreshSetIds':fresh_set_ids,'carriedForwardSetIds':carry_forward_set_ids,'carryForwardSourceGenerationId':current['generation_id']}
  building=c.table('pokemon_set_page_snapshot_generations').select('*').eq('status','building').limit(1).execute().data or []
  resumable=bool(building and building[0].get('expected_set_ids')==set_ids and str(building[0].get('collector_model_run_id'))==args.collector_model_run_id and (building[0].get('diagnostics_json') or {})==identity)
  if building and not resumable:
