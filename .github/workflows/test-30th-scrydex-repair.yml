@@ -1,0 +1,26 @@
+name: 30th Scrydex Repair Tests
+
+on:
+  push:
+    branches: [fix/30th-scrydex-market-sync-20260922]
+    paths:
+      - '.github/workflows/test-30th-scrydex-repair.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/30th-scrydex-market-sync-20260922
+          fetch-depth: 1
+      - name: Run focused repair tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m pytest -q             backend/tests/unit/db/clients/test_scrydex_pokemon_client.py             backend/tests/unit/db/clients/test_pokemon_tcg_api_client.py             backend/tests/unit/db/services/test_pokemon_tcg_image_sync_service.py             backend/tests/unit/services/test_pokemon_tcg_api_set_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py
