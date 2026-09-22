@@ -1,0 +1,119 @@
+name: Repair Sep22 Market Publication
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-sep22-market-publication.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Repair missing Sep22 Set Value rows and republish
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          TARGET=2026-09-22
+          PUB_LOCK=/tmp/pokemon-post-scrape-publication.lock
+
+          cd "$LIVE"
+          test "$(git branch --show-current)" = "main"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git fetch origin main --quiet
+          git reset --hard origin/main
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "origin_main=$(git rev-parse origin/main)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== wait for any active canonical publisher ==="
+          FREE=0
+          for i in $(seq 1 180); do
+            if /usr/bin/flock -n "$PUB_LOCK" -c true; then
+              FREE=1
+              echo "publication_lock_free_after_seconds=$(( (i-1) * 10 ))"
+              break
+            fi
+            if [ "$i" -eq 1 ] || [ $((i % 6)) -eq 0 ]; then
+              echo "publication_lock_wait_seconds=$(( (i-1) * 10 ))"
+              ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|repair_missing_market_set_value_history' | grep -v grep || true
+            fi
+            sleep 10
+          done
+          [ "$FREE" -eq 1 ] || { echo "FATAL publication lock did not clear"; exit 40; }
+
+          echo "=== explicit missing Set Value repair ==="
+          "$PY" -m backend.scripts.repair_missing_market_set_value_history             --market-date "$TARGET"             --commit             --max-passes 5             --sleep-seconds 3
+
+          echo "=== verify Market-root Set Value coverage ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.repair_missing_market_set_value_history import missing_market_root_set_ids
+          c=create_service_role_client()
+          missing=missing_market_root_set_ids(c, market_date="2026-09-22")
+          print("missing_market_root_set_values", len(missing), missing[:20])
+          if missing:
+              raise SystemExit(41)
+          PY
+
+          echo "=== canonical Sep22 publication ==="
+          bash backend/scripts/rebuild_snapshots_after_scrape.sh "$TARGET"
+
+          echo "=== verify database authorities ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          target="2026-09-22"
+
+          q=list(c.table("pokemon_market_date_quality")
+                 .select("status,cohort_set_count,qualifying_set_count,contract_version")
+                 .eq("tcg","pokemon").eq("market_date",target)
+                 .order("evaluated_at",desc=True).limit(1).execute().data or [])
+          print("quality", q)
+          if not q or q[0].get("status") not in {"READY","LEGACY_VERIFIED"}:
+              raise SystemExit(42)
+
+          gm=list(c.table("pokemon_explore_set_value_snapshot_latest")
+                  .select("market_date,set_count,updated_at")
+                  .eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or [])
+          print("global_market", gm)
+          if not gm or str(gm[0].get("market_date"))[:10] != target:
+              raise SystemExit(43)
+
+          dash=list(c.table("pokemon_set_market_dashboard_snapshot_latest")
+                    .select("set_id,latest_market_date")
+                    .eq("window_key","365d").execute().data or [])
+          dcur=[r for r in dash if str(r.get("latest_market_date") or "")[:10] == target]
+          print("dashboard_current", len(dcur), "of", len(dash))
+          if len(dcur) < 156:
+              raise SystemExit(44)
+
+          cov=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
+                   .select("set_id,computed_through").limit(1000).execute().data or [])
+          ccur=[r for r in cov if str(r.get("computed_through") or "")[:10] >= target]
+          print("explorer_v2_current", len(ccur), "of", len(cov))
+          if len(ccur) != len(cov) or len(cov) < 167:
+              raise SystemExit(45)
+          PY
+
+          echo "=== verify public Market ==="
+          BODY="$(mktemp)"
+          CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+          DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+          COUNT="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); x=p.get("sets"); print(len(x) if isinstance(x,list) else -1)' "$BODY" 2>/dev/null || true)"
+          rm -f "$BODY"
+          echo "public_market_http=$CODE"
+          echo "public_market_date=$DATE"
+          echo "public_market_set_count=$COUNT"
+          [ "$CODE" = "200" ] && [ "$DATE" = "$TARGET" ]
+
+          echo "REPAIR_SEP22_MARKET_PUBLICATION=PASS"
