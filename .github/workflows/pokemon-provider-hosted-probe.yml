@@ -1,0 +1,48 @@
+name: Pokemon Provider Hosted Probe
+
+on:
+  push:
+    branches: [fix/new-set-card-enrichment-20260922]
+    paths:
+      - '.github/workflows/pokemon-provider-hosted-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Probe deprecated Pokemon TCG API without credentials
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from backend.db.clients.pokemon_tcg_api_client import PokemonTCGAPIClient
+          client = PokemonTCGAPIClient(api_key="", max_attempts=2)
+          result = {}
+          for name in ("30th Celebration", "30th Celebration Classic Collection"):
+              try:
+                  row = client.resolve_set(name)
+                  cards = list(client.iter_cards_for_set(row["id"]))
+                  result[name] = {
+                      "status": "resolved",
+                      "id": row.get("id"),
+                      "name": row.get("name"),
+                      "cards": len(cards),
+                      "images": sum(bool(c.get("image_small_url")) for c in cards),
+                  }
+              except Exception as exc:
+                  result[name] = {
+                      "status": "unavailable",
+                      "error_type": type(exc).__name__,
+                      "message": str(exc)[:500],
+                  }
+          print(json.dumps(result, sort_keys=True))
+          PY
