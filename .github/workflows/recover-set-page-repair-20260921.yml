@@ -1,0 +1,113 @@
+name: Recover Set Page Repair Branch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/recover-set-page-repair-20260921.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Recover local-only set-page repair lineage
+        shell: bash
+        run: |
+          set +e
+          set -u
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          TARGET_BRANCH=fix/set-pages-no-market-prices
+          RECOVERY_BRANCH=recovery/set-pages-no-market-prices-20260921
+          REPORT="$RUNNER_TEMP/set-page-recovery-report.txt"
+          : > "$REPORT"
+          exec > >(tee -a "$REPORT") 2>&1
+
+          echo "utc_now=$(date -u +%FT%TZ)"
+          echo "phoenix_now=$(TZ=America/Phoenix date +%FT%T%z)"
+          cd "$LIVE" || { echo "fatal=live_repo_missing"; exit 1; }
+
+          echo "live_branch=$(git branch --show-current)"
+          echo "live_head=$(git rev-parse HEAD)"
+          echo "tracked_status_begin"
+          git status --short --untracked-files=no
+          echo "tracked_status_end"
+
+          git fetch origin main --quiet
+          echo "origin_main=$(git rev-parse origin/main)"
+
+          echo "local_branches_begin"
+          git for-each-ref --format='%(refname:short) %(objectname)' refs/heads/
+          echo "local_branches_end"
+
+          FOUND=""
+          FOUND_SOURCE=""
+          if git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
+            FOUND="$(git rev-parse "refs/heads/$TARGET_BRANCH")"
+            FOUND_SOURCE="branch"
+          fi
+
+          if [ -z "$FOUND" ]; then
+            FOUND="$(git rev-list --all --reflog 2>/dev/null | grep '^6984736d' | head -1)"
+            if [ -n "$FOUND" ]; then FOUND_SOURCE="reflog_prefix_6984736d"; fi
+          fi
+
+          if [ -z "$FOUND" ]; then
+            for p in c6dba1c4 e83d5696 ead20ef6; do
+              CANDIDATE="$(git rev-list --all --reflog 2>/dev/null | grep "^$p" | head -1)"
+              if [ -n "$CANDIDATE" ]; then
+                FOUND="$CANDIDATE"
+                FOUND_SOURCE="reflog_prefix_$p"
+                break
+              fi
+            done
+          fi
+
+          echo "found_source=$FOUND_SOURCE"
+          echo "found_commit=$FOUND"
+
+          RECOVERY_RC=0
+          if [ -n "$FOUND" ]; then
+            echo "found_commit_show_begin"
+            git show --stat --summary --oneline "$FOUND"
+            echo "found_commit_show_end"
+            echo "lineage_vs_origin_main_begin"
+            git log --oneline --decorate --no-merges origin/main.."$FOUND" || true
+            echo "lineage_vs_origin_main_end"
+
+            command -v gh >/dev/null 2>&1
+            GH_RC=$?
+            echo "gh_present_rc=$GH_RC"
+            if [ "$GH_RC" -eq 0 ]; then gh auth setup-git; fi
+            git push origin "$FOUND:refs/heads/$RECOVERY_BRANCH"
+            RECOVERY_RC=$?
+            echo "recovery_push_rc=$RECOVERY_RC"
+          else
+            RECOVERY_RC=13
+            echo "fatal=target_branch_and_commit_prefixes_not_found"
+          fi
+
+          # Persist a diagnostic report regardless of recovery outcome.
+          cd "$RUNNER_TEMP" || exit 2
+          rm -rf set-page-report-repo
+          git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" set-page-report-repo >/dev/null 2>&1
+          CLONE_RC=$?
+          echo "report_clone_rc=$CLONE_RC"
+          if [ "$CLONE_RC" -eq 0 ]; then
+            cd set-page-report-repo
+            mkdir -p ops/assistant
+            cp "$REPORT" ops/assistant/set-page-recovery-report.txt
+            git config user.name "inDex ops runner"
+            git config user.email "actions@users.noreply.github.com"
+            git add ops/assistant/set-page-recovery-report.txt
+            git commit -m "ops: capture set-page repair recovery state" >/dev/null 2>&1 || true
+            git push origin HEAD:refs/heads/ops/set-page-recovery-report-20260921 --force
+            echo "report_push_rc=$?"
+          fi
+
+          exit "$RECOVERY_RC"
