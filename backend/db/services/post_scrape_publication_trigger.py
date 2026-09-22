@@ -82,6 +82,30 @@ def is_valid_market_date(value: Any) -> bool:
 
 
 MARKET_EXPLORER_V2_COVERAGE_TABLE = "pokemon_market_explorer_card_daily_coverage_v2_shadow"
+GLOBAL_MARKET_AUTHORITY_TABLE = "pokemon_explore_set_value_snapshot_latest"
+
+
+def _global_market_authority_date(client: Any) -> Optional[str]:
+    """Cheap scalar proof that the public Market is definitely behind.
+
+    This is intentionally narrower than the full post-scrape audit. If the
+    global Market authority is missing or older than the requested date, the
+    publication is unquestionably stale and we can launch the canonical wrapper
+    immediately. If it is already on the requested date, the full audit still
+    runs so partial surface drift cannot be hidden.
+    """
+    rows = list(
+        client.table(GLOBAL_MARKET_AUTHORITY_TABLE)
+        .select("market_date")
+        .eq("tcg", "pokemon")
+        .eq("scope", "market")
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        return None
+    value = str(rows[0].get("market_date") or "").strip()
+    return value[:10] if value else None
 
 
 def _market_explorer_v2_current(client: Any, market_date: str) -> bool:
@@ -111,7 +135,41 @@ def evaluate_post_scrape_publication_currency(
     *,
     audit_runner: Optional[Callable[..., Any]] = None,
 ) -> PublicationCurrencyStatus:
-    """Canonical post-scrape audit plus Market Explorer V2 define CURRENT."""
+    """Canonical post-scrape audit plus Market Explorer V2 define CURRENT.
+
+    A cheap global-Market date probe is allowed to prove only one thing:
+    definite staleness. When that authority is absent or behind the requested
+    market date, running the multi-surface audit first adds minutes of heavy JSON
+    reads while the user-facing Market is already known to be stale. In that
+    case return STALE immediately and let the canonical wrapper perform its own
+    publication gates and post-build audit.
+
+    A current/future scalar date never proves the whole publication current;
+    the existing full audit + Explorer V2 coverage checks still run.
+    """
+    target = str(market_date)[:10]
+    try:
+        global_market_date = _global_market_authority_date(client)
+    except Exception as exc:
+        logger.warning(
+            "%s scalar global-Market currency probe unavailable for market_date=%s; "
+            "falling back to full audit: %s: %s",
+            TRIGGER_TAG,
+            market_date,
+            type(exc).__name__,
+            exc,
+        )
+    else:
+        if global_market_date is None or global_market_date < target:
+            logger.info(
+                "%s global Market authority proves publication stale "
+                "target=%s observed=%s; skipping pre-launch full audit",
+                TRIGGER_TAG,
+                target,
+                global_market_date or "missing",
+            )
+            return PublicationCurrencyStatus.STALE
+
     try:
         if audit_runner is None:
             from backend.scripts.audit_pokemon_market_publication import (
