@@ -1,0 +1,56 @@
+name: Keyless Pokemon API Patch Test
+
+on:
+  push:
+    branches:
+      - ops/set-detail-explorer-diag-20260921
+    paths:
+      - '.github/workflows/keyless-api-patch-test-20260921.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/pokemon-api-keyless-onboarding-20260921
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Run focused keyless and onboarding tests
+        run: |
+          python -m pytest -q             backend/tests/unit/services/test_pokemon_tcg_api_set_service.py             backend/tests/unit/db/clients/test_pokemon_tcg_api_client.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+      - name: Probe live keyless metadata endpoint
+        run: |
+          python - <<'PY'
+          import json
+          from backend.services.pokemon_tcg_api_set_service import fetch_targeted_sets
+          for name in (
+              "ME06: Delta Reign",
+              "ME: 30th Celebration",
+              "ME: 30th Celebration Classic Collection",
+              "Pitch Black",
+          ):
+              try:
+                  rows=fetch_targeted_sets(name, "", timeout_seconds=20)
+                  print(json.dumps({
+                      "name":name,
+                      "count":len(rows),
+                      "rows":rows,
+                  },default=str))
+              except Exception as exc:
+                  print(json.dumps({
+                      "name":name,
+                      "error":type(exc).__name__,
+                      "message":str(exc),
+                  }))
+                  raise
+          PY
