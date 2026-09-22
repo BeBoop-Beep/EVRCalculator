@@ -1,0 +1,43 @@
+name: Validate publication fastpath retries
+
+on:
+  push:
+    branches:
+      - 'ops/vm-publication-diagnostics-20260919'
+    paths:
+      - '.github/workflows/vm-publication-diagnostics-20260919.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
+    steps:
+      - name: Checkout fastpath retry branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/publication-fastpath-transient-retry-20260920
+          persist-credentials: false
+      - name: Compile and exercise retry cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          "$PY" -m py_compile \
+            backend/scripts/refresh_stale_public_snapshots.py \
+            backend/tests/unit/scripts/test_refresh_target_date_fastpath.py
+          "$PY" - <<'PY'
+          from backend.tests.unit.scripts import test_refresh_target_date_fastpath as t
+          t.test_completed_scrape_cohort_retries_transient_failure_with_fresh_client()
+          print('completed_cohort_transient_retry=PASS')
+          t.test_target_date_preload_retries_transient_failure_and_keeps_fastpath_available()
+          print('target_date_preload_transient_retry=PASS')
+          t.test_completed_scrape_cohort_exhausted_transient_failure_falls_back_to_deep_audit()
+          print('exhausted_retry_falls_back=PASS')
+          PY
