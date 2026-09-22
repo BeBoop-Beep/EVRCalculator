@@ -236,7 +236,7 @@ def test_repairs_market_set_value_coverage_after_projection_before_refresh(scrip
     projection = "backend/scripts/check_price_storage_v2_projection_ready.py"
     repair_at = script_text.index(repair_cmd)
     projection_at = script_text.index(projection)
-    refresh_at = script_text.index(REFRESH)
+    refresh_at = script_text.index(REFRESH, projection_at)
     assert projection_at < repair_at < refresh_at
     tail = script_text[repair_at:refresh_at]
     assert '--market-date "${MARKET_DATE}"' in tail
