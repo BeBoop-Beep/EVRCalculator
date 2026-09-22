@@ -161,12 +161,14 @@ def _set_d_from_card_scores(cards, scores):
 def build(client, *, pokemon_trends_source_run_id: str,
           trainer_12m_source_run_id: str, trainer_5y_source_run_id: str,
           artist_12m_source_run_id: str, artist_5y_source_run_id: str,
-          playability_source_run_id: str):
+          playability_source_run_id: str,
+          additional_set_ids=None):
     control = build_v6(
         client, pokemon_trends_source_run_id=pokemon_trends_source_run_id,
         trainer_12m_source_run_id=trainer_12m_source_run_id,
         trainer_5y_source_run_id=trainer_5y_source_run_id,
         playability_source_run_id=playability_source_run_id,
+        additional_set_ids=additional_set_ids,
     )
     artist_cfg = json.loads(ARTIST_CONFIG_PATH.read_text(encoding="utf-8"))
     entities, card_entities, artist_scores, artist_status = artist_authority(
@@ -395,7 +397,7 @@ def persist_built_model(client, built, *, as_of_date):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument("--write-stage",action="store_true");parser.add_argument("--reuse-output",action="store_true");parser.add_argument("--output",type=Path,default=OUTPUT)
+    parser=argparse.ArgumentParser();parser.add_argument("--write-stage",action="store_true");parser.add_argument("--reuse-output",action="store_true");parser.add_argument("--output",type=Path,default=OUTPUT);parser.add_argument("--additional-set-id",action="append",default=[])
     for flag in ("pokemon-trends","trainer-12m","trainer-5y","playability","artist-12m","artist-5y"):
         parser.add_argument(f"--{flag}-source-run-id",required=True)
     args=parser.parse_args()
@@ -411,7 +413,8 @@ def main():
             trainer_5y_source_run_id=args.trainer_5y_source_run_id,
             playability_source_run_id=args.playability_source_run_id,
             artist_12m_source_run_id=args.artist_12m_source_run_id,
-            artist_5y_source_run_id=args.artist_5y_source_run_id);args.output.write_text(json.dumps(built,indent=2,ensure_ascii=False),encoding="utf-8")
+            artist_5y_source_run_id=args.artist_5y_source_run_id,
+            additional_set_ids=args.additional_set_id);args.output.write_text(json.dumps(built,indent=2,ensure_ascii=False),encoding="utf-8")
     if built["manifest"].get("sourceAuthority") != {"pokemonTrends":args.pokemon_trends_source_run_id,"trainer12m":args.trainer_12m_source_run_id,"trainer5y":args.trainer_5y_source_run_id,"playability":args.playability_source_run_id,"artist12m":args.artist_12m_source_run_id,"artist5y":args.artist_5y_source_run_id}:raise RuntimeError("reused V7 artifact does not match explicit source authority")
     existing=client.table("pokemon_collector_appeal_model_runs").select("id,status,validation_json").eq("model_version",MODEL_VERSION).eq("input_fingerprint",built["manifest"]["modelFingerprint"]).execute().data or []
     run_id=str(existing[0]["id"]) if existing else None; validation=existing[0].get("validation_json") if existing else None
