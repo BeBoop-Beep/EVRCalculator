@@ -1,4 +1,4 @@
-name: Repair 30th Market Publication
+name: Repair Sep21 Market Publication
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   repair:
     runs-on: self-hosted
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - name: Refresh Set Market and Explorer discovery
         shell: bash
@@ -72,6 +72,10 @@ jobs:
           # been stale since Sep 11, so refresh them explicitly.
           "$PY" -m backend.scripts.publish_market_explorer_filter_options
 
+          # Advance Explorer's daily projection for the same accepted market date.
+          # This is intentionally after the compact Market snapshot promotion.
+          "$PY" -m backend.scripts.run_market_explorer_daily_publication --commit --market-date "$TARGET"
+
           "$PY" - <<'PY'
           from backend.db.clients.supabase_client import create_service_role_client
           c=create_service_role_client()
@@ -90,5 +94,8 @@ jobs:
           options=list(c.table("pokemon_market_explorer_options_snapshots").select("source_as_of,payload_json").eq("tcg","pokemon").eq("is_current",True).order("published_at",desc=True).limit(1).execute().data or [])
           assert options, "missing Explorer options"
           assert "me30thCelebration" in str(options[0].get("payload_json") or {}), "30th missing from Explorer options"
-          print("SET_MARKET_30TH_REPAIR=PASS", {"market_date":row.get("market_date"),"set_count":row.get("set_count"),"directory_rows":len(directory),"options_source_as_of":options[0].get("source_as_of")})
+          coverage=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").limit(1000).execute().data or [])
+          current=sum(1 for item in coverage if str(item.get("computed_through") or "")[:10] >= "2026-09-21")
+          assert current == len(coverage) and current >= 167, {"rows":len(coverage),"current":current}
+          print("MARKET_SEP21_REPAIR=PASS", {"market_date":row.get("market_date"),"set_count":row.get("set_count"),"directory_rows":len(directory),"options_source_as_of":options[0].get("source_as_of"),"explorer_coverage_current":current})
           PY
