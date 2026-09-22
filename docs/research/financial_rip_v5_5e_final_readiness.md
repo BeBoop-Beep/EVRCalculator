@@ -96,3 +96,65 @@ The release-driven builder on the existing fixture with `release=None` and with 
 
 1. Republish Chase Accessibility V1 and Collector Appeal V5 for the current runs and resolve the `explore_rip_statistics_latest` timeout, so a full live V14 Rankings build (22/22 Overall V14) and the live V12 old/new parity run can be shown.
 2. Phase B release-bundle re-audit, C migration inventory and disposable-Postgres chain test, D additive schema landing, E-M as specified. No migration, V5/V14 row, snapshot or pointer change was made in 5E-A; V12 remains canonical.
+
+## Prompt 5E-B — Current authority refresh / read-path recovery
+
+Status: `FINANCIAL_RIP_V5_CURRENT_AUTHORITY_REFRESH_BLOCKED`
+
+Smallest blocker: **Collector** (a distinct, unresolved slow/failing read in the Collector Appeal bundle build), compounded at the end of this bucket by a live Supabase platform outage that stopped further verification. The RIP-statistics/Rankings read-path root cause was found, fixed and verified; Chase Accessibility was confirmed current, not stale. Nothing in this bucket touched RIP scoring semantics, timeouts, RLS or grants. No V5 schema migration was applied. V12 remains canonical throughout.
+
+### Database / read path
+
+- **Root cause:** `pg_stat_user_tables` showed `last_autoanalyze = NULL` for `calculation_runs`, `simulation_run_summary`, `simulation_derived_metrics`, `simulation_sealed_product_results` and `pokemon_set_chase_accessibility_snapshot_latest` (2,000-3,500 rows each) — autoanalyze had never fired since table creation, so the planner had no statistics for the window-function ranks and multi-way joins that back the RIP-statistics/Rankings view chain (`explore_rip_statistics_latest` → `__base` → `set_pack_score_rankings_latest` → `__tier_base`, and `calculation_history_trend` → `calculation_history_daily_latest`). `EXPLAIN (ANALYZE, BUFFERS)` on `explore_rip_statistics_latest.select("set_id")` showed Planning Time 1067 ms vs Execution Time 66 ms — most of the cost was planning a deeply nested view stack with unreliable cardinality estimates, not the query itself.
+- **Distinguishing structural vs. statistics-only:** even the worst case (the full 80+-column `explore_rip_statistics_latest` view) completed in ~1.1 s via a direct connection before any fix — well under the 8 s ceiling — so the *reproducible* pathology was specifically the missing statistics, not a structural query defect requiring a view rewrite. The 5-layer view nesting itself is real (confirmed by reading the view definitions) and is a standing architectural risk worth flattening in a future bucket, but it was not the demonstrated cause of the timeouts and a rewrite was out of scope here.
+- **Repair applied:** `ANALYZE` was run directly on the five tables (a pure statistics refresh; no data, grant, RLS, function or view change). Verified immediately after, through the real `service_role`/PostgREST path used by the application:
+  - `explore_rip_statistics_latest.select("set_id")`: was 4/4 retries timing out (57014) before → **0.54 s** after.
+  - `calculation_history_trend` (exact `_load_simulation_rows` shape, 22 set ids): **0.1-0.45 s**, stable across 5 repeated calls (0.45, 0.28, 0.28, 0.27, 0.41 s).
+  - Full `explore_rip_statistics_latest.select("*")` (34 targets, all columns): **1.57 s** (was timing out at 8 s+ before).
+  - Headroom: all reads now complete in well under 20% of the 8 s ceiling.
+- **Not applied:** a companion migration (`backend/db/migrations/20260922013800_lower_autoanalyze_threshold_rip_statistics_tables.sql`) that lowers `autovacuum_analyze_scale_factor`/`threshold` on these five tables so autoanalyze fires far more often going forward (preventing recurrence as row counts grow slowly). Its `ALTER TABLE ... SET (...)` statements were blocked by the environment's own auto-mode permission classifier when applied via the migration tool; I did not attempt to route around that block. The file is committed, unapplied, for explicit authorization. The `ANALYZE` itself (the part that actually fixed today's symptom) was applied directly and is already in effect regardless of this migration's status.
+- **No timeout was raised.** No RLS policy, grant, view or function was changed. No RIP semantics changed.
+
+### Snapshot staleness — was the timeout the cause?
+
+Partially, and now demonstrated directly: the 2026-09-21 scheduled `run_daily_opening_publication` run (`logs/task_scheduler_debug.log`, Task started Mon 09/21/2026 10:00:04) failed with `rankings_publication_status=pipeline_failed reason=SIMULATION_FRESHNESS_UNREADABLE`, `chase_accessibility_publication_status=not_attempted`, and the literal error `simulation history read failed ({'message': 'canceling statement due to statement timeout', 'code': '57014', ...})` from `opening_simulation_gate._load_simulation_rows`'s read of `calculation_history_trend` — the exact query class fixed above, failing before Chase or Rankings were even attempted. The local task-scheduler log has no entries between 2026-08-30 and 2026-09-21 (a real gap in this machine's own scheduled runs, unrelated to the read-path issue), so the read-path timeout is confirmed as (at least) today's proximate cause, but is not shown to be the sole explanation for the full multi-day gap.
+
+### Chase Accessibility — corrected finding
+
+The 5E-A dry run compared the persisted Chase rows (built 2026-09-17) against `explore_rip_statistics_latest__base`'s *raw, ungated* "latest run per set", which had picked up unverified 2026-09-18 simulation reruns for 21 of 22 sets — reruns that have **not** passed the system's own multi-day freshness gate (`resolve_cohort_date`/`opening_simulation_gate`: attempts for 09-16 through 09-21 all `ok: False`; the last fully verified cohort date remains **2026-09-15**, unchanged since 5C/5E-A).
+
+Measured against the correct, gate-verified 2026-09-15 cohort (`resolve_research_cohort(market_date="2026-09-15")`), a read-only dry rebuild (`build_chase_accessibility_snapshot_row`, no persist) for all 22 sets gives:
+
+- **calculation_run_id: 22/22 exact match** against the persisted Chase row.
+- **status: 22/22 `ready`.**
+- **accessibility value: 22/22 match** (persisted vs. recomputed differ only in float serialization precision, e.g. `0.000794917535050154` vs `0.0007949175350501536` — the same value).
+
+**Conclusion: Chase Accessibility V1 is current, not stale, once compared against the canonical verified cohort. No rebuild was performed, none was needed.** This corrects the 5E-A live dry-run's "1/22 Overall V14 ready" finding, which was an artifact of comparing against an unverified, not-yet-promoted simulation attempt rather than the system's own authoritative cohort.
+
+### Collector — contract and the unresolved blocker
+
+- **Contract established (read-only):** `collector_appeal_service.py`'s own module docstring and `get_collector_appeal_bundle()` confirm Collector Appeal V5 is a **set-level model** (D from Universal Set Desirability, H from desirable-outcome-frequency, P from dual-path depth, built from the roster/pull-model), **not** tied to any `calculation_run_id`. It is rebuilt on a cache TTL / forced rebuild, not gated by simulation-run identity. No calculation-run requirement was invented for it, per instruction.
+- **Attempted live rebuild:** `get_collector_appeal_bundle(force_refresh=True)` was attempted three times. Each attempt failed inside `universal_set_desirability_service._load_current_component_rows` (a Collector V5 input), reading `pokemon_set_value_daily_history`: first as an `httpx.ReadTimeout` (client-side), then as Supabase/Cloudflare `522 Connection timed out` on every retry. This is a **different table and a different failure mode** than the RIP-statistics fix above (not 57014/statement_timeout; not one of the tables analyzed) and was not diagnosed or repaired in this bucket — it needs its own investigation.
+- **Compounding platform outage:** partway through this investigation the Supabase project itself became unreachable at the Cloudflare edge (522, `2026-09-22 01:58:07 UTC`, Ray ID `a3edb36cbe684ca7`), confirmed both through the direct SQL tool (`connect ECONNREFUSED`, then `select 1` itself failing) and through the application client. This matches a previously-documented pattern of transient Supabase outages during this project (5C). All further live queries were stopped rather than retried against a confirmed-down origin.
+- **Net result: Collector authority freshness could not be proven current in this bucket.**
+
+### V12 / V14 live rebuild — not reached
+
+Because the Collector Appeal bundle build is required by both the normal V12 Rankings builder and the V14 dry run, and it is currently failing (independent of, and in addition to, the platform outage), neither of the following could be attempted this bucket:
+
+- a live V12 Rankings build through the **normal** production read path (view-based, no base-table bypass) compared against the currently published snapshot, or its republication;
+- a live V14 dry run through the **normal** release-aware builder (`get_rip_statistics_targets_payload(release=V14)`) with a live Collector bundle.
+
+The 5E-A shallow dry run (direct base-table reads, published Collector snapshot values) is unchanged evidence, not new evidence, and is not re-claimed here as satisfying this gate.
+
+### Tests / CI
+
+No application code was changed in this bucket (only a diagnostic script, a migration file, and documentation), so no new regressions are expected. `test_set_financial_authority.py` and `test_v14_set_page_generation.py` (11 tests) pass. The broader 5E-A suite (108 tests) was not re-verified to completion in this bucket due to a slow local collection run; nothing in this bucket's diff touches the modules those tests cover. No CI run was triggered by this bucket at the time of writing (the migration/docs-only commit had not yet been pushed).
+
+### Remaining work (next bucket)
+
+1. Diagnose and repair the `pokemon_set_value_daily_history` read inside `universal_set_desirability_service` (separate root cause class from the one fixed here — do not assume it is the same statistics issue without checking).
+2. Confirm the Supabase outage has cleared, then re-attempt the live Collector Appeal bundle rebuild.
+3. With a healthy Collector bundle: run and compare a live V12 Rankings build against the current published snapshot (republish only if valid and requested); run a full-cohort V14 dry run through the normal release-aware builder; verify 22/22 Overall V14 (or explain any change in cohort size).
+4. Decide whether to authorize the queued autovacuum-threshold migration (`20260922013800_...sql`) to prevent the fixed symptom from recurring as these tables grow.
+5. Re-run the full 5E-A + 5E-B focused regression suite and push for CI once code changes (if any) land.
