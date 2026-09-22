@@ -33,7 +33,7 @@ const ALLOWED_WIDTHS = [...IMAGE_SIZES, ...DEVICE_SIZES];
 
 // Must stay in sync with `images.remotePatterns` in next.config.mjs. A host
 // present here but absent there produces a 400 from the optimizer.
-const OPTIMIZABLE_HOSTS = new Set(["images.pokemontcg.io", "images.scrydex.com"]);
+const OPTIMIZABLE_HOSTS = new Set(["images.pokemontcg.io", "images.scrydex.com", "assets.tcgdex.net"]);
 
 // Next's default quality. Declaring a different one would require an
 // `images.qualities` entry in next.config.mjs, so this deliberately does not.
