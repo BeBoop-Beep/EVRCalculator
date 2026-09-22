@@ -50,6 +50,16 @@ jobs:
               echo "after: branch=$(git branch --show-current) head=$(git rev-parse HEAD)"
               test "$(git rev-parse HEAD)" = "$(git rev-parse origin/develop)" && echo "VM HEAD == origin/develop"
               ;;
+            "p6-vm: path-diagnose")
+              cd "$REPO" || exit 2
+              echo "pwd=$(pwd)"
+              echo "branch=$(git branch --show-current) head=$(git rev-parse HEAD)"
+              echo "repo-pricing-tree=$(git ls-tree -d HEAD backend/pricing_pipeline | wc -l)"
+              echo "worktree-pricing-dir=$([ -d backend/pricing_pipeline ] && echo present || echo missing)"
+              echo "credential-file=$([ -f backend/pricing_pipeline/ebay_credentials.py ] && echo present || echo missing)"
+              echo "sparse-checkout=$([ -f .git/info/sparse-checkout ] && echo enabled || echo not-file-based)"
+              git sparse-checkout list 2>/dev/null || true
+              ;;
             "p6-vm: creds")
               cd "$REPO" || exit 2
               "$PY" -c "
