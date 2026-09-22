@@ -23,4 +23,5 @@ jobs:
         run: |
           set -euo pipefail
           PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
-          "$PY" -m pytest -q             backend/tests/unit/db/clients/test_scrydex_pokemon_client.py             backend/tests/unit/db/clients/test_pokemon_tcg_api_client.py             backend/tests/unit/db/services/test_pokemon_tcg_image_sync_service.py             backend/tests/unit/services/test_pokemon_tcg_api_set_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+          "$PY" -m pytest -q             backend/tests/unit/db/clients/test_scrydex_pokemon_client.py             backend/tests/unit/db/clients/test_pokemon_tcg_api_client.py             backend/tests/unit/db/services/test_pokemon_tcg_image_sync_service.py             backend/tests/unit/services/test_pokemon_tcg_api_set_service.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py \
+            backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py
