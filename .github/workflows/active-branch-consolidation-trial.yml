@@ -52,6 +52,19 @@ jobs:
             git merge --no-ff --no-edit -X ours "origin/$POKEMON_BRANCH"
             git checkout "origin/$POKEMON_BRANCH" -- backend/scripts/refresh_due_pokemon_catalog_sets.py backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py
             git checkout origin/develop -- backend/services/pokemon_set_onboarding_service.py backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+            python - <<'PY'
+          from pathlib import Path
+          p = Path("backend/scripts/refresh_due_pokemon_catalog_sets.py")
+          text = p.read_text(encoding="utf-8")
+          text = text.replace(
+              'if "sync_pokemon_images.py" in command:',
+              'if any(str(part).endswith("sync_pokemon_images.py") for part in command):',
+          ).replace(
+              'elif "build_pokemon_set_desirability_inputs.py" in command:',
+              'elif any(str(part).endswith("build_pokemon_set_desirability_inputs.py") for part in command):',
+          )
+          p.write_text(text, encoding="utf-8")
+          PY
             git rm -f --ignore-unmatch .github/workflows/test-pokemon-catalog-image-enrichment.yml
             git add -A
             git commit --amend --no-edit
