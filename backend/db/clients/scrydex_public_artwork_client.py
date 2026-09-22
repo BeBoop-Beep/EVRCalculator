@@ -75,6 +75,7 @@ class _ScrydexCardAnchorParser(HTMLParser):
         match = re.search(r"(.+?)\s*#\s*([A-Za-z0-9]+)", text)
         if match:
             name = match.group(1).strip()
+            name = re.sub(r"-(EX|GX|V|VMAX|VSTAR)$", r" \\1", name, flags=re.IGNORECASE)
             number = match.group(2).strip()
         else:
             name = _display_name_from_slug(row["slug"])
