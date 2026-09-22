@@ -359,11 +359,18 @@ def run(*, commit: bool, limit: int, max_provider_requests: Optional[int]) -> Di
                 # A card-bearing catalog refresh is not complete until artwork,
                 # first-pass desirability, and Collector identities all succeed.
                 critical_status = None
-                if "sync_pokemon_images.py" in command:
+                command_parts = [str(part) for part in command]
+                if any(part.endswith("sync_pokemon_images.py") for part in command_parts):
                     critical_status = "pokemon_api_image_sync_failed"
-                elif "build_pokemon_set_desirability_inputs.py" in command:
+                elif any(
+                    part.endswith("build_pokemon_set_desirability_inputs.py")
+                    for part in command_parts
+                ):
                     critical_status = "desirability_first_build_failed"
-                elif "sync_pokemon_collector_identities.py" in command:
+                elif any(
+                    part.endswith("sync_pokemon_collector_identities.py")
+                    for part in command_parts
+                ):
                     critical_status = "collector_identity_sync_failed"
 
                 if critical_status is not None:
