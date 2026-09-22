@@ -140,6 +140,7 @@ def _hydrate_existing_canonical_rows(
     api_set_id: str,
     api_set: Dict[str, Any],
     api_cards: List[Dict[str, Any]],
+    dry_run: bool = False,
 ) -> Dict[str, Any]:
     """Upgrade only canonical rows already owned by the local scraped roster."""
     canonical_rows = _load_canonical_rows(client, set_id)
@@ -211,6 +212,9 @@ def _hydrate_existing_canonical_rows(
             for key, value in authoritative.items()
             if key != "set_id"
         }
+        if dry_run:
+            updated += 1
+            continue
         result = (
             client.table("pokemon_canonical_cards")
             .update(payload)
@@ -228,6 +232,7 @@ def _hydrate_existing_canonical_rows(
         "unmatched_examples": unmatched[:20],
         "conflicts": conflicts,
         "api_returned_cards": len(api_cards),
+        "dry_run": bool(dry_run),
     }
 
 
@@ -240,6 +245,7 @@ def enrich_scraped_set_card_metadata(
     expected_api_set_id: Optional[str] = None,
     client: Any = None,
     image_sync_service: Optional[PokemonTCGImageSyncService] = None,
+    dry_run: bool = False,
 ) -> Dict[str, Any]:
     """Enrich one successfully scraped set without changing scrape success."""
     if int(cards_scraped or 0) <= 0:
@@ -266,14 +272,15 @@ def enrich_scraped_set_card_metadata(
         set_payload["symbol_image_url"] = set_images["symbol"]
     if set_images.get("logo"):
         set_payload["logo_image_url"] = set_images["logo"]
-    active.table("sets").update(set_payload).eq("id", set_id).execute()
+    if not dry_run:
+        active.table("sets").update(set_payload).eq("id", set_id).execute()
 
     # Reuse the established card/variant matcher for the legacy compatibility
     # layer.  This is intentionally before canonical hydration: fallback
     # canonical rows remember source_card_id, and the sync writes the exact
     # Pokemon API card id onto that legacy card.
     sync = image_sync_service or PokemonTCGImageSyncService()
-    legacy_report = sync.sync_set(set_name, dry_run=False)
+    legacy_report = sync.sync_set(set_name, dry_run=dry_run)
 
     # Fetch the full provider card payload once for canonical metadata.  Unlike
     # the legacy image synchronizer, this includes rarity/supertype/subtypes/
@@ -285,11 +292,14 @@ def enrich_scraped_set_card_metadata(
         api_set_id=api_set_id,
         api_set=api_set,
         api_cards=api_cards,
+        dry_run=dry_run,
     )
 
     return {
         "status": (
-            "enriched"
+            "dry_run"
+            if dry_run
+            else "enriched"
             if canonical_report.get("status") in {"hydrated", "no_canonical_rows_yet"}
             else "partial"
         ),
