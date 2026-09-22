@@ -36,11 +36,15 @@ jobs:
           }, sort_keys=True))
 
           result = {}
-          try:
-              row = PokemonTCGAPIClient().resolve_set("ME: 30th Celebration")
-              result["pokemon_tcg_api"] = {"status": "resolved", "id": row.get("id"), "name": row.get("name")}
-          except Exception as exc:
-              result["pokemon_tcg_api"] = {"status": "unavailable", "error_type": type(exc).__name__, "message": str(exc)[:500]}
+          old = PokemonTCGAPIClient()
+          old_attempts = {}
+          for candidate in ("ME: 30th Celebration", "30th Celebration"):
+              try:
+                  row = old.resolve_set(candidate)
+                  old_attempts[candidate] = {"status": "resolved", "id": row.get("id"), "name": row.get("name")}
+              except Exception as exc:
+                  old_attempts[candidate] = {"status": "unavailable", "error_type": type(exc).__name__, "message": str(exc)[:500]}
+          result["pokemon_tcg_api"] = old_attempts
 
           try:
               client = ScrydexPokemonClient()
