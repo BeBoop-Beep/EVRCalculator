@@ -38,6 +38,7 @@ export default function MarketExplorerChart({
   timeframeOptions = [],
   onTimeframeChange,
   onClearGraph,
+  openCanvas = false,
 }) {
   const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_PERFORMANCE);
   const visibleModel = useMemo(
@@ -121,7 +122,8 @@ export default function MarketExplorerChart({
               model={visibleModel}
               timeframe={timeframe}
               viewMode={viewMode}
-              plotClassName="h-[24rem] tab:h-[30rem] desk:h-[38rem] 2xl:h-[42rem]"
+              plotClassName="h-[24rem] tab:h-[30rem] desk:h-[40rem] 2xl:h-[46rem]"
+              minimal={openCanvas}
             />
           )
           : (
