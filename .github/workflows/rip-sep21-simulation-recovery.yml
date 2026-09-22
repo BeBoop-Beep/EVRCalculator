@@ -29,7 +29,7 @@ jobs:
           set -euo pipefail
           python -m venv "$RUNNER_TEMP/rip-recovery-venv"
           "$RUNNER_TEMP/rip-recovery-venv/bin/python" -m pip install -q --upgrade pip
-          "$RUNNER_TEMP/rip-recovery-venv/bin/python" -m pip install -q -r backend/requirements.txt psutil
+          "$RUNNER_TEMP/rip-recovery-venv/bin/python" -m pip install -q -r backend/requirements.txt psutil scipy==1.18.1
           "$RUNNER_TEMP/rip-recovery-venv/bin/python" - <<'PY'
           import numpy, pandas, scipy, supabase
           print("runtime_imports=ok")
