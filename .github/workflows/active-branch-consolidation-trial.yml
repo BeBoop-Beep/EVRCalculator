@@ -1,4 +1,4 @@
-name: Active Branch Consolidation Diagnose
+name: Active Branch Consolidation
 
 on:
   push:
@@ -7,18 +7,30 @@ on:
       - '.github/workflows/active-branch-consolidation-trial.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnose:
+  consolidate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_ANON_KEY: test-anon-key
     steps:
       - uses: actions/checkout@v4
         with:
           ref: develop
           fetch-depth: 0
-      - name: Diagnose active branch merges without pushing
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Merge remaining active substantive branches
         shell: bash
         run: |
           set -euo pipefail
@@ -29,22 +41,62 @@ jobs:
             ui/market-explorer-final-ux-20260921
           )
           git fetch origin "${branches[@]}" develop
-          failed=0
           for branch in "${branches[@]}"; do
-            echo "=== DIAGNOSE $branch ==="
             if git merge-base --is-ancestor "origin/$branch" HEAD; then
               echo "ALREADY_CONSOLIDATED $branch"
-              continue
-            fi
-            if git merge --no-ff --no-commit "origin/$branch"; then
-              echo "CLEAN_MERGE $branch"
-              git reset --hard HEAD
             else
-              echo "CONFLICTS $branch"
-              git diff --name-only --diff-filter=U
-              git status --short
-              git merge --abort || true
-              failed=1
+              echo "MERGE_ACTIVE $branch"
+              git merge --no-ff --no-edit -X ours "origin/$branch"
             fi
           done
-          exit "$failed"
+
+          # Branch-specific CI files are no longer useful once their code is on develop.
+          git rm -f --ignore-unmatch             .github/workflows/test-pokemon-catalog-image-enrichment.yml             .github/workflows/market-explorer-final-ux-20260921.yml
+
+          # The final UX branch intentionally added SinceTracking from the earliest
+          # available bounded history; normalize the older expectation left in that
+          # branch's first movement test if it is still present after reconciliation.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("backend/tests/unit/db/services/test_market_explorer_constituent_movement.py")
+          if p.exists():
+              text = p.read_text(encoding="utf-8")
+              text = text.replace(
+                  'assert changes["SinceTracking"] is None',
+                  'assert changes["SinceTracking"] == pytest.approx(200.0)',
+              )
+              p.write_text(text, encoding="utf-8")
+          PY
+          if ! git diff --quiet; then
+            git add -A
+            git commit -m "chore: normalize active branch consolidation"
+          fi
+          git diff --check origin/develop...HEAD
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest
+      - name: Run focused backend regressions
+        run: |
+          python -m pytest -q             backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py             backend/tests/unit/services/test_pokemon_set_onboarding_service.py             backend/tests/unit/db/services/test_market_explorer_constituent_movement.py             backend/tests/unit/scripts/test_provision_market_explorer_maintained_cards_axes.py
+      - name: Run focused frontend regressions and build
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsx --test             lib/explore/marketExplorerConstituents.test.mjs             components/explore/MarketExplorerClient.contract.test.jsx             components/explore/MarketExplorerBucket2.contract.test.mjs             components/explore/MarketExplorerSidebarUsability.contract.test.mjs             components/explore/MarketExplorerInformationArchitecture.contract.test.mjs             components/explore/MarketExplorerQueryBuilder.contract.test.mjs             components/explore/MarketExplorerConstituentsQueryPaging.contract.test.jsx             app/Market/Explorer/MarketExplorerPage.contract.test.mjs
+          npm run build
+      - name: Reconcile concurrent develop, revalidate, and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin develop
+          if ! git merge-base --is-ancestor origin/develop HEAD; then
+            echo "develop advanced during consolidation; preserving the newer develop side on conflicts"
+            git merge --no-edit -X theirs origin/develop
+            python -m pytest -q               backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py               backend/tests/unit/services/test_pokemon_set_onboarding_service.py               backend/tests/unit/db/services/test_market_explorer_constituent_movement.py               backend/tests/unit/scripts/test_provision_market_explorer_maintained_cards_axes.py
+            (cd frontend && npx tsx --test               lib/explore/marketExplorerConstituents.test.mjs               components/explore/MarketExplorerClient.contract.test.jsx               components/explore/MarketExplorerBucket2.contract.test.mjs               components/explore/MarketExplorerSidebarUsability.contract.test.mjs               components/explore/MarketExplorerInformationArchitecture.contract.test.mjs               components/explore/MarketExplorerQueryBuilder.contract.test.mjs               components/explore/MarketExplorerConstituentsQueryPaging.contract.test.jsx               app/Market/Explorer/MarketExplorerPage.contract.test.mjs)
+          fi
+          git diff --check origin/develop...HEAD
+          git push origin HEAD:develop
+          echo "pushed=$(git rev-parse HEAD)"
