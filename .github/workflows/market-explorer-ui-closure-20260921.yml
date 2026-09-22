@@ -37,7 +37,9 @@ jobs:
       - name: Backend constituent contract
         run: |
           python -m pip install --disable-pip-version-check -q pytest
-          python -m pytest -q backend/tests/unit/domain/pokemon/test_constituent_movement.py
+          python -m pytest -q \
+            backend/tests/unit/domain/pokemon/test_constituent_movement.py \
+            backend/tests/unit/db/test_market_explorer_prepared_directory_service.py
       - name: Production frontend build
         working-directory: frontend
         run: npm run build
