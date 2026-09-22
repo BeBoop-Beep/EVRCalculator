@@ -302,6 +302,145 @@ def test_initial_scrape_uses_catalog_target_and_completes_for_sealed_only_set():
     assert "--set" not in calls[0]
 
 
+def test_catalog_card_initial_scrape_syncs_images_before_canonical_projection():
+    calls = []
+    evidence_reads = iter([
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+        },
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+            "cards_populated": True,
+            "variants_populated": True,
+            "market_prices_populated": True,
+            "sealed_products_populated": True,
+            "sealed_market_prices_populated": True,
+            "image_coverage": 0.0,
+        },
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+            "cards_populated": True,
+            "variants_populated": True,
+            "market_prices_populated": True,
+            "sealed_products_populated": True,
+            "sealed_market_prices_populated": True,
+            "image_coverage": 1.0,
+        },
+    ])
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="", stderr="")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+    )
+    outcome = engine.run_step(_provider_job("initial_scrape"))
+
+    assert outcome.kind == "complete"
+    assert outcome.evidence["catalog_only_onboarding_complete"] is True
+    joined = [" ".join(command) for command in calls]
+    scrape_index = next(i for i, line in enumerate(joined) if "run_pokemon_set_scrape.py" in line)
+    image_index = next(i for i, line in enumerate(joined) if "sync_pokemon_images.py" in line)
+    canonical_index = next(i for i, line in enumerate(joined) if "build_pokemon_set_desirability_inputs.py" in line)
+    assert scrape_index < image_index < canonical_index
+    assert outcome.evidence["image_coverage"] == 1.0
+
+
+def test_catalog_card_initial_scrape_retries_when_image_sync_fails():
+    calls = []
+    evidence_reads = iter([
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+        },
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+            "cards_populated": True,
+            "variants_populated": True,
+            "market_prices_populated": True,
+            "sealed_products_populated": False,
+            "sealed_market_prices_populated": False,
+        },
+    ])
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        failed = any(str(part).endswith("sync_pokemon_images.py") for part in command)
+        return CompletedProcess(
+            command,
+            1 if failed else 0,
+            stdout="",
+            stderr="image sync unavailable" if failed else "",
+        )
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+    )
+    outcome = engine.run_step(_provider_job("initial_scrape"))
+
+    assert outcome.kind == "retry"
+    assert outcome.error_code == "catalog_image_sync_failed"
+    joined = [" ".join(command) for command in calls]
+    assert any("sync_pokemon_images.py" in line for line in joined)
+    assert not any("build_pokemon_set_desirability_inputs.py" in line for line in joined)
+
+
+def test_catalog_card_initial_scrape_retries_when_image_coverage_is_incomplete(monkeypatch):
+    monkeypatch.setenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90")
+    evidence_reads = iter([
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+        },
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+            "cards_populated": True,
+            "variants_populated": True,
+            "market_prices_populated": True,
+            "sealed_products_populated": False,
+            "sealed_market_prices_populated": False,
+        },
+        {
+            "catalog_only": True,
+            "ready_for_daily_scrape": False,
+            "cards_populated": True,
+            "variants_populated": True,
+            "market_prices_populated": True,
+            "image_coverage": 0.50,
+        },
+    ])
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 0, stdout="", stderr="")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+    )
+    outcome = engine.run_step(_provider_job("initial_scrape"))
+
+    assert outcome.kind == "retry"
+    assert outcome.error_code == "catalog_image_fetch_incomplete"
+    assert outcome.evidence["image_coverage_threshold"] == 0.90
+    assert not any(
+        "build_pokemon_set_desirability_inputs.py" in " ".join(command)
+        for command in calls
+    )
+
+
 def test_provider_source_registration_resumes_when_config_already_deployed(monkeypatch, tmp_path):
     era_dir = tmp_path / "backend/constants/tcg/pokemon/megaEvolutionEra"
     era_dir.mkdir(parents=True)
