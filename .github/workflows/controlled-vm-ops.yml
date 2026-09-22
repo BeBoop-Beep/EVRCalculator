@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -48,7 +48,7 @@ jobs:
           set_id = set_id or ""
           request_id = request_id or ""
 
-          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors"} and not market_date:
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
@@ -766,7 +766,116 @@ jobs:
                 -q
               ;;
 
-            set-market-snapshot)
+            repair-sep22-base-publication)
+    cd "$REPO"
+    test "$VM_MARKET_DATE" = "2026-09-22" || { echo "This repair is scoped only to 2026-09-22"; exit 8; }
+    WT="/tmp/EVRCalculator-sep22-base-repair"
+    TARGET_SHA="d7b95e1aadcf536730d228b0103ffea21bd8008a"
+    git fetch origin fix/sealed-price-timeout-retry-20260922
+
+    if [ -d "$WT" ]; then
+      git worktree remove --force "$WT" || rm -rf "$WT"
+    fi
+    git worktree add --detach "$WT" "$TARGET_SHA"
+    cp "$REPO/backend/.env" "$WT/backend/.env"
+    chmod 600 "$WT/backend/.env"
+
+    echo "== focused regression test =="
+    cd "$WT"
+    "$PY" -m pytest backend/tests/unit/db/repositories/test_sealed_product_prices_repository.py -q
+
+    echo "== acquire canonical dispatcher lock =="
+    exec {DISPATCH_FD}>/tmp/pokemon-scrape-dispatcher.lock
+    flock -n "$DISPATCH_FD" || { echo "Dispatcher is active; refusing to race it."; exit 9; }
+
+    echo "== guarded one-attempt rearm for Base =="
+    "$PY" - <<'PY'
+from datetime import datetime, timezone
+from backend.db.clients.supabase_client import create_service_role_client
+
+JOB_ID = 150939
+BATCH_ID = 60
+SET_ID = "0010d2ec-894e-4c17-855d-5de6ff6fd204"
+MARKET_DATE = "2026-09-22"
+
+client = create_service_role_client()
+row = (
+    client.table("scrape_jobs")
+    .select("id,batch_id,set_id,market_date,status,attempts,max_attempts,error_code")
+    .eq("id", JOB_ID)
+    .single()
+    .execute()
+    .data
+)
+print({"pre_rearm": row})
+if not row:
+    raise SystemExit("Base repair job missing")
+if row.get("status") == "completed":
+    print("Base job already completed; no rearm required.")
+elif (
+    int(row.get("batch_id") or 0) == BATCH_ID
+    and str(row.get("set_id")) == SET_ID
+    and str(row.get("market_date")) == MARKET_DATE
+    and row.get("status") == "failed"
+    and int(row.get("attempts") or 0) == 4
+    and int(row.get("max_attempts") or 0) == 4
+    and row.get("error_code") == "transient_scrape_failure"
+):
+    now = datetime.now(timezone.utc).isoformat()
+    updated = (
+        client.table("scrape_jobs")
+        .update({
+            "status": "pending",
+            "max_attempts": 5,
+            "completed_at": None,
+            "worker_id": None,
+            "heartbeat_at": None,
+            "lease_expires_at": None,
+            "next_attempt_at": now,
+            "error_code": None,
+            "error_message": "requeued_after_sealed_timeout_retry_fix",
+        })
+        .eq("id", JOB_ID)
+        .eq("status", "failed")
+        .eq("attempts", 4)
+        .execute()
+        .data
+    )
+    if not updated:
+        raise SystemExit("Guarded Base rearm matched no rows")
+    print({"rearmed": updated})
+else:
+    raise SystemExit(f"Refusing unexpected Base job state: {row}")
+PY
+
+    echo "== canonical queue drain for Sep 22 =="
+    "$PY" backend/scripts/run_next_scrape_job.py --market-date "$VM_MARKET_DATE"
+
+    echo "== release dispatcher lock =="
+    flock -u "$DISPATCH_FD"
+
+    echo "== verify Base + batch =="
+    "$PY" - <<'PY'
+from backend.db.clients.supabase_client import create_service_role_client
+c = create_service_role_client()
+job = c.table("scrape_jobs").select("id,status,attempts,max_attempts,error_code,completed_at").eq("id",150939).single().execute().data
+batch = c.table("pokemon_scrape_batches").select("id,market_date,status,expected_set_count,succeeded_set_count,failed_set_count,missing_set_count,promoted_at").eq("id",60).single().execute().data
+print({"job":job,"batch":batch})
+if job.get("status") != "completed":
+    raise SystemExit("Base repair job did not complete")
+if int(batch.get("succeeded_set_count") or 0) != int(batch.get("expected_set_count") or 0):
+    raise SystemExit("Sep 22 batch is not fully successful")
+if int(batch.get("failed_set_count") or 0) != 0 or int(batch.get("missing_set_count") or 0) != 0:
+    raise SystemExit("Sep 22 batch still has failed/missing sets")
+PY
+
+    echo "== canonical publication fallback =="
+    "$PY" backend/scripts/publish_post_scrape_if_needed.py --market-date "$VM_MARKET_DATE"
+
+    echo "== repair command complete =="
+    ;;
+
+  set-market-snapshot)
               cd "$REPO"
               "$PY" backend/scripts/build_pokemon_explore_set_value_snapshot.py \
                 --commit \
