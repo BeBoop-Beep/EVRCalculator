@@ -63,11 +63,16 @@ jobs:
 
           echo "=== repair any remaining Sep 21 tracked set-history laggards ==="
           STALE_FILE="$(mktemp)"
-          "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); [print(str(r.get("set_id") or "")) for r in rows if not str(r.get("latest_snapshot_date") or "")[:10] or str(r.get("latest_snapshot_date") or "")[:10] < day]' > "$STALE_FILE"
+          "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); stale=[str(r.get("set_id") or "") for r in rows if not str(r.get("latest_snapshot_date") or "")[:10] or str(r.get("latest_snapshot_date") or "")[:10] < day]; [print(s) for s in stale]' > "$STALE_FILE"
           STALE_COUNT="$(grep -c . "$STALE_FILE" || true)"
           echo "set_history_laggards_before_repair=$STALE_COUNT"
           while IFS= read -r SET_ID; do
             [ -n "$SET_ID" ] || continue
+            HAS_ROLLUP_CHILD="$(SET_ID="$SET_ID" "$PY" -c 'import os; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); sid=os.environ["SET_ID"]; rows=list(c.table("sets").select("id").eq("parent_opening_set_id",sid).eq("counts_toward_parent_set_value",True).limit(1).execute().data or []); print("1" if rows else "0")')"
+            if [ "$HAS_ROLLUP_CHILD" = "1" ]; then
+              echo "skip_generic_backfill_protected_composite=$SET_ID"
+              continue
+            fi
             "$PY" -m backend.scripts.backfill_pokemon_set_value_daily_history \
               --set-id "$SET_ID" \
               --start-date "$TARGET" \
@@ -76,8 +81,8 @@ jobs:
           done < "$STALE_FILE"
           rm -f "$STALE_FILE"
 
-          echo "=== require 166/166 tracked set-history authority ==="
-          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); current=[r for r in rows if str(r.get("latest_snapshot_date") or "")[:10] >= day]; out={"total":len(rows),"current":len(current),"stale":len(rows)-len(current),"minLatest":min((str(r.get("latest_snapshot_date") or "")[:10] for r in rows),default=None),"maxLatest":max((str(r.get("latest_snapshot_date") or "")[:10] for r in rows),default=None)}; print("explorer_set_history="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if len(rows)==166 and len(current)==166 else 33)'
+          echo "=== require all tracked set-history authority current ==="
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); current=[r for r in rows if str(r.get("latest_snapshot_date") or "")[:10] >= day]; out={"total":len(rows),"current":len(current),"stale":len(rows)-len(current),"minLatest":min((str(r.get("latest_snapshot_date") or "")[:10] for r in rows),default=None),"maxLatest":max((str(r.get("latest_snapshot_date") or "")[:10] for r in rows),default=None)}; print("explorer_set_history="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if len(rows)>0 and len(current)==len(rows) else 33)'
 
           echo "=== publish compact Set Value market snapshot ==="
           "$PY" -m backend.scripts.build_pokemon_explore_set_value_snapshot --commit --market-date "$TARGET"
@@ -85,8 +90,8 @@ jobs:
           echo "=== advance and transactionally verify Explorer V2 daily projection ==="
           "$PY" -m backend.scripts.run_market_explorer_daily_publication --commit --market-date "$TARGET"
 
-          echo "=== require V2 coverage 166/166 current ==="
-          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; rows=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,retained_from,computed_through,row_count,retention_days").order("set_id").limit(1000).execute().data or []); cur=[r for r in rows if str(r.get("computed_through") or "")[:10] >= day]; bad=[r for r in rows if int(r.get("retention_days") or 0)!=100 or int(r.get("row_count") or 0)<0]; out={"rows":len(rows),"current":len(cur),"stale":len(rows)-len(cur),"badCoverageRows":len(bad),"minComputedThrough":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),"maxComputedThrough":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None)}; print("explorer_v2_coverage="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if len(rows)==166 and len(cur)==166 and not bad else 34)'
+          echo "=== require V2 coverage for exact tracked-set authority ==="
+          "$PY" -c 'import json; from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); day="2026-09-21"; tracked=list(c.rpc("get_pokemon_market_explorer_set_history_coverage_v1",{"p_set_ids":None}).execute().data or []); expected={str(r.get("set_id")) for r in tracked if r.get("set_id")}; rows=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,retained_from,computed_through,row_count,retention_days").order("set_id").limit(1000).execute().data or []); by={str(r.get("set_id")):r for r in rows if r.get("set_id")}; current={sid for sid,r in by.items() if str(r.get("computed_through") or "")[:10] >= day}; bad=[r for r in rows if int(r.get("retention_days") or 0)!=100 or int(r.get("row_count") or 0)<0]; missing=sorted(expected-set(by)); extra=sorted(set(by)-expected); stale=sorted(expected-current); out={"expected":len(expected),"rows":len(rows),"current":len(expected & current),"missing":len(missing),"extra":len(extra),"stale":len(stale),"badCoverageRows":len(bad),"minComputedThrough":min((str(r.get("computed_through") or "")[:10] for r in rows),default=None),"maxComputedThrough":max((str(r.get("computed_through") or "")[:10] for r in rows),default=None)}; print("explorer_v2_coverage="+json.dumps(out,sort_keys=True)); raise SystemExit(0 if expected and set(by)==expected and current.issuperset(expected) and not bad else 34)'
 
           flock -u 9
           flock -u 8
