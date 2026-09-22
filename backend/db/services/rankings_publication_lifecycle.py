@@ -188,14 +188,21 @@ def deferred_simulation_readiness(
 def deferred_simulation_rollover_readiness(
     *, market_date: str, simulation_date: str, expected_count: int,
     current_count: int, pending_keys: Sequence[str],
+    latest_promoted_market_date: Optional[str] = None,
 ) -> RankingsReadinessReport:
+    """Historical reason code retained for a superseded-market repair refusal.
+
+    Modern runs persist calculation_runs.market_date and CAN be repaired after
+    midnight. What remains unsafe is rebuilding an older market date after a newer
+    scrape batch has already become the price authority: that would risk labeling
+    newer input prices as historical simulation evidence.
+    """
     pending = sorted(str(key) for key in pending_keys)
     detail = (
-        f"promoted market date {market_date} cannot be repaired by simulations executed "
-        f"on {simulation_date} because calculation history is dated from actual execution "
-        f"time and simulations cannot be backdated; waiting for promoted market date "
-        f"{simulation_date}; current={current_count}/{expected_count}; "
-        f"pending={','.join(pending)}"
+        f"requested simulation market date {market_date} is no longer the latest promoted "
+        f"price authority (latest={latest_promoted_market_date or 'unknown'}); refusing "
+        f"historical reconstruction from execution date {simulation_date}; "
+        f"current={current_count}/{expected_count}; pending={','.join(pending)}"
     )
     return RankingsReadinessReport(
         status=DEFERRED_SIMULATION_DATE_ROLLOVER,
