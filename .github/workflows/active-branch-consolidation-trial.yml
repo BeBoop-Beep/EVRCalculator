@@ -1,4 +1,4 @@
-name: Superseded Branch Consolidation
+name: Active Branch Consolidation Diagnose
 
 on:
   push:
@@ -7,10 +7,10 @@ on:
       - '.github/workflows/active-branch-consolidation-trial.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  consolidate:
+  diagnose:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -18,37 +18,33 @@ jobs:
         with:
           ref: develop
           fetch-depth: 0
-      - name: Mark superseded active pipeline histories merged
+      - name: Diagnose active branch merges without pushing
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "inDex consolidation"
           git config user.email "actions@users.noreply.github.com"
           branches=(
-            fix/market-explorer-pipeline-runtime-20260921
-            fix/market-explorer-v2-publication-currency-20260921
-            fix/publication-fastpath-adaptive-split-20260921
-            ops/market-explorer-finish-20260921
-            ops/vm-market-explorer-consolidated-runtime-20260921
-            ops/vm-market-explorer-post-sentinel-20260921
+            fix/pokemon-market-membership-api-images-20260921
+            ui/market-explorer-final-ux-20260921
           )
           git fetch origin "${branches[@]}" develop
+          failed=0
           for branch in "${branches[@]}"; do
+            echo "=== DIAGNOSE $branch ==="
             if git merge-base --is-ancestor "origin/$branch" HEAD; then
               echo "ALREADY_CONSOLIDATED $branch"
+              continue
+            fi
+            if git merge --no-ff --no-commit "origin/$branch"; then
+              echo "CLEAN_MERGE $branch"
+              git reset --hard HEAD
             else
-              echo "MARK_SUPERSEDED_MERGED $branch"
-              git merge -s ours --no-ff --no-edit "origin/$branch"
+              echo "CONFLICTS $branch"
+              git diff --name-only --diff-filter=U
+              git status --short
+              git merge --abort || true
+              failed=1
             fi
           done
-          git diff --check origin/develop...HEAD
-      - name: Reconcile concurrent develop and push
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin develop
-          if ! git merge-base --is-ancestor origin/develop HEAD; then
-            git merge --no-edit -X theirs origin/develop
-          fi
-          git push origin HEAD:develop
-          echo "pushed=$(git rev-parse HEAD)"
+          exit "$failed"
