@@ -50,7 +50,8 @@ jobs:
           # image-sync work.
           if ! git merge-base --is-ancestor "origin/$POKEMON_BRANCH" HEAD; then
             git merge --no-ff --no-edit -X ours "origin/$POKEMON_BRANCH"
-            git checkout origin/develop --               backend/services/pokemon_set_onboarding_service.py               backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+            git checkout "origin/$POKEMON_BRANCH" -- backend/scripts/refresh_due_pokemon_catalog_sets.py backend/tests/unit/scripts/test_refresh_due_pokemon_catalog_sets.py
+            git checkout origin/develop -- backend/services/pokemon_set_onboarding_service.py backend/tests/unit/services/test_pokemon_set_onboarding_service.py
             git rm -f --ignore-unmatch .github/workflows/test-pokemon-catalog-image-enrichment.yml
             git add -A
             git commit --amend --no-edit
