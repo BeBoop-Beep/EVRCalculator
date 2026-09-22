@@ -1,0 +1,127 @@
+name: Production Browser Diagnosis
+
+on:
+  push:
+    branches:
+      - ops/set-detail-explorer-diag-20260921
+    paths:
+      - '.github/workflows/browser-prod-diag-20260921.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/index-browser-diag
+          cd /tmp/index-browser-diag
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.62.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Reproduce production failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/index-browser-diag
+          node --input-type=module <<'NODE'
+          import { chromium } from "playwright";
+
+          const browser = await chromium.launch({headless:true});
+          const context = await browser.newContext({viewport:{width:1600,height:950}});
+          const page = await context.newPage();
+
+          const events=[];
+          const record=(type,value)=>{
+            const row={type,value:String(value).slice(0,1800)};
+            events.push(row);
+            console.log("EVENT="+JSON.stringify(row));
+          };
+          page.on("pageerror",e=>record("pageerror",e.stack||e.message));
+          page.on("console",m=>{
+            if(["error","warning"].includes(m.type())) record("console-"+m.type(),m.text());
+          });
+          page.on("requestfailed",r=>record("requestfailed",r.resourceType()+" "+r.url()+" "+JSON.stringify(r.failure())));
+          page.on("response",r=>{
+            if(r.status()>=400) record("http-"+r.status(),r.request().resourceType()+" "+r.url());
+          });
+          page.on("request",r=>{
+            const h=r.headers();
+            if(r.url().includes("_rsc=")||h.rsc==="1"||h["next-router-state-tree"]!==undefined){
+              record("rsc-request",r.url());
+            }
+            if(r.resourceType()==="script") record("script-request",r.url());
+          });
+
+          const state=async(label)=> {
+            const value=await page.evaluate(()=>({
+              url:location.href,
+              title:document.title,
+              body:(document.body?.innerText||"").slice(0,2500),
+              loadingRip:(document.body?.innerText||"").includes("Loading Rip Statistics"),
+              loadingSet:(document.body?.innerText||"").includes("Loading set intelligence"),
+              loadingIntelligence:(document.body?.innerText||"").includes("Loading RIP intelligence"),
+              contextShell:Boolean(document.querySelector("[data-set-context-shell]")),
+              explorerWorkspace:Boolean(document.querySelector("[data-market-explorer-workspace]")),
+            }));
+            console.log(label+"="+JSON.stringify(value));
+            return value;
+          };
+
+          console.log("=== CATALOG ===");
+          await page.goto("https://inthedex.io/TCGs/Pokemon/Sets",{waitUntil:"domcontentloaded",timeout:60000});
+          await page.waitForTimeout(2500);
+          await state("CATALOG_STATE");
+          const explorerHref=await page.locator('a').filter({hasText:"Explorer"}).first().getAttribute("href").catch(()=>null);
+          console.log("EXPLORER_HREF="+explorerHref);
+
+          console.log("=== CLICK PITCH BLACK ===");
+          const pitch=page.locator('a[href*="pitch-black"]').first();
+          console.log("PITCH_COUNT="+await pitch.count());
+          const started=Date.now();
+          await pitch.click();
+          await page.waitForTimeout(15000);
+          console.log("PITCH_CLICK_ELAPSED="+(Date.now()-started));
+          await state("PITCH_CLICK_STATE");
+
+          console.log("=== HARD LOAD PITCH BLACK ===");
+          await page.goto("https://inthedex.io/TCGs/Pokemon/Sets/pitch-black",{waitUntil:"domcontentloaded",timeout:60000});
+          await page.waitForTimeout(12000);
+          await state("PITCH_HARD_STATE");
+
+          console.log("=== DELTA ===");
+          await page.goto("https://inthedex.io/TCGs/Pokemon/Sets/me06-delta-reign",{waitUntil:"domcontentloaded",timeout:60000});
+          await page.waitForTimeout(10000);
+          await state("DELTA_STATE");
+
+          console.log("=== 30TH ===");
+          await page.goto("https://inthedex.io/TCGs/Pokemon/Sets/me-30th-celebration",{waitUntil:"domcontentloaded",timeout:60000});
+          await page.waitForTimeout(10000);
+          await state("THIRTIETH_STATE");
+
+          console.log("=== EXPLORER ===");
+          const explorerUrl=new URL(explorerHref||"/Market/Explorer","https://inthedex.io").href;
+          await page.goto(explorerUrl,{waitUntil:"domcontentloaded",timeout:60000});
+          await page.waitForTimeout(15000);
+          await state("EXPLORER_STATE");
+
+          const summary={
+            totalEvents:events.length,
+            pageErrors:events.filter(x=>x.type==="pageerror").length,
+            requestFailures:events.filter(x=>x.type==="requestfailed").length,
+            httpErrors:events.filter(x=>x.type.startsWith("http-")).length,
+            rscRequests:events.filter(x=>x.type==="rsc-request").length,
+            scriptRequests:events.filter(x=>x.type==="script-request").length,
+          };
+          console.log("SUMMARY="+JSON.stringify(summary));
+          await browser.close();
+          NODE
