@@ -1,4 +1,4 @@
-name: Browser Diagnose Set Detail and Explorer
+name: Inspect live frontend deployment consistency
 
 on:
   push:
@@ -9,121 +9,88 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 20
+    timeout-minutes: 12
     steps:
-      - name: Verify Playwright runtime
+      - name: Deployment identity and nav target
         shell: bash
         run: |
           set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator/frontend
-          node -e "import('playwright').then(()=>console.log('PLAYWRIGHT_MODULE=true')).catch(e=>{console.error(e);process.exit(1)})"
+          echo "=== live deployment identity ==="
+          curl -fsSL --max-time 20 https://inthedex.io/api/sentinel/build
+          echo
 
-      - name: Reproduce catalog to Pitch Black navigation
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator/frontend
-          node --input-type=module <<'NODE'
-          import { chromium } from "playwright";
+          echo "=== catalog Explorer href ==="
+          tmp="$(mktemp)"
+          curl -fsSL --max-time 30 https://inthedex.io/TCGs/Pokemon/Sets -o "$tmp"
+          python3 - "$tmp" <<'PY'
+          import re,sys
+          text=open(sys.argv[1],encoding="utf-8",errors="ignore").read()
+          for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', text, re.S):
+              label=re.sub(r'<[^>]+>',' ',m.group(2))
+              label=' '.join(label.split())
+              if 'Explorer' in label:
+                  print("explorer_href",m.group(1),"label",label[:120])
+          PY
+          rm -f "$tmp"
 
-          const browser = await chromium.launch({ headless: true });
-          try {
-            const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
-            const events = [];
-            const push = (type, value) => {
-              events.push({ type, value: String(value).slice(0, 1200) });
-              console.log(JSON.stringify({ type, value: String(value).slice(0, 1200) }));
-            };
-
-            page.on("pageerror", e => push("pageerror", e.stack || e.message));
-            page.on("console", m => {
-              if (["error","warning"].includes(m.type())) push("console-"+m.type(), m.text());
-            });
-            page.on("requestfailed", r => push("requestfailed", r.url()+" :: "+JSON.stringify(r.failure())));
-            page.on("response", r => {
-              if (r.status() >= 400) push("http-"+r.status(), r.request().resourceType()+" "+r.url());
-            });
-            page.on("request", r => {
-              const h=r.headers();
-              if (r.url().includes("_rsc=") || h.rsc === "1" || h["next-router-state-tree"] !== undefined) {
-                push("rsc-request", r.url());
-              }
-            });
-
-            console.log("=== goto catalog ===");
-            await page.goto("https://inthedex.io/TCGs/Pokemon/Sets", { waitUntil: "domcontentloaded", timeout: 60000 });
-            await page.waitForTimeout(2000);
-            const explorerHref = await page.locator('a').filter({hasText:"Explorer"}).first().getAttribute("href").catch(()=>null);
-            console.log(JSON.stringify({ explorerHref }));
-
-            const pitch = page.locator('a[href*="pitch-black"]').first();
-            console.log(JSON.stringify({ pitchCount: await pitch.count(), pitchHref: await pitch.getAttribute("href").catch(()=>null) }));
-            const before = Date.now();
-            await pitch.click();
-            await page.waitForTimeout(12000);
-
-            const pitchState = await page.evaluate(() => ({
-              url: location.href,
-              title: document.title,
-              bodyText: (document.body?.innerText || "").slice(0, 1800),
-              routeLoader: document.body?.innerText?.includes("Loading Rip Statistics") || false,
-              setLoader: document.body?.innerText?.includes("Loading set intelligence") || false,
-              contextShell: Boolean(document.querySelector("[data-set-context-shell]")),
-              nextError: document.body?.innerText?.includes("Something went wrong") || false,
-            }));
-            console.log("PITCH_STATE="+JSON.stringify({ ...pitchState, elapsedMs: Date.now()-before }));
-
-            console.log("=== direct hard navigation Pitch Black ===");
-            await page.goto("https://inthedex.io/TCGs/Pokemon/Sets/pitch-black", { waitUntil: "domcontentloaded", timeout: 60000 });
-            await page.waitForTimeout(8000);
-            console.log("PITCH_DIRECT="+JSON.stringify(await page.evaluate(() => ({
-              url: location.href,
-              bodyText: (document.body?.innerText || "").slice(0,1800),
-              routeLoader: document.body?.innerText?.includes("Loading Rip Statistics") || false,
-              setLoader: document.body?.innerText?.includes("Loading set intelligence") || false,
-              contextShell: Boolean(document.querySelector("[data-set-context-shell]")),
-            }))));
-
-            if (explorerHref) {
-              console.log("=== direct Explorer href ===");
-              const full = new URL(explorerHref, "https://inthedex.io").href;
-              await page.goto(full, { waitUntil: "domcontentloaded", timeout: 60000 });
-              await page.waitForTimeout(8000);
-              console.log("EXPLORER_STATE="+JSON.stringify(await page.evaluate(() => ({
-                url: location.href,
-                title: document.title,
-                bodyText: (document.body?.innerText || "").slice(0,1800),
-                routeLoader: document.body?.innerText?.includes("Loading inDex") || false,
-                nextError: document.body?.innerText?.includes("Something went wrong") || false,
-              }))));
-            }
-
-            console.log("EVENT_COUNT="+events.length);
-          } finally {
-            await browser.close();
-          }
-          NODE
-
-      - name: Check deployed JS chunks referenced by Pitch Black HTML
+      - name: Check every Pitch Black script chunk
         shell: bash
         run: |
           set -euo pipefail
           tmp="$(mktemp)"
           curl -fsSL --max-time 30 https://inthedex.io/TCGs/Pokemon/Sets/pitch-black -o "$tmp"
           python3 - "$tmp" <<'PY'
-          import re,sys,subprocess
+          import re,sys,subprocess,urllib.parse
           text=open(sys.argv[1],encoding="utf-8",errors="ignore").read()
           srcs=sorted(set(re.findall(r'<script[^>]+src="([^"]+)"',text)))
           print("script_count",len(srcs))
           bad=[]
           for src in srcs:
-              url=src if src.startswith("http") else "https://inthedex.io"+src
-              p=subprocess.run(["curl","-sS","-o","/dev/null","-w","%{http_code} %{time_total}","--max-time","20",url],capture_output=True,text=True)
+              url=urllib.parse.urljoin("https://inthedex.io/TCGs/Pokemon/Sets/pitch-black",src)
+              p=subprocess.run([
+                  "curl","-sS","-o","/tmp/chunk.body","-w",
+                  "%{http_code} %{time_total} %{size_download}",
+                  "--max-time","20",url
+              ],capture_output=True,text=True)
               line=f"{p.stdout.strip()} {src}"
               print(line)
-              if not p.stdout.startswith("200 "): bad.append(line)
+              if not p.stdout.startswith("200 "):
+                  bad.append(line)
           print("bad_script_count",len(bad))
+          if bad:
+              print("bad_scripts",bad)
+          print("html_error_markers")
+          for pattern in [
+              r'ChunkLoadError.{0,300}',
+              r'TimeoutError.{0,300}',
+              r'Failed to load.{0,300}',
+              r'NEXT_[A-Z_]+.{0,300}',
+              r'"digest":"[^"]+"',
+          ]:
+              hits=re.findall(pattern,text,re.I|re.S)
+              if hits:
+                  print(pattern, hits[:10])
           PY
           rm -f "$tmp"
+
+      - name: Probe Next RSC responses
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe() {
+            label="$1"; url="$2"; tmp="$(mktemp)"
+            echo "=== $label ==="
+            set +e
+            curl --max-time 35 -sS               -H 'RSC: 1'               -H 'Next-Url: /TCGs/Pokemon/Sets'               -H 'Accept: */*'               -w 'http=%{http_code} type=%{content_type} start=%{time_starttransfer} total=%{time_total} bytes=%{size_download}\n'               -o "$tmp" "$url"
+            code=$?
+            set -e
+            echo "curl_exit=$code"
+            echo "body_head:"
+            head -c 1600 "$tmp" || true
+            echo
+            rm -f "$tmp"
+          }
+          probe "Pitch Black RSC" 'https://inthedex.io/TCGs/Pokemon/Sets/pitch-black?_rsc=diag1'
+          probe "Catalog RSC" 'https://inthedex.io/TCGs/Pokemon/Sets?_rsc=diag2'
