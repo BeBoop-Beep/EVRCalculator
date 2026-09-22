@@ -25,10 +25,9 @@ import useMarketExplorerConstituentPage from "@/hooks/explore/useMarketExplorerC
 // its OWN change rather than the market's aggregate return — an aggregate
 // repeated down the column would look like data and tell the reader nothing.
 //
-// ONE MOVEMENT COLUMN, NOT FOUR. 1D / 7D / 30D / 3M as four simultaneous
-// columns makes a six-column table into a nine-column one that overflows at
-// every width. The window is a local control in this section's header and the
-// column follows it; the header label always names the window being shown.
+// ONE MOVEMENT COLUMN AT A TIME. The local selector spans 1D through
+// Since Tracking, but the table never explodes into a dozen simultaneous
+// columns. The selected horizon owns the one movement column.
 //
 // ONE ACTIVE TARGET. Four selected markets do not produce four tables. The user
 // names one series and inspects it; a chart with a card market and a sealed
@@ -147,7 +146,7 @@ function MovementWindowSelector({ value, onChange }) {
                 : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
             ].join(" ")}
           >
-            {window}
+            {window === "SinceTracking" ? "Since" : window}
           </button>
         );
       })}
@@ -270,7 +269,8 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
                     {column.change ? (
                       <ChangeCell row={row} window={column.window} label={cellValue(row, primaryColumn)} />
                     ) : column.primary ? (
-                      <span className="inline-flex min-w-0 items-center">
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className="h-10 w-7 flex-none rounded object-cover" /> : null}
                         <span className="min-w-0 truncate">{cellValue(row, column)}</span>
                         {asset === "cards" ? <VariantBadge row={row} /> : null}
                       </span>
@@ -286,6 +286,7 @@ function QueryConstituentSection({ series, movementWindow, onChangeMovementWindo
         {page.rows.map((row) => (
           <li key={rowKey(row)} data-market-constituent={rowKey(row)} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
             <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
+            {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className="h-12 w-9 flex-none rounded object-cover" /> : null}
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center">
                 <span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{cellValue(row, primaryColumn)}</span>
