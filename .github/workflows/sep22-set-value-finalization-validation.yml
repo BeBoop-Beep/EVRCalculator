@@ -1,0 +1,33 @@
+name: Sep22 Set Value Finalization Validation
+
+on:
+  push:
+    branches: [fix/sep22-set-value-finalization-20260922]
+    paths:
+      - '.github/workflows/sep22-set-value-finalization-validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/scripts/repair_missing_market_set_value_history.py'
+      - 'backend/scripts/rebuild_snapshots_after_scrape.sh'
+      - 'backend/tests/unit/scripts/test_repair_missing_market_set_value_history.py'
+      - 'backend/tests/unit/scripts/test_rebuild_snapshots_after_scrape_shell_contract.py'
+      - '.github/workflows/sep22-set-value-finalization-validation.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      JWT_SECRET: ci-placeholder-jwt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: python -m pip install -q pytest supabase python-dotenv
+      - run: python -m pytest -q backend/tests/unit/scripts/test_repair_missing_market_set_value_history.py backend/tests/unit/scripts/test_rebuild_snapshots_after_scrape_shell_contract.py
+      - run: bash -n backend/scripts/rebuild_snapshots_after_scrape.sh
