@@ -13,7 +13,7 @@ on:
       - '.github/workflows/repair-30th-images-collector-20260922.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: repair-30th-images-collector-20260922
@@ -24,7 +24,13 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 120
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/repair-30th-images-collector-20260922
+
       - name: Repair 30th image and collector authorities
+        id: repair
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -72,3 +78,24 @@ jobs:
           "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebrationClassicCollection             --commit
 
           echo "REPAIR_30TH_IMAGES_COLLECTOR=PASS"
+
+      - name: Record repair result
+        if: always()
+        shell: bash
+        env:
+          REPAIR_OUTCOME: ${{ steps.repair.outcome }}
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p ops/assistant
+          printf '{"repair_outcome":"%s","head_sha":"%s","recorded_at":"%s"}\n'             "$REPAIR_OUTCOME" "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"             > ops/assistant/repair-30th-images-collector-status.json
+          git config user.name "inDex repair runner"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/repair-30th-images-collector-status.json
+          git commit -m "ops: record 30th image collector repair result" || true
+          git push origin HEAD:ops/repair-30th-images-collector-20260922
+
+      - name: Fail workflow if repair failed
+        if: steps.repair.outcome != 'success'
+        shell: bash
+        run: exit 1
