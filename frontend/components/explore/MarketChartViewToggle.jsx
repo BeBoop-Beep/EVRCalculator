@@ -3,11 +3,11 @@
 import { MARKET_CHART_VIEW_INDEX, MARKET_CHART_VIEW_PERFORMANCE } from "./marketPerformanceDomain.mjs";
 
 const VIEW_OPTIONS = [
-  { value: MARKET_CHART_VIEW_PERFORMANCE, label: "Performance" },
   { value: MARKET_CHART_VIEW_INDEX, label: "Index" },
+  { value: MARKET_CHART_VIEW_PERFORMANCE, label: "Performance" },
 ];
 
-export default function MarketChartViewToggle({ value = MARKET_CHART_VIEW_PERFORMANCE, onChange }) {
+export default function MarketChartViewToggle({ value = MARKET_CHART_VIEW_INDEX, onChange }) {
   return (
     <div data-market-chart-view-toggle role="group" aria-label="Chart view" className="inline-flex w-fit items-center rounded-lg border border-cyan-400/30 bg-[var(--surface-page)]/55 p-1 shadow-sm">
       {VIEW_OPTIONS.map((option) => {

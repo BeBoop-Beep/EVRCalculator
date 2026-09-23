@@ -273,11 +273,11 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
             <line data-market-performance-guide x1={xAt(activeIndex)} x2={xAt(activeIndex)} y1={PLOT_TOP} y2={PLOT_BOTTOM} stroke="rgba(255,255,255,0.2)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           )}
         </svg>
-        {gridValues.map((value) => <span key={value} aria-hidden="true" className="pointer-events-none absolute right-1 text-[9px] tabular-nums text-[var(--text-secondary)]" style={{ top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, transform: "translateY(-50%)" }}>{isIndexView ? formatIndexValue(value) : `${value > 0 ? "+" : ""}${value.toFixed(domainPrecision)}%`}</span>)}
+        {gridValues.map((value) => <span key={value} aria-hidden="true" className="pointer-events-none absolute right-1 text-[11px] font-semibold tabular-nums text-[var(--text-primary)] opacity-80" style={{ top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, transform: "translateY(-50%)" }}>{isIndexView ? formatIndexValue(value) : `${value > 0 ? "+" : ""}${value.toFixed(domainPrecision)}%`}</span>)}
         {referenceVisible ? <span
           data-market-performance-reference-label
           aria-hidden="true"
-          className="pointer-events-none absolute left-[2.5%] text-[9px] leading-none text-[var(--text-secondary)]"
+          className="pointer-events-none absolute left-[2.5%] text-[11px] font-semibold leading-none text-[var(--text-primary)] opacity-80"
           style={{ top: `${(referenceY / VIEW_HEIGHT) * 100}%`, transform: "translateY(-115%)" }}
         >
           {isIndexView ? formatIndexValue(referenceValue) : "0%"}
