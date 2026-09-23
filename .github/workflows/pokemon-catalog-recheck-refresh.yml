@@ -1,4 +1,5 @@
 name: Pokemon Catalog Recheck Refresh
+# one-time PR trigger for 30th collector repair
 
 on:
   schedule:
