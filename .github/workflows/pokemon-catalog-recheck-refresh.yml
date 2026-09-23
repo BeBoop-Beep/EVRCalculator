@@ -94,3 +94,48 @@ jobs:
           git pull --ff-only origin main
 
           ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --commit             --limit 25             --max-provider-requests 50
+
+  repair_30th_collector:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Repair 30th static desirability and Collector V7 membership
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+
+          exec 8>/tmp/pokemon-scrape-dispatcher.lock
+          flock -w 300 8
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -w 300 7
+          exec 6>/tmp/pokemon-catalog-recheck.lock
+          flock -w 300 6
+
+          cd "$REPO"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main --quiet
+          git switch main
+          git reset --hard origin/main
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --log-level INFO
+
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --log-level INFO
+
+          "$PY" backend/scripts/operationalize_historical_rip.py             --as-of-date 2026-09-22 --commit --force-model-rebuild
+
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration --commit
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebrationClassicCollection --commit
+
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebration --commit
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebrationClassicCollection --commit
+
+          echo "REPAIR_30TH_COLLECTOR_ENRICHMENT=PASS"
+
