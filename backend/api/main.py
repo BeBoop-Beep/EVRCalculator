@@ -1452,12 +1452,22 @@ def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
     keys = list(dict.fromkeys(payload.marketKeys))
     try:
         return read_prepared_comparison_bundle(
-            service_read_client,
-            keys,
-            payload.startDate.isoformat() if payload.startDate else None,
+            service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None,
         )
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "PREPARED_COMPARISON_INVALID"}, status_code=400)
+    except Exception:
+        # Live QA (2026-09-22) reproduced a bare, unhandled 500 ("Internal
+        # Server Error") from this route for even a single Set market, taking
+        # 10-16s against the underlying RPCs' own `statement_timeout = '5s'`
+        # — almost certainly a Postgres statement timeout or similar RPC-level
+        # failure surfacing uncaught because only ValueError was handled here.
+        # This does not fix the slow query itself (root cause needs direct DB
+        # access this session did not have), but it stops a raw crash from
+        # reaching the client and matches the graceful-failure shape already
+        # used by /market/explorer/prepared-screen and /prepared-directory.
+        logger.exception("/market/explorer/prepared-comparison unexpected error", extra={"marketKeys": keys})
+        return JSONResponse(content={"message": "Prepared comparison is temporarily unavailable", "code": "PREPARED_COMPARISON_FAILED"}, status_code=503)
 
 
 @app.get("/market/explorer/prepared-screen")

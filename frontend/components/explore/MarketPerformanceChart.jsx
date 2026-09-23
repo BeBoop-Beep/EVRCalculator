@@ -31,8 +31,6 @@ import { formatIndexValue, formatMarketDate, formatShortDate } from "@/lib/explo
 // never share this axis.
 const VIEW_WIDTH = 100;
 const VIEW_HEIGHT = 46;
-const POSITIVE_MARKET_VALUE_COLOR = "rgba(45,212,191,0.96)";
-const NEGATIVE_MARKET_VALUE_COLOR = "rgba(248,113,113,0.92)";
 const PLOT_TOP = 3;
 const PLOT_BOTTOM = 43;
 
@@ -51,7 +49,7 @@ export function resolveAreaOpacity(seriesCount) {
   return Math.max(0.03, (BASE_AREA_OPACITY * AREA_OPACITY_FULL_AT) / count);
 }
 
-export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]", minimal = false }) {
+export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]" }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipAnchor, setTooltipAnchor] = useState(null);
   const [tooltipSize, setTooltipSize] = useState({ width: 248, height: 160 });
@@ -230,11 +228,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
         aria-label={spokenReading
           ? `${isIndexView ? "Pokémon canonical Market Index" : "Pokémon selected-window percentage performance"}. Selected ${spokenReading}`
           : `${isIndexView ? "Pokémon canonical Market Index" : "Pokémon selected-window percentage performance"}, ${formatMarketDate(dates[0])} to ${formatMarketDate(dates[dates.length - 1])}. Use left and right arrow keys to inspect daily values.`}
-        className={[
-          "group relative z-10 touch-pan-y overflow-visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65",
-          minimal ? "bg-transparent" : "rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.16)]",
-          plotClassName,
-        ].join(" ")}
+        className={["group relative z-10 touch-pan-y overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65", plotClassName].join(" ")}
         onPointerDown={(event) => { if (event.pointerType !== "mouse") gestureRef.current = { startX: event.clientX, startY: event.clientY, moved: false }; }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -279,12 +273,12 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
             <line data-market-performance-guide x1={xAt(activeIndex)} x2={xAt(activeIndex)} y1={PLOT_TOP} y2={PLOT_BOTTOM} stroke="rgba(255,255,255,0.2)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           )}
         </svg>
-        {gridValues.map((value) => <span key={value} aria-hidden="true" className="pointer-events-none absolute right-1 text-[10px] font-semibold tabular-nums" style={{ top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, transform: "translateY(-50%)", color: drawn.length === 1 ? drawn[0].color : "var(--text-secondary)" }}>{isIndexView ? formatIndexValue(value) : `${value > 0 ? "+" : ""}${value.toFixed(domainPrecision)}%`}</span>)}
+        {gridValues.map((value) => <span key={value} aria-hidden="true" className="pointer-events-none absolute right-1 text-[9px] tabular-nums text-[var(--text-secondary)]" style={{ top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, transform: "translateY(-50%)" }}>{isIndexView ? formatIndexValue(value) : `${value > 0 ? "+" : ""}${value.toFixed(domainPrecision)}%`}</span>)}
         {referenceVisible ? <span
           data-market-performance-reference-label
           aria-hidden="true"
-          className="pointer-events-none absolute left-[2.5%] text-[10px] font-semibold leading-none"
-          style={{ top: `${(referenceY / VIEW_HEIGHT) * 100}%`, transform: "translateY(-115%)", color: drawn.length === 1 ? drawn[0].color : "var(--text-secondary)" }}
+          className="pointer-events-none absolute left-[2.5%] text-[9px] leading-none text-[var(--text-secondary)]"
+          style={{ top: `${(referenceY / VIEW_HEIGHT) * 100}%`, transform: "translateY(-115%)" }}
         >
           {isIndexView ? formatIndexValue(referenceValue) : "0%"}
         </span> : null}
@@ -327,16 +321,16 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
                           ) : null}
                         </span>
                       </span>
-                      <span className="text-right font-semibold tabular-nums">
+                      <span className="text-right font-semibold tabular-nums text-[var(--text-primary)]">
                         {isIndexView ? (
                           <>
-                            <span className="block" style={{ color: reading.color }}>Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
-                            <span className="block text-[9px] font-normal" style={{ color: reading.performanceValue > 0 ? POSITIVE_MARKET_VALUE_COLOR : reading.performanceValue < 0 ? NEGATIVE_MARKET_VALUE_COLOR : "var(--text-secondary)" }}>{timeframe} Performance {reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                            <span className="block">Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
+                            <span className="block text-[9px] font-semibold" style={{ color: reading.performanceValue > 0 ? "rgb(52,211,153)" : reading.performanceValue < 0 ? "rgb(248,113,113)" : "var(--text-secondary)" }}>{timeframe} Performance {reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "▲ +" : reading.performanceValue < 0 ? "▼ " : ""}${reading.performanceValue.toFixed(2)}%`}</span>
                           </>
                         ) : (
                           <>
-                            <span className="block" style={{ color: reading.performanceValue > 0 ? POSITIVE_MARKET_VALUE_COLOR : reading.performanceValue < 0 ? NEGATIVE_MARKET_VALUE_COLOR : reading.color }}>{reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "+" : ""}${reading.performanceValue.toFixed(2)}%`}</span>
-                            <span className="block text-[9px] font-normal" style={{ color: reading.color }}>Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
+                            <span className="block" style={{ color: reading.performanceValue > 0 ? "rgb(52,211,153)" : reading.performanceValue < 0 ? "rgb(248,113,113)" : "var(--text-secondary)" }}>{reading.performanceValue === null ? "—" : `${reading.performanceValue > 0 ? "▲ +" : reading.performanceValue < 0 ? "▼ " : ""}${reading.performanceValue.toFixed(2)}%`}</span>
+                            <span className="block text-[9px] font-normal text-[var(--text-secondary)]">Market Index {reading.rawValue === null ? "—" : formatIndexValue(reading.rawValue)}</span>
                           </>
                         )}
                       </span>

@@ -1,6 +1,14 @@
 "use client";
 
-import { formatChangePercent, formatIndexValue, getPricePerformanceChange } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { changeDirection, formatChangePercent, formatIndexValue, getPricePerformanceChange } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+
+const returnColor = (change) => {
+  const direction = changeDirection(change);
+  if (direction === "positive") return POSITIVE_VALUE_COLOR;
+  if (direction === "negative") return NEGATIVE_VALUE_COLOR;
+  return "var(--text-secondary)";
+};
 
 // ---------------------------------------------------------------------------
 // ACTIVE MARKETS — the ONE answer to "what is on this chart right now".
@@ -142,7 +150,7 @@ export default function MarketExplorerActiveMarkets({
                     {formatIndexValue(entry.indexValue)}
                   </span>
                 ) : null}
-                <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums text-[var(--text-secondary)]">{formatChangePercent(periodChange)}</span>
+                <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums" style={{ color: returnColor(periodChange) }}>{formatChangePercent(periodChange)}</span>
                 {entry.instanceId ? (
                   <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${entry.label}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
                 ) : null}

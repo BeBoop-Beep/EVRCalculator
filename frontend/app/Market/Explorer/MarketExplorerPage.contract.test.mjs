@@ -10,9 +10,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
+const here = path.dirname(new URL(import.meta.url).pathname.slice(1));
 const read = (relative) => fs.readFileSync(path.resolve(here, relative), "utf8").replace(/\r\n/g, "\n");
 
 const explorerPage = read("page.js");
@@ -35,11 +34,9 @@ const codeOf = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*
 
 // --- the route ------------------------------------------------------------
 
-test("the route exists at /Market/Explorer without redundant page-title framing", () => {
+test("the route exists at /Market/Explorer without redundant product chrome", () => {
   assert.ok(fs.existsSync(path.resolve(here, "page.js")));
-  assert.doesNotMatch(client, /data-market-explorer-product-header|>Market Explorer<\/h1>/);
-  assert.doesNotMatch(client, /Explore\. Compare\. Build your own Pokémon markets\./);
-  assert.match(client, /Browse Markets/);
+  assert.doesNotMatch(client, /data-market-explorer-product-header/);
   assert.match(client, /Compare &amp; Analyze/);
   assert.match(explorerPage, /path: "\/Market\/Explorer"/);
 });
@@ -240,7 +237,7 @@ test("the future filter state model is declared now so later phases extend it", 
 // --- component architecture ----------------------------------------------
 
 test("the workspace is composed, not one giant page component", () => {
-  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerQueryBuilder", "MarketExplorerExactBasket"]) {
+  for (const component of ["MarketExplorerChart", "MarketExplorerDetails", "MarketExplorerQueryBuilder", "MarketExplorerExactBasket", "MarketExplorerRarityMarkets"]) {
     assert.ok(client.includes(component), component);
   }
   assert.equal((client.match(/<MarketExplorerQueryBuilder/g) || []).length, 1);

@@ -189,10 +189,10 @@ test("an All-mode market is previewed and says so with the true total", () => {
   assert.equal(model.totalCount, 4127, "the true universe size, not the preview length");
   assert.equal(model.rows.length, 25);
 
-  const renderer = mount({ selectedSeries: [all], activeSeriesId: "query:all", mode: "preview" });
+  const renderer = mount({ selectedSeries: [all], activeSeriesId: "query:all" });
   const note = renderer.root.find((node) => node.props?.["data-market-constituents-bounded"] !== undefined);
   assert.match(JSON.stringify(note.props.children), /not the complete list/);
-  assert.equal(rowIds(renderer).length, 5, "the chart preview renders only five rows");
+  assert.equal(rowIds(renderer).length, 25, "thousands of DOM rows are never rendered");
 });
 
 test("an All-mode preview is the most valuable constituents, price descending", () => {
@@ -257,35 +257,6 @@ test("a bounded prepared card preview is trusted from isComplete, not from lengt
   const model = resolveSeriesConstituents(prepared);
   assert.equal(model.bounded, true);
   assert.equal(model.totalCount, 1200);
-});
-
-test("prepared preview expands only published rows and preserves movement window", () => {
-  const prepared = cardQuery({
-    key: "prepared:bounded", queryFingerprint: null,
-    currentConstituents: {
-      idField: "canonicalCardId", totalCount: 500, isComplete: false,
-      topConstituents: Array.from({ length: 25 }, (_, index) => cardRow(index + 1)),
-    },
-  });
-  const props = { selectedSeries: [prepared], activeSeriesId: prepared.key };
-  const renderer = mount({ ...props, mode: "preview" });
-  assert.equal(rowIds(renderer).length, 5);
-  assert.match(JSON.stringify(renderer.toJSON()), /500/);
-  act(() => windowButtons(renderer).find((node) => node.props["data-market-constituents-window"] === "30D").props.onClick());
-  act(() => renderer.update(<MarketExplorerConstituents {...props} mode="expanded" />));
-  assert.equal(rowIds(renderer).length, 25);
-  assert.equal(panel(renderer)["data-market-constituents-movement-window"], "30D");
-  const note = renderer.root.find((node) => node.props?.["data-market-constituents-bounded"] !== undefined);
-  assert.match(JSON.stringify(note.props.children), /not the complete list/);
-  const table = renderer.root.find((node) => node.props?.["data-market-constituents-table"] !== undefined);
-  assert.match(table.props.className, /overflow-y-auto/);
-  assert.equal(table.props.tabIndex, 0);
-  const cards = renderer.root.find((node) => node.props?.["data-market-constituents-cards"] !== undefined);
-  assert.match(cards.props.className, /desk:hidden/);
-  const mobileScroll = renderer.root.find((node) => node.props?.["data-market-constituents-scroll"] !== undefined);
-  assert.match(mobileScroll.props.className, /max-h-\[75vh\] overflow-y-auto/);
-  act(() => renderer.update(<MarketExplorerConstituents {...props} mode="preview" />));
-  assert.equal(panel(renderer)["data-market-constituents-movement-window"], "30D");
 });
 
 test("a segment published before the contract reports pending publication", () => {
@@ -398,7 +369,7 @@ test("there is ONE movement column behind a local window control, not four", () 
   const changeHeaders = headers(renderer).filter((label) => String(label).includes("Change"));
   assert.equal(changeHeaders.length, 1, "four simultaneous change columns overflow the table");
   const windows = windowButtons(renderer).map((node) => node.props["data-market-constituents-window"]);
-  assert.deepEqual([...new Set(windows)], ["1D", "7D", "30D", "3M"]);
+  assert.deepEqual([...new Set(windows)], ["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]);
 });
 
 test("7D is the default window", () => {

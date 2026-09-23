@@ -76,7 +76,7 @@ const movingCards = {
 };
 
 test("the movement column follows the selected window", () => {
-  for (const window of ["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]) {
+  for (const window of CONSTITUENT_MOVEMENT_WINDOWS) {
     const model = resolveSeriesConstituents(movingCards, { movementWindow: window });
     const column = model.columns.at(-1);
     assert.equal(column.change, true);
@@ -89,7 +89,7 @@ test("the movement column follows the selected window", () => {
 test("7D is the default and an unknown window falls back to it rather than throwing", () => {
   assert.equal(resolveSeriesConstituents(movingCards).movementWindow, "7D");
   assert.equal(
-    resolveSeriesConstituents(movingCards, { movementWindow: "13M" }).movementWindow,
+    resolveSeriesConstituents(movingCards, { movementWindow: "2Y" }).movementWindow,
     "7D"
   );
 });
