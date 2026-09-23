@@ -399,6 +399,62 @@ def test_authoritative_refresh_promotes_matching_fallback_row_in_place(monkeypat
     assert client.updates[0][2]["source"] == "pokemon_tcg_api"
 
 
+def test_authoritative_refresh_promotes_reprint_fallback_via_internal_provider_id(monkeypatch):
+    monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 30})
+    monkeypatch.setattr(
+        combined,
+        "fetch_authoritative_cards",
+        lambda _set_id: [{
+            "id": "me55c-57", "name": "Buzzwole-GX", "number": "57",
+            "supertype": "Pokémon", "subtypes": ["Basic", "GX"],
+            "nationalPokedexNumbers": [794], "set": {"id": "me55c"},
+            "images": {"small": "small", "large": "large"},
+        }],
+    )
+    monkeypatch.setattr(
+        combined,
+        "_list_canonical_for_set",
+        lambda _client, _set_id: [{
+            "id": "fallback-57",
+            "pokemon_tcg_api_card_id": "fallback:set-1:57/111:buzzwole gx",
+            "name": "Buzzwole GX", "number": "57", "source": combined.FALLBACK_SOURCE,
+        }],
+    )
+    monkeypatch.setattr(
+        combined,
+        "_list_cards_for_set",
+        lambda _client, _set_id: [{
+            "id": "legacy-57",
+            "name": "Buzzwole GX",
+            "card_number": "57/111",
+            "pokemon_tcg_api_id": "me55c-57",
+        }],
+    )
+    upserts = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: upserts.extend(rows) or len(rows),
+    )
+    client = _CanonicalPromoteClient()
+
+    result = combined._refresh_authoritative_canonical_cards(
+        client=client,
+        set_row={
+            "id": "set-1",
+            "canonical_key": "me30thCelebrationClassicCollection",
+            "pokemon_api_set_id": "me55c",
+        },
+        dry_run=False,
+    )
+
+    assert result["rows_promoted_from_fallback"] == 1
+    assert result["rows_upserted_by_api_id"] == 0
+    assert upserts == []
+    assert client.updates[0][0:2] == ("id", "fallback-57")
+    assert client.updates[0][2]["pokemon_tcg_api_card_id"] == "me55c-57"
+    assert client.updates[0][2]["source"] == "pokemon_tcg_api"
+
+
 def test_authoritative_refresh_tries_tcgdex_when_legacy_provider_is_not_ready(monkeypatch):
     monkeypatch.setattr(
         combined, "fetch_authoritative_api_set",
