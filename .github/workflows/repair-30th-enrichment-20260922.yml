@@ -69,8 +69,8 @@ jobs:
 
           client = create_service_role_client()
           targets = {
-              "ME: 30th Celebration": "8dbf97f7-b7e8-4ff5-883a-0bb3356291bf",
-              "ME: 30th Celebration Classic Collection": "a787aa9f-dbc3-47c0-bfe9-0045b9516a67",
+              "ME: 30th Celebration": ("8dbf97f7-b7e8-4ff5-883a-0bb3356291bf", True),
+              "ME: 30th Celebration Classic Collection": ("a787aa9f-dbc3-47c0-bfe9-0045b9516a67", False),
           }
           current = (
               client.table("pokemon_collector_appeal_current")
@@ -83,7 +83,7 @@ jobs:
           assert current and current.get("model_run_id"), current
           model_run_id = str(current["model_run_id"])
 
-          for name, set_id in targets.items():
+          for name, (set_id, requires_collector_row) in targets.items():
               cards = (
                   client.table("cards")
                   .select("id,image_small_url,image_large_url")
@@ -136,8 +136,15 @@ jobs:
                   .data
                   or []
               )
-              assert d, f"{name}: Collector Desirability missing in current V7 run"
-              assert a, f"{name}: Collector Appeal row missing in current V7 run"
+              if requires_collector_row:
+                  assert d, f"{name}: Collector Desirability missing in current V7 run"
+                  assert a, f"{name}: Collector Appeal row missing in current V7 run"
+              else:
+                  # Contributing subsets are intentionally excluded from the
+                  # root-set Collector cohort. Their cards roll into the parent
+                  # set contract instead of creating a second standalone set row.
+                  assert not d, f"{name}: unexpected standalone Collector Desirability row"
+                  assert not a, f"{name}: unexpected standalone Collector Appeal row"
               assert opening, f"{name}: Opening Desirability missing"
 
               print({
@@ -147,7 +154,8 @@ jobs:
                   "canonical": len(canonical),
                   "canonical_images": canonical_images,
                   "collector_model_run_id": model_run_id,
-                  "collector_status": a[0].get("score_status"),
+                  "collector_required": requires_collector_row,
+                  "collector_status": a[0].get("score_status") if a else None,
                   "opening_rows": len(opening),
               })
 
