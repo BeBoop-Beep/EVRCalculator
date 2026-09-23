@@ -7,6 +7,24 @@ const change = (value, startDate, endDate) => value == null ? { available: false
   available: true, percent: Number(value), startDate, endDate,
 };
 
+// Server-computed long-window returns, keyed exactly like
+// compute_strict_window_movements (1D/7D/30D/3M/6M/1Y/SinceTracking) --
+// see backend/db/services/market_explorer_prepared_directory.py's
+// read_prepared_comparison_bundle. Falls back to the row-level 7D/30D/90D/1Y
+// columns (with SinceTracking genuinely unavailable) only if a caller
+// somehow still hands this the un-enriched `read_prepared_comparison` shape
+// with no `window_movements` at all -- never a fabricated 0%.
+function resolveChanges(row) {
+  const movements = row.window_movements;
+  if (movements && typeof movements === "object" && Object.keys(movements).length) return movements;
+  const end = row.comparison_as_of;
+  return {
+    "7D": change(row.return_7d_pct, startFor(end, 7), end), "30D": change(row.return_30d_pct, startFor(end, 30), end),
+    "3M": change(row.return_90d_pct, startFor(end, 90), end), "1Y": change(row.return_1y_pct, startFor(end, 365), end),
+    SinceTracking: change(null),
+  };
+}
+
 export function buildPreparedSeries(rows = [], history = []) {
   const historyByKey = new Map();
   for (const point of history) {
@@ -16,11 +34,7 @@ export function buildPreparedSeries(rows = [], history = []) {
   }
   return rows.map((row) => {
     const end = row.comparison_as_of;
-    const changes = {
-      "7D": change(row.return_7d_pct, startFor(end, 7), end), "30D": change(row.return_30d_pct, startFor(end, 30), end),
-      "90D": change(row.return_90d_pct, startFor(end, 90), end), "1Y": change(row.return_1y_pct, startFor(end, 365), end),
-      SinceTracking: change(null),
-    };
+    const changes = resolveChanges(row);
     const color = resolveSeriesIdentityColor(row.market_key, row.market_key);
     return {
       key: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
@@ -29,6 +43,11 @@ export function buildPreparedSeries(rows = [], history = []) {
       browseValue: row.current_value, sourceAsOf: row.source_as_of, comparisonAsOf: end,
       indexValue: row.comparison_index_value, historyStartDate: row.history_start_date,
       trend: historyByKey.get(row.market_key) || [], changes, familyChanges: changes,
+      // Only a compact, identity-keyed authority (query-cache fingerprint
+      // match) ever populates this server-side -- never a "latest" guess.
+      // `null` renders as "-" in MarketExplorerDetails, which is correct
+      // when the count cannot be proven to match this comparison's as-of.
+      constituentCount: row.constituent_count ?? null,
       analytics: {
         currentDrawdown: row.current_drawdown_pct, maxDrawdown: row.max_drawdown_pct,
         relative7D: row.relative_7d_vs_era_pct, relative30D: row.relative_30d_vs_era_pct,

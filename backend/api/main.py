@@ -171,7 +171,7 @@ from backend.db.services.market_explorer_options_snapshot import (
     read_market_explorer_options_snapshot,
 )
 from backend.db.services.market_explorer_prepared_directory import (
-    read_prepared_comparison, read_prepared_directory, read_prepared_history,
+    read_prepared_comparison_bundle, read_prepared_directory,
     read_prepared_screen, read_set_context_ranking,
 )
 from backend.db.services.market_explorer_exact_basket import (
@@ -1451,8 +1451,9 @@ def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
         raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
     keys = list(dict.fromkeys(payload.marketKeys))
     try:
-        return {"markets": read_prepared_comparison(service_read_client, keys),
-                "history": read_prepared_history(service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None)}
+        return read_prepared_comparison_bundle(
+            service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None,
+        )
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "PREPARED_COMPARISON_INVALID"}, status_code=400)
     except Exception:
