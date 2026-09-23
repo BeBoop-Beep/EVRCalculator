@@ -774,18 +774,29 @@ class PokemonTCGImageSyncService:
                 fallback_matches += 1
 
             for card in candidate_cards:
-                card_update_payload = {
-                    "card_id": card["id"],
-                    "image_last_synced_at": sync_timestamp,
-                }
-                if api_card.get("image_small_url"):
+                card_update_payload = {"card_id": card["id"]}
+                if (
+                    api_card.get("image_small_url")
+                    and card.get("image_small_url") != api_card.get("image_small_url")
+                ):
                     card_update_payload["image_small_url"] = api_card["image_small_url"]
-                if api_card.get("image_large_url"):
+                if (
+                    api_card.get("image_large_url")
+                    and card.get("image_large_url") != api_card.get("image_large_url")
+                ):
                     card_update_payload["image_large_url"] = api_card["image_large_url"]
-                if api_card.get("pokemon_tcg_api_id"):
+                if (
+                    api_card.get("pokemon_tcg_api_id")
+                    and card.get("pokemon_tcg_api_id") != api_card.get("pokemon_tcg_api_id")
+                ):
                     card_update_payload["pokemon_tcg_api_id"] = api_card["pokemon_tcg_api_id"]
 
-                if len(card_update_payload) > 2:
+                # A successful re-sync should be a true no-op when provider
+                # identity/artwork already matches durable state. Rewriting every
+                # row only to advance image_last_synced_at adds avoidable database
+                # pressure and can turn an otherwise-healthy repair into 57014.
+                if len(card_update_payload) > 1:
+                    card_update_payload["image_last_synced_at"] = sync_timestamp
                     updates_by_card_id[card["id"]] = card_update_payload
 
                 card_variants = variants_by_card_id.get(card["id"], [])
@@ -818,30 +829,38 @@ class PokemonTCGImageSyncService:
                         )
                         continue
 
-                    update_payload = {
-                        "card_id": variant["id"],
-                        "image_last_synced_at": sync_timestamp,
-                    }
-                    if api_card.get("image_small_url"):
+                    update_payload = {"card_id": variant["id"]}
+                    if (
+                        api_card.get("image_small_url")
+                        and variant.get("image_small_url") != api_card.get("image_small_url")
+                    ):
                         update_payload["image_small_url"] = api_card["image_small_url"]
-                    if api_card.get("image_large_url"):
+                    if (
+                        api_card.get("image_large_url")
+                        and variant.get("image_large_url") != api_card.get("image_large_url")
+                    ):
                         update_payload["image_large_url"] = api_card["image_large_url"]
-                    if can_store_api_id and api_card.get("pokemon_tcg_api_id"):
+                    if (
+                        can_store_api_id
+                        and api_card.get("pokemon_tcg_api_id")
+                        and existing_api_id != api_card.get("pokemon_tcg_api_id")
+                    ):
                         update_payload["pokemon_tcg_api_id"] = api_card["pokemon_tcg_api_id"]
                     elif self._is_image_only_variant(variant):
                         image_only_matches += 1
 
-                    if len(update_payload) == 2:
+                    if len(update_payload) == 1:
                         skipped.append(
                             {
                                 "card_id": variant["id"],
                                 "name": card.get("name"),
                                 "number": card.get("card_number"),
-                                "reason": "API card did not include image URLs",
+                                "reason": "Provider image/identity already current",
                             }
                         )
                         continue
 
+                    update_payload["image_last_synced_at"] = sync_timestamp
                     updates_by_variant_id[variant["id"]] = update_payload
 
         internal_cards_with_no_matching_api_examples: List[Dict[str, Any]] = []
