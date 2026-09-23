@@ -84,9 +84,29 @@ def _live_membership_extension_rows(
         "id,set_id,pokemon_tcg_api_card_id,name,supertype,rarity,catalog_role,"
         "opening_eligible,canonical_review_status"
     ))
+    set_rows = paged(lambda: client.table("sets").select(
+        "id,name,release_date,catalog_only,is_subset"
+    ))
+    frozen_release_dates = sorted(
+        str(row.get("release_date") or "")
+        for row in set_rows
+        if str(row.get("id") or "") in frozen_set_ids and row.get("release_date")
+    )
+    if not frozen_release_dates:
+        raise RuntimeError("frozen Collector cohort has no release-date boundary")
+    release_cutoff = frozen_release_dates[-1]
+    extension_sets = {
+        str(row["id"]): row
+        for row in set_rows
+        if str(row.get("id") or "") not in frozen_set_ids
+        and row.get("catalog_only") is not True
+        and row.get("is_subset") is not True
+        and str(row.get("release_date") or "") > release_cutoff
+    }
+    extension_set_ids = set(extension_sets)
     cards = [
         row for row in canonical
-        if str(row.get("set_id") or "") not in frozen_set_ids
+        if str(row.get("set_id") or "") in extension_set_ids
         and row.get("catalog_role") == "main"
         and row.get("opening_eligible") is True
         and row.get("canonical_review_status") == "approved"
@@ -96,10 +116,9 @@ def _live_membership_extension_rows(
         return [], {}
 
     set_ids = {str(row["set_id"]) for row in cards}
-    set_rows = paged(lambda: client.table("sets").select("id,name"))
     set_names = {
-        str(row["id"]): str(row.get("name") or "")
-        for row in set_rows if str(row.get("id") or "") in set_ids
+        set_id: str(extension_sets[set_id].get("name") or "")
+        for set_id in set_ids
     }
     card_ids = {str(row["id"]) for row in cards}
 
