@@ -1,0 +1,69 @@
+name: Repair 30th Images and Collector Enrichment
+
+on:
+  push:
+    branches:
+      - ops/repair-30th-images-collector-20260922
+    paths:
+      - '.github/workflows/repair-30th-images-collector-20260922.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-30th-images-collector-20260922
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Repair 30th image and collector authorities
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+
+          exec 8>/tmp/pokemon-scrape-dispatcher.lock
+          flock -w 180 8
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -w 180 7
+          exec 6>/tmp/pokemon-catalog-recheck.lock
+          flock -w 180 6
+
+          cd "$LIVE"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main --quiet
+          git switch main
+          git reset --hard origin/main
+          test -z "$(git status --porcelain --untracked-files=no)"
+          echo "repair_head=$(git rev-parse HEAD)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== IMAGE HYDRATION ==="
+          "$PY" backend/scripts/sync_pokemon_images.py             --sets "ME: 30th Celebration" "ME: 30th Celebration Classic Collection"             --apply
+
+          echo "=== FULL STATIC DESIRABILITY: PARENT ==="
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration             --commit             --log-level INFO
+
+          echo "=== FULL STATIC DESIRABILITY: CLASSIC ==="
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection             --commit             --log-level INFO
+
+          echo "=== COLLECTOR V7 MEMBERSHIP REBUILD ==="
+          "$PY" backend/scripts/operationalize_historical_rip.py             --as-of-date 2026-09-22             --commit             --force-model-rebuild
+
+          echo "=== CARD SNAPSHOTS AFTER COLLECTOR ==="
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration             --commit
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebrationClassicCollection             --commit
+
+          echo "=== SET PAGE SNAPSHOTS AFTER COLLECTOR ==="
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebration             --commit
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebrationClassicCollection             --commit
+
+          echo "REPAIR_30TH_IMAGES_COLLECTOR=PASS"
