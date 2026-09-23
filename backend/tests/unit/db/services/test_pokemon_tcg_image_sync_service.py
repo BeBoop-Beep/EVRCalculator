@@ -156,6 +156,48 @@ def test_dry_run_prepares_updates_but_writes_nothing(wiring):
     assert wiring.variant_update_batches == []
 
 
+
+def test_already_current_provider_state_performs_zero_writes(monkeypatch):
+    recorder = _Recorder()
+    api = _api_card(1, "Tropius", card_id="me5-1")
+    internal = _internal_card(1, 1, "Tropius")
+    internal.update({
+        "pokemon_tcg_api_id": api["pokemon_tcg_api_id"],
+        "image_small_url": api["image_small_url"],
+        "image_large_url": api["image_large_url"],
+        "image_last_synced_at": "2026-09-22T00:00:00+00:00",
+    })
+    variant = _variant(101, 1)
+    variant.update({
+        "pokemon_tcg_api_id": api["pokemon_tcg_api_id"],
+        "image_small_url": api["image_small_url"],
+        "image_large_url": api["image_large_url"],
+    })
+
+    monkeypatch.setattr(sync_module, "get_set_id_by_name", lambda _name: INTERNAL_SET_ID)
+    monkeypatch.setattr(
+        sync_module,
+        "get_set_by_name",
+        lambda _name: type("Res", (), {"data": {"pokemon_api_set_id": "me5"}})(),
+    )
+    monkeypatch.setattr(sync_module, "get_all_cards_for_set", lambda _sid: [internal])
+    monkeypatch.setattr(sync_module, "get_card_variants_by_card_ids", lambda _ids: [variant])
+    monkeypatch.setattr(sync_module, "update_card_image_sync_fields_batch", recorder.update_cards)
+    monkeypatch.setattr(sync_module, "update_card_variant_image_sync_fields_batch", recorder.update_variants)
+
+    result = PokemonTCGImageSyncService(client=_FakeClient(cards=[api])).sync_set(
+        set_name="Pitch Black",
+        dry_run=False,
+    )
+
+    assert result["prepared_card_updates"] == 0
+    assert result["prepared_variant_updates"] == 0
+    assert result["updated_card_rows"] == 0
+    assert result["updated_variant_rows"] == 0
+    assert recorder.card_update_batches == []
+    assert recorder.variant_update_batches == []
+
+
 def test_complete_fetch_preserves_existing_matching_behavior(wiring):
     """Exact number+name matching plus the parallel-row supplement are unchanged."""
     client = _FakeClient(cards=[_api_card(1, "Tropius"), _api_card(2, "Pikachu")])
