@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|sep22-publication-status)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -48,7 +48,7 @@ jobs:
           set_id = set_id or ""
           request_id = request_id or ""
 
-          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication"} and not market_date:
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
@@ -79,6 +79,116 @@ jobs:
           test -x "$PY" || { echo "Production venv Python missing: $PY"; exit 2; }
 
           case "$VM_OPERATION" in
+            repair-sep22-market-publication-direct)
+              cd "$REPO"
+              test "$VM_MARKET_DATE" = "2026-09-22" || { echo "This repair is scoped only to 2026-09-22"; exit 8; }
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+
+              set -a
+              . backend/.env
+              set +a
+              export SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS=120
+
+              echo "== recover stale Sep22 publisher if necessary =="
+              if ! /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                "$PY" - <<'PY'
+import os, signal, subprocess, time
+raw=subprocess.run(["ps","-eo","pid=,ppid=,etimes=,args="],capture_output=True,text=True,check=True).stdout.splitlines()
+procs=[]
+for line in raw:
+    parts=line.strip().split(None,3)
+    if len(parts)!=4:
+        continue
+    try:
+        pid,ppid,age=map(int,parts[:3])
+    except ValueError:
+        continue
+    procs.append({"pid":pid,"ppid":ppid,"age":age,"args":parts[3]})
+wrappers=[p for p in procs if "backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-22" in p["args"]]
+children=[p for p in procs if ("backend/scripts/refresh_stale_public_snapshots.py" in p["args"] or "backend.scripts.repair_missing_market_set_value_history" in p["args"]) and "2026-09-22" in p["args"]]
+print({"wrappers":wrappers,"children":children})
+if len(wrappers)!=1:
+    raise SystemExit(f"refusing ambiguous publisher wrapper count={len(wrappers)}")
+wrapper=wrappers[0]
+if wrapper["age"] < 1800:
+    raise SystemExit(f"refusing to terminate non-stale publisher age={wrapper['age']}s")
+for p in children:
+    try:
+        os.kill(p["pid"], signal.SIGTERM)
+        print("sigterm_child", p)
+    except ProcessLookupError:
+        pass
+time.sleep(5)
+try:
+    os.kill(wrapper["pid"], signal.SIGTERM)
+    print("sigterm_wrapper", wrapper)
+except ProcessLookupError:
+    pass
+PY
+              fi
+
+              FREE=0
+              for i in $(seq 1 60); do
+                if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                  FREE=1
+                  echo "publication_lock_free_after_seconds=$(( (i-1) * 5 ))"
+                  break
+                fi
+                sleep 5
+              done
+              [ "$FREE" -eq 1 ] || { echo "publication lock did not clear"; exit 40; }
+
+              echo "== direct DB repair of missing Sep22 Set Value rows =="
+              ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" "$PY" - <<'PY'
+import os
+import psycopg
+from backend.db.clients.supabase_client import create_service_role_client
+from backend.scripts.repair_missing_market_set_value_history import missing_market_root_set_ids
+
+target="2026-09-22"
+client=create_service_role_client()
+missing=missing_market_root_set_ids(client, market_date=target)
+print({"missing_before":len(missing),"set_ids":missing[:20]})
+dsn=os.environ["ACTIONS_DATABASE_URL"]
+with psycopg.connect(dsn, connect_timeout=15, autocommit=True) as conn:
+    with conn.cursor() as cur:
+        cur.execute("set statement_timeout = '300s'")
+        for index,set_id in enumerate(missing,1):
+            print(f"direct_set_value_refresh {index}/{len(missing)} set_id={set_id}", flush=True)
+            cur.execute(
+                "select public.refresh_pokemon_set_value_daily_history(%s::uuid,%s::date,%s::date)",
+                (set_id,target,target),
+            )
+missing_after=missing_market_root_set_ids(create_service_role_client(), market_date=target)
+print({"missing_after":len(missing_after),"set_ids":missing_after[:20]})
+if missing_after:
+    raise SystemExit(41)
+PY
+
+              echo "== rerun canonical Sep22 publication =="
+              timeout 6600 bash backend/scripts/rebuild_snapshots_after_scrape.sh "$VM_MARKET_DATE"
+
+              echo "== final Sep22 authority verification =="
+              "$PY" - <<'PY'
+from backend.db.clients.supabase_client import create_service_role_client
+c=create_service_role_client()
+target="2026-09-22"
+q=list(c.table("pokemon_market_date_quality").select("status,cohort_set_count,qualifying_set_count").eq("tcg","pokemon").eq("market_date",target).order("evaluated_at",desc=True).limit(1).execute().data or [])
+gm=list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,set_count").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or [])
+dash=list(c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date").eq("window_key","365d").execute().data or [])
+dcur=[r for r in dash if str(r.get("latest_market_date") or "")[:10]==target]
+cov=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").limit(1000).execute().data or [])
+ccur=[r for r in cov if str(r.get("computed_through") or "")[:10]>=target]
+print({"quality":q,"global_market":gm,"dashboard_current":len(dcur),"dashboard_rows":len(dash),"explorer_v2_current":len(ccur),"explorer_v2_rows":len(cov)})
+if not q or q[0].get("status") not in {"READY","LEGACY_VERIFIED"}: raise SystemExit(42)
+if not gm or str(gm[0].get("market_date"))[:10]!=target: raise SystemExit(43)
+if len(dcur)<156: raise SystemExit(44)
+if len(ccur)<167: raise SystemExit(45)
+PY
+
+              echo "REPAIR_SEP22_MARKET_PUBLICATION_DIRECT=PASS"
+              ;;
+
             sep22-publication-status)
               cd "$REPO"
               echo "== publication lock =="
