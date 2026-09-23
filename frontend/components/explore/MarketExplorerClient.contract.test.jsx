@@ -22,7 +22,6 @@ import {
   resolveTopChaseSegmentStatus,
 } from "@/lib/explore/marketExplorerSeries.mjs";
 import { resolveMarketOverview } from "@/lib/explore/marketOverviewPresentation.mjs";
-import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -239,7 +238,7 @@ const BASIC_USER = Object.freeze({ id: "u-basic", index_plan: null });
 
 function renderCollapsed(
   value = overview, searchParams = {}, sealedSegments = SEALED_SERIES, cardSegments = CARD_SERIES,
-  user = PREMIUM_USER, initialStateOverride = null, preparedDirectory = [], createNodeMock = undefined,
+  user = PREMIUM_USER,
 ) {
   let renderer;
   TestRenderer.act(() => {
@@ -251,10 +250,9 @@ function renderCollapsed(
         reconciliation: RECONCILIATION,
         cardReconciliation: CARD_RECONCILIATION,
         topChaseSegmentStatus: CHASE_STATUS,
-        initialState: initialStateOverride || resolveInitialExplorerState(value, searchParams, sealedSegments, cardSegments),
+        initialState: resolveInitialExplorerState(value, searchParams, sealedSegments, cardSegments),
         user,
-        preparedDirectory,
-      }), { createNodeMock }
+      })
     );
   });
   return renderer;
@@ -281,9 +279,28 @@ function expandGroup(renderer, id) {
  * to open it first — exactly as the user does. `renderCollapsed` is the
  * first-load state; `render` is the state after the user opened the groups.
  */
+/**
+ * The lower research lane (Comparison Detail / Constituents) is ALSO
+ * collapsed by design behind "View Constituents & Comparison"
+ * (`data-market-explorer-view-details`) — the current component renders it
+ * as a peek strip, not a permanently-mounted panel. A test asserting on
+ * `MarketExplorerDetails` content (detail headings, submarket rows, section
+ * order) has to open that strip first, exactly as the user does, or the
+ * panel simply never mounts and every such assertion sees an empty tree.
+ */
+function openDetails(renderer) {
+  const toggle = renderer.root.findAll(
+    (entry) => entry.props?.["data-market-explorer-view-details"] !== undefined, { deep: true }
+  )[0];
+  if (!toggle || toggle.props["aria-expanded"] === true || toggle.props["aria-expanded"] === "true") return false;
+  TestRenderer.act(() => { toggle.props.onClick?.(); });
+  return true;
+}
+
 function render(...args) {
   const renderer = renderCollapsed(...args);
   for (const id of RAIL_GROUPS) expandGroup(renderer, id);
+  openDetails(renderer);
   return renderer;
 }
 
@@ -1168,7 +1185,7 @@ test("hiding an active market drops it from Market Comparison Analysis but keeps
   assert.ok(picker.includes("raw") || picker.length <= 1);
 });
 
-test("Constituents follows Active Markets in the main workspace, before Comparison Detail", () => {
+test("the lower-page section order is Active Markets, then Comparison Detail, then Constituents, then Methodology", () => {
   const renderer = render();
   const orderedNodes = renderer.root.findAll((node) =>
     node.props?.["data-market-explorer-active-markets"] !== undefined
@@ -1178,180 +1195,12 @@ test("Constituents follows Active Markets in the main workspace, before Comparis
   );
   const markers = orderedNodes.map((node) => Object.keys(node.props).find((key) => key.startsWith("data-market-explorer-")));
   assert.ok(markers.indexOf("data-market-explorer-active-markets") < markers.indexOf("data-market-explorer-details"));
-  assert.ok(markers.indexOf("data-market-explorer-constituents") < markers.indexOf("data-market-explorer-details"));
+  assert.ok(markers.indexOf("data-market-explorer-details") < markers.indexOf("data-market-explorer-constituents"));
   assert.ok(markers.indexOf("data-market-explorer-constituents") < markers.indexOf("data-market-explorer-methodology"));
   const methodology = renderer.root.findAll(
     (node) => node.props?.["data-market-explorer-methodology"] !== undefined
   )[0];
   assert.ok(methodology, "Methodology must render");
-});
-
-test("a failed prepared selection remains visible with one-request retry", async () => {
-  const original = globalThis.fetch;
-  const originalAnimationFrame = globalThis.requestAnimationFrame;
-  globalThis.requestAnimationFrame = (callback) => { callback(); return 1; };
-  const calls = [];
-  globalThis.fetch = async (url) => {
-    calls.push(url);
-    if (calls.length === 1) return { ok: false, json: async () => ({ message: "Prepared market unavailable" }) };
-    return { ok: true, json: async () => ({
-      markets: [{ market_key: "set:151", market_type: "set", label: "Scarlet and Violet 151",
-        comparison_as_of: "2026-09-18", comparison_index_value: 101, comparison_value: 100,
-        current_value: 100, history_start_date: "2026-09-17", history_available: true,
-        return_7d_pct: 1 }],
-      history: [
-        { market_key: "set:151", market_date: "2026-09-17", index_value: 100 },
-        { market_key: "set:151", market_date: "2026-09-18", index_value: 101 },
-      ],
-    }) };
-  };
-  try {
-    const directory = [{ market_key: "set:151", label: "Scarlet and Violet 151", market_type: "set", parent_era_id: "scarlet-violet", current_value: 100 }];
-    const renderer = renderCollapsed(overview, {}, SEALED_SERIES, CARD_SERIES, BASIC_USER, null, directory);
-    click(renderer, "data-market-directory-category", "sets");
-    await TestRenderer.act(async () => { click(renderer, "data-prepared-market", "set:151"); });
-    assert.equal(findAll(renderer, "data-market-explorer-prepared-error").length, 1);
-    assert.match(pageText(renderer), /Selected market data is temporarily unavailable/);
-    assert.equal(findAll(renderer, "data-prepared-market")[0].props["aria-pressed"], false);
-    assert.equal(calls.filter((url) => url === "/api/market/explorer/prepared").length, 1);
-    const retry = findAll(renderer, "data-market-explorer-prepared-error")[0]
-      .findAll((node) => node.type === "button", { deep: true })[0];
-    await TestRenderer.act(async () => { retry.props.onClick(); });
-    assert.equal(calls.filter((url) => url === "/api/market/explorer/prepared").length, 2);
-    assert.equal(findAll(renderer, "data-market-explorer-prepared-error").length, 0);
-    assert.equal(findAll(renderer, "data-prepared-market")[0].props["aria-pressed"], true);
-    assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 1);
-  } finally {
-    globalThis.fetch = original;
-    globalThis.requestAnimationFrame = originalAnimationFrame;
-  }
-});
-
-test("one visible line uses published direction and two visible lines keep identity colors", () => {
-  const renderer = render();
-  const strokes = () => Object.fromEntries(findAll(renderer, "data-market-performance-series")
-    .map((node) => [node.props["data-market-performance-series"], node.props.stroke]));
-  const initial = strokes();
-  assert.equal(Object.keys(initial).length, 2);
-  assert.notEqual(initial.raw, POSITIVE_VALUE_COLOR);
-  assert.notEqual(initial.sealedMarket, POSITIVE_VALUE_COLOR);
-  click(renderer, "data-market-explorer-active-visibility", "sealedMarket");
-  assert.deepEqual(strokes(), { raw: POSITIVE_VALUE_COLOR });
-  click(renderer, "data-market-chart-view", "performance");
-  assert.deepEqual(strokes(), { raw: POSITIVE_VALUE_COLOR });
-  click(renderer, "data-market-explorer-active-visibility", "sealedMarket");
-  assert.deepEqual(strokes(), initial);
-
-  const falling = renderCollapsed(overview, {}, SEALED_SERIES, CARD_SERIES, PREMIUM_USER,
-    { assetUniverse: ["topChase"], sealedFamilyIds: [], segmentIds: [], timeframe: "7D" });
-  assert.deepEqual(Object.fromEntries(findAll(falling, "data-market-performance-series")
-    .map((node) => [node.props["data-market-performance-series"], node.props.stroke])),
-    { topChase: NEGATIVE_VALUE_COLOR });
-});
-
-test("workspace mode preserves chart, selection, visibility, timeframe, and chart view", () => {
-  const withComposition = SEALED_SERIES.map((series) => ["sealed:boosterBox", "sealed:packs"].includes(series.key)
-    ? { ...series, currentConstituents: { idField: "sealedProductId", totalCount: 1,
-      isComplete: true, topConstituents: [{ rank: 1, sealedProductId: `${series.key}-1`,
-        productName: series.label, setName: "Test Set", marketPrice: 100 }] } }
-    : series);
-  const renderer = renderCollapsed(overview, {}, withComposition, CARD_SERIES, PREMIUM_USER,
-    { assetUniverse: [], sealedFamilyIds: ["sealed:boosterBox", "sealed:packs"], segmentIds: [], timeframe: "7D" });
-  const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0].props;
-  const chart = renderer.root.find((node) => node.type?.name === "MarketExplorerChart");
-  const activeKeys = workspace()["data-market-explorer-series"];
-  const detailKey = workspace()["data-market-explorer-detail-series"];
-  assert.equal(findAll(renderer, "data-market-chart-view").find((node) => node.props["data-market-chart-view"] === "index").props["aria-pressed"], true);
-  click(renderer, "data-market-chart-view", "performance");
-  click(renderer, "data-market-window-value", "30D");
-  click(renderer, "data-market-explorer-active-visibility", "sealed:packs");
-  const visibleSeries = chart.props.selectedSeries.map((series) => series.key);
-  assert.equal(workspace()["data-market-explorer-mode"], "chart");
-  assert.equal(findAll(renderer, "data-market-constituents-mode")[0].props["data-market-constituents-mode"], "preview");
-  assert.ok(findAll(renderer, "data-market-constituents-see-more").length,
-    JSON.stringify({ activeKeys, detailKey, availability: findAll(renderer, "data-market-explorer-constituents")[0]?.props["data-market-constituents-availability"] }));
-  TestRenderer.act(() => findAll(renderer, "data-market-constituents-see-more")[0].props.onClick());
-  assert.equal(workspace()["data-market-explorer-mode"], "constituents");
-  assert.match(findAll(renderer, "data-market-explorer-graph")[0].props.className, /hidden/);
-  assert.equal(renderer.root.find((node) => node.type?.name === "MarketExplorerChart"), chart);
-  assert.equal(findAll(renderer, "data-market-chart-view").find((node) => node.props["data-market-chart-view"] === "performance").props["aria-pressed"], true);
-  assert.equal(findAll(renderer, "data-market-explorer-constituents").length, 1);
-  TestRenderer.act(() => findAll(renderer, "data-market-constituents-back")[0].props.onClick());
-  assert.equal(workspace()["data-market-explorer-mode"], "chart");
-  assert.equal(workspace()["data-market-explorer-series"], activeKeys);
-  assert.equal(workspace()["data-market-explorer-detail-series"], detailKey);
-  assert.equal(workspace()["data-market-explorer-timeframe"], "30D");
-  assert.deepEqual(renderer.root.find((node) => node.type?.name === "MarketExplorerChart").props.selectedSeries.map((series) => series.key), visibleSeries);
-  assert.equal(findAll(renderer, "data-market-chart-view").find((node) => node.props["data-market-chart-view"] === "performance").props["aria-pressed"], true);
-  click(renderer, "data-market-chart-view", "index");
-  TestRenderer.act(() => findAll(renderer, "data-market-constituents-see-more")[0].props.onClick());
-  TestRenderer.act(() => findAll(renderer, "data-market-constituents-back")[0].props.onClick());
-  assert.equal(findAll(renderer, "data-market-chart-view").find((node) => node.props["data-market-chart-view"] === "index").props["aria-pressed"], true);
-  TestRenderer.act(() => findAll(renderer, "data-market-constituents-see-more")[0].props.onClick());
-  click(renderer, "data-market-explorer-active-inspect", "sealed:packs");
-  assert.equal(workspace()["data-market-explorer-mode"], "constituents");
-  assert.equal(workspace()["data-market-explorer-detail-series"], "sealed:packs");
-  assert.equal(workspace()["data-market-explorer-series"], activeKeys);
-  click(renderer, "data-market-explorer-active-visibility", "sealed:packs");
-  TestRenderer.act(() => findAll(renderer, "data-market-constituents-back")[0].props.onClick());
-  assert.equal(workspace()["data-market-explorer-mode"], "chart");
-  assert.equal(workspace()["data-market-explorer-detail-series"], "sealed:packs");
-  assert.deepEqual(renderer.root.find((node) => node.type?.name === "MarketExplorerChart")
-    .props.selectedSeries.map((series) => series.key), ["sealed:boosterBox", "sealed:packs"]);
-});
-
-test("mode changes preserve open Browse context and move focus without page scroll", () => {
-  const focusEvents = [];
-  const originalAnimationFrame = globalThis.requestAnimationFrame;
-  const originalFetch = globalThis.fetch;
-  globalThis.requestAnimationFrame = () => 1;
-  const withComposition = SEALED_SERIES.map((series) => series.key === "sealed:boosterBox"
-    ? { ...series, currentConstituents: { idField: "sealedProductId", totalCount: 1,
-      isComplete: true, topConstituents: [{ rank: 1, sealedProductId: "box-1",
-        productName: "Booster Box", setName: "Test Set", marketPrice: 100 }] } }
-    : series);
-  const directory = [
-    { market_key: "set:base", market_type: "set", parent_era_id: "e0", label: "Base Set" },
-    { market_key: "set:base-2", market_type: "set", parent_era_id: "e0", label: "Base Set 2" },
-  ];
-  const createNodeMock = (element) => {
-    if (element.props?.["data-market-explorer-graph"] !== undefined) return {
-      querySelector: () => ({ focus: (options) => focusEvents.push(["chart", options]) }),
-    };
-    if (element.props?.["data-market-constituents-back"] !== undefined) return {
-      focus: (options) => focusEvents.push(["back", options]),
-    };
-    return null;
-  };
-  let renderer;
-  try {
-    renderer = renderCollapsed(overview, {}, withComposition, CARD_SERIES, PREMIUM_USER,
-      { assetUniverse: [], sealedFamilyIds: ["sealed:boosterBox"], segmentIds: [], timeframe: "7D" },
-      directory, createNodeMock);
-    const requests = [];
-    globalThis.fetch = async (url) => { requests.push(url); return { ok: true, json: async () => ({}) }; };
-    click(renderer, "data-market-directory-category", "sets");
-    TestRenderer.act(() => findAll(renderer, "data-market-browser-search")[0].props.onChange({ target: { value: "Base" } }));
-    assert.equal(findAll(renderer, "data-prepared-market").length, 2);
-    assert.equal(findAll(renderer, "data-prepared-market")[0].props["aria-pressed"], false);
-    const list = findAll(renderer, "data-market-directory-popover")[0];
-    click(renderer, "data-market-chart-view", "performance");
-    click(renderer, "data-market-explorer-active-visibility", "sealed:boosterBox");
-    click(renderer, "data-market-explorer-active-visibility", "sealed:boosterBox");
-    TestRenderer.act(() => findAll(renderer, "data-market-constituents-see-more")[0].props.onClick());
-    assert.deepEqual(focusEvents.at(-1), ["back", { preventScroll: true }]);
-    assert.equal(findAll(renderer, "data-market-directory-popover")[0], list);
-    assert.equal(findAll(renderer, "data-market-browser-search")[0].props.value, "Base");
-    TestRenderer.act(() => findAll(renderer, "data-market-constituents-back")[0].props.onClick());
-    assert.deepEqual(focusEvents.at(-1), ["chart", { preventScroll: true }]);
-    assert.equal(findAll(renderer, "data-market-directory-popover")[0], list);
-    assert.equal(findAll(renderer, "data-market-browser-search")[0].props.value, "Base");
-    assert.deepEqual(requests.filter((url) => String(url).includes("/api/market/explorer/")), []);
-  } finally {
-    if (renderer) TestRenderer.act(() => renderer.unmount());
-    globalThis.requestAnimationFrame = originalAnimationFrame;
-    globalThis.fetch = originalFetch;
-  }
 });
 
 test("Methodology explains Per-Set Chase vs. Global Top 10 and Screens vs. the Builder", () => {

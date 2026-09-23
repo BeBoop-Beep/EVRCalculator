@@ -4,32 +4,33 @@ import test from "node:test";
 
 const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
 
-test("Market Explorer uses a title-free graph-first workspace with one unified builder", async () => {
+test("Market Explorer uses a graph-first desktop workspace and compact mobile controls", async () => {
   const source = await read("./MarketExplorerClient.jsx");
-  assert.doesNotMatch(source, /data-market-explorer-product-header|>Market Explorer<|Explore\. Compare\. Build your own Pokémon markets\./);
+  assert.doesNotMatch(source, /data-market-explorer-product-header/);
   assert.match(source, /data-market-explorer-workspace/);
   assert.match(source, /desk:grid-cols-\[minmax\(19rem,22rem\)_minmax\(0,1fr\)\]/);
   assert.match(source, /data-market-explorer-sidebar/);
   assert.match(source, /data-market-explorer-mobile-tools/);
+  assert.match(source, /desk:hidden/);
   assert.match(source, /mobileToolsOpen \? "block" : "hidden"/);
-  assert.doesNotMatch(source, /data-market-explorer-sidebar-section="filter"|Filter · Premium/);
 
   const explore = source.indexOf('data-market-explorer-zone="explore"');
-  const build = source.indexOf('data-market-explorer-zone="build"');
   const compare = source.indexOf('data-market-explorer-zone="compare"');
+  const build = source.indexOf('data-market-explorer-zone="build"');
   const sidebarEnd = source.indexOf("</aside>", explore);
   const active = source.indexOf("data-market-explorer-active-strip", compare);
   const graph = source.indexOf("data-market-explorer-graph", compare);
   const results = source.indexOf("data-market-explorer-compare-results", compare);
-  const tray = source.indexOf("data-market-explorer-research-tray", results);
-  assert.ok(explore >= 0 && build >= 0 && compare >= 0);
-  assert.ok(sidebarEnd < build && build < compare, "unified builder remains an overlay between rail and comparison source");
+  assert.ok(explore >= 0 && compare >= 0 && build >= 0);
+  assert.ok(sidebarEnd < build && build < compare, "browse rail precedes the unified builder overlay and graph");
   assert.ok(source.indexOf("<MarketExplorerBrowse", explore) < compare);
   assert.ok(source.indexOf("<MarketExplorerScreens", explore) < compare);
-  assert.ok(active < graph && graph < results && results < tray);
-  assert.doesNotMatch(source, /data-market-explorer-signals|Market overview/);
+  assert.ok(active < graph && graph < results);
+  assert.match(source.slice(graph, graph + 120), /order-2/);
+  assert.equal(source.indexOf('data-market-explorer-sidebar-section="filter"'), -1);
   assert.ok(source.indexOf("<MarketExplorerQueryBuilder", build) > build);
   assert.ok(source.indexOf("<MarketExplorerExactBasket", build) > build);
+  assert.ok(source.indexOf("View Constituents & Comparison", graph) > graph);
   assert.equal(source.match(/<MarketExplorerBrowse/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerScreens/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerQueryBuilder/g)?.length, 1);

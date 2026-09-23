@@ -106,6 +106,7 @@ export default function MarketExplorerClient({
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
   const [loadedPreparedSeries, setLoadedPreparedSeries] = useState([]);
+  const [preparedLoadError, setPreparedLoadError] = useState(null);
 
   useEffect(() => {
     if (canComparePreparedMarkets && compareUpgradeVisible) setCompareUpgradeVisible(false);
@@ -229,7 +230,7 @@ export default function MarketExplorerClient({
   }, [clearAllQueries, clearAllSelection, initialPreparedKey]);
 
   useEffect(() => {
-    if (!preparedActiveKeys.length) { setLoadedPreparedSeries([]); return; }
+    if (!preparedActiveKeys.length) { setLoadedPreparedSeries([]); setPreparedLoadError(null); return; }
     const controller = new AbortController();
     fetch("/api/market/explorer/prepared", {
       method: "POST", credentials: "include", cache: "no-store", signal: controller.signal,
@@ -239,7 +240,13 @@ export default function MarketExplorerClient({
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.message || "Prepared comparison unavailable");
       setLoadedPreparedSeries(buildPreparedSeries(payload.markets, payload.history));
-    }).catch((error) => { if (error?.name !== "AbortError") setLoadedPreparedSeries([]); });
+      setPreparedLoadError(null);
+    }).catch((error) => {
+      // A failed prepared request must not erase previously-loaded valid
+      // series. Keep whatever last loaded successfully and surface a
+      // visible, bounded error/retry state instead of silently clearing.
+      if (error?.name !== "AbortError") setPreparedLoadError(error?.message || "Prepared comparison unavailable");
+    });
     return () => controller.abort();
   }, [preparedActiveKeys]);
 
@@ -345,7 +352,7 @@ export default function MarketExplorerClient({
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
           <MarketExplorerRarityMarkets
             directory={preparedDirectory}
-            rarityOptions={options?.segments || []}
+            rarityOptions={options?.cardRarities?.rarities || []}
             activeKeys={preparedActiveKeys}
             activeSeries={querySeries}
             canUse={canComparePreparedMarkets}
@@ -360,10 +367,10 @@ export default function MarketExplorerClient({
         </section>
       </aside>
         <dialog ref={builderDialogRef} role="dialog" aria-modal="true" aria-hidden={!builderOpen} data-market-explorer-builder-overlay data-market-explorer-zone="build" className={builderOpen ? "fixed inset-0 z-[9999] m-0 flex h-full max-h-none w-full max-w-none items-stretch justify-center border-0 bg-slate-950/80 p-0 backdrop-blur-sm desk:items-center desk:p-6" : "hidden"} aria-labelledby="build-markets-zone-heading">
-          <div className={\`\${styles.explorerZone} \${styles.surfaceQuiet} set-glass-surface flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[var(--surface-page)] shadow-2xl desk:h-[86vh] desk:max-h-[90vh] desk:w-[min(78rem,calc(100vw-3rem))] desk:rounded-2xl\`}>
+          <div className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[var(--surface-page)] shadow-2xl desk:h-[86vh] desk:max-h-[90vh] desk:w-[min(78rem,calc(100vw-3rem))] desk:rounded-2xl`}>
             <div className="flex flex-none items-center gap-2 border-b border-[var(--border-subtle)] px-4 py-2 sm:px-6" role="tablist" aria-label="Build Your Market method">
-              <button type="button" role="tab" aria-selected={builderMode === "exact"} onClick={() => setBuilderMode("exact")} className={\`min-h-10 rounded-md border px-4 text-xs font-semibold \${builderMode === "exact" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}\`}>Cards &amp; Products</button>
-              <button type="button" role="tab" aria-selected={builderMode === "filters"} onClick={() => setBuilderMode("filters")} className={\`min-h-10 rounded-md border px-4 text-xs font-semibold \${builderMode === "filters" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}\`}>Custom Filters{!canBuildCustomMarkets ? " · Premium" : ""}</button>
+              <button type="button" role="tab" aria-selected={builderMode === "exact"} onClick={() => setBuilderMode("exact")} className={`min-h-10 rounded-md border px-4 text-xs font-semibold ${builderMode === "exact" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Cards &amp; Products</button>
+              <button type="button" role="tab" aria-selected={builderMode === "filters"} onClick={() => setBuilderMode("filters")} className={`min-h-10 rounded-md border px-4 text-xs font-semibold ${builderMode === "filters" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Custom Filters{!canBuildCustomMarkets ? " · Premium" : ""}</button>
             </div>
             {builderMode === "exact" ? (
               <div data-market-explorer-build-path="exact" className="flex min-h-0 flex-1 flex-col">
@@ -409,7 +416,7 @@ export default function MarketExplorerClient({
               else { if (editingSeries?.key === key) setEditingSeriesId(null); toggleSeries(key); }
             }}
             onEdit={beginEdit}
-            canRemove={selectedSeries.length > 1}
+            canRemove
             hiddenSeriesKeys={hiddenSeriesKeys}
             onToggleVisibility={toggleSeriesVisibility}
             onShowAll={showAllSeries}
@@ -419,6 +426,10 @@ export default function MarketExplorerClient({
           />
         </div>
         <div data-market-explorer-graph className="order-2 min-w-0">
+          {preparedLoadError ? <div role="alert" data-market-explorer-prepared-error className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-2 text-xs text-[rgb(248,113,113)]">
+            <span>{preparedLoadError}. Previously loaded markets are still shown.</span>
+            <button type="button" data-market-explorer-prepared-retry onClick={() => setPreparedActiveKeys((keys) => [...keys])} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold">Retry</button>
+          </div> : null}
           <MarketExplorerChart
             overview={overview}
             selectedSeries={visibleSeries}

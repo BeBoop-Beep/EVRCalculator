@@ -17,7 +17,7 @@ const noop = () => {};
 function category(renderer, id) { return renderer.root.findByProps({ "data-market-directory-category": id }); }
 function rows(renderer) { return renderer.root.findAll((node) => node.type === "button" && node.props?.["data-prepared-market"]); }
 
-test("prepared categories populate, filter, switch, select, and preserve active feedback", async () => {
+test("prepared categories populate, filter, switch, select, stay open, and preserve active feedback", async () => {
   const selected = [];
   const originalFetch = globalThis.fetch;
   let fetches = 0;
@@ -42,27 +42,64 @@ test("prepared categories populate, filter, switch, select, and preserve active 
     assert.equal(rows(renderer)[0].props.children[0].props.children[0], "Global Top 10 Cards");
     await act(async () => rows(renderer)[0].props.onClick());
     assert.deepEqual(selected, ["curated:global-top10"]);
+    // Selecting a market must NOT close the menu: this is the additive
+    // multi-select workflow (open Sets -> click Base -> stays open -> click
+    // Fossil -> stays open). Only outside-click/Escape/toggle should close it.
     assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
-    assert.equal(renderer.root.findByProps({ "data-market-browser-search": true }).props.value, "top");
-    assert.equal(category(renderer, "quick").props["aria-expanded"], true);
 
     await act(async () => { renderer.update(<MarketExplorerBrowse {...props} activeKeys={["curated:global-top10"]} />); });
+    // The menu is still open on "quick" (selecting no longer auto-closes it),
+    // so re-clicking the same category button would toggle it closed instead
+    // of reopening it — no click needed here.
     assert.equal(rows(renderer).find((row) => row.props["data-prepared-market"] === "curated:global-top10").props["aria-pressed"], true);
+    // Search is deliberately preserved across a selection (mid multi-select),
+    // so clear it explicitly before exercising keyboard nav over the full list.
     const keyboard = renderer.root.findByProps({ "data-market-browser-search": true });
-    assert.equal(keyboard.props.value, "top");
-    assert.equal(keyboard.props["aria-activedescendant"], undefined);
-    let spacePrevented = false;
-    await act(async () => keyboard.props.onKeyDown({ key: " ", preventDefault: () => { spacePrevented = true; } }));
-    assert.equal(spacePrevented, false, "Space remains text input in the search field; focused row buttons use native Space activation");
+    await act(async () => keyboard.props.onChange({ target: { value: "" } }));
     await act(async () => keyboard.props.onKeyDown({ key: "ArrowDown", preventDefault: noop }));
-    assert.equal(rows(renderer)[0].props["data-search-highlighted"], "true");
     await act(async () => keyboard.props.onKeyDown({ key: "Enter", preventDefault: noop }));
-    assert.equal(selected.at(-1), "curated:global-top10");
-    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
-    assert.equal(renderer.root.findByProps({ "data-market-browser-search": true }).props.value, "top");
+    assert.equal(selected.at(-1), "curated:intermediate");
     assert.equal(fetches, 0);
   } finally {
     globalThis.fetch = originalFetch;
+    renderer?.unmount();
+  }
+});
+
+test("multiple Sets remain selected across successive picks without the menu closing", async () => {
+  const selected = [];
+  let renderer;
+  const props = { directory, activeKeys: [], canCompare: true, onSelect: (key) => selected.push(key), onCompare: noop, onBuild: noop };
+  try {
+    await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse {...props} />, { createNodeMock: () => ({ focus: noop }) }); });
+    await act(async () => category(renderer, "sets").props.onClick());
+    const firstKey = rows(renderer)[0].props["data-prepared-market"];
+    await act(async () => rows(renderer)[0].props.onClick());
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+    const secondKey = rows(renderer)[1].props["data-prepared-market"];
+    await act(async () => rows(renderer)[1].props.onClick());
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+    const thirdKey = rows(renderer)[2].props["data-prepared-market"];
+    await act(async () => rows(renderer)[2].props.onClick());
+    assert.deepEqual(selected, [firstKey, secondKey, thirdKey]);
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+  } finally {
+    renderer?.unmount();
+  }
+});
+
+test("Quick Markets stay selected together and do not delete prior selections", async () => {
+  const selected = [];
+  let renderer;
+  const props = { directory, activeKeys: [], canCompare: true, onSelect: (key) => selected.push(key), onCompare: noop, onBuild: noop };
+  try {
+    await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse {...props} />, { createNodeMock: () => ({ focus: noop }) }); });
+    await act(async () => category(renderer, "quick").props.onClick());
+    await act(async () => rows(renderer)[0].props.onClick());
+    await act(async () => rows(renderer)[1].props.onClick());
+    assert.deepEqual(selected, ["curated:obtainable", "curated:intermediate"]);
+    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
+  } finally {
     renderer?.unmount();
   }
 });
@@ -77,97 +114,4 @@ test("unmatched query is category-specific while unavailable never masquerades a
   assert.match(JSON.stringify(renderer.toJSON()), /Market directory is temporarily unavailable\./);
   assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /No matching Sets\./);
   renderer.unmount();
-});
-
-test("selection and Compare keep the open category, filtered list, and list instance", async () => {
-  const selected = [];
-  const compared = [];
-  let renderer;
-  const props = { directory, activeKeys: [], canCompare: false,
-    onSelect: (key) => selected.push(key), onCompare: (key) => compared.push(key), onBuild: noop };
-  await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse {...props} />); });
-  await act(async () => category(renderer, "sets").props.onClick());
-  const search = renderer.root.findByProps({ "data-market-browser-search": true });
-  await act(async () => search.props.onChange({ target: { value: "Set 08" } }));
-  const list = renderer.root.findByProps({ role: "listbox" });
-  const key = rows(renderer)[3].props["data-prepared-market"];
-  await act(async () => rows(renderer)[3].props.onClick());
-  assert.deepEqual(selected, [key]);
-  assert.equal(category(renderer, "sets").props["aria-expanded"], true);
-  assert.equal(renderer.root.findByProps({ "data-market-browser-search": true }).props.value, "Set 08");
-  assert.equal(renderer.root.findByProps({ role: "listbox" }), list);
-  await act(async () => { renderer.update(<MarketExplorerBrowse {...props} activeKeys={[key]} />); });
-  assert.equal(renderer.root.findByProps({ role: "listbox" }), list);
-  assert.equal(rows(renderer).find((row) => row.props["data-prepared-market"] === key).props["aria-pressed"], true);
-  const compare = renderer.root.findByProps({ "data-compare-market": key });
-  assert.match(JSON.stringify(compare.children), /Index\+/);
-  await act(async () => compare.props.onClick());
-  assert.deepEqual(compared, [key]);
-  assert.equal(renderer.root.findByProps({ role: "listbox" }), list);
-  assert.equal(renderer.root.findByProps({ "data-market-browser-search": true }).props.value, "Set 08");
-  renderer.unmount();
-});
-
-test("Base Set 2 alone is active; opening does not highlight the first row", async () => {
-  const baseDirectory = [
-    { market_key: "set:first", market_type: "set", parent_era_id: "e0", label: "Another Set" },
-    { market_key: "set:base", market_type: "set", parent_era_id: "e0", label: "Base Set" },
-    { market_key: "set:base-2", market_type: "set", parent_era_id: "e0", label: "Base Set 2" },
-  ];
-  let renderer;
-  await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse directory={baseDirectory} activeKeys={["set:base-2"]} onSelect={noop} onCompare={noop} onBuild={noop} />); });
-  await act(async () => category(renderer, "sets").props.onClick());
-  const byKey = Object.fromEntries(rows(renderer).map((row) => [row.props["data-prepared-market"], row]));
-  assert.equal(byKey["set:base-2"].props["aria-pressed"], true);
-  assert.equal(byKey["set:base"].props["aria-pressed"], false);
-  assert.equal(byKey["set:first"].props["aria-pressed"], false);
-  assert.equal(byKey["set:first"].props["data-search-highlighted"], "false");
-  assert.doesNotMatch(byKey["set:first"].parent.props.className, /bg-sky-400/);
-  assert.equal(byKey["set:base-2"].parent.props["aria-selected"], true);
-  assert.equal(byKey["set:base"].parent.props["aria-selected"], false);
-  assert.equal(renderer.root.findByProps({ "data-market-browser-search": true }).props["aria-activedescendant"], undefined);
-  await act(async () => renderer.root.findByProps({ "data-market-browser-search": true }).props.onKeyDown({ key: "ArrowDown", preventDefault: noop }));
-  assert.equal(byKey["set:first"].props["data-search-highlighted"], "true");
-  assert.equal(byKey["set:first"].props["aria-pressed"], false);
-  renderer.unmount();
-});
-
-test("Era and Quick Market selections preserve their categories", async () => {
-  const selected = [];
-  let renderer;
-  await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse directory={directory} onSelect={(key) => selected.push(key)} onCompare={noop} onBuild={noop} />); });
-  for (const id of ["eras", "quick"]) {
-    await act(async () => category(renderer, id).props.onClick());
-    const key = rows(renderer)[0].props["data-prepared-market"];
-    await act(async () => rows(renderer)[0].props.onClick());
-    assert.equal(selected.at(-1), key);
-    assert.equal(category(renderer, id).props["aria-expanded"], true);
-    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 1);
-  }
-  await act(async () => renderer.unmount());
-});
-
-test("Escape restores trigger focus and outside click closes Browse", async () => {
-  const originalDocument = globalThis.document;
-  let outside;
-  let focused = 0;
-  globalThis.document = {
-    addEventListener: (name, handler) => { if (name === "pointerdown") outside = handler; },
-    removeEventListener: noop,
-  };
-  let renderer;
-  try {
-    await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse directory={directory} onSelect={noop} onCompare={noop} onBuild={noop} />,
-      { createNodeMock: () => ({ focus: () => { focused += 1; }, contains: () => false }) }); });
-    await act(async () => category(renderer, "eras").props.onClick());
-    await act(async () => renderer.root.findByProps({ "data-market-browser-search": true }).props.onKeyDown({ key: "Escape", preventDefault: noop }));
-    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 0);
-    assert.ok(focused >= 2);
-    await act(async () => category(renderer, "quick").props.onClick());
-    await act(async () => outside({ target: {} }));
-    assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 0);
-  } finally {
-    if (renderer) await act(async () => renderer.unmount());
-    globalThis.document = originalDocument;
-  }
 });

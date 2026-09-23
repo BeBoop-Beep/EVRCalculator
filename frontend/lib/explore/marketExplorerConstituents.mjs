@@ -52,10 +52,14 @@ export const PENDING_PUBLICATION_MESSAGE =
  * The movement windows the table offers, and the default.
  *
  * Mirrors the backend's CONSTITUENT_MOVEMENT_WINDOWS exactly. 7D is the default
- * while the selector also exposes the long-horizon 6M, 1Y, and Since Tracking
- * views requested for quick constituent inspection.
+ * because 1D on a daily-observed market is mostly noise and 30D is too slow to
+ * show what changed this week.
  */
-export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze(["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]);
+export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze([
+  "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking",
+]);
+export const constituentMovementWindowLabel = (window) =>
+  (window === "SinceTracking" ? "Since Tracking" : window);
 export const DEFAULT_CONSTITUENT_MOVEMENT_WINDOW = "7D";
 
 export function normalizeConstituentMovementWindow(requested) {
@@ -167,7 +171,7 @@ export function buildConstituentColumns(asset, movementWindow) {
   const window = normalizeConstituentMovementWindow(movementWindow);
   return [
     ...base,
-    { key: "changes", label: `${window === "SinceTracking" ? "Since Tracking" : window} Change`, align: "right", change: true, window },
+    { key: "changes", label: `${constituentMovementWindowLabel(window)} Change`, align: "right", change: true, window },
   ];
 }
 
