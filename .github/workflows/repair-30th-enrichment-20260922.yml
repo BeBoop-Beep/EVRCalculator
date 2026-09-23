@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: repair-30th-enrichment-20260922
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   repair:
@@ -82,11 +82,7 @@ jobs:
           print("IMAGE_HYDRATION_PRECHECK=PASS")
           PY
 
-          echo "=== full static desirability ==="
-          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py \
-            --set me30thCelebration --commit --log-level INFO
-          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py \
-            --set me30thCelebrationClassicCollection --commit --log-level INFO
+          echo "=== static desirability already durable; Collector-only repair ==="
 
           echo "=== Collector V7 catalog-membership rebuild ==="
           "$PY" backend/scripts/operationalize_historical_rip.py \
