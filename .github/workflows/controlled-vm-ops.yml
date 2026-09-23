@@ -90,7 +90,7 @@ jobs:
               echo "== publication processes =="
               ps -eo pid=,ppid=,etimes=,stat=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|repair_missing_market_set_value_history|run_market_explorer_daily_publication|audit_pokemon_market_publication' | grep -v grep || true
               echo "== post-scrape logs =="
-              for LOG in                 backend/logs/rebuild_snapshots_after_scrape.cron.log                 backend/logs/post_scrape_publication.log                 backend/logs/post_scrape_publication_watchdog.log; do
+              for LOG in publication.log backend/logs/rebuild_snapshots_after_scrape.cron.log backend/logs/post_scrape_publication.log backend/logs/post_scrape_publication_watchdog.log; do
                 if [ -f "$LOG" ]; then
                   echo "--- $LOG ---"
                   tail -n 80 "$LOG"
