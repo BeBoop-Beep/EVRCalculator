@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -52,6 +52,8 @@ jobs:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
+          if op.startswith("pricing-") and (market_date or set_id):
+              raise SystemExit(f"{op} accepts no market_date or set_id")
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write(f"VM_OPERATION={op}\n")
@@ -77,6 +79,113 @@ jobs:
 
           test -d "$REPO/.git" || { echo "Production repo missing: $REPO"; exit 2; }
           test -x "$PY" || { echo "Production venv Python missing: $PY"; exit 2; }
+
+          # ---- multi-source pricing helpers (fixed constants; no request-supplied values reach these) ----
+          STATE="/home/ubuntu/state/multi_source_pricing"
+          PRICING_LOCK="/tmp/multi-source-pricing.lock"
+          PRICING_CAP=300
+          PRICING_FILES="backend/scripts/run_daily_multi_source_card_pricing.py backend/scripts/check_multi_source_pricing_health.py infra/oracle/install_multi_source_pricing_cron.sh infra/oracle/multi-source-pricing.crontab"
+          PRICING_BEGIN="# BEGIN multi-source-pricing (managed by install_multi_source_pricing_cron.sh)"
+          PRICING_END="# END multi-source-pricing"
+
+          pricing_runtime_present() {
+            [ -d backend/pricing_pipeline ] || return 1
+            for f in $PRICING_FILES; do [ -f "$f" ] || return 1; done
+            return 0
+          }
+
+          pricing_host_timezone() {
+            timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || true
+          }
+
+          pricing_lock_state() {
+            if [ ! -e "$1" ]; then echo free_absent; elif /usr/bin/flock -n "$1" -c true; then echo free; else echo held; fi
+          }
+
+          pricing_cron_report() {
+            { crontab -l 2>/dev/null || true; } | awk -v b="$PRICING_BEGIN" -v e="$PRICING_END" '
+              $0==b { blocks++; inblock=1; next }
+              $0==e { inblock=0; next }
+              /^[[:space:]]*#/ { next }
+              /run_daily_multi_source_card_pricing/ {
+                if (inblock) managed_run++; else unmanaged_run++
+                if ($0 ~ /^10 4 \* \* \* /) primary++
+                else if ($0 ~ /^40 4,5,7-20 \* \* \* /) retry++
+              }
+              /check_multi_source_pricing_health/ { if (inblock) managed_health++; else unmanaged_health++ }
+              END {
+                printf "managed_blocks=%d\nmanaged_run_entries=%d\nprimary_entries=%d\nretry_entries=%d\nmanaged_health_entries=%d\nunmanaged_pricing_run_entries=%d\nunmanaged_pricing_health_entries=%d\n", blocks, managed_run, primary, retry, managed_health, unmanaged_run, unmanaged_health
+              }'
+          }
+
+          pricing_crontab_outside_block_hash() {
+            { crontab -l 2>/dev/null || true; } \
+              | awk -v b="$PRICING_BEGIN" -v e="$PRICING_END" '$0==b{s=1} !s{print} $0==e{s=0}' \
+              | { grep -v '^[[:space:]]*$' || true; } \
+              | sha256sum | cut -c1-16
+          }
+
+          pricing_credentials_probe() {
+            "$PY" - <<'PY'
+          import os, sys
+          from pathlib import Path
+          try:
+              from dotenv import load_dotenv
+              load_dotenv(Path("backend/.env"), override=False)
+          except Exception:
+              pass
+          try:
+              from backend.pricing_pipeline.ebay_credentials import load_ebay_credentials, CredentialsUnavailable
+          except Exception as exc:
+              print("ebay_credential_authority_importable=false", type(exc).__name__)
+              sys.exit(3)
+          rc = 0
+          try:
+              c = load_ebay_credentials(allow_frontend_fallback=False)
+              print("EBAY_CLIENT_ID=present")
+              print("EBAY_CLIENT_SECRET=present")
+              print("credential_source=" + str(c.source))
+              print("ebay_environment=" + str(c.environment))
+          except CredentialsUnavailable:
+              print("EBAY_CLIENT_ID/EBAY_CLIENT_SECRET=unresolved_with_frontend_fallback_disabled")
+              rc = 4
+          for key in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"):
+              print(key + "=" + ("present" if os.environ.get(key) else "missing"))
+          sys.exit(rc)
+          PY
+          }
+
+          pricing_counts() {
+            PRICING_MD="$1" "$PY" - <<'PY'
+          import json, os
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.freeze_ebay_active_ask_v1 import VERSION as ESTIMATOR_VERSION
+
+          md = os.environ["PRICING_MD"]
+          c = create_service_role_client()
+
+          def count(table, **eq):
+              q = c.table(table).select("run_id" if table.startswith("ebay_card") else "market_date", count="exact")
+              for key, value in eq.items():
+                  q = q.eq(key, value)
+              return q.limit(1).execute().count
+
+          runs = c.table("pokemon_multi_source_pricing_runs_v1").select(
+              "run_id,status,stage,policy_version,requests_attempted,target_count,ebay_pricing_run_id,updated_at,finished_at"
+          ).eq("market_date", md).limit(5).execute().data or []
+          out = {"market_date": md, "pricing_runs": runs}
+          ebay_run_ids = sorted({r["ebay_pricing_run_id"] for r in runs if r.get("ebay_pricing_run_id")})
+          out["evidence_rows_by_run"] = {rid: count("ebay_card_listing_evidence_v1", run_id=rid) for rid in ebay_run_ids}
+          out["summary_rows_by_run"] = {rid: count("ebay_card_pricing_run_summary_v1", run_id=rid) for rid in ebay_run_ids}
+          out["estimate_rows"] = count("ebay_active_ask_price_estimates_v1", market_date=md, estimator_version=ESTIMATOR_VERSION)
+          out["shadow_decision_rows"] = count("pokemon_multi_source_card_prices_v1", market_date=md)
+          out["ledger_v1"] = c.table("ebay_browse_request_ledger_v1").select("requests_reserved,daily_limit").eq("budget_day", md).limit(1).execute().data or []
+          out["ledger_v2_latest_windows"] = c.table("ebay_api_request_budget_v2").select(
+              "resource_bucket,provider_window_end,requests_reserved"
+          ).order("provider_window_end", desc=True).limit(4).execute().data or []
+          print(json.dumps(out, sort_keys=True, default=str, indent=2))
+          PY
+          }
 
           case "$VM_OPERATION" in
             repair-sep22-market-publication-direct)
@@ -1083,6 +1192,256 @@ jobs:
 
               echo "===== final Explorer audit ====="
               "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); d=list((c.table("pokemon_market_explorer_prepared_directory_v1").select("market_type,comparison_as_of,source_as_of,history_available,history_point_count").execute()).data or []); h=list((c.table("pokemon_market_explorer_prepared_history_v1").select("market_date").order("market_date", desc=True).limit(1).execute()).data or []); m=list((c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date,payload_json").eq("window_key","365d").gte("latest_market_date","2026-09-18").execute()).data or []); sets=[r for r in d if r.get("market_type")=="set"]; errors=[r for r in m if ((r.get("payload_json") or {}).get("cardsMarket") or {}).get("reason")=="error"]; print({"directoryRows":len(d),"setRows":len(sets),"setsWithHistory":sum(1 for r in sets if r.get("history_available") is True),"setsWithoutHistory":sum(1 for r in sets if r.get("history_available") is not True),"comparisonAsOf":sorted({str(r.get("comparison_as_of")) for r in d if r.get("comparison_as_of")}),"sourceAsOf":sorted({str(r.get("source_as_of")) for r in d if r.get("source_as_of")}),"maxPreparedHistoryDate":(h[0].get("market_date") if h else None),"remainingDashboardErrors":len(errors)})'
+              ;;
+
+            pricing-status)
+              # READ ONLY: no checkout/switch/reset, no cron change, no eBay call, no pricing DB write.
+              cd "$REPO"
+              set +e
+              echo "== runtime identity =="
+              echo "request_id=$VM_REQUEST_ID"
+              echo "hostname=$(hostname)"
+              echo "arch=$(uname -m)"
+              echo "utc_now=$(date -u +%FT%TZ)"
+              echo "phoenix_now=$(TZ=America/Phoenix date '+%F %T %Z')"
+              echo "host_timezone=$(pricing_host_timezone)"
+              echo "repo=$REPO"
+              echo "branch=$(git branch --show-current)"
+              echo "head=$(git rev-parse HEAD)"
+              git fetch --all --prune
+              echo "fetch_exit=$?"
+              echo "origin_main=$(git rev-parse origin/main 2>/dev/null)"
+              echo "origin_develop=$(git rev-parse origin/develop 2>/dev/null)"
+              echo "origin_main_vs_head(origin_only head_only)=$(git rev-list --left-right --count origin/main...HEAD 2>/dev/null)"
+              echo "origin_develop_vs_head(origin_only head_only)=$(git rev-list --left-right --count origin/develop...HEAD 2>/dev/null)"
+              echo "-- git status --short (first 60 lines) --"
+              git status --short | head -60
+              echo "tracked_modified_count=$(git status --porcelain --untracked-files=no | wc -l)"
+
+              echo "== pricing runtime identity (checkout blob vs origin/develop blob; nothing is checked out) =="
+              for f in $PRICING_FILES; do
+                if [ -f "$f" ]; then L=$(git hash-object "$f"); else L=MISSING; fi
+                R=$(git rev-parse "origin/develop:$f" 2>/dev/null || echo ABSENT)
+                if git ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then T=tracked; else T=not_tracked; fi
+                if [ "$L" = "$R" ]; then M=identical; else M=differs; fi
+                echo "$f local=$L origin_develop=$R $T $M"
+              done
+              if [ -d backend/pricing_pipeline ]; then
+                SAME=0; DIFF=0; MISS=0
+                while read -r _MODE _TYPE SHA P; do
+                  if [ -f "$P" ]; then
+                    if [ "$(git hash-object "$P")" = "$SHA" ]; then SAME=$((SAME+1)); else DIFF=$((DIFF+1)); echo "pricing_pipeline_differs=$P"; fi
+                  else
+                    MISS=$((MISS+1)); echo "pricing_pipeline_missing_locally=$P"
+                  fi
+                done < <(git ls-tree -r origin/develop -- backend/pricing_pipeline/)
+                EXTRA=$(comm -13 <(git ls-tree -r --name-only origin/develop -- backend/pricing_pipeline/ | sort) <(find backend/pricing_pipeline -type f -name '*.py' | sort) | wc -l)
+                echo "backend/pricing_pipeline/ present=true identical=$SAME differs=$DIFF missing_locally=$MISS local_only_py_files=$EXTRA"
+              else
+                echo "backend/pricing_pipeline/ present=false"
+              fi
+              for f in backend/sentinel/checks/pricing.py backend/tests/unit/sentinel/test_pricing_registration.py; do
+                if [ -f "$f" ]; then L=present; else L=missing; fi
+                echo "$f local=$L origin_develop=$(git rev-parse "origin/develop:$f" 2>/dev/null || echo ABSENT)"
+              done
+
+              echo "== credential presence (values never printed; frontend fallback disabled) =="
+              if pricing_runtime_present; then
+                pricing_credentials_probe
+                CRED_RC=$?
+              else
+                echo "credential probe skipped: pricing runtime incomplete in production checkout"
+                CRED_RC=99
+              fi
+              echo "credential_probe_exit=$CRED_RC"
+
+              echo "== pricing cron state =="
+              pricing_cron_report
+              echo "-- processes --"
+              pgrep -af 'run_daily_multi_source_card_pricing' || true
+              pgrep -af 'check_multi_source_pricing_health' || true
+              echo "-- locks (non-mutating probe; never creates a lock file) --"
+              echo "cron_lock_$PRICING_LOCK=$(pricing_lock_state "$PRICING_LOCK")"
+              echo "pipeline_state_lock=$(pricing_lock_state "$STATE/daily_multi_source_pricing.lock")"
+              echo "-- state dir / logs --"
+              if [ -d "$STATE" ]; then ls -la "$STATE" | head -30; else echo "state_dir_missing=$STATE"; fi
+              for LOG in backend/logs/multi_source_pricing.log backend/logs/multi_source_pricing_health.log; do
+                if [ -f "$LOG" ]; then stat -c '%n size=%s mtime=%y' "$LOG"; else echo "$LOG missing"; fi
+              done
+
+              echo "== installer VERIFY mode (no --apply) =="
+              if pricing_runtime_present; then
+                BEFORE_HASH=$(crontab -l 2>/dev/null | sha256sum | cut -c1-16)
+                timeout 600 bash infra/oracle/install_multi_source_pricing_cron.sh
+                echo "installer_verify_exit=$?"
+                AFTER_HASH=$(crontab -l 2>/dev/null | sha256sum | cut -c1-16)
+                if [ "$BEFORE_HASH" = "$AFTER_HASH" ]; then echo "crontab_unchanged_by_verify=true"; else echo "crontab_unchanged_by_verify=false"; fi
+              else
+                echo "installer verify skipped: pricing runtime files missing from production checkout"
+              fi
+
+              echo "== manifest-only dry run =="
+              if pricing_runtime_present && [ "${CRED_RC:-1}" -eq 0 ]; then
+                HELP=$("$PY" -m backend.scripts.run_daily_multi_source_card_pricing --help 2>&1)
+                if grep -q -- '--dry-run' <<<"$HELP" && grep -q -- '--json' <<<"$HELP" && grep -q -- '--no-frontend-env-fallback' <<<"$HELP"; then
+                  EVR_PRICING_STATE_DIR="$STATE" timeout 300 "$PY" -m backend.scripts.run_daily_multi_source_card_pricing --dry-run --json --no-frontend-env-fallback
+                  echo "dry_run_exit=$?"
+                else
+                  echo "dry run skipped: expected CLI options not present in production runtime"
+                fi
+              else
+                echo "dry run skipped: runtime or credentials not present"
+              fi
+
+              echo "== pricing health (read-only) =="
+              if [ -d backend/pricing_pipeline ] && [ -f backend/scripts/check_multi_source_pricing_health.py ]; then
+                timeout 300 "$PY" -m backend.scripts.check_multi_source_pricing_health
+                echo "pricing_health_exit=$?"
+              else
+                echo "pricing health skipped: script missing from production checkout"
+              fi
+
+              echo "== Sentinel fast profile: pricing registration =="
+              SENTINEL_OUT=$(timeout 300 "$PY" -m backend.sentinel.operational --profile fast --list-checks 2>&1)
+              echo "sentinel_list_checks_exit=$?"
+              echo "sentinel_pricing_check_count=$(grep -c '"pricing\.' <<<"$SENTINEL_OUT")"
+              grep '"pricing\.' <<<"$SENTINEL_OUT" || true
+              set -e
+              ;;
+
+            pricing-health)
+              # READ ONLY.
+              cd "$REPO"
+              test -f backend/scripts/check_multi_source_pricing_health.py || { echo "pricing health script missing from production checkout"; exit 20; }
+              set +e
+              timeout 300 "$PY" -m backend.scripts.check_multi_source_pricing_health
+              HEALTH_RC=$?
+              set -e
+              echo "pricing_health_exit=$HEALTH_RC"
+              echo "== latest rows (limit 3 each; ordered by indexed date; no scans, no writes) =="
+              "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          c = create_service_role_client()
+
+          def latest(table, cols, order):
+              try:
+                  return c.table(table).select(cols).order(order, desc=True).limit(3).execute().data or []
+              except Exception as exc:
+                  return {"error": type(exc).__name__, "detail": str(exc)[:200]}
+
+          print(json.dumps({
+              "pokemon_multi_source_pricing_runs_v1": latest("pokemon_multi_source_pricing_runs_v1", "market_date,status,stage,failure_code,requests_attempted,target_count,updated_at,finished_at", "market_date"),
+              "ebay_pricing_runs_v1": latest("ebay_pricing_runs_v1", "run_id,market_date,status,finished_at", "market_date"),
+              "ebay_active_ask_price_estimates_v1": latest("ebay_active_ask_price_estimates_v1", "market_date,estimator_version", "market_date"),
+              "pokemon_multi_source_card_prices_v1": latest("pokemon_multi_source_card_prices_v1", "market_date,policy_version,pipeline_run_id", "market_date"),
+          }, indent=2, default=str))
+          PY
+              exit "$HEALTH_RC"
+              ;;
+
+            pricing-install-cron)
+              # MUTATING: fail-closed gates first; cron is written ONLY by the canonical installer with --apply.
+              cd "$REPO"
+              echo "== gates =="
+              git fetch --all --prune || { echo "REFUSING: git fetch failed"; exit 20; }
+              echo "head=$(git rev-parse HEAD)"
+              if git status --porcelain --untracked-files=no | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "REFUSING: unexpected tracked modifications:"
+                git status --short
+                exit 21
+              fi
+              pricing_runtime_present || { echo "REFUSING: pricing runtime files missing from production checkout"; exit 22; }
+              [ "$(pricing_host_timezone)" = "America/Phoenix" ] || { echo "REFUSING: host timezone is not America/Phoenix"; exit 23; }
+              pricing_credentials_probe || { echo "REFUSING: eBay credentials unresolved (frontend fallback disabled)"; exit 24; }
+              [ "$(pricing_lock_state "$PRICING_LOCK")" != "held" ] || { echo "REFUSING: pricing lock held"; exit 25; }
+              [ "$(pricing_lock_state "$STATE/daily_multi_source_pricing.lock")" != "held" ] || { echo "REFUSING: pipeline state lock held"; exit 25; }
+              REPORT_BEFORE=$(pricing_cron_report)
+              echo "$REPORT_BEFORE"
+              UNMANAGED=$(grep -E '^unmanaged_pricing_(run|health)_entries=' <<<"$REPORT_BEFORE" | grep -vc '=0$' || true)
+              [ "${UNMANAGED:-0}" -eq 0 ] || { echo "REFUSING: unmanaged pricing schedule entries exist outside the managed block"; exit 26; }
+              timeout 600 bash infra/oracle/install_multi_source_pricing_cron.sh || { echo "REFUSING: installer verify mode failed"; exit 27; }
+              OUTSIDE_BEFORE=$(pricing_crontab_outside_block_hash)
+
+              echo "== apply (canonical installer only) =="
+              timeout 600 bash infra/oracle/install_multi_source_pricing_cron.sh --apply
+
+              echo "== post-install proof =="
+              REPORT_AFTER=$(pricing_cron_report)
+              echo "$REPORT_AFTER"
+              OUTSIDE_AFTER=$(pricing_crontab_outside_block_hash)
+              echo "crontab_outside_managed_block_hash before=$OUTSIDE_BEFORE after=$OUTSIDE_AFTER"
+              grep -qx 'managed_blocks=1' <<<"$REPORT_AFTER" || { echo "PROOF FAILED: managed block count != 1"; exit 30; }
+              grep -qx 'primary_entries=1' <<<"$REPORT_AFTER" || { echo "PROOF FAILED: primary 04:10 entry count != 1"; exit 31; }
+              grep -qx 'retry_entries=1' <<<"$REPORT_AFTER" || { echo "PROOF FAILED: retry entry count != 1"; exit 32; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT_AFTER" || { echo "PROOF FAILED: managed run entry count != 2"; exit 33; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT_AFTER" || { echo "PROOF FAILED: health entry count != 1"; exit 34; }
+              grep -qx 'unmanaged_pricing_run_entries=0' <<<"$REPORT_AFTER" || { echo "PROOF FAILED: unmanaged pricing run entries"; exit 35; }
+              grep -qx 'unmanaged_pricing_health_entries=0' <<<"$REPORT_AFTER" || { echo "PROOF FAILED: unmanaged pricing health entries"; exit 35; }
+              [ "$OUTSIDE_BEFORE" = "$OUTSIDE_AFTER" ] || { echo "PROOF FAILED: crontab outside the managed block changed"; exit 36; }
+              echo "PRICING_CRON_INSTALLED=PASS"
+              ;;
+
+            pricing-run-controlled)
+              # MUTATING: one bounded real run through the canonical entrypoint. Cap is hard-coded (PRICING_CAP).
+              cd "$REPO"
+              echo "== gates =="
+              pricing_runtime_present || { echo "REFUSING: pricing runtime files missing from production checkout"; exit 20; }
+              [ "$(pricing_host_timezone)" = "America/Phoenix" ] || { echo "REFUSING: host timezone is not America/Phoenix"; exit 21; }
+              pricing_credentials_probe || { echo "REFUSING: eBay credentials unresolved (frontend fallback disabled)"; exit 22; }
+              [ "$(pricing_lock_state "$PRICING_LOCK")" != "held" ] || { echo "REFUSING: pricing lock held"; exit 23; }
+              mkdir -p "$STATE"
+              echo "request_cap=$PRICING_CAP (fixed; the pipeline can only lower its own pool ceiling)"
+              echo "NOTE: the cap is stored on today's run row; if this run completes, that market date is COMPLETE at this reduced scale and the scheduled job replays it as a no-op."
+              set +e
+              /usr/bin/flock -n --conflict-exit-code 99 "$PRICING_LOCK" -c "cd '$REPO' && EVR_PRICING_STATE_DIR='$STATE' '$PY' -m backend.scripts.run_daily_multi_source_card_pricing --json --resume --no-frontend-env-fallback --max-requests $PRICING_CAP"
+              RC=$?
+              set -e
+              echo "pipeline_exit_code=$RC"
+              case "$RC" in
+                0) echo "PRICING_RUN_CONTROLLED=PASS" ;;
+                75) echo "PRICING_RUN_CONTROLLED=WAITING_FOR_COMPLETED_TCG_BATCH" ;;
+                99) echo "PRICING_RUN_CONTROLLED=LOCK_HELD_NOTHING_RUN" ;;
+                *) echo "PRICING_RUN_CONTROLLED=NOT_COMPLETE_SEE_RECEIPT" ;;
+              esac
+              exit "$RC"
+              ;;
+
+            pricing-replay-verify)
+              # Replays the latest COMPLETE run (current policy version) via the canonical pipeline; must be a strict no-op.
+              cd "$REPO"
+              echo "== gates =="
+              pricing_runtime_present || { echo "REFUSING: pricing runtime files missing from production checkout"; exit 20; }
+              pricing_credentials_probe || { echo "REFUSING: eBay credentials unresolved (frontend fallback disabled)"; exit 22; }
+              [ "$(pricing_lock_state "$PRICING_LOCK")" != "held" ] || { echo "REFUSING: pricing lock held"; exit 23; }
+              MD=$("$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts import pokemon_multi_source_card_price_v1 as policy
+
+          rows = create_service_role_client().table("pokemon_multi_source_pricing_runs_v1").select("market_date").eq(
+              "status", "COMPLETE").eq("policy_version", policy.POLICY_VERSION).order("market_date", desc=True).limit(1).execute().data or []
+          print(rows[0]["market_date"] if rows else "")
+          PY
+              )
+              [[ "$MD" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "REFUSING: no COMPLETE run for the current policy version to replay"; exit 30; }
+              echo "replay_market_date=$MD"
+              BEFORE=$(mktemp); AFTER=$(mktemp); RECEIPT=$(mktemp)
+              pricing_counts "$MD" > "$BEFORE"
+              echo "== counts BEFORE =="; cat "$BEFORE"
+              set +e
+              /usr/bin/flock -n --conflict-exit-code 99 "$PRICING_LOCK" -c "cd '$REPO' && EVR_PRICING_STATE_DIR='$STATE' '$PY' -m backend.scripts.run_daily_multi_source_card_pricing --market-date '$MD' --json --resume --no-frontend-env-fallback --max-requests $PRICING_CAP" > "$RECEIPT"
+              RC=$?
+              set -e
+              echo "replay_pipeline_exit_code=$RC"
+              cat "$RECEIPT"
+              pricing_counts "$MD" > "$AFTER"
+              echo "== counts AFTER =="; cat "$AFTER"
+              [ "$RC" -eq 0 ] || { echo "REPLAY FAILED: pipeline exit $RC"; exit 31; }
+              grep -q '"idempotent_replay": true' "$RECEIPT" || { echo "REPLAY NOT A NO-OP: receipt lacks idempotent_replay=true"; exit 32; }
+              cmp -s "$BEFORE" "$AFTER" || { echo "REPLAY MUTATED STATE: before/after counts differ"; diff "$BEFORE" "$AFTER" || true; exit 33; }
+              echo "no_new_ebay_requests=true no_duplicate_evidence=true no_duplicate_estimates=true no_duplicate_decisions=true"
+              echo "PRICING_REPLAY_VERIFY=PASS"
               ;;
 
             *)
