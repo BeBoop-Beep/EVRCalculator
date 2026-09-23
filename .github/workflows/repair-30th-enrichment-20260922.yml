@@ -1,4 +1,5 @@
 name: Repair 30th Enrichment 20260922
+# retrigger after idempotent image sync landed
 
 on:
   push:
