@@ -7,6 +7,7 @@ on:
     # slots retry. After a successful recheck, provider_next_check_at advances
     # 24h, so the remaining slots become cheap no-ops.
     - cron: '5 16-23 * * *'
+    - cron: '*/5 2 23 9 *' # temporary one-time repair trigger; remove after verification
   workflow_dispatch:
   pull_request:
     branches: [main]
