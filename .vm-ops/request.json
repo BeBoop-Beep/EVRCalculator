@@ -1,6 +1,4 @@
 {
-  "operation": "repair-sep22-base-publication",
-  "market_date": "2026-09-22",
-  "request_id": "market-repair-20260922-r2",
-  "target_sha": "d7b95e1aadcf536730d228b0103ffea21bd8008a"
+  "operation": "sep22-publication-status",
+  "request_id": "sep22-publication-status-20260922"
 }
