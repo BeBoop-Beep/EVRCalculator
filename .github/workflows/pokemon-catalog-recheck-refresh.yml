@@ -131,6 +131,10 @@ jobs:
           . backend/.env
           set +a
 
+          "$PY" -m pytest -q \
+            backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py \
+            backend/tests/unit/scripts/test_operationalize_historical_rip.py
+
           "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --log-level INFO
 
           "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --log-level INFO
