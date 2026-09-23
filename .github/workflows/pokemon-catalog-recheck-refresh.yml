@@ -133,6 +133,7 @@ jobs:
 
           "$PY" -m pytest -q \
             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py \
+            backend/tests/unit/scripts/test_build_pokemon_collector_appeal_v6_corrected_successor.py \
             backend/tests/unit/scripts/test_operationalize_historical_rip.py \
             backend/tests/unit/services/test_pokemon_set_onboarding_service.py
 
