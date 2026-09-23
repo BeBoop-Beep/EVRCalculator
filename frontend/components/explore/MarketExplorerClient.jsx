@@ -338,7 +338,7 @@ export default function MarketExplorerClient({
         className="order-1 flex min-h-11 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 text-sm font-semibold text-[var(--text-primary)] desk:hidden">
         Markets / Tools <span aria-hidden="true">{mobileToolsOpen ? "−" : "+"}</span>
       </button>
-      <aside id="explorer-controls" data-market-explorer-sidebar className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:row-start-2 desk:block desk:max-h-[calc(100vh-7rem)] desk:overflow-y-auto`}>
+      <aside id="explorer-controls" data-market-explorer-sidebar className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:block desk:max-h-[calc(100vh-7rem)] desk:overflow-y-auto`}>
         <section data-market-explorer-zone="explore" className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="explore-markets-zone-heading">
         <div className={styles.explorerZoneHeader}>
           <p className={styles.explorerZoneEyebrow}>Explore</p>
@@ -425,7 +425,13 @@ export default function MarketExplorerClient({
             timeframe={timeframe}
           />
         </div>
-        <div data-market-explorer-graph className="order-2 min-w-0">
+        <div data-market-explorer-chart-workspace className="order-2 relative min-w-0">
+        <div
+          data-market-explorer-graph
+          aria-hidden={detailsOpen ? "true" : undefined}
+          inert={detailsOpen ? true : undefined}
+          className={detailsOpen ? "pointer-events-none min-w-0 select-none" : "min-w-0"}
+        >
           {preparedLoadError ? <div role="alert" data-market-explorer-prepared-error className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-2 text-xs text-[rgb(248,113,113)]">
             <span>{preparedLoadError}. Previously loaded markets are still shown.</span>
             <button type="button" data-market-explorer-prepared-retry onClick={() => setPreparedActiveKeys((keys) => [...keys])} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold">Retry</button>
@@ -439,46 +445,55 @@ export default function MarketExplorerClient({
             timeframeOptions={timeframeOptions}
             onTimeframeChange={setRequestedTimeframe}
             onClearGraph={clearGraph}
+            detailsOpen={detailsOpen}
+            onToggleDetails={() => setDetailsOpen(true)}
           />
         </div>
-
-      {/* 3 — the advanced lane, collapsed and sitting directly beneath the
-             workspace it feeds rather than stranded below unrelated content. */}
-
-      {/* 4 — everything currently charted, from either lane, in ONE row.
-             There is deliberately no second chip strip beneath this: custom
-             queries used to render their own duplicate row, which showed the
-             same markets twice and let the two disagree. Their one unique
-             contribution, the index level, moved onto the chip. */}
-      {/* ACCEPTED LOWER-PAGE ORDER: Comparison Detail -> Current Constituents
-          -> Selected Set Analysis (Set markets only) -> Methodology. These are
-          full-width research sections; no desktop split or empty non-Set
-          placeholder belongs in this workspace. */}
-      <div data-market-explorer-research-peek className="order-4 mt-1 border-t border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(15,23,42,.24),rgba(2,6,23,.62))] px-3 py-3 sm:px-4">
-        <button type="button" data-market-explorer-view-details aria-expanded={detailsOpen} onClick={() => setDetailsOpen((open) => !open)} className="mx-auto flex min-h-11 w-full max-w-xl items-center justify-center rounded-xl border border-white/10 bg-white/[.035] px-5 text-sm font-semibold text-[var(--text-primary)] shadow-[inset_0_1px_rgba(255,255,255,.04)] backdrop-blur transition-colors hover:border-[rgba(45,212,191,.45)] hover:bg-[rgba(45,212,191,.07)]">
-          {detailsOpen ? "Hide Constituents & Comparison" : "View Constituents & Comparison"}
-        </button>
-      </div>
-      {detailsOpen ? <div data-market-explorer-compare-results className="order-5 border-t border-[var(--border-subtle)]">
-        <MarketExplorerDetails
-          // VISIBLE, not merely active: comparison reflects what the chart is
-          // currently showing ("compare what I see"). A hidden market stays a
-          // full Active Market (still removable, still inspectable in
-          // Constituents above) but drops out of this summary table until
-          // shown again -- it never disappears from the workspace, only from
-          // this one comparison view.
-          series={visibleSeries}
-          activeSeriesId={activeDetailSeriesId}
-          onInspect={setRequestedDetailSeriesId}
-          timeframe={timeframe}
-        />
-        <MarketExplorerConstituents selectedSeries={selectedSeries} activeSeriesId={activeDetailSeriesId}
-          onSelectSeries={setRequestedDetailSeriesId} onEditSeries={beginEdit} />
-        {activeDetailMarket?.marketType === "set" ? (
-          <MarketExplorerContextRanking market={activeDetailMarket} timeframe={timeframe}
-            canUse={canComparePreparedMarkets} onUpgrade={() => setCompareUpgradeVisible(true)} />
+        {detailsOpen ? (
+          <div
+            data-market-explorer-compare-results
+            className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden border border-[var(--border-subtle)] bg-[rgba(2,6,23,.96)] shadow-2xl backdrop-blur"
+          >
+            <div className="flex flex-none items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-3 py-2.5 sm:px-4">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">Constituents &amp; Comparison</h2>
+                <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Inspect the active market composition and compare what is currently visible on the chart.</p>
+              </div>
+              <button
+                type="button"
+                data-market-explorer-hide-details
+                onClick={() => setDetailsOpen(false)}
+                className="min-h-10 flex-none rounded-lg border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:border-[rgba(45,212,191,.45)] hover:bg-[rgba(45,212,191,.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,.65)]"
+              >
+                Hide Constituents &amp; Comparison
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <MarketExplorerDetails
+                series={visibleSeries}
+                activeSeriesId={activeDetailSeriesId}
+                onInspect={setRequestedDetailSeriesId}
+                timeframe={timeframe}
+              />
+              <MarketExplorerConstituents
+                selectedSeries={selectedSeries}
+                activeSeriesId={activeDetailSeriesId}
+                onSelectSeries={setRequestedDetailSeriesId}
+                onEditSeries={beginEdit}
+              />
+              {activeDetailMarket?.marketType === "set" ? (
+                <MarketExplorerContextRanking
+                  market={activeDetailMarket}
+                  timeframe={timeframe}
+                  canUse={canComparePreparedMarkets}
+                  onUpgrade={() => setCompareUpgradeVisible(true)}
+                />
+              ) : null}
+            </div>
+          </div>
         ) : null}
-      </div> : null}
+      </div>
+
       </section>
 
       <div className="order-6 desk:col-span-2"><MarketExplorerMethodology /></div>
