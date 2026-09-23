@@ -405,7 +405,7 @@ def test_images_step_builds_static_and_collector_layers_for_released_non_simulat
         for line in joined
     )
     assert any(
-        "operationalize_historical_rip.py --as-of-date 2026-09-22 --commit --force-model-rebuild" in line
+        "operationalize_historical_rip.py --as-of-date 2026-09-22 --commit --force-model-rebuild --reuse-current-source-authority" in line
         for line in joined
     )
 
