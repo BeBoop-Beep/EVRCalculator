@@ -8,6 +8,10 @@ on:
     # 24h, so the remaining slots become cheap no-ops.
     - cron: '5 16-23 * * *'
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pokemon-catalog-recheck-refresh.yml'
   push:
     branches: [main]
     paths:
