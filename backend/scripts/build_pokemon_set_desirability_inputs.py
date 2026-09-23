@@ -709,11 +709,32 @@ def _refresh_authoritative_canonical_cards(
         for row in existing_rows
         if str(row.get("source") or "") == FALLBACK_SOURCE
     }
+
+    # Image sync writes the provider card ID onto the durable TCGplayer card row.
+    # For reprint-style subsets, provider metadata may normalize punctuation/name
+    # and omit the original-set denominator (e.g. "Buzzwole GX" 57/111 becomes
+    # "Buzzwole-GX" 57). Exact canonical identity therefore cannot always promote
+    # the pre-provider fallback row. Bridge through the internal card's exact
+    # provider ID so one physical checklist card stays one canonical row.
+    fallback_by_provider_id: Dict[str, Dict[str, Any]] = {}
+    for internal_card in _list_cards_for_set(client, set_id):
+        provider_id = str(internal_card.get("pokemon_tcg_api_id") or "").strip()
+        if not provider_id:
+            continue
+        internal_key = _canonical_identity(
+            _canonical_number(str(internal_card.get("card_number") or "")),
+            str(internal_card.get("name") or ""),
+        )
+        fallback = fallback_by_identity.get(internal_key)
+        if fallback:
+            fallback_by_provider_id[provider_id] = fallback
+
     rows_to_upsert: List[Dict[str, Any]] = []
     promoted = 0
     for row in rows:
         key = _canonical_identity(str(row.get("number") or ""), str(row.get("name") or ""))
-        fallback = fallback_by_identity.get(key)
+        provider_id = str(row.get("pokemon_tcg_api_card_id") or "").strip()
+        fallback = fallback_by_identity.get(key) or fallback_by_provider_id.get(provider_id)
         if not fallback or not fallback.get("id"):
             rows_to_upsert.append(row)
             continue
