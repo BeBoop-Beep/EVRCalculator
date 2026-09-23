@@ -1,4 +1,5 @@
 {
-  "operation": "sep22-publication-status",
-  "request_id": "sep22-publication-status-20260922-1911"
+  "operation": "repair-sep22-market-publication-direct",
+  "market_date": "2026-09-22",
+  "request_id": "sep22-market-direct-repair-20260922-1915"
 }
