@@ -32,11 +32,18 @@ def test_live_membership_extension_adds_only_new_approved_root_sets(monkeypatch)
                 "catalog_role": "main", "opening_eligible": True,
                 "canonical_review_status": "approved",
             },
+            {
+                "id": "old-missing-card", "set_id": "old-missing-root", "pokemon_tcg_api_card_id": "api-4",
+                "name": "Lugia", "supertype": "Pokémon", "rarity": "Rare",
+                "catalog_role": "main", "opening_eligible": True,
+                "canonical_review_status": "approved",
+            },
         ],
         [
-            {"id": "new-root", "name": "New Root"},
-            {"id": "new-subset", "name": "New Subset"},
-            {"id": "frozen-set", "name": "Frozen Set"},
+            {"id": "new-root", "name": "New Root", "release_date": "2026-09-16", "catalog_only": False, "is_subset": False},
+            {"id": "new-subset", "name": "New Subset", "release_date": "2026-09-16", "catalog_only": False, "is_subset": True},
+            {"id": "frozen-set", "name": "Frozen Set", "release_date": "2026-07-17", "catalog_only": False, "is_subset": False},
+            {"id": "old-missing-root", "name": "Old Missing Root", "release_date": "2009-01-01", "catalog_only": False, "is_subset": False},
         ],
         [{"id": 25, "display_name": "Pikachu"}],
         [{
