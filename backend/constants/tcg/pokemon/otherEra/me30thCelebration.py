@@ -9,19 +9,13 @@ class SetMe30thCelebrationConfig(BaseSetConfig):
     # syncing the public catalog to the correct era.
     ERA_CANONICAL_KEY = "megaEvolutionEra"
 
-<<<<<<< HEAD
-    # Verified against the live Pokemon TCG API catalog on 2026-09-21.
+    # Temporary Scrydex artwork identity retained for the public-artwork bridge.
+    # Canonical metadata now comes from free TCGdex; TCGplayer + TCGdex agree on
+    # 128 official / 158 total cards for the released English checklist.
     SET_ID = 'me55'
     RELEASE_DATE = '2026-09-16'
     PRINTED_TOTAL = 128
-=======
-    # Scrydex/Pokemon metadata identity. Scrydex is the current continuation of
-    # the former PokemonTCG API and publishes this expansion as me55.
-    SET_ID = 'me55'
-    RELEASE_DATE = '2026-09-16'
-    PRINTED_TOTAL = None
->>>>>>> origin/main
-    TOTAL = 161
+    TOTAL = 158
     SYMBOL_IMAGE_URL = 'https://images.scrydex.com/pokemon/me55-symbol/symbol'
     LOGO_IMAGE_URL = 'https://images.scrydex.com/pokemon/me55-logo/logo'
 
