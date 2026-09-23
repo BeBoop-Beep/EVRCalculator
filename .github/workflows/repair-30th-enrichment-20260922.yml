@@ -54,7 +54,8 @@ jobs:
 
           echo "=== Collector V7 catalog-membership rebuild ==="
           "$PY" backend/scripts/operationalize_historical_rip.py \
-            --as-of-date 2026-09-22 --commit --force-model-rebuild
+            --as-of-date 2026-09-22 --commit --force-model-rebuild \
+            --reuse-current-source-authority
 
           echo "=== card snapshots ==="
           "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py \
