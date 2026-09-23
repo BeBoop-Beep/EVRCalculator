@@ -38,9 +38,11 @@ export default function MarketExplorerChart({
   timeframeOptions = [],
   onTimeframeChange,
   onClearGraph,
+  detailsOpen = false,
+  onToggleDetails,
   openCanvas = false,
 }) {
-  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_PERFORMANCE);
+  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_INDEX);
   const visibleModel = useMemo(
     () => (timeframe ? buildExplorerChartModel(overview, selectedSeries, timeframe) : null),
     [overview, selectedSeries, timeframe]
@@ -55,8 +57,19 @@ export default function MarketExplorerChart({
     <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
       <div className="px-3 py-3 sm:px-4">
         <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
-        <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-6">
-          <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+        <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+            <button
+              type="button"
+              data-market-explorer-view-details
+              aria-expanded={detailsOpen}
+              onClick={onToggleDetails}
+              className="min-h-10 rounded-lg border border-white/10 bg-white/[.035] px-3 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:border-[rgba(45,212,191,.45)] hover:bg-[rgba(45,212,191,.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,.65)]"
+            >
+              View Constituents &amp; Comparison
+            </button>
+          </div>
           <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
             <MarketExplorerTimeframeSelector
               options={timeframeOptions}
@@ -122,7 +135,7 @@ export default function MarketExplorerChart({
               model={visibleModel}
               timeframe={timeframe}
               viewMode={viewMode}
-              plotClassName="h-[24rem] tab:h-[30rem] desk:h-[40rem] 2xl:h-[46rem]"
+              plotClassName="h-[22rem] tab:h-[28rem] desk:h-[calc(100dvh-23rem)] desk:min-h-[22rem] desk:max-h-[38rem] 2xl:max-h-[42rem]"
               minimal={openCanvas}
             />
           )
