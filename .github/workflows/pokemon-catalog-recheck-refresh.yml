@@ -135,7 +135,7 @@ jobs:
 
           "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --log-level INFO
 
-          "$PY" backend/scripts/operationalize_historical_rip.py             --as-of-date 2026-09-22 --commit --force-model-rebuild
+          "$PY" backend/scripts/operationalize_historical_rip.py             --as-of-date 2026-09-22 --commit --force-model-rebuild --reuse-current-source-authority
 
           "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration --commit
           "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebrationClassicCollection --commit
