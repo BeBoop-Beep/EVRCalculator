@@ -618,6 +618,7 @@ class OnboardingEngine:
                             "--as-of-date", market_date,
                             "--commit",
                             "--force-model-rebuild",
+                            "--reuse-current-source-authority",
                         ],
                         cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
                     )
