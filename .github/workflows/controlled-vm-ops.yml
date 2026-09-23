@@ -149,20 +149,22 @@ jobs:
           client = create_service_role_client()
           missing = missing_market_root_set_ids(client, market_date=target)
           print({"missing_before": len(missing), "set_ids": missing[:20]}, flush=True)
-          dsn = os.environ["ACTIONS_DATABASE_URL"]
-
-          with psycopg.connect(dsn, connect_timeout=15, autocommit=True) as conn:
-              with conn.cursor() as cur:
-                  cur.execute("set statement_timeout = '300s'")
-                  for index, set_id in enumerate(missing, 1):
-                      print(
-                          f"direct_set_value_refresh {index}/{len(missing)} set_id={set_id}",
-                          flush=True,
-                      )
-                      cur.execute(
-                          "select public.refresh_pokemon_set_value_daily_history(%s::uuid,%s::date,%s::date)",
-                          (set_id, target, target),
-                      )
+          if missing:
+              dsn = os.environ["ACTIONS_DATABASE_URL"]
+              with psycopg.connect(dsn, connect_timeout=15, autocommit=True) as conn:
+                  with conn.cursor() as cur:
+                      cur.execute("set statement_timeout = '300s'")
+                      for index, set_id in enumerate(missing, 1):
+                          print(
+                              f"direct_set_value_refresh {index}/{len(missing)} set_id={set_id}",
+                              flush=True,
+                          )
+                          cur.execute(
+                              "select public.refresh_pokemon_set_value_daily_history(%s::uuid,%s::date,%s::date)",
+                              (set_id, target, target),
+                          )
+          else:
+              print("direct_set_value_refresh skipped: coverage already complete", flush=True)
 
           missing_after = missing_market_root_set_ids(
               create_service_role_client(),
