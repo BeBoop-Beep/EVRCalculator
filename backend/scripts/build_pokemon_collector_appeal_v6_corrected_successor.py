@@ -197,7 +197,11 @@ def _live_membership_extension_rows(
             if raw_playability is not None and confidence is not None
             else None
         )
-        final = bounded_score(baseline, effective, 0.20)
+        final = (
+            baseline
+            if effective is None
+            else baseline + (100.0 - baseline) * 0.20 * min(100.0, max(0.0, effective)) / 100.0
+        )
         hit = (
             any(bool(row.get("is_hit_eligible")) for row in pokemon_subjects)
             if pokemon_subjects
