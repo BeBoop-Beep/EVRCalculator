@@ -42,8 +42,11 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
+
+from backend.db.services.data_service_health import classify_data_service_error
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +79,13 @@ _KNOWN_BATCH_STATUSES = frozenset(
 )
 # Only an observation-complete cohort qualifies for promotion.
 _PROMOTABLE_BATCH_STATUSES = frozenset({"complete"})
+
+# Batch authority is a tiny critical read, but transport/edge failures such as
+# Cloudflare 522 and Postgres 57014 are transient in production. Retry only those
+# classified transient failures; deterministic contract/auth/schema failures
+# still fail closed immediately. Five attempts sleep 1+2+4+8 = 15 seconds max.
+_AUTHORITY_READ_MAX_ATTEMPTS = 5
+_AUTHORITY_READ_MAX_DELAY_SECONDS = 8.0
 
 
 @dataclass
@@ -138,16 +148,66 @@ def _coerce_nonneg_int(value: Any, *, allow_none: bool) -> Tuple[Optional[int], 
     return parsed, None
 
 
-def _latest_batch_row(client: Any, market_date: Optional[str]) -> Optional[dict]:
-    query = client.table("pokemon_scrape_batches").select(
-        "id,market_date,status,promoted_at,missing_set_count,"
-        "expected_set_count,succeeded_set_count,failed_set_count"
+def _run_authority_read_with_retry(
+    operation: Callable[[], Any],
+    *,
+    operation_name: str,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Any:
+    """Retry transient authority reads without ever weakening fail-closed safety."""
+
+    for attempt in range(1, _AUTHORITY_READ_MAX_ATTEMPTS + 1):
+        try:
+            return operation()
+        except Exception as exc:
+            failure = classify_data_service_error(exc)
+            final = attempt >= _AUTHORITY_READ_MAX_ATTEMPTS or not failure.transient
+            if final:
+                raise
+
+            delay = min(
+                _AUTHORITY_READ_MAX_DELAY_SECONDS,
+                float(2 ** (attempt - 1)),
+            )
+            logger.warning(
+                "%s transient batch authority read failure operation=%s "
+                "attempt=%s/%s error_type=%s error_code=%s status=%s retry_in=%.1fs",
+                _GATE_TAG,
+                operation_name,
+                attempt,
+                _AUTHORITY_READ_MAX_ATTEMPTS,
+                failure.error_type,
+                failure.code,
+                failure.status_code,
+                delay,
+            )
+            sleep(delay)
+
+    raise AssertionError("unreachable")
+
+
+def _latest_batch_row(
+    client: Any,
+    market_date: Optional[str],
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Optional[dict]:
+    def _read() -> Optional[dict]:
+        query = client.table("pokemon_scrape_batches").select(
+            "id,market_date,status,promoted_at,missing_set_count,"
+            "expected_set_count,succeeded_set_count,failed_set_count"
+        )
+        if market_date is not None:
+            query = query.eq("market_date", market_date)
+        result = query.order("market_date", desc=True).limit(1).execute()
+        rows = list((result.data if result else []) or [])
+        return rows[0] if rows else None
+
+    return _run_authority_read_with_retry(
+        _read,
+        operation_name="latest_batch_row",
+        sleep=sleep,
     )
-    if market_date is not None:
-        query = query.eq("market_date", market_date)
-    result = query.order("market_date", desc=True).limit(1).execute()
-    rows = list((result.data if result else []) or [])
-    return rows[0] if rows else None
 
 
 def _blocked(
@@ -175,6 +235,7 @@ def evaluate_publication_gate(
     market_date: Optional[str] = None,
     override: bool = False,
     mode: Optional[str] = None,
+    authority_sleep: Callable[[float], None] = time.sleep,
 ) -> PublicationGateDecision:
     """Decide whether downstream public snapshots may promote for a market date.
 
@@ -225,7 +286,7 @@ def evaluate_publication_gate(
 
     # required mode — fail closed on every failure class.
     try:
-        batch = _latest_batch_row(client, market_date)
+        batch = _latest_batch_row(client, market_date, sleep=authority_sleep)
     except Exception as exc:
         # Timeout, auth/permission failure, PostgREST/network error, missing
         # batch table, malformed response, or any unclassified exception. A
@@ -389,13 +450,20 @@ def evaluate_publication_gate(
 
 def _latest_complete_batch_row(client: Any) -> Optional[dict]:
     """Newest batch whose status is ``complete``, ignoring newer non-complete rows."""
-    query = client.table("pokemon_scrape_batches").select(
-        "id,market_date,status,promoted_at,missing_set_count,"
-        "expected_set_count,succeeded_set_count,failed_set_count"
-    ).eq("status", "complete")
-    result = query.order("market_date", desc=True).limit(1).execute()
-    rows = list((result.data if result else []) or [])
-    return rows[0] if rows else None
+
+    def _read() -> Optional[dict]:
+        query = client.table("pokemon_scrape_batches").select(
+            "id,market_date,status,promoted_at,missing_set_count,"
+            "expected_set_count,succeeded_set_count,failed_set_count"
+        ).eq("status", "complete")
+        result = query.order("market_date", desc=True).limit(1).execute()
+        rows = list((result.data if result else []) or [])
+        return rows[0] if rows else None
+
+    return _run_authority_read_with_retry(
+        _read,
+        operation_name="latest_complete_batch_row",
+    )
 
 
 def resolve_latest_promoted_market_date(client: Any) -> Tuple[Optional[str], Optional[str]]:
