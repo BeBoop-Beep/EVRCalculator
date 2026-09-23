@@ -206,9 +206,16 @@ def default_hooks():
 
 def execute(client: Any, *, as_of: date, now: datetime, commit: bool,
             hooks: RefreshHooks | None = None,
-            force_model_rebuild: bool = False) -> dict[str, Any]:
+            force_model_rebuild: bool = False,
+            reuse_current_source_authority: bool = False) -> dict[str, Any]:
+    if reuse_current_source_authority and not force_model_rebuild:
+        raise ValueError("reuse_current_source_authority requires force_model_rebuild")
+
     plan = build_plan(client, as_of=as_of, now=now)
-    due = [x["key"] for x in plan["freshness"]["sources"] if x["due"]]
+    freshness_due = [x["key"] for x in plan["freshness"]["sources"] if x["due"]]
+    due = [] if reuse_current_source_authority else freshness_due
+    plan["reuseCurrentSourceAuthority"] = reuse_current_source_authority
+    plan["suppressedDueSources"] = freshness_due if reuse_current_source_authority else []
     if (due or force_model_rebuild) and not commit:
         plan.update(
             status="COLLECTOR_SOURCE_REFRESH_PLANNED" if due else "COLLECTOR_MODEL_REBUILD_PLANNED",
@@ -270,12 +277,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Rebuild the frozen Collector V7 model even when source evidence is still fresh; used when catalog membership changes.",
     )
+    parser.add_argument(
+        "--reuse-current-source-authority",
+        action="store_true",
+        help=(
+            "For bounded catalog-membership catch-up, rebuild from the currently promoted "
+            "Collector source authority without refreshing due external evidence. Requires "
+            "--force-model-rebuild. Scheduled Collector freshness remains a separate concern."
+        ),
+    )
     args = parser.parse_args(argv)
     load_dotenv(ROOT / "backend/.env", override=False)
     from backend.db.clients.supabase_client import supabase
-    report = execute(supabase, as_of=date.fromisoformat(args.as_of_date),
-                     now=datetime.now(timezone.utc), commit=args.commit,
-                     force_model_rebuild=args.force_model_rebuild)
+    report = execute(
+        supabase,
+        as_of=date.fromisoformat(args.as_of_date),
+        now=datetime.now(timezone.utc),
+        commit=args.commit,
+        force_model_rebuild=args.force_model_rebuild,
+        reuse_current_source_authority=args.reuse_current_source_authority,
+    )
     print(json.dumps(report, indent=2, default=str))
     return 0 if report["status"] != "COLLECTOR_SOURCE_REFRESH_BLOCKED" else 2
 
