@@ -273,7 +273,9 @@ def _load_simulation_rows(
     The direct path selects only runs for the requested market date, keeps the
     newest same-date retry per set, and performs a tiny per-set lookup only for
     targets missing that date so diagnostics still report their latest date.
-    Legacy callers/fakes fall back to the historical paged view.
+    Callers without an explicit market date retain the historical paged-view
+    path. An explicit promoted-date lookup fails closed if its narrow authority
+    read is unavailable; it never falls back to the expensive all-history view.
     """
     if not set_ids:
         return [], None
@@ -290,16 +292,27 @@ def _load_simulation_rows(
                 .order("created_at", desc=True)
                 .execute()
             )
-            current_by_set: Dict[str, Dict[str, Any]] = {}
+            # Do not rely on PostgREST/order semantics for correctness.  The
+            # production relation is ordered DESC, but lightweight clients/fakes
+            # may not preserve that ordering, and same-market-date retries are a
+            # real production case. Resolve the newest parent deterministically
+            # from created_at before projecting the cohort row.
+            newest_raw_by_set: Dict[str, Dict[str, Any]] = {}
             for raw in list((result.data if result else []) or []):
                 target_id = _to_text(raw.get("target_id"))
                 run_id = _to_text(raw.get("id"))
-                if not target_id or not run_id or target_id in current_by_set:
+                if not target_id or not run_id:
                     continue
+                prior = newest_raw_by_set.get(target_id)
+                if prior is None or str(raw.get("created_at") or "") > str(prior.get("created_at") or ""):
+                    newest_raw_by_set[target_id] = raw
+
+            current_by_set: Dict[str, Dict[str, Any]] = {}
+            for target_id, raw in newest_raw_by_set.items():
                 current_by_set[target_id] = {
                     "snapshot_date": _date_key(raw.get("market_date")) or market_date,
                     "target_id": target_id,
-                    "calculation_run_id": run_id,
+                    "calculation_run_id": _to_text(raw.get("id")),
                     **{field: raw.get(field) for field in REQUIRED_OPVC_FIELDS},
                 }
 
@@ -330,12 +343,13 @@ def _load_simulation_rows(
                     **{field: None for field in REQUIRED_OPVC_FIELDS},
                 })
             return rows, None
-        except Exception:
-            logger.warning(
-                "%s direct promoted-date run lookup failed; falling back to history view",
-                _GATE_TAG,
-                exc_info=True,
-            )
+        except Exception as exc:
+            # Modern publication has an explicit market-date authority. If that
+            # narrow authority read is unavailable, fail closed rather than
+            # silently falling back to the expensive all-history view that
+            # caused the Sep-21 scheduler outage.
+            logger.warning("%s direct promoted-date run lookup failed", _GATE_TAG, exc_info=True)
+            return [], f"simulation history read failed ({exc})"
 
     columns = "snapshot_date,target_id,calculation_run_id," + ",".join(REQUIRED_OPVC_FIELDS)
     rows: List[Dict[str, Any]] = []

@@ -1,4 +1,5 @@
 name: RIP Recovery Diagnostic 2026-09-22
+# retrigger: scheduler evidence 2026-09-22
 
 on:
   push:
