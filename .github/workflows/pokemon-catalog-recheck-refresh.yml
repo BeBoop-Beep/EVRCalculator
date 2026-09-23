@@ -133,7 +133,8 @@ jobs:
 
           "$PY" -m pytest -q \
             backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py \
-            backend/tests/unit/scripts/test_operationalize_historical_rip.py
+            backend/tests/unit/scripts/test_operationalize_historical_rip.py \
+            backend/tests/unit/services/test_pokemon_set_onboarding_service.py
 
           "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --log-level INFO
 
