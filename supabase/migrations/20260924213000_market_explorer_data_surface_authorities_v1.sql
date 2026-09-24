@@ -318,11 +318,16 @@ immutable
 security invoker
 set search_path = ''
 as $function$
-  select nullif(pg_catalog.btrim(
-    pg_catalog.trim(both '[]' from coalesce(
-      pg_catalog.substring(coalesce(p_name,'') from '\[[^]]+\]\s*$'),''
-    ))
-  ),'');
+  select nullif(
+    pg_catalog.btrim(
+      coalesce(
+        pg_catalog.substring(coalesce(p_name,'') from '\\[[^]]+\\]\\s*$'),
+        ''
+      ),
+      '[]'
+    ),
+    ''
+  );
 $function$;
 
 create table if not exists public.pokemon_market_explorer_sealed_daily_v1 (
