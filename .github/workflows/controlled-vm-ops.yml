@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|post-scrape-recovery-now|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -1250,6 +1250,63 @@ jobs:
                 --if-missing \
                 --skip-new-set-detection
               echo "SCRAPE_CREATE_MISSING_BATCH=PASS"
+              ;;
+
+            post-scrape-recovery-now)
+              cd "$REPO"
+              export PYTHONPATH="$REPO"
+              echo "== bounded post-scrape publication recovery =="
+              "$PY" - <<'PY'
+          import json
+          import time
+
+          from backend.alerts.post_scrape_publication_watchdog import (
+              PUBLICATION_LOCK_PATH,
+              _lock_is_held,
+              run_watchdog,
+          )
+
+          recovery_statuses = {
+              "stall_sigterm_requested",
+              "supersession_sigterm_requested",
+          }
+          acceptable_terminal = {
+              "relaunch_requested",
+              "skipped_already_current",
+              "skipped_already_running",
+              "in_progress",
+          }
+
+          first = run_watchdog(
+              recover_stalled=True,
+              recover_superseded=True,
+          )
+          print("watchdog_attempt_1=" + json.dumps(first, sort_keys=True, default=str), flush=True)
+
+          if first.get("status") in recovery_statuses:
+              released = False
+              for _ in range(30):
+                  time.sleep(2)
+                  if not _lock_is_held(PUBLICATION_LOCK_PATH):
+                      released = True
+                      break
+              print("publication_lock_released_after_signal=" + str(released).lower(), flush=True)
+              if not released:
+                  raise SystemExit("publication lock did not release after bounded SIGTERM recovery")
+
+              second = run_watchdog(
+                  recover_stalled=True,
+                  recover_superseded=True,
+              )
+              print("watchdog_attempt_2=" + json.dumps(second, sort_keys=True, default=str), flush=True)
+              status = str(second.get("status") or "")
+              if not second.get("healthy") and status not in acceptable_terminal:
+                  raise SystemExit(f"second watchdog attempt failed status={status}")
+          elif not first.get("healthy") and str(first.get("status") or "") not in acceptable_terminal:
+              raise SystemExit(f"watchdog recovery failed status={first.get('status')}")
+
+          print("POST_SCRAPE_RECOVERY_NOW=PASS", flush=True)
+          PY
               ;;
 
             scrape-cycle-status)
