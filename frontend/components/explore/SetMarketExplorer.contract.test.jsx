@@ -29,19 +29,19 @@ const trend = [["2024-01-01", 100], ["2024-01-04", 96], ["2024-01-08", 94]];
 
 const TARGETS = [
   {
-    setId: "set-a", canonicalKey: "ascended-heroes", name: "Ascended Heroes", era: "Mega Evolution",
+    setId: "set-a", marketKey: "set-a", marketScope: "standard", canonicalKey: "ascended-heroes", name: "Ascended Heroes", era: "Mega Evolution",
     logoUrl: "https://example.test/a.png", currentSetValue: 6000.55, trend, recentDailyTrend: trend,
     windows: { "1D": movement(-12.5, -0.2), "7D": movement(-800.1, -11.8), "30D": movement(-40, -0.7), lifetime: movement(120, 2.1) },
     marketIndex: { movements: { "1D": movement(-12.5, -0.2), "7D": movement(-800.1, -11.8), "30D": movement(-40, -0.7), SinceTracking: movement(120, 2.1) } },
   },
   {
-    setId: "set-b", canonicalKey: "prismatic-evolutions", name: "Prismatic Evolutions", era: "Scarlet & Violet",
+    setId: "set-b", marketKey: "set-b", marketScope: "standard", canonicalKey: "prismatic-evolutions", name: "Prismatic Evolutions", era: "Scarlet & Violet",
     logoUrl: "https://example.test/b.png", currentSetValue: 5023.63, trend, recentDailyTrend: trend,
     windows: { "1D": movement(3.1, 0.1), "7D": movement(-201.4, -3.9), "30D": movement(11, 0.2), lifetime: movement(80, 1.6) },
     marketIndex: { movements: { "1D": movement(3.1, 0.1), "7D": movement(-201.4, -3.9), "30D": movement(11, 0.2), SinceTracking: movement(80, 1.6) } },
   },
   {
-    setId: "set-c", canonicalKey: "black-bolt", name: "Black Bolt", era: "Scarlet & Violet",
+    setId: "set-c", marketKey: "set-c", marketScope: "standard", canonicalKey: "black-bolt", name: "Black Bolt", era: "Scarlet & Violet",
     logoUrl: "", currentSetValue: 3589.7, trend, recentDailyTrend: trend,
     windows: { "1D": movement(1.2, 0.03), "7D": movement(-73.2, -2.0), "30D": movement(5, 0.1), lifetime: movement(50, 1.4) },
     marketIndex: { movements: { "1D": movement(1.2, 0.03), "7D": movement(-73.2, -2.0), "30D": movement(5, 0.1), SinceTracking: movement(50, 1.4) } },
@@ -51,7 +51,7 @@ const TARGETS = [
   // by "paldean" or "fates", show its real value, and never get a numeric
   // rank.
   {
-    setId: "set-d", canonicalKey: "paldeanFates", name: "Paldean Fates", era: "Scarlet & Violet",
+    setId: "set-d", marketKey: "set-d", marketScope: "standard", canonicalKey: "paldeanFates", name: "Paldean Fates", era: "Scarlet & Violet",
     logoUrl: "https://example.test/d.png", currentSetValue: 2602.30, trend, recentDailyTrend: trend,
     windows: { "1D": movement(0, 0), "7D": movement(0, 0), "30D": movement(0, 0), lifetime: movement(0, 0) },
     valueStatus: "stale", setValueAsOf: "2026-06-30", certificationStatus: "PRICE_FRESHNESS_STALE",
@@ -59,7 +59,7 @@ const TARGETS = [
   // Unavailable: no computable Set Value at all. Must stay visible/searchable
   // but never renders $0.00/NaN and never gets a numeric rank.
   {
-    setId: "set-e", canonicalKey: "no-value", name: "Unpriced Set", era: "Sword & Shield",
+    setId: "set-e", marketKey: "set-e", marketScope: "standard", canonicalKey: "no-value", name: "Unpriced Set", era: "Sword & Shield",
     currentSetValue: null, trend: [], windows: {}, valueStatus: "unavailable", setValueAsOf: null,
     certificationStatus: "CANONICAL_PRICE_IDENTITY_MISSING",
   },
@@ -140,7 +140,7 @@ test("the unavailable set remains visible/searchable by name", () => {
 test("tracked-set count reflects full membership, not just current/positive rows", () => {
   const renderer = render();
   const header = textOf(renderer.root.findAll((node) => node.props?.["data-set-market-top"] !== undefined)[0]);
-  assert.match(header, /5 tracked sets/);
+  assert.match(header, /5 tracked markets/);
 });
 
 test("filtering the list does not renumber the market-wide current ranks", () => {
@@ -388,4 +388,40 @@ test("every window re-reads the published movement, never a derived one", () => 
 test("an empty or failed snapshot says so instead of rendering an empty shell", () => {
   assert.match(textOf(render({ targets: [], loadError: false }).toJSON()), /Sets appear once the current Market snapshot is available\./);
   assert.match(textOf(render({ targets: [], loadError: true }).toJSON()), /Set Market is temporarily unavailable\./);
+});
+
+
+test("two edition markets for one Set remain independent rows and selections", () => {
+  const vintage = [
+    {
+      ...TARGETS[0],
+      setId: "jungle",
+      marketKey: "set:jungle:first_edition",
+      marketScope: "first_edition",
+      name: "Jungle — 1st Edition",
+      currentSetValue: 3000,
+    },
+    {
+      ...TARGETS[0],
+      setId: "jungle",
+      marketKey: "set:jungle:unlimited",
+      marketScope: "unlimited",
+      name: "Jungle — Unlimited",
+      currentSetValue: 1100,
+    },
+  ];
+  const renderer = render({ targets: vintage });
+  assert.deepEqual(
+    rows(renderer).map((node) => node.props["data-set-market-row"]),
+    ["set:jungle:first_edition", "set:jungle:unlimited"],
+  );
+  const unlimited = rows(renderer).find(
+    (node) => node.props["data-set-market-row"] === "set:jungle:unlimited",
+  );
+  TestRenderer.act(() => { unlimited.props.onClick({ detail: 1 }); });
+  assert.match(detailName(renderer), /Jungle — Unlimited/);
+  assert.equal(
+    rows(renderer).find((node) => node.props["aria-current"] === "true").props["data-set-market-row"],
+    "set:jungle:unlimited",
+  );
 });
