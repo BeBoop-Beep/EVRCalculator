@@ -8,6 +8,38 @@
 -- scoped row appears, the complete explicit-scope contract is enforced for every
 -- root in that snapshot; no edition-split generic market may coexist with it.
 
+-- Snapshot count contract: set_count remains the number of distinct root Sets.
+-- market_count is the number of published Set-market identities in payload_json.sets.
+-- Before scoped activation they are equal; after activation market_count may be larger.
+alter table public.pokemon_explore_set_value_snapshot_latest
+  add column if not exists market_count integer;
+
+update public.pokemon_explore_set_value_snapshot_latest
+set market_count=jsonb_array_length(coalesce(payload_json->'sets','[]'::jsonb))
+where market_count is null;
+
+alter table public.pokemon_explore_set_value_snapshot_latest
+  alter column market_count set not null;
+
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid='public.pokemon_explore_set_value_snapshot_latest'::regclass
+      and conname='pokemon_explore_set_value_snapshot_market_count_check'
+  ) then
+    alter table public.pokemon_explore_set_value_snapshot_latest
+      add constraint pokemon_explore_set_value_snapshot_market_count_check
+      check (market_count>=0 and market_count>=set_count);
+  end if;
+end;
+$;
+
+comment on column public.pokemon_explore_set_value_snapshot_latest.set_count is
+'Distinct root Set count represented by the Global Set Market snapshot.';
+comment on column public.pokemon_explore_set_value_snapshot_latest.market_count is
+'Published Set-market identity count; equals jsonb_array_length(payload_json->sets) and may exceed set_count when edition scopes are explicit.';
+
 create or replace view public.pokemon_market_set_scope_contract_v1
 with (security_invoker = true)
 as
@@ -46,7 +78,8 @@ grant select on public.pokemon_market_set_scope_contract_v1 to service_role;
 
 create or replace function public.validate_pokemon_market_set_scope_payload_v1(
   p_payload jsonb,
-  p_declared_market_count integer default null
+  p_declared_market_count integer default null,
+  p_declared_root_set_count integer default null
 )
 returns jsonb
 language plpgsql
@@ -73,6 +106,11 @@ begin
   select count(distinct (e->>'setId')::uuid)::integer
     into v_root_set_count
   from jsonb_array_elements(p_payload->'sets') e;
+
+  if p_declared_root_set_count is not null and v_root_set_count <> p_declared_root_set_count then
+    raise exception 'Set Market root count mismatch: payload=% declared=%',
+      v_root_set_count,p_declared_root_set_count;
+  end if;
 
   select exists(
     select 1 from jsonb_array_elements(p_payload->'sets') e
@@ -161,9 +199,9 @@ begin
 end;
 $function$;
 
-revoke all on function public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer)
+revoke all on function public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)
   from public,anon,authenticated;
-grant execute on function public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer)
+grant execute on function public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)
   to service_role;
 
 create or replace function public.validate_pokemon_market_scoped_history_baskets_v1(
@@ -525,6 +563,13 @@ begin
   select pg_get_functiondef('public.refresh_pokemon_market_explorer_prepared_directory_v1()'::regprocedure)
     into v_sql;
 
+  if ((length(v_sql)-length(replace(v_sql,'v_snapshot_set_count','')))/length('v_snapshot_set_count')) <> 6
+     or position('select market_date, set_count' in v_sql)=0 then
+    raise exception 'prepared refresh snapshot-count contract changed; refusing unsafe rewrite';
+  end if;
+  v_sql := replace(v_sql,'v_snapshot_set_count','v_snapshot_market_count');
+  v_sql := replace(v_sql,'select market_date, set_count','select market_date, market_count');
+
   v_start := position('  -- Sets: the public prepared Set snapshot owns directory membership.' in v_sql);
   v_end := position('  -- Eras, curated Quick Markets and prepared rarity markets all come from the' in v_sql);
   if v_start = 0 or v_end = 0 or v_end <= v_start then
@@ -534,6 +579,8 @@ begin
   v_new := $section$
   perform public.validate_pokemon_market_set_scope_payload_v1(
     (select snap.payload_json from public.pokemon_explore_set_value_snapshot_latest snap
+      where snap.tcg='pokemon' and snap.scope='market' limit 1),
+    (select snap.market_count from public.pokemon_explore_set_value_snapshot_latest snap
       where snap.tcg='pokemon' and snap.scope='market' limit 1),
     (select snap.set_count from public.pokemon_explore_set_value_snapshot_latest snap
       where snap.tcg='pokemon' and snap.scope='market' limit 1)
@@ -696,6 +743,7 @@ declare
   v_payload jsonb;
   v_market_date date;
   v_snapshot_set_count integer;
+  v_snapshot_market_count integer;
   v_payload_set_count integer;
   v_existing_min_comparison date;
   v_existing_max_comparison date;
@@ -704,23 +752,26 @@ declare
   v_upserted integer := 0;
   v_directory_set_count integer := 0;
 begin
-  select s.payload_json,s.market_date,s.set_count
-    into v_payload,v_market_date,v_snapshot_set_count
+  select s.payload_json,s.market_date,s.set_count,s.market_count
+    into v_payload,v_market_date,v_snapshot_set_count,v_snapshot_market_count
   from public.pokemon_explore_set_value_snapshot_latest s
   where s.tcg='pokemon' and s.scope='market'
   limit 1;
 
-  if v_payload is null or v_market_date is null or coalesce(v_snapshot_set_count,0)<1 then
+  if v_payload is null or v_market_date is null
+     or coalesce(v_snapshot_set_count,0)<1 or coalesce(v_snapshot_market_count,0)<1 then
     raise exception 'Global Set Market snapshot unavailable for Explorer Set-directory sync';
   end if;
 
   v_payload_set_count := jsonb_array_length(coalesce(v_payload->'sets','[]'::jsonb));
-  if v_payload_set_count <> v_snapshot_set_count then
-    raise exception 'Global Set Market snapshot count mismatch: payload=% row=%',
-      v_payload_set_count,v_snapshot_set_count;
+  if v_payload_set_count <> v_snapshot_market_count then
+    raise exception 'Global Set Market snapshot market_count mismatch: payload=% row=%',
+      v_payload_set_count,v_snapshot_market_count;
   end if;
 
-  perform public.validate_pokemon_market_set_scope_payload_v1(v_payload,v_snapshot_set_count);
+  perform public.validate_pokemon_market_set_scope_payload_v1(
+    v_payload,v_snapshot_market_count,v_snapshot_set_count
+  );
   perform public.validate_pokemon_market_scoped_history_baskets_v1(v_payload);
 
   select min(d.comparison_as_of),max(d.comparison_as_of)
@@ -807,9 +858,9 @@ begin
   from public.pokemon_market_explorer_prepared_directory_v1 d
   where d.market_type='set';
 
-  if v_directory_set_count <> v_snapshot_set_count then
-    raise exception 'Prepared Explorer Set-directory count mismatch after sync: directory=% snapshot=%',
-      v_directory_set_count,v_snapshot_set_count;
+  if v_directory_set_count <> v_snapshot_market_count then
+    raise exception 'Prepared Explorer Set-directory market_count mismatch after sync: directory=% snapshot=%',
+      v_directory_set_count,v_snapshot_market_count;
   end if;
 
   if exists (
@@ -825,11 +876,47 @@ begin
 
   return jsonb_build_object(
     'status','complete','marketDate',v_market_date,
-    'snapshotSetCount',v_snapshot_set_count,'directorySetCount',v_directory_set_count,
+    'snapshotSetCount',v_snapshot_set_count,'snapshotMarketCount',v_snapshot_market_count,
+    'directorySetCount',v_directory_set_count,
     'rowsUpserted',v_upserted,'comparisonAsOf',v_existing_min_comparison
   );
 end;
 $function$;
+
+-- Keep the lightweight sync trigger count-aware. market_count changes are first-class
+-- publication changes even when the distinct root cohort is unchanged.
+create or replace function public.refresh_market_explorer_directory_after_set_market_v1()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if TG_OP = 'UPDATE'
+     and OLD.market_date is not distinct from NEW.market_date
+     and OLD.set_count is not distinct from NEW.set_count
+     and OLD.market_count is not distinct from NEW.market_count
+     and OLD.source_generation_fingerprint is not distinct from NEW.source_generation_fingerprint
+     and OLD.payload_json is not distinct from NEW.payload_json then
+    return NEW;
+  end if;
+
+  perform public.sync_pokemon_market_explorer_set_directory_v1();
+  return NEW;
+end;
+$function$;
+
+revoke all on function public.refresh_market_explorer_directory_after_set_market_v1()
+  from public,anon,authenticated,service_role;
+
+drop trigger if exists pokemon_global_set_market_refresh_explorer_directory
+  on public.pokemon_explore_set_value_snapshot_latest;
+create trigger pokemon_global_set_market_refresh_explorer_directory
+after insert or update of market_date,set_count,market_count,source_generation_fingerprint,payload_json
+on public.pokemon_explore_set_value_snapshot_latest
+for each row
+when (new.tcg='pokemon' and new.scope='market')
+execute function public.refresh_market_explorer_directory_after_set_market_v1();
 
 -- 3. Prepared constituent staging: standard Set markets keep the existing
 -- date-pinned reader. Explicit edition markets stage only the matching root
