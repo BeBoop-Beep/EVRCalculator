@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|post-scrape-recovery-now|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|post-scrape-recovery-now|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -48,7 +48,7 @@ jobs:
           set_id = set_id or ""
           request_id = request_id or ""
 
-          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher", "restart-sep24-publisher-optimized"} and not market_date:
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher", "restart-sep24-publisher-optimized", "sync-launch-sep24-publisher-optimized"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
@@ -1076,6 +1076,66 @@ jobs:
               echo "publication_lock=held_after_restart"
               ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' | grep -v grep || true
               echo "RESTART_SEP24_PUBLISHER_OPTIMIZED=PASS"
+              ;;
+            sync-launch-sep24-publisher-optimized)
+              cd "$REPO"
+              test "$VM_MARKET_DATE" = "2026-09-24" || { echo "This operation is scoped only to Sep24"; exit 8; }
+              if ! /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                echo "Refusing: publication lock is held"
+                exit 20
+              fi
+              if pgrep -af 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' | grep -v 'pgrep -af' | grep -q .; then
+                echo "Refusing: Sep24 publication process still exists"
+                pgrep -af 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' || true
+                exit 21
+              fi
+
+              echo "== fetch and validate preserved VM artifacts =="
+              git fetch origin main
+              TRACKED_DIRTY="$(git status --porcelain --untracked-files=no | sed -E 's/^.. //')"
+              if [ -n "$TRACKED_DIRTY" ] && [ "$TRACKED_DIRTY" != "payload_debug.json" ]; then
+                echo "Refusing: unexpected tracked modifications"
+                git status --short
+                exit 22
+              fi
+              if [ -n "$TRACKED_DIRTY" ] && ! git diff --quiet HEAD..origin/main -- payload_debug.json; then
+                echo "Refusing: origin/main changes payload_debug.json"
+                exit 23
+              fi
+              UNTRACKED="$(git status --porcelain --untracked-files=normal | awk '$1=="??" {$1=""; sub(/^ /,""); print}' | sort -u)"
+              if [ -n "$UNTRACKED" ] && [ "$UNTRACKED" != "backend/artifacts/collector_v7_refresh/" ]; then
+                echo "Refusing: unexpected untracked paths:"
+                printf '%s\n' "$UNTRACKED"
+                exit 24
+              fi
+              if [ -n "$UNTRACKED" ]; then
+                if git ls-tree -r --name-only origin/main -- backend/artifacts/collector_v7_refresh/ | grep -q .; then
+                  echo "Refusing: origin/main now tracks preserved collector artifact path"
+                  exit 25
+                fi
+                echo "preserving_untracked=backend/artifacts/collector_v7_refresh/"
+              fi
+
+              git switch --detach origin/main
+              git merge-base --is-ancestor b388b29365d518bb195b3bf6bf5658994096853e HEAD || { echo "optimized snapshot commit absent from origin/main"; exit 26; }
+              echo "production_head=$(git rev-parse HEAD)"
+              git status --short
+
+              echo "== launch canonical Sep24 publisher detached =="
+              "$PY" - <<'PY'
+          from backend.db.services.post_scrape_publication_trigger import _default_popen, CANONICAL_PUBLICATION_LOG, REBUILD_SCRIPT
+          p=_default_popen([str(REBUILD_SCRIPT),"2026-09-24"],cwd="/home/ubuntu/repos/EVRCalculator",log_path=CANONICAL_PUBLICATION_LOG)
+          print({"launched_pid":p.pid,"script":str(REBUILD_SCRIPT),"market_date":"2026-09-24"},flush=True)
+          PY
+              sleep 3
+              if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                echo "launch failed: publication lock is free"
+                tail -100 publication.log || true
+                exit 27
+              fi
+              echo "publication_lock=held_after_launch"
+              ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' | grep -v grep || true
+              echo "SYNC_LAUNCH_SEP24_PUBLISHER_OPTIMIZED=PASS"
               ;;
             scrape-hard-kill-live-stale-dispatcher)
               cd "$REPO"
