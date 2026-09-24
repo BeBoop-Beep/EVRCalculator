@@ -2442,16 +2442,21 @@ jobs:
               # origin/main contains the exact reviewed pricing runtime. Untracked runtime config/artifacts are preserved.
               cd "$REPO"
               echo "== pricing canonical-main sync gates =="
-              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production branch is not main"; exit 20; }
               git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 21; }
               PRE_HEAD=$(git rev-parse HEAD)
               TARGET_HEAD=$(git rev-parse origin/main)
+              PRE_BRANCH=$(git branch --show-current)
               echo "pre_sync_head=$PRE_HEAD"
+              echo "pre_sync_branch=${PRE_BRANCH:-DETACHED}"
               echo "target_origin_main=$TARGET_HEAD"
               if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
                 echo "REFUSING: tracked modifications exist"
                 git status --short --untracked-files=no
                 exit 22
+              fi
+              if [ -n "$PRE_BRANCH" ] && [ "$PRE_BRANCH" != "main" ]; then
+                echo "REFUSING: production checkout is on unexpected branch $PRE_BRANCH"
+                exit 20
               fi
               pricing_source_check || { echo "REFUSING: pinned pricing sources unavailable"; exit 23; }
               for f in $(pricing_overlay_manifest); do
@@ -2461,7 +2466,8 @@ jobs:
                 [ "$got" = "$want" ] || { echo "REFUSING: origin/main pricing blob mismatch path=$f"; exit 24; }
               done
               echo "origin_main_pricing_overlay_exact=true"
-              git reset --hard origin/main
+              git switch -C main origin/main
+              [ "$(git branch --show-current)" = "main" ] || { echo "FAIL: production checkout did not attach to main"; exit 25; }
               [ "$(git rev-parse HEAD)" = "$TARGET_HEAD" ] || { echo "FAIL: HEAD did not reach origin/main"; exit 25; }
               pricing_runtime_present || { echo "FAIL: pricing runtime missing after canonical sync"; exit 26; }
               pricing_credentials_probe || { echo "FAIL: pricing credentials unavailable after canonical sync"; exit 27; }
