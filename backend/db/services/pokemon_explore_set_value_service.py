@@ -46,7 +46,10 @@ def _text(value: Any) -> Optional[str]:
 def read_initial_selected_set_movers(client: Any, selected: Mapping[str, Any]) -> Dict[str, Any]:
     """Read the canonical prepared 7D mover list for one selected Set."""
     set_id = str(selected.get("setId") or "")
-    if not set_id:
+    market_scope = str(selected.get("marketScope") or "standard")
+    if not set_id or market_scope != "standard":
+        # Scoped vintage movers must be resolved against the same explicit
+        # edition basket. Never seed the generic mixed Set-page mover list here.
         return {}
     result = (client.table("pokemon_set_cards_snapshot_latest")
         .select("updated_at,snapshot_meta:payload_json->meta->snapshot,items:payload_json->canonicalMarketMoversByWindow->7D->all")
