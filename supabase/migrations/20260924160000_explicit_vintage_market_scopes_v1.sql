@@ -182,7 +182,12 @@ from (
   v_old_next text := $replace$    elsif d.source_kind = 'prepared_sealed_snapshots' and d.market_type = 'prepared_format' and d.asset = 'sealed' then$replace$;
   v_new_next text := $replace$      end if;
     elsif d.source_kind = 'prepared_sealed_snapshots' and d.market_type = 'prepared_format' and d.asset = 'sealed' then$replace$;
-  v_old_item text := $replace
+  v_old_item text := $replace$'printingType', cv.printing_type, 'specialType', cv.special_type,
+          'marketPrice', r.market_price, 'asOf', r.market_date)$replace$;
+  v_new_item text := $replace$'printingType', cv.printing_type, 'specialType', cv.special_type,
+          'marketScope', coalesce(d.metadata->>'marketScope','standard'),
+          'marketPrice', r.market_price, 'asOf', r.market_date)$replace$;
+begin
   select pg_catalog.pg_get_functiondef(p.oid)
     into v_definition
   from pg_catalog.pg_proc p
@@ -208,63 +213,6 @@ from (
   v_definition := pg_catalog.replace(v_definition, v_old_start, v_new_start);
   v_definition := pg_catalog.replace(v_definition, v_old_next, v_new_next);
   v_definition := pg_catalog.replace(v_definition, v_old_item, v_new_item);
-  execute v_definition;
-end
-$patch_stage$;printingType', cv.printing_type, 'specialType', cv.special_type,
-          'marketPrice', r.market_price, 'asOf', r.market_date)$replace$;
-  v_new_item text := $replace
-  select pg_catalog.pg_get_functiondef(p.oid)
-    into v_definition
-  from pg_catalog.pg_proc p
-  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public'
-    and p.proname = 'stage_pokemon_market_explorer_prepared_constituents_v1'
-    and pg_catalog.pg_get_function_identity_arguments(p.oid) = 'p_generation_id uuid';
-
-  if v_definition is null then
-    raise exception 'prepared constituent staging function is missing';
-  end if;
-  if pg_catalog.strpos(v_definition, 'get_pokemon_market_set_scope_constituents_v1') > 0 then
-    return;
-  end if;
-  if pg_catalog.strpos(v_definition, v_old_source) = 0
-     or pg_catalog.strpos(v_definition, v_old_start) = 0
-     or pg_catalog.strpos(v_definition, v_old_next) = 0 then
-    raise exception 'prepared constituent staging body did not match expected v1 contract';
-  end if;
-
-  v_definition := pg_catalog.replace(v_definition, v_old_source, v_new_source);
-  v_definition := pg_catalog.replace(v_definition, v_old_start, v_new_start);
-  v_definition := pg_catalog.replace(v_definition, v_old_next, v_new_next);
-  execute v_definition;
-end
-$patch_stage$;printingType', cv.printing_type, 'specialType', cv.special_type,
-          'marketScope', coalesce(d.metadata->>'marketScope','standard'),
-          'marketPrice', r.market_price, 'asOf', r.market_date)$replace$;
-begin
-  select pg_catalog.pg_get_functiondef(p.oid)
-    into v_definition
-  from pg_catalog.pg_proc p
-  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public'
-    and p.proname = 'stage_pokemon_market_explorer_prepared_constituents_v1'
-    and pg_catalog.pg_get_function_identity_arguments(p.oid) = 'p_generation_id uuid';
-
-  if v_definition is null then
-    raise exception 'prepared constituent staging function is missing';
-  end if;
-  if pg_catalog.strpos(v_definition, 'get_pokemon_market_set_scope_constituents_v1') > 0 then
-    return;
-  end if;
-  if pg_catalog.strpos(v_definition, v_old_source) = 0
-     or pg_catalog.strpos(v_definition, v_old_start) = 0
-     or pg_catalog.strpos(v_definition, v_old_next) = 0 then
-    raise exception 'prepared constituent staging body did not match expected v1 contract';
-  end if;
-
-  v_definition := pg_catalog.replace(v_definition, v_old_source, v_new_source);
-  v_definition := pg_catalog.replace(v_definition, v_old_start, v_new_start);
-  v_definition := pg_catalog.replace(v_definition, v_old_next, v_new_next);
   execute v_definition;
 end
 $patch_stage$;
