@@ -34,7 +34,7 @@ def test_certified_market_path_publishes_without_dashboard_snapshot():
     )
     assert result["set_count"] == 1
     assert result["payload_json"]["sets"][0]["currentSetValue"] == rows[-1]["set_value"]
-    assert result["payload_json"]["meta"]["source"] == "canonical_root_set_market_history_v1"
+    assert result["payload_json"]["meta"]["source"] == "canonical_scoped_root_set_market_history_v1"
     assert result["_diagnostics"]["marketAuthorityMode"] is True
 
 
