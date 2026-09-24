@@ -43,36 +43,63 @@ comment on column public.pokemon_explore_set_value_snapshot_latest.market_count 
 create or replace view public.pokemon_market_set_scope_contract_v1
 with (security_invoker = true)
 as
+with root_universe as (
+  select distinct v.set_id
+  from public.pokemon_market_root_set_value_latest_v1 v
+  union
+  select r.set_id
+  from public.pokemon_edition_split_root_sets_v2 r
+), scope_universe as (
+  select
+    u.set_id,
+    coalesce(r.profile,'standard')::text as profile,
+    x.market_scope
+  from root_universe u
+  left join public.pokemon_edition_split_root_sets_v2 r on r.set_id=u.set_id
+  cross join lateral (
+    select unnest(
+      case
+        when r.profile='base_three_printings'
+          then array['first_edition','shadowless','unlimited']::text[]
+        when r.profile='edition_split'
+          then array['first_edition','unlimited']::text[]
+        else array['standard']::text[]
+      end
+    ) as market_scope
+  ) x
+)
 select
-  v.set_id,
+  u.set_id,
   s.name as base_set_name,
-  coalesce(r.profile,'standard')::text as profile,
-  v.market_scope,
-  case when v.market_scope='standard'
-    then 'set:' || v.set_id::text
-    else 'set:' || v.set_id::text || ':' || v.market_scope
+  u.profile,
+  u.market_scope,
+  case when u.market_scope='standard'
+    then 'set:' || u.set_id::text
+    else 'set:' || u.set_id::text || ':' || u.market_scope
   end as market_key,
-  case v.market_scope
+  case u.market_scope
     when 'standard' then s.name
     when 'first_edition' then s.name || ' - 1st Edition'
     when 'unlimited' then s.name || ' - Unlimited'
     when 'shadowless' then s.name || ' - Shadowless'
-    else s.name || ' - ' || v.market_scope
+    else s.name || ' - ' || u.market_scope
   end as display_label,
   v.set_value as authority_set_value,
-  case when v.publishable_100pct then v.set_value else null end as public_current_value,
+  case when coalesce(v.publishable_100pct,false) then v.set_value else null end as public_current_value,
   v.expected_card_count,
   v.resolved_variant_count,
   v.priced_card_count,
   v.coverage_pct,
   v.oldest_component_price_date,
   v.newest_component_price_date,
-  v.quality_status,
-  v.publishable_100pct
-from public.pokemon_market_root_set_value_latest_v1 v
-join public.sets s on s.id=v.set_id
-left join public.pokemon_edition_split_root_sets_v2 r on r.set_id=v.set_id;
-
+  coalesce(v.quality_status,
+    case when u.profile='standard' then 'unavailable' else 'scope_authority_missing' end
+  )::text as quality_status,
+  coalesce(v.publishable_100pct,false) as publishable_100pct
+from scope_universe u
+join public.sets s on s.id=u.set_id
+left join public.pokemon_market_root_set_value_latest_v1 v
+  on v.set_id=u.set_id and v.market_scope=u.market_scope;
 revoke all on public.pokemon_market_set_scope_contract_v1 from public,anon,authenticated;
 grant select on public.pokemon_market_set_scope_contract_v1 to service_role;
 
@@ -164,20 +191,20 @@ begin
       ), roots as (
         select distinct set_id from actual
       ), expected as (
-        select r.set_id,'standard'::text as market_scope
+        select r.set_id,e.market_scope
         from roots r
-        where not exists (
-          select 1 from public.pokemon_edition_split_root_sets_v2 x where x.set_id=r.set_id
-        )
-        union all
-        select r.set_id,v.market_scope
-        from roots r
-        join public.pokemon_edition_split_root_sets_v2 x on x.set_id=r.set_id
-        join (
-          select distinct set_id,market_scope
-          from public.pokemon_market_root_set_value_latest_v1
-          where market_scope<>'standard'
-        ) v on v.set_id=r.set_id
+        left join public.pokemon_edition_split_root_sets_v2 x on x.set_id=r.set_id
+        cross join lateral (
+          select unnest(
+            case
+              when x.profile='base_three_printings'
+                then array['first_edition','shadowless','unlimited']::text[]
+              when x.profile='edition_split'
+                then array['first_edition','unlimited']::text[]
+              else array['standard']::text[]
+            end
+          ) as market_scope
+        ) e
       ), diff as (
         (select * from actual except select * from expected)
         union all
