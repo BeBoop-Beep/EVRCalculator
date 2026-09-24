@@ -1,4 +1,4 @@
 {
-  "operation": "pricing-deploy-runtime",
-  "request_id": "pricing-deploy-runtime-20260924-1004"
+  "operation": "pricing-install-cron",
+  "request_id": "pricing-install-cron-20260924-1005"
 }
