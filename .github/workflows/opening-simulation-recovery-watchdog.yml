@@ -24,7 +24,7 @@ concurrency:
   # A workflow-file push is an explicit maintenance event: it may preempt a stale
   # in-flight watchdog so production VM ops are not starved. Scheduled/manual
   # watchdog runs retain the previous non-preemptive behavior.
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: true
 
 jobs:
   recover-if-needed:
