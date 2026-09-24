@@ -42,8 +42,6 @@ CANONICAL_HISTORY_RPC = "get_pokemon_market_root_set_value_daily_history_bulk_v1
 CANONICAL_HISTORY_START = "1999-01-01"
 CANONICAL_HISTORY_SET_BATCH = 4
 ROLLOUT_STANDARD_SOURCE = "canonical_root_set_rollout_v1"
-EDITION_PROFILE_TABLE = "pokemon_edition_split_root_sets_v2"
-DEFAULT_EDITION_SPLIT_DISPLAY_SCOPE = "unlimited"
 
 
 def _attach_initial_selected_set_movers(client, row: dict) -> None:
@@ -427,7 +425,15 @@ def _load_canonical_histories(client, market_rows, *, through_date: str):
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
     root_sets = _load_sets(client, market_date=market_date)
-    sets = _expand_market_scope_rows(client, root_sets)
+    # Explicit edition markets exist only under the canonical root authority.
+    # Pre-cutover historical builds keep the legacy one-Standard-row contract.
+    if str(market_date)[:10] >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+        sets = _expand_market_scope_rows(client, root_sets)
+    else:
+        sets = [
+            {**dict(row), "market_scope": "standard", "market_key": _market_key(str(row.get("id")), "standard")}
+            for row in root_sets
+        ]
     set_ids = sorted({str(row["id"]) for row in sets})
     if not set_ids:
         raise ExploreSetValueUnavailable(

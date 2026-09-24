@@ -150,6 +150,24 @@ function statusRank(status) {
  * that rank is computed once here, over the full current cohort, so it never
  * renumbers under search/era filtering.
  */
+export function resolveMarketKey(target) {
+  const explicit = String(target?.marketKey || "").trim();
+  if (explicit) return explicit;
+  const setId = String(target?.setId || "");
+  const scope = String(target?.marketScope || "standard");
+  return scope === "standard" ? setId : `set:${setId}:${scope}`;
+}
+
+export function describeTrackedCounts(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const roots = new Set(list.map((row) => row.setId)).size;
+  const scoped = list.filter((row) => row.marketScope !== "standard").length;
+  // Only claim "markets" once edition markets exist: 156 root Sets plus
+  // edition markets is NOT "167 sets".
+  if (!scoped) return `${list.length} tracked sets`;
+  return `${list.length} tracked markets · ${roots} sets`;
+}
+
 function buildMembershipRows(targets) {
   const rows = (Array.isArray(targets) ? targets : []).map((target) => {
     const numericValue = Number(target?.currentSetValue);
@@ -162,8 +180,11 @@ function buildMembershipRows(targets) {
     return {
       target,
       setId: String(target?.setId || ""),
-      marketKey: String(target?.marketKey || target?.setId || ""),
+      // Market identity is (setId, marketScope). setId alone is NOT unique:
+      // Jungle - Unlimited and Jungle - 1st Edition share one catalog id.
+      marketKey: resolveMarketKey(target),
       marketScope: String(target?.marketScope || "standard"),
+      baseSetName: String(target?.baseSetName || ""),
       name: String(target?.name || target?.setId || "Unknown Set"),
       era: String(target?.era || "Pokémon"),
       status,
@@ -267,7 +288,9 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
     const filtered = orderedByValue.filter((row) => {
       if (era !== ALL_ERAS && row.era !== era) return false;
       if (!needle) return true;
-      return row.name.toLowerCase().includes(needle) || row.era.toLowerCase().includes(needle);
+      return row.name.toLowerCase().includes(needle)
+        || row.baseSetName.toLowerCase().includes(needle)
+        || row.era.toLowerCase().includes(needle);
     });
     if (sortKey === "name") {
       return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
@@ -590,7 +613,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       <div className={`${styles.divider} px-3 py-3 sm:px-4`}>
         <div className="flex items-center gap-2">
           <h2 id="set-market-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Set Market</h2>
-          <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{`${membership.length} tracked sets`}</span>
+          <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{describeTrackedCounts(membership)}</span>
         </div>
 
         {/* Toolbar. Search, era and sort all read metadata the snapshot already

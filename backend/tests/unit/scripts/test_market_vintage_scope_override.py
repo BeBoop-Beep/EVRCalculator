@@ -51,14 +51,16 @@ class _TableQuery:
 
 
 class _Client:
-    def __init__(self, *, profiles=None, standard_history=None, scoped_history=None):
-        self.profiles = list(profiles or [])
+    def __init__(self, *, latest=None, standard_history=None, scoped_history=None):
+        self.latest = list(latest or [])
         self.standard_history = list(standard_history or [])
         self.scoped_history = list(scoped_history or [])
+        self.latest_reads = 0
 
     def table(self, name):
-        if name == builder.EDITION_PROFILE_TABLE:
-            return _TableQuery(self.profiles)
+        if name == "pokemon_market_root_set_value_latest_v1":
+            self.latest_reads += 1
+            return _TableQuery(self.latest)
         if name == "pokemon_set_value_daily_history":
             return _TableQuery(self.standard_history)
         raise AssertionError(name)
@@ -74,37 +76,62 @@ class _Client:
         return SimpleNamespace(execute=lambda: SimpleNamespace(data=rows))
 
 
-def test_scope_overrides_apply_only_to_registered_vintage_profiles():
-    client = _Client(profiles=[
-        {"set_id": "neo", "profile": "edition_split"},
-        {"set_id": "base", "profile": "base_three_printings"},
-        {"set_id": "modern", "profile": "standard"},
+def _roots(*ids_names):
+    return [{"id": i, "name": n, "canonical_key": n.lower()} for i, n in ids_names]
+
+
+def _latest(set_id, scope, ok=True):
+    return {"set_id": set_id, "market_scope": scope, "publishable_100pct": ok}
+
+
+def test_no_hidden_default_edition_override_remains():
+    assert not hasattr(builder, "DEFAULT_EDITION_SPLIT_DISPLAY_SCOPE")
+    assert not hasattr(builder, "_load_market_value_scope_overrides")
+
+
+def test_roots_expand_to_explicit_markets_with_one_bulk_read():
+    client = _Client(latest=[
+        _latest("modern", "standard"),
+        _latest("jungle", "unlimited"), _latest("jungle", "first_edition"),
+        _latest("base", "unlimited"), _latest("base", "first_edition", False), _latest("base", "shadowless"),
     ])
-
-    result = builder._load_market_value_scope_overrides(
-        client, ["neo", "base", "modern"]
+    rows = builder._expand_market_scope_rows(
+        client, _roots(("modern", "Evolving Skies"), ("jungle", "Jungle"), ("base", "Base"))
     )
+    by_key = {row["market_key"]: row for row in rows}
+    assert set(by_key) == {
+        "set:modern",
+        "set:jungle:unlimited", "set:jungle:first_edition",
+        "set:base:unlimited", "set:base:first_edition", "set:base:shadowless",
+    }
+    assert by_key["set:modern"]["name"] == "Evolving Skies"
+    assert by_key["set:jungle:unlimited"]["name"] == "Jungle - Unlimited"
+    assert by_key["set:jungle:first_edition"]["name"] == "Jungle - 1st Edition"
+    assert by_key["set:base:shadowless"]["name"] == "Base - Shadowless"
+    assert not any(row["name"] in {"Jungle", "Base"} for row in rows)
+    assert all(row["base_set_name"] in {"Evolving Skies", "Jungle", "Base"} for row in rows)
+    assert by_key["set:base:first_edition"]["market_current_certification_status"] == "SCOPED_MARKET_INCOMPLETE"
+    assert by_key["set:jungle:unlimited"]["market_current_certification_status"] == "CERTIFIED"
+    assert client.latest_reads == 1  # one bulk read for <=100 roots, no N+1
 
-    assert result == {"neo": "unlimited", "base": "unlimited"}
 
-
-def test_scoped_history_keeps_only_requested_certified_scope():
+def test_scoped_history_is_keyed_by_market_and_keeps_only_certified_rows():
     client = _Client(scoped_history=[
         {"set_id": "neo", "market_scope": "unlimited", "market_date": "2026-09-19", "set_value": 13175.75, "certified_on_date": True},
         {"set_id": "neo", "market_scope": "unlimited", "market_date": "2026-09-20", "set_value": 13225.36, "certified_on_date": False},
         {"set_id": "neo", "market_scope": "first_edition", "market_date": "2026-09-19", "set_value": 16960.28, "certified_on_date": True},
     ])
-
-    result = builder._load_scoped_certified_histories(
-        client, ["neo"], through_date="2026-09-20", scope_by_set={"neo": "unlimited"}
-    )
-
-    assert result["neo"] == [
-        {"set_id": "neo", "snapshot_date": "2026-09-19", "set_value": 13175.75}
+    markets = [
+        {"id": "neo", "market_scope": "unlimited"},
+        {"id": "neo", "market_scope": "first_edition"},
     ]
+    result = builder._load_scoped_certified_histories(client, markets, through_date="2026-09-20")
+    assert [r["set_value"] for r in result["set:neo:unlimited"]] == [13175.75]
+    assert [r["set_value"] for r in result["set:neo:first_edition"]] == [16960.28]
+    assert "set:neo" not in result
 
 
-def test_post_cutover_override_replaces_only_vintage_standard_history():
+def test_post_cutover_histories_never_copy_scoped_values_into_standard():
     client = _Client(
         standard_history=[
             {"set_id": "neo", "snapshot_date": "2026-09-19", "set_value": 16035.49, "source": "legacy-mixed", "value_scope": "standard"},
@@ -112,19 +139,17 @@ def test_post_cutover_override_replaces_only_vintage_standard_history():
             {"set_id": "modern", "snapshot_date": "2026-09-20", "set_value": 510.0, "source": "canonical", "value_scope": "standard"},
         ],
         scoped_history=[
-            {"set_id": "neo", "market_scope": "unlimited", "market_date": "2026-09-18", "set_value": 13158.69, "certified_on_date": True},
             {"set_id": "neo", "market_scope": "unlimited", "market_date": "2026-09-19", "set_value": 13175.75, "certified_on_date": True},
-            {"set_id": "neo", "market_scope": "unlimited", "market_date": "2026-09-20", "set_value": 13225.36, "certified_on_date": False},
+            {"set_id": "neo", "market_scope": "first_edition", "market_date": "2026-09-19", "set_value": 16960.28, "certified_on_date": True},
         ],
     )
-
-    result = builder._load_canonical_histories(
-        client,
-        ["neo", "modern"],
-        through_date="2026-09-20",
-        market_scope_overrides={"neo": "unlimited"},
-    )
-
-    assert [row["set_value"] for row in result["neo"]] == [13158.69, 13175.75]
-    assert [row["snapshot_date"] for row in result["neo"]] == ["2026-09-18", "2026-09-19"]
-    assert [row["set_value"] for row in result["modern"]] == [500.0, 510.0]
+    markets = [
+        {"id": "neo", "market_scope": "unlimited"},
+        {"id": "neo", "market_scope": "first_edition"},
+        {"id": "modern", "market_scope": "standard"},
+    ]
+    result = builder._load_canonical_histories(client, markets, through_date="2026-09-20")
+    assert [r["set_value"] for r in result["set:modern"]] == [500.0, 510.0]
+    assert [r["set_value"] for r in result["set:neo:unlimited"]] == [13175.75]
+    assert [r["set_value"] for r in result["set:neo:first_edition"]] == [16960.28]
+    assert "set:neo" not in result  # legacy mixed Standard row is not a market
