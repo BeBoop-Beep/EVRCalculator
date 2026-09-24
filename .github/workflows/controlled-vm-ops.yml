@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -2146,6 +2146,44 @@ jobs:
 
               echo "===== final Explorer audit ====="
               "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); d=list((c.table("pokemon_market_explorer_prepared_directory_v1").select("market_type,comparison_as_of,source_as_of,history_available,history_point_count").execute()).data or []); h=list((c.table("pokemon_market_explorer_prepared_history_v1").select("market_date").order("market_date", desc=True).limit(1).execute()).data or []); m=list((c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date,payload_json").eq("window_key","365d").gte("latest_market_date","2026-09-18").execute()).data or []); sets=[r for r in d if r.get("market_type")=="set"]; errors=[r for r in m if ((r.get("payload_json") or {}).get("cardsMarket") or {}).get("reason")=="error"]; print({"directoryRows":len(d),"setRows":len(sets),"setsWithHistory":sum(1 for r in sets if r.get("history_available") is True),"setsWithoutHistory":sum(1 for r in sets if r.get("history_available") is not True),"comparisonAsOf":sorted({str(r.get("comparison_as_of")) for r in d if r.get("comparison_as_of")}),"sourceAsOf":sorted({str(r.get("source_as_of")) for r in d if r.get("source_as_of")}),"maxPreparedHistoryDate":(h[0].get("market_date") if h else None),"remainingDashboardErrors":len(errors)})'
+              ;;
+
+            pricing-sync-main)
+              # MUTATING tracked Git state only: sync production main to canonical origin/main after proving
+              # origin/main contains the exact reviewed pricing runtime. Untracked runtime config/artifacts are preserved.
+              cd "$REPO"
+              echo "== pricing canonical-main sync gates =="
+              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production branch is not main"; exit 20; }
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 21; }
+              PRE_HEAD=$(git rev-parse HEAD)
+              TARGET_HEAD=$(git rev-parse origin/main)
+              echo "pre_sync_head=$PRE_HEAD"
+              echo "target_origin_main=$TARGET_HEAD"
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+                echo "REFUSING: tracked modifications exist"
+                git status --short --untracked-files=no
+                exit 22
+              fi
+              pricing_verify_pins || { echo "REFUSING: pinned pricing sources unavailable"; exit 23; }
+              for f in $(pricing_overlay_manifest); do
+                src=$(pricing_overlay_source_for "$f")
+                want=$(git rev-parse "$src:$f")
+                got=$(git rev-parse -q --verify "origin/main:$f" 2>/dev/null || true)
+                [ "$got" = "$want" ] || { echo "REFUSING: origin/main pricing blob mismatch path=$f"; exit 24; }
+              done
+              echo "origin_main_pricing_overlay_exact=true"
+              git reset --hard origin/main
+              [ "$(git rev-parse HEAD)" = "$TARGET_HEAD" ] || { echo "FAIL: HEAD did not reach origin/main"; exit 25; }
+              pricing_runtime_present || { echo "FAIL: pricing runtime missing after canonical sync"; exit 26; }
+              pricing_credentials_probe || { echo "FAIL: pricing credentials unavailable after canonical sync"; exit 27; }
+              REPORT=$(pricing_cron_report)
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "FAIL: managed pricing cron missing after sync"; exit 28; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT" || { echo "FAIL: managed pricing run entries != 2"; exit 28; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT" || { echo "FAIL: managed pricing health entry != 1"; exit 28; }
+              echo "post_sync_head=$(git rev-parse HEAD)"
+              echo "pricing_runtime_files_present=true"
+              echo "PRICING_MAIN_SYNC=PASS"
               ;;
 
             pricing-status)
