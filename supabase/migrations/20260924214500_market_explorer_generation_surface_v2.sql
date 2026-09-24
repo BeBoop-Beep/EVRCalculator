@@ -710,7 +710,7 @@ begin
   -- Directory identities are determined from current-date membership, never by
   -- scanning history in the interactive reader.
   with current_stats as (
-    select market_key,scope_kind,max(scope_set_id) set_id,max(scope_era_id) era_id,max(taxonomy_key) taxonomy_key,
+    select market_key,scope_kind,min(scope_set_id::text)::uuid set_id,min(scope_era_id::text)::uuid era_id,max(taxonomy_key) taxonomy_key,
       count(*)::integer n
     from _mx_sealed_members
     where market_date=p_market_date
