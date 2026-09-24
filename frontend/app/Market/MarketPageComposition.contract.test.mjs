@@ -233,7 +233,7 @@ test("selected-set Top Movers reuses the existing per-set movers data and select
   assert.match(topMovers, /const WINDOW = "7D"/);
   assert.match(topMovers, /const LIMIT = 10/);
   // Lazy and per-selection: nothing is fetched until a set is selected.
-  assert.match(topMovers, /if \(!setId\)/);
+  assert.match(topMovers, /if \(!setId \|\| !marketKey\)/);
   assert.match(setMarket, /<SetMarketTopMovers[\s\S]*key=\{selected\.marketKey\}[\s\S]*marketScope=\{selected\.marketScope\}[\s\S]*initialPayload=/);
   // It does NOT reach into the approved page-level ticker component.
   assert.doesNotMatch(codeOf(topMovers), /SevenDayMarketMoversTicker/);
