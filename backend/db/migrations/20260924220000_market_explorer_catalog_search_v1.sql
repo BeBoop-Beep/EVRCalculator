@@ -203,16 +203,21 @@ begin
       from public.search_pokemon_market_explorer_instruments_v2(p_query,'cards',least(v_limit,20)) i
     ),
     candidates as (
-      select asset,result_kind,label,subtitle,market_key,null::text instrument_id,set_id,era_id,image_url,availability,metadata,relevance
-      from surface_markets
+      select sm.asset,sm.result_kind,sm.label,sm.subtitle,sm.market_key,null::text instrument_id,
+        sm.set_id,sm.era_id,sm.image_url,sm.availability,sm.metadata,sm.relevance
+      from surface_markets sm
       union all
-      select asset,result_kind,label,subtitle,market_key,null::text instrument_id,set_id,era_id,image_url,availability,metadata,relevance
-      from legacy_markets
+      select lm.asset,lm.result_kind,lm.label,lm.subtitle,lm.market_key,null::text instrument_id,
+        lm.set_id,lm.era_id,lm.image_url,lm.availability,lm.metadata,lm.relevance
+      from legacy_markets lm
       union all
-      select asset,result_kind,label,subtitle,market_key,null::text instrument_id,set_id,era_id,image_url,availability,metadata,relevance
-      from rarity_options
+      select ro.asset,ro.result_kind,ro.label,ro.subtitle,ro.market_key,null::text instrument_id,
+        ro.set_id,ro.era_id,ro.image_url,ro.availability,ro.metadata,ro.relevance
+      from rarity_options ro
       union all
-      select * from instruments
+      select i.asset,i.result_kind,i.label,i.subtitle,i.market_key,i.instrument_id,
+        i.set_id,i.era_id,i.image_url,i.availability,i.metadata,i.relevance
+      from instruments i
     )
     select c.asset,c.result_kind,c.label,c.subtitle,c.market_key,c.instrument_id,
       c.set_id,c.era_id,c.image_url,c.availability,c.metadata,c.relevance
@@ -334,13 +339,17 @@ begin
     limit least(v_limit*3,50)
   ),
   candidates as (
-    select asset,result_kind,label,subtitle,market_key,null::text instrument_id,set_id,era_id,image_url,availability,metadata,relevance
-    from surface_markets
+    select sm.asset,sm.result_kind,sm.label,sm.subtitle,sm.market_key,null::text instrument_id,
+      sm.set_id,sm.era_id,sm.image_url,sm.availability,sm.metadata,sm.relevance
+    from surface_markets sm
     union all
-    select asset,result_kind,label,subtitle,market_key,null::text instrument_id,set_id,era_id,image_url,availability,metadata,relevance
-    from type_options
+    select ty.asset,ty.result_kind,ty.label,ty.subtitle,ty.market_key,null::text instrument_id,
+      ty.set_id,ty.era_id,ty.image_url,ty.availability,ty.metadata,ty.relevance
+    from type_options ty
     union all
-    select * from instruments
+    select i.asset,i.result_kind,i.label,i.subtitle,i.market_key,i.instrument_id,
+      i.set_id,i.era_id,i.image_url,i.availability,i.metadata,i.relevance
+    from instruments i
   )
   select c.asset,c.result_kind,c.label,c.subtitle,c.market_key,c.instrument_id,
     c.set_id,c.era_id,c.image_url,c.availability,c.metadata,c.relevance
