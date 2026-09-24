@@ -1,5 +1,4 @@
 {
-  "operation": "sep22-publication-status",
-  "market_date": "2026-09-22",
-  "request_id": "sep22-publication-status-post-supabase-reset"
+  "operation": "pricing-runtime-preflight",
+  "request_id": "pricing-runtime-preflight-20260923-1958"
 }
