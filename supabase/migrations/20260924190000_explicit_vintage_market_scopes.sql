@@ -18,6 +18,29 @@ update public.pokemon_explore_set_value_snapshot_latest
 set market_count=jsonb_array_length(coalesce(payload_json->'sets','[]'::jsonb))
 where market_count is null;
 
+create or replace function public.normalize_pokemon_explore_set_value_market_count_v1()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+begin
+  new.market_count:=jsonb_array_length(coalesce(new.payload_json->'sets','[]'::jsonb));
+  return new;
+end;
+$function$;
+
+revoke all on function public.normalize_pokemon_explore_set_value_market_count_v1()
+  from public,anon,authenticated,service_role;
+
+drop trigger if exists pokemon_explore_set_value_normalize_market_count
+  on public.pokemon_explore_set_value_snapshot_latest;
+create trigger pokemon_explore_set_value_normalize_market_count
+before insert or update of payload_json
+on public.pokemon_explore_set_value_snapshot_latest
+for each row
+execute function public.normalize_pokemon_explore_set_value_market_count_v1();
+
 alter table public.pokemon_explore_set_value_snapshot_latest
   alter column market_count set not null;
 
@@ -30,7 +53,10 @@ begin
   ) then
     alter table public.pokemon_explore_set_value_snapshot_latest
       add constraint pokemon_explore_set_value_snapshot_market_count_check
-      check (market_count>=0 and market_count>=set_count);
+      check (
+        market_count=jsonb_array_length(coalesce(payload_json->'sets','[]'::jsonb))
+        and market_count>=set_count
+      );
   end if;
 end;
 $market_count$;
