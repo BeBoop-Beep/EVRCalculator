@@ -148,9 +148,9 @@ select id,set_id,name,null,null from fixture_sealed;
 insert into public.sealed_product_price_observations(
  sealed_product_id,market_price,source,currency,captured_at
 )
-select id,p17,'fixture','USD','2026-09-17 12:00:00+00' from fixture_sealed
+select id,p17,'fixture','USD',timestamptz '2026-09-17 12:00:00+00' from fixture_sealed
 union all
-select id,p24,'fixture','USD','2026-09-24 12:00:00+00' from fixture_sealed;
+select id,p24,'fixture','USD',timestamptz '2026-09-24 12:00:00+00' from fixture_sealed;
 
 -- Build, validate and promote only inside this disposable fixture DB.
 create temp table fixture_generation(generation_id uuid primary key);
