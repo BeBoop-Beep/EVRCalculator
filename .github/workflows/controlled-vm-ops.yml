@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|stop-stale-sep22-publisher|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|stop-stale-sep22-publisher|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -69,7 +69,240 @@ jobs:
           })
           PY
 
+      - name: Execute credential operation
+        if: ${{ env.VM_OPERATION == 'pricing-credential-status' || env.VM_OPERATION == 'pricing-install-credentials' }}
+        shell: bash
+        env:
+          ACTIONS_EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          ACTIONS_EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+
+          REPO="/home/ubuntu/repos/EVRCalculator"
+          test -d "$REPO/.git" || { echo "Production repo missing: $REPO"; exit 2; }
+          echo "request_id=$VM_REQUEST_ID"
+
+          case "$VM_OPERATION" in
+            pricing-credential-status)
+              # READ ONLY: reports presence flags only; no values, lengths, prefixes or hashes.
+              python3 - <<'PY'
+          import os
+          import re
+
+          PATH = "/home/ubuntu/repos/EVRCalculator/backend/.env"
+          ASSIGN = re.compile(rb"^\s*(?:export\s+)?(EBAY_CLIENT_ID|EBAY_CLIENT_SECRET)\s*=(.*)$")
+
+
+          def flag(value):
+              return "true" if value else "false"
+
+
+          client_id = os.environ.get("ACTIONS_EBAY_CLIENT_ID", "")
+          client_secret = os.environ.get("ACTIONS_EBAY_CLIENT_SECRET", "")
+          print("actions_ebay_client_id_present=" + flag(client_id))
+          print("actions_ebay_client_secret_present=" + flag(client_secret))
+          print("actions_ebay_pair_complete=" + flag(client_id and client_secret))
+          if not client_id:
+              environment = "MISSING"
+          elif "-PRD-" in client_id:
+              environment = "PRODUCTION"
+          elif "-SBX-" in client_id:
+              environment = "SANDBOX"
+          else:
+              environment = "UNKNOWN"
+          print("actions_ebay_environment=" + environment)
+
+          exists = os.path.isfile(PATH)
+          found = {"EBAY_CLIENT_ID": False, "EBAY_CLIENT_SECRET": False}
+          if exists:
+              with open(PATH, "rb") as handle:
+                  for line in handle.read().splitlines():
+                      match = ASSIGN.match(line)
+                      if match and match.group(2).strip().strip(b"'\"").strip():
+                          found[match.group(1).decode()] = True
+          print("backend_env_exists=" + flag(exists))
+          print("backend_env_ebay_client_id_present=" + flag(found["EBAY_CLIENT_ID"]))
+          print("backend_env_ebay_client_secret_present=" + flag(found["EBAY_CLIENT_SECRET"]))
+          print("backend_env_ebay_pair_complete=" + flag(all(found.values())))
+          print("process_ebay_client_id_present=" + flag(os.environ.get("EBAY_CLIENT_ID")))
+          print("process_ebay_client_secret_present=" + flag(os.environ.get("EBAY_CLIENT_SECRET")))
+          PY
+              ;;
+
+            pricing-install-credentials)
+              # MUTATING: changes only backend/.env (the two eBay keys) via an atomic replace with backup and rollback.
+              [ "$(git -C "$REPO" branch --show-current)" = "main" ] || { echo "REFUSING: production branch is not main"; exit 20; }
+              python3 - <<'PY'
+          import os
+          import pwd
+          import re
+          import subprocess
+          import sys
+          import tempfile
+
+          REPO = "/home/ubuntu/repos/EVRCalculator"
+          PATH = REPO + "/backend/.env"
+          EXPECTED_OWNER = "ubuntu"
+          KEYS = ("EBAY_CLIENT_ID", "EBAY_CLIENT_SECRET")
+          ASSIGN = re.compile(rb"^\s*(?:export\s+)?(EBAY_CLIENT_ID|EBAY_CLIENT_SECRET)\s*=(.*)$")
+          SAFE_VALUE = re.compile(r"^[A-Za-z0-9._:/+=@-]+$")
+          PROBE = (
+              "from backend.pricing_pipeline.ebay_credentials import load_ebay_credentials\n"
+              "c = load_ebay_credentials(allow_frontend_fallback=False)\n"
+              "print('credential_source=' + str(c.source))\n"
+              "print('ebay_environment=' + str(c.environment))\n"
+          )
+
+
+          def refuse(reason):
+              print("REFUSING: " + reason)
+              sys.exit(10)
+
+
+          client_id = os.environ.get("ACTIONS_EBAY_CLIENT_ID", "")
+          client_secret = os.environ.get("ACTIONS_EBAY_CLIENT_SECRET", "")
+          if not client_id or not client_secret:
+              refuse("one or both Actions secrets are empty")
+          for value in (client_id, client_secret):
+              if "\n" in value or "\r" in value:
+                  refuse("a credential contains a newline or carriage return")
+              if not SAFE_VALUE.match(value):
+                  refuse("a credential contains characters unsafe for .env and shell sourcing")
+          if "-PRD-" not in client_id:
+              refuse("the client id is not a production (-PRD-) credential")
+          request_text = os.environ.get("VM_REQUEST_MESSAGE", "") + "\n" + os.environ.get("VM_REQUEST_ID", "")
+          if client_id in request_text or client_secret in request_text or "-PRD-" in request_text or "-SBX-" in request_text:
+              refuse("credential-like data is present in the request")
+
+          if not os.path.isfile(PATH):
+              refuse("backend/.env does not exist")
+          st = os.stat(PATH)
+          owner = pwd.getpwuid(st.st_uid).pw_name
+          if owner != EXPECTED_OWNER:
+              refuse("backend/.env is not owned by the runtime user")
+          if st.st_mode & 0o004:
+              refuse("backend/.env is world-readable")
+          if os.geteuid() != st.st_uid:
+              refuse("the workflow user is not the owner of backend/.env")
+
+          with open(PATH, "rb") as handle:
+              original = handle.read()
+
+
+          def strip_ebay(data):
+              return b"".join(line for line in data.splitlines(keepends=True) if not ASSIGN.match(line.rstrip(b"\r\n")))
+
+
+          eol = b"\r\n" if b"\r\n" in original else b"\n"
+          base = strip_ebay(original)
+          if base and not base.endswith(b"\n"):
+              base += eol
+          new = base + b"EBAY_CLIENT_ID=" + client_id.encode() + eol + b"EBAY_CLIENT_SECRET=" + client_secret.encode() + eol
+
+          backup_fd, backup_path = tempfile.mkstemp(prefix="evr-env-backup-", dir="/tmp")
+          os.fchmod(backup_fd, 0o600)
+          with os.fdopen(backup_fd, "wb") as handle:
+              handle.write(original)
+
+
+          def atomic_write(data):
+              fd, tmp = tempfile.mkstemp(prefix=".env.tmp.", dir=os.path.dirname(PATH))
+              try:
+                  with os.fdopen(fd, "wb") as handle:
+                      handle.write(data)
+                      handle.flush()
+                      os.fsync(handle.fileno())
+                  os.chmod(tmp, st.st_mode & 0o7777)
+                  tmp_stat = os.stat(tmp)
+                  if tmp_stat.st_uid != st.st_uid or tmp_stat.st_gid != st.st_gid:
+                      os.chown(tmp, st.st_uid, st.st_gid)
+                  os.replace(tmp, PATH)
+              except BaseException:
+                  try:
+                      os.unlink(tmp)
+                  except FileNotFoundError:
+                      pass
+                  raise
+
+
+          def verify():
+              failures = []
+              with open(PATH, "rb") as handle:
+                  after = handle.read()
+              counts = {key: 0 for key in KEYS}
+              empty = False
+              for line in after.splitlines():
+                  match = ASSIGN.match(line.rstrip(b"\r\n"))
+                  if match:
+                      counts[match.group(1).decode()] += 1
+                      empty = empty or not match.group(2).strip()
+              if sum(counts.values()) != 2 or any(count != 1 for count in counts.values()) or empty:
+                  failures.append("ebay_assignment_count_or_empty_value")
+              if strip_ebay(after) != base:
+                  failures.append("non_ebay_content_changed")
+              after_stat = os.stat(PATH)
+              if (after_stat.st_mode & 0o7777) != (st.st_mode & 0o7777) or after_stat.st_uid != st.st_uid or after_stat.st_gid != st.st_gid:
+                  failures.append("mode_or_owner_changed")
+              return failures
+
+
+          runtime = os.path.isfile(REPO + "/backend/pricing_pipeline/ebay_credentials.py") and os.path.isfile(REPO + "/.venv/bin/python")
+          probe_lines = []
+          restored = None
+          try:
+              try:
+                  atomic_write(new)
+                  failures = verify()
+                  if not failures and runtime:
+                      child_env = {k: v for k, v in os.environ.items() if not k.startswith("ACTIONS_EBAY")}
+                      probe = subprocess.run([REPO + "/.venv/bin/python", "-c", PROBE], cwd=REPO, env=child_env, capture_output=True, text=True, timeout=120)
+                      probe_lines = [l for l in probe.stdout.splitlines() if l.startswith(("credential_source=", "ebay_environment="))]
+                      if probe.returncode != 0:
+                          failures.append("canonical_credential_probe_failed")
+              except Exception as exc:
+                  failures = ["install_error_" + type(exc).__name__]
+              if failures:
+                  try:
+                      atomic_write(original)
+                      with open(PATH, "rb") as handle:
+                          restored = handle.read() == original
+                  except Exception:
+                      restored = False
+                  print("credential_install=FAIL failures=" + ",".join(failures))
+                  print("original_restored=" + str(bool(restored)).lower())
+                  sys.exit(1)
+          finally:
+              if restored is False:
+                  print("backup_retained_at=" + backup_path)
+              else:
+                  try:
+                      os.unlink(backup_path)
+                  except FileNotFoundError:
+                      pass
+
+          print("backend_env_ebay_pair_complete=true")
+          print("ebay_key_assignment_count=2")
+          print("non_ebay_env_content_preserved=true")
+          print("backend_env_mode=" + format(os.stat(PATH).st_mode & 0o7777, "o"))
+          print("backend_env_owner=" + pwd.getpwuid(os.stat(PATH).st_uid).pw_name)
+          if runtime:
+              print("canonical_credential_probe=PASS")
+              for line in probe_lines:
+                  print(line)
+          else:
+              print("canonical_credential_probe=SKIPPED_RUNTIME_NOT_PRESENT")
+          print("credential_install=PASS")
+          PY
+              ;;
+
+            *)
+              echo "Unexpected credential operation: $VM_OPERATION"
+              exit 4
+              ;;
+          esac
+
       - name: Execute approved operation
+        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' }}
         shell: bash
         run: |
           set -euo pipefail
