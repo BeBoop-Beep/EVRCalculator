@@ -14,6 +14,8 @@ from backend.domain.pokemon.market_index import resolve_window_baselines
 V2_DAILY_TABLE = "pokemon_market_explorer_card_daily_states_v2_shadow"
 V2_INTERVAL_TABLE = "pokemon_market_price_intervals_v2_shadow"
 QUALITY_TABLE = "pokemon_market_date_quality"
+SCOPED_ROOT_HISTORY_TABLE = "pokemon_market_root_set_value_daily_history_v2_shadow"
+SCOPED_CONSTITUENT_RPC = "get_pokemon_market_set_scope_constituents_v1"
 WINDOWS = CONSTITUENT_MOVEMENT_WINDOWS
 
 
@@ -130,6 +132,78 @@ def enrich_card_constituent_page(client: Any, page: Mapping[str, Any]) -> dict[s
     by_id = movement.get("byConstituent") or {}
     for item in items:
         item["changes"] = by_id.get(str(item.get("cardVariantId") or ""), {})
+    result["items"] = items
+    result["movement_windows"] = movement.get("windows") or {}
+    return result
+
+
+
+def enrich_scoped_card_constituent_page(client: Any, page: Mapping[str, Any]) -> dict[str, Any]:
+    """Enrich one explicit-edition prepared page by canonical+scope identity.
+
+    A scoped vintage market is not a bag of whichever physical variant happened
+    to be freshest. Each baseline re-runs the SAME edition-scoped selection
+    authority for the page's canonical cards, so a different edition can never
+    leak into movement and a within-scope preferred-variant change is measured
+    as one canonical scoped instrument rather than as an exit/entrant pair.
+    """
+    result = dict(page)
+    items = [dict(row) for row in result.get("items") or []]
+    as_of = str(result.get("as_of") or result.get("asOf") or "")[:10]
+    first = items[0] if items else {}
+    set_id = str(first.get("setId") or "")
+    market_scope = str(first.get("marketScope") or "")
+    canonical_ids = sorted({str(row.get("canonicalCardId") or "") for row in items} - {""})
+    if not items or not as_of or not set_id or not market_scope or not canonical_ids:
+        result["items"] = items
+        return result
+
+    history_rows = _execute_rows(
+        client.table(SCOPED_ROOT_HISTORY_TABLE)
+        .select("market_date")
+        .eq("set_id", set_id)
+        .eq("market_scope", market_scope)
+        .eq("certified_on_date", True)
+        .lte("market_date", as_of)
+        .order("market_date")
+    )
+    market_dates = [
+        str(row.get("market_date"))[:10]
+        for row in history_rows if row.get("market_date")
+    ]
+    baselines = resolve_window_baselines(market_dates)
+    wanted_dates = sorted({
+        str((baselines.get(window) or {}).get("startDate") or "")[:10]
+        for window in WINDOWS
+    } - {""})
+
+    prices: dict[str, dict[str, float]] = {as_of: {}}
+    for item in items:
+        canonical_id = str(item.get("canonicalCardId") or "")
+        try:
+            prices[as_of][canonical_id] = float(item["marketPrice"])
+        except (KeyError, TypeError, ValueError):
+            pass
+
+    for market_date in wanted_dates:
+        rows = list((client.rpc(SCOPED_CONSTITUENT_RPC, {
+            "p_set_id": set_id,
+            "p_market_scope": market_scope,
+            "p_market_date": market_date,
+            "p_card_ids": canonical_ids,
+        }).execute()).data or [])
+        for row in rows:
+            try:
+                prices.setdefault(market_date, {})[
+                    str(row["canonical_card_id"])
+                ] = float(row["market_price"])
+            except (KeyError, TypeError, ValueError):
+                continue
+
+    movement = build_constituent_movements(prices, windows=WINDOWS)
+    by_id = movement.get("byConstituent") or {}
+    for item in items:
+        item["changes"] = by_id.get(str(item.get("canonicalCardId") or ""), {})
     result["items"] = items
     result["movement_windows"] = movement.get("windows") or {}
     return result
