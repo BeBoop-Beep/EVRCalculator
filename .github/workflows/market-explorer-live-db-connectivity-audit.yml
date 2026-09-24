@@ -1,0 +1,78 @@
+name: Market Explorer Live DB Connectivity Audit
+
+on:
+  push:
+    branches:
+      - feat/market-explorer-data-surface-expansion-20260924
+    paths:
+      - ".github/workflows/market-explorer-live-db-connectivity-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  connectivity:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 5
+    env:
+      ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Audit Supabase database connection modes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL secret missing"; exit 2; }
+          PY="/home/ubuntu/repos/EVRCalculator/.venv/bin/python"
+          "$PY" - <<'PY'
+          import os, socket, time
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          original = os.environ["ACTIONS_DATABASE_URL"]
+          parsed = conninfo_to_dict(original)
+          safe = {k: parsed.get(k) for k in ("host","port","user","dbname","sslmode")}
+          safe["password_present"] = bool(parsed.get("password"))
+          print("session_config=" + repr(safe))
+
+          def test(label, dsn, *, prepare_threshold=None):
+              cfg = conninfo_to_dict(dsn)
+              host = cfg.get("host")
+              port = int(cfg.get("port") or 5432)
+              t0 = time.monotonic()
+              try:
+                  infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+                  print(f"{label}_dns_ok=true families={sorted({i[0] for i in infos})}")
+              except Exception as exc:
+                  print(f"{label}_dns_ok=false error_type={type(exc).__name__}")
+              kwargs = {"connect_timeout": 8, "autocommit": True}
+              if prepare_threshold is not None:
+                  kwargs["prepare_threshold"] = prepare_threshold
+              try:
+                  with psycopg.connect(dsn, **kwargs) as conn:
+                      with conn.cursor() as cur:
+                          cur.execute("select current_user, current_database(), current_setting('server_version')")
+                          row = cur.fetchone()
+                  elapsed = (time.monotonic() - t0) * 1000
+                  print(f"{label}_connect_ok=true elapsed_ms={elapsed:.1f} user={row[0]} db={row[1]} server={row[2]}")
+                  return True
+              except Exception as exc:
+                  elapsed = (time.monotonic() - t0) * 1000
+                  msg = str(exc)
+                  password = cfg.get("password") or ""
+                  if password:
+                      msg = msg.replace(password, "<REDACTED_PASSWORD>")
+                  print(f"{label}_connect_ok=false elapsed_ms={elapsed:.1f} error_type={type(exc).__name__} sqlstate={getattr(exc,'sqlstate',None)}")
+                  print(f"{label}_error=" + msg[:700].replace("\n"," | "))
+                  return False
+
+          session_ok = test("session_5432", original)
+          tx = dict(parsed)
+          tx["port"] = "6543"
+          transaction = make_conninfo(**tx)
+          transaction_ok = test("transaction_6543", transaction, prepare_threshold=None)
+
+          print(f"summary_session_5432={str(session_ok).lower()}")
+          print(f"summary_transaction_6543={str(transaction_ok).lower()}")
+          if not session_ok and not transaction_ok:
+              raise SystemExit(7)
+          PY
