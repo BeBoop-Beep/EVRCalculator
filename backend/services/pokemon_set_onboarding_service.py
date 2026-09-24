@@ -43,8 +43,8 @@ STEP_ORDER = (
     "awaiting_source_deploy",
     "db_registration",
     "initial_scrape",
-    "images",
     "set_value",
+    "images",
     "rarity_census",
     "pull_model_source",
     "awaiting_pull_model_deploy",
@@ -92,7 +92,6 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
         prices.extend(
             supabase.table("card_variant_price_observations")
             .select("card_variant_id,captured_at,market_price")
-            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_ids[start:start + 250])
             .gt("market_price", 0).order("captured_at", desc=True).limit(1000).execute().data or []
         )
@@ -487,58 +486,81 @@ class OnboardingEngine:
                     )
                     if not (card_ok or sealed_ok):
                         return StepOutcome("retry", step, evidence, "catalog_initial_scrape_verification_failed")
-                    # Card-bearing catalog sets still pass through the same
-                    # metadata/image enrichment boundary as normal sets. The
-                    # images step completes catalog-only onboarding after it
-                    # refreshes the canonical projection; sealed-only catalogs
-                    # are allowed to complete there without an image call.
-                    return _next(step, evidence)
-                required = ("cards_populated", "variants_populated", "market_prices_populated", "resolved_market_date")
-                if not all(evidence.get(field) for field in required):
-                    return StepOutcome("retry", step, evidence, "initial_scrape_verification_failed")
-                return _next(step, evidence)
-            return outcome
-        if step == "images":
-            before = self.set_evidence_collector(key) if self.execute else {}
-            # A sealed-only catalog has no card metadata to enrich. Do not turn
-            # the absence of cards into a provider error.
-            if self.execute and before.get("catalog_only") and not before.get("cards_populated"):
-                return StepOutcome(
-                    "complete", step,
-                    {**before, "catalog_only_onboarding_complete": True, "image_enrichment_skipped": "no_cards"},
-                )
-
-            outcome = self._command(step, ["backend/scripts/sync_pokemon_images.py", "--sets", name, "--apply"])
-            if self.execute and outcome.kind == "advance":
-                evidence = self.set_evidence_collector(key)
-                threshold = float(os.getenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90"))
-                evidence["image_coverage_threshold"] = threshold
-                if evidence["image_coverage"] < threshold:
-                    return StepOutcome("retry", step, evidence, "image_fetch_incomplete")
-
-                # Immediately project enriched legacy card identity/images into
-                # pokemon_canonical_cards. This is intentionally canonical-only:
-                # Collector Appeal / simulation-specific builders remain owned by
-                # their later onboarding steps, while Cards/UI can use complete
-                # metadata as soon as the initial scrape finishes.
-                canonical = self.command_runner(
-                    [
-                        sys.executable,
-                        "backend/scripts/build_pokemon_set_desirability_inputs.py",
-                        "--set", key, "--commit", "--canonical-only",
-                    ],
-                    cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
-                )
-                evidence["canonical_only_exit_code"] = canonical.returncode
-                evidence["canonical_only_stdout_tail"] = canonical.stdout[-2000:]
-                evidence["canonical_only_stderr_tail"] = canonical.stderr[-2000:]
-                if canonical.returncode:
-                    return StepOutcome("retry", step, evidence, "canonical_projection_after_images_failed")
-
-                if evidence.get("catalog_only"):
+                    if evidence.get("cards_populated"):
+                        # A price scrape can discover cards before the metadata
+                        # provider has filled image/API identity. Hydrate it in
+                        # the SAME first-scrape cycle instead of waiting for an
+                        # operator to notice blank cards later.
+                        image_sync = self.command_runner(
+                            [sys.executable, "backend/scripts/sync_pokemon_images.py", "--sets", name, "--apply"],
+                            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                        )
+                        evidence["initial_image_sync_exit_code"] = image_sync.returncode
+                        evidence["initial_image_sync_stdout_tail"] = image_sync.stdout[-2000:]
+                        evidence["initial_image_sync_stderr_tail"] = image_sync.stderr[-2000:]
+                        if image_sync.returncode:
+                            return StepOutcome("retry", step, evidence, "catalog_initial_image_sync_failed")
+                        canonical = self.command_runner(
+                            [
+                                sys.executable,
+                                "backend/scripts/build_pokemon_set_desirability_inputs.py",
+                                "--set", key, "--commit", "--canonical-only",
+                            ],
+                            cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                        )
+                        evidence["canonical_only_exit_code"] = canonical.returncode
+                        evidence["canonical_only_stdout_tail"] = canonical.stdout[-2000:]
+                        evidence["canonical_only_stderr_tail"] = canonical.stderr[-2000:]
+                        if canonical.returncode:
+                            return StepOutcome(
+                                "retry", step, evidence, "catalog_canonical_projection_failed"
+                            )
                     return StepOutcome(
                         "complete", step, {**evidence, "catalog_only_onboarding_complete": True}
                     )
+                required = ("cards_populated", "variants_populated", "market_prices_populated", "resolved_market_date")
+                if not all(evidence.get(field) for field in required):
+                    return StepOutcome("retry", step, evidence, "initial_scrape_verification_failed")
+
+                # Initial scrape now owns first-pass card metadata hydration.
+                # The later images step stays as an idempotent coverage gate,
+                # but newly scraped cards should already carry provider IDs and
+                # artwork before Set Value / Collector work begins.
+                threshold = float(os.getenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90"))
+                if evidence.get("cards_populated") and float(evidence.get("image_coverage") or 0.0) < threshold:
+                    image_sync = self.command_runner(
+                        [sys.executable, "backend/scripts/sync_pokemon_images.py", "--sets", name, "--apply"],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["initial_image_sync_exit_code"] = image_sync.returncode
+                    evidence["initial_image_sync_stdout_tail"] = image_sync.stdout[-2000:]
+                    evidence["initial_image_sync_stderr_tail"] = image_sync.stderr[-2000:]
+                    if image_sync.returncode:
+                        return StepOutcome("retry", step, evidence, "initial_image_sync_failed")
+
+                    canonical = self.command_runner(
+                        [
+                            sys.executable,
+                            "backend/scripts/build_pokemon_set_desirability_inputs.py",
+                            "--set", key, "--commit", "--canonical-only",
+                        ],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["initial_canonical_sync_exit_code"] = canonical.returncode
+                    evidence["initial_canonical_sync_stdout_tail"] = canonical.stdout[-2000:]
+                    evidence["initial_canonical_sync_stderr_tail"] = canonical.stderr[-2000:]
+                    if canonical.returncode:
+                        return StepOutcome("retry", step, evidence, "initial_canonical_metadata_sync_failed")
+
+                    evidence = {
+                        **evidence,
+                        **self.set_evidence_collector(key),
+                        "image_coverage_threshold": threshold,
+                        "initial_image_sync_exit_code": image_sync.returncode,
+                        "initial_canonical_sync_exit_code": canonical.returncode,
+                    }
+                    if float(evidence.get("image_coverage") or 0.0) < threshold:
+                        return StepOutcome("retry", step, evidence, "initial_image_fetch_incomplete")
                 return _next(step, evidence)
             return outcome
         if step == "set_value":
@@ -555,6 +577,62 @@ class OnboardingEngine:
                 evidence = self.set_evidence_collector(key)
                 if not evidence["positive_standard_set_value"]:
                     return StepOutcome("retry", step, evidence, "positive_standard_set_value_missing")
+                return _next(step, evidence)
+            return outcome
+        if step == "images":
+            outcome = self._command(step, ["backend/scripts/sync_pokemon_images.py", "--sets", name, "--apply"])
+            if self.execute and outcome.kind == "advance":
+                evidence = self.set_evidence_collector(key)
+                threshold = float(os.getenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90"))
+                evidence["image_coverage_threshold"] = threshold
+                if evidence["image_coverage"] < threshold:
+                    return StepOutcome("retry", step, evidence, "image_fetch_incomplete")
+
+                # Released market sets that intentionally do not support opening
+                # simulation must not stall forever at pull-model acquisition.
+                # Build every desirability layer that is valid without simulation,
+                # then force the frozen Collector Appeal model to re-evaluate
+                # catalog membership using the already-fresh source authority.
+                if not evidence.get("catalog_only") and not evidence.get("supports_opening_simulation"):
+                    desirability = self.command_runner(
+                        [
+                            sys.executable,
+                            "backend/scripts/build_pokemon_set_desirability_inputs.py",
+                            "--set", key, "--commit", "--log-level", "INFO",
+                        ],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["static_desirability_exit_code"] = desirability.returncode
+                    evidence["static_desirability_stdout_tail"] = desirability.stdout[-2000:]
+                    evidence["static_desirability_stderr_tail"] = desirability.stderr[-2000:]
+                    if desirability.returncode:
+                        return StepOutcome("retry", step, evidence, "static_desirability_build_failed")
+
+                    market_date = str(evidence.get("resolved_market_date") or "").strip()
+                    if not market_date:
+                        return StepOutcome("retry", step, evidence, "collector_refresh_market_date_missing")
+                    collector = self.command_runner(
+                        [
+                            sys.executable,
+                            "backend/scripts/operationalize_historical_rip.py",
+                            "--as-of-date", market_date,
+                            "--commit",
+                            "--force-model-rebuild",
+                            "--reuse-current-source-authority",
+                        ],
+                        cwd=str(REPO_ROOT), capture_output=True, text=True, check=False,
+                    )
+                    evidence["collector_membership_refresh_exit_code"] = collector.returncode
+                    evidence["collector_membership_refresh_stdout_tail"] = collector.stdout[-2000:]
+                    evidence["collector_membership_refresh_stderr_tail"] = collector.stderr[-2000:]
+                    if collector.returncode:
+                        return StepOutcome("retry", step, evidence, "collector_membership_refresh_failed")
+
+                    # No pull-model/simulation stages are applicable to this set.
+                    # Continue at the publication gate after static/collector
+                    # enrichment succeeds rather than manufacturing simulation data.
+                    return StepOutcome("advance", "publication_gate", evidence)
+
                 return _next(step, evidence)
             return outcome
         if step == "rarity_census":

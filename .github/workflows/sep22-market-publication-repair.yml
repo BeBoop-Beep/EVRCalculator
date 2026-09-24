@@ -1,0 +1,121 @@
+name: Sep22 Market Publication Repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sep22-market-publication-repair.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Repair and publish Sep 22 Market surfaces
+        shell: bash
+        run: |
+          set -uo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          TARGET=2026-09-22
+
+          cd "$LIVE" || exit 1
+          test "$(git branch --show-current)" = "main" || exit 2
+          test -z "$(git status --porcelain --untracked-files=no)" || exit 3
+          git fetch origin main --quiet || exit 4
+          git reset --hard origin/main || exit 5
+          echo "live_head=$(git rev-parse HEAD)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== Price Storage V2 readiness ==="
+          "$PY" backend/scripts/check_price_storage_v2_projection_ready.py --market-date "$TARGET" || exit 10
+
+          echo "=== canonical post-scrape publication ==="
+          RC=1
+          for attempt in 1 2 3; do
+            set +e
+            timeout 6600 backend/scripts/rebuild_snapshots_after_scrape.sh "$TARGET"
+            RC=$?
+            set -e
+            echo "publication_attempt=$attempt rc=$RC"
+            if [ "$RC" -eq 0 ]; then
+              break
+            fi
+            if [ "$RC" -eq 4 ]; then
+              sleep 60
+              continue
+            fi
+            exit "$RC"
+          done
+          [ "$RC" -eq 0 ] || exit "$RC"
+
+          echo "=== database acceptance ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          day="2026-09-22"
+
+          quality=list(
+              c.table("pokemon_market_date_quality")
+              .select("status,cohort_set_count,qualifying_set_count")
+              .eq("tcg","pokemon").eq("market_date",day)
+              .order("evaluated_at",desc=True).limit(1).execute().data or []
+          )
+          assert quality and quality[0].get("status") in {"READY","LEGACY_VERIFIED"}, quality
+          assert int(quality[0].get("cohort_set_count") or 0) == 156, quality
+
+          market=list(
+              c.table("pokemon_explore_set_value_snapshot_latest")
+              .select("market_date,set_count")
+              .eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or []
+          )
+          assert market and str(market[0].get("market_date"))[:10] == day, market
+          assert int(market[0].get("set_count") or 0) == 156, market
+
+          dashboards=list(
+              c.table("pokemon_set_market_dashboard_snapshot_latest")
+              .select("set_id,latest_market_date")
+              .eq("window_key","365d").execute().data or []
+          )
+          current={str(r.get("set_id")) for r in dashboards if str(r.get("latest_market_date") or "")[:10] == day}
+          assert len(current) >= 167, {"current_dashboards":len(current),"rows":len(dashboards)}
+
+          coverage=list(
+              c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow")
+              .select("set_id,computed_through").limit(1000).execute().data or []
+          )
+          current_v2={str(r.get("set_id")) for r in coverage if str(r.get("computed_through") or "")[:10] >= day}
+          assert len(current_v2) >= 167, {"current_v2":len(current_v2),"rows":len(coverage)}
+
+          print("SEP22_DB_ACCEPTANCE=PASS", {
+              "quality":quality[0],
+              "market":market[0],
+              "dashboard_current":len(current),
+              "explorer_v2_current":len(current_v2),
+          })
+          PY
+
+          echo "=== public endpoint acceptance ==="
+          CURRENT=0
+          for i in $(seq 1 24); do
+            BODY="$(mktemp)"
+            CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+            DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+            COUNT="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); x=p.get("sets"); print(len(x) if isinstance(x,list) else -1)' "$BODY" 2>/dev/null || true)"
+            rm -f "$BODY"
+            echo "public_poll=$i http=$CODE date=$DATE sets=$COUNT"
+            if [ "$CODE" = "200" ] && [ "$DATE" = "$TARGET" ]; then
+              CURRENT=1
+              break
+            fi
+            sleep 10
+          done
+          [ "$CURRENT" -eq 1 ] || exit 20
+
+          echo "SEP22_MARKET_PUBLICATION_REPAIR=PASS"

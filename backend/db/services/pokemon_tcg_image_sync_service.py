@@ -33,10 +33,6 @@ from backend.constants.tcg.pokemon import historical_catalog_image_sources as ca
 TARGET_SET_API_SEARCH_NAMES = {
     "Prismatic Evolutions": "Prismatic Evolutions",
     "Scarlet and Violet 151": "151",
-    # Internal source names preserve the TCGplayer "ME:" series prefix; card
-    # metadata providers generally publish the expansion name without it.
-    "ME: 30th Celebration": "30th Celebration",
-    "ME: 30th Celebration Classic Collection": "30th Celebration Classic Collection",
 }
 
 IMAGE_ONLY_SPECIAL_TYPES = {"pokeball", "poke ball", "master ball", "masterball"}
@@ -120,12 +116,7 @@ _GENERIC_BALL_DESCRIPTOR_RE = re.compile(
 
 
 class PokemonTCGImageSyncService:
-    """One-way sync of provider card images onto existing cards/card_variants.
-
-    Existing PokemonTCG.io identities remain authoritative where present. Sets
-    that have no PokemonTCG.io identity/name match may fall back to Scrydex,
-    whose English expansion catalog often publishes brand-new sets first.
-    """
+    """One-way sync of Pokemon TCG image URLs onto existing card_variants rows."""
 
     def __init__(
         self,
@@ -291,9 +282,6 @@ class PokemonTCGImageSyncService:
         )
         image_source_api_set_ids = list(image_source_mapping.api_set_ids) if image_source_mapping else []
 
-        metadata_provider = "pokemon_tcg_api"
-        active_client: Any = self.client
-        fallback_reason: Optional[str] = None
         if image_source_api_set_ids:
             api_set = {"id": image_source_api_set_ids[0], "name": set_name}
             api_set_ids_to_fetch = image_source_api_set_ids
@@ -337,8 +325,6 @@ class PokemonTCGImageSyncService:
             "internal_set_name": set_name,
             "internal_set_id": internal_set_id,
             "pokemon_api_set_id": pokemon_api_set_id,
-            "metadata_provider": metadata_provider,
-            "provider_fallback_reason": fallback_reason,
             "api_set_id_used": api_set.get("id"),
             "api_set_name_used": api_set.get("name"),
             "api_set_ids_fetched": list(api_set_ids_to_fetch),
@@ -368,6 +354,7 @@ class PokemonTCGImageSyncService:
             "cards_matched_by_cleaned_name": 0,
             "cards_matched_duplicate_parallel_rows": 0,
             "cards_matched_by_number_only_unique": 0,
+            "cards_matched_by_number_relaxed_name_unique": 0,
             "cards_unmatched": 0,
             "cards_ambiguous": 0,
         }
@@ -510,8 +497,22 @@ class PokemonTCGImageSyncService:
                 strict_match_cards = strict_number_candidates
                 strict_match_strategy = "number_only_unique"
             elif len(strict_number_candidates) > 1:
-                strict_match_strategy = "ambiguous"
-                strict_reason = "Multiple internal cards matched normalized number"
+                # Some subset/checklist providers retain the original printing's
+                # number, so multiple internal cards can share the same normalized
+                # number. Resolve only punctuation / trailing-descriptor drift and
+                # only when that leaves exactly ONE same-number candidate.
+                api_identity_name = self._normalize_card_identity_name(api_card.get("name"))
+                relaxed_name_candidates = [
+                    candidate
+                    for candidate in strict_number_candidates
+                    if self._normalize_card_identity_name(candidate.get("name")) == api_identity_name
+                ]
+                if api_identity_name and len(relaxed_name_candidates) == 1:
+                    strict_match_cards = relaxed_name_candidates
+                    strict_match_strategy = "number_relaxed_name_unique"
+                else:
+                    strict_match_strategy = "ambiguous"
+                    strict_reason = "Multiple internal cards matched normalized number"
             else:
                 strict_match_strategy = "unmatched"
                 strict_reason = "No internal cards matched normalized number+name or unique number"
@@ -526,6 +527,8 @@ class PokemonTCGImageSyncService:
                 card_matching_summary["cards_matched_duplicate_parallel_rows"] += len(strict_match_cards)
             elif strict_match_strategy == "number_only_unique":
                 card_matching_summary["cards_matched_by_number_only_unique"] += 1
+            elif strict_match_strategy == "number_relaxed_name_unique":
+                card_matching_summary["cards_matched_by_number_relaxed_name_unique"] += 1
             elif strict_match_strategy in ("ambiguous", "ambiguous_cleaned_name"):
                 card_matching_summary["cards_ambiguous"] += 1
             else:
@@ -771,18 +774,29 @@ class PokemonTCGImageSyncService:
                 fallback_matches += 1
 
             for card in candidate_cards:
-                card_update_payload = {
-                    "card_id": card["id"],
-                    "image_last_synced_at": sync_timestamp,
-                }
-                if api_card.get("image_small_url"):
+                card_update_payload = {"card_id": card["id"]}
+                if (
+                    api_card.get("image_small_url")
+                    and card.get("image_small_url") != api_card.get("image_small_url")
+                ):
                     card_update_payload["image_small_url"] = api_card["image_small_url"]
-                if api_card.get("image_large_url"):
+                if (
+                    api_card.get("image_large_url")
+                    and card.get("image_large_url") != api_card.get("image_large_url")
+                ):
                     card_update_payload["image_large_url"] = api_card["image_large_url"]
-                if metadata_provider == "pokemon_tcg_api" and api_card.get("pokemon_tcg_api_id"):
+                if (
+                    api_card.get("pokemon_tcg_api_id")
+                    and card.get("pokemon_tcg_api_id") != api_card.get("pokemon_tcg_api_id")
+                ):
                     card_update_payload["pokemon_tcg_api_id"] = api_card["pokemon_tcg_api_id"]
 
-                if len(card_update_payload) > 2:
+                # A successful re-sync should be a true no-op when provider
+                # identity/artwork already matches durable state. Rewriting every
+                # row only to advance image_last_synced_at adds avoidable database
+                # pressure and can turn an otherwise-healthy repair into 57014.
+                if len(card_update_payload) > 1:
+                    card_update_payload["image_last_synced_at"] = sync_timestamp
                     updates_by_card_id[card["id"]] = card_update_payload
 
                 card_variants = variants_by_card_id.get(card["id"], [])
@@ -799,11 +813,7 @@ class PokemonTCGImageSyncService:
 
                 for variant in card_variants:
                     existing_api_id = variant.get("pokemon_tcg_api_id")
-                    can_store_api_id = (
-                        metadata_provider == "pokemon_tcg_api"
-                        and match_type == "exact"
-                        and not self._is_image_only_variant(variant)
-                    )
+                    can_store_api_id = match_type == "exact" and not self._is_image_only_variant(variant)
 
                     if existing_api_id and can_store_api_id and existing_api_id != api_card.get("pokemon_tcg_api_id"):
                         skipped.append(
@@ -819,30 +829,38 @@ class PokemonTCGImageSyncService:
                         )
                         continue
 
-                    update_payload = {
-                        "card_id": variant["id"],
-                        "image_last_synced_at": sync_timestamp,
-                    }
-                    if api_card.get("image_small_url"):
+                    update_payload = {"card_id": variant["id"]}
+                    if (
+                        api_card.get("image_small_url")
+                        and variant.get("image_small_url") != api_card.get("image_small_url")
+                    ):
                         update_payload["image_small_url"] = api_card["image_small_url"]
-                    if api_card.get("image_large_url"):
+                    if (
+                        api_card.get("image_large_url")
+                        and variant.get("image_large_url") != api_card.get("image_large_url")
+                    ):
                         update_payload["image_large_url"] = api_card["image_large_url"]
-                    if can_store_api_id and api_card.get("pokemon_tcg_api_id"):
+                    if (
+                        can_store_api_id
+                        and api_card.get("pokemon_tcg_api_id")
+                        and existing_api_id != api_card.get("pokemon_tcg_api_id")
+                    ):
                         update_payload["pokemon_tcg_api_id"] = api_card["pokemon_tcg_api_id"]
                     elif self._is_image_only_variant(variant):
                         image_only_matches += 1
 
-                    if len(update_payload) == 2:
+                    if len(update_payload) == 1:
                         skipped.append(
                             {
                                 "card_id": variant["id"],
                                 "name": card.get("name"),
                                 "number": card.get("card_number"),
-                                "reason": "API card did not include image URLs",
+                                "reason": "Provider image/identity already current",
                             }
                         )
                         continue
 
+                    update_payload["image_last_synced_at"] = sync_timestamp
                     updates_by_variant_id[variant["id"]] = update_payload
 
         internal_cards_with_no_matching_api_examples: List[Dict[str, Any]] = []
@@ -928,7 +946,6 @@ class PokemonTCGImageSyncService:
             "set_name": set_name,
             "internal_set_id": internal_set_id,
             "pokemon_api_set_id": pokemon_api_set_id,
-            "metadata_provider": metadata_provider,
             "api_set_id": api_set.get("id"),
             "api_set_name": api_set.get("name"),
             "dry_run": dry_run,
@@ -951,6 +968,22 @@ class PokemonTCGImageSyncService:
             "card_match_preview": card_match_preview,
             "variant_match_preview": variant_match_preview,
         }
+
+    @staticmethod
+    def _normalize_card_identity_name(name: Optional[str]) -> Optional[str]:
+        """Normalize provider/internal names for a guarded same-number fallback.
+
+        This deliberately does less than fuzzy matching: punctuation differences
+        are collapsed and a trailing parenthetical legacy descriptor is ignored.
+        Callers MUST also require the same normalized card number and exactly one
+        matching candidate before accepting the result.
+        """
+        if not name:
+            return None
+        text = " ".join(str(name).strip().casefold().split())
+        text = re.sub(r"\([^)]*\)\s*$", "", text).strip()
+        text = re.sub(r"[^a-z0-9]+", " ", text)
+        return " ".join(text.split()) or None
 
     @staticmethod
     def _normalize_card_name(name: Optional[str], card_number: Optional[str] = None) -> Optional[str]:

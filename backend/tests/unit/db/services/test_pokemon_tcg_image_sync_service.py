@@ -156,6 +156,48 @@ def test_dry_run_prepares_updates_but_writes_nothing(wiring):
     assert wiring.variant_update_batches == []
 
 
+
+def test_already_current_provider_state_performs_zero_writes(monkeypatch):
+    recorder = _Recorder()
+    api = _api_card(1, "Tropius", card_id="me5-1")
+    internal = _internal_card(1, 1, "Tropius")
+    internal.update({
+        "pokemon_tcg_api_id": api["pokemon_tcg_api_id"],
+        "image_small_url": api["image_small_url"],
+        "image_large_url": api["image_large_url"],
+        "image_last_synced_at": "2026-09-22T00:00:00+00:00",
+    })
+    variant = _variant(101, 1)
+    variant.update({
+        "pokemon_tcg_api_id": api["pokemon_tcg_api_id"],
+        "image_small_url": api["image_small_url"],
+        "image_large_url": api["image_large_url"],
+    })
+
+    monkeypatch.setattr(sync_module, "get_set_id_by_name", lambda _name: INTERNAL_SET_ID)
+    monkeypatch.setattr(
+        sync_module,
+        "get_set_by_name",
+        lambda _name: type("Res", (), {"data": {"pokemon_api_set_id": "me5"}})(),
+    )
+    monkeypatch.setattr(sync_module, "get_all_cards_for_set", lambda _sid: [internal])
+    monkeypatch.setattr(sync_module, "get_card_variants_by_card_ids", lambda _ids: [variant])
+    monkeypatch.setattr(sync_module, "update_card_image_sync_fields_batch", recorder.update_cards)
+    monkeypatch.setattr(sync_module, "update_card_variant_image_sync_fields_batch", recorder.update_variants)
+
+    result = PokemonTCGImageSyncService(client=_FakeClient(cards=[api])).sync_set(
+        set_name="Pitch Black",
+        dry_run=False,
+    )
+
+    assert result["prepared_card_updates"] == 0
+    assert result["prepared_variant_updates"] == 0
+    assert result["updated_card_rows"] == 0
+    assert result["updated_variant_rows"] == 0
+    assert recorder.card_update_batches == []
+    assert recorder.variant_update_batches == []
+
+
 def test_complete_fetch_preserves_existing_matching_behavior(wiring):
     """Exact number+name matching plus the parallel-row supplement are unchanged."""
     client = _FakeClient(cards=[_api_card(1, "Tropius"), _api_card(2, "Pikachu")])
@@ -370,3 +412,85 @@ def test_tcgdex_without_artwork_uses_free_scrydex_public_page_before_api(wiring)
     assert scrydex.calls == [], "public artwork should avoid authenticated API dependency"
     card_updates = {row["card_id"]: row for row in wiring.card_update_batches[0]}
     assert card_updates[1]["image_small_url"].startswith("https://images.scrydex.com/")
+
+
+def test_same_number_relaxed_name_fallback_resolves_unique_classic_identity(monkeypatch):
+    recorder = _Recorder()
+    internal_cards = [
+        _internal_card("gardevoir", "106/160", "M Gardevoir EX"),
+        _internal_card("celebi", "106/105", "Shining Celebi"),
+        _internal_card("palkia", "106/106", "Palkia LV.X"),
+        _internal_card("genesect", "11/101", "Genesect EX(Team Plasma)"),
+        _internal_card("metagross", "11/113", "Metagross(Delta Species)"),
+    ]
+    variants = [
+        _variant("vg", "gardevoir"),
+        _variant("vc", "celebi"),
+        _variant("vp", "palkia"),
+        _variant("vge", "genesect"),
+        _variant("vm", "metagross"),
+    ]
+    api_cards = [
+        _api_card("106", "M Gardevoir-EX", card_id="me55c-106m"),
+        _api_card("11", "Genesect-EX", card_id="me55c-11g"),
+    ]
+
+    monkeypatch.setattr(sync_module, "get_set_id_by_name", lambda _name: INTERNAL_SET_ID)
+    monkeypatch.setattr(
+        sync_module,
+        "get_set_by_name",
+        lambda _name: type("Res", (), {"data": {"pokemon_api_set_id": "me55c"}})(),
+    )
+    monkeypatch.setattr(sync_module, "get_all_cards_for_set", lambda _sid: internal_cards)
+    monkeypatch.setattr(sync_module, "get_card_variants_by_card_ids", lambda _ids: variants)
+    monkeypatch.setattr(sync_module, "update_card_image_sync_fields_batch", recorder.update_cards)
+    monkeypatch.setattr(sync_module, "update_card_variant_image_sync_fields_batch", recorder.update_variants)
+
+    service = PokemonTCGImageSyncService(client=_FakeClient(cards=api_cards))
+    result = service.sync_set(
+        set_name="ME: 30th Celebration Classic Collection",
+        dry_run=False,
+    )
+
+    summary = result["card_matching_summary"]
+    assert summary["cards_matched_by_number_relaxed_name_unique"] == 2
+    assert summary["cards_ambiguous"] == 0
+    assert result["updated_card_rows"] == 2
+
+    card_updates = {row["card_id"]: row for row in recorder.card_update_batches[0]}
+    assert set(card_updates) == {"gardevoir", "genesect"}
+    assert card_updates["gardevoir"]["pokemon_tcg_api_id"] == "me55c-106m"
+    assert card_updates["genesect"]["pokemon_tcg_api_id"] == "me55c-11g"
+
+
+def test_relaxed_name_fallback_stays_ambiguous_when_multiple_same_number_names_match(monkeypatch):
+    recorder = _Recorder()
+    internal_cards = [
+        _internal_card("a", "11/101", "Genesect EX(Team Plasma)"),
+        _internal_card("b", "11/999", "Genesect EX(Alt Art)"),
+    ]
+    variants = [_variant("va", "a"), _variant("vb", "b")]
+
+    monkeypatch.setattr(sync_module, "get_set_id_by_name", lambda _name: INTERNAL_SET_ID)
+    monkeypatch.setattr(
+        sync_module,
+        "get_set_by_name",
+        lambda _name: type("Res", (), {"data": {"pokemon_api_set_id": "me55c"}})(),
+    )
+    monkeypatch.setattr(sync_module, "get_all_cards_for_set", lambda _sid: internal_cards)
+    monkeypatch.setattr(sync_module, "get_card_variants_by_card_ids", lambda _ids: variants)
+    monkeypatch.setattr(sync_module, "update_card_image_sync_fields_batch", recorder.update_cards)
+    monkeypatch.setattr(sync_module, "update_card_variant_image_sync_fields_batch", recorder.update_variants)
+
+    service = PokemonTCGImageSyncService(
+        client=_FakeClient(cards=[_api_card("11", "Genesect-EX", card_id="me55c-11g")])
+    )
+    result = service.sync_set(
+        set_name="ME: 30th Celebration Classic Collection",
+        dry_run=False,
+    )
+
+    assert result["card_matching_summary"]["cards_ambiguous"] == 1
+    assert result["updated_card_rows"] == 0
+    assert recorder.card_update_batches == []
+    assert recorder.variant_update_batches == []

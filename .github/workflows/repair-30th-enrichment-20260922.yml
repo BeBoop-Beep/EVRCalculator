@@ -1,0 +1,195 @@
+name: Repair 30th Enrichment 20260922
+# retrigger after idempotent image sync landed
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-30th-enrichment-20260922.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-30th-enrichment-20260922
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - name: Hydrate images and rebuild enrichment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+
+          exec 9>/tmp/pokemon-30th-enrichment-repair.lock
+          flock -w 120 9
+
+          cd "$REPO"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main --quiet
+          git switch main
+          git reset --hard origin/main
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== verify existing image hydration ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          client = create_service_role_client()
+          targets = {
+              "ME: 30th Celebration": "8dbf97f7-b7e8-4ff5-883a-0bb3356291bf",
+              "ME: 30th Celebration Classic Collection": "a787aa9f-dbc3-47c0-bfe9-0045b9516a67",
+          }
+          for name, set_id in targets.items():
+              cards = (
+                  client.table("cards")
+                  .select("id,image_small_url,image_large_url")
+                  .eq("set_id", set_id)
+                  .execute()
+                  .data
+                  or []
+              )
+              canonical = (
+                  client.table("pokemon_canonical_cards")
+                  .select("id,image_small_url,image_large_url")
+                  .eq("set_id", set_id)
+                  .execute()
+                  .data
+                  or []
+              )
+              assert cards and canonical, (name, "missing durable card authority")
+              card_images = sum(bool(r.get("image_small_url") and r.get("image_large_url")) for r in cards)
+              canonical_images = sum(bool(r.get("image_small_url") and r.get("image_large_url")) for r in canonical)
+              assert card_images / len(cards) >= 0.90, (name, "card_image_coverage", card_images, len(cards))
+              assert canonical_images / len(canonical) >= 0.90, (name, "canonical_image_coverage", canonical_images, len(canonical))
+              print({
+                  "set": name,
+                  "cards": len(cards),
+                  "cards_with_both_images": card_images,
+                  "canonical": len(canonical),
+                  "canonical_with_both_images": canonical_images,
+              })
+          print("IMAGE_HYDRATION_PRECHECK=PASS")
+          PY
+
+          echo "=== static desirability already durable; Collector-only repair ==="
+
+          echo "=== Collector V7 catalog-membership rebuild ==="
+          "$PY" backend/scripts/operationalize_historical_rip.py \
+            --as-of-date 2026-09-22 --commit --force-model-rebuild \
+            --reuse-current-source-authority
+
+          echo "=== card snapshots ==="
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py \
+            --set-id me30thCelebration --commit
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py \
+            --set-id me30thCelebrationClassicCollection --commit
+
+          echo "=== verify durable authorities ==="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          client = create_service_role_client()
+          targets = {
+              "ME: 30th Celebration": ("8dbf97f7-b7e8-4ff5-883a-0bb3356291bf", True),
+              "ME: 30th Celebration Classic Collection": ("a787aa9f-dbc3-47c0-bfe9-0045b9516a67", False),
+          }
+          current = (
+              client.table("pokemon_collector_appeal_current")
+              .select("model_run_id,model_version")
+              .eq("scope", "pokemon")
+              .single()
+              .execute()
+              .data
+          )
+          assert current and current.get("model_run_id"), current
+          model_run_id = str(current["model_run_id"])
+
+          for name, (set_id, requires_collector_row) in targets.items():
+              cards = (
+                  client.table("cards")
+                  .select("id,image_small_url,image_large_url")
+                  .eq("set_id", set_id)
+                  .execute()
+                  .data
+                  or []
+              )
+              canonical = (
+                  client.table("pokemon_canonical_cards")
+                  .select("id,image_small_url,image_large_url")
+                  .eq("set_id", set_id)
+                  .execute()
+                  .data
+                  or []
+              )
+              assert cards, f"{name}: no cards"
+              assert canonical, f"{name}: no canonical cards"
+              card_images = sum(bool(r.get("image_small_url") or r.get("image_large_url")) for r in cards)
+              canonical_images = sum(bool(r.get("image_small_url") or r.get("image_large_url")) for r in canonical)
+              assert card_images / len(cards) >= 0.90, (name, "card_image_coverage", card_images, len(cards))
+              assert canonical_images / len(canonical) >= 0.90, (name, "canonical_image_coverage", canonical_images, len(canonical))
+
+              d = (
+                  client.table("pokemon_set_collector_desirability_scores")
+                  .select("set_id")
+                  .eq("model_run_id", model_run_id)
+                  .eq("set_id", set_id)
+                  .limit(1)
+                  .execute()
+                  .data
+                  or []
+              )
+              a = (
+                  client.table("pokemon_set_collector_appeal_scores")
+                  .select("set_id,score_status")
+                  .eq("model_run_id", model_run_id)
+                  .eq("set_id", set_id)
+                  .limit(1)
+                  .execute()
+                  .data
+                  or []
+              )
+              opening = (
+                  client.table("pokemon_set_opening_desirability_scores")
+                  .select("set_id")
+                  .eq("set_id", set_id)
+                  .limit(1)
+                  .execute()
+                  .data
+                  or []
+              )
+              if requires_collector_row:
+                  assert d, f"{name}: Collector Desirability missing in current V7 run"
+                  assert a, f"{name}: Collector Appeal row missing in current V7 run"
+              else:
+                  # Contributing subsets are intentionally excluded from the
+                  # root-set Collector cohort. Their cards roll into the parent
+                  # set contract instead of creating a second standalone set row.
+                  assert not d, f"{name}: unexpected standalone Collector Desirability row"
+                  assert not a, f"{name}: unexpected standalone Collector Appeal row"
+              assert opening, f"{name}: Opening Desirability missing"
+
+              print({
+                  "set": name,
+                  "cards": len(cards),
+                  "card_images": card_images,
+                  "canonical": len(canonical),
+                  "canonical_images": canonical_images,
+                  "collector_model_run_id": model_run_id,
+                  "collector_required": requires_collector_row,
+                  "collector_status": a[0].get("score_status") if a else None,
+                  "opening_rows": len(opening),
+              })
+
+          print("REPAIR_30TH_ENRICHMENT=PASS")
+          PY
