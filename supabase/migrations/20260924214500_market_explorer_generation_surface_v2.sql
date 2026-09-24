@@ -980,10 +980,10 @@ begin
     v_generation,p_base_generation_id
   );
 
-  select min(o.captured_at::date),max(d.market_date)
-  into v_min_sealed,v_max_sealed
-  from public.sealed_product_price_observations o
-  left join public.pokemon_market_explorer_sealed_daily_v1 d on true;
+  select
+    (select min(o.captured_at::date) from public.sealed_product_price_observations o),
+    (select max(d.market_date) from public.pokemon_market_explorer_sealed_daily_v1 d)
+  into v_min_sealed,v_max_sealed;
 
   if v_min_sealed is not null and (v_max_sealed is null or v_max_sealed<p_market_date) then
     perform public.refresh_pokemon_market_explorer_sealed_daily_v1(
