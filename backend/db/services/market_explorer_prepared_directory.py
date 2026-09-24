@@ -12,6 +12,8 @@ COMPARISON_RPC = "get_pokemon_market_explorer_prepared_comparison_v1"
 HISTORY_RPC = "get_pokemon_market_explorer_prepared_history_v1"
 SCREEN_RPC = "get_pokemon_market_explorer_prepared_screen_v1"
 CONTEXT_RPC = "get_pokemon_market_explorer_set_context_ranking_v1"
+CONSTITUENTS_RPC = "get_pokemon_market_explorer_prepared_constituents_v2"
+PREPARED_CONSTITUENT_MAX_LIMIT = 100
 # Constituent counts come ONLY from this compact, identity-keyed cache row --
 # never from `pokemon_set_market_dashboard_snapshot_latest.payload_json`
 # (a ~6MB-per-set column). That path was deleted deliberately: selecting it
@@ -64,6 +66,60 @@ def read_prepared_comparison(client: Any, market_keys: list[str]) -> list[dict[s
     if not 1 <= len(market_keys) <= MAX_MARKETS:
         raise ValueError("prepared comparison requires 1..25 market keys")
     return _rows(client.rpc(COMPARISON_RPC, {"p_market_keys": market_keys}).execute())
+
+
+def read_prepared_constituents(
+    client: Any, market_key: str, generation_id: str, after_rank: int = 0, limit: int = 100,
+) -> dict[str, Any]:
+    """One bounded, generation-pinned page of a prepared market's roster.
+
+    Reads only. The per-market-type authority (maintained query cache for
+    Era/Quick/Rarity, the canonical Set roster reader for Sets, the published
+    sealed roster for sealed formats) is dispatched INSIDE the RPC from the
+    directory row's own ``source_kind`` -- never inferred from a label or key
+    string here. A generation that changed since the caller loaded its
+    comparison comes back as ``code == "GENERATION_MISMATCH"``; rows from two
+    generations are never mixed.
+    """
+    if not str(market_key or "").strip() or not str(generation_id or "").strip():
+        raise ValueError("prepared constituents require a market key and generation id")
+    if int(after_rank) < 0 or not 1 <= int(limit) <= PREPARED_CONSTITUENT_MAX_LIMIT:
+        raise ValueError("prepared constituents require afterRank >= 0 and 1..100 rows")
+    data = client.rpc(CONSTITUENTS_RPC, {
+        "p_market_key": market_key, "p_generation_id": generation_id,
+        "p_after_rank": int(after_rank), "p_limit": int(limit),
+    }).execute().data
+    return dict(data or {})
+
+
+def enrich_prepared_constituent_page(client: Any, page: dict[str, Any]) -> dict[str, Any]:
+    """Attach accepted V2 constituent movement to a CARD page; honest otherwise.
+
+    Sealed rosters have no accepted per-constituent movement authority, so they
+    are reported ``movementAvailable: false`` rather than given fabricated
+    percentages. Movement failure never fails the roster read.
+    """
+    result = dict(page)
+    rows = list(result.get("rows") or [])
+    if result.get("availability") != "available" or not rows:
+        result["movementAvailable"] = False
+        return result
+    if result.get("asset") != "cards":
+        result["movementAvailable"] = False
+        result["movementReason"] = "Constituent movement is only published for card markets."
+        return result
+    from backend.db.services.market_explorer_constituent_movement import enrich_card_constituent_page
+    try:
+        enriched = enrich_card_constituent_page(
+            client, {"items": rows, "as_of": result.get("priceAsOf")})
+    except Exception:
+        result["movementAvailable"] = False
+        result["movementReason"] = "Constituent movement is temporarily unavailable."
+        return result
+    result["rows"] = list(enriched.get("items") or rows)
+    result["movementWindows"] = enriched.get("movement_windows") or {}
+    result["movementAvailable"] = any(row.get("changes") for row in result["rows"])
+    return result
 
 
 def read_prepared_history(client: Any, market_keys: list[str], start_date: str | None = None) -> list[dict[str, Any]]:
@@ -169,7 +225,11 @@ def read_prepared_comparison_bundle(
             "window_movements": movements.get(market_key, {}),
             "constituent_count": counts.get(market_key),
         })
-    return {"markets": enriched, "history": history}
+    found = {str(row.get("market_key") or "") for row in markets}
+    return {
+        "markets": enriched, "history": history,
+        "missingKeys": [key for key in market_keys if key not in found],
+    }
 
 
 def read_prepared_screen(client: Any, screen_key: str, asset: str | None, limit: int) -> list[dict[str, Any]]:

@@ -20,6 +20,7 @@ export default function MarketExplorerRarityMarkets({
   directory = [],
   rarityOptions = [],
   activeKeys = [],
+  pendingKeys = [],
   activeSeries = [],
   canUse = false,
   onUpgrade,
@@ -139,7 +140,10 @@ export default function MarketExplorerRarityMarkets({
         <div className="max-h-72 space-y-1 overflow-y-auto pr-1" role="listbox" aria-label="All rarity markets">
           {filtered.map((option) => {
             const state = stateFor(option);
-            const pending = pendingId === option.id;
+            const preparedMarket = preparedBySegment.get(option.id) || preparedByLabel.get(clean(option.label)) || null;
+            // A prepared rarity is "adding" only while ITS load is in flight; a
+            // failed or removed load clears it (the lifecycle owns that state).
+            const pending = pendingId === option.id || Boolean(preparedMarket && pendingKeys.includes(preparedMarket.market_key));
             return (
               <button
                 type="button"
