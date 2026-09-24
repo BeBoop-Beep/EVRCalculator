@@ -883,6 +883,11 @@ begin
 end;
 $function$;
 
+revoke all on function public.sync_pokemon_market_explorer_set_directory_v1()
+  from public,anon,authenticated;
+grant execute on function public.sync_pokemon_market_explorer_set_directory_v1()
+  to service_role;
+
 -- Keep the lightweight sync trigger count-aware. market_count changes are first-class
 -- publication changes even when the distinct root cohort is unchanged.
 create or replace function public.refresh_market_explorer_directory_after_set_market_v1()
