@@ -49,7 +49,7 @@ export function resolveAreaOpacity(seriesCount) {
   return Math.max(0.03, (BASE_AREA_OPACITY * AREA_OPACITY_FULL_AT) / count);
 }
 
-export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]" }) {
+export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]", minimal = false }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipAnchor, setTooltipAnchor] = useState(null);
   const [tooltipSize, setTooltipSize] = useState({ width: 248, height: 160 });
@@ -228,7 +228,8 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
         aria-label={spokenReading
           ? `${isIndexView ? "Pokémon canonical Market Index" : "Pokémon selected-window percentage performance"}. Selected ${spokenReading}`
           : `${isIndexView ? "Pokémon canonical Market Index" : "Pokémon selected-window percentage performance"}, ${formatMarketDate(dates[0])} to ${formatMarketDate(dates[dates.length - 1])}. Use left and right arrow keys to inspect daily values.`}
-        className={["group relative z-10 touch-pan-y overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65", plotClassName].join(" ")}
+        data-market-performance-surface={minimal ? "open-canvas" : "card"}
+        className={["group relative z-10 touch-pan-y overflow-visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65", minimal ? "rounded-sm" : "rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.16)]", plotClassName].join(" ")}
         onPointerDown={(event) => { if (event.pointerType !== "mouse") gestureRef.current = { startX: event.clientX, startY: event.clientY, moved: false }; }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -252,7 +253,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
           }
         }}
       >
-        <svg aria-hidden="true" viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} preserveAspectRatio="none" className="h-full w-full overflow-visible rounded-lg">
+        <svg aria-hidden="true" viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} preserveAspectRatio="none" className={minimal ? "h-full w-full overflow-visible" : "h-full w-full overflow-visible rounded-lg"}>
           <defs>
             {drawn.map((entry) => (
               <linearGradient key={entry.key} id={`${gradientPrefix}-${entry.key}`} x1="0" y1="0" x2="0" y2="1">

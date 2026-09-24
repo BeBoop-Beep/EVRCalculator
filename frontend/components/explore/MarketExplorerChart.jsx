@@ -40,7 +40,10 @@ export default function MarketExplorerChart({
   onClearGraph,
   detailsOpen = false,
   onToggleDetails,
-  openCanvas = false,
+  // The Explorer chart is an OPEN CANVAS by default: no enclosing card, no plot
+  // border, no interior background. /Market keeps the card surface because it
+  // never passes `minimal`.
+  openCanvas = true,
 }) {
   const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_INDEX);
   const visibleModel = useMemo(
@@ -55,20 +58,11 @@ export default function MarketExplorerChart({
 
   return (
     <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
-      <div className="px-3 py-3 sm:px-4">
+      <div className="px-2 pb-1 pt-2 sm:px-3">
         <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
         <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
-            <button
-              type="button"
-              data-market-explorer-view-details
-              aria-expanded={detailsOpen}
-              onClick={onToggleDetails}
-              className="min-h-10 rounded-lg border border-white/10 bg-white/[.035] px-3 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:border-[rgba(45,212,191,.45)] hover:bg-[rgba(45,212,191,.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,.65)]"
-            >
-              View Constituents &amp; Comparison
-            </button>
           </div>
           <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
             <MarketExplorerTimeframeSelector
@@ -79,7 +73,7 @@ export default function MarketExplorerChart({
             />
           </div>
         </div>
-        <div className="mt-2 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-2">
+        <div className="mt-1 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-1.5">
           <div className="min-w-0 flex-1">
           <p className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
           {timeframe === "All" ? (
@@ -105,7 +99,7 @@ export default function MarketExplorerChart({
               onClick={onClearGraph}
               disabled={!totalActiveCount}
               aria-label="Clear Graph: remove every active market from the chart"
-              className="rounded-md px-2 py-1 font-medium text-[var(--text-secondary)] opacity-70 transition-colors hover:bg-[rgba(248,113,113,0.06)] hover:text-[rgb(248,113,113)] disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              className="rounded-md border border-[rgba(248,113,113,0.4)] bg-[rgba(248,113,113,0.07)] px-2.5 py-1 font-semibold text-[rgb(248,113,113)] transition-colors hover:border-[rgba(248,113,113,0.7)] hover:bg-[rgba(248,113,113,0.16)] hover:text-[rgb(252,165,165)] disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-transparent disabled:text-[var(--text-secondary)] disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(248,113,113,0.7)]"
             >
               Clear Graph
             </button>
@@ -114,16 +108,16 @@ export default function MarketExplorerChart({
       </div>
 
       {totalActiveCount === 0 ? (
-        <p role="status" data-market-explorer-no-active-markets className="px-3 pb-2 text-[11px] text-[var(--text-secondary)] sm:px-4">
+        <p role="status" data-market-explorer-no-active-markets className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3">
           No active markets. Select a market above or build one to add a line to the chart.
         </p>
       ) : selectedSeries.length === 0 ? (
-        <p role="status" data-market-explorer-all-hidden className="px-3 pb-2 text-[11px] text-[var(--text-secondary)] sm:px-4">
+        <p role="status" data-market-explorer-all-hidden className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3">
           Every active market is hidden. Use &quot;Show all&quot; or toggle one on in Active Markets below.
         </p>
       ) : null}
 
-      <div className="min-w-0 flex-1 px-3 pb-3 sm:px-4">
+      <div className="min-w-0 flex-1 pl-2 pr-3 sm:pl-3 sm:pr-4">
         {visibleModel?.available
           ? (
             // THE PLOT IS THE PRODUCT, so it gets real height at every width.
@@ -135,7 +129,7 @@ export default function MarketExplorerChart({
               model={visibleModel}
               timeframe={timeframe}
               viewMode={viewMode}
-              plotClassName="h-[22rem] tab:h-[28rem] desk:h-[calc(100dvh-23rem)] desk:min-h-[22rem] desk:max-h-[38rem] 2xl:max-h-[42rem]"
+              plotClassName="h-[20rem] tab:h-[26rem] desk:h-[clamp(19rem,calc(100dvh-24rem),42rem)]"
               minimal={openCanvas}
             />
           )
@@ -144,6 +138,23 @@ export default function MarketExplorerChart({
               {spanLabel ? describeUnavailableWindow(spanLabel) : "Market performance history is unavailable."}
             </p>
           )}
+      </div>
+
+      {/* BOTTOM-CENTER ANALYSIS ACTION. Lives inside the chart pane directly under
+          the x-axis dates, so it is part of the chart workspace (visible without
+          scrolling, centred on the plot) rather than the toolbar or a page section.
+          It opens the in-place takeover overlay; violet marks it as an analysis
+          action, distinct from performance green/red and selected-teal controls. */}
+      <div data-market-explorer-chart-bottom-actions className="flex flex-none justify-center px-2 pb-2 pt-1.5 sm:px-3">
+        <button
+          type="button"
+          data-market-explorer-view-details
+          aria-expanded={detailsOpen}
+          onClick={onToggleDetails}
+          className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200 shadow-sm transition-colors hover:border-violet-300/85 hover:bg-violet-500/[.24] hover:text-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface-page)]"
+        >
+          View Constituents &amp; Comparison
+        </button>
       </div>
     </section>
   );
