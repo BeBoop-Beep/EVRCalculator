@@ -421,7 +421,7 @@ jobs:
           }
 
           # ---- pinned pricing runtime overlay (reviewed manifest; nothing here is request-supplied) ----
-          PRICING_SOURCE_SHA="c8acb916bf147dd446e3dc1e492100470a39ce53"
+          PRICING_SOURCE_SHA="83e6b392fc0e3dd9f971e8d574fb2e64429880f7"
           SENTINEL_PRICING_SHA="6313116b62845e1211e93215393a9609701a935c"
           PRICING_OVERLAY_PRICE_PATHS="
             backend/pricing_pipeline/__init__.py
@@ -459,6 +459,7 @@ jobs:
           "
           PRICING_TEST_PRICE_PATHS="
             backend/tests/unit/pricing_pipeline/test_budget_v2.py
+            backend/tests/unit/pricing_pipeline/test_budget_v2_transient_retry.py
             backend/tests/unit/pricing_pipeline/test_daily_multi_source_pipeline.py
             backend/tests/unit/pricing_pipeline/test_ebay_quota_and_credentials.py
           "
