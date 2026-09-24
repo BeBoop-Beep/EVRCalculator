@@ -421,7 +421,8 @@ jobs:
           }
 
           # ---- pinned pricing runtime overlay (reviewed manifest; nothing here is request-supplied) ----
-          PRICING_SOURCE_SHA="83e6b392fc0e3dd9f971e8d574fb2e64429880f7"
+          PRICING_SOURCE_SHA="138897dc795df91a4a13be7b35df0a28d5aeedd5"
+          PRICING_TEST_SOURCE_SHA="c8acb916bf147dd446e3dc1e492100470a39ce53"
           SENTINEL_PRICING_SHA="6313116b62845e1211e93215393a9609701a935c"
           PRICING_OVERLAY_PRICE_PATHS="
             backend/pricing_pipeline/__init__.py
@@ -459,10 +460,10 @@ jobs:
           "
           PRICING_TEST_PRICE_PATHS="
             backend/tests/unit/pricing_pipeline/test_budget_v2.py
-            backend/tests/unit/pricing_pipeline/test_budget_v2_transient_retry.py
             backend/tests/unit/pricing_pipeline/test_daily_multi_source_pipeline.py
             backend/tests/unit/pricing_pipeline/test_ebay_quota_and_credentials.py
           "
+          PRICING_TEST_CANDIDATE_PATHS="backend/tests/unit/pricing_pipeline/test_budget_v2_transient_retry.py"
           PRICING_TEST_SENTINEL_PATHS="backend/tests/unit/sentinel/test_pricing_registration.py"
           PRICING_TEST_SUPPORT_PATHS="
             backend/db/migrations/20260921000000_p6_pipeline_runs_and_browse_budget_ledger.sql
@@ -488,7 +489,7 @@ jobs:
 
           pricing_source_check() {
             local sha f listed expected
-            for sha in "$PRICING_SOURCE_SHA" "$SENTINEL_PRICING_SHA"; do
+            for sha in "$PRICING_SOURCE_SHA" "$PRICING_TEST_SOURCE_SHA" "$SENTINEL_PRICING_SHA"; do
               git cat-file -e "$sha^{commit}" 2>/dev/null || { echo "REFUSING: pinned commit $sha is not in the production object store"; return 1; }
             done
             listed=$(git ls-tree -r --name-only "$PRICING_SOURCE_SHA" -- backend/pricing_pipeline/ | sort)
@@ -552,9 +553,13 @@ jobs:
           }
 
           pricing_candidate_tests() {
-            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_PRICE_PATHS || return 1
+            # Historical comprehensive suite/fixtures stay pinned to the original
+            # validated pricing source; candidate-specific regression tests come
+            # from the runtime candidate itself. This avoids re-promoting old DDL
+            # fixtures into canonical main merely to preserve validation coverage.
+            git -C "$PRICING_WT" checkout "$PRICING_TEST_SOURCE_SHA" -- $PRICING_TEST_PRICE_PATHS $PRICING_TEST_SUPPORT_PATHS || return 1
+            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_CANDIDATE_PATHS || return 1
             git -C "$PRICING_WT" checkout "$SENTINEL_PRICING_SHA" -- $PRICING_TEST_SENTINEL_PATHS || return 1
-            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_SUPPORT_PATHS || return 1
             if ! PYTHONPATH="$PRICING_PYTEST_DEPS" "$PY" -c 'import pytest' 2>/dev/null; then
               echo "pytest unavailable; installing into $PRICING_PYTEST_DEPS (never into the production venv)"
               "$PY" -m pip install --disable-pip-version-check -q --target "$PRICING_PYTEST_DEPS" pytest || return 1
