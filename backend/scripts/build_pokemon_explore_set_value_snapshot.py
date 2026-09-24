@@ -52,6 +52,11 @@ def _attach_initial_selected_set_movers(client, row: dict) -> None:
     published_sets = payload.get("sets") or []
     if not published_sets:
         return
+    # The existing movers publication is keyed only by set_id and therefore
+    # cannot distinguish Unlimited / 1st Edition / Shadowless. Never attach a
+    # generic mover list to an explicit edition market.
+    if str(published_sets[0].get("marketScope") or "standard") != "standard":
+        return
     contract = read_initial_selected_set_movers(client, published_sets[0])
     payload["initialSelectedSetMovers"] = contract
     items = contract.get("items") or []
