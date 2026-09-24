@@ -43,7 +43,16 @@ CANONICAL_HISTORY_START = "1999-01-01"
 CANONICAL_HISTORY_SET_BATCH = 4
 ROLLOUT_STANDARD_SOURCE = "canonical_root_set_rollout_v1"
 EDITION_PROFILE_TABLE = "pokemon_edition_split_root_sets_v2"
-DEFAULT_EDITION_SPLIT_DISPLAY_SCOPE = "unlimited"
+EDITION_SCOPES_BY_PROFILE = {
+    "edition_split": ("first_edition", "unlimited"),
+    "base_three_printings": ("first_edition", "shadowless", "unlimited"),
+}
+MARKET_SCOPE_LABELS = {
+    "standard": None,
+    "first_edition": "1st Edition",
+    "unlimited": "Unlimited",
+    "shadowless": "Shadowless",
+}
 
 
 def _attach_initial_selected_set_movers(client, row: dict) -> None:
@@ -196,14 +205,17 @@ def _load_sets(client, *, market_date: str):
         for row in resolve_market_root_cohort(client, market_date=day)
     ]
 
-def _load_market_value_scope_overrides(client, set_ids):
-    """Return value-history overrides without changing Market membership.
+def _market_key(set_id: str, market_scope: str) -> str:
+    scope = str(market_scope or "standard")
+    return f"set:{set_id}" if scope == "standard" else f"set:{set_id}:{scope}"
 
-    Standard roots remain Standard. Explicit vintage edition profiles use the
-    one-row Set Market display scope. This helper is deliberately called only
-    by the current global Market build; historical/direct loader callers retain
-    their existing Standard behavior unless an override map is supplied.
-    """
+
+def _market_label(base_name: str, market_scope: str) -> str:
+    suffix = MARKET_SCOPE_LABELS.get(str(market_scope or "standard"))
+    return str(base_name or "") if not suffix else f"{base_name} — {suffix}"
+
+
+def _load_market_scope_profiles(client, set_ids):
     ids = [str(value) for value in set_ids if str(value or "").strip()]
     if not ids:
         return {}
@@ -216,66 +228,55 @@ def _load_market_value_scope_overrides(client, set_ids):
             .execute().data or []
         ))
     return {
-        str(row.get("set_id")): DEFAULT_EDITION_SPLIT_DISPLAY_SCOPE
+        str(row.get("set_id")): str(row.get("profile"))
         for row in rows
-        if str(row.get("profile") or "") in {"edition_split", "base_three_printings"}
-        and row.get("set_id")
+        if str(row.get("profile") or "") in EDITION_SCOPES_BY_PROFILE and row.get("set_id")
     }
 
 
-def _load_scoped_certified_histories(client, set_ids, *, through_date, scope_by_set):
-    """Load only certified scoped history for vintage display overrides."""
-    grouped = defaultdict(list)
-    limit_date = str(through_date)[:10]
-    for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
-        batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
-        response = client.rpc(
-            CANONICAL_HISTORY_RPC,
-            {
-                "p_root_set_ids": batch,
-                "p_start_date": CANONICAL_HISTORY_START,
-                "p_end_date": limit_date,
-            },
-        ).execute()
-        for row in list(response.data or []):
-            set_id = str(row.get("set_id") or "")
-            if str(row.get("market_scope") or "") != str(scope_by_set.get(set_id) or ""):
-                continue
-            if row.get("certified_on_date") is not True:
-                continue
-            grouped[set_id].append({
-                "set_id": row.get("set_id"),
-                "snapshot_date": row.get("market_date"),
-                "set_value": row.get("set_value"),
-            })
-    for rows in grouped.values():
-        rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
-    return grouped
+def _expand_market_scope_rows(sets, *, market_date: str, profiles):
+    """Expand one catalogue root into the explicit markets the Market tab publishes.
 
-def _load_canonical_histories(client, set_ids, *, through_date: str, market_scope_overrides=None):
-    """Load the Set Value history that the Market page actually displays.
-
-    PRE-CUTOVER keeps the historical certified-root contract plus the explicitly
-    activated rollout row for the current day.
-
-    POST-CUTOVER standard roots continue to use
-    pokemon_set_value_daily_history Standard rows. Explicit vintage edition
-    profiles may supply a scoped override for the one-row Set Market view.
-    Scoped rows come only from certified canonical root history; incomplete
-    scoped markets therefore become stale/unavailable rather than falling back
-    to a blended Standard basket.
-
-    Reads are explicitly paged with a deterministic (snapshot_date, set_id)
-    order so PostgREST row caps cannot silently truncate broad Market cohorts.
+    Standard roots retain their historical market key. Vintage roots never expose a
+    generic edition-mixed market: each accepted edition scope is a separate market
+    identity. Set-page routing stays anchored to the underlying set_id and is
+    intentionally left for the later Set-page pass.
     """
+    post_cutover = str(market_date)[:10] >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE
+    expanded = []
+    for source in sets:
+        row = dict(source)
+        set_id = str(row.get("id") or row.get("set_id") or "")
+        profile = profiles.get(set_id) if post_cutover else None
+        scopes = EDITION_SCOPES_BY_PROFILE.get(profile, ("standard",))
+        for scope in scopes:
+            market = dict(row)
+            market["base_name"] = row.get("name") or row.get("set_name")
+            market["market_scope"] = scope
+            market["market_key"] = _market_key(set_id, scope)
+            market["name"] = _market_label(market["base_name"], scope)
+            market["market_profile"] = profile or "standard"
+            expanded.append(market)
+    return expanded
+
+
+def _load_canonical_histories(client, markets, *, through_date: str):
+    """Load exactly the Set Value history belonging to each explicit market identity."""
     grouped = defaultdict(list)
     limit_date = str(through_date)[:10]
     post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE
+    market_by_pair = {
+        (str(row.get("id") or row.get("set_id") or ""), str(row.get("market_scope") or "standard")):
+        str(row.get("market_key") or _market_key(str(row.get("id") or row.get("set_id") or ""), str(row.get("market_scope") or "standard")))
+        for row in markets
+    }
+    standard_ids = sorted({set_id for (set_id, scope) in market_by_pair if scope == "standard"})
+    scoped_ids = sorted({set_id for (set_id, scope) in market_by_pair if scope != "standard"})
 
     if post_cutover:
         page_size = 1000
-        for offset in range(0, len(set_ids), 100):
-            batch = set_ids[offset:offset + 100]
+        for offset in range(0, len(standard_ids), 100):
+            batch = standard_ids[offset:offset + 100]
             start = 0
             while True:
                 response = (
@@ -291,87 +292,85 @@ def _load_canonical_histories(client, set_ids, *, through_date: str, market_scop
                 )
                 rows = list(response.data or [])
                 for row in rows:
-                    grouped[str(row.get("set_id"))].append({
-                        "set_id": row.get("set_id"),
-                        "snapshot_date": row.get("snapshot_date"),
-                        "set_value": row.get("set_value"),
-                    })
+                    set_id = str(row.get("set_id") or "")
+                    key = market_by_pair.get((set_id, "standard"))
+                    if key:
+                        grouped[key].append({
+                            "set_id": row.get("set_id"),
+                            "market_scope": "standard",
+                            "snapshot_date": row.get("snapshot_date"),
+                            "set_value": row.get("set_value"),
+                        })
                 if len(rows) < page_size:
                     break
                 start += page_size
 
-        overrides = {
-            str(set_id): str(scope)
-            for set_id, scope in dict(market_scope_overrides or {}).items()
-            if str(set_id) in {str(value) for value in set_ids} and str(scope) != "standard"
-        }
-        if overrides:
-            scoped = _load_scoped_certified_histories(
-                client,
-                list(overrides),
-                through_date=limit_date,
-                scope_by_set=overrides,
-            )
-            for set_id in overrides:
-                grouped[set_id] = list(scoped.get(set_id) or [])
+        for offset in range(0, len(scoped_ids), 100):
+            batch = scoped_ids[offset:offset + 100]
+            start = 0
+            while True:
+                response = (
+                    client.table("pokemon_market_root_set_value_daily_history_v2_shadow")
+                    .select("set_id,market_scope,market_date,set_value,certified_on_date")
+                    .in_("set_id", batch)
+                    .lte("market_date", limit_date)
+                    .eq("certified_on_date", True)
+                    .order("market_date", desc=False)
+                    .order("set_id", desc=False)
+                    .range(start, start + page_size - 1)
+                    .execute()
+                )
+                rows = list(response.data or [])
+                for row in rows:
+                    set_id = str(row.get("set_id") or "")
+                    scope = str(row.get("market_scope") or "")
+                    key = market_by_pair.get((set_id, scope))
+                    if key:
+                        grouped[key].append({
+                            "set_id": row.get("set_id"),
+                            "market_scope": scope,
+                            "snapshot_date": row.get("market_date"),
+                            "set_value": row.get("set_value"),
+                        })
+                if len(rows) < page_size:
+                    break
+                start += page_size
 
         for rows in grouped.values():
             rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
         return grouped
 
-    for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
-        batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
+    # Historical pre-cutover behavior remains standard-only.
+    for offset in range(0, len(standard_ids), CANONICAL_HISTORY_SET_BATCH):
+        batch = standard_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
         response = client.rpc(
             CANONICAL_HISTORY_RPC,
-            {
-                "p_root_set_ids": batch,
-                "p_start_date": CANONICAL_HISTORY_START,
-                "p_end_date": limit_date,
-            },
+            {"p_root_set_ids": batch, "p_start_date": CANONICAL_HISTORY_START, "p_end_date": limit_date},
         ).execute()
         for row in list(response.data or []):
-            if str(row.get("market_scope") or "") != "standard":
+            if str(row.get("market_scope") or "") != "standard" or row.get("certified_on_date") is not True:
                 continue
-            if row.get("certified_on_date") is not True:
-                continue
-            grouped[str(row.get("set_id"))].append({
-                "set_id": row.get("set_id"),
-                "snapshot_date": row.get("market_date"),
-                "set_value": row.get("set_value"),
-            })
-
-    for offset in range(0, len(set_ids), 100):
-        batch = set_ids[offset:offset + 100]
-        rows = list((
-            client.table("pokemon_set_value_daily_history")
-            .select("set_id,snapshot_date,set_value,source")
-            .in_("set_id", batch)
-            .eq("snapshot_date", limit_date)
-            .eq("value_scope", "standard")
-            .eq("source", ROLLOUT_STANDARD_SOURCE)
-            .execute()
-        ).data or [])
-        for row in rows:
-            set_id = str(row.get("set_id"))
-            grouped[set_id] = [
-                point
-                for point in grouped.get(set_id, [])
-                if str(point.get("snapshot_date"))[:10] != limit_date
-            ]
-            grouped[set_id].append({
-                "set_id": row.get("set_id"),
-                "snapshot_date": row.get("snapshot_date"),
-                "set_value": row.get("set_value"),
-            })
+            set_id = str(row.get("set_id") or "")
+            key = market_by_pair.get((set_id, "standard"))
+            if key:
+                grouped[key].append({
+                    "set_id": row.get("set_id"),
+                    "market_scope": "standard",
+                    "snapshot_date": row.get("market_date"),
+                    "set_value": row.get("set_value"),
+                })
 
     for rows in grouped.values():
         rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
     return grouped
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
-    sets = _load_sets(client, market_date=market_date)
-    set_ids = [str(row["id"]) for row in sets]
-    if not set_ids:
+    root_sets = _load_sets(client, market_date=market_date)
+    root_set_ids = [str(row["id"]) for row in root_sets]
+    profiles = _load_market_scope_profiles(client, root_set_ids)
+    sets = _expand_market_scope_rows(root_sets, market_date=market_date, profiles=profiles)
+    set_ids = sorted(set(root_set_ids))
+    if not sets:
         raise ExploreSetValueUnavailable(
             "no staged Market Set Value scopes are available",
             diagnostics={"marketDate": str(market_date)[:10]},
@@ -390,13 +389,7 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
                 .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
             dashboards.extend(result.data or [])
 
-    market_scope_overrides = _load_market_value_scope_overrides(client, set_ids)
-    histories = _load_canonical_histories(
-        client,
-        set_ids,
-        through_date=market_date,
-        market_scope_overrides=market_scope_overrides,
-    )
+    histories = _load_canonical_histories(client, sets, through_date=market_date)
 
     overview = market_overview
     if overview is None:
