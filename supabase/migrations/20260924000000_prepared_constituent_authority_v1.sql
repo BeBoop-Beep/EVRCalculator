@@ -247,10 +247,13 @@ $function$;
 revoke all on function public.get_pokemon_market_explorer_prepared_constituents_v3(text, uuid, integer, integer) from public, anon, authenticated;
 grant execute on function public.get_pokemon_market_explorer_prepared_constituents_v3(text, uuid, integer, integer) to service_role;
 
--- Publisher: refresh, then stage constituents for the now-serving generation in the
--- SAME transaction. Any staging failure raises and rolls back the promotion with it.
--- Also self-heals: if the refresh was a no-op and the serving generation has no staged
--- constituents yet, they are staged now.
+-- Publisher: the production wrapper body (already_current short-circuit, then the
+-- guarded refresh) is preserved verbatim; the ONLY addition is that constituents
+-- are staged for the serving generation in the SAME transaction, after the refresh
+-- (or after the already_current check when that generation has no staged rows yet).
+-- Any staging failure raises and rolls the promotion back with it.
+-- Owner and ACL (postgres + market_explorer_publisher) are deliberately untouched:
+-- CREATE OR REPLACE keeps them.
 create or replace function public.run_market_explorer_guarded_publisher_v1(p_required_market_date date)
 returns jsonb
 language plpgsql
@@ -258,6 +261,7 @@ security definer
 set search_path = ''
 as $function$
 declare
+  v_existing uuid;
   v_result jsonb;
   v_generation uuid;
   v_staged jsonb := null;
@@ -265,15 +269,61 @@ begin
   if p_required_market_date is null then
     raise exception 'required Market Explorer prepared market date must not be null';
   end if;
+
+  select g.generation_id
+    into v_existing
+  from public.pokemon_market_explorer_prepared_serving_v1 p
+  join public.pokemon_market_explorer_prepared_generations_v1 g
+    on g.generation_id = p.generation_id
+  join public.pokemon_explore_set_value_snapshot_latest s
+    on s.tcg = 'pokemon' and s.scope = 'market'
+  where g.comparison_as_of = p_required_market_date
+    and g.source_as_of->>'sets' = s.market_date::text
+    and g.source_as_of->>'sealed' = s.market_date::text
+    and s.updated_at <= g.generated_at
+    and not exists (
+      select 1
+      from public.pokemon_market_explorer_query_cache c
+      where c.cache_kind = 'maintained'
+        and c.last_built_at > g.generated_at
+    )
+    and not exists (
+      select 1
+      from public.pokemon_set_market_dashboard_snapshot_latest d
+      where d.updated_at > g.generated_at
+    )
+    and not exists (
+      select 1
+      from public.pokemon_set_sealed_market_snapshot_latest d
+      where d.updated_at > g.generated_at
+    )
+  limit 1;
+
+  if v_existing is not null then
+    v_generation := v_existing;
+    if not exists (select 1 from public.pokemon_market_explorer_prepared_constituent_totals_v1
+                   where generation_id = v_generation) then
+      v_staged := public.stage_pokemon_market_explorer_prepared_constituents_v1(v_generation);
+    end if;
+    return jsonb_build_object(
+      'status','already_current',
+      'generationId',v_existing,
+      'comparisonAsOf',p_required_market_date,
+      'constituents',v_staged
+    );
+  end if;
+
   v_result := public.refresh_pokemon_market_explorer_prepared_if_current_v1(p_required_market_date);
+
   select generation_id into v_generation from public.pokemon_market_explorer_prepared_serving_v1 where singleton;
-  if v_generation is not null and not exists (
-    select 1 from public.pokemon_market_explorer_prepared_constituent_totals_v1 where generation_id = v_generation) then
+  if v_generation is not null then
     v_staged := public.stage_pokemon_market_explorer_prepared_constituents_v1(v_generation);
   end if;
-  return coalesce(v_result, '{}'::jsonb) || jsonb_build_object('constituents', v_staged);
+
+  return jsonb_build_object(
+    'status','refreshed',
+    'result',v_result,
+    'constituents',v_staged
+  );
 end;
 $function$;
-
-alter function public.run_market_explorer_guarded_publisher_v1(date) owner to postgres;
-revoke all on function public.run_market_explorer_guarded_publisher_v1(date) from public, anon, authenticated, service_role;

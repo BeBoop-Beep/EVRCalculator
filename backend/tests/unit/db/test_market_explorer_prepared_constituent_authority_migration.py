@@ -40,8 +40,13 @@ def test_reader_is_bounded_generation_pinned_and_falls_back_to_v2():
 
 def test_staging_is_atomic_with_publication_and_validated():
     wrapper = SQL.split("run_market_explorer_guarded_publisher_v1(p_required_market_date date)")[1]
-    assert wrapper.index("refresh_pokemon_market_explorer_prepared_if_current_v1") < wrapper.index(
-        "stage_pokemon_market_explorer_prepared_constituents_v1")
+    # Refreshed branch: refresh first, then stage the now-serving generation (same transaction).
+    assert wrapper.index("refresh_pokemon_market_explorer_prepared_if_current_v1(") < wrapper.rindex(
+        "stage_pokemon_market_explorer_prepared_constituents_v1(")
+    # The production wrapper's already_current short-circuit and grantee ACL are preserved.
+    assert "'already_current'" in wrapper
+    assert "alter function public.run_market_explorer_guarded_publisher_v1" not in SQL
+    assert "revoke all on function public.run_market_explorer_guarded_publisher_v1" not in SQL
     assert "PREPARED_CONSTITUENT_VALIDATION_FAILED" in SQL
     assert "mx <> t.total_count" in SQL
 
