@@ -162,6 +162,8 @@ function buildMembershipRows(targets) {
     return {
       target,
       setId: String(target?.setId || ""),
+      marketKey: String(target?.marketKey || target?.setId || ""),
+      marketScope: String(target?.marketScope || "standard"),
       name: String(target?.name || target?.setId || "Unknown Set"),
       era: String(target?.era || "Pokémon"),
       status,
@@ -213,7 +215,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
   const [listWindowKey, setListWindowKey] = useState(DEFAULT_WINDOW);
   const isMasterDetail = useMediaQuery("(min-width: 1200px)", true);
   const activeDetailWindowKey = listWindowKey;
-  const [selectedSetId, setSelectedSetId] = useState(null);
+  const [selectedMarketKey, setSelectedMarketKey] = useState(null);
   // Below desktop the browser and the analysis are two states of one screen,
   // never a squeezed split. Desktop ignores this entirely.
   const detailHistoryCache = useRef(new Map());
@@ -305,12 +307,12 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
   // top, and an unavailable/stale row must never become the default just
   // because its name sorts first.
   const selected = useMemo(
-    () => membership.find((row) => row.setId === selectedSetId) || rankedCurrent[0] || membership[0] || null,
-    [membership, rankedCurrent, selectedSetId]
+    () => membership.find((row) => row.marketKey === selectedMarketKey) || rankedCurrent[0] || membership[0] || null,
+    [membership, rankedCurrent, selectedMarketKey]
   );
 
-  const selectSet = (setId, { openDetail = false } = {}) => {
-    setSelectedSetId(setId);
+  const selectSet = (marketKey, { openDetail = false } = {}) => {
+    setSelectedMarketKey(marketKey);
     // Only the LOCAL mobile window resets with the selection. The shared
     // desktop window is a property of the workspace, not of the row you
     // clicked, so changing sets must leave it exactly where the user put it.
@@ -332,7 +334,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       navigateToSet(row);
       return;
     }
-    selectSet(row.setId, { openDetail: true });
+    selectSet(row.marketKey, { openDetail: true });
   };
 
   const detailValueMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
@@ -349,7 +351,8 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
     if (selected?.status === "unavailable") return undefined;
     if (["1D", "7D", "30D"].includes(activeDetailWindowKey)) return undefined;
 
-    const cached = detailHistoryCache.current.get(setId) || null;
+    const historyKey = selected?.marketKey || setId;
+    const cached = detailHistoryCache.current.get(historyKey) || null;
     const needsAll = cached && needsLifetimeSetMarketHistory({
       activeWindowKey: activeDetailWindowKey,
       historyStartDate: selected.target?.historyStartDate,
@@ -364,18 +367,18 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
     const days = needsAll ? 1825 : 365;
     let cancelled = false;
     setDetailHistoryState({ setId, status: "loading", history: [], days, error: null });
-    getPokemonSetValueHistory(setId, { days, scope: "standard" })
+    getPokemonSetValueHistory(setId, { days, scope: selected?.marketScope || "standard" })
       .then((payload) => {
         if (cancelled) return;
         const history = Array.isArray(payload?.history) ? payload.history : [];
-        detailHistoryCache.current.set(setId, { history, days });
+        detailHistoryCache.current.set(historyKey, { history, days });
         setDetailHistoryState({ setId, status: "success", history, days, error: null });
       })
       .catch((error) => {
         if (!cancelled) setDetailHistoryState({ setId, status: "error", history: [], days, error });
       });
     return () => { cancelled = true; };
-  }, [isMasterDetail, selected?.setId, selected?.status, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
+  }, [isMasterDetail, selected?.setId, selected?.marketKey, selected?.marketScope, selected?.status, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
 
   const detailTrend = usesBootstrapDetailTrend
     ? bootstrapDetailTrend
@@ -425,12 +428,12 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
               {visible.map((row, index) => {
                 const movement = row.status === "unavailable" ? null : movementWithIndexReturn(row.target, listWindowKey);
                 const miniTrend = row.status === "unavailable" ? [] : selectSetMarketMiniTrend(row.target, listWindowKey);
-                const isActive = selected?.setId === row.setId;
+                const isActive = selected?.marketKey === row.marketKey;
                 return (
-                  <li key={row.setId} ref={index === Math.min(5, visible.length - 1) ? returnThresholdRef : undefined} data-set-market-return-threshold={index === Math.min(5, visible.length - 1) ? "true" : undefined}>
+                  <li key={row.marketKey} ref={index === Math.min(5, visible.length - 1) ? returnThresholdRef : undefined} data-set-market-return-threshold={index === Math.min(5, visible.length - 1) ? "true" : undefined}>
                     <button
                       type="button"
-                      data-set-market-row={row.setId}
+                      data-set-market-row={row.marketKey}
                       data-set-market-row-status={row.status}
                       aria-current={isActive ? "true" : undefined}
                       onClick={(event) => activateSetRow(event, row, isActive)}
@@ -564,14 +567,20 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
         )}
       </div>
 
-      <SetMarketTopMovers
-        key={selected.setId}
-        setId={selected.setId}
-        setCanonicalKey={selected.target?.canonicalKey}
-        setName={selected.name}
-        viewAllHref={moversHref}
-        initialPayload={initialSelectedSetMovers?.setId === selected.setId ? initialSelectedSetMovers : null}
-      />
+      {selected.marketScope === "standard" ? (
+        <SetMarketTopMovers
+          key={selected.marketKey}
+          setId={selected.setId}
+          setCanonicalKey={selected.target?.canonicalKey}
+          setName={selected.name}
+          viewAllHref={moversHref}
+          initialPayload={initialSelectedSetMovers?.setId === selected.setId ? initialSelectedSetMovers : null}
+        />
+      ) : (
+        <p data-set-market-scoped-movers-note className="mt-3 border-t border-[var(--border-subtle)] pt-3 text-[11px] text-[var(--text-secondary)]">
+          Movers are hidden for edition-scoped markets until the scoped mover publication is available.
+        </p>
+      )}
     </div>
   ) : null;
 
