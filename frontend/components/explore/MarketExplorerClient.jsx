@@ -12,7 +12,8 @@ import MarketExplorerScreens from "./MarketExplorerScreens";
 import MarketExplorerRarityMarkets from "./MarketExplorerRarityMarkets";
 import MarketExplorerContextRanking from "./MarketExplorerContextRanking";
 import MarketExplorerExactBasket from "./MarketExplorerExactBasket";
-import { buildPreparedSeries } from "@/lib/explore/marketExplorerPrepared.mjs";
+import usePreparedMarkets from "@/hooks/explore/usePreparedMarkets";
+import { describePreparedFailure, PREPARED_FAILURE } from "@/lib/explore/marketExplorerPreparedLoader.mjs";
 import {
   buildBenchmarkModel,
   buildExplorerTimeframeOptions,
@@ -104,9 +105,16 @@ export default function MarketExplorerClient({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
-  const [preparedActiveKeys, setPreparedActiveKeys] = useState(() => initialPreparedKey ? [initialPreparedKey] : []);
-  const [loadedPreparedSeries, setLoadedPreparedSeries] = useState([]);
-  const [preparedLoadError, setPreparedLoadError] = useState(null);
+  // PREPARED SELECTION LIFECYCLE (marketExplorerPreparedLoader.mjs). A prepared
+  // market is ACTIVE only once its data has loaded. Requested-but-unloaded and
+  // failed markets live in their own sets, are never re-sent with later
+  // requests, and never remove a market that already loaded.
+  const {
+    loader: preparedLoader, series: loadedPreparedSeries, loadedKeys: preparedActiveKeys,
+    pendingKeys: preparedPendingKeys, failed: preparedFailures, failedKeys: preparedFailedKeys,
+  } = usePreparedMarkets();
+  const preparedLabels = useMemo(
+    () => new Map((preparedDirectory || []).map((row) => [row.market_key, row.label])), [preparedDirectory]);
 
   useEffect(() => {
     if (canComparePreparedMarkets && compareUpgradeVisible) setCompareUpgradeVisible(false);
@@ -161,8 +169,8 @@ export default function MarketExplorerClient({
     clearAllQueries();
     setHiddenSeriesKeys(new Set());
     setEditingSeriesId(null);
-    setPreparedActiveKeys([]);
-  }, [clearAllSelection, clearAllQueries]);
+    preparedLoader.clear();
+  }, [clearAllSelection, clearAllQueries, preparedLoader]);
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
   // one shared request.
@@ -194,30 +202,35 @@ export default function MarketExplorerClient({
       setCompareUpgradeVisible(true);
       return "upgrade";
     }
-    let outcome = "added";
-    setPreparedActiveKeys((current) => {
-      if (current.includes(seriesId)) {
-        outcome = "removed";
-        return current.filter((key) => key !== seriesId);
-      }
-      return [...current, seriesId].slice(0, 25);
+    const current = preparedLoader.getSnapshot();
+    if (current.loaded[seriesId]) {
+      preparedLoader.remove(seriesId);
+      return "removed";
+    }
+    // Duplicate clicks while loading are guarded; the pending strip can cancel.
+    if (current.pending.includes(seriesId)) return "pending";
+    preparedLoader.add(seriesId).then((outcome) => {
+      if (outcome === "loaded") setRequestedDetailSeriesId(seriesId);
     });
-    if (outcome === "added") setRequestedDetailSeriesId(seriesId);
-    return outcome;
-  }, [canComparePreparedMarkets]);
+    return "added";
+  }, [canComparePreparedMarkets, preparedLoader]);
 
   // Comparison-capable users accumulate markets. Selecting a third market must
   // never silently delete the first two; active prepared markets toggle in
   // place and can be removed from the same surface that added them.
   const selectPrepared = useCallback((seriesId) => {
     if (canComparePreparedMarkets) return comparePrepared(seriesId);
-    setPreparedActiveKeys([seriesId]);
-    setRequestedDetailSeriesId(seriesId);
-    clearAllSelection();
-    clearAllQueries();
-    setHiddenSeriesKeys(new Set());
+    // Basic: one workspace market. The previous line stays until the
+    // replacement has LOADED, so a failed swap leaves the chart intact.
+    preparedLoader.replace(seriesId).then((outcome) => {
+      if (outcome !== "loaded" && outcome !== "duplicate") return;
+      setRequestedDetailSeriesId(seriesId);
+      clearAllSelection();
+      clearAllQueries();
+      setHiddenSeriesKeys(new Set());
+    });
     return "replaced";
-  }, [canComparePreparedMarkets, clearAllQueries, clearAllSelection, comparePrepared]);
+  }, [canComparePreparedMarkets, clearAllQueries, clearAllSelection, comparePrepared, preparedLoader]);
 
   // A canonical prepared deep link is a selection, not an addition to the
   // legacy default asset pair. Resolve it through the same replacement path
@@ -227,28 +240,8 @@ export default function MarketExplorerClient({
     clearAllSelection();
     clearAllQueries();
     setHiddenSeriesKeys(new Set());
-  }, [clearAllQueries, clearAllSelection, initialPreparedKey]);
-
-  useEffect(() => {
-    if (!preparedActiveKeys.length) { setLoadedPreparedSeries([]); setPreparedLoadError(null); return; }
-    const controller = new AbortController();
-    fetch("/api/market/explorer/prepared", {
-      method: "POST", credentials: "include", cache: "no-store", signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ marketKeys: preparedActiveKeys }),
-    }).then(async (response) => {
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.message || "Prepared comparison unavailable");
-      setLoadedPreparedSeries(buildPreparedSeries(payload.markets, payload.history));
-      setPreparedLoadError(null);
-    }).catch((error) => {
-      // A failed prepared request must not erase previously-loaded valid
-      // series. Keep whatever last loaded successfully and surface a
-      // visible, bounded error/retry state instead of silently clearing.
-      if (error?.name !== "AbortError") setPreparedLoadError(error?.message || "Prepared comparison unavailable");
-    });
-    return () => controller.abort();
-  }, [preparedActiveKeys]);
+    preparedLoader.replace(initialPreparedKey);
+  }, [clearAllQueries, clearAllSelection, initialPreparedKey, preparedLoader]);
 
   // A hand-authored legacy URL can contain several prepared selections. The
   // Basic contract still resolves to one workspace market on first paint.
@@ -346,6 +339,7 @@ export default function MarketExplorerClient({
           <p className={styles.explorerZoneDescription}>Browse published Set, Era, and curated markets.</p>
         </div>
         <MarketExplorerBrowse directory={preparedDirectory} directoryStatus={preparedDirectoryStatus} activeKeys={preparedActiveKeys}
+          pendingKeys={preparedPendingKeys} failedKeys={preparedFailedKeys}
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared}
           onBuild={() => { setBuilderMode("exact"); setBuilderOpen(true); }} />
         <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
@@ -354,6 +348,7 @@ export default function MarketExplorerClient({
             directory={preparedDirectory}
             rarityOptions={options?.cardRarities?.rarities || []}
             activeKeys={preparedActiveKeys}
+            pendingKeys={preparedPendingKeys}
             activeSeries={querySeries}
             canUse={canComparePreparedMarkets}
             onUpgrade={() => setCompareUpgradeVisible(true)}
@@ -361,7 +356,7 @@ export default function MarketExplorerClient({
             onAddQuery={addQuery}
             onRemoveQuery={removeQuery}
           />
-          <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys}
+          <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
         </div>
         </section>
@@ -412,7 +407,7 @@ export default function MarketExplorerClient({
             activeSeriesId={activeDetailSeriesId}
             onInspect={setRequestedDetailSeriesId}
             onRemove={(key) => {
-              if (preparedActiveKeys.includes(key)) setPreparedActiveKeys((current) => current.filter((entry) => entry !== key));
+              if (preparedActiveKeys.includes(key)) preparedLoader.remove(key);
               else { if (editingSeries?.key === key) setEditingSeriesId(null); toggleSeries(key); }
             }}
             onEdit={beginEdit}
@@ -432,10 +427,30 @@ export default function MarketExplorerClient({
           inert={detailsOpen ? true : undefined}
           className={detailsOpen ? "pointer-events-none min-w-0 select-none" : "min-w-0"}
         >
-          {preparedLoadError ? <div role="alert" data-market-explorer-prepared-error className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-2 text-xs text-[rgb(248,113,113)]">
-            <span>{preparedLoadError}. Previously loaded markets are still shown.</span>
-            <button type="button" data-market-explorer-prepared-retry onClick={() => setPreparedActiveKeys((keys) => [...keys])} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold">Retry</button>
-          </div> : null}
+          {preparedPendingKeys.map((key) => (
+            <div key={`pending:${key}`} role="status" data-market-explorer-prepared-pending={key} className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+              <span>Adding {preparedLabels.get(key) || "market"}…</span>
+              <button type="button" data-market-explorer-prepared-cancel={key} onClick={() => preparedLoader.remove(key)} className="rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold">Cancel</button>
+            </div>
+          ))}
+          {preparedFailedKeys.map((key) => {
+            const failure = preparedFailures[key];
+            return (
+              <div key={`failed:${key}`} role="alert" data-market-explorer-prepared-error={key} data-market-explorer-prepared-error-kind={failure?.kind} className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-2 text-xs text-[rgb(248,113,113)]">
+                <span>{describePreparedFailure(preparedLabels.get(key), failure)}{selectedSeries.length ? " Your other markets are still shown." : ""}</span>
+                <span className="flex flex-none gap-1.5">
+                  {failure?.retryable ? <button type="button" data-market-explorer-prepared-retry={key} onClick={() => preparedLoader.retry(key)} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold">Retry</button> : null}
+                  {failure?.kind === PREPARED_FAILURE.entitlement ? <a href="/pricing" className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold">Upgrade</a> : null}
+                  <button type="button" data-market-explorer-prepared-dismiss={key} onClick={() => preparedLoader.dismissFailure(key)} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold">Dismiss</button>
+                </span>
+              </div>
+            );
+          })}
+          {loadedPreparedSeries.filter((series) => series.trend.length < 2).map((series) => (
+            <p key={`nohistory:${series.key}`} role="status" data-market-explorer-prepared-no-history={series.key} className="mb-2 rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+              {series.label} has no published price history to chart yet.
+            </p>
+          ))}
           <MarketExplorerChart
             overview={overview}
             selectedSeries={visibleSeries}
@@ -480,6 +495,7 @@ export default function MarketExplorerClient({
                 activeSeriesId={activeDetailSeriesId}
                 onSelectSeries={setRequestedDetailSeriesId}
                 onEditSeries={beginEdit}
+                onRefreshPrepared={(key) => preparedLoader.refresh(key)}
               />
               {activeDetailMarket?.marketType === "set" ? (
                 <MarketExplorerContextRanking

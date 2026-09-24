@@ -75,9 +75,11 @@ test("Build modal unifies exact Cards/Products and Custom Filters", async () => 
 test("Index+ prepared selection accumulates and compare controls toggle Remove without clearing other lanes", async () => {
   const client = await read("./MarketExplorerClient.jsx");
   const browse = await read("./MarketExplorerBrowse.jsx");
-  assert.match(client, /if \(canComparePreparedMarkets\)[\s\S]*setPreparedActiveKeys\(\(current\) => current\.includes\(seriesId\) \? current : \[\.\.\.current, seriesId\]\.slice\(0, 25\)\)/);
-  assert.match(client, /setPreparedActiveKeys\(\(current\) => \{[\s\S]*current\.includes\(seriesId\)[\s\S]*current\.filter\(\(key\) => key !== seriesId\)/);
-  const paidBlock = client.slice(client.indexOf("if (canComparePreparedMarkets)"), client.indexOf("// Basic remains the single-market browsing lane."));
+  // Lifecycle model: a compare click ADDS through the prepared loader (active only once loaded)
+  // and a second click REMOVES; neither clears another lane.
+  assert.match(client, /preparedLoader\.add\(seriesId\)/);
+  assert.match(client, /current\.loaded\[seriesId\][\s\S]*preparedLoader\.remove\(seriesId\)/);
+  const paidBlock = client.slice(client.indexOf("const comparePrepared = useCallback"), client.indexOf("const selectPrepared = useCallback"));
   assert.doesNotMatch(paidBlock, /clearAllSelection\(|clearAllQueries\(/);
   assert.match(browse, /active \? "Remove"/);
 });

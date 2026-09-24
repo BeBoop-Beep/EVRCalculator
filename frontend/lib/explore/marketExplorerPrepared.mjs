@@ -38,6 +38,12 @@ export function buildPreparedSeries(rows = [], history = []) {
     const color = resolveSeriesIdentityColor(row.market_key, row.market_key);
     return {
       key: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
+      // PREPARED IDENTITY, published by the backend on the directory row and
+      // carried verbatim for the constituent pager. Nothing here is derived from
+      // labels or key strings. `generationId` pins paging to this exact
+      // publication; a mismatch is reloaded, never mixed.
+      asset: row.asset === "sealed" ? "sealed" : "cards", generationId: row.generation_id ?? null,
+      preparedSeriesKey: row.prepared_series_key ?? null, sourceKind: row.source_kind ?? null,
       marketType: row.market_type, setId: row.set_id, eraId: row.era_id, parentEraId: row.parent_era_id,
       available: true, historyAvailable: row.history_available, basketValue: row.comparison_value,
       browseValue: row.current_value, sourceAsOf: row.source_as_of, comparisonAsOf: end,
@@ -57,6 +63,33 @@ export function buildPreparedSeries(rows = [], history = []) {
       color, softColor: softSeriesColor(color),
     };
   });
+}
+
+/**
+ * Fetch ONE prepared market (its directory row + its own history) and build its
+ * series. `contextKeys` are the other markets already on the chart; the backend
+ * uses them only to judge the Index+ compare entitlement and never reads them.
+ * A market the backend does not return is an INVALID_KEY failure, never a
+ * silently empty success.
+ */
+export async function fetchPreparedMarket(key, { contextKeys = [], signal } = {}) {
+  const response = await fetch("/api/market/explorer/prepared", {
+    method: "POST", credentials: "include", cache: "no-store", signal,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ marketKeys: [key], contextMarketKeys: contextKeys.slice(0, 25) }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = payload?.detail && typeof payload.detail === "object" ? payload.detail : null;
+    throw new PreparedFetchError("Prepared market request failed", {
+      status: response.status, code: payload?.code || detail?.code || "",
+    });
+  }
+  const rows = (Array.isArray(payload?.markets) ? payload.markets : []).filter((row) => row.market_key === key);
+  const history = (Array.isArray(payload?.history) ? payload.history : []).filter((point) => point.market_key === key);
+  const [series] = buildPreparedSeries(rows, history);
+  if (!series) throw new PreparedFetchError("Unknown prepared market", { status: 404, code: "PREPARED_MARKET_UNKNOWN" });
+  return series;
 }
 
 export const QUICK_MARKET_KEYS = Object.freeze([
@@ -93,6 +126,7 @@ export function groupPreparedDirectory(rows = [], search = "") {
   return { eras, sets: [...sets.values()].sort((a, b) => (a.era?.label || "").localeCompare(b.era?.label || "")), quick };
 }
 import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
+import { PreparedFetchError } from "./marketExplorerPreparedLoader.mjs";
 
 /**
  * The ACTUAL published prepared Sealed markets (asset 'sealed', e.g. Booster

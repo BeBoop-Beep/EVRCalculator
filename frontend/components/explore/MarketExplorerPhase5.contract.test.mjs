@@ -18,7 +18,7 @@ test("Basic browse and explicit compare are separate actions", () => {
   assert.match(browse, /data-prepared-market=/);
   assert.match(browse, /data-compare-market=/);
   assert.match(client, /Compare markets with Index\+/);
-  assert.match(client, /setPreparedActiveKeys\(\[seriesId\]\)/);
+  assert.match(client, /preparedLoader\.replace\(seriesId\)/);
 });
 
 test("Sets group by Era and Screens use only the prepared endpoint", () => {
