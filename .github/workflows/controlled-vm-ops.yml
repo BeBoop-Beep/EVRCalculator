@@ -2460,9 +2460,10 @@ jobs:
               if git status --porcelain --untracked-files=no | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
                 echo "REFUSING: unexpected tracked modifications:"; git status --short; exit 22
               fi
-              for f in $(pricing_overlay_manifest); do
-                [ ! -e "$f" ] || { echo "REFUSING: $f already exists; the runtime is already present (use pricing-runtime-preflight)"; exit 23; }
-              done
+              if pricing_runtime_present; then
+                echo "REFUSING: pricing runtime is already fully present (use pricing-runtime-preflight)"
+                exit 23
+              fi
               MANIFEST_PATH=$(pricing_env_value SENTINEL_RUNTIME_OVERLAY_MANIFEST)
               if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
                 APPROVED_BASE=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["approvedMainSha"])' "$MANIFEST_PATH")
