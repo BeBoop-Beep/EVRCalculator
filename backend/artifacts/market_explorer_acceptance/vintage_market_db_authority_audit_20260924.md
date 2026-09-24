@@ -257,7 +257,8 @@ plus minimal typed relation stubs.
 
 Results:
 
-- full migration revision with live dynamic-function markers: **PASS** on Postgres 17;
+- full profile-driven migration revision with live dynamic-function markers: **PASS** on Postgres 17;
+- final DB-maintained market_count trigger/constraint delta: **PASS** on the same Postgres 17 harness;
 - SQL suite with deterministic Standard/Base/edition-split/source-defect fixture: **PASS**;
 - profile-existence destructive-in-transaction probe (remove a current valuation row; identity must survive unavailable): **PASS**;
 - legacy-writer compatibility probe (omit market_count; DB derives it): **PASS**;
@@ -383,10 +384,3 @@ The application branch already supports `marketKey`, `marketScope`, `baseSetName
 5. Do not merge the coordinator prototype migration over this DB authority branch; reconcile the application files against this final contract.
 
 
-
-No production database write has been performed.
-
-Authorization is still required for:
-
-1. **Creating a paid Supabase development branch** (none currently exists) to execute the migration/tests on real PostgreSQL.
-2. **Applying the migration to production and running the production scoped publication/promotion sequence.**
