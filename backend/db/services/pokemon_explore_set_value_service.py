@@ -192,8 +192,13 @@ def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> D
     Market page, per the membership/certification separation this module
     enforces.
     """
+    market_scope = str(pokemon_set.get("market_scope") or "standard")
+    market_key = str(pokemon_set.get("market_key") or _market_identity(set_id, market_scope))
     return {
         "setId": set_id,
+        "marketKey": market_key,
+        "marketScope": market_scope,
+        "baseSetName": pokemon_set.get("base_set_name") or pokemon_set.get("set_name") or pokemon_set.get("name"),
         "canonicalKey": pokemon_set.get("canonical_key"),
         "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
         "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
