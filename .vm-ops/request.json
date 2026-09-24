@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "sep24-snapshot-rootcause-status"
+  "operation": "market-explorer-db-diagnose",
+  "request_id": "sep24-market-explorer-expansion-dbdiag"
 }
