@@ -311,7 +311,7 @@ Latest root-scope observations can advance beyond the approved Market Date. On 2
 
 No production database write has been performed.
 
-The temporary paid Supabase validation branch was used only for isolated Postgres validation and should be deleted after this handoff is frozen.
+The temporary paid Supabase validation branch was used only for isolated Postgres validation and was deleted after validation completed.
 
 Still requiring explicit user authorization:
 
