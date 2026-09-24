@@ -172,10 +172,11 @@ def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[
     rows = [dict(row) for row in sets]
     market_authority_mode = any("market_publication_ready" in row for row in rows)
     if market_authority_mode:
-        eligible = [
-            row for row in rows
-            if str(row.get("market_scope") or "standard") == "standard"
-        ]
+        # The Market tab publishes MARKET identities, not one row per catalogue
+        # root. Standard roots contribute one row; edition-split roots are
+        # expanded upstream into one explicit row per certified physical scope.
+        # Never collapse them back to a generic Standard row here.
+        eligible = list(rows)
     else:
         eligible = [
             row for row in rows
