@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -185,6 +185,352 @@ jobs:
           ).order("provider_window_end", desc=True).limit(4).execute().data or []
           print(json.dumps(out, sort_keys=True, default=str, indent=2))
           PY
+          }
+
+          # ---- pinned pricing runtime overlay (reviewed manifest; nothing here is request-supplied) ----
+          PRICING_SOURCE_SHA="c8acb916bf147dd446e3dc1e492100470a39ce53"
+          SENTINEL_PRICING_SHA="6313116b62845e1211e93215393a9609701a935c"
+          PRICING_OVERLAY_PRICE_PATHS="
+            backend/pricing_pipeline/__init__.py
+            backend/pricing_pipeline/budget.py
+            backend/pricing_pipeline/budget_v2.py
+            backend/pricing_pipeline/builder.py
+            backend/pricing_pipeline/collector.py
+            backend/pricing_pipeline/contracts.py
+            backend/pricing_pipeline/ebay_credentials.py
+            backend/pricing_pipeline/ebay_quota_policy.py
+            backend/pricing_pipeline/estimates.py
+            backend/pricing_pipeline/evidence.py
+            backend/pricing_pipeline/health.py
+            backend/pricing_pipeline/locking.py
+            backend/pricing_pipeline/orchestrator.py
+            backend/pricing_pipeline/store.py
+            backend/pricing_pipeline/targets.py
+            backend/pricing_pipeline/variants.py
+            backend/scripts/run_daily_multi_source_card_pricing.py
+            backend/scripts/check_multi_source_pricing_health.py
+            backend/scripts/audit_ebay_quota_and_sold_access.py
+            backend/scripts/ebay_english_price_eligibility_v1.py
+            backend/scripts/ebay_language_policy_v1.py
+            backend/scripts/freeze_ebay_active_ask_v1.py
+            backend/scripts/index_fair_value_ebay_evidence_collector.py
+            backend/scripts/run_ebay_p4a_adaptive_development.py
+            backend/scripts/pokemon_multi_source_card_price_v1.py
+            backend/scripts/p5b_cohort_builder.py
+            infra/oracle/install_multi_source_pricing_cron.sh
+            infra/oracle/multi-source-pricing.crontab
+          "
+          PRICING_OVERLAY_SENTINEL_PATHS="
+            backend/sentinel/checks/pricing.py
+            backend/sentinel/checks/registry.py
+          "
+          PRICING_TEST_PRICE_PATHS="
+            backend/tests/unit/pricing_pipeline/test_budget_v2.py
+            backend/tests/unit/pricing_pipeline/test_daily_multi_source_pipeline.py
+            backend/tests/unit/pricing_pipeline/test_ebay_quota_and_credentials.py
+          "
+          PRICING_TEST_SENTINEL_PATHS="backend/tests/unit/sentinel/test_pricing_registration.py"
+          PRICING_TEST_SUPPORT_PATHS="
+            backend/db/migrations/20260921000000_p6_pipeline_runs_and_browse_budget_ledger.sql
+            backend/db/migrations/20260921010000_p5b_multi_source_card_prices_shadow_v1.sql
+            backend/db/migrations/20260921020000_p6_restrict_ebay_estimate_privileges.sql
+            supabase/migrations/20260921000000_p6_pipeline_runs_and_browse_budget_ledger.sql
+            supabase/migrations/20260921010000_p5b_multi_source_card_prices_shadow_v1.sql
+            supabase/migrations/20260921020000_p6_restrict_ebay_estimate_privileges.sql
+          "
+          PRICING_SENTINEL_KEYS="pricing.canonical.source_guard pricing.ebay.budget_health pricing.ebay.estimator_freshness pricing.ebay.evidence_freshness pricing.ebay.quota_authority_v2 pricing.multi_source.policy_drift pricing.multi_source.run_freshness pricing.multi_source.shadow_freshness pricing.multi_source.target_freshness"
+          PRICING_WT="/tmp/EVRCalculator-pricing-runtime-preflight"
+          PRICING_PREFLIGHT_STATE="/tmp/index-pricing-preflight-state"
+          PRICING_PYTEST_DEPS="/tmp/evr-pytest-deps"
+          PRICING_FAILED_STAGES=""
+
+          pricing_overlay_manifest() {
+            printf '%s\n' $PRICING_OVERLAY_PRICE_PATHS $PRICING_OVERLAY_SENTINEL_PATHS | sort
+          }
+
+          pricing_overlay_source_for() {
+            case " $(echo $PRICING_OVERLAY_SENTINEL_PATHS) " in *" $1 "*) echo "$SENTINEL_PRICING_SHA" ;; *) echo "$PRICING_SOURCE_SHA" ;; esac
+          }
+
+          pricing_source_check() {
+            local sha f listed expected
+            for sha in "$PRICING_SOURCE_SHA" "$SENTINEL_PRICING_SHA"; do
+              git cat-file -e "$sha^{commit}" 2>/dev/null || { echo "REFUSING: pinned commit $sha is not in the production object store"; return 1; }
+            done
+            listed=$(git ls-tree -r --name-only "$PRICING_SOURCE_SHA" -- backend/pricing_pipeline/ | sort)
+            expected=$(printf '%s\n' $PRICING_OVERLAY_PRICE_PATHS | grep '^backend/pricing_pipeline/' | sort)
+            if [ "$listed" != "$expected" ]; then
+              echo "REFUSING: backend/pricing_pipeline/ at PRICING_SOURCE_SHA differs from the reviewed file list"
+              diff <(echo "$expected") <(echo "$listed") || true
+              return 1
+            fi
+            for f in $PRICING_OVERLAY_PRICE_PATHS $PRICING_OVERLAY_SENTINEL_PATHS; do
+              git rev-parse -q --verify "$(pricing_overlay_source_for "$f"):$f" >/dev/null || { echo "REFUSING: $f is missing at its pinned source"; return 1; }
+            done
+            echo "pinned_sources_ok pricing=$PRICING_SOURCE_SHA sentinel=$SENTINEL_PRICING_SHA"
+          }
+
+          pricing_candidate_prepare() {
+            local changed manifest unexpected f src want got
+            pricing_source_check || return 1
+            git worktree prune
+            if [ -e "$PRICING_WT" ]; then
+              git worktree remove --force "$PRICING_WT" >/dev/null 2>&1 || rm -rf "$PRICING_WT"
+              git worktree prune
+            fi
+            git worktree add --detach "$PRICING_WT" HEAD >/dev/null || return 1
+            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_OVERLAY_PRICE_PATHS || return 1
+            git -C "$PRICING_WT" checkout "$SENTINEL_PRICING_SHA" -- $PRICING_OVERLAY_SENTINEL_PATHS || return 1
+            echo "candidate_base_main_sha=$(git rev-parse HEAD)"
+            echo "pricing_source_sha=$PRICING_SOURCE_SHA"
+            echo "sentinel_source_sha=$SENTINEL_PRICING_SHA"
+            echo "-- candidate git status --short --"
+            git -C "$PRICING_WT" status --short
+            changed=$(git -C "$PRICING_WT" diff --name-only HEAD | sort)
+            manifest=$(pricing_overlay_manifest)
+            unexpected=$(comm -23 <(echo "$changed") <(echo "$manifest") | grep . || true)
+            if [ -n "$unexpected" ]; then
+              echo "REFUSING: candidate differs from production main outside the reviewed manifest:"
+              echo "$unexpected"
+              return 1
+            fi
+            for f in $PRICING_OVERLAY_PRICE_PATHS $PRICING_OVERLAY_SENTINEL_PATHS; do
+              src=$(pricing_overlay_source_for "$f")
+              want=$(git rev-parse "$src:$f")
+              got=$(git hash-object "$PRICING_WT/$f")
+              [ "$want" = "$got" ] || { echo "REFUSING: candidate blob for $f differs from its pinned source"; return 1; }
+              echo "overlay path=$f source=${src:0:8} blob=$got production_main_blob=$(git rev-parse -q --verify "HEAD:$f" || echo ABSENT)"
+            done
+            git -C "$PRICING_WT" diff --check HEAD || { echo "REFUSING: git diff --check failed on the candidate"; return 1; }
+            echo "candidate_overlay_path_count=$(echo "$manifest" | grep -c .)"
+            echo "candidate_changed_path_count=$(echo "$changed" | grep -c . || true)"
+            echo "candidate_diff_equals_manifest_exactly=$([ "$changed" = "$manifest" ] && echo true || echo false)"
+          }
+
+          pricing_cpy() {
+            ( cd "$PRICING_WT" && PYTHONPATH="$PRICING_WT" "$PY" "$@" )
+          }
+
+          pricing_candidate_compile() {
+            local pyfiles
+            pyfiles=$(printf '%s\n' $PRICING_OVERLAY_PRICE_PATHS $PRICING_OVERLAY_SENTINEL_PATHS | grep '\.py$')
+            pricing_cpy -m py_compile $pyfiles
+          }
+
+          pricing_candidate_tests() {
+            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_PRICE_PATHS || return 1
+            git -C "$PRICING_WT" checkout "$SENTINEL_PRICING_SHA" -- $PRICING_TEST_SENTINEL_PATHS || return 1
+            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_SUPPORT_PATHS || return 1
+            if ! PYTHONPATH="$PRICING_PYTEST_DEPS" "$PY" -c 'import pytest' 2>/dev/null; then
+              echo "pytest unavailable; installing into $PRICING_PYTEST_DEPS (never into the production venv)"
+              "$PY" -m pip install --disable-pip-version-check -q --target "$PRICING_PYTEST_DEPS" pytest || return 1
+            fi
+            ( cd "$PRICING_WT" \
+              && SUPABASE_URL="http://127.0.0.1:54321" SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" SUPABASE_ANON_KEY="test-anon-key" \
+                 PYTHONPATH="$PRICING_WT:$PRICING_PYTEST_DEPS" "$PY" -m pytest -q -p no:cacheprovider \
+                 backend/tests/unit/pricing_pipeline/ backend/tests/unit/sentinel/test_pricing_registration.py ) 2>&1 | tail -40
+          }
+
+          pricing_candidate_env() {
+            ( umask 077; cp "$REPO/backend/.env" "$PRICING_WT/backend/.env" ) || return 1
+            chmod 600 "$PRICING_WT/backend/.env"
+            echo "candidate_env_copied=true (contents never printed; removed before exit)"
+          }
+
+          pricing_candidate_imports() {
+            pricing_cpy - <<'PY'
+          import importlib, os, sys
+
+          wt = os.path.realpath(os.getcwd())
+          mods = [
+              "backend.pricing_pipeline.orchestrator",
+              "backend.pricing_pipeline.budget_v2",
+              "backend.pricing_pipeline.health",
+              "backend.scripts.run_daily_multi_source_card_pricing",
+              "backend.scripts.check_multi_source_pricing_health",
+              "backend.sentinel.checks.pricing",
+              "backend.sentinel.checks.registry",
+          ]
+          bad = []
+          for name in mods:
+              mod = importlib.import_module(name)
+              path = os.path.realpath(mod.__file__)
+              print(name, "->", path)
+              if not path.startswith(wt + os.sep):
+                  bad.append(name)
+          if bad:
+              print("IMPORTS RESOLVED OUTSIDE THE CANDIDATE:", bad)
+              sys.exit(1)
+          print("candidate_imports_resolve_from_worktree=true")
+          PY
+          }
+
+          pricing_candidate_credentials() {
+            ( cd "$PRICING_WT" && export PYTHONPATH="$PRICING_WT" && pricing_credentials_probe )
+          }
+
+          pricing_candidate_schema() {
+            pricing_cpy - <<'PY'
+          import sys
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.pricing_pipeline.store import SupabaseStore
+
+          ok = SupabaseStore(create_service_role_client()).schema_ready()
+          print("pricing_schema_ready=" + str(ok).lower())
+          sys.exit(0 if ok else 5)
+          PY
+          }
+
+          pricing_candidate_dry_run() {
+            rm -rf "$PRICING_PREFLIGHT_STATE"; mkdir -p "$PRICING_PREFLIGHT_STATE"
+            pricing_cpy - <<'PY' || return 1
+          import inspect, sys
+          from backend.pricing_pipeline.orchestrator import Orchestrator
+
+          src = inspect.getsource(Orchestrator.preview_targets) + inspect.getsource(Orchestrator._build_manifest)
+          banned = ("create_run", "update_run", ".rpc(", ".insert(", ".upsert(", ".update(", ".delete(", ".reserve(", "fetch_token", "BrowseHTTP", "http_factory")
+          hits = [b for b in banned if b in src]
+          print("dry_run_write_or_ebay_markers=" + (",".join(hits) if hits else "none"))
+          sys.exit(1 if hits else 0)
+          PY
+            ( cd "$PRICING_WT" && EVR_PRICING_STATE_DIR="$PRICING_PREFLIGHT_STATE" PYTHONPATH="$PRICING_WT" timeout 300 \
+              "$PY" -m backend.scripts.run_daily_multi_source_card_pricing --dry-run --json --no-frontend-env-fallback ) || { rm -rf "$PRICING_PREFLIGHT_STATE"; return 1; }
+            rm -rf "$PRICING_PREFLIGHT_STATE"
+          }
+
+          pricing_candidate_health() {
+            pricing_cpy -m backend.scripts.check_multi_source_pricing_health
+          }
+
+          pricing_candidate_sentinel() {
+            local out key n total
+            out=$(pricing_cpy -m backend.sentinel.operational --profile fast --list-checks 2>&1) || { echo "$out" | tail -20; return 1; }
+            for key in $PRICING_SENTINEL_KEYS; do
+              n=$(grep -c "\"$key\"" <<<"$out" || true)
+              echo "sentinel_key $key count=$n"
+              [ "$n" -eq 1 ] || return 1
+            done
+            total=$(grep -c '"pricing\.' <<<"$out" || true)
+            echo "sentinel_pricing_total=$total"
+            [ "$total" -eq 9 ]
+          }
+
+          pricing_stage() {
+            local name="$1"; shift
+            echo "== stage: $name =="
+            if "$@"; then
+              echo "stage_result $name=PASS"
+            else
+              echo "stage_result $name=FAIL"
+              PRICING_FAILED_STAGES="$PRICING_FAILED_STAGES $name"
+            fi
+            return 0
+          }
+
+          pricing_candidate_validate() {
+            PRICING_FAILED_STAGES=""
+            pricing_stage compile pricing_candidate_compile
+            pricing_stage tests pricing_candidate_tests
+            pricing_stage env_copy pricing_candidate_env
+            pricing_stage imports pricing_candidate_imports
+            pricing_stage credentials pricing_candidate_credentials
+            pricing_stage schema pricing_candidate_schema
+            pricing_stage dry_run pricing_candidate_dry_run
+            pricing_stage health pricing_candidate_health
+            pricing_stage sentinel pricing_candidate_sentinel
+            [ -z "$PRICING_FAILED_STAGES" ]
+          }
+
+          PRICING_CLEANED=0
+          pricing_candidate_cleanup() {
+            [ "$PRICING_CLEANED" -eq 0 ] || return 0
+            PRICING_CLEANED=1
+            rm -f "$PRICING_WT/backend/.env" 2>/dev/null || true
+            rm -rf "$PRICING_PREFLIGHT_STATE" 2>/dev/null || true
+            if [ -e "$PRICING_WT" ]; then
+              git -C "$REPO" worktree remove --force "$PRICING_WT" >/dev/null 2>&1 || rm -rf "$PRICING_WT"
+            fi
+            git -C "$REPO" worktree prune >/dev/null 2>&1 || true
+            echo "candidate_worktree_removed=$([ -e "$PRICING_WT" ] && echo false || echo true) candidate_env_removed=true"
+            if [ -n "${PRICING_ASSERT_HEAD:-}" ]; then
+              if [ "$(git -C "$REPO" rev-parse HEAD)" = "$PRICING_ASSERT_HEAD" ] \
+                 && [ "$(git -C "$REPO" status --porcelain --untracked-files=no | sha256sum | cut -c1-16)" = "$PRICING_ASSERT_STATUS" ]; then
+                echo "PRODUCTION_CHECKOUT_UNCHANGED=true"
+              else
+                echo "PRODUCTION_CHECKOUT_UNCHANGED=false"
+              fi
+            fi
+          }
+
+          pricing_env_value() {
+            { grep -E "^[[:space:]]*(export[[:space:]]+)?$1=" "$REPO/backend/.env" 2>/dev/null || true; } | tail -1 | sed -E "s/^[^=]*=//; s/^['\"]//; s/['\"][[:space:]]*\$//"
+          }
+
+          pricing_provenance_report() {
+            local key val manifest_path repo_path
+            echo "-- Sentinel runtime-provenance configuration (non-secret keys only) --"
+            for key in SENTINEL_RUNTIME_REPO_PATH SENTINEL_RUNTIME_OVERLAY_MANIFEST SENTINEL_EXPECTED_RELEASE_BRANCH SENTINEL_EXPECTED_RELEASE_SHA; do
+              val=$(pricing_env_value "$key")
+              echo "$key=${val:-<unset>}"
+            done
+            manifest_path=$(pricing_env_value SENTINEL_RUNTIME_OVERLAY_MANIFEST)
+            repo_path=$(pricing_env_value SENTINEL_RUNTIME_REPO_PATH)
+            if [ -z "$manifest_path" ]; then
+              echo "runtime_provenance_configured=false"
+              echo "existing_manifest_covers_candidate=not_configured"
+              return 0
+            fi
+            echo "runtime_provenance_configured=true"
+            PRICING_PROV_MANIFEST="$manifest_path" PRICING_PROV_REPO="${repo_path:-$REPO}" PRICING_OVERLAY_LIST="$(pricing_overlay_manifest)" "$PY" - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+
+          from backend.sentinel.checks.runtime_provenance import _path_allowed, check_vm_runtime_provenance, load_vm_overlay_manifest
+          from backend.sentinel.models import RunnerIdentity
+          from backend.sentinel.registry import CheckContext
+
+          manifest_path = os.environ["PRICING_PROV_MANIFEST"]
+          repo = os.environ["PRICING_PROV_REPO"]
+          if not os.path.isfile(manifest_path):
+              print("manifest_file_exists=false")
+              print("existing_manifest_covers_candidate=false")
+              raise SystemExit(0)
+          print("manifest_file_exists=true")
+          manifest = load_vm_overlay_manifest(manifest_path)
+          print(json.dumps({k: (list(v) if isinstance(v, tuple) else v) for k, v in manifest.items()}, indent=2))
+          context = CheckContext(now=datetime.now(timezone.utc), runner_identity=RunnerIdentity(component="pricing_preflight", host="vm", build_sha="preflight"))
+          result = check_vm_runtime_provenance(context, repo_path=repo, manifest_path=manifest_path)
+          print("current_runtime_provenance_check=" + json.dumps({
+              "outcome": str(getattr(result, "outcome", "")), "severity": str(getattr(result, "severity", "")),
+              "failure_code": getattr(result, "failure_code", None), "observed": getattr(result, "observed", {})}, default=str)[:1800])
+          paths = [p for p in os.environ["PRICING_OVERLAY_LIST"].splitlines() if p]
+          missing = [p for p in paths if not _path_allowed(p, manifest["allowedPaths"])]
+          print("existing_manifest_missing_allowed_paths=" + json.dumps(missing))
+          print("existing_manifest_covers_candidate=" + str(not missing).lower())
+          PY
+          }
+
+          pricing_table_counts() {
+            "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          c = create_service_role_client()
+          out = {}
+          for table, col in (("pokemon_multi_source_pricing_runs_v1", "run_id"), ("ebay_pricing_runs_v1", "run_id"),
+                             ("ebay_active_ask_price_estimates_v1", "market_date"), ("pokemon_multi_source_card_prices_v1", "market_date")):
+              out[table] = c.table(table).select(col, count="exact").limit(1).execute().count
+          print(json.dumps(out, sort_keys=True))
+          PY
+          }
+
+          pricing_overlay_rollback() {
+            local f
+            for f in $PRICING_OVERLAY_PRICE_PATHS $PRICING_OVERLAY_SENTINEL_PATHS; do
+              git reset -q HEAD -- "$f" 2>/dev/null || true
+              if git cat-file -e "HEAD:$f" 2>/dev/null; then git checkout -q HEAD -- "$f" || true; else rm -f "$f"; fi
+            done
+            rmdir backend/pricing_pipeline 2>/dev/null || true
           }
 
           case "$VM_OPERATION" in
@@ -1491,6 +1837,146 @@ jobs:
               cmp -s "$BEFORE" "$AFTER" || { echo "REPLAY MUTATED STATE: before/after counts differ"; diff "$BEFORE" "$AFTER" || true; exit 33; }
               echo "no_new_ebay_requests=true no_duplicate_evidence=true no_duplicate_estimates=true no_duplicate_decisions=true"
               echo "PRICING_REPLAY_VERIFY=PASS"
+              ;;
+
+            pricing-runtime-preflight)
+              # Production checkout, cron, DB rows and configuration are NOT modified. A temporary worktree and a temporary
+              # copy of backend/.env (mode 600, never printed) exist under /tmp only while candidate validation runs.
+              cd "$REPO"
+              set +e
+              trap 'pricing_candidate_cleanup' EXIT
+              echo "== production identity =="
+              echo "request_id=$VM_REQUEST_ID"
+              echo "hostname=$(hostname)"
+              echo "phoenix_now=$(TZ=America/Phoenix date '+%F %T %Z')"
+              git fetch --all --prune
+              echo "fetch_exit=$?"
+              PRE_BRANCH=$(git branch --show-current)
+              PRE_HEAD=$(git rev-parse HEAD)
+              echo "branch=$PRE_BRANCH"
+              echo "head=$PRE_HEAD"
+              echo "origin_main=$(git rev-parse origin/main 2>/dev/null)"
+              echo "head_equals_origin_main=$([ "$PRE_HEAD" = "$(git rev-parse origin/main 2>/dev/null)" ] && echo true || echo false)"
+              echo "tracked_modification_count=$(git status --porcelain --untracked-files=no | wc -l)"
+              git status --porcelain --untracked-files=no | head -20
+              echo "-- untracked (informational; never touched) --"
+              git status --porcelain | grep '^??' | head -20
+              PRICING_ASSERT_HEAD="$PRE_HEAD"
+              PRICING_ASSERT_STATUS=$(git status --porcelain --untracked-files=no | sha256sum | cut -c1-16)
+              PREFLIGHT_OK=1
+              [ "$PRE_BRANCH" = "main" ] || { echo "PREFLIGHT_BLOCKER: production branch is not main"; PREFLIGHT_OK=0; }
+
+              echo "== runtime provenance =="
+              pricing_provenance_report
+
+              echo "== candidate = production HEAD + pinned pricing overlay + pinned Sentinel integration =="
+              if pricing_candidate_prepare; then
+                echo "-- candidate overlay paths --"
+                pricing_overlay_manifest
+                if ! pricing_candidate_validate; then
+                  echo "failed_stages=$PRICING_FAILED_STAGES"
+                  PREFLIGHT_OK=0
+                fi
+              else
+                echo "PREFLIGHT_BLOCKER: candidate could not be built or failed the exact-diff gate"
+                PREFLIGHT_OK=0
+              fi
+
+              pricing_candidate_cleanup
+              if [ "$PREFLIGHT_OK" -eq 1 ]; then echo "PRICING_RUNTIME_PREFLIGHT=PASS"; exit 0; fi
+              echo "PRICING_RUNTIME_PREFLIGHT=FAIL"
+              exit 1
+              ;;
+
+            pricing-deploy-runtime)
+              # MUTATING (local overlay commit on production main; never pushed). Does not install cron, call eBay, or write pricing rows.
+              cd "$REPO"
+              trap 'pricing_candidate_cleanup' EXIT
+              echo "== hard gates =="
+              echo "request_id=$VM_REQUEST_ID"
+              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production branch is not main"; exit 20; }
+              git fetch --all --prune || { echo "REFUSING: git fetch failed"; exit 21; }
+              PRE_HEAD=$(git rev-parse HEAD)
+              echo "pre_deploy_head=$PRE_HEAD"
+              if git status --porcelain --untracked-files=no | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
+                echo "REFUSING: unexpected tracked modifications:"; git status --short; exit 22
+              fi
+              for f in $(pricing_overlay_manifest); do
+                [ ! -e "$f" ] || { echo "REFUSING: $f already exists; the runtime is already present (use pricing-runtime-preflight)"; exit 23; }
+              done
+              MANIFEST_PATH=$(pricing_env_value SENTINEL_RUNTIME_OVERLAY_MANIFEST)
+              if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
+                APPROVED_BASE=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["approvedMainSha"])' "$MANIFEST_PATH")
+              else
+                APPROVED_BASE=$(git rev-parse origin/main)
+              fi
+              echo "approved_base=$APPROVED_BASE"
+              git merge-base --is-ancestor "$APPROVED_BASE" HEAD || { echo "REFUSING: approved production base is not an ancestor of HEAD"; exit 24; }
+              if pgrep -f 'run_daily_multi_source_card_pricing|check_multi_source_pricing_health' >/dev/null; then echo "REFUSING: a pricing process is running"; exit 25; fi
+              [ "$(pricing_lock_state "$PRICING_LOCK")" != "held" ] || { echo "REFUSING: pricing lock held"; exit 25; }
+              CRON_BEFORE=$(pricing_cron_report)
+              echo "$CRON_BEFORE"
+              grep -qx 'managed_blocks=0' <<<"$CRON_BEFORE" && grep -qx 'unmanaged_pricing_run_entries=0' <<<"$CRON_BEFORE" && grep -qx 'unmanaged_pricing_health_entries=0' <<<"$CRON_BEFORE" \
+                || { echo "REFUSING: a pricing schedule already exists"; exit 26; }
+              echo "== runtime provenance gate =="
+              PROV=$(pricing_provenance_report)
+              echo "$PROV"
+              if grep -qx 'runtime_provenance_configured=true' <<<"$PROV"; then
+                grep -qx 'existing_manifest_covers_candidate=true' <<<"$PROV" \
+                  || { echo "REFUSING: the active overlay manifest does not authorize every candidate path; a separate reviewed manifest update is required"; exit 40; }
+              fi
+              COUNTS_BEFORE=$(pricing_table_counts) || { echo "REFUSING: pricing tables unreadable"; exit 27; }
+              echo "pricing_table_counts_before=$COUNTS_BEFORE"
+
+              echo "== candidate validation (fresh worktree; must pass in full) =="
+              pricing_candidate_prepare || { echo "REFUSING: candidate build/exact-diff gate failed"; exit 30; }
+              if ! pricing_candidate_validate; then echo "REFUSING: candidate validation failed: $PRICING_FAILED_STAGES"; exit 31; fi
+              pricing_candidate_cleanup
+
+              echo "== apply reviewed overlay (production stays on main; local commit only, never pushed) =="
+              git checkout "$PRICING_SOURCE_SHA" -- $PRICING_OVERLAY_PRICE_PATHS || { pricing_overlay_rollback; echo "apply failed; rolled back"; exit 50; }
+              git checkout "$SENTINEL_PRICING_SHA" -- $PRICING_OVERLAY_SENTINEL_PATHS || { pricing_overlay_rollback; echo "apply failed; rolled back"; exit 50; }
+              STAGED=$(git diff --cached --name-only | sort)
+              echo "-- staged files --"
+              echo "$STAGED"
+              git diff --check --cached || { pricing_overlay_rollback; echo "diff --check failed; rolled back"; exit 51; }
+              [ "$STAGED" = "$(pricing_overlay_manifest)" ] || { pricing_overlay_rollback; echo "staged set != reviewed manifest; rolled back"; exit 52; }
+              git -c user.name="index-vm-ops" -c user.email="vm-ops@index.invalid" commit -q \
+                -m "ops(pricing): install pinned multi-source pricing runtime overlay" \
+                -m "pricing source $PRICING_SOURCE_SHA; sentinel source $SENTINEL_PRICING_SHA; local production overlay commit, not pushed." \
+                || { pricing_overlay_rollback; echo "commit failed; rolled back"; exit 53; }
+              echo "overlay_commit=$(git rev-parse HEAD)"
+
+              echo "== post-deploy validation =="
+              POST_FAIL=0
+              [ "$(git branch --show-current)" = "main" ] && echo "branch=main" || { echo "FAIL: branch"; POST_FAIL=1; }
+              [ "$(git diff --name-only "$PRE_HEAD" HEAD | sort)" = "$(pricing_overlay_manifest)" ] && echo "overlay_path_set_exact=true" || { echo "FAIL: overlay path set"; POST_FAIL=1; }
+              pricing_runtime_present && echo "pricing_runtime_files_present=true" || { echo "FAIL: runtime files"; POST_FAIL=1; }
+              pricing_credentials_probe || { echo "FAIL: credential probe"; POST_FAIL=1; }
+              rm -rf "$PRICING_PREFLIGHT_STATE"; mkdir -p "$PRICING_PREFLIGHT_STATE"
+              EVR_PRICING_STATE_DIR="$PRICING_PREFLIGHT_STATE" timeout 300 "$PY" -m backend.scripts.run_daily_multi_source_card_pricing --dry-run --json --no-frontend-env-fallback || { echo "FAIL: dry run"; POST_FAIL=1; }
+              rm -rf "$PRICING_PREFLIGHT_STATE"
+              timeout 300 "$PY" -m backend.scripts.check_multi_source_pricing_health || { echo "FAIL: pricing health"; POST_FAIL=1; }
+              SENTINEL_OUT=$(timeout 300 "$PY" -m backend.sentinel.operational --profile fast --list-checks 2>&1 || true)
+              SENTINEL_TOTAL=$(grep -c '"pricing\.' <<<"$SENTINEL_OUT" || true)
+              echo "sentinel_pricing_check_count=$SENTINEL_TOTAL"
+              for key in $PRICING_SENTINEL_KEYS; do
+                [ "$(grep -c "\"$key\"" <<<"$SENTINEL_OUT" || true)" -eq 1 ] || { echo "FAIL: sentinel key $key"; POST_FAIL=1; }
+              done
+              CRON_AFTER=$(pricing_cron_report)
+              echo "$CRON_AFTER"
+              grep -qx 'managed_blocks=0' <<<"$CRON_AFTER" && echo "cron_still_absent=true" || { echo "FAIL: cron unexpectedly present"; POST_FAIL=1; }
+              if pgrep -f 'run_daily_multi_source_card_pricing' >/dev/null; then echo "FAIL: pricing process running"; POST_FAIL=1; else echo "no_real_pricing_run_occurred=true"; fi
+              COUNTS_AFTER=$(pricing_table_counts)
+              echo "pricing_table_counts_after=$COUNTS_AFTER"
+              [ "$COUNTS_BEFORE" = "$COUNTS_AFTER" ] && echo "pricing_tables_unchanged=true" || { echo "FAIL: pricing table counts changed"; POST_FAIL=1; }
+              pricing_provenance_report
+              if [ "$POST_FAIL" -ne 0 ]; then
+                echo "POST_DEPLOY_VALIDATION=FAIL (overlay commit remains for inspection; nothing was scheduled or run)"
+                exit 60
+              fi
+              echo "PRICING_RUNTIME_DEPLOYED=PASS"
+              if grep -qx 'runtime_provenance_configured=false' <<<"$PROV"; then echo "RUNTIME_PROVENANCE_PROFILE_NOT_CONFIGURED"; fi
               ;;
 
             *)
