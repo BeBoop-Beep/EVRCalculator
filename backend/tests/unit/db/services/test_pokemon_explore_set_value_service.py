@@ -490,3 +490,60 @@ def test_fingerprint_tracks_the_source_generation():
     moved = [dict(row) for row in rows]
     moved[-1]["set_value"] = moved[-1]["set_value"] + 1.0
     assert _build(moved) != _build(rows)
+
+
+def test_edition_scoped_markets_publish_distinct_market_identity_and_index():
+    unlimited = history(days=10, start=100.0)
+    first = history(days=10, start=200.0)
+    target_date = unlimited[-1]["snapshot_date"]
+    sets = [
+        {
+            "id": "set-1", "canonical_key": "jungle", "name": "Jungle - Unlimited",
+            "base_set_name": "Jungle", "era": "Base", "market_scope": "unlimited",
+            "market_key": "set:set-1:unlimited", "market_publication_ready": True,
+        },
+        {
+            "id": "set-1", "canonical_key": "jungle", "name": "Jungle - 1st Edition",
+            "base_set_name": "Jungle", "era": "Base", "market_scope": "first_edition",
+            "market_key": "set:set-1:first_edition", "market_publication_ready": True,
+        },
+    ]
+    built = build_global_set_value_row(
+        sets,
+        [],
+        {
+            "set:set-1:unlimited": unlimited,
+            "set:set-1:first_edition": first,
+        },
+        target_market_date=target_date,
+    )
+    rows = {row["marketKey"]: row for row in built["payload_json"]["sets"]}
+    assert set(rows) == {"set:set-1:unlimited", "set:set-1:first_edition"}
+    assert rows["set:set-1:unlimited"]["marketScope"] == "unlimited"
+    assert rows["set:set-1:first_edition"]["marketScope"] == "first_edition"
+    assert rows["set:set-1:unlimited"]["currentSetValue"] == 109.0
+    assert rows["set:set-1:first_edition"]["currentSetValue"] == 209.0
+    assert rows["set:set-1:unlimited"]["marketIndex"]["currentValue"] == pytest.approx(109.0)
+    assert rows["set:set-1:first_edition"]["marketIndex"]["currentValue"] == pytest.approx(104.5)
+    assert built["set_count"] == 2
+
+
+def test_incomplete_explicit_scope_remains_visible_but_unavailable():
+    target_date = "2026-01-10"
+    built = build_global_set_value_row(
+        [{
+            "id": "set-1", "canonical_key": "base", "name": "Base - Shadowless",
+            "base_set_name": "Base", "era": "Base", "market_scope": "shadowless",
+            "market_key": "set:set-1:shadowless", "market_publication_ready": True,
+            "market_current_certification_status": "SCOPED_MARKET_INCOMPLETE",
+        }],
+        [],
+        {"set:set-1:shadowless": []},
+        target_market_date=target_date,
+    )
+    row = built["payload_json"]["sets"][0]
+    assert row["marketKey"] == "set:set-1:shadowless"
+    assert row["marketScope"] == "shadowless"
+    assert row["valueStatus"] == "unavailable"
+    assert row["currentSetValue"] is None
+    assert "marketIndex" not in row
