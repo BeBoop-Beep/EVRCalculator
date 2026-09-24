@@ -1,4 +1,4 @@
 {
-  "operation": "pricing-sync-main",
-  "request_id": "sep24-snapshot-rootcause-sync-main"
+  "operation": "status",
+  "request_id": "sep24-snapshot-rootcause-status"
 }
