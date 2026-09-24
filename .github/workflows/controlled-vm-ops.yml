@@ -2164,7 +2164,7 @@ jobs:
                 git status --short --untracked-files=no
                 exit 22
               fi
-              pricing_verify_pins || { echo "REFUSING: pinned pricing sources unavailable"; exit 23; }
+              pricing_source_check || { echo "REFUSING: pinned pricing sources unavailable"; exit 23; }
               for f in $(pricing_overlay_manifest); do
                 src=$(pricing_overlay_source_for "$f")
                 want=$(git rev-parse "$src:$f")
