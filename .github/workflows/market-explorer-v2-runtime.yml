@@ -57,6 +57,10 @@ jobs:
           python -m py_compile \
             backend/db/services/pokemon_market_explorer_query_service.py \
             backend/db/services/market_explorer_constituent_movement.py \
+            backend/db/services/pokemon_explore_set_value_service.py \
+            backend/db/services/pokemon_public_snapshot_service.py \
+            backend/db/services/pokemon_set_market_service.py \
+            backend/scripts/build_pokemon_explore_set_value_snapshot.py \
             backend/scripts/publish_market_explorer_daily_projection.py \
             backend/scripts/run_market_explorer_daily_publication.py \
             backend/scripts/check_market_explorer_maintained_cache_health.py \
@@ -67,6 +71,10 @@ jobs:
           python -m pytest -q \
             backend/tests/unit/db/services/test_pokemon_market_explorer_query_service.py \
             backend/tests/unit/db/services/test_market_explorer_constituent_movement.py \
+            backend/tests/unit/db/services/test_explicit_vintage_market_scopes.py \
+            backend/tests/unit/db/services/test_explicit_vintage_market_movers.py \
+            backend/tests/unit/db/services/test_pokemon_explore_set_value_market_authority.py \
+            backend/tests/unit/db/test_explicit_vintage_market_scopes_migration.py \
             backend/tests/unit/scripts/test_publish_market_explorer_daily_projection.py \
             backend/tests/unit/scripts/test_run_market_explorer_daily_publication.py \
             backend/tests/unit/scripts/test_check_market_explorer_maintained_cache_health.py \
