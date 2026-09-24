@@ -32,21 +32,21 @@ jobs:
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" \
             > /tmp/runs.json
           python - <<'PY'
-import json
-p=json.load(open("/tmp/runs.json"))
-rows=[]
-for r in p.get("workflow_runs") or []:
-    if r.get("status") in {"queued","in_progress","waiting","pending"}:
-        rows.append({
-            "id":r.get("id"),
-            "name":r.get("name"),
-            "status":r.get("status"),
-            "event":r.get("event"),
-            "head_branch":r.get("head_branch"),
-            "head_sha":r.get("head_sha"),
-            "created_at":r.get("created_at"),
-            "updated_at":r.get("updated_at"),
-            "run_attempt":r.get("run_attempt"),
-        })
-print(json.dumps(rows,indent=2,sort_keys=True))
-PY
+          import json
+          p=json.load(open("/tmp/runs.json"))
+          rows=[]
+          for r in p.get("workflow_runs") or []:
+              if r.get("status") in {"queued","in_progress","waiting","pending"}:
+                  rows.append({
+                      "id":r.get("id"),
+                      "name":r.get("name"),
+                      "status":r.get("status"),
+                      "event":r.get("event"),
+                      "head_branch":r.get("head_branch"),
+                      "head_sha":r.get("head_sha"),
+                      "created_at":r.get("created_at"),
+                      "updated_at":r.get("updated_at"),
+                      "run_attempt":r.get("run_attempt"),
+                  })
+          print(json.dumps(rows,indent=2,sort_keys=True))
+          PY
