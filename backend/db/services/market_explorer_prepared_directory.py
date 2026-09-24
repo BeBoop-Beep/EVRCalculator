@@ -108,9 +108,14 @@ def enrich_prepared_constituent_page(client: Any, page: dict[str, Any]) -> dict[
         result["movementAvailable"] = False
         result["movementReason"] = "Constituent movement is only published for card markets."
         return result
-    from backend.db.services.market_explorer_constituent_movement import enrich_card_constituent_page
+    from backend.db.services.market_explorer_constituent_movement import (
+        enrich_card_constituent_page,
+        enrich_scoped_card_constituent_page,
+    )
     try:
-        enriched = enrich_card_constituent_page(
+        scoped = any(str(row.get("marketScope") or "standard") != "standard" for row in rows)
+        enrich = enrich_scoped_card_constituent_page if scoped else enrich_card_constituent_page
+        enriched = enrich(
             client, {"items": rows, "as_of": result.get("priceAsOf")})
     except Exception:
         result["movementAvailable"] = False
