@@ -393,7 +393,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
         { tab: "market", section: "set-value" }
       )
     : null;
-  const moversHref = selected
+  const moversHref = selected && selected.marketScope === "standard"
     ? buildTcgSetHrefFromTarget(
         { target_type: "set", target_id: selected.target?.canonicalKey || selected.setId, name: selected.name },
         { tab: "cards", section: "market-movers", window: "7D" }
