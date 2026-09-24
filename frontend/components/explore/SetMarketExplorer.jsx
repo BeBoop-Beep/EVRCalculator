@@ -219,7 +219,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
   // Below desktop the browser and the analysis are two states of one screen,
   // never a squeezed split. Desktop ignores this entirely.
   const detailHistoryCache = useRef(new Map());
-  const [detailHistoryState, setDetailHistoryState] = useState({ setId: null, status: "idle", history: [], days: 0, error: null });
+  const [detailHistoryState, setDetailHistoryState] = useState({ marketKey: null, status: "idle", history: [], days: 0, error: null });
   const [historyRetryToken, setHistoryRetryToken] = useState(0);
 
   const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -360,29 +360,29 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       loadedDays: cached.days,
     });
     if (cached && !needsAll) {
-      setDetailHistoryState({ setId, status: "success", history: cached.history, days: cached.days, error: null });
+      setDetailHistoryState({ marketKey: historyKey, status: "success", history: cached.history, days: cached.days, error: null });
       return undefined;
     }
 
     const days = needsAll ? 1825 : 365;
     let cancelled = false;
-    setDetailHistoryState({ setId, status: "loading", history: [], days, error: null });
+    setDetailHistoryState({ marketKey: historyKey, status: "loading", history: [], days, error: null });
     getPokemonSetValueHistory(setId, { days, scope: selected?.marketScope || "standard" })
       .then((payload) => {
         if (cancelled) return;
         const history = Array.isArray(payload?.history) ? payload.history : [];
         detailHistoryCache.current.set(historyKey, { history, days });
-        setDetailHistoryState({ setId, status: "success", history, days, error: null });
+        setDetailHistoryState({ marketKey: historyKey, status: "success", history, days, error: null });
       })
       .catch((error) => {
-        if (!cancelled) setDetailHistoryState({ setId, status: "error", history: [], days, error });
+        if (!cancelled) setDetailHistoryState({ marketKey: historyKey, status: "error", history: [], days, error });
       });
     return () => { cancelled = true; };
   }, [isMasterDetail, selected?.setId, selected?.marketKey, selected?.marketScope, selected?.status, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
 
   const detailTrend = usesBootstrapDetailTrend
     ? bootstrapDetailTrend
-    : selected && detailHistoryState.setId === selected.setId && detailHistoryState.status === "success"
+    : selected && detailHistoryState.marketKey === selected.marketKey && detailHistoryState.status === "success"
       ? clipSetMarketDetailHistory(detailHistoryState.history, detailValueMovement)
       : [];
   const detailDirection = directionOf(detailMovement?.amount);
@@ -541,7 +541,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       </div>
 
       <div className="mt-3 min-w-0">
-        {!usesBootstrapDetailTrend && (detailHistoryState.setId !== selected.setId || detailHistoryState.status === "idle" || detailHistoryState.status === "loading") ? (
+        {!usesBootstrapDetailTrend && (detailHistoryState.marketKey !== selected.marketKey || detailHistoryState.status === "idle" || detailHistoryState.status === "loading") ? (
           <div
             data-set-market-detail-skeleton
             aria-hidden="true"
