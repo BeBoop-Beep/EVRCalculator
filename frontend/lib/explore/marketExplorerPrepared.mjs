@@ -93,3 +93,21 @@ export function groupPreparedDirectory(rows = [], search = "") {
   return { eras, sets: [...sets.values()].sort((a, b) => (a.era?.label || "").localeCompare(b.era?.label || "")), quick };
 }
 import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
+
+/**
+ * The ACTUAL published prepared Sealed markets (asset 'sealed', e.g. Booster
+ * Boxes / Elite Trainer Boxes / Packs prepared_format rows), searchable by
+ * label. Nothing here is synthesised: an empty directory yields an empty list,
+ * and card Sets/Eras are never re-labelled as Sealed.
+ */
+export function listPreparedSealedMarkets(rows = [], search = "") {
+  const terms = normalizePreparedDirectorySearch(search).split(" ").filter(Boolean);
+  return rows
+    .filter((row) => row?.asset === "sealed")
+    .filter((row) => {
+      if (!terms.length) return true;
+      const label = normalizePreparedDirectorySearch(row.label);
+      return terms.every((term) => label.includes(term));
+    })
+    .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+}

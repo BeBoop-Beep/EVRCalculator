@@ -8,7 +8,7 @@ const chart = read("./MarketExplorerChart.jsx");
 const styles = read("./explore.module.css");
 
 test("desktop is one rail plus a right chart-first research canvas", () => {
-  assert.match(client, /desk:grid-cols-\[minmax\(19rem,22rem\)_minmax\(0,1fr\)\]/);
+  assert.match(client, /desk:grid-cols-\[minmax\(18rem,20rem\)_minmax\(0,1fr\)\]/);
   assert.match(client, /data-market-explorer-sidebar/);
   assert.match(client, /data-market-explorer-graph/);
   assert.ok(client.indexOf("data-market-explorer-sidebar") < client.indexOf("data-market-explorer-graph"));

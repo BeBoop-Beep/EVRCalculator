@@ -319,7 +319,7 @@ export default function MarketExplorerClient({
       data-market-explorer-timeframe={timeframe || ""}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-access-mode={accessMode}
-      className="grid min-w-0 gap-3 desk:grid-cols-[minmax(19rem,22rem)_minmax(0,1fr)] desk:items-start desk:gap-4"
+      className="grid min-w-0 gap-3 desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-start desk:gap-3"
     >
       {compareUpgradeVisible ? (
         <section data-market-explorer-compare-upgrade role="status" className={`${styles.surfaceQuiet} set-glass-surface fixed left-1/2 top-20 z-[80] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 px-4 py-4 shadow-2xl`}>
