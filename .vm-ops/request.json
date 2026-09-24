@@ -1,4 +1,4 @@
 {
-  "operation": "pricing-install-credentials",
-  "request_id": "pricing-install-credentials-20260924-1000"
+  "operation": "pricing-runtime-preflight",
+  "request_id": "pricing-runtime-preflight-20260924-1001"
 }
