@@ -14,7 +14,8 @@ on:
     # current cohort plus a matching Rankings publication is a cheap no-op;
     # recent simulation activity defers simulation repair so this watchdog never
     # races an in-flight Windows run. A healthy cohort with stale downstream
-    # publication still resumes the idempotent publication pipeline.
+    # publication may resume the idempotent opening-publication pipeline ONLY
+    # when the canonical post-scrape market publisher is not active.
     - cron: '30 17-23 * * *'
 
 permissions:
@@ -193,6 +194,16 @@ jobs:
           exec 9>/tmp/pokemon-opening-simulation-recovery.lock
           if ! flock -n 9; then
             echo "opening simulation recovery already active; defer to next watchdog slot"
+            exit 0
+          fi
+
+          # Market snapshots and opening analytics are separate publication
+          # authorities but share the same database. Never launch the heavy
+          # opening recovery while the canonical post-scrape market publisher
+          # owns its lock. Sep 24 proved that doing so saturates PostgREST and
+          # causes both snapshot writes and opening reads to time out.
+          if ! /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+            echo "canonical post-scrape publication active; defer opening recovery to next watchdog slot"
             exit 0
           fi
 
