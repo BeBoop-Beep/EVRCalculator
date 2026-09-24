@@ -156,7 +156,7 @@ test("the set list scales to a large catalogue: bounded scroll, no per-row chart
   assert.match(css, /\.setListScroll \{[\s\S]*?max-height: var\(--ex-set-market-scroll/);
   assert.equal((setMarket.match(/<MarketSparkline/g) || []).length, 1);
   // Rows are real buttons, so the list is keyboard navigable by construction.
-  assert.match(setMarket, /data-set-market-row=\{row\.setId\}/);
+  assert.match(setMarket, /data-set-market-row=\{row\.marketKey\}/);
   assert.match(setMarket, /aria-current=\{isActive \? "true" : undefined\}/);
 });
 
@@ -164,13 +164,13 @@ test("selecting a set updates the pane in place and lazily loads only its full d
   assert.match(setMarket, /onClick=\{\(event\) => activateSetRow\(event, row, isActive\)\}/);
   assert.match(setMarket, /resolveSetMarketRowAction/);
   assert.doesNotMatch(setMarket, /setTimeout|doubleClickTimer/i);
-  assert.match(setMarket, /setSelectedSetId/);
+  assert.match(setMarket, /setSelectedMarketKey/);
   // Rankings and movements stay on the compact publication; only the one
   // selected detail history uses the existing value-history client.
   assert.doesNotMatch(setMarket, /fetch\(/);
   assert.match(setMarket, /target\?\.currentSetValue/);
   assert.match(setMarket, /target\?\.windows\?\.\[listWindowKey\]/);
-  assert.match(setMarket, /getPokemonSetValueHistory\(setId/);
+  assert.match(setMarket, /getPokemonSetValueHistory\(setId, \{ days, scope: marketScope \}\)/);
   assert.match(setMarket, /detailHistoryCache\.current/);
   assert.doesNotMatch(setMarket, /targets\.map\([^)]*getPokemonSetValueHistory/);
 });
@@ -234,7 +234,7 @@ test("selected-set Top Movers reuses the existing per-set movers data and select
   assert.match(topMovers, /const LIMIT = 10/);
   // Lazy and per-selection: nothing is fetched until a set is selected.
   assert.match(topMovers, /if \(!setId\)/);
-  assert.match(setMarket, /<SetMarketTopMovers[\s\S]*key=\{selected\.setId\}[\s\S]*initialPayload=/);
+  assert.match(setMarket, /<SetMarketTopMovers[\s\S]*key=\{selected\.marketKey\}[\s\S]*marketScope=\{selected\.marketScope\}[\s\S]*initialPayload=/);
   // It does NOT reach into the approved page-level ticker component.
   assert.doesNotMatch(codeOf(topMovers), /SevenDayMarketMoversTicker/);
 });
@@ -325,4 +325,23 @@ test("metadata describes the page without claiming forecasts or capitalization",
   assert.match(metadata, /Track Pokémon Raw Card, Top Chase, and Sealed market performance, market movers, and current set values\./);
   assert.doesNotMatch(metadata, /market cap/i);
   assert.doesNotMatch(metadata, /forecast|prediction|investment advice|live trading/i);
+});
+
+
+test("edition-split rows use marketKey as selection identity and carry market scope into detail reads", () => {
+  assert.match(setMarket, /marketKey: String\(target\?\.marketKey/);
+  assert.match(setMarket, /marketScope: String\(target\?\.marketScope \|\| "standard"\)/);
+  assert.match(setMarket, /row\.marketKey === selectedMarketKey|selected\?\.marketKey === row\.marketKey/);
+  assert.match(setMarket, /detailHistoryCache\.current\.get\(marketKey\)/);
+  assert.match(setMarket, /scope: marketScope/);
+  assert.doesNotMatch(setMarket, /scope: "standard"/);
+});
+
+test("scoped vintage movers stay inside their explicit market identity", () => {
+  const topMovers = read("../../components/explore/SetMarketTopMovers.jsx");
+  assert.match(topMovers, /marketScope = "standard"/);
+  assert.match(topMovers, /scope: marketScope/);
+  assert.match(topMovers, /cache\.has\(marketKey\)/);
+  assert.doesNotMatch(topMovers, /cache\.has\(setId\)/);
+  assert.match(setMarket, /selected\.marketScope === "standard"/);
 });
