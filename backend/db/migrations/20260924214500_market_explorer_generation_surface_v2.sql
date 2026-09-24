@@ -1307,6 +1307,7 @@ set statement_timeout = '2s'
 as $function$
 declare
   v_key text;
+  v_serving_generation uuid;
   v_total public.pokemon_market_explorer_surface_constituent_totals_v2%rowtype;
   v_rows jsonb;
 begin
@@ -1315,6 +1316,13 @@ begin
   end if;
   if coalesce(p_after_rank,0)<0 or p_limit<1 or p_limit>100 then
     raise exception 'CONSTITUENT_PAGE_LIMIT_1_TO_100';
+  end if;
+
+  select generation_id into v_serving_generation
+  from public.pokemon_market_explorer_surface_serving_v2
+  where singleton=1;
+  if v_serving_generation is null or v_serving_generation<>p_generation_id then
+    raise exception 'GENERATION_MISMATCH';
   end if;
 
   select coalesce(a.market_key,p_market_key) into v_key
