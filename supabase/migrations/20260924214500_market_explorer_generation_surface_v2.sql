@@ -671,20 +671,36 @@ begin
 
   drop table if exists pg_temp._mx_sealed_members;
   create temp table _mx_sealed_members on commit drop as
-  select 'sealedMarket'::text market_key,'parent'::text scope_kind,null::uuid set_id,null::uuid era_id,
-         null::text taxonomy_key,d.*
+  select
+    'sealedMarket'::text market_key,'parent'::text scope_kind,
+    null::uuid scope_set_id,null::uuid scope_era_id,null::text taxonomy_key,
+    d.sealed_product_id,d.market_date,d.market_price,
+    d.set_id as product_set_id,d.era_id as product_era_id,
+    d.product_family,d.parent_membership
   from _mx_sealed_dense d where d.parent_membership
   union all
-  select 'sealed-set:'||d.set_id::text,'set',d.set_id,null::uuid,null::text,d.*
+  select
+    'sealed-set:'||d.set_id::text,'set',d.set_id,null::uuid,null::text,
+    d.sealed_product_id,d.market_date,d.market_price,
+    d.set_id,d.era_id,d.product_family,d.parent_membership
   from _mx_sealed_dense d where d.parent_membership and d.set_id is not null
   union all
-  select 'sealed-era:'||d.era_id::text,'era',null::uuid,d.era_id,null::text,d.*
+  select
+    'sealed-era:'||d.era_id::text,'era',null::uuid,d.era_id,null::text,
+    d.sealed_product_id,d.market_date,d.market_price,
+    d.set_id,d.era_id,d.product_family,d.parent_membership
   from _mx_sealed_dense d where d.parent_membership and d.era_id is not null
   union all
-  select 'sealed-type:'||d.product_family,'type',null::uuid,null::uuid,d.product_family,d.*
+  select
+    'sealed-type:'||d.product_family,'type',null::uuid,null::uuid,d.product_family,
+    d.sealed_product_id,d.market_date,d.market_price,
+    d.set_id,d.era_id,d.product_family,d.parent_membership
   from _mx_sealed_dense d
   union all
-  select 'sealed-type:packs','type',null::uuid,null::uuid,'packs',d.*
+  select
+    'sealed-type:packs','type',null::uuid,null::uuid,'packs',
+    d.sealed_product_id,d.market_date,d.market_price,
+    d.set_id,d.era_id,d.product_family,d.parent_membership
   from _mx_sealed_dense d
   where d.product_family in ('loose_booster_pack','sleeved_booster_pack');
 
@@ -694,7 +710,7 @@ begin
   -- Directory identities are determined from current-date membership, never by
   -- scanning history in the interactive reader.
   with current_stats as (
-    select market_key,scope_kind,max(set_id) set_id,max(era_id) era_id,max(taxonomy_key) taxonomy_key,
+    select market_key,scope_kind,max(scope_set_id) set_id,max(scope_era_id) era_id,max(taxonomy_key) taxonomy_key,
       count(*)::integer n
     from _mx_sealed_members
     where market_date=p_market_date
@@ -800,7 +816,7 @@ begin
   select
     p_generation_id,m.market_key,
     row_number() over(partition by m.market_key order by m.market_price desc,m.sealed_product_id)::integer,
-    m.sealed_product_id,'sealed',m.set_id,m.market_price,m.market_date,
+    m.sealed_product_id,'sealed',m.product_set_id,m.market_price,m.market_date,
     jsonb_build_object(
       'asset','sealed','instrumentId',m.sealed_product_id,'sealedProductId',m.sealed_product_id,
       'setId',meta.set_id,'setName',meta.set_name,
