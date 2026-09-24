@@ -523,13 +523,14 @@ test("All selects each series' own tracking window; a window the snapshot lacks 
 
 test("the reported return follows the selected timeframe, not a neighbouring window", () => {
   const renderer = render(overview, { market: "raw" });
-  const cell = () => renderer.root.findAll((node) => node.props?.["data-market-explorer-card-change"] !== undefined, { deep: true })[0];
-  assert.equal(cell().props["data-market-explorer-card-change"], "7D");
+  // The per-market card retired with the chart-first workspace; the Details table marks the active window.
+  const cell = () => renderer.root.findAll((node) => node.props?.["data-active-timeframe"] === "true", { deep: true })[0];
+  assert.equal(cell().props["data-market-explorer-detail-heading"], "7D");
 
   TestRenderer.act(() => {
-    renderer.root.findAll((node) => node.props?.["data-market-window-value"] === "1D", { deep: true })[0].props.onClick();
+    renderer.root.findAll((node) => node.props?.["data-market-window-value"] === "30D", { deep: true })[0].props.onClick();
   });
-  assert.equal(cell().props["data-market-explorer-card-change"], "1D");
+  assert.equal(cell().props["data-market-explorer-detail-heading"], "30D");
 });
 
 // --- values ---------------------------------------------------------------

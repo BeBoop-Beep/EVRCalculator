@@ -288,8 +288,10 @@ export default function MarketExplorerClient({
   const beginEdit = useCallback((series) => {
     setEditingSeriesId(series.instanceId);
     setRequestedDetailSeriesId(series.key);
-    if (series.spec?.membershipMode === "explicit") setBuilderOpen(true);
-    else { setFiltersOpen(true); setMobileToolsOpen(true); }
+    // Custom Filters live in Build Your Market: open the tab that owns this spec.
+    setBuilderMode(series.spec?.membershipMode === "explicit" ? "exact" : "filters");
+    setBuilderOpen(true);
+    if (series.spec?.membershipMode !== "explicit") setMobileToolsOpen(true);
   }, []);
 
   if (!overview || !overview.families?.length) {

@@ -84,7 +84,7 @@ def test_rollback_only_verification_never_commits(monkeypatch):
     assert conn.committed is False
     assert calls[0][1]["connect_timeout"] == 10
     assert conn._cursor.executed[0][0].startswith("select set_config")
-    assert conn._cursor.executed[0][1] == ("120000",)
+    assert conn._cursor.executed[0][1] == ("300000",)
     assert "run_market_explorer_guarded_publisher_v1" in conn._cursor.executed[1][0]
     assert conn._cursor.executed[1][1] == ("2026-09-19",)
 

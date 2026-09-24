@@ -32,6 +32,7 @@ export default function MarketExplorerExactBasket({ currentPlan, editingSeries, 
     setStatus("building"); setMessage("");
     try {
       const outcome = editingExact && !saveAsNew ? await onUpdateQuery?.(editingSeries.instanceId, spec, { exactItems: items }) : await onAddQuery?.(spec, { exactItems: items });
+      if (outcome === "cancelled") { setStatus("idle"); setMessage("Build cancelled."); return; }
       setStatus("success");
       setMessage(outcome === "updated" ? "Market updated." : outcome === "duplicate" ? "This market is already active." : "Market added to comparison.");
       if (outcome !== "duplicate") {

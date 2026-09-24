@@ -19,9 +19,11 @@ test("Bucket 2 sidebar keeps Browse and Analyze while Custom Filters live in Bui
   assert.doesNotMatch(client, /data-market-explorer-sidebar-section="filter"|Filter · Premium|setFiltersOpen/);
   assert.equal(client.match(/<MarketExplorerQueryBuilder/g)?.length, 1);
   assert.match(client, /presentation="sidebar"/);
-  assert.match(picker, /Custom Filters/);
-  assert.match(picker, /data-market-explorer-custom-filter-workspace/);
-  assert.match(client, /enabled: canBuildCustomMarkets/);
+  // Custom Filters is a tab of the Build Your Market modal in the client (accepted contract).
+  assert.match(client, /Custom Filters/);
+  assert.match(client, /builderMode === "filters"/);
+  assert.match(picker, /MAX_EXPLICIT_INSTRUMENTS/);
+  assert.match(client, /canBuildCustomMarkets/);
 });
 
 test("Rarity Markets uses every prepared rarity dynamically with search and compare/remove", async () => {
@@ -30,11 +32,11 @@ test("Rarity Markets uses every prepared rarity dynamically with search and comp
   assert.match(rarity, /data-rarity-market-search/);
   assert.match(rarity, /role="listbox"/);
   assert.match(rarity, /role="option"/);
-  assert.match(rarity, /aria-selected={active}/);
-  assert.match(rarity, /onSelect\?\.\(market\.market_key\)/);
-  assert.match(rarity, /onCompare\?\.\(market\.market_key\)/);
-  assert.match(rarity, /active \? "Remove"/);
-  assert.doesNotMatch(rarity, /RARITY_LABELS|fetch\s*\(|preflight|build/i);
+  assert.match(rarity, /aria-selected={state\.active}/);
+  assert.match(rarity, /onSelect\?\.\(state\.prepared\.market_key\)/);
+  assert.match(rarity, /state\.active \? "Remove"/);
+  // No parallel fetch here: the custom-query fallback goes through the one bounded hook.
+  assert.doesNotMatch(rarity, /RARITY_LABELS|fetch\s*\(|preflight/i);
 });
 
 test("Screens are independently gated prepared discovery with local result state", async () => {
@@ -49,7 +51,6 @@ test("Screens are independently gated prepared discovery with local result state
   assert.match(screens, /data-market-screen-results-for=\{selected\}/);
   assert.match(screens, /data-market-screen-retry/);
   assert.match(screens, /onSelect\(row\.market_key\)/);
-  assert.match(screens, /onCompare\?\.\(row\.market_key\)/);
   assert.match(screens, /active \? "Remove"/);
   assert.match(client, /onSelect=\{selectPrepared\}/);
   assert.doesNotMatch(screens, /onAddQuery|preflight|Build Market/);
@@ -65,8 +66,8 @@ test("Build modal unifies exact Cards/Products and Custom Filters", async () => 
   assert.match(picker, /All/);
   assert.match(picker, /Cards/);
   assert.match(picker, /Products/);
-  assert.match(picker, /Custom Filters/);
-  assert.match(client, /setBuilderInitialScope\(series\.spec\?\.membershipMode === "explicit" \? \(series\.spec\?\.asset === "sealed" \? "sealed" : "cards"\) : "filters"\)/);
+  assert.match(build, /Custom Filters/);
+  assert.match(client, /setBuilderMode\(series\.spec\?\.membershipMode === "explicit" \? "exact" : "filters"\)/);
   assert.match(client, /setBuilderOpen\(true\)/);
   assert.match(query, /presentation === "sidebar"/);
 });

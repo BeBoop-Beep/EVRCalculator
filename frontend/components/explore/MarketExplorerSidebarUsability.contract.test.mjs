@@ -22,9 +22,10 @@ test("Analyze owns canonical rarity markets and Screens before Build", async () 
   const screens = client.indexOf("<MarketExplorerScreens", analyze);
   const build = client.indexOf('data-market-explorer-zone="build"');
   assert.ok(analyze < rarityMount && rarityMount < screens && screens < build);
-  assert.match(rarity, /Special Illustration Rare/);
-  assert.match(rarity, /\.filter\(Boolean\)/);
-  assert.match(rarity, /aria-selected=\{active\}/);
+  // Rarity options come from the live prepared directory / canonical options, never a hardcoded label list.
+  assert.match(rarity, /prepared_rarity/);
+  assert.doesNotMatch(rarity, /RARITY_LABELS/);
+  assert.match(rarity, /aria-selected=\{state\.active\}/);
 });
 
 test("Active Markets anchors actions and delegates Clear all to clearGraph", async () => {

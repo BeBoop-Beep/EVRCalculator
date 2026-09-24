@@ -64,7 +64,7 @@ def test_every_market_type_reads_a_bounded_first_page_pinned_to_its_generation(k
     assert page["marketKey"] == key and page["generationId"] == "gen-1"
     assert len(page["rows"]) <= 100
     ((name, params),) = client.calls
-    assert name == "get_pokemon_market_explorer_prepared_constituents_v2"
+    assert name == "get_pokemon_market_explorer_prepared_constituents_v3"
     assert params == {"p_market_key": key, "p_generation_id": "gen-1", "p_after_rank": 0, "p_limit": 100}
 
 

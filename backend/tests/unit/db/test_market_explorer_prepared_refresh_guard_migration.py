@@ -34,4 +34,4 @@ def test_short_rpc_alias_is_mirrored_and_called_by_worker():
     assert len(SHORT_RPC) <= 63
     assert SHORT_RPC in supabase.read_text(encoding="utf-8")
     worker = (ROOT / "scripts" / "run_market_explorer_maintained_cache_prewarm.py").read_text(encoding="utf-8")
-    assert f'PREPARED_REFRESH_RPC = "{SHORT_RPC}"' in worker
+    assert 'PREPARED_REFRESH_RPC = "run_market_explorer_guarded_publisher_v1"' in worker  # worker calls the guarded wrapper, which wraps SHORT_RPC

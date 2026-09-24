@@ -36,8 +36,9 @@ test("one constituent workspace precedes lower comparison detail and Set analysi
   const contextIndex = client.indexOf("<MarketExplorerContextRanking");
   const methodologyIndex = client.indexOf("<MarketExplorerMethodology");
 
-  assert.ok(constituentsIndex < detailsIndex);
-  assert.ok(detailsIndex < contextIndex);
+  // Accepted Bucket 1 contract: the constituent workspace is bottom-centre, after comparison detail.
+  assert.ok(detailsIndex < constituentsIndex);
+  assert.ok(constituentsIndex < contextIndex);
   assert.ok(contextIndex < methodologyIndex);
   assert.equal(client.match(/<MarketExplorerConstituents/g)?.length, 1);
   assert.doesNotMatch(client, /explorerInspectionGrid/);

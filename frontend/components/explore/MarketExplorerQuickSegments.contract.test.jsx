@@ -15,9 +15,11 @@ const EMPTY = { assetUniverse: [], sealedFamilyIds: [], segmentIds: [] };
 
 test("the accepted rarity selector uses prepared selection, not the retired quick-toggle rail", () => {
   assert.match(raritySelector, /data-rarity-market-trigger/);
-  assert.match(raritySelector, /onSelect\(market\.market_key\)/);
-  assert.match(raritySelector, /aria-selected=\{active\}/);
-  assert.doesNotMatch(raritySelector, /onAddQuery|preflight|Build Market/);
+  assert.match(raritySelector, /onSelect\?\.\(state\.prepared\.market_key\)/);
+  assert.match(raritySelector, /aria-selected=\{state\.active\}/);
+  // A canonical rarity with no prepared market falls back to the bounded query lane (2A/2B); never a preflight build.
+  assert.match(raritySelector, /onAddQuery/);
+  assert.doesNotMatch(raritySelector, /preflight|Build Market/);
 });
 
 test("selection actions are replay-safe", () => {
