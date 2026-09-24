@@ -1,4 +1,5 @@
 name: Opening Simulation Recovery Watchdog
+# Sep 24 publication recovery preemption tick: PR363 validation/deploy.
 # Retrigger after Sep 21 finalizer recovery ad4e99bc.
 
 on:
