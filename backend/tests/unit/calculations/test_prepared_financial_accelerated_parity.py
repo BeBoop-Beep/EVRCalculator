@@ -18,10 +18,14 @@ def _bits(x):
 
 
 def assert_identical(values, offset=0.0):
-    a = P.prepare(values, value_offset=offset)
+    a = P.prepare_exact_reference(values, value_offset=offset)
     b = P.prepare_exact_accelerated(values, value_offset=offset)
     for f in dataclasses.fields(P):
         assert _bits(getattr(a, f.name)) == _bits(getattr(b, f.name)), f.name
+    # Canonical prepare() must delegate to the accelerated implementation.
+    canonical = P.prepare(values, value_offset=offset)
+    for f in dataclasses.fields(P):
+        assert _bits(getattr(canonical, f.name)) == _bits(getattr(b, f.name)), f.name
 
 
 def _pokemon_like(rng, n, q, distinct=3000):
@@ -64,10 +68,10 @@ def test_extreme_magnitudes_and_negative_values():
 
 def test_invalid_inputs_match():
     for bad in ([], [1.0, float("nan")], [1.0, float("inf")]):
-        a = P.prepare(bad, value_offset=0.0)
+        a = P.prepare_exact_reference(bad, value_offset=0.0)
         b = P.prepare_exact_accelerated(bad, value_offset=0.0)
         assert (a.invalid_reason, a.non_finite_count, a.n) == (b.invalid_reason, b.non_finite_count, b.n)
-    a = P.prepare([1.0], value_offset=float("nan"))
+    a = P.prepare_exact_reference([1.0], value_offset=float("nan"))
     b = P.prepare_exact_accelerated([1.0], value_offset=float("nan"))
     assert a.invalid_reason == b.invalid_reason
 
@@ -90,6 +94,32 @@ def test_million_outcome_vectors(q):
 def test_scores_identical_downstream():
     rng = np.random.default_rng(11)
     v = _pokemon_like(rng, 50_000, 12)
-    a = P.prepare(v, value_offset=4.0).score(150.0)
+    a = P.prepare_exact_reference(v, value_offset=4.0).score(150.0)
     b = P.prepare_exact_accelerated(v, value_offset=4.0).score(150.0)
     assert a == b
+
+
+def test_production_prepare_routes_to_accelerated_not_reference():
+    """Item 1 promotion: canonical prepare() must resolve to the accelerated
+    implementation, not silently fall back to the reference path."""
+    rng = np.random.default_rng(99)
+    v = _pokemon_like(rng, 5_000, 6)
+    accelerated = P.prepare_exact_accelerated(v, value_offset=2.5)
+    reference = P.prepare_exact_reference(v, value_offset=2.5)
+    canonical = P.prepare(v, value_offset=2.5)
+    for f in dataclasses.fields(P):
+        assert _bits(getattr(canonical, f.name)) == _bits(getattr(accelerated, f.name)), f.name
+    # Sanity: reference and accelerated still agree (methodology unchanged),
+    # so this test would not distinguish a regression that broke both paths
+    # identically -- it exists to catch prepare() drifting from accelerated.
+    for f in dataclasses.fields(P):
+        assert _bits(getattr(reference, f.name)) == _bits(getattr(accelerated, f.name)), f.name
+
+
+def test_reference_path_remains_explicitly_invocable():
+    """Control/reference preparation path (Step 5.B)."""
+    rng = np.random.default_rng(5)
+    v = rng.lognormal(0.5, 1.0, 2000)
+    reference = P.prepare_exact_reference(v, value_offset=1.0)
+    assert reference.n == 2000
+    assert reference.invalid_reason is None

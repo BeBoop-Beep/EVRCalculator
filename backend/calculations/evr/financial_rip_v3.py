@@ -242,6 +242,27 @@ class PreparedFinancialRipDistribution:
 
     @classmethod
     def prepare(cls, values: Sequence[float], *, value_offset: Any = 0.0) -> "PreparedFinancialRipDistribution":
+        """Canonical production preparation entry point.
+
+        Delegates to :meth:`prepare_exact_accelerated`, which Bucket 4 has
+        validated as bitwise-identical to the reference implementation on
+        every measured fixture (see ``test_prepared_financial_accelerated_parity.py``).
+        The unaccelerated reference implementation remains available,
+        unchanged and independently tested, as :meth:`prepare_exact_reference`
+        for parity checks and forensics.
+        """
+        return cls.prepare_exact_accelerated(values, value_offset=value_offset)
+
+    @classmethod
+    def prepare_exact_reference(cls, values: Sequence[float], *, value_offset: Any = 0.0) -> "PreparedFinancialRipDistribution":
+        """Reference/control preparation path (pre-Bucket-4 implementation).
+
+        This is the original, unaccelerated implementation of ``prepare``,
+        kept unchanged and explicitly invocable for parity tests and
+        forensic comparison against :meth:`prepare_exact_accelerated`. It is
+        no longer on the production call path (see :meth:`prepare`), but its
+        semantics must never diverge from the accelerated implementation.
+        """
         offset = _f(value_offset)
         if offset is None:
             return cls._invalid(REASON_NON_FINITE_OUTCOMES, "The uniform value offset is non-finite.")

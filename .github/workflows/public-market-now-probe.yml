@@ -28,25 +28,25 @@ jobs:
           BODY=/tmp/market.json
           CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
           python - "$CODE" "$BODY" <<'PY'
-import json,sys
-from pathlib import Path
-code=sys.argv[1]
-path=Path(sys.argv[2])
-payload={}
-if path.exists() and path.stat().st_size:
-    try:
-        payload=json.loads(path.read_text())
-    except Exception:
-        payload={}
-meta=payload.get("meta") or {}
-snap=meta.get("snapshot") or {}
-date=payload.get("marketDate") or meta.get("marketDate") or snap.get("marketDate") or payload.get("market_date")
-sets=payload.get("sets")
-out={"http":code,"market_date":date,"set_count":len(sets) if isinstance(sets,list) else None}
-print(json.dumps(out,sort_keys=True))
-Path("ops/assistant").mkdir(parents=True,exist_ok=True)
-Path("ops/assistant/public-market-now.json").write_text(json.dumps(out,sort_keys=True)+"\n")
-PY
+          import json,sys
+          from pathlib import Path
+          code=sys.argv[1]
+          path=Path(sys.argv[2])
+          payload={}
+          if path.exists() and path.stat().st_size:
+              try:
+                  payload=json.loads(path.read_text())
+              except Exception:
+                  payload={}
+          meta=payload.get("meta") or {}
+          snap=meta.get("snapshot") or {}
+          date=payload.get("marketDate") or meta.get("marketDate") or snap.get("marketDate") or payload.get("market_date")
+          sets=payload.get("sets")
+          out={"http":code,"market_date":date,"set_count":len(sets) if isinstance(sets,list) else None}
+          print(json.dumps(out,sort_keys=True))
+          Path("ops/assistant").mkdir(parents=True,exist_ok=True)
+          Path("ops/assistant/public-market-now.json").write_text(json.dumps(out,sort_keys=True)+"\n")
+          PY
           git config user.name "inDex hosted probe"
           git config user.email "actions@users.noreply.github.com"
           git add ops/assistant/public-market-now.json

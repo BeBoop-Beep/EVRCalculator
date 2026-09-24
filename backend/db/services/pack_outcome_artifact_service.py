@@ -8,12 +8,23 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from backend.db.services.data_service_health import classify_data_service_error
+from backend.db.services.public_read_retry import run_batch_read_with_retry
+
 
 TABLE = "simulation_pack_outcome_artifacts"
 FORMAT_VERSION = 1
 NUMERIC_DTYPE = "float64"
 BYTE_ORDER = "little"
 COMPRESSION_FORMAT = "zlib"
+
+#: Bounded retry budget for the single-row artifact read. Matches the
+#: attempt count used by the other Best-Open Price hardened reads (see
+#: :mod:`backend.db.services.budget_product_ranking_authority`); this read
+#: is a single ``.limit(1)`` lookup, not a paginated scan, so
+#: :func:`run_batch_read_with_retry` (no page context) is the right-sized
+#: helper rather than :func:`run_bounded_page_read_with_retry`.
+_FETCH_MAX_ATTEMPTS = 4
 
 
 class PackOutcomeArtifactError(RuntimeError):
@@ -155,8 +166,34 @@ def load_pack_outcome_artifact_metadata(client: Any, calculation_run_id: Any) ->
 
 
 def load_pack_outcome_artifact(client: Any, calculation_run_id: Any) -> LoadedPackOutcomeArtifact:
-    """Load one artifact and return validated provenance plus a read-only vector."""
-    response = client.table(TABLE).select("*").eq("calculation_run_id", str(calculation_run_id)).limit(1).execute()
+    """Load one artifact and return validated provenance plus a read-only vector.
+
+    Item 3 reference regeneration observed this single-row read hitting a
+    Postgres statement timeout (57014) every 3-7 products with no retry at
+    all -- the previous body called ``.execute()`` directly, so any
+    transient timeout propagated on the first attempt and killed the whole
+    run. The read is retried through :func:`run_batch_read_with_retry`
+    (bounded attempts, exponential backoff + jitter, transience decided by
+    the shared classifier) with query semantics, selected columns, and
+    return shape completely unchanged.
+    """
+    run_id = str(calculation_run_id)
+    operation_name = "simulation_pack_outcome_artifacts.load_pack_outcome_artifact"
+    try:
+        response = run_batch_read_with_retry(
+            lambda: client.table(TABLE).select("*").eq("calculation_run_id", run_id).limit(1).execute(),
+            operation_name=operation_name,
+            max_attempts=_FETCH_MAX_ATTEMPTS,
+        )
+    except Exception as exc:
+        failure = classify_data_service_error(exc)
+        if failure.transient:
+            raise RuntimeError(
+                f"{operation_name} exhausted {_FETCH_MAX_ATTEMPTS} attempt(s) fetching "
+                f"calculation_run_id={run_id}: {failure.error_type} "
+                f"code={failure.code} status={failure.status_code}"
+            ) from exc
+        raise
     rows = response.data if response and response.data else []
     if not rows:
         raise PackOutcomeArtifactUnavailable(
