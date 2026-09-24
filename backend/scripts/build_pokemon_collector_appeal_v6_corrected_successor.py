@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 from backend.desirability.collector_appeal import collector_appeal_v4_frequency_index
 from backend.desirability.collector_appeal_inputs import load_pull_rate_model
 from backend.desirability.opening_appeal import union_probability_from_cards
-from backend.desirability.rarity_buckets import classify_rarity
+from backend.desirability.rarity_buckets import HIT_BUCKETS, classify_rarity
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.scripts.research_collector_c3b_playability_lift import build_playability, trainer_scores
 
@@ -64,6 +64,196 @@ def card_baseline(row: dict, composite: dict[str, float]) -> float:
     if row["subject_type"] == "trainer": return float(row["subject_appeal_percentile"])
     return 50.0
 
+def _live_membership_extension_rows(
+    client,
+    *,
+    frozen_set_ids: set[str],
+    trainer_12m_source_run_id: str,
+    trainer_5y_source_run_id: str,
+    playability_source_run_id: str,
+) -> tuple[list[dict], dict[str, str]]:
+    """Append only newly released root-set cards to the frozen C3 cohort.
+
+    Existing frozen card/set membership remains byte-for-byte authoritative.
+    A live card is eligible only when it is an approved, opening-eligible MAIN
+    canonical identity whose set is absent from the frozen set cohort. This
+    deliberately excludes contributing subsets, matching the established
+    Collector root-set contract.
+    """
+    canonical = paged(lambda: client.table("pokemon_canonical_cards").select(
+        "id,set_id,pokemon_tcg_api_card_id,name,supertype,rarity,catalog_role,"
+        "opening_eligible,canonical_review_status"
+    ))
+    set_rows = paged(lambda: client.table("sets").select(
+        "id,name,release_date,catalog_only,is_subset"
+    ))
+    frozen_release_dates = sorted(
+        str(row.get("release_date") or "")
+        for row in set_rows
+        if str(row.get("id") or "") in frozen_set_ids and row.get("release_date")
+    )
+    if not frozen_release_dates:
+        raise RuntimeError("frozen Collector cohort has no release-date boundary")
+    release_cutoff = frozen_release_dates[-1]
+    extension_sets = {
+        str(row["id"]): row
+        for row in set_rows
+        if str(row.get("id") or "") not in frozen_set_ids
+        and row.get("catalog_only") is not True
+        and row.get("is_subset") is not True
+        and str(row.get("release_date") or "") > release_cutoff
+    }
+    extension_set_ids = set(extension_sets)
+    cards = [
+        row for row in canonical
+        if str(row.get("set_id") or "") in extension_set_ids
+        and row.get("catalog_role") == "main"
+        and row.get("opening_eligible") is True
+        and row.get("canonical_review_status") == "approved"
+        and str(row.get("supertype") or "").casefold() in {"pokémon", "pokemon", "trainer"}
+    ]
+    if not cards:
+        return [], {}
+
+    set_ids = {str(row["set_id"]) for row in cards}
+    set_names = {
+        set_id: str(extension_sets[set_id].get("name") or "")
+        for set_id in set_ids
+    }
+    card_ids = {str(row["id"]) for row in cards}
+
+    pokemon_refs = paged(lambda: client.table("pokemon_reference").select(
+        "id,display_name"
+    ))
+    pokemon_names = {str(row["id"]): str(row.get("display_name") or "") for row in pokemon_refs}
+    desirability_links = paged(lambda: client.table("pokemon_card_desirability_links").select(
+        "pokemon_canonical_card_id,pokemon_reference_id,contribution_weight,is_hit_eligible"
+    ))
+    pokemon_by_card = defaultdict(list)
+    for row in desirability_links:
+        cid = str(row.get("pokemon_canonical_card_id") or "")
+        if cid in card_ids:
+            pokemon_by_card[cid].append(row)
+
+    trainer_values = trainer_scores(
+        client,
+        trainer_12m_source_run_id,
+        trainer_5y_source_run_id,
+    )
+    collector_refs = paged(lambda: client.table("pokemon_collector_entity_reference").select(
+        "id,display_name,entity_type"
+    ).eq("active", True))
+    collector_names = {
+        str(row["id"]): str(row.get("display_name") or "")
+        for row in collector_refs
+    }
+    collector_links = paged(lambda: client.table("pokemon_card_collector_entity_links").select(
+        "pokemon_canonical_card_id,collector_entity_id,contribution_weight,link_role"
+    ).eq("active", True).eq("link_role", "subject"))
+    trainer_by_card = defaultdict(list)
+    for row in collector_links:
+        cid = str(row.get("pokemon_canonical_card_id") or "")
+        eid = str(row.get("collector_entity_id") or "")
+        if cid in card_ids and eid in trainer_values:
+            trainer_by_card[cid].append(row)
+
+    functional_refs = paged(lambda: client.table("pokemon_card_functional_reference").select(
+        "id,functional_key,display_name"
+    ).eq("active", True))
+    functional_by_id = {str(row["id"]): row for row in functional_refs}
+    functional_links = paged(lambda: client.table("pokemon_card_functional_links").select(
+        "pokemon_canonical_card_id,functional_reference_id,match_confidence"
+    ).eq("active", True))
+    functional_by_card = {
+        str(row["pokemon_canonical_card_id"]): row
+        for row in functional_links
+        if str(row.get("pokemon_canonical_card_id") or "") in card_ids
+    }
+    playability = build_playability(client, playability_source_run_id)
+
+    rows = []
+    for card in cards:
+        cid = str(card["id"])
+        supertype = str(card.get("supertype") or "")
+        pokemon_subjects = pokemon_by_card.get(cid, [])
+        trainer_subjects = trainer_by_card.get(cid, [])
+        if pokemon_subjects and supertype.casefold() in {"pokémon", "pokemon"}:
+            subject_type = "pokemon"
+            subject_identity = " + ".join(
+                pokemon_names.get(str(row.get("pokemon_reference_id") or ""), "unknown")
+                for row in pokemon_subjects
+            )
+            baseline = 50.0  # V6 replaces Pokemon baselines from the bound Trends authority.
+        elif trainer_subjects:
+            weights = [float(row.get("contribution_weight") or 0) for row in trainer_subjects]
+            denominator = sum(weights) or 1.0
+            baseline = sum(
+                trainer_values[str(row["collector_entity_id"])] * weight
+                for row, weight in zip(trainer_subjects, weights)
+            ) / denominator
+            subject_type = "trainer"
+            subject_identity = " + ".join(
+                collector_names.get(str(row.get("collector_entity_id") or ""), "unknown")
+                for row in trainer_subjects
+            )
+        elif supertype.casefold() == "trainer":
+            subject_type = "neutral_functional"
+            subject_identity = None
+            baseline = 50.0
+        else:
+            subject_type = "subject_unavailable"
+            subject_identity = None
+            baseline = 50.0
+
+        functional_link = functional_by_card.get(cid)
+        functional_id = str(functional_link.get("functional_reference_id") or "") if functional_link else ""
+        functional = functional_by_id.get(functional_id, {})
+        evidence = playability.get(functional_id) if functional_id else None
+        confidence = evidence.get("confidence") if evidence else None
+        raw_playability = evidence.get("rawScore") if evidence else None
+        effective = (
+            float(raw_playability) * float(confidence)
+            if raw_playability is not None and confidence is not None
+            else None
+        )
+        final = (
+            baseline
+            if effective is None
+            else baseline + (100.0 - baseline) * 0.20 * min(100.0, max(0.0, effective)) / 100.0
+        )
+        hit = (
+            any(bool(row.get("is_hit_eligible")) for row in pokemon_subjects)
+            if pokemon_subjects
+            else classify_rarity(card.get("rarity")).bucket in HIT_BUCKETS
+        )
+        rows.append({
+            "canonical_card_id": cid,
+            "card_name": card.get("name"),
+            "supertype": supertype,
+            "set_id": str(card["set_id"]),
+            "pokemon_tcg_api_card_id": card.get("pokemon_tcg_api_card_id"),
+            "rarity": card.get("rarity"),
+            "subject_type": subject_type,
+            "subject_identity": subject_identity,
+            "subject_appeal_percentile": baseline,
+            "playability_functional_identity": functional.get("functional_key"),
+            "playability_functional_name": functional.get("display_name"),
+            "playability_raw_score": raw_playability,
+            "confidence": confidence,
+            "playability_status": evidence.get("status") if evidence else "unknown",
+            "applied_lift": final - baseline,
+            "final_card_collector_appeal": final,
+            "hit_eligibility": hit,
+            "source_runs": {
+                "playability": playability_source_run_id,
+                "trainer12m": trainer_12m_source_run_id,
+                "trainer5y": trainer_5y_source_run_id,
+            },
+            "membership_extension": True,
+        })
+    return rows, set_names
+
+
 def _pokemon_trends(client, source_run_id: str) -> list[dict]:
     rows = paged(lambda: client.table("pokemon_collector_entity_observations").select(
         "raw_entity_name,normalized_observation_score,raw_row_json"
@@ -84,7 +274,19 @@ def build(client, *, pokemon_trends_source_run_id: str,
     fan = {r["pokemon_name"]: float(r["fan_popularity_score"]) for r in json.loads(UNIVERSE.read_text(encoding="utf-8"))}
     composite = {r["pokemon_name"]: .75 * fan[r["pokemon_name"]] + .25 * min(100.0, float(r["global_relative"])) for r in trends}
     if len(composite) != 1025: raise RuntimeError("complete Trends/fan composite coverage mismatch")
-    base = json.loads(BASE_C3.read_text(encoding="utf-8"))["shadowRows"]
+    base = list(json.loads(BASE_C3.read_text(encoding="utf-8"))["shadowRows"])
+    frozen_old = {
+        str(row["set_id"]): row
+        for row in json.loads(OLD_C4.read_text(encoding="utf-8"))["sets"]
+    }
+    extension_rows, extension_set_names = _live_membership_extension_rows(
+        client,
+        frozen_set_ids=set(frozen_old),
+        trainer_12m_source_run_id=trainer_12m_source_run_id,
+        trainer_5y_source_run_id=trainer_5y_source_run_id,
+        playability_source_run_id=playability_source_run_id,
+    )
+    base.extend(extension_rows)
     trainer_by_id = trainer_scores(client, trainer_12m_source_run_id, trainer_5y_source_run_id)
     refs = paged(lambda: client.table("pokemon_collector_entity_reference").select(
         "id,display_name").eq("entity_type", "trainer").eq("active", True))
@@ -117,7 +319,14 @@ def build(client, *, pokemon_trends_source_run_id: str,
     c3_identity={"version":"collector_c3b_corrected_raw_pokemon_v1","pokemonSubject":"raw_75_fan_25_trends_v2","playabilityLambda":.20,"unknownPlayability":"zero_lift","trainerAuthority":"accepted_separate_evidence","functional":"diagnostic_only","artist":"excluded","treatment":"diagnostic_only","scarcity":"diagnostic_only","marketValueInput":"excluded"}
     composite_identity={"version":"pokemon_desirability_raw_75_25_complete_trends_v2_v1","trendsSourceRunId":pokemon_trends_source_run_id,"weights":{"fan":.75,"trends":.25},"trendsScale":"persisted normalized score clamp(global_relative,0,100)","percentileTransform":False,"outputFingerprint":canonical_hash(composite)}
     composite_fp=canonical_hash(composite_identity); c3_identity["pokemonCompositeFingerprint"]=composite_fp; c3_fp=canonical_hash(c3_identity)
-    old={x["set_id"]:x for x in json.loads(OLD_C4.read_text(encoding="utf-8"))["sets"]}
+    old = dict(frozen_old)
+    for set_id, set_name in extension_set_names.items():
+        old.setdefault(set_id, {
+            "set_id": set_id,
+            "set_name": set_name,
+            "frequency": {"card_gt50": {"value": None, "eligibleCards": None}},
+            "membership_extension": True,
+        })
     byset=defaultdict(list)
     for row in cards:
         if row["set_id"] in old: byset[row["set_id"]].append(row)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from postgrest.exceptions import APIError
 from backend.desirability.component_source import (
     expected_source_versions,
     matches_expected_versions,
@@ -252,6 +253,110 @@ class _CanonicalPromoteClient:
         return _CanonicalPromoteQuery(self.updates)
 
 
+
+class _FlakyCanonicalQuery(_CanonicalPromoteQuery):
+    def __init__(self, updates, state):
+        super().__init__(updates)
+        self.state = state
+        self.upsert_payload = None
+
+    def upsert(self, payload, on_conflict=None):
+        self.upsert_payload = list(payload)
+        self.state["on_conflict"] = on_conflict
+        return self
+
+    def execute(self):
+        self.state["execute_calls"] += 1
+        if self.state["execute_calls"] == 1:
+            raise APIError({
+                "message": "canceling statement due to statement timeout",
+                "code": "57014",
+                "hint": None,
+                "details": None,
+            })
+        if self.upsert_payload is not None:
+            return type("Res", (), {"data": self.upsert_payload})()
+        return type("Res", (), {"data": [{"id": "fallback-1"}]})()
+
+
+class _FlakyCanonicalClient:
+    def __init__(self):
+        self.updates = []
+        self.state = {"execute_calls": 0, "on_conflict": None}
+
+    def table(self, name):
+        assert name == "pokemon_canonical_cards"
+        return _FlakyCanonicalQuery(self.updates, self.state)
+
+
+def _retry_without_sleep(operation, *, operation_name, **_kwargs):
+    last = None
+    for attempt in (1, 2):
+        try:
+            return operation(attempt)
+        except APIError as exc:
+            last = exc
+            assert getattr(exc, "code", None) == "57014"
+    raise last
+
+
+def test_canonical_upsert_routes_57014_through_transient_retry(monkeypatch):
+    client = _FlakyCanonicalClient()
+    monkeypatch.setattr(combined, "run_with_transient_retry", _retry_without_sleep)
+
+    written = combined._upsert_canonical_rows(
+        client,
+        [{
+            "set_id": "set-1",
+            "pokemon_tcg_api_card_id": "fallback:set-1:1:test",
+            "name": "Test",
+        }],
+    )
+
+    assert written == 1
+    assert client.state["execute_calls"] == 2
+    assert client.state["on_conflict"] == "pokemon_tcg_api_card_id"
+
+
+def test_tcgdex_existing_row_update_routes_57014_through_transient_retry(monkeypatch):
+    cards = [{
+        "id": "legacy-1", "set_id": "set-1", "name": "Exeggcute",
+        "rarity": "Common", "card_number": "001/128",
+        "pokemon_tcg_api_id": None, "image_small_url": "small", "image_large_url": "large",
+    }]
+    canonical = [{
+        "id": "canon-1", "set_id": "set-1",
+        "pokemon_tcg_api_card_id": "fallback:set-1:001/128:exeggcute",
+        "name": "Exeggcute", "number": "1", "source": combined.FALLBACK_SOURCE,
+    }]
+    provider = _FakeTCGdexCanonical([{
+        "tcgdex_card_id": "30th-001", "name": "Exeggcute", "number": "001",
+        "supertype": "Pokémon", "subtypes": ["Basic"], "rarity": "Common",
+        "artist": "Nelnal", "national_pokedex_numbers": [102],
+        "image_small_url": "small", "image_large_url": "large",
+        "source_payload": {},
+    }])
+    monkeypatch.setattr(combined, "_list_cards_for_set", lambda *_a: cards)
+    monkeypatch.setattr(combined, "_list_canonical_for_set", lambda *_a: canonical)
+    monkeypatch.setattr(combined, "_list_pokemon_reference", lambda *_a: [])
+    monkeypatch.setattr(combined, "run_with_transient_retry", _retry_without_sleep)
+    client = _FlakyCanonicalClient()
+
+    result = combined._refresh_tcgdex_canonical_cards(
+        client=client,
+        set_row={
+            "id": "set-1", "name": "ME: 30th Celebration",
+            "canonical_key": "me30thCelebration", "catalog_only": False,
+            "is_subset": False,
+        },
+        dry_run=False,
+        tcgdex_client=provider,
+    )
+
+    assert result["rows_upserted"] == 1
+    assert client.state["execute_calls"] == 2
+
+
 def test_authoritative_refresh_promotes_matching_fallback_row_in_place(monkeypatch):
     monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 128})
     monkeypatch.setattr(
@@ -291,6 +396,62 @@ def test_authoritative_refresh_promotes_matching_fallback_row_in_place(monkeypat
     assert upserts == []
     assert client.updates[0][0:2] == ("id", "fallback-1")
     assert client.updates[0][2]["pokemon_tcg_api_card_id"] == "me55-1"
+    assert client.updates[0][2]["source"] == "pokemon_tcg_api"
+
+
+def test_authoritative_refresh_promotes_reprint_fallback_via_internal_provider_id(monkeypatch):
+    monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 30})
+    monkeypatch.setattr(
+        combined,
+        "fetch_authoritative_cards",
+        lambda _set_id: [{
+            "id": "me55c-57", "name": "Buzzwole-GX", "number": "57",
+            "supertype": "Pokémon", "subtypes": ["Basic", "GX"],
+            "nationalPokedexNumbers": [794], "set": {"id": "me55c"},
+            "images": {"small": "small", "large": "large"},
+        }],
+    )
+    monkeypatch.setattr(
+        combined,
+        "_list_canonical_for_set",
+        lambda _client, _set_id: [{
+            "id": "fallback-57",
+            "pokemon_tcg_api_card_id": "fallback:set-1:57/111:buzzwole gx",
+            "name": "Buzzwole GX", "number": "57", "source": combined.FALLBACK_SOURCE,
+        }],
+    )
+    monkeypatch.setattr(
+        combined,
+        "_list_cards_for_set",
+        lambda _client, _set_id: [{
+            "id": "legacy-57",
+            "name": "Buzzwole GX",
+            "card_number": "57/111",
+            "pokemon_tcg_api_id": "me55c-57",
+        }],
+    )
+    upserts = []
+    monkeypatch.setattr(
+        combined, "_upsert_canonical_rows",
+        lambda _client, rows: upserts.extend(rows) or len(rows),
+    )
+    client = _CanonicalPromoteClient()
+
+    result = combined._refresh_authoritative_canonical_cards(
+        client=client,
+        set_row={
+            "id": "set-1",
+            "canonical_key": "me30thCelebrationClassicCollection",
+            "pokemon_api_set_id": "me55c",
+        },
+        dry_run=False,
+    )
+
+    assert result["rows_promoted_from_fallback"] == 1
+    assert result["rows_upserted_by_api_id"] == 0
+    assert upserts == []
+    assert client.updates[0][0:2] == ("id", "fallback-57")
+    assert client.updates[0][2]["pokemon_tcg_api_card_id"] == "me55c-57"
     assert client.updates[0][2]["source"] == "pokemon_tcg_api"
 
 

@@ -1,0 +1,65 @@
+name: Repair 30th Collector Enrichment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-30th-collector-enrichment-20260922.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-30th-collector-enrichment-20260922
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Repair 30th static desirability and Collector V7 membership
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+
+          exec 8>/tmp/pokemon-scrape-dispatcher.lock
+          flock -w 300 8
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -w 300 7
+          exec 6>/tmp/pokemon-catalog-recheck.lock
+          flock -w 300 6
+
+          cd "$LIVE"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main --quiet
+          git switch main
+          git reset --hard origin/main
+          test -z "$(git status --porcelain --untracked-files=no)"
+          echo "repair_head=$(git rev-parse HEAD)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          echo "=== FULL STATIC DESIRABILITY: PARENT ==="
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration             --commit             --log-level INFO
+
+          echo "=== FULL STATIC DESIRABILITY: CLASSIC ==="
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection             --commit             --log-level INFO
+
+          echo "=== COLLECTOR V7 MEMBERSHIP REBUILD ==="
+          "$PY" backend/scripts/operationalize_historical_rip.py             --as-of-date 2026-09-22             --commit             --force-model-rebuild
+
+          echo "=== TARGETED CARD SNAPSHOTS ==="
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration             --commit
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebrationClassicCollection             --commit
+
+          echo "=== TARGETED SET PAGE SNAPSHOTS ==="
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebration             --commit
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebrationClassicCollection             --commit
+
+          echo "REPAIR_30TH_COLLECTOR_ENRICHMENT=PASS"

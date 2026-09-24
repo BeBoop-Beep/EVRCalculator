@@ -1,4 +1,5 @@
 {
-  "operation": "market-explorer-coverage-rpc-smoke",
-  "request_id": "market-explorer-coverage-rpc-smoke-grouped-20260921"
+  "operation": "sep22-publication-status",
+  "market_date": "2026-09-24",
+  "request_id": "publication-status-report-20260924-0831"
 }

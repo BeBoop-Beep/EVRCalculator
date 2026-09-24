@@ -7,7 +7,12 @@ on:
     # slots retry. After a successful recheck, provider_next_check_at advances
     # 24h, so the remaining slots become cheap no-ops.
     - cron: '5 16-23 * * *'
+    - cron: '*/5 2 23 9 *' # temporary one-time repair trigger; remove after verification
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pokemon-catalog-recheck-refresh.yml'
   push:
     branches: [main]
     paths:
@@ -16,7 +21,8 @@ on:
       - 'backend/services/pokemon_set_onboarding_recheck_service.py'
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 concurrency:
   group: pokemon-catalog-recheck-refresh
@@ -94,3 +100,107 @@ jobs:
           git pull --ff-only origin main
 
           ./.venv/bin/python backend/scripts/refresh_due_pokemon_catalog_sets.py             --commit             --limit 25             --max-provider-requests 50
+
+  repair_30th_collector:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Repair 30th static desirability and Collector V7 membership
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+
+          exec 8>/tmp/pokemon-scrape-dispatcher.lock
+          flock -w 300 8
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -w 300 7
+          exec 6>/tmp/pokemon-catalog-recheck.lock
+          flock -w 300 6
+
+          cd "$REPO"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git fetch origin main --quiet
+          git switch main
+          git reset --hard origin/main
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+          set -a
+          . backend/.env
+          set +a
+
+          "$PY" -m pytest -q \
+            backend/tests/unit/scripts/test_build_pokemon_set_desirability_inputs.py \
+            backend/tests/unit/scripts/test_build_pokemon_collector_appeal_v6_corrected_successor.py \
+            backend/tests/unit/scripts/test_operationalize_historical_rip.py \
+            backend/tests/unit/services/test_pokemon_set_onboarding_service.py
+
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebration --commit --log-level INFO
+
+          "$PY" backend/scripts/build_pokemon_set_desirability_inputs.py             --set me30thCelebrationClassicCollection --commit --log-level INFO
+
+          "$PY" backend/scripts/operationalize_historical_rip.py             --as-of-date 2026-09-22 --commit --force-model-rebuild --reuse-current-source-authority
+
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebration --commit
+          "$PY" backend/scripts/build_pokemon_set_cards_snapshots.py             --set-id me30thCelebrationClassicCollection --commit
+
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebration --commit
+          "$PY" backend/scripts/build_pokemon_set_page_snapshots.py             --set-id me30thCelebrationClassicCollection --commit
+
+          echo "REPAIR_30TH_COLLECTOR_ENRICHMENT=PASS"
+
+  probe_repair_status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record live runner and repair workflow status
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsS             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runners"             > /tmp/runners.json
+          curl -fsS             -H "Authorization: Bearer $GH_TOKEN"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?per_page=100"             > /tmp/runs.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          runners=json.load(open("/tmp/runners.json"))
+          runs=json.load(open("/tmp/runs.json"))
+          selected=[]
+          for r in runs.get("workflow_runs") or []:
+              if r.get("name") == "Pokemon Catalog Recheck Refresh" or r.get("status") in {"queued","in_progress","waiting","pending"}:
+                  selected.append({
+                      "id":r.get("id"),
+                      "name":r.get("name"),
+                      "status":r.get("status"),
+                      "conclusion":r.get("conclusion"),
+                      "head_sha":r.get("head_sha"),
+                      "head_branch":r.get("head_branch"),
+                      "event":r.get("event"),
+                      "created_at":r.get("created_at"),
+                      "updated_at":r.get("updated_at"),
+                      "run_attempt":r.get("run_attempt"),
+                  })
+          out={
+              "runners":[{
+                  "id":x.get("id"),
+                  "name":x.get("name"),
+                  "status":x.get("status"),
+                  "busy":x.get("busy"),
+                  "labels":[y.get("name") for y in (x.get("labels") or [])],
+              } for x in (runners.get("runners") or [])],
+              "runs":selected[:25],
+          }
+          Path("ops/assistant").mkdir(parents=True,exist_ok=True)
+          Path("ops/assistant/collector-repair-runner-status.json").write_text(
+              json.dumps(out,indent=2,sort_keys=True)+"\n"
+          )
+          PY
+          git config user.name "inDex hosted probe"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/collector-repair-runner-status.json
+          git commit -m "ops: record collector repair runner status" || true
+          git push origin HEAD:main

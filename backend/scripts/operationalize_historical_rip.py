@@ -122,8 +122,12 @@ def validate_source_run(client: Any, source_id: str, expected_key: str) -> dict[
 def delta_report(previous: Sequence[Mapping[str,Any]], built: Mapping[str,Any],
                  previous_cards: Sequence[Mapping[str,Any]] = ()) -> dict[str,Any]:
     old={str(x["set_id"]):x for x in previous}; new={str(x["set_id"]):x for x in built["sets"]}
-    if set(old) != set(new): raise RuntimeError("Collector V7 set membership changed")
-    changes=[abs(float(new[k].get("collector_appeal") or 0)-float(old[k].get("collector_appeal_score") or 0)) for k in new]
+    removed = set(old) - set(new)
+    added = set(new) - set(old)
+    if removed:
+        raise RuntimeError(f"Collector V7 set membership removed existing sets: {sorted(removed)}")
+    common = sorted(set(old) & set(new))
+    changes=[abs(float(new[k].get("collector_appeal") or 0)-float(old[k].get("collector_appeal_score") or 0)) for k in common]
     old_available={k for k,v in old.items() if v.get("score_status")=="scored"}
     new_available={k for k,v in new.items() if v.get("collector_appeal") is not None}
     if len(new_available) < max(1,int(len(old_available)*.75)):
@@ -135,9 +139,10 @@ def delta_report(previous: Sequence[Mapping[str,Any]], built: Mapping[str,Any],
     new_rank={k:i for i,(k,_) in enumerate(sorted(((k,float(v.get("collector_appeal") or -1)) for k,v in new.items()),key=lambda x:(-x[1],x[0])),1)}
     f_deltas=[abs(float(x["F_delta"])) for x in new.values() if x.get("F_delta") is not None]
     return {"setCount":len(new),"cardCount":len(built["cards"]),
+            "membershipAdded":sorted(added),"membershipRemoved":[],
             "maxAbsoluteCardScoreDelta":max(card_changes,default=0),
             "maxAbsoluteSetScoreDelta":max(changes,default=0),
-            "maxAbsoluteRankDelta":max((abs(new_rank[k]-old_rank[k]) for k in new),default=0),
+            "maxAbsoluteRankDelta":max((abs(new_rank[k]-old_rank[k]) for k in common),default=0),
             "maxAbsoluteFDelta":max(f_deltas,default=0),
             "availabilityAdded":sorted(new_available-old_available),
             "availabilityRemoved":sorted(old_available-new_available),
@@ -200,14 +205,25 @@ def default_hooks():
 
 
 def execute(client: Any, *, as_of: date, now: datetime, commit: bool,
-            hooks: RefreshHooks | None = None) -> dict[str, Any]:
+            hooks: RefreshHooks | None = None,
+            force_model_rebuild: bool = False,
+            reuse_current_source_authority: bool = False) -> dict[str, Any]:
+    if reuse_current_source_authority and not force_model_rebuild:
+        raise ValueError("reuse_current_source_authority requires force_model_rebuild")
+
     plan = build_plan(client, as_of=as_of, now=now)
-    due = [x["key"] for x in plan["freshness"]["sources"] if x["due"]]
-    if due and not commit:
-        plan.update(status="COLLECTOR_SOURCE_REFRESH_PLANNED", dueSources=due,
-                    providerCallsPlanned=len(due), mutationsPerformed=0)
+    freshness_due = [x["key"] for x in plan["freshness"]["sources"] if x["due"]]
+    due = [] if reuse_current_source_authority else freshness_due
+    plan["reuseCurrentSourceAuthority"] = reuse_current_source_authority
+    plan["suppressedDueSources"] = freshness_due if reuse_current_source_authority else []
+    if (due or force_model_rebuild) and not commit:
+        plan.update(
+            status="COLLECTOR_SOURCE_REFRESH_PLANNED" if due else "COLLECTOR_MODEL_REBUILD_PLANNED",
+            dueSources=due, forceModelRebuild=force_model_rebuild,
+            providerCallsPlanned=len(due), mutationsPerformed=0,
+        )
         return plan
-    if due:
+    if due or force_model_rebuild:
         hooks=hooks or default_hooks(); authority=dict(plan["sourceAuthority"]); refreshed={}
         aliases={"pokemon_trends":"pokemonTrends","trainer_12m":"trainer12m","trainer_5y":"trainer5y","artist_12m":"artist12m","artist_5y":"artist5y"}
         try:
@@ -229,6 +245,7 @@ def execute(client: Any, *, as_of: date, now: datetime, commit: bool,
                 "p_model_run_id":new_run,"p_generation_id":pages["generationId"]}).execute()
             inserted=client.rpc("append_current_collector_v7_history",{"p_as_of_date":as_of.isoformat()}).execute().data
             plan.update(status="COLLECTOR_HISTORY_APPENDED",dueSources=due,refreshedSourceRuns=refreshed,
+                forceModelRebuild=force_model_rebuild,
                 previousModelRunId=plan["modelRunId"],newModelRunId=new_run,modelCreated=created,
                 validation=validation,deltaReport=deltas,setPagePublication=pages,
                 providerCallsPlanned=len(due),historyResult=int(inserted or 0),
@@ -255,11 +272,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--as-of-date", required=True)
     parser.add_argument("--commit", action="store_true")
+    parser.add_argument(
+        "--force-model-rebuild",
+        action="store_true",
+        help="Rebuild the frozen Collector V7 model even when source evidence is still fresh; used when catalog membership changes.",
+    )
+    parser.add_argument(
+        "--reuse-current-source-authority",
+        action="store_true",
+        help=(
+            "For bounded catalog-membership catch-up, rebuild from the currently promoted "
+            "Collector source authority without refreshing due external evidence. Requires "
+            "--force-model-rebuild. Scheduled Collector freshness remains a separate concern."
+        ),
+    )
     args = parser.parse_args(argv)
     load_dotenv(ROOT / "backend/.env", override=False)
     from backend.db.clients.supabase_client import supabase
-    report = execute(supabase, as_of=date.fromisoformat(args.as_of_date),
-                     now=datetime.now(timezone.utc), commit=args.commit)
+    report = execute(
+        supabase,
+        as_of=date.fromisoformat(args.as_of_date),
+        now=datetime.now(timezone.utc),
+        commit=args.commit,
+        force_model_rebuild=args.force_model_rebuild,
+        reuse_current_source_authority=args.reuse_current_source_authority,
+    )
     print(json.dumps(report, indent=2, default=str))
     return 0 if report["status"] != "COLLECTOR_SOURCE_REFRESH_BLOCKED" else 2
 

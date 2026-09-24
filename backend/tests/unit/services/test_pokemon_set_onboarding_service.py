@@ -19,8 +19,6 @@ def _job(step, metadata=None):
 
 
 def test_step_order_places_pre_and_post_desirability_around_simulation():
-    assert STEP_ORDER.index("initial_scrape") < STEP_ORDER.index("images")
-    assert STEP_ORDER.index("images") < STEP_ORDER.index("set_value")
     assert STEP_ORDER.index("desirability_pre_sim") < STEP_ORDER.index("simulation")
     assert STEP_ORDER.index("simulation") < STEP_ORDER.index("desirability_post_sim")
     assert STEP_ORDER.index("explore_rankings") < STEP_ORDER.index("set_page_snapshot")
@@ -276,7 +274,7 @@ def test_db_registration_accepts_catalog_only_set_without_daily_scrape_readiness
     assert outcome.step == "initial_scrape"
 
 
-def test_initial_scrape_uses_catalog_target_and_routes_through_enrichment_boundary():
+def test_initial_scrape_uses_catalog_target_and_completes_for_sealed_only_set():
     calls = []
     def runner(command, **kwargs):
         calls.append(command)
@@ -298,8 +296,8 @@ def test_initial_scrape_uses_catalog_target_and_routes_through_enrichment_bounda
         set_evidence_collector=lambda _key: dict(evidence),
     )
     outcome = engine.run_step(_provider_job("initial_scrape"))
-    assert outcome.kind == "advance"
-    assert outcome.step == "images"
+    assert outcome.kind == "complete"
+    assert outcome.evidence["catalog_only_onboarding_complete"] is True
     assert "--catalog-set" in calls[0]
     assert "--set" not in calls[0]
 
@@ -338,95 +336,98 @@ def test_provider_source_registration_resumes_when_config_already_deployed(monke
 
 
 
-def test_catalog_images_step_completes_without_provider_call_when_no_cards_exist():
+def test_initial_scrape_hydrates_missing_card_metadata_before_advancing():
     calls = []
-    evidence = {
-        "catalog_only": True,
-        "cards_populated": False,
-        "sealed_products_populated": True,
-        "sealed_market_prices_populated": True,
-    }
-    engine = OnboardingEngine(
-        execute=True,
-        command_runner=lambda command, **kwargs: calls.append(command) or CompletedProcess(command, 0, stdout="", stderr=""),
-        set_evidence_collector=lambda _key: dict(evidence),
-    )
-
-    outcome = engine.run_step(_provider_job("images"))
-
-    assert outcome.kind == "complete"
-    assert outcome.evidence["catalog_only_onboarding_complete"] is True
-    assert outcome.evidence["image_enrichment_skipped"] == "no_cards"
-    assert calls == []
-
-
-def test_images_step_syncs_provider_then_refreshes_canonical_projection():
-    calls = []
-    evidence_reads = iter([
-        {
-            "catalog_only": False,
-            "cards_populated": True,
-            "image_coverage": 0.0,
-        },
-        {
-            "catalog_only": False,
-            "cards_populated": True,
-            "image_coverage": 1.0,
-        },
-    ])
 
     def runner(command, **kwargs):
         calls.append(command)
         return CompletedProcess(command, 0, stdout="ok", stderr="")
 
+    low = {
+        "catalog_only": False,
+        "cards_populated": True,
+        "variants_populated": True,
+        "market_prices_populated": True,
+        "resolved_market_date": "2026-09-21",
+        "image_coverage": 0.0,
+    }
+    high = {**low, "image_coverage": 1.0}
+    evidence = iter([
+        {"catalog_only": False},  # pre-scrape routing decision
+        low,                       # first post-scrape verification
+        high,                      # after metadata hydration
+    ])
     engine = OnboardingEngine(
         execute=True,
         command_runner=runner,
-        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+        set_evidence_collector=lambda _key: dict(next(evidence)),
     )
-    job = _job("images")
-    job["source_set_name"] = "Future Set"
 
-    outcome = engine.run_step(job)
+    outcome = engine.run_step(_job("initial_scrape"))
 
     assert outcome.kind == "advance"
     assert outcome.step == "set_value"
-    assert calls[0][1:] == [
-        "backend/scripts/sync_pokemon_images.py", "--sets", "Future Set", "--apply",
-    ]
-    assert calls[1][1:] == [
-        "backend/scripts/build_pokemon_set_desirability_inputs.py",
-        "--set", "futureSet", "--commit", "--canonical-only",
-    ]
+    joined = [" ".join(map(str, command)) for command in calls]
+    assert any("run_pokemon_set_scrape.py --run --set futureSet" in command for command in joined)
+    assert any("sync_pokemon_images.py --sets Future Set --apply" in command for command in joined)
+    assert any(
+        "build_pokemon_set_desirability_inputs.py --set futureSet --commit --canonical-only" in command
+        for command in joined
+    )
+    assert outcome.evidence["image_coverage"] == 1.0
 
 
-def test_card_bearing_catalog_images_step_enriches_then_completes():
+def test_images_step_builds_static_and_collector_layers_for_released_non_simulation_set():
     calls = []
-    evidence_reads = iter([
-        {
-            "catalog_only": True,
-            "cards_populated": True,
-            "image_coverage": 0.0,
-        },
-        {
-            "catalog_only": True,
-            "cards_populated": True,
-            "image_coverage": 1.0,
-        },
-    ])
 
     def runner(command, **kwargs):
-        calls.append(command)
+        calls.append([str(part) for part in command])
         return CompletedProcess(command, 0, stdout="ok", stderr="")
 
     engine = OnboardingEngine(
         execute=True,
         command_runner=runner,
-        set_evidence_collector=lambda _key: dict(next(evidence_reads)),
+        set_evidence_collector=lambda _key: {
+            "catalog_only": False,
+            "supports_opening_simulation": False,
+            "image_coverage": 1.0,
+            "resolved_market_date": "2026-09-22",
+        },
+    )
+    outcome = engine.run_step(_job("images"))
+
+    assert outcome.kind == "advance"
+    assert outcome.step == "publication_gate"
+    joined = [" ".join(command) for command in calls]
+    assert any("sync_pokemon_images.py --sets Future Set --apply" in line for line in joined)
+    assert any(
+        "build_pokemon_set_desirability_inputs.py --set futureSet --commit --log-level INFO" in line
+        for line in joined
+    )
+    assert any(
+        "operationalize_historical_rip.py --as-of-date 2026-09-22 --commit --force-model-rebuild --reuse-current-source-authority" in line
+        for line in joined
     )
 
-    outcome = engine.run_step(_provider_job("images"))
 
-    assert outcome.kind == "complete"
-    assert outcome.evidence["catalog_only_onboarding_complete"] is True
-    assert len(calls) == 2
+def test_images_step_non_simulation_collector_failure_retries():
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append([str(part) for part in command])
+        failed = any(str(part).endswith("operationalize_historical_rip.py") for part in command)
+        return CompletedProcess(command, 2 if failed else 0, stdout="", stderr="collector blocked" if failed else "")
+
+    engine = OnboardingEngine(
+        execute=True,
+        command_runner=runner,
+        set_evidence_collector=lambda _key: {
+            "catalog_only": False,
+            "supports_opening_simulation": False,
+            "image_coverage": 1.0,
+            "resolved_market_date": "2026-09-22",
+        },
+    )
+    outcome = engine.run_step(_job("images"))
+    assert outcome.kind == "retry"
+    assert outcome.error_code == "collector_membership_refresh_failed"

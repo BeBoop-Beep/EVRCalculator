@@ -119,6 +119,27 @@ if [[ "${PROJECTION_STATUS}" -ne 0 ]]; then
   exit "${PROJECTION_STATUS}"
 fi
 
+# Set Value is a derived read model. Cards ingestion deliberately treats its
+# inline refresh as best-effort so a transient SQLSTATE 57014 cannot throw away
+# an otherwise successful scrape. Before publication, repair ONLY canonical
+# Market roots missing Standard/Top-10 rows for this exact date. This closes the
+# gap between durable card prices and the Market-quality gate without rescraping.
+SET_VALUE_REPAIR_CMD=(
+  "${PYTHON_BIN}" -m backend.scripts.repair_missing_market_set_value_history
+  --market-date "${MARKET_DATE}"
+  --commit
+  --max-passes 3
+  --sleep-seconds 2
+)
+log "command: ${SET_VALUE_REPAIR_CMD[*]}"
+SET_VALUE_REPAIR_STATUS=0
+"${SET_VALUE_REPAIR_CMD[@]}" || SET_VALUE_REPAIR_STATUS=$?
+log "set value repair exit_status=${SET_VALUE_REPAIR_STATUS}"
+if [[ "${SET_VALUE_REPAIR_STATUS}" -ne 0 ]]; then
+  log "FAILED canonical Market Set Value coverage could not be repaired for market_date=${MARKET_DATE}; preserving previous good snapshots"
+  exit "${SET_VALUE_REPAIR_STATUS}"
+fi
+
 # `set -e` would abort before the exit status could be logged and classified, so# each stage captures its own status explicitly.
 REFRESH_CMD=(
   "${PYTHON_BIN}" backend/scripts/refresh_stale_public_snapshots.py
