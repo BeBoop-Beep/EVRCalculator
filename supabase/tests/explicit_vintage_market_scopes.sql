@@ -249,7 +249,7 @@ BEGIN
     END IF;
 
     -- v3 serving remains bounded by the existing compact pagination contract.
-    IF to_regprocedure('public.get_pokemon_market_explorer_prepared_constituents_v3(text,integer,integer)') IS NULL THEN
+    IF to_regprocedure('public.get_pokemon_market_explorer_prepared_constituents_v3(text,uuid,integer,integer)') IS NULL THEN
       RAISE EXCEPTION 'v3 prepared constituent serving function is missing';
     END IF;
   END IF;
