@@ -104,7 +104,7 @@ export const SLIM_SET_MODULE_PROXY_CONTRACTS = Object.freeze({
     codePrefix: "POKEMON_SET_MARKET_MOVERS",
     // movement=all|heating|cooling is part of the shared canonical Cards
     // query contract the backend reads (see get_pokemon_set_market_movers).
-    forwardParams: ["window", "limit", "movement", "snapshot_contract"],
+    forwardParams: ["window", "limit", "movement", "surface", "metric", { from: ["value_scope", "scope"], to: "value_scope" }, "snapshot_contract"],
   },
   sealed: {
     backendPath: "market/sealed",
