@@ -1,4 +1,4 @@
 {
-  "operation": "pricing-run-full-now",
-  "request_id": "pricing-run-full-now-20260924-1454"
+  "operation": "pricing-runtime-preflight",
+  "request_id": "pricing-timeout-retry-preflight-20260924"
 }
