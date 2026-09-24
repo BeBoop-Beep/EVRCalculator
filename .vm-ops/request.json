@@ -1,5 +1,5 @@
 {
-  "operation": "restart-sep24-publisher-optimized",
+  "operation": "sync-launch-sep24-publisher-optimized",
   "market_date": "2026-09-24",
-  "request_id": "restart-sep24-publisher-optimized-20260924"
+  "request_id": "sync-launch-sep24-publisher-optimized-20260924"
 }
