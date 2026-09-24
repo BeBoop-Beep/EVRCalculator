@@ -441,6 +441,85 @@ def test_stalled_recovery_cooldown_prevents_repeat_signal():
     assert terminated == []
 
 
+
+def _wrapper_only_stalled_process(*, market_date="2026-09-20", pgid=100):
+    return [
+        {
+            "pid": 100,
+            "ppid": 1,
+            "pgid": pgid,
+            "age_seconds": 2400,
+            "args": (
+                "/home/ubuntu/repos/EVRCalculator/backend/scripts/"
+                f"rebuild_snapshots_after_scrape.sh {market_date}"
+            ),
+            "kind": "wrapper",
+            "market_date": market_date,
+        }
+    ]
+
+
+def test_stalled_recovery_sigterms_exact_wrapper_process_group_before_refresh():
+    terminated = []
+    terminated_groups = []
+    recorded = []
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            stall_seconds=1200,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: True,
+            log_age_loader=lambda _path, _now: 1800.0,
+            recover_stalled=True,
+            recover_superseded=True,
+            process_inspector=lambda _date: _wrapper_only_stalled_process(),
+            all_process_inspector=lambda: _wrapper_only_stalled_process(),
+            terminate_process=lambda pid: terminated.append(pid),
+            terminate_process_group=lambda pgid: terminated_groups.append(pgid),
+            cooldown_checker=lambda *_args: False,
+            recovery_recorder=lambda market_date, now: recorded.append((market_date, now)),
+        )
+
+    assert result["healthy"] is False
+    assert result["status"] == "stall_sigterm_requested"
+    assert result["recovery_attempted"] is True
+    assert result["termination_scope"] == "process_group"
+    assert result["wrapper_pid"] == 100
+    assert result["wrapper_pgid"] == 100
+    assert result["refresh_pid"] is None
+    assert terminated == []
+    assert terminated_groups == [100]
+    assert recorded == [("2026-09-20", NOW)]
+
+
+def test_stalled_recovery_refuses_wrapper_only_when_not_detached_group_leader():
+    terminated_groups = []
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            stall_seconds=1200,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(BATCH),
+            lock_checker=lambda _path: True,
+            log_age_loader=lambda _path, _now: 1800.0,
+            recover_stalled=True,
+            recover_superseded=True,
+            process_inspector=lambda _date: _wrapper_only_stalled_process(pgid=999),
+            all_process_inspector=lambda: _wrapper_only_stalled_process(pgid=999),
+            terminate_process_group=lambda pgid: terminated_groups.append(pgid),
+            cooldown_checker=lambda *_args: False,
+            recovery_recorder=lambda *_args: None,
+        )
+
+    assert result["status"] == "stall_recovery_blocked"
+    assert result["failure_code"] == "publication_wrapper_not_detached_group_leader"
+    assert result["recovery_attempted"] is False
+    assert terminated_groups == []
+
+
 def test_stalled_recovery_refuses_parent_mismatch():
     terminated = []
     processes = _exact_stalled_processes()
@@ -523,6 +602,42 @@ def test_superseded_recovery_sigterms_only_exact_old_refresh_before_projection()
     assert result["refresh_pid"] == 201
     assert result["wrapper_pid"] == 200
     assert terminated == [201]
+    assert recorded == [("superseded-2026-09-20-by-2026-09-21", NOW)]
+    assert projection_calls == []
+
+
+
+def test_superseded_wrapper_only_recovery_sigterms_process_group_before_projection():
+    terminated = []
+    terminated_groups = []
+    recorded = []
+    projection_calls = []
+    old_wrapper = _wrapper_only_stalled_process(market_date="2026-09-20")
+
+    with patch.object(watchdog, "_batch_gate_decision", return_value=_gate()):
+        result = watchdog.run_watchdog(
+            client=object(),
+            now=NOW,
+            queue_failures=False,
+            latest_batch_loader=lambda _client: dict(NEWER_BATCH),
+            lock_checker=lambda _path: True,
+            recover_superseded=True,
+            all_process_inspector=lambda: old_wrapper,
+            terminate_process=lambda pid: terminated.append(pid),
+            terminate_process_group=lambda pgid: terminated_groups.append(pgid),
+            cooldown_checker=lambda *_args: False,
+            recovery_recorder=lambda key, now: recorded.append((key, now)),
+            projection_checker=lambda *_args: projection_calls.append(True),
+        )
+
+    assert result["healthy"] is False
+    assert result["status"] == "supersession_sigterm_requested"
+    assert result["termination_scope"] == "process_group"
+    assert result["wrapper_pid"] == 100
+    assert result["wrapper_pgid"] == 100
+    assert result["refresh_pid"] is None
+    assert terminated == []
+    assert terminated_groups == [100]
     assert recorded == [("superseded-2026-09-20-by-2026-09-21", NOW)]
     assert projection_calls == []
 
