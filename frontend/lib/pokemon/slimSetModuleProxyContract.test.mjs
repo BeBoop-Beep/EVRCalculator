@@ -47,6 +47,21 @@ test("movers forwards movement to the backend", () => {
   assert.equal(params.snapshot_contract, "pricing-v4");
 });
 
+
+
+test("movers forwards explicit Market scope and Market-only ranking options", () => {
+  const params = forwarded("movers", {
+    window: "7D",
+    scope: "first_edition",
+    surface: "market-tab",
+    metric: "absolute-percent",
+  });
+  assert.equal(params.value_scope, "first_edition");
+  assert.equal(params.surface, "market-tab");
+  assert.equal(params.metric, "absolute-percent");
+  assert.ok(!("scope" in params));
+});
+
 test("movers forwards a non-default movement value unchanged", () => {
   assert.equal(forwarded("movers", { movement: "heating" }).movement, "heating");
   assert.equal(forwarded("movers", { movement: "cooling" }).movement, "cooling");
