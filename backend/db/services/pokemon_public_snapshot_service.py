@@ -52,6 +52,7 @@ from backend.db.services.pokemon_set_market_service import (
     MAX_TOP_MARKET_CARDS_LIMIT,
     SET_VALUE_SCOPE_LABELS,
     SET_VALUE_SCOPES,
+    EDITION_SET_VALUE_SCOPES,
     PokemonSetMarketError,
     get_pokemon_set_top_market_cards_payload,
     get_pokemon_set_value_history_payload,
@@ -5163,6 +5164,20 @@ def get_pokemon_set_overview_snapshot_payload(
         set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
         resolved_set_id = str(set_row["id"])
 
+    market_scope = _normalize_explicit_market_scope(value_scope)
+    if market_scope in EDITION_SET_VALUE_SCOPES:
+        if resolved_window not in ("1D", "7D", "30D"):
+            raise PokemonSetMarketError(400, "Scoped Market Movers supports 1D, 7D, or 30D", "POKEMON_SET_MARKET_WINDOW_INVALID")
+        return _scoped_market_movers_payload(
+            set_id=resolved_set_id,
+            set_row=set_row,
+            market_scope=market_scope,
+            window=resolved_window,
+            window_days=window_days,
+            limit=limit_value,
+            movement_filter=movement_filter,
+        )
+
     t_query = time.perf_counter()
     row: Optional[Dict[str, Any]] = None
     try:
@@ -6285,6 +6300,191 @@ def build_set_page_market_movers_read_model(
     }
 
 
+SCOPED_SET_CONSTITUENT_RPC = "get_pokemon_market_set_scope_constituents_v1"
+
+
+def _normalize_explicit_market_scope(value: Any) -> str:
+    normalized = str(value or "standard").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "1st_edition": "first_edition",
+        "firstedition": "first_edition",
+        "1stedition": "first_edition",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _scoped_market_movers_payload(
+    *,
+    set_id: str,
+    set_row: Optional[Dict[str, Any]],
+    market_scope: str,
+    window: str,
+    window_days: int,
+    limit: int,
+    movement_filter: str,
+) -> Dict[str, Any]:
+    """Build Market-tab movers for one explicit edition basket.
+
+    This intentionally bypasses the generic per-Set Cards snapshot, whose
+    membership is not edition-scoped. Both endpoints of the movement are read
+    through the same scope-aware constituent authority used by the prepared
+    Explorer generation, then matched by canonical card identity.
+    """
+    latest_result = (
+        service_read_client.table("pokemon_market_root_set_value_daily_history_v2_shadow")
+        .select("market_date")
+        .eq("set_id", set_id)
+        .eq("market_scope", market_scope)
+        .eq("certified_on_date", True)
+        .order("market_date", desc=True)
+        .limit(1)
+        .execute()
+    )
+    latest_rows = list(latest_result.data or [])
+    end_date = _parse_date_key((latest_rows[0] if latest_rows else {}).get("market_date"))
+    identity_row = set_row or {"id": set_id}
+    empty = {
+        "set": {
+            "id": _to_optional_str(identity_row.get("id")) or set_id,
+            "name": _to_optional_str(identity_row.get("name")),
+            "slug": _to_optional_str(identity_row.get("canonical_key")),
+            "pokemon_api_set_id": _to_optional_str(identity_row.get("pokemon_api_set_id")),
+        },
+        "window": window,
+        "windowDays": window_days,
+        "latestMarketDate": end_date,
+        "marketScope": market_scope,
+        "marketMovers": {"window": window, "windowDays": window_days, "all": [], "heatingUp": [], "coolingOff": []},
+        "meta": {
+            "limit": limit,
+            "warnings": [] if end_date else ["No certified edition-scoped market history is available."],
+            "movementTotals": {"window": window, "checklistCardCount": 0, "cardsWithCalculableMovement": 0, "nonzeroMovementCount": 0, "filteredTotal": 0, "pageCount": 0},
+            "priceBasis": SCOPED_SET_CONSTITUENT_RPC,
+            "query": {"section": "market-movers", "window": window, "movement": movement_filter, "sort": "largest-dollar-move", "limit": limit, "marketScope": market_scope},
+            "snapshot": {"source": "explicit_edition_scope_live_read", "marketAsOfDate": end_date, "latestMarketDate": end_date, "isStaleFallback": False},
+        },
+    }
+    if not end_date:
+        return empty
+
+    target_date = (date.fromisoformat(end_date) - timedelta(days=window_days)).isoformat()
+    baseline_result = (
+        service_read_client.table("pokemon_market_root_set_value_daily_history_v2_shadow")
+        .select("market_date")
+        .eq("set_id", set_id)
+        .eq("market_scope", market_scope)
+        .eq("market_date", target_date)
+        .eq("certified_on_date", True)
+        .limit(1)
+        .execute()
+    )
+    if not list(baseline_result.data or []):
+        empty["meta"]["warnings"] = [f"No certified {window} baseline exists for this explicit market scope."]
+        return empty
+
+    current_rows = list((service_read_client.rpc(SCOPED_SET_CONSTITUENT_RPC, {
+        "p_set_id": set_id, "p_market_scope": market_scope, "p_market_date": end_date, "p_card_ids": None,
+    }).execute()).data or [])
+    baseline_rows = list((service_read_client.rpc(SCOPED_SET_CONSTITUENT_RPC, {
+        "p_set_id": set_id, "p_market_scope": market_scope, "p_market_date": target_date, "p_card_ids": None,
+    }).execute()).data or [])
+
+    current_by_card = {
+        str(row.get("canonical_card_id") or ""): dict(row)
+        for row in current_rows if row.get("canonical_card_id") and row.get("market_price") is not None
+    }
+    baseline_by_card = {
+        str(row.get("canonical_card_id") or ""): dict(row)
+        for row in baseline_rows if row.get("canonical_card_id") and row.get("market_price") is not None
+    }
+    variant_ids = sorted({
+        str(row.get("card_variant_id") or "")
+        for row in current_rows if row.get("card_variant_id")
+    })
+    metadata_by_variant: Dict[str, Dict[str, Any]] = {}
+    for offset in range(0, len(variant_ids), 500):
+        batch = variant_ids[offset:offset + 500]
+        if not batch:
+            continue
+        metadata_rows = list((
+            service_read_client.table("pokemon_market_explorer_card_current_metadata")
+            .select("card_variant_id,canonical_card_id,set_id,card_name,card_number,rarity,edition,printing_type,special_type,image_url")
+            .in_("card_variant_id", batch)
+            .execute()
+        ).data or [])
+        metadata_by_variant.update({
+            str(row.get("card_variant_id")): dict(row)
+            for row in metadata_rows if row.get("card_variant_id")
+        })
+
+    movements: List[Dict[str, Any]] = []
+    for canonical_id, current in current_by_card.items():
+        baseline = baseline_by_card.get(canonical_id)
+        if not baseline:
+            continue
+        current_price = _to_optional_float(current.get("market_price"))
+        baseline_price = _to_optional_float(baseline.get("market_price"))
+        if current_price is None or baseline_price is None or baseline_price <= 0:
+            continue
+        amount = current_price - baseline_price
+        percent = (amount / baseline_price) * 100.0
+        if abs(amount) < 1e-12 and abs(percent) < 1e-12:
+            continue
+        if movement_filter == "heating" and percent <= 0:
+            continue
+        if movement_filter == "cooling" and percent >= 0:
+            continue
+        variant_id = str(current.get("card_variant_id") or "")
+        meta = metadata_by_variant.get(variant_id, {})
+        movement = {
+            "canonicalCardId": canonical_id,
+            "cardId": canonical_id,
+            "cardVariantId": variant_id or None,
+            "setId": _to_optional_str(current.get("set_id")) or set_id,
+            "name": _to_optional_str(meta.get("card_name")),
+            "rarity": _to_optional_str(meta.get("rarity")),
+            "cardNumber": _to_optional_str(meta.get("card_number")),
+            "imageSmallUrl": _to_optional_str(meta.get("image_url")),
+            "edition": _to_optional_str(meta.get("edition")),
+            "printingType": _to_optional_str(meta.get("printing_type")),
+            "specialType": _to_optional_str(meta.get("special_type")),
+            "marketPrice": current_price,
+            "changeAmount": amount,
+            "changePercent": percent,
+            "window": window,
+            "windowDays": window_days,
+            "targetStartDate": target_date,
+            "startDate": target_date,
+            "endDate": end_date,
+            "reliable": True,
+            "reliability": "certified_explicit_scope",
+            "fullWindowCoverage": True,
+            "isPartialWindow": False,
+        }
+        movements.append(movement)
+
+    movements.sort(
+        key=lambda row: (
+            -abs(float(row.get("changeAmount") or 0)),
+            -abs(float(row.get("changePercent") or 0)),
+            str(row.get("canonicalCardId") or ""),
+        )
+    )
+    served = movements[:limit]
+    heating = [row for row in served if float(row.get("changePercent") or 0) > 0]
+    cooling = [row for row in served if float(row.get("changePercent") or 0) < 0]
+    empty["marketMovers"] = {"window": window, "windowDays": window_days, "all": served, "heatingUp": heating, "coolingOff": cooling}
+    empty["meta"]["movementTotals"] = {
+        "window": window,
+        "checklistCardCount": len(current_by_card),
+        "cardsWithCalculableMovement": len(set(current_by_card).intersection(baseline_by_card)),
+        "nonzeroMovementCount": len(movements),
+        "filteredTotal": len(movements),
+        "pageCount": len(served),
+    }
+    return empty
+
+
 def get_pokemon_set_market_movers_snapshot_payload(
     set_id: str,
     window: str = DEFAULT_MARKET_MOVERS_WINDOW,
@@ -6292,6 +6492,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
     movement: Any = None,
     surface: Any = None,
     metric: Any = None,
+    value_scope: Any = None,
 ) -> Dict[str, Any]:
     """Return the slim Market Movers payload for a Pokemon set.
 
