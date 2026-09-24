@@ -21,10 +21,17 @@ permissions:
 
 concurrency:
   group: opening-simulation-recovery-watchdog
-  cancel-in-progress: false
+  # A workflow-file push is an explicit maintenance event: it may preempt a stale
+  # in-flight watchdog so production VM ops are not starved. Scheduled/manual
+  # watchdog runs retain the previous non-preemptive behavior.
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   recover-if-needed:
+    # Pushes of this workflow exist only to apply watchdog maintenance. They
+    # participate in workflow concurrency (and can preempt a stale run) but do
+    # not consume the sole production self-hosted runner.
+    if: github.event_name != 'push'
     runs-on: self-hosted
     timeout-minutes: 180
     steps:
