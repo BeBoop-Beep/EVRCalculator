@@ -1898,11 +1898,20 @@ def _load_target_snapshot_market_dates(
 
 def _target_date_fast_result(
     family: str, *, snapshot_row: Optional[Mapping[str, Optional[str]]], target_market_date: str
-) -> Optional[FreshnessResult]:
-    """Return a proven-stale result when the snapshot authority predates the target.
+) -> FreshnessResult:
+    """Classify Cards/Market freshness from the canonical target-date marker.
 
-    ``None`` means the cheap authority date is already current and the caller
-    must continue into the existing deep dependency audit.
+    This fast path is used only when an explicit promoted --market-date is
+    supplied and the exact set belongs to that date's completed scrape cohort.
+    The post-scrape wrapper has already repaired and verified required Set Value
+    coverage before this planner starts. In that phase, Cards and Market are
+    date-authoritative read models: matching the promoted market date proves
+    the market-pricing publication is current for this pass.
+
+    The later coordinated opening publication deliberately does not pass a
+    target market date into this refresher, so simulation/RIP changes still use
+    the full dependency audit. This keeps the optimization phase-scoped instead
+    of weakening general freshness semantics.
     """
     if not snapshot_row:
         return FreshnessResult(
@@ -1911,18 +1920,25 @@ def _target_date_fast_result(
             [f"target-date fast path: expected {target_market_date}; snapshot row missing"],
         )
     snapshot_market_date = _to_text(snapshot_row.get("market_date"))
+    snapshot_updated_at = _to_text(snapshot_row.get("updated_at"))
     if snapshot_market_date != target_market_date:
         return FreshnessResult(
             family, True,
             f"snapshot market date {snapshot_market_date or 'missing'} differs from completed scrape market date {target_market_date}",
-            _to_text(snapshot_row.get("updated_at")),
-            target_market_date,
+            snapshot_updated_at, target_market_date,
             [
                 f"target-date fast path: snapshot_market_date={snapshot_market_date or 'missing'}",
                 f"target-date fast path: completed_scrape_market_date={target_market_date}",
             ],
         )
-    return None
+    return FreshnessResult(
+        family, False, "current for completed target-date scrape cohort",
+        snapshot_updated_at, target_market_date,
+        [
+            f"target-date fast path: snapshot_market_date={snapshot_market_date}",
+            f"target-date fast path: completed_scrape_market_date={target_market_date}",
+        ],
+    )
 
 def _build_plan(
     client: Any,
@@ -1996,8 +2012,6 @@ def _build_plan(
                 and set_id in completed_scrape_set_ids
                 and target_day
             )
-            cards = None
-            market = None
             if use_target_fastpath:
                 cards = _target_date_fast_result(
                     "cards",
@@ -2009,9 +2023,8 @@ def _build_plan(
                     snapshot_row=market_target_dates.get(set_id),
                     target_market_date=target_day,
                 )
-            if cards is None:
+            else:
                 cards = _cards_snapshot_staleness(client, set_id)
-            if market is None:
                 market = _market_snapshot_staleness(client, set_id, window)
             if use_target_fastpath and (cards.stale or market.stale):
                 page = FreshnessResult(
