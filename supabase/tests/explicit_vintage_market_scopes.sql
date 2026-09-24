@@ -23,6 +23,30 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Global Set Market snapshot market_count contract is missing or nullable';
   END IF;
+  IF to_regprocedure('public.normalize_pokemon_explore_set_value_market_count_v1()') IS NULL THEN
+    RAISE EXCEPTION 'market_count normalization trigger function is missing';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid='public.pokemon_explore_set_value_snapshot_latest'::regclass
+      AND tgname='pokemon_explore_set_value_normalize_market_count'
+      AND NOT tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'market_count normalization trigger is missing';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid='public.pokemon_explore_set_value_snapshot_latest'::regclass
+      AND conname='pokemon_explore_set_value_snapshot_market_count_check'
+      AND pg_get_constraintdef(oid) LIKE '%market_count = jsonb_array_length%'
+  ) THEN
+    RAISE EXCEPTION 'market_count payload equality constraint is missing';
+  END IF;
+  IF has_function_privilege('anon','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE')
+     OR has_function_privilege('authenticated','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') THEN
+    RAISE EXCEPTION 'scoped directory sync is executable by a public API role';
+  END IF;
 
   -- Standard roots remain one Standard market.
   IF EXISTS (
