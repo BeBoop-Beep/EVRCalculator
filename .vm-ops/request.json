@@ -1,5 +1,4 @@
 {
-  "operation": "sep22-publication-status",
-  "market_date": "2026-09-24",
-  "request_id": "publication-status-report-20260924-0831"
+  "operation": "pricing-credential-status",
+  "request_id": "pricing-credential-status-20260924-0959"
 }
