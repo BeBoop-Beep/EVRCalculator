@@ -5164,20 +5164,6 @@ def get_pokemon_set_overview_snapshot_payload(
         set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
         resolved_set_id = str(set_row["id"])
 
-    market_scope = _normalize_explicit_market_scope(value_scope)
-    if market_scope in EDITION_SET_VALUE_SCOPES:
-        if resolved_window not in ("1D", "7D", "30D"):
-            raise PokemonSetMarketError(400, "Scoped Market Movers supports 1D, 7D, or 30D", "POKEMON_SET_MARKET_WINDOW_INVALID")
-        return _scoped_market_movers_payload(
-            set_id=resolved_set_id,
-            set_row=set_row,
-            market_scope=market_scope,
-            window=resolved_window,
-            window_days=window_days,
-            limit=limit_value,
-            movement_filter=movement_filter,
-        )
-
     t_query = time.perf_counter()
     row: Optional[Dict[str, Any]] = None
     try:
@@ -6542,6 +6528,20 @@ def get_pokemon_set_market_movers_snapshot_payload(
     else:
         set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
         resolved_set_id = str(set_row["id"])
+
+    market_scope = _normalize_explicit_market_scope(value_scope)
+    if market_scope in EDITION_SET_VALUE_SCOPES:
+        if resolved_window not in ("1D", "7D", "30D"):
+            raise PokemonSetMarketError(400, "Scoped Market Movers supports 1D, 7D, or 30D", "POKEMON_SET_MARKET_WINDOW_INVALID")
+        return _scoped_market_movers_payload(
+            set_id=resolved_set_id,
+            set_row=set_row,
+            market_scope=market_scope,
+            window=resolved_window,
+            window_days=window_days,
+            limit=limit_value,
+            movement_filter=movement_filter,
+        )
 
     # The Cards snapshot only carries 7D/30D movement contracts; 1D requests
     # stay on the legacy dashboard read model until 1D joins the coordinated
