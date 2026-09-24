@@ -1,4 +1,4 @@
 {
-  "operation": "pricing-sync-main",
-  "request_id": "pricing-sync-main-20260924-postscrape-fix"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "post-scrape-recovery-now-20260924"
 }
