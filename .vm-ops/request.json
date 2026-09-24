@@ -1,4 +1,4 @@
 {
-  "operation": "pricing-run-full-now",
-  "request_id": "pricing-run-full-now-20260924-recovery"
+  "operation": "pytest-post-scrape-watchdog-pr363",
+  "request_id": "pytest-post-scrape-watchdog-pr363-20260924"
 }
