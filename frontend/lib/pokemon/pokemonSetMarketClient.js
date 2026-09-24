@@ -1476,7 +1476,7 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
   });
 }
 
-export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10, movement = "all", surface = null, metric = null } = {}) {
+export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10, movement = "all", surface = null, metric = null, scope = "standard" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
@@ -1498,8 +1498,9 @@ export async function getPokemonSetMarketMovers(setId, { window = "30D", limit =
   }
   if (surface) params.set("surface", String(surface));
   if (metric) params.set("metric", String(metric));
+  if (scope) params.set("scope", String(scope));
 
-  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}:${movement || ""}:${surface || ""}:${metric || ""}`;
+  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}:${movement || ""}:${surface || ""}:${metric || ""}:${scope || ""}`;
   return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,
