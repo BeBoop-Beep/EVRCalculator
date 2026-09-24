@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
+import time
 
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
@@ -170,13 +171,21 @@ def _evaluate_projection_with_retry(
     *,
     client_factory: Callable[[], Any],
     max_attempts: int = 3,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> PriceProjectionDecision:
-    """Retry only authority-unavailable readiness reads with fresh clients."""
+    """Retry only authority-unavailable readiness reads with fresh clients.
+
+    The publication gate is an availability check, not a mutation. A transient
+    PostgREST/Cloudflare 5xx must not make an otherwise-ready promoted cohort
+    miss the day's publication. Each retry uses a fresh service-role client and
+    bounded backoff; semantic NOT_READY decisions are never retried.
+    """
     decision = evaluate_price_projection_gate(client, market_date)
     attempts = max(1, min(int(max_attempts), 3))
-    for _attempt in range(2, attempts + 1):
+    for attempt in range(2, attempts + 1):
         if decision.reason_code != REASON_AUTHORITY_UNAVAILABLE:
             break
+        sleep(min(5.0 * (attempt - 1), 10.0))
         decision = evaluate_price_projection_gate(client_factory(), market_date)
     return decision
 
