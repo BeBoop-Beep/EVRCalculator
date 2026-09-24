@@ -1,5 +1,4 @@
 {
-  "operation": "run-sep24-publisher-optimized",
-  "market_date": "2026-09-24",
-  "request_id": "run-sep24-publisher-optimized-20260924"
+  "operation": "pytest-projection-gate-pr369",
+  "request_id": "pytest-projection-gate-pr369"
 }
