@@ -54,13 +54,17 @@ CARD_MOVERS_OBSERVATION_CHUNK_SIZE = 40
 CARD_MOVERS_OBSERVATION_PAGE_SIZE = 1000
 _IN_CHUNK_SIZE = 500
 _DELTA_KEYS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
-SET_VALUE_SCOPES = ("standard", "hits", "top10")
+SET_VALUE_SCOPES = ("standard", "hits", "top10", "unlimited", "first_edition", "shadowless")
 DEFAULT_SET_VALUE_SCOPE = "standard"
 SET_VALUE_SCOPE_LABELS = {
     "standard": "Standard",
     "hits": "Hits",
     "top10": "Top 10",
+    "unlimited": "Unlimited",
+    "first_edition": "1st Edition",
+    "shadowless": "Shadowless",
 }
+EDITION_SET_VALUE_SCOPES = {"unlimited", "first_edition", "shadowless"}
 
 # TODO(pokemon-market-deltas): Replace ad hoc history reads with a daily snapshot
 # machine shared across cards, sets, and sealed products. A future
@@ -150,6 +154,10 @@ def _sanitize_value_scope(value: Any) -> str:
         "hit": "hits",
         "top10": "top10",
         "topten": "top10",
+        "unlimited": "unlimited",
+        "firstedition": "first_edition",
+        "1stedition": "first_edition",
+        "shadowless": "shadowless",
     }
     return aliases.get(normalized, DEFAULT_SET_VALUE_SCOPE)
 
@@ -2668,6 +2676,51 @@ def _load_market_set_value_history(
     warnings: List[str],
     sources: Dict[str, str],
 ) -> List[Dict[str, Any]]:
+    if value_scope in EDITION_SET_VALUE_SCOPES:
+        try:
+            result = _run_set_value_history_read(
+                lambda attempt_client: (
+                    attempt_client.table("pokemon_market_root_set_value_daily_history_v2_shadow")
+                        .select("market_date,set_value,priced_card_count,expected_card_count,source,updated_at,certified_on_date")
+                        .eq("set_id", set_id)
+                        .eq("market_scope", value_scope)
+                        .eq("certified_on_date", True)
+                        .order("market_date", desc=True)
+                        .limit(days)
+                        .execute()
+                ),
+                operation_name="pokemon_set_value_history.edition_scope",
+            )
+            raw = list(result.data or [])
+            raw.reverse()
+            sources["pokemon_market_root_set_value_daily_history_v2_shadow"] = "OK"
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
+            sources["pokemon_market_root_set_value_daily_history_v2_shadow"] = "FAILED"
+            warnings.append("Failed to load edition-scoped Set Value history.")
+            logger.warning("[pokemon-set-market] edition-scoped history failed set_id=%s scope=%s: %s", set_id, value_scope, exc)
+            return []
+
+        return [
+            {
+                "date": _parse_date(row.get("market_date")),
+                "setValue": _to_optional_float(row.get("set_value")),
+                "set_value": _to_optional_float(row.get("set_value")),
+                "sourceDate": _parse_date(row.get("market_date")),
+                "source_date": _parse_date(row.get("market_date")),
+                "isCarriedForward": False,
+                "is_carried_forward": False,
+                "valueScope": value_scope,
+                "value_scope": value_scope,
+                "pricedCardCount": _to_optional_int(row.get("priced_card_count")),
+                "totalCardCount": _to_optional_int(row.get("expected_card_count")),
+                "source": row.get("source"),
+            }
+            for row in raw
+            if _parse_date(row.get("market_date")) and _to_optional_float(row.get("set_value")) is not None
+        ]
+
     try:
         latest_result = _run_set_value_history_read(
             lambda attempt_client: (
