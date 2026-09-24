@@ -37,21 +37,21 @@ const LIMIT = 10;
 const cache = new Map();
 const CACHE_MAX_ENTRIES = 48;
 
-function cacheResult(setId, value) {
-  cache.delete(setId);
-  cache.set(setId, value);
+function cacheResult(marketKey, value) {
+  cache.delete(marketKey);
+  cache.set(marketKey, value);
   while (cache.size > CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value);
 }
 
-function preloadedState(setId, initialPayload) {
-  if (!setId || initialPayload?.setId !== setId || initialPayload?.window !== WINDOW || !Array.isArray(initialPayload?.items)) {
+function preloadedState(marketKey, setId, marketScope, initialPayload) {
+  if (!marketKey || marketScope !== "standard" || initialPayload?.setId !== setId || initialPayload?.window !== WINDOW || !Array.isArray(initialPayload?.items)) {
     return null;
   }
   const next = {
     status: "success",
     entry: { ...initialPayload, all: initialPayload.items, heatingUp: [], coolingOff: [] },
   };
-  cacheResult(setId, next);
+  cacheResult(marketKey, next);
   return next;
 }
 
@@ -102,27 +102,27 @@ function StepButton({ direction, disabled, onClick, setName }) {
   );
 }
 
-export default function SetMarketTopMovers({ setId, setCanonicalKey, setName, viewAllHref, initialPayload = null }) {
-  const [state, setState] = useState(() => preloadedState(setId, initialPayload) || (setId && cache.has(setId) ? cache.get(setId) : { status: "idle", entry: null }));
+export default function SetMarketTopMovers({ marketKey, marketScope = "standard", setId, setCanonicalKey, setName, viewAllHref, initialPayload = null }) {
+  const [state, setState] = useState(() => preloadedState(marketKey, setId, marketScope, initialPayload) || (marketKey && cache.has(marketKey) ? cache.get(marketKey) : { status: "idle", entry: null }));
   const trackRef = useRef(null);
   const [edges, setEdges] = useState({ atStart: true, atEnd: true });
   const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
-    if (!setId) {
+    if (!setId || !marketKey) {
       setState({ status: "idle", entry: null });
       return undefined;
     }
-    if (cache.has(setId) && retryToken === 0) {
-      setState(cache.get(setId));
+    if (cache.has(marketKey) && retryToken === 0) {
+      setState(cache.get(marketKey));
       return undefined;
     }
     let cancelled = false;
     setState({ status: "loading", entry: null });
-    getPokemonSetMarketMovers(setId, { window: WINDOW, limit: LIMIT })
+    getPokemonSetMarketMovers(setId, { window: WINDOW, limit: LIMIT, scope: marketScope })
       .then((payload) => {
         const next = { status: "success", entry: payload };
-        cacheResult(setId, next);
+        cacheResult(marketKey, next);
         if (!cancelled) setState(next);
       })
       .catch(() => {
@@ -133,7 +133,7 @@ export default function SetMarketTopMovers({ setId, setCanonicalKey, setName, vi
     return () => {
       cancelled = true;
     };
-  }, [setId, retryToken]);
+  }, [marketKey, marketScope, setId, retryToken]);
 
   const items = selectMoversTickerItems(state.entry, { maxItems: LIMIT });
 
@@ -154,7 +154,7 @@ export default function SetMarketTopMovers({ setId, setCanonicalKey, setName, vi
     const observer = new ResizeObserver(measure);
     observer.observe(track);
     return () => observer.disconnect();
-  }, [measure, items.length, setId]);
+  }, [measure, items.length, marketKey]);
 
   // scrollBy on the TRACK only. Nothing above it moves, the panel does not
   // resize and the page never scrolls — the carousel viewport is stationary
@@ -194,7 +194,7 @@ export default function SetMarketTopMovers({ setId, setCanonicalKey, setName, vi
       {state.status === "error" ? (
         <div role="status" className="flex items-center justify-between gap-3 py-3 text-xs text-[var(--text-secondary)]">
           <span>{`7-day movers for ${setName || "this set"} are currently unavailable.`}</span>
-          <button type="button" onClick={() => { cache.delete(setId); setRetryToken((token) => token + 1); }} className="rounded-md border border-[rgba(45,212,191,0.40)] px-3 py-1.5 font-semibold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Retry movers</button>
+          <button type="button" onClick={() => { cache.delete(marketKey); setRetryToken((token) => token + 1); }} className="rounded-md border border-[rgba(45,212,191,0.40)] px-3 py-1.5 font-semibold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Retry movers</button>
         </div>
       ) : state.status !== "success" ? (
         <div aria-hidden="true" className="h-[4.5rem] animate-pulse rounded-[10px] bg-[rgba(148,163,184,0.08)] max-desk:h-[4.75rem]" />
