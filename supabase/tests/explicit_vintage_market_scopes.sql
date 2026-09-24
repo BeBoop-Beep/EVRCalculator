@@ -14,6 +14,15 @@ BEGIN
   IF to_regclass('public.pokemon_market_scoped_history_large_move_reviews_v1') IS NULL THEN
     RAISE EXCEPTION 'large-move review ledger is missing';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='pokemon_explore_set_value_snapshot_latest'
+      AND column_name='market_count'
+      AND is_nullable='NO'
+  ) THEN
+    RAISE EXCEPTION 'Global Set Market snapshot market_count contract is missing or nullable';
+  END IF;
 
   -- Standard roots remain one Standard market.
   IF EXISTS (
@@ -161,10 +170,13 @@ DECLARE
   payload jsonb;
   scoped_active boolean;
   payload_count integer;
+  root_count integer;
+  declared_set_count integer;
+  declared_market_count integer;
   directory_count integer;
 BEGIN
-  SELECT s.payload_json
-    INTO payload
+  SELECT s.payload_json,s.set_count,s.market_count
+    INTO payload,declared_set_count,declared_market_count
   FROM public.pokemon_explore_set_value_snapshot_latest s
   WHERE s.tcg='pokemon' AND s.scope='market'
   LIMIT 1;
@@ -176,12 +188,28 @@ BEGIN
   ) INTO scoped_active;
 
   IF scoped_active THEN
+    payload_count:=jsonb_array_length(payload->'sets');
+    SELECT count(distinct (e->>'setId')::uuid)::integer INTO root_count
+    FROM jsonb_array_elements(payload->'sets') e;
+
+    IF declared_market_count<>payload_count THEN
+      RAISE EXCEPTION 'snapshot market_count % does not match payload market rows %',
+        declared_market_count,payload_count;
+    END IF;
+    IF declared_set_count<>root_count THEN
+      RAISE EXCEPTION 'snapshot set_count % does not match distinct root Sets %',
+        declared_set_count,root_count;
+    END IF;
+    IF declared_market_count<declared_set_count THEN
+      RAISE EXCEPTION 'snapshot market_count % cannot be less than root set_count %',
+        declared_market_count,declared_set_count;
+    END IF;
+
     PERFORM public.validate_pokemon_market_set_scope_payload_v1(
-      payload,jsonb_array_length(payload->'sets')
+      payload,declared_market_count,declared_set_count
     );
     PERFORM public.validate_pokemon_market_scoped_history_baskets_v1(payload);
 
-    payload_count:=jsonb_array_length(payload->'sets');
     SELECT count(*)::integer INTO directory_count
     FROM public.pokemon_market_explorer_prepared_directory_v1
     WHERE market_type='set';
