@@ -17,6 +17,7 @@ from backend.sentinel.checks.independent import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     check_component_heartbeat,
 )
+from backend.sentinel.checks.pricing import PRICING_CHECK_KEYS, PricingHealthSnapshot
 from backend.sentinel.checks.public_semantics import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     check_backend_health,
@@ -40,6 +41,7 @@ FAST_CHECK_KEYS = (
     "publication.batch_gate",
     "scrape.queue_leases",
     "setpage.generation",
+    *PRICING_CHECK_KEYS,
 )
 PUBLIC_CHECK_KEYS = (
     "public.backend_health",
@@ -94,6 +96,26 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
         confirm_after=1,
         exception_severity=Severity.CRITICAL,
     )
+    pricing_snapshot = PricingHealthSnapshot(client=client)
+    _PRICING_DESCRIPTIONS = {
+        "pricing.multi_source.run_freshness": "Daily multi-source pricing run is present/complete for the expected market date",
+        "pricing.multi_source.target_freshness": "Daily pricing run's target manifest fingerprint is present for the expected market date",
+        "pricing.ebay.budget_health": "eBay Browse request ledger is within the daily request budget",
+        "pricing.ebay.quota_authority_v2": "eBay Browse provider-verified quota window is current and within its usable limit",
+        "pricing.ebay.evidence_freshness": "Latest completed eBay pricing evidence run is not stale",
+        "pricing.ebay.estimator_freshness": "Latest eBay active-ask estimator run is not stale",
+        "pricing.multi_source.shadow_freshness": "Multi-source shadow pricing table has a row for the expected market date",
+        "pricing.canonical.source_guard": "Canonical/current pricing tables contain only the TCGPlayer source (P5A source lock)",
+        "pricing.multi_source.policy_drift": "Multi-source policy/estimator versions match the deployed code",
+    }
+    for key in PRICING_CHECK_KEYS:
+        registry.register(
+            key,
+            pricing_snapshot.get(key),
+            description=_PRICING_DESCRIPTIONS[key],
+            confirm_after=1,
+            exception_severity=Severity.CRITICAL,
+        )
     return registry
 
 

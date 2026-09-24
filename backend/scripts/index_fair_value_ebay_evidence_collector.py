@@ -13,6 +13,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import sqlite3
+from decimal import Decimal, InvalidOperation
 import time
 import urllib.error
 import urllib.parse
@@ -23,6 +25,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from backend.scripts import ebay_d3_matcher_v3 as matcher
+from backend.scripts import ebay_d3_matcher_v5 as pricing_matcher
+from backend.scripts.ebay_language_policy_v1 import evaluate_structured_aspect as evaluate_language
 from backend.scripts.index_fair_value_ebay_supply import build_query, normalize
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,6 +47,28 @@ AUTH_EXPIRED_STATUS = {401}
 
 class BudgetExhausted(RuntimeError):
     """Raised internally when the run-level request budget is exhausted."""
+
+
+class DailyBrowseLedger:
+    """Atomic cross-process Browse-call counter for collector workflows."""
+
+    def __init__(self, path: Path, limit: int = 1000) -> None:
+        self.path = Path(path)
+        self.limit = limit
+
+    def reserve(self, market_date: str | None = None) -> None:
+        day = market_date or datetime.now(timezone.utc).date().isoformat()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(str(self.path), timeout=30) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS calls (utc_date TEXT PRIMARY KEY, count INTEGER NOT NULL)")
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT count FROM calls WHERE utc_date=?", (day,)).fetchone()
+            count = int(row[0]) if row else 0
+            if count >= self.limit:
+                raise BudgetExhausted("shared daily Browse request budget exhausted")
+            conn.execute("INSERT INTO calls(utc_date,count) VALUES(?,?) ON CONFLICT(utc_date) DO UPDATE SET count=excluded.count",
+                         (day, count + 1))
+            conn.commit()
 
 
 # --------------------------------------------------------------------------
@@ -206,11 +232,13 @@ class BrowseHTTP:
         config: CollectorConfig,
         opener: Callable[[str, str], Any] | None = None,
         sleep: Callable[[float], None] | None = None,
+        daily_ledger: DailyBrowseLedger | None = None,
     ) -> None:
         self._tokens = token_provider
         self._cfg = config
         self._opener = opener or self._urllib_opener
         self._sleep = sleep or time.sleep
+        self._daily_ledger = daily_ledger
 
     @staticmethod
     def _urllib_opener(url: str, token: str) -> dict[str, Any]:
@@ -233,6 +261,8 @@ class BrowseHTTP:
         while True:
             if counters.remaining_run_budget <= 0:
                 raise BudgetExhausted("run request budget exhausted")
+            if self._daily_ledger is not None:
+                self._daily_ledger.reserve()
             counters.requests_attempted += 1
             counters.remaining_run_budget -= 1
             try:
@@ -358,6 +388,10 @@ def normalize_listing(item: Mapping[str, Any], *, query: Mapping[str, Any], targ
         cost = (shipping_options[0] or {}).get("shippingCost") or {}
         shipping_value = cost.get("value")
         shipping_currency = cost.get("currency")
+    try:
+        landed = float(Decimal(str(price)) + Decimal(str(shipping_value))) if price is not None and shipping_value is not None and price_currency == shipping_currency else None
+    except (InvalidOperation, ValueError):
+        landed = None
     return {
         "evidence_kind": EVIDENCE_KIND,
         "ebay_item_id": item.get("itemId"),
@@ -368,6 +402,8 @@ def normalize_listing(item: Mapping[str, Any], *, query: Mapping[str, Any], targ
         "price_currency": price_currency,
         "shipping_value": float(shipping_value) if shipping_value is not None else None,
         "shipping_currency": shipping_currency,
+        "landed_ask_value": landed,
+        "landed_ask_currency": price_currency if landed is not None else None,
         "condition": item.get("condition"),
         "condition_id": item.get("conditionId"),
         "seller_username": (item.get("seller") or {}).get("username"),
@@ -409,6 +445,27 @@ def run_matcher_on_listing(target: Mapping[str, Any], listing: Mapping[str, Any]
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
         "collector_run_id": listing.get("collector_run_id"),
     }
+
+
+def pricing_eligibility(target: Mapping[str, Any], listing: Mapping[str, Any]) -> dict[str, Any]:
+    """Conservative English pricing decision; raw evidence is always retained."""
+    item = dict(listing.get("raw_item_summary") or {})
+    identity = pricing_matcher.classify_listing(dict(target), item)
+    language = evaluate_language(item.get("localizedAspects"), expected_language="ENGLISH")
+    identity_ok = identity.get("identity_state") == "HIGH_CONFIDENCE"
+    if not identity_ok:
+        status = "IDENTITY_REJECTED"
+    elif language.language_state == "LANGUAGE_MISMATCH":
+        status = "NON_ENGLISH_EXCLUDED"
+    elif language.language_state == "LANGUAGE_MATCH":
+        status = "ENGLISH_ELIGIBLE"
+    else:
+        status = "LANGUAGE_UNRESOLVED"
+    return {"eligibility_status": status, "identity_qualified": identity_ok,
+            "identity_state": identity.get("identity_state"), "identity_reason": identity.get("reason"),
+            "identity_matcher_version": pricing_matcher.MATCHER_VERSION,
+            "language_state": language.language_state, "language_reason": language.reason,
+            "eligibility_reason": status, "language_method_version": language.method_version}
 
 
 # --------------------------------------------------------------------------
@@ -468,6 +525,8 @@ class Collector:
                                 if self._cfg.run_matcher and match_key not in seen_matches:
                                     seen_matches.add(match_key)
                                     match_result = run_matcher_on_listing(card, listing)
+                                    if card.get("pricing_target"):
+                                        match_result.update(pricing_eligibility(card, listing))
                                     match_fh.write(json.dumps(match_result, ensure_ascii=False) + "\n")
                             url = data.get("next")
                     target_state["status"] = "completed"
