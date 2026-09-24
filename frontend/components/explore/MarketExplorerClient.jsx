@@ -499,7 +499,7 @@ export default function MarketExplorerClient({
                 onEditSeries={beginEdit}
                 onRefreshPrepared={(key) => preparedLoader.refresh(key)}
               />
-              {activeDetailMarket?.marketType === "set" ? (
+              {activeDetailMarket?.marketType === "set" && (activeDetailMarket?.marketScope || "standard") === "standard" ? (
                 <MarketExplorerContextRanking
                   market={activeDetailMarket}
                   timeframe={timeframe}
