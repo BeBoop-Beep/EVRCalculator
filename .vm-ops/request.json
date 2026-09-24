@@ -1,5 +1,5 @@
 {
-  "operation": "scrape-hard-kill-live-stale-dispatcher",
+  "operation": "scrape-cycle-status",
   "market_date": "2026-09-23",
-  "request_id": "scrape-hard-kill-live-stale-dispatcher-20260923-2210"
+  "request_id": "sep23-recovery-status-20260923-2231"
 }
