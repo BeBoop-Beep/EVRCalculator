@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "post-scrape-recovery-now-20260924"
+  "operation": "scrape-cycle-status",
+  "request_id": "scrape-cycle-status-20260924-postscrape"
 }
