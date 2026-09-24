@@ -226,7 +226,103 @@ declare
   v_old_key text := $replace$'set:' || (e->>'setId'), 'set', e->>'name', 'cards',$replace$;
   v_new_key text := $replace$coalesce(nullif(e->>'marketKey',''), 'set:' || (e->>'setId')), 'set', e->>'name', 'cards',$replace$;
   v_old_series text := $replace$'set-cards-market-index:' || (e->>'setId'),$replace$;
-  v_new_series text := $replace$'set-cards-market-index:' || coalesce(nullif(e->>'marketKey',''), e->>'setId'),$replace$;
+  v_new_series text := $replace
+  v_old_meta text := $replace$'symbolUrl', e->>'symbolUrl',
+      'certificationStatus', e->>'certificationStatus'$replace$;
+  v_new_meta text := $replace$'symbolUrl', e->>'symbolUrl',
+      'marketScope', coalesce(nullif(e->>'marketScope',''), 'standard'),
+      'baseSetName', e->>'baseSetName',
+      'marketProfile', e->>'marketProfile',
+      'certificationStatus', e->>'certificationStatus'$replace$;
+  v_old_public_sets text := $replace$select (e->>'setId')::uuid set_id
+    from public.pokemon_explore_set_value_snapshot_latest snap
+    cross join lateral jsonb_array_elements(snap.payload_json->'sets') e
+    where snap.tcg='pokemon' and snap.scope='market'$replace$;
+  v_new_public_sets text := $replace$select distinct (e->>'setId')::uuid set_id
+    from public.pokemon_explore_set_value_snapshot_latest snap
+    cross join lateral jsonb_array_elements(snap.payload_json->'sets') e
+    where snap.tcg='pokemon' and snap.scope='market'
+      and coalesce(nullif(e->>'marketScope',''), 'standard') = 'standard'$replace$;
+  v_marker text := $replace$  -- Maintained prepared series are already current-chain normalized histories.$replace$;
+  v_scoped_history text := $replace$
+  -- Edition-scoped vintage Set markets. These histories are rebuilt from the
+  -- same certified scoped root Set Value authority published on /Market.
+  -- Because every included row is a complete fixed edition basket, the ratio
+  -- to the first certified basket value is the exact fixed-basket Market Index.
+  insert into _phase5_history_stage
+    (market_key,market_date,index_value,tracked_value,chain_segment_id,generation_id)
+  with scoped_markets as (
+    select
+      e->>'marketKey' as market_key,
+      (e->>'setId')::uuid as set_id,
+      e->>'marketScope' as market_scope
+    from public.pokemon_explore_set_value_snapshot_latest snap
+    cross join lateral jsonb_array_elements(snap.payload_json->'sets') e
+    where snap.tcg='pokemon' and snap.scope='market'
+      and nullif(e->>'marketKey','') is not null
+      and coalesce(nullif(e->>'marketScope',''), 'standard') in ('first_edition','unlimited','shadowless')
+  ), points as (
+    select
+      sm.market_key,
+      h.market_date,
+      h.set_value,
+      first_value(h.set_value) over (
+        partition by sm.market_key
+        order by h.market_date
+        rows between unbounded preceding and unbounded following
+      ) as base_value
+    from scoped_markets sm
+    join public.pokemon_market_root_set_value_daily_history_v2_shadow h
+      on h.set_id = sm.set_id
+     and h.market_scope = sm.market_scope
+    where h.certified_on_date = true
+      and h.market_date <= v_comparison_asof
+      and h.set_value > 0
+  )
+  select market_key, market_date,
+         100.0 * set_value / nullif(base_value,0),
+         set_value, 0, v_generation_id
+  from points
+  where base_value > 0;
+
+$replace$;
+begin
+  select pg_catalog.pg_get_functiondef(p.oid)
+    into v_definition
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname = 'refresh_pokemon_market_explorer_prepared_directory_v1'
+    and pg_catalog.pg_get_function_identity_arguments(p.oid) = '';
+
+  if v_definition is null then
+    raise exception 'prepared directory refresh function is missing';
+  end if;
+  if pg_catalog.strpos(v_definition, 'Edition-scoped vintage Set markets') > 0 then
+    return;
+  end if;
+  if pg_catalog.strpos(v_definition, v_old_key) = 0
+     or pg_catalog.strpos(v_definition, v_old_series) = 0
+     or pg_catalog.strpos(v_definition, v_old_meta) = 0
+     or pg_catalog.strpos(v_definition, v_old_public_sets) = 0
+     or pg_catalog.strpos(v_definition, v_marker) = 0 then
+    raise exception 'prepared directory refresh body did not match expected Phase-5 contract';
+  end if;
+
+  v_definition := pg_catalog.replace(v_definition, v_old_key, v_new_key);
+  v_definition := pg_catalog.replace(v_definition, v_old_series, v_new_series);
+  v_definition := pg_catalog.replace(v_definition, v_old_meta, v_new_meta);
+  v_definition := pg_catalog.replace(v_definition, v_old_public_sets, v_new_public_sets);
+  v_definition := pg_catalog.replace(v_definition, v_marker, v_scoped_history || v_marker);
+  execute v_definition;
+end
+$patch_refresh$;
+
+comment on function public.get_pokemon_market_set_scope_constituents_v1(uuid,text,date,uuid[]) is
+'Canonical explicit-edition Market Set constituent reader. One selected physical variant per canonical card within one edition scope/date; used by Market tab and prepared Market Explorer. Standard Set-page behavior is intentionally unchanged.';
+set-cards-market-index:' || (e->>'setId') ||
+      case when coalesce(nullif(e->>'marketScope',''), 'standard') = 'standard'
+           then '' else ':' || (e->>'marketScope') end,$replace$;
   v_old_meta text := $replace$'symbolUrl', e->>'symbolUrl',
       'certificationStatus', e->>'certificationStatus'$replace$;
   v_new_meta text := $replace$'symbolUrl', e->>'symbolUrl',
