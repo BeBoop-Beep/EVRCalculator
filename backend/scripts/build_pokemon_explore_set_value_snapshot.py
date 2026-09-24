@@ -284,6 +284,7 @@ def _load_canonical_histories(client, markets, *, through_date: str):
                     .select("set_id,snapshot_date,set_value,source")
                     .in_("set_id", batch)
                     .eq("value_scope", "standard")
+                    .eq("source", ROLLOUT_STANDARD_SOURCE)
                     .lte("snapshot_date", limit_date)
                     .order("snapshot_date", desc=False)
                     .order("set_id", desc=False)
