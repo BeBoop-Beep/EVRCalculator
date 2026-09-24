@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -328,6 +328,38 @@ jobs:
                   tail -n 80 "$LOG"
                 fi
               done
+              ;;
+
+            scrape-cycle-status)
+              cd "$REPO"
+              echo "== phoenix time =="
+              TZ=America/Phoenix date --iso-8601=seconds
+              echo "== repo =="
+              git branch --show-current
+              git log -1 --oneline
+              git status --short
+              echo "== cron daemon =="
+              systemctl is-active cron 2>/dev/null || systemctl is-active crond 2>/dev/null || true
+              echo "== canonical scrape cron entries =="
+              crontab -l 2>/dev/null | grep -E 'create_daily_scrape_batch|run_next_scrape_job|publish_post_scrape_if_needed|post_scrape_publication_watchdog|market_freshness_watchdog|reconcile_stale_scrape_jobs' || true
+              echo "== locks =="
+              for LOCK in /tmp/pokemon-batch-create.lock /tmp/pokemon-scrape-dispatcher.lock /tmp/pokemon-post-scrape-publication.lock /tmp/post-scrape-publication-watchdog.lock; do
+                if [ ! -e "$LOCK" ]; then
+                  echo "$LOCK=absent"
+                elif /usr/bin/flock -n "$LOCK" -c true; then
+                  echo "$LOCK=free"
+                else
+                  echo "$LOCK=held"
+                fi
+              done
+              echo "== relevant processes =="
+              ps -eo pid=,ppid=,etimes=,stat=,args= | grep -E 'create_daily_scrape_batch|run_next_scrape_job|rebuild_snapshots_after_scrape|post_scrape_publication_watchdog|publish_post_scrape_if_needed' | grep -v grep || true
+              echo "== create_daily_scrape_batch.log =="
+              tail -n 220 backend/logs/create_daily_scrape_batch.log 2>/dev/null || true
+              echo "== cron_dispatcher.log tail =="
+              tail -n 80 backend/logs/cron_dispatcher.log 2>/dev/null || true
+              echo "== freshness watchdog tail =="
+              tail -n 80 backend/logs/market_freshness_watchdog.log 2>/dev/null || true
               ;;
 
             status)
