@@ -21,10 +21,7 @@ permissions:
 
 concurrency:
   group: opening-simulation-recovery-watchdog
-  # A workflow-file push is an explicit maintenance event: it may preempt a stale
-  # in-flight watchdog so production VM ops are not starved. Scheduled/manual
-  # watchdog runs retain the previous non-preemptive behavior.
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   recover-if-needed:
