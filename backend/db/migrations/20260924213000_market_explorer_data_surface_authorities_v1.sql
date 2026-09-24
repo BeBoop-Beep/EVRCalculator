@@ -319,12 +319,9 @@ security invoker
 set search_path = ''
 as $function$
   select nullif(
-    pg_catalog.btrim(
-      coalesce(
-        pg_catalog.substring(coalesce(p_name,'') from '\\[[^]]+\\]\\s*$'),
-        ''
-      ),
-      '[]'
+    pg_catalog.substring(
+      coalesce(p_name,''),
+      '\\[([^]]+)\\]\\s*$'
     ),
     ''
   );
