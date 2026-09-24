@@ -182,6 +182,49 @@ def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[
     return eligible, market_authority_mode
 
 
+def _market_identity(pokemon_set: Mapping[str, Any], set_id: str) -> tuple[str, str]:
+    scope = str(pokemon_set.get("market_scope") or pokemon_set.get("marketScope") or "standard")
+    key = str(pokemon_set.get("market_key") or pokemon_set.get("marketKey") or "")
+    if not key:
+        key = f"set:{set_id}" if scope == "standard" else f"set:{set_id}:{scope}"
+    return key, scope
+
+
+def _fixed_scope_market_index(points: Sequence[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Index an explicit fixed edition basket from its certified Set Value history.
+
+    For an edition-scoped root, every published history point is certified only
+    when the complete canonical card checklist is priced in that SAME scope.
+    Membership is therefore fixed across published points, making the basket-value
+    ratio exactly the chain-linked common-cohort return for those certified dates.
+    """
+    rows = _points(points)
+    if not rows:
+        return None
+    base = rows[0]["value"]
+    if not base:
+        return None
+    indexed = [{"date": row["date"], "value": 100.0 * row["value"] / base} for row in rows]
+    movements = compute_window_movements(indexed)
+    return {
+        "currentValue": indexed[-1]["value"],
+        "baseValue": 100.0,
+        "asOf": indexed[-1]["date"],
+        "methodologyVersion": "edition_scope_fixed_complete_basket_v1",
+        "movements": {
+            key: {
+                "available": True,
+                "percent": movement.get("percent"),
+                "startDate": movement.get("startDate"),
+                "endDate": movement.get("endDate"),
+                "targetStartDate": movement.get("targetStartDate"),
+                "coverage": movement.get("coverage"),
+            }
+            for key, movement in movements.items()
+        },
+    }
+
+
 def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> Dict[str, Any]:
     """A canonical Standard root set with no computable Set Value at all.
 
@@ -190,9 +233,13 @@ def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> D
     Market page, per the membership/certification separation this module
     enforces.
     """
+    market_key, market_scope = _market_identity(pokemon_set, set_id)
     return {
+        "marketKey": market_key,
+        "marketScope": market_scope,
         "setId": set_id,
         "canonicalKey": pokemon_set.get("canonical_key"),
+        "baseSetName": pokemon_set.get("base_name") or pokemon_set.get("name") or pokemon_set.get("set_name"),
         "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
         "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
         "logoUrl": pokemon_set.get("logo_image_url"),
@@ -235,9 +282,13 @@ def build_global_set_value_row(
 
     for pokemon_set in eligible:
         set_id = str(pokemon_set.get("id") or pokemon_set.get("set_id") or "")
-        canonical = _points_through(canonical_histories.get(set_id) or [], target_market_date)
-        dashboard = dashboard_by_set.get(set_id)
-        prepared_index = None
+        market_key, market_scope = _market_identity(pokemon_set, set_id)
+        canonical = _points_through(
+            canonical_histories.get(market_key) or canonical_histories.get(set_id) or [],
+            target_market_date,
+        )
+        dashboard = dashboard_by_set.get(set_id) if market_scope == "standard" else None
+        prepared_index = _fixed_scope_market_index(canonical) if market_scope != "standard" else None
 
         value_status = "current"
         if market_authority_mode:
@@ -300,8 +351,11 @@ def build_global_set_value_row(
         windows = compute_window_movements(canonical)
         current = canonical[-1]
         published_row = {
+            "marketKey": market_key,
+            "marketScope": market_scope,
             "setId": set_id,
             "canonicalKey": pokemon_set.get("canonical_key"),
+            "baseSetName": pokemon_set.get("base_name") or pokemon_set.get("name") or pokemon_set.get("set_name"),
             "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
             "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
             "logoUrl": pokemon_set.get("logo_image_url"),
@@ -331,12 +385,14 @@ def build_global_set_value_row(
             }
         published.append(published_row)
         index_value = prepared_index.get("currentValue") if prepared_index is not None else None
-        generation.append(f"{set_id}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
+        generation.append(f"{market_key}|{market_scope}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
 
     published_index_count = sum(1 for row in published if isinstance(row.get("marketIndex"), Mapping))
     diagnostics = {
         "eligibleSetCount": len(eligible),
+        "eligibleRootSetCount": len({str(row.get("id") or row.get("set_id") or "") for row in eligible}),
         "publishedSetCount": len(published),
+        "publishedRootSetCount": len({str(row.get("setId") or "") for row in published}),
         "dashboardMarketIndexAvailableCount": len(dashboard_index_available_ids),
         "publishedMarketIndexCount": published_index_count,
         "missingMarketIndexSetIds": sorted(set(missing_market_index_ids)),
@@ -377,7 +433,7 @@ def build_global_set_value_row(
     built_at = built_at or datetime.now(timezone.utc).isoformat()
     index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
     fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
-    source_name = "canonical_root_set_market_history_v1" if market_authority_mode else "canonical_standard_set_value_history"
+    source_name = "canonical_scoped_root_set_market_history_v1" if market_authority_mode else "canonical_standard_set_value_history"
     payload = {
         "marketOverview": dict(market_overview) if market_overview is not None else None,
         "sets": published,
@@ -390,6 +446,9 @@ def build_global_set_value_row(
                 key: diagnostics[key]
                 for key in (
                     "eligibleSetCount",
+                    "eligibleRootSetCount",
+                    "publishedSetCount",
+                    "publishedRootSetCount",
                     "dashboardMarketIndexAvailableCount",
                     "publishedMarketIndexCount",
                     "missingMarketIndexSetIds",
