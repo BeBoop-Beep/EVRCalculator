@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.public_read_retry import run_public_read_with_retry
-from backend.domain.pokemon.market_index import resolve_market_window_target
+from backend.domain.pokemon.market_index import compute_strict_window_movements, resolve_market_window_target
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
 TABLE = "pokemon_explore_set_value_snapshot_latest"
@@ -169,10 +169,12 @@ def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[
     rows = [dict(row) for row in sets]
     market_authority_mode = any("market_publication_ready" in row for row in rows)
     if market_authority_mode:
-        eligible = [
-            row for row in rows
-            if str(row.get("market_scope") or "standard") == "standard"
-        ]
+        # Market membership is already explicit at the market-identity level.
+        # A modern/root market has scope=standard; an edition-split vintage root
+        # contributes one row per real scope (Unlimited, 1st Edition, Shadowless).
+        # Never collapse those rows back to set_id here: that is the ambiguity
+        # that allowed one physical edition to replace another historically.
+        eligible = rows
     else:
         eligible = [
             row for row in rows
@@ -211,6 +213,57 @@ def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> D
     }
 
 
+def _market_scope_label(scope: Any) -> str:
+    value = str(scope or "standard")
+    return {
+        "standard": "",
+        "unlimited": "Unlimited",
+        "first_edition": "1st Edition",
+        "shadowless": "Shadowless",
+    }.get(value, value.replace("_", " ").title())
+
+
+def _market_identity(set_id: str, scope: Any) -> str:
+    value = str(scope or "standard")
+    return f"set:{set_id}" if value == "standard" else f"set:{set_id}:{value}"
+
+
+def _build_scoped_market_index(points: Sequence[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Index a certified fixed-scope Set Value history.
+
+    Edition-split root histories already enforce one physical edition per
+    canonical card and only expose certified full-cohort dates. With a fixed
+    constituent universe, normalizing that basket to 100 is equivalent to the
+    common-cohort index and cannot inherit the edition-flip defect from the old
+    Standard constituent reader.
+    """
+    rows = _points(points)
+    if not rows:
+        return None
+    base = rows[0]["value"]
+    if not base:
+        return None
+    history = [
+        {"date": row["date"], "indexValue": row["value"] / base * 100.0, "chainSegmentId": 0}
+        for row in rows
+    ]
+    movements = compute_strict_window_movements(
+        [{"date": row["date"], "value": row["indexValue"]} for row in history]
+    )
+    return {
+        "currentValue": history[-1]["indexValue"],
+        "baseValue": 100.0,
+        "asOf": history[-1]["date"],
+        "trackingSince": history[0]["date"],
+        "currentSegmentId": 0,
+        "segmentCount": 1,
+        "pointCount": len(history),
+        "movements": movements,
+        "history": history,
+        "methodologyVersion": "fixed_scope_set_value_index_v1",
+    }
+
+
 def build_global_set_value_row(
     sets: Iterable[Mapping[str, Any]],
     dashboard_snapshots: Sequence[Mapping[str, Any]],
@@ -235,9 +288,11 @@ def build_global_set_value_row(
 
     for pokemon_set in eligible:
         set_id = str(pokemon_set.get("id") or pokemon_set.get("set_id") or "")
-        canonical = _points_through(canonical_histories.get(set_id) or [], target_market_date)
-        dashboard = dashboard_by_set.get(set_id)
-        prepared_index = None
+        market_scope = str(pokemon_set.get("market_scope") or "standard")
+        market_key = str(pokemon_set.get("market_key") or _market_identity(set_id, market_scope))
+        canonical = _points_through(canonical_histories.get(market_key) or [], target_market_date)
+        dashboard = dashboard_by_set.get(set_id) if market_scope == "standard" else None
+        prepared_index = _build_scoped_market_index(canonical) if market_scope != "standard" else None
 
         value_status = "current"
         if market_authority_mode:
@@ -301,6 +356,9 @@ def build_global_set_value_row(
         current = canonical[-1]
         published_row = {
             "setId": set_id,
+            "marketKey": market_key,
+            "marketScope": market_scope,
+            "baseSetName": pokemon_set.get("base_set_name") or pokemon_set.get("set_name") or pokemon_set.get("name"),
             "canonicalKey": pokemon_set.get("canonical_key"),
             "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
             "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
@@ -331,7 +389,7 @@ def build_global_set_value_row(
             }
         published.append(published_row)
         index_value = prepared_index.get("currentValue") if prepared_index is not None else None
-        generation.append(f"{set_id}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
+        generation.append(f"{market_key}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
 
     published_index_count = sum(1 for row in published if isinstance(row.get("marketIndex"), Mapping))
     diagnostics = {
@@ -371,7 +429,7 @@ def build_global_set_value_row(
         key=lambda row: (
             row.get("currentSetValue") is None,
             -(row["currentSetValue"] or 0),
-            str(row["name"] or row["setId"]),
+            str(row["name"] or row.get("marketKey") or row["setId"]),
         )
     )
     built_at = built_at or datetime.now(timezone.utc).isoformat()
