@@ -11,7 +11,7 @@ import os
 from typing import Any, Optional
 
 DEFAULT_CONNECT_TIMEOUT_SECONDS = 10
-DEFAULT_STATEMENT_TIMEOUT_MS = 120_000
+DEFAULT_STATEMENT_TIMEOUT_MS = 300_000
 PUBLISH_SQL = "select public.run_market_explorer_guarded_publisher_v1(%s::date)"
 
 

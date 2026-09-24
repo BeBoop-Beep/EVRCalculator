@@ -12,7 +12,7 @@ COMPARISON_RPC = "get_pokemon_market_explorer_prepared_comparison_v1"
 HISTORY_RPC = "get_pokemon_market_explorer_prepared_history_v1"
 SCREEN_RPC = "get_pokemon_market_explorer_prepared_screen_v1"
 CONTEXT_RPC = "get_pokemon_market_explorer_set_context_ranking_v1"
-CONSTITUENTS_RPC = "get_pokemon_market_explorer_prepared_constituents_v2"
+CONSTITUENTS_RPC = "get_pokemon_market_explorer_prepared_constituents_v3"
 PREPARED_CONSTITUENT_MAX_LIMIT = 100
 # Constituent counts come ONLY from this compact, identity-keyed cache row --
 # never from `pokemon_set_market_dashboard_snapshot_latest.payload_json`

@@ -172,6 +172,7 @@ export default function MarketExplorerQueryBuilder({
         : prepared
           ? onAddPrepared?.(prepared.key)
           : await onAddQuery?.(spec, { exactItems: draft.exactItems });
+      if (outcome === "cancelled") { setMessage("Build cancelled."); setBuildStatus("idle"); return; }
       setMessage(
         outcome === "duplicate" ? "This market is already in the comparison." : outcome === "updated" ? "Market updated." : outcome === "unchanged" ? "No changes." : "Added to comparison.",
       );

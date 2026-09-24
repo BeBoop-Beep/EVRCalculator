@@ -27,7 +27,9 @@ test("there is one active strip above the chart and no chart visibility legend",
 });
 
 test("the main plot is materially larger and transparent enough for page artwork", () => {
-  assert.match(chart, /desk:h-\[40rem\].*2xl:h-\[46rem\]/);
+  // Accepted Bucket 1 contract: viewport-aware sizing; the fixed 40rem/46rem heights must not return.
+  assert.match(chart, /desk:h-\[clamp\(19rem,calc\(100dvh-24rem\),42rem\)\]/);
+  assert.doesNotMatch(chart, /desk:h-\[40rem\]|2xl:h-\[46rem\]/);
   assert.match(chart, /minimal=\{openCanvas\}/);
   assert.doesNotMatch(client, /marketExplorerAnalysis} set-glass-surface/);
 });

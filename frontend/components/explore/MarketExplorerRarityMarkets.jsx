@@ -99,6 +99,7 @@ export default function MarketExplorerRarityMarkets({
         segmentIds: [option.id],
         mode: "all",
       }));
+      if (outcome === "cancelled") return;
       if (outcome === "duplicate") setMessage("That rarity market is already active.");
     } catch (error) {
       setMessage(error?.message || "Unable to add this rarity market.");
