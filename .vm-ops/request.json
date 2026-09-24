@@ -1,4 +1,5 @@
 {
-  "operation": "pricing-runtime-preflight",
-  "request_id": "pricing-runtime-preflight-20260923-1958"
+  "operation": "stop-stale-sep22-publisher",
+  "market_date": "2026-09-22",
+  "request_id": "stop-stale-sep22-publisher-before-sep23-handoff"
 }
