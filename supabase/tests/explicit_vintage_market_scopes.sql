@@ -162,6 +162,52 @@ BEGIN
 END
 $test$;
 
+-- Validate the root-count / market-count split directly from the authoritative
+-- scope contract even before the application snapshot has activated scoped rows.
+DO $test$
+DECLARE
+  payload jsonb;
+  root_count integer;
+  market_count integer;
+  result jsonb;
+BEGIN
+  SELECT
+    jsonb_build_object(
+      'sets',
+      coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'setId',c.set_id,
+            'marketScope',c.market_scope,
+            'marketKey',c.market_key,
+            'baseSetName',c.base_set_name
+          )
+          order by c.market_key
+        ),
+        '[]'::jsonb
+      )
+    ),
+    count(distinct c.set_id)::integer,
+    count(*)::integer
+  INTO payload,root_count,market_count
+  FROM public.pokemon_market_set_scope_contract_v1 c;
+
+  IF market_count < root_count THEN
+    RAISE EXCEPTION 'authoritative market_count % is less than root set_count %',
+      market_count,root_count;
+  END IF;
+
+  result:=public.validate_pokemon_market_set_scope_payload_v1(
+    payload,market_count,root_count
+  );
+
+  IF (result->>'marketCount')::integer<>market_count
+     OR (result->>'rootSetCount')::integer<>root_count THEN
+    RAISE EXCEPTION 'scope payload validator returned wrong count contract: %',result;
+  END IF;
+END
+$test$;
+
 -- If the application has activated the scoped snapshot contract, validate the
 -- prepared serving generation end-to-end.  Before application cutover this
 -- block intentionally skips, so the DB migration can deploy first.
