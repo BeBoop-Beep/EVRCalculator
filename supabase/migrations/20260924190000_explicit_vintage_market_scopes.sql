@@ -21,7 +21,7 @@ where market_count is null;
 alter table public.pokemon_explore_set_value_snapshot_latest
   alter column market_count set not null;
 
-do $
+do $market_count$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -33,7 +33,7 @@ begin
       check (market_count>=0 and market_count>=set_count);
   end if;
 end;
-$;
+$market_count$;
 
 comment on column public.pokemon_explore_set_value_snapshot_latest.set_count is
 'Distinct root Set count represented by the Global Set Market snapshot.';
