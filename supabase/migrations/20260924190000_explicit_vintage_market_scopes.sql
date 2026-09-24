@@ -53,6 +53,7 @@ language plpgsql
 stable
 security invoker
 set search_path = ''
+set statement_timeout = '60s'
 as $function$
 declare
   v_market_count integer;
@@ -173,6 +174,7 @@ language plpgsql
 stable
 security invoker
 set search_path = ''
+set statement_timeout = '60s'
 as $function$
 declare
   v_scoped_count integer;
@@ -280,6 +282,135 @@ revoke all on function public.validate_pokemon_market_scoped_history_baskets_v1(
 grant execute on function public.validate_pokemon_market_scoped_history_baskets_v1(jsonb)
   to service_role;
 
+create table if not exists public.pokemon_market_scoped_history_large_move_reviews_v1 (
+  set_id uuid not null references public.sets(id) on delete cascade,
+  market_scope text not null check (market_scope in ('first_edition','unlimited','shadowless')),
+  market_date date not null,
+  classification text not null check (classification in (
+    'REAL_PRICE_MOVE','STALE_TO_FRESH_REPRICE','SOURCE_DEFECT','OBSERVATION_DEFECT','OTHER'
+  )),
+  history_action text not null check (history_action in ('accept','withhold')),
+  explanation text not null,
+  evidence jsonb not null default '{}'::jsonb,
+  reviewed_at timestamptz not null default timezone('utc',now()),
+  primary key (set_id,market_scope,market_date)
+);
+
+alter table public.pokemon_market_scoped_history_large_move_reviews_v1 enable row level security;
+revoke all on public.pokemon_market_scoped_history_large_move_reviews_v1
+  from public,anon,authenticated;
+grant select,insert,update,delete on public.pokemon_market_scoped_history_large_move_reviews_v1
+  to service_role;
+
+insert into public.pokemon_market_scoped_history_large_move_reviews_v1
+  (set_id,market_scope,market_date,classification,history_action,explanation,evidence)
+select s.id,x.market_scope,x.market_date,x.classification,x.history_action,x.explanation,x.evidence
+from (
+  values
+    ('Neo Discovery','first_edition',date '2026-05-10','SOURCE_DEFECT','withhold',
+      'Umbreon 1st Edition Near Mint fell from 1799.99 to 974.47 while LP remained 1500.00.',
+      jsonb_build_object('dominantCard','Umbreon','previousNm',1799.99,'newNm',974.47,'lp',1500.00)),
+    ('Neo Discovery','first_edition',date '2026-05-14','SOURCE_DEFECT','withhold',
+      'Umbreon 1st Edition Near Mint snapped back from 974.47 to 1799.99 with LP unchanged at 1500.00.',
+      jsonb_build_object('dominantCard','Umbreon','previousNm',974.47,'newNm',1799.99,'lp',1500.00)),
+    ('Neo Discovery','first_edition',date '2026-05-18','SOURCE_DEFECT','withhold',
+      'Umbreon 1st Edition Near Mint again fell below unchanged LP: 1799.99 to 982.97 versus LP 1500.00.',
+      jsonb_build_object('dominantCard','Umbreon','previousNm',1799.99,'newNm',982.97,'lp',1500.00)),
+    ('Neo Discovery','first_edition',date '2026-05-21','SOURCE_DEFECT','withhold',
+      'Umbreon 1st Edition Near Mint collapsed to 165.95 while LP remained 1500.00.',
+      jsonb_build_object('dominantCard','Umbreon','previousNm',982.97,'newNm',165.95,'lp',1500.00)),
+    ('Neo Genesis','first_edition',date '2026-05-12','SOURCE_DEFECT','withhold',
+      'Lugia 1st Edition Near Mint appeared at 165.50 below LP 1299.96, MP 1034.34, HP 751.00 and DMG 600.00.',
+      jsonb_build_object('dominantCard','Lugia','newNm',165.50,'lp',1299.96,'mp',1034.34,'hp',751.00,'dmg',600.00)),
+    ('Team Rocket','first_edition',date '2026-05-23','SOURCE_DEFECT','withhold',
+      'Dark Charizard 1st Edition Near Mint fell from 707.16 to 247.15 below LP 493.06, MP 390.80 and HP 303.20.',
+      jsonb_build_object('dominantCard','Dark Charizard','previousNm',707.16,'newNm',247.15,'lp',493.06,'mp',390.80,'hp',303.20)),
+    ('Neo Discovery','first_edition',date '2026-08-19','STALE_TO_FRESH_REPRICE','accept',
+      'Fresh Near Mint coverage resumed for high-value Umbreon and Ursaring variants after NM gaps; new levels persisted.',
+      jsonb_build_object('dominantCards',jsonb_build_array('Umbreon','Ursaring'),'umbreonNewNm',300.00,'ursaringNewNm',154.99)),
+    ('Neo Discovery','unlimited',date '2026-08-31','REAL_PRICE_MOVE','accept',
+      'Umbreon Unlimited Near Mint repriced from 500.00 to 752.74 and the new TCGPlayer level persisted across subsequent observations.',
+      jsonb_build_object('dominantCard','Umbreon','previousNm',500.00,'newNm',752.74)),
+    ('Neo Genesis','first_edition',date '2026-08-02','STALE_TO_FRESH_REPRICE','accept',
+      'Typhlosion 1st Edition Near Mint coverage resumed at 699.99 after an NM gap while worse-condition observations remained fresh; the NM level persisted.',
+      jsonb_build_object('dominantCard','Typhlosion','previousCarriedNm',86.00,'newNm',699.99,'lp',435.00)),
+    ('Fossil','first_edition',date '2026-07-29','REAL_PRICE_MOVE','accept',
+      'Gengar 1st Edition Near Mint repriced from 315.25 to 601.49 and the new TCGPlayer level persisted for multiple days.',
+      jsonb_build_object('dominantCard','Gengar','previousNm',315.25,'newNm',601.49))
+) as x(set_name,market_scope,market_date,classification,history_action,explanation,evidence)
+join public.sets s on s.name=x.set_name and s.parent_opening_set_id is null
+on conflict (set_id,market_scope,market_date) do update
+set classification=excluded.classification,
+    history_action=excluded.history_action,
+    explanation=excluded.explanation,
+    evidence=excluded.evidence,
+    reviewed_at=timezone('utc',now());
+
+create or replace view public.pokemon_market_scoped_history_market_certification_v1
+with (security_invoker = true)
+as
+with scoped as (
+  select distinct h.set_id,h.market_scope
+  from public.pokemon_market_root_set_value_daily_history_v2_shadow h
+  join public.pokemon_edition_split_root_sets_v2 r on r.set_id=h.set_id
+  where h.market_scope<>'standard'
+), ordered as (
+  select h.set_id,h.market_scope,h.market_date,h.set_value,
+         lag(h.set_value) over(
+           partition by h.set_id,h.market_scope order by h.market_date
+         ) as previous_value
+  from public.pokemon_market_root_set_value_daily_history_v2_shadow h
+  join scoped s on s.set_id=h.set_id and s.market_scope=h.market_scope
+  where h.certified_on_date=true
+), large_moves as (
+  select o.set_id,o.market_scope,o.market_date,
+         (o.set_value/nullif(o.previous_value,0)-1.0) as return_fraction
+  from ordered o
+  where o.previous_value>0
+    and abs(o.set_value/nullif(o.previous_value,0)-1.0)>=0.10
+), reviewed as (
+  select m.set_id,m.market_scope,m.market_date,m.return_fraction,
+         r.classification,r.history_action,r.explanation
+  from large_moves m
+  left join public.pokemon_market_scoped_history_large_move_reviews_v1 r
+    on r.set_id=m.set_id
+   and r.market_scope=m.market_scope
+   and r.market_date=m.market_date
+), summary as (
+  select s.set_id,s.market_scope,
+         count(r.market_date)::integer as large_move_count,
+         count(*) filter(where r.market_date is not null and r.history_action='accept')::integer as accepted_large_move_count,
+         count(*) filter(where r.market_date is not null and coalesce(r.history_action,'withhold')<>'accept')::integer as blocking_large_move_count
+  from scoped s
+  left join reviewed r on r.set_id=s.set_id and r.market_scope=s.market_scope
+  group by s.set_id,s.market_scope
+)
+select
+  s.set_id,s.market_scope,s.large_move_count,s.accepted_large_move_count,s.blocking_large_move_count,
+  (s.blocking_large_move_count=0) as history_publishable,
+  case
+    when s.blocking_large_move_count>0 then 'withheld_source_review'
+    when s.large_move_count>0 then 'reviewed'
+    else 'no_large_move_exception'
+  end::text as certification_status,
+  case
+    when s.blocking_large_move_count>0 then 'One or more >=10% certified scoped moves are rejected or unreviewed.'
+    when s.large_move_count>0 then 'All >=10% certified scoped moves have explicit accepted reviews.'
+    else null
+  end::text as certification_reason
+from summary s;
+
+revoke all on public.pokemon_market_scoped_history_market_certification_v1
+  from public,anon,authenticated;
+grant select on public.pokemon_market_scoped_history_market_certification_v1
+  to service_role;
+
+comment on table public.pokemon_market_scoped_history_large_move_reviews_v1 is
+'Explicit review ledger for large scoped vintage history moves.  Source defects are withheld rather than silently published; accepted real/stale-to-fresh repricings remain auditable.';
+
+comment on view public.pokemon_market_scoped_history_market_certification_v1 is
+'Fail-closed scoped-history certification.  Any >=10% certified move without an explicit accept review withholds that market history from new prepared generations.';
+
 create or replace function public.get_pokemon_market_root_set_card_prices_as_of_v1(
   p_root_set_id uuid,
   p_market_scope text,
@@ -312,6 +443,7 @@ stable
 security invoker
 set search_path = ''
 set "TimeZone" = 'America/Phoenix'
+set statement_timeout = '60s'
 as $function$
 with near_mint as (
   select c.id
@@ -444,13 +576,18 @@ begin
       'certificationStatus', e->>'certificationStatus',
       'marketScope', coalesce(nullif(e->>'marketScope',''),'standard'),
       'baseSetName', coalesce(nullif(e->>'baseSetName',''),e->>'name'),
-      'scopeContractVersion', 'pokemon-set-market-scope-v1'
+      'scopeContractVersion', 'pokemon-set-market-scope-v1',
+      'historyCertificationStatus', hc.certification_status,
+      'historyCertificationReason', hc.certification_reason
     )),
     v_generation_id, v_generated_at
   from public.pokemon_explore_set_value_snapshot_latest snap
   cross join lateral jsonb_array_elements(snap.payload_json->'sets') e
   join public.sets s on s.id=(e->>'setId')::uuid
   left join public.eras er on er.id=s.era_id
+  left join public.pokemon_market_scoped_history_market_certification_v1 hc
+    on hc.set_id=(e->>'setId')::uuid
+   and hc.market_scope=coalesce(nullif(e->>'marketScope',''),'standard')
   where snap.tcg='pokemon' and snap.scope='market';
 
 $section$;
@@ -519,7 +656,10 @@ $section$;
     from public_markets p
     join public.pokemon_market_root_set_value_daily_history_v2_shadow rv
       on rv.set_id=p.set_id and rv.market_scope=p.market_scope
+    join public.pokemon_market_scoped_history_market_certification_v1 hc
+      on hc.set_id=p.set_id and hc.market_scope=p.market_scope
     where p.market_scope<>'standard'
+      and hc.history_publishable=true
       and rv.certified_on_date=true
       and rv.set_value>0
       and rv.market_date<=v_comparison_asof
@@ -550,6 +690,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = ''
+set statement_timeout = '60s'
 as $function$
 declare
   v_payload jsonb;
@@ -642,12 +783,17 @@ begin
       'certificationStatus',e->>'certificationStatus',
       'marketScope',coalesce(nullif(e->>'marketScope',''),'standard'),
       'baseSetName',coalesce(nullif(e->>'baseSetName',''),e->>'name'),
-      'scopeContractVersion','pokemon-set-market-scope-v1'
+      'scopeContractVersion','pokemon-set-market-scope-v1',
+      'historyCertificationStatus',hc.certification_status,
+      'historyCertificationReason',hc.certification_reason
     )),
     v_generation_id,v_generated_at
   from jsonb_array_elements(v_payload->'sets') e
   join public.sets s on s.id=(e->>'setId')::uuid
   left join public.eras er on er.id=s.era_id
+  left join public.pokemon_market_scoped_history_market_certification_v1 hc
+    on hc.set_id=(e->>'setId')::uuid
+   and hc.market_scope=coalesce(nullif(e->>'marketScope',''),'standard')
   on conflict (market_key) do update
   set label=excluded.label,asset=excluded.asset,set_id=excluded.set_id,
       era_id=excluded.era_id,parent_era_id=excluded.parent_era_id,
