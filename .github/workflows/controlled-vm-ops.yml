@@ -1553,6 +1553,7 @@ jobs:
           from pathlib import Path
 
           import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
           dsn = os.environ["ACTIONS_DATABASE_URL"]
           migration_path = Path(os.environ["MIG_PATH"])
@@ -1560,12 +1561,60 @@ jobs:
           version = "20260924190000"
           name = "explicit_vintage_market_scopes"
 
-          with psycopg.connect(
-              dsn,
-              connect_timeout=15,
-              application_name="market_vintage_db_migrate",
-              prepare_threshold=None,
-          ) as conn:
+          parsed = conninfo_to_dict(dsn)
+          user = parsed.get("user") or ""
+          project_ref = user.split(".")[-1] if "." in user else "zwxzxuuawalvwioadhmf"
+          direct_user = user.split(".")[0] if "." in user else user
+          base_kwargs = {
+              "dbname": parsed.get("dbname") or "postgres",
+              "password": parsed.get("password") or "",
+              "sslmode": parsed.get("sslmode") or "require",
+              "connect_timeout": 15,
+              "application_name": "market_vintage_db_migrate",
+          }
+          routes = [("configured_session_pooler", dsn)]
+          pooler_host = parsed.get("host")
+          if pooler_host:
+              routes.append((
+                  "transaction_pooler_6543",
+                  make_conninfo(
+                      host=pooler_host,
+                      port=6543,
+                      user=user,
+                      **base_kwargs,
+                  ),
+              ))
+          routes.append((
+              "direct_project_5432",
+              make_conninfo(
+                  host=f"db.{project_ref}.supabase.co",
+                  port=5432,
+                  user=direct_user,
+                  **base_kwargs,
+              ),
+          ))
+
+          conn = None
+          failures = []
+          for label, candidate in routes:
+              try:
+                  conn = psycopg.connect(candidate, prepare_threshold=None)
+                  print(f"database_route={label}", flush=True)
+                  break
+              except Exception as exc:
+                  failures.append((label, type(exc).__name__, getattr(exc, "sqlstate", None)))
+                  print(
+                      json.dumps({
+                          "databaseRouteFailed": label,
+                          "errorType": type(exc).__name__,
+                          "sqlstate": getattr(exc, "sqlstate", None),
+                      }, sort_keys=True),
+                      flush=True,
+                  )
+          if conn is None:
+              raise RuntimeError(f"all database routes failed: {failures}")
+
+          with conn:
               with conn.cursor() as cur:
                   cur.execute("set statement_timeout = '600s'")
                   cur.execute("set lock_timeout = '15s'")
