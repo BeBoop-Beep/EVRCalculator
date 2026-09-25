@@ -66,8 +66,12 @@ export default async function MarketExplorerPage({ searchParams }) {
   );
   const requestedPreparedKey = typeof resolvedSearchParams?.prepared === "string"
     ? resolvedSearchParams.prepared.trim() : "";
-  const initialPreparedKey = preparedDirectory.some((market) => market.market_key === requestedPreparedKey)
-    ? requestedPreparedKey : null;
+  // A legacy prepared key resolves to its canonical market from the alias list the
+  // backend publishes on the directory row; React holds no alias table.
+  const requestedPreparedRow = requestedPreparedKey
+    ? preparedDirectory.find((market) => market.market_key === requestedPreparedKey || (market.legacy_aliases || []).includes(requestedPreparedKey))
+    : null;
+  const initialPreparedKey = requestedPreparedRow ? requestedPreparedRow.market_key : null;
   const coverageSummary = buildCoverageSummary(overview);
 
   return (

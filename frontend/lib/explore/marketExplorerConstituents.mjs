@@ -35,6 +35,7 @@
 // ---------------------------------------------------------------------------
 
 import { QUERY_ASSET_CARDS, QUERY_ASSET_SEALED } from "./marketExplorerQuery.mjs";
+import { hasPublishedCompositionMetadata, resolveCompositionCapability } from "./marketExplorerComposition.mjs";
 
 /** The Sealed Market parent's series id. Not `sealed:`-prefixed, unlike its children. */
 const SEALED_PARENT_SERIES_ID = "sealedMarket";
@@ -216,6 +217,9 @@ export function resolveSeriesAsset(series) {
  */
 export function isEnumerableSeries(series) {
   if (!series) return false;
+  // Published composition metadata (V2) decides; a market is never non-enumerable
+  // merely because it is a parent.
+  if (hasPublishedCompositionMetadata(series)) return resolveCompositionCapability(series).inspectable;
   if (series.isParent !== true) return true;
   return Boolean(series.currentConstituents);
 }
@@ -271,7 +275,8 @@ export function resolveSeriesConstituents(
     return {
       ...base,
       availability: CONSTITUENTS_NOT_APPLICABLE,
-      reason: `${series.label || "This market"} is a parent market covering the whole tracked universe.`,
+      reason: resolveCompositionCapability(series).reason
+        || `${series.label || "This market"} is a parent market covering the whole tracked universe.`,
     };
   }
 

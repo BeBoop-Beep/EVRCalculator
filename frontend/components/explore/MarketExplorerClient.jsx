@@ -10,6 +10,9 @@ import MarketExplorerMethodology from "./MarketExplorerMethodology";
 import MarketExplorerBrowse from "./MarketExplorerBrowse";
 import MarketExplorerScreens from "./MarketExplorerScreens";
 import MarketExplorerRarityMarkets from "./MarketExplorerRarityMarkets";
+import MarketExplorerSealedTypes, { MarketExplorerSealedQuickMarkets } from "./MarketExplorerSealedTypes";
+import useAssetOptions from "@/hooks/explore/useAssetOptions";
+import { unifySeriesByKey } from "@/lib/explore/marketExplorerComposition.mjs";
 import MarketExplorerContextRanking from "./MarketExplorerContextRanking";
 import MarketExplorerExactBasket from "./MarketExplorerExactBasket";
 import usePreparedMarkets from "@/hooks/explore/usePreparedMarkets";
@@ -108,6 +111,14 @@ export default function MarketExplorerClient({
   const [compareUpgradeVisible, setCompareUpgradeVisible] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderMode, setBuilderMode] = useState("exact");
+  // activeBrowseAsset is BROWSING state (search scope, categories, rarity/type controls,
+  // Builder default asset). It is deliberately NOT the chart selection: switching it
+  // never adds or removes an active market.
+  const [activeBrowseAsset, setActiveBrowseAsset] = useState("cards");
+  const [basketSeed, setBasketSeed] = useState(null);
+  const cardOptionStates = useAssetOptions("cards", { enabled: activeBrowseAsset === "cards" });
+  const sealedOptionStates = useAssetOptions("sealed", { enabled: activeBrowseAsset === "sealed" });
+  const gradedOptionStates = useAssetOptions("graded", { enabled: activeBrowseAsset === "graded" });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
@@ -278,7 +289,9 @@ export default function MarketExplorerClient({
   );
   const selectedSeries = useMemo(() => {
     const byKey = new Map(comparableSeries.map((series) => [series.key, series]));
-    return [...selectedSeriesIds.map((id) => byKey.get(id)).filter(Boolean), ...loadedPreparedSeries, ...querySeries];
+    // ONE identity per visible market: V2 parents (raw / sealedMarket) supersede the
+    // legacy overview entry of the same key instead of drawing a duplicate line.
+    return unifySeriesByKey([...selectedSeriesIds.map((id) => byKey.get(id)).filter(Boolean), ...loadedPreparedSeries, ...querySeries]);
   }, [comparableSeries, loadedPreparedSeries, selectedSeriesIds, querySeries]);
 
   // WHAT THE CHART ACTUALLY DRAWS. A hidden series is still active (still in
@@ -371,11 +384,15 @@ export default function MarketExplorerClient({
         <MarketExplorerBrowse directory={preparedDirectory} directoryStatus={preparedDirectoryStatus} activeKeys={preparedActiveKeys}
           pendingKeys={preparedPendingKeys} failedKeys={preparedFailedKeys}
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared}
+          assetLayer={activeBrowseAsset} onAssetLayerChange={setActiveBrowseAsset}
+          gradedReason={gradedOptionStates.data?.reason || null}
+          onAddToBasket={(item) => { setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 }); setBuilderMode("exact"); setBuilderOpen(true); }}
           onBuild={() => { setBuilderMode("exact"); setBuilderOpen(true); }} />
         <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
-          <MarketExplorerRarityMarkets
+          {activeBrowseAsset === "cards" ? <MarketExplorerRarityMarkets
             directory={preparedDirectory}
+            assetOptions={cardOptionStates.status === "ready" ? cardOptionStates.data : null}
             rarityOptions={options?.cardRarities?.rarities || []}
             activeKeys={preparedActiveKeys}
             pendingKeys={preparedPendingKeys}
@@ -385,7 +402,14 @@ export default function MarketExplorerClient({
             onSelect={selectPrepared}
             onAddQuery={addQuery}
             onRemoveQuery={removeQuery}
-          />
+          /> : null}
+          {activeBrowseAsset === "sealed" ? <>
+            <MarketExplorerSealedQuickMarkets options={sealedOptionStates.data} activeKeys={preparedActiveKeys} onSelect={selectPrepared} />
+            <MarketExplorerSealedTypes options={sealedOptionStates.data} status={sealedOptionStates.status} onRetry={sealedOptionStates.retry}
+              activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys} activeSeries={querySeries}
+              canBuild={canBuildCustomMarkets} onUpgrade={() => setCompareUpgradeVisible(true)}
+              onSelect={selectPrepared} onAddQuery={addQuery} onRemoveQuery={removeQuery} />
+          </> : null}
           <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
         </div>
@@ -400,6 +424,7 @@ export default function MarketExplorerClient({
             {builderMode === "exact" ? (
               <div data-market-explorer-build-path="exact" className="flex min-h-0 flex-1 flex-col">
                 <MarketExplorerExactBasket currentPlan={indexPlan} editingSeries={editingSeries}
+                  initialScope={activeBrowseAsset === "sealed" ? "sealed" : "all"} seedItem={basketSeed}
                   onAddQuery={addQuery} onUpdateQuery={updateQuery} onCancelEdit={() => setEditingSeriesId(null)} onClose={() => setBuilderOpen(false)} />
               </div>
             ) : (

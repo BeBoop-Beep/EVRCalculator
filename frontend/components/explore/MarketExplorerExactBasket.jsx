@@ -14,11 +14,17 @@ function editItems(series) {
   return (spec.instruments || []).map((item) => ({ ...(metadata.get(`${item.asset}:${item.instrumentId}`) || {}), ...item }));
 }
 
-export default function MarketExplorerExactBasket({ currentPlan, editingSeries, initialScope = "all", customFilters = null, onAddQuery, onUpdateQuery, onCancelEdit, onClose }) {
+export default function MarketExplorerExactBasket({ currentPlan, editingSeries, initialScope = "all", seedItem = null, customFilters = null, onAddQuery, onUpdateQuery, onCancelEdit, onClose }) {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const premium = currentPlan === "premium";
+  // A search result can seed the basket. It goes through the SAME item list and the
+  // same Premium-gated build() -- no second basket, no entitlement bypass.
+  useEffect(() => {
+    if (!seedItem?.item) return;
+    setItems((current) => (current.some((row) => row.asset === seedItem.item.asset && row.instrumentId === seedItem.item.instrumentId) ? current : [...current, seedItem.item]));
+  }, [seedItem]);
   const editingExact = editingSeries?.spec?.membershipMode === QUERY_MEMBERSHIP_EXPLICIT;
   useEffect(() => {
     if (!editingExact) return;
