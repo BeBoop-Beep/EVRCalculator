@@ -1,5 +1,4 @@
 {
-  "operation": "explorer-prewarm-five",
-  "market_date": "2026-09-24",
-  "request_id": "explorer-db-promote-batch-03"
+  "operation": "scrape-cycle-status",
+  "request_id": "snapshot-delay-diagnose-20260925-1100"
 }
