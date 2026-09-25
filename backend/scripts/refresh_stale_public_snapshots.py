@@ -792,15 +792,17 @@ def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List
         checks.extend(table_checks)
         timestamps.append(latest)
 
-    variant_ids = sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))
     canonical_card_ids = _canonical_card_ids(client, set_id)
 
+    # Price Storage V2 refreshes this compact one-row-per-canonical-card
+    # authority after projecting a Set. Reading its per-Set refresh watermark
+    # avoids the raw observation table + large card_variant_id ANY(...) scan
+    # that timed out repeatedly during the 2026-09-24 database incident.
     latest, table_checks = _latest_timestamp(
         client,
-        table="card_variant_price_observations",
-        timestamp_columns=("captured_at",),
-        filters=(("source", "TCGPlayer"),),
-        in_filters=(("card_variant_id", variant_ids),),
+        table="pokemon_canonical_card_market_prices_latest",
+        timestamp_columns=("refreshed_at", "captured_at"),
+        filters=(("set_id", set_id),),
     )
     checks.extend(table_checks)
     timestamps.append(latest)
@@ -837,10 +839,9 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
 
     latest, table_checks = _latest_timestamp(
         client,
-        table="card_variant_price_observations",
-        timestamp_columns=("captured_at",),
-        filters=(("source", "TCGPlayer"),),
-        in_filters=(("card_variant_id", sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))),),
+        table="pokemon_canonical_card_market_prices_latest",
+        timestamp_columns=("refreshed_at", "captured_at"),
+        filters=(("set_id", set_id),),
     )
     checks.extend(table_checks)
     timestamps.append(latest)
