@@ -2172,14 +2172,21 @@ jobs:
                   cur.execute("select pg_advisory_xact_lock(hashtext('market-vintage-cutover'))")
 
                   cur.execute(
-                      "select exists(select 1 from supabase_migrations.schema_migrations "
-                      "where version='20260924190000'), "
+                      "select "
+                      "exists(select 1 from supabase_migrations.schema_migrations "
+                      "where version='20260924190000' or name='explicit_vintage_market_scopes'), "
                       "exists(select 1 from information_schema.columns where table_schema='public' "
-                      "and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count')"
+                      "and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count'), "
+                      "to_regclass('public.pokemon_market_set_scope_contract_v1') is not null, "
+                      "to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null"
                   )
-                  migration_applied, market_count_exists = map(bool, cur.fetchone())
-                  if not migration_applied or not market_count_exists:
-                      raise RuntimeError("vintage scope DB migration is not fully applied")
+                  migration_applied, market_count_exists, scope_contract_exists, scoped_asof_rpc_exists = map(bool, cur.fetchone())
+                  if not all((migration_applied, market_count_exists, scope_contract_exists, scoped_asof_rpc_exists)):
+                      raise RuntimeError(
+                          "vintage scope DB migration is not fully applied: "
+                          f"history={migration_applied} market_count={market_count_exists} "
+                          f"scope_contract={scope_contract_exists} scoped_asof_rpc={scoped_asof_rpc_exists}"
+                      )
 
                   cur.execute(
                       "select to_jsonb(s) from public.pokemon_explore_set_value_snapshot_latest s "
