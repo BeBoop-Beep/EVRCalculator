@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -1811,6 +1811,316 @@ jobs:
               echo "== scrape dispatcher remains =="
               crontab -l | grep -F 'run_next_scrape_job.py' || { echo "FAIL: scrape dispatcher missing after cron edit"; exit 32; }
               echo "MARKET_EXPLORER_CACHE_CRON_DISABLED=PASS"
+              ;;
+
+            market-vintage-cutover)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              APP_SHA="2ff852c03090ec7a69cd3ab7be35e81b5b38cbb7"
+              APP_REF="origin/fix/market-vintage-explicit-edition-scopes-20260924"
+              WT="/tmp/EVRCalculator-market-vintage-cutover"
+              CANDIDATE="/tmp/market-vintage-candidate.json"
+              BACKUP_DIR="/home/ubuntu/ops-backups"
+              mkdir -p "$BACKUP_DIR"
+              chmod 700 "$BACKUP_DIR"
+
+              echo "== fetch pinned scoped application =="
+              git fetch origin fix/market-vintage-explicit-edition-scopes-20260924
+              git cat-file -e "$APP_SHA^{commit}"
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$APP_SHA"
+              test "$(git -C "$WT" rev-parse HEAD)" = "$APP_SHA"
+              if [ -e "$WT/backend/.env" ] || [ -L "$WT/backend/.env" ]; then
+                rm -f "$WT/backend/.env"
+              fi
+              ln -s "$REPO/backend/.env" "$WT/backend/.env"
+
+              echo "== build and validate scoped snapshot candidate =="
+              (
+                cd "$WT"
+                PYTHONPATH="$WT" CANDIDATE_PATH="$CANDIDATE" "$PY" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.build_pokemon_explore_set_value_snapshot import build
+
+          client = create_service_role_client()
+          quality = list(
+              client.table("pokemon_market_date_quality")
+              .select("market_date,status,contract_version")
+              .eq("tcg","pokemon")
+              .in_("status",["READY","LEGACY_VERIFIED"])
+              .order("market_date",desc=True)
+              .limit(1)
+              .execute().data or []
+          )
+          if not quality:
+              raise RuntimeError("no approved Pokémon Market Date exists")
+          day = str(quality[0]["market_date"])[:10]
+          row = build(client=client, market_date=day, commit=False)
+          payload = row.get("payload_json") or {}
+          markets = payload.get("sets") or []
+          roots = {str(x.get("setId") or "") for x in markets if x.get("setId")}
+          keys = [str(x.get("marketKey") or "") for x in markets]
+          scoped = [x for x in markets if str(x.get("marketScope") or "standard") != "standard"]
+          scoped_roots = {str(x.get("setId")) for x in scoped}
+          generic_vintage = [
+              x for x in markets
+              if str(x.get("setId")) in scoped_roots
+              and str(x.get("marketScope") or "standard") == "standard"
+          ]
+          unavailable = [x for x in scoped if x.get("currentSetValue") is None]
+          bad_keys = []
+          for x in markets:
+              set_id = str(x.get("setId") or "")
+              scope = str(x.get("marketScope") or "standard")
+              expected = f"set:{set_id}" if scope == "standard" else f"set:{set_id}:{scope}"
+              if str(x.get("marketKey") or "") != expected:
+                  bad_keys.append((x.get("marketKey"), expected))
+
+          checks = {
+              "approvedMarketDate": day,
+              "setCount": row.get("set_count"),
+              "marketCount": row.get("market_count"),
+              "payloadRows": len(markets),
+              "rootSets": len(roots),
+              "uniqueMarketKeys": len(set(keys)),
+              "scopedMarkets": len(scoped),
+              "genericVintageMarkets": len(generic_vintage),
+              "unavailableScopedMarkets": len(unavailable),
+              "badMarketKeys": len(bad_keys),
+          }
+          print(json.dumps(checks, sort_keys=True), flush=True)
+          expected = {
+              "setCount": 156,
+              "marketCount": 167,
+              "payloadRows": 167,
+              "rootSets": 156,
+              "uniqueMarketKeys": 167,
+              "scopedMarkets": 21,
+              "genericVintageMarkets": 0,
+              "unavailableScopedMarkets": 6,
+              "badMarketKeys": 0,
+          }
+          for key, value in expected.items():
+              if checks[key] != value:
+                  raise RuntimeError(f"candidate invariant failed: {key}={checks[key]!r} expected={value!r}")
+
+          persisted = {k:v for k,v in row.items() if not str(k).startswith("_")}
+          Path(os.environ["CANDIDATE_PATH"]).write_text(
+              json.dumps({"approvedMarketDate":day,"row":persisted}, separators=(",",":")),
+              encoding="utf-8",
+          )
+          PY
+              )
+
+              echo "== atomically publish snapshot + guarded Explorer generation =="
+              ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" CANDIDATE_PATH="$CANDIDATE" BACKUP_DIR="$BACKUP_DIR" "$PY" - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          candidate = json.loads(Path(os.environ["CANDIDATE_PATH"]).read_text(encoding="utf-8"))
+          row = candidate["row"]
+          day = candidate["approvedMarketDate"]
+          dsn = os.environ["ACTIONS_DATABASE_URL"]
+
+          parsed = conninfo_to_dict(dsn)
+          user = parsed.get("user") or ""
+          project_ref = user.split(".")[-1] if "." in user else "zwxzxuuawalvwioadhmf"
+          direct_user = user.split(".")[0] if "." in user else user
+          base_kwargs = {
+              "dbname": parsed.get("dbname") or "postgres",
+              "password": parsed.get("password") or "",
+              "sslmode": parsed.get("sslmode") or "require",
+              "connect_timeout": 15,
+              "application_name": "market_vintage_cutover",
+          }
+          routes = [("configured_session_pooler", dsn)]
+          pooler_host = parsed.get("host")
+          if pooler_host:
+              routes.append(("transaction_pooler_6543", make_conninfo(
+                  host=pooler_host, port=6543, user=user, **base_kwargs)))
+          routes.append(("direct_project_5432", make_conninfo(
+              host=f"db.{project_ref}.supabase.co", port=5432, user=direct_user, **base_kwargs)))
+
+          conn = None
+          failures = []
+          for label, candidate_dsn in routes:
+              try:
+                  conn = psycopg.connect(candidate_dsn, prepare_threshold=None)
+                  print(f"database_route={label}", flush=True)
+                  break
+              except Exception as exc:
+                  failures.append((label,type(exc).__name__,getattr(exc,"sqlstate",None)))
+          if conn is None:
+              raise RuntimeError(f"all database routes failed: {failures}")
+
+          backup = {}
+          with conn:
+              with conn.cursor() as cur:
+                  cur.execute("set statement_timeout = '900s'")
+                  cur.execute("set lock_timeout = '20s'")
+                  cur.execute("select pg_advisory_xact_lock(hashtext('market-vintage-cutover'))")
+
+                  cur.execute(
+                      "select exists(select 1 from supabase_migrations.schema_migrations "
+                      "where version='20260924190000'), "
+                      "exists(select 1 from information_schema.columns where table_schema='public' "
+                      "and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count')"
+                  )
+                  migration_applied, market_count_exists = map(bool, cur.fetchone())
+                  if not migration_applied or not market_count_exists:
+                      raise RuntimeError("vintage scope DB migration is not fully applied")
+
+                  cur.execute(
+                      "select to_jsonb(s) from public.pokemon_explore_set_value_snapshot_latest s "
+                      "where s.tcg='pokemon' and s.scope='market' limit 1"
+                  )
+                  previous_snapshot = cur.fetchone()
+                  cur.execute("select generation_id from public.pokemon_market_explorer_prepared_serving_v1 where singleton")
+                  previous_generation = cur.fetchone()[0]
+                  backup = {
+                      "capturedAt": datetime.now(timezone.utc).isoformat(),
+                      "previousGenerationId": str(previous_generation),
+                      "previousSnapshot": previous_snapshot[0] if previous_snapshot else None,
+                  }
+
+                  cur.execute(
+                      "insert into public.pokemon_explore_set_value_snapshot_latest "
+                      "(tcg,scope,payload_json,market_date,set_count,market_count,"
+                      "source_generation_fingerprint,payload_size_bytes) "
+                      "values (%s,%s,%s::jsonb,%s::date,%s,%s,%s,%s) "
+                      "on conflict (tcg,scope) do update set "
+                      "payload_json=excluded.payload_json,market_date=excluded.market_date,"
+                      "set_count=excluded.set_count,market_count=excluded.market_count,"
+                      "source_generation_fingerprint=excluded.source_generation_fingerprint,"
+                      "payload_size_bytes=excluded.payload_size_bytes",
+                      (
+                          row["tcg"],row["scope"],json.dumps(row["payload_json"],separators=(",",":")),
+                          row["market_date"],row["set_count"],row["market_count"],
+                          row["source_generation_fingerprint"],row["payload_size_bytes"],
+                      ),
+                  )
+
+                  cur.execute("select public.run_market_explorer_guarded_publisher_v1(%s::date)",(day,))
+                  publisher_result = cur.fetchone()[0]
+                  print("publisher_result="+json.dumps(publisher_result,default=str,sort_keys=True),flush=True)
+
+                  cur.execute("select generation_id from public.pokemon_market_explorer_prepared_serving_v1 where singleton")
+                  serving_generation = cur.fetchone()[0]
+
+                  cur.execute(
+                      "select count(*)::int,"
+                      "count(*) filter(where market_type='set')::int,"
+                      "count(*) filter(where market_type<>'set')::int,"
+                      "count(distinct market_key)::int,min(comparison_as_of),max(comparison_as_of),"
+                      "count(*) filter(where market_type='era')::int,"
+                      "count(*) filter(where market_type='curated')::int,"
+                      "count(*) filter(where market_type='prepared_rarity')::int,"
+                      "count(*) filter(where market_type='prepared_format')::int "
+                      "from public.pokemon_market_explorer_prepared_serving_directory_v1"
+                  )
+                  counts = cur.fetchone()
+                  expected_counts=(204,167,37,204)
+                  if tuple(counts[:4]) != expected_counts:
+                      raise RuntimeError(f"serving directory count mismatch: {counts[:4]} expected={expected_counts}")
+                  if str(counts[4]) != day or str(counts[5]) != day:
+                      raise RuntimeError(f"comparison watermark mismatch: min={counts[4]} max={counts[5]} approved={day}")
+                  if tuple(counts[6:10]) != (17,6,9,5):
+                      raise RuntimeError(f"non-Set market regression: eras/curated/rarity/sealed={counts[6:10]}")
+
+                  cur.execute(
+                      "select "
+                      "count(*) filter(where d.market_type='set' and coalesce(d.metadata->>'marketScope','standard')<>'standard')::int,"
+                      "count(*) filter(where d.market_type='set' and coalesce(d.metadata->>'marketScope','standard')<>'standard' and d.current_value is null)::int,"
+                      "count(*) filter(where d.market_type='set' and r.set_id is not null and d.market_key='set:'||d.set_id::text)::int "
+                      "from public.pokemon_market_explorer_prepared_serving_directory_v1 d "
+                      "left join public.pokemon_edition_split_root_sets_v2 r on r.set_id=d.set_id"
+                  )
+                  scoped_counts=cur.fetchone()
+                  if tuple(scoped_counts)!=(21,6,0):
+                      raise RuntimeError(f"scoped directory invariant failed: {scoped_counts}")
+
+                  cur.execute(
+                      "select count(*)::int from public.pokemon_market_explorer_prepared_serving_history_v1 h "
+                      "join public.pokemon_market_explorer_prepared_serving_directory_v1 d "
+                      "on d.generation_id=h.generation_id and d.market_key=h.market_key "
+                      "join public.pokemon_market_scoped_history_market_certification_v1 c "
+                      "on c.set_id=d.set_id and c.market_scope=d.metadata->>'marketScope' "
+                      "where c.history_publishable=false"
+                  )
+                  if cur.fetchone()[0] != 0:
+                      raise RuntimeError("withheld scoped history appeared in serving generation")
+
+                  cur.execute(
+                      "select count(*)::int from public.pokemon_market_explorer_prepared_constituents_v1 c "
+                      "join public.pokemon_market_explorer_prepared_serving_directory_v1 d "
+                      "on d.generation_id=c.generation_id and d.market_key=c.market_key "
+                      "where d.market_type='set' and coalesce(d.metadata->>'marketScope','standard')<>'standard' "
+                      "and (c.price_as_of is distinct from d.source_as_of or "
+                      "case d.metadata->>'marketScope' "
+                      "when 'first_edition' then c.item->>'edition'<>'1st-edition' "
+                      "when 'unlimited' then c.item->>'edition'<>'unlimited' "
+                      "when 'shadowless' then c.item->>'edition'<>'shadowless' "
+                      "else true end)"
+                  )
+                  if cur.fetchone()[0] != 0:
+                      raise RuntimeError("scoped constituent edition/as-of mismatch")
+
+                  cur.execute(
+                      "select s.set_count,s.market_count,jsonb_array_length(s.payload_json->'sets'),"
+                      "count(distinct (e->>'setId')::uuid),count(distinct e->>'marketKey') "
+                      "from public.pokemon_explore_set_value_snapshot_latest s "
+                      "cross join lateral jsonb_array_elements(s.payload_json->'sets') e "
+                      "where s.tcg='pokemon' and s.scope='market' "
+                      "group by s.set_count,s.market_count,s.payload_json"
+                  )
+                  snap=cur.fetchone()
+                  if tuple(snap)!=(156,167,167,156,167):
+                      raise RuntimeError(f"published snapshot count contract failed: {snap}")
+
+                  cur.execute(
+                      "select to_regprocedure('public.get_pokemon_market_explorer_prepared_constituents_v3(text,uuid,integer,integer)') is not null"
+                  )
+                  if not cur.fetchone()[0]:
+                      raise RuntimeError("prepared constituent v3 serving function is missing")
+
+                  print(json.dumps({
+                      "status":"validated_before_commit",
+                      "approvedMarketDate":day,
+                      "previousGenerationId":str(previous_generation),
+                      "servingGenerationId":str(serving_generation),
+                      "directoryCounts":{
+                          "total":counts[0],"sets":counts[1],"nonSets":counts[2],
+                          "eras":counts[6],"curated":counts[7],"rarities":counts[8],"sealed":counts[9],
+                      },
+                      "snapshotCounts":{
+                          "setCount":snap[0],"marketCount":snap[1],
+                          "payloadRows":snap[2],"rootSets":snap[3],"uniqueMarketKeys":snap[4],
+                      },
+                  },sort_keys=True),flush=True)
+
+          stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          backup_path=Path(os.environ["BACKUP_DIR"])/f"market-vintage-precutover-{stamp}.json"
+          backup_path.write_text(json.dumps(backup,default=str,separators=(",",":")),encoding="utf-8")
+          backup_path.chmod(0o600)
+          print(f"rollback_backup={backup_path}",flush=True)
+          print("MARKET_VINTAGE_CUTOVER=PASS",flush=True)
+          PY
+
+              rm -f "$CANDIDATE"
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
               ;;
 
             market-explorer-cutover-status)
