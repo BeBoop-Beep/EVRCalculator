@@ -1,5 +1,4 @@
 {
-  "operation": "scrape-hard-kill-live-stale-dispatcher",
-  "market_date": "2026-09-25",
-  "request_id": "sep25-expired-chilling-reign-recover-2023"
+  "operation": "publication-live-debug",
+  "request_id": "sep25-publication-state-2116"
 }
