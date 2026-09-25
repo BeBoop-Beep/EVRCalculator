@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -301,8 +301,70 @@ jobs:
               ;;
           esac
 
+      - name: Execute Supabase project restart
+        if: ${{ env.VM_OPERATION == 'supabase-project-restart' }}
+        shell: bash
+        env:
+          ACTIONS_SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN Actions secret missing"; exit 5; }
+          PROJECT_REF="zwxzxuuawalvwioadhmf"
+          RESPONSE_FILE="/tmp/supabase-project-restart-response.json"
+
+          echo "== request Supabase project restart =="
+          CODE="$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' -X POST \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/restart" \
+            -H "Authorization: Bearer $ACTIONS_SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json")"
+          echo "restart_http_status=$CODE"
+          if [ "$CODE" != "200" ]; then
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("/tmp/supabase-project-restart-response.json")
+          try:
+              obj = json.loads(p.read_text(encoding="utf-8"))
+          except Exception:
+              obj = {}
+          safe = {k: obj.get(k) for k in ("message","error","statusCode","code") if obj.get(k) is not None}
+          print("restart_error=" + json.dumps(safe, sort_keys=True))
+          PY
+            exit 6
+          fi
+          rm -f "$RESPONSE_FILE"
+
+          echo "== wait for database connectivity =="
+          ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" "/home/ubuntu/repos/EVRCalculator/.venv/bin/python" - <<'PY'
+          import os
+          import time
+          import psycopg
+
+          dsn = os.environ["ACTIONS_DATABASE_URL"]
+          last = None
+          for attempt in range(1, 31):
+              try:
+                  with psycopg.connect(
+                      dsn,
+                      connect_timeout=5,
+                      application_name="supabase_restart_probe",
+                      prepare_threshold=None,
+                  ) as conn:
+                      with conn.cursor() as cur:
+                          cur.execute("select current_database(), current_setting('server_version')")
+                          db, version = cur.fetchone()
+                          print(f"database_reachable=true attempt={attempt} db={db} version={version}", flush=True)
+                          raise SystemExit(0)
+              except Exception as exc:
+                  last = (type(exc).__name__, getattr(exc, "sqlstate", None))
+                  print(f"database_reachable=false attempt={attempt} error={last[0]} sqlstate={last[1]}", flush=True)
+                  time.sleep(5)
+          raise SystemExit(f"database did not recover after restart; last_error={last}")
+          PY
+          echo "SUPABASE_PROJECT_RESTART=PASS"
+
       - name: Execute approved operation
-        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' }}
+        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' && env.VM_OPERATION != 'supabase-project-restart' }}
         shell: bash
         run: |
           set -euo pipefail
