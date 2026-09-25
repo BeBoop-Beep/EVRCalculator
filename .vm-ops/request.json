@@ -1,4 +1,4 @@
 {
-  "operation": "wait-sync-main-after-publication",
-  "request_id": "snapshot-fastpath-handoff-20260925-1113"
+  "operation": "market-vintage-cutover",
+  "request_id": "vintage-scope-cutover-20260925"
 }
