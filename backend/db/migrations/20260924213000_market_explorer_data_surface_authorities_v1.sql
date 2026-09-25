@@ -150,6 +150,7 @@ begin
       coalesce(
         nullif(d.metadata->>'rarityKey',''),
         nullif(d.metadata->>'segmentKey',''),
+        nullif(d.metadata->>'segmentId',''),
         nullif(d.metadata->>'filterRarityKey','')
       ) as rarity_key,
       d.market_key
@@ -158,6 +159,7 @@ begin
     order by coalesce(
       nullif(d.metadata->>'rarityKey',''),
       nullif(d.metadata->>'segmentKey',''),
+      nullif(d.metadata->>'segmentId',''),
       nullif(d.metadata->>'filterRarityKey','')
     ), d.market_key
   )
