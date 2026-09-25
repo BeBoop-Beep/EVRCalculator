@@ -1562,20 +1562,20 @@ jobs:
               else
                 echo "== generate atomic migration-history record =="
                 MIG_PATH="$MIG" HIST_PATH="$HIST" python3 - <<'PY'
-import os
-from pathlib import Path
-sql = Path(os.environ["MIG_PATH"]).read_text(encoding="utf-8")
-tag = "$evr_vintage_scope_migration$"
-if tag in sql:
-    raise SystemExit("history dollar-quote tag unexpectedly present in migration")
-history = (
-    "insert into supabase_migrations.schema_migrations(version,name,statements) "
-    "values ('20260924190000','explicit_vintage_market_scopes',"
-    "ARRAY[" + tag + sql + tag + "]::text[]) "
-    "on conflict (version) do nothing;\n"
-)
-Path(os.environ["HIST_PATH"]).write_text(history, encoding="utf-8")
-PY
+          import os
+          from pathlib import Path
+          sql = Path(os.environ["MIG_PATH"]).read_text(encoding="utf-8")
+          tag = "$evr_vintage_scope_migration$"
+          if tag in sql:
+              raise SystemExit("history dollar-quote tag unexpectedly present in migration")
+          history = (
+              "insert into supabase_migrations.schema_migrations(version,name,statements) "
+              "values ('20260924190000','explicit_vintage_market_scopes',"
+              "ARRAY[" + tag + sql + tag + "]::text[]) "
+              "on conflict (version) do nothing;\n"
+          )
+          Path(os.environ["HIST_PATH"]).write_text(history, encoding="utf-8")
+          PY
                 echo "== apply migration atomically =="
                 PGOPTIONS="-c statement_timeout=600000 -c lock_timeout=15000" \
                   psql "$ACTIONS_DATABASE_URL" -X --single-transaction -v ON_ERROR_STOP=1 \
@@ -1584,43 +1584,43 @@ PY
 
               echo "== verify production DB contract =="
               psql "$ACTIONS_DATABASE_URL" -X -v ON_ERROR_STOP=1 -P pager=off <<'SQL'
-select version,name,array_length(statements,1) as statement_entries
-from supabase_migrations.schema_migrations
-where version='20260924190000';
-
-select
-  exists(select 1 from information_schema.columns
-         where table_schema='public'
+          select version,name,array_length(statements,1) as statement_entries
+          from supabase_migrations.schema_migrations
+          where version='20260924190000';
+          
+          select
+            exists(select 1 from information_schema.columns
+                   where table_schema='public'
            and table_name='pokemon_explore_set_value_snapshot_latest'
            and column_name='market_count'
            and is_nullable='NO') as market_count_not_null,
-  to_regclass('public.pokemon_market_set_scope_contract_v1') is not null as scope_contract,
-  to_regprocedure('public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)') is not null as payload_validator,
-  to_regprocedure('public.validate_pokemon_market_scoped_history_baskets_v1(jsonb)') is not null as basket_validator,
-  to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null as scoped_asof_reader;
-
-select
-  s.market_date,
-  s.set_count,
-  s.market_count,
-  jsonb_array_length(s.payload_json->'sets') as payload_market_rows,
-  count(distinct (e->>'setId')::uuid) as payload_root_sets
-from public.pokemon_explore_set_value_snapshot_latest s
-cross join lateral jsonb_array_elements(s.payload_json->'sets') e
-where s.tcg='pokemon' and s.scope='market'
-group by s.market_date,s.set_count,s.market_count;
-
-select
-  has_function_privilege('anon','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as anon_sync_execute,
-  has_function_privilege('authenticated','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as authenticated_sync_execute,
-  has_function_privilege('service_role','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as service_sync_execute;
-
-select
-  position('already_current' in pg_get_functiondef('public.run_market_explorer_guarded_publisher_v1(date)'::regprocedure)) > 0
-    as guarded_publisher_already_current_preserved,
-  position('pg_advisory_xact_lock' in pg_get_functiondef('public.stage_pokemon_market_explorer_prepared_constituents_v1(uuid)'::regprocedure)) > 0
-    as constituent_advisory_lock_preserved;
-SQL
+            to_regclass('public.pokemon_market_set_scope_contract_v1') is not null as scope_contract,
+            to_regprocedure('public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)') is not null as payload_validator,
+            to_regprocedure('public.validate_pokemon_market_scoped_history_baskets_v1(jsonb)') is not null as basket_validator,
+            to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null as scoped_asof_reader;
+          
+          select
+            s.market_date,
+            s.set_count,
+            s.market_count,
+            jsonb_array_length(s.payload_json->'sets') as payload_market_rows,
+            count(distinct (e->>'setId')::uuid) as payload_root_sets
+          from public.pokemon_explore_set_value_snapshot_latest s
+          cross join lateral jsonb_array_elements(s.payload_json->'sets') e
+          where s.tcg='pokemon' and s.scope='market'
+          group by s.market_date,s.set_count,s.market_count;
+          
+          select
+            has_function_privilege('anon','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as anon_sync_execute,
+            has_function_privilege('authenticated','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as authenticated_sync_execute,
+            has_function_privilege('service_role','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as service_sync_execute;
+          
+          select
+            position('already_current' in pg_get_functiondef('public.run_market_explorer_guarded_publisher_v1(date)'::regprocedure)) > 0
+              as guarded_publisher_already_current_preserved,
+            position('pg_advisory_xact_lock' in pg_get_functiondef('public.stage_pokemon_market_explorer_prepared_constituents_v1(uuid)'::regprocedure)) > 0
+              as constituent_advisory_lock_preserved;
+          SQL
 
               rm -f "$HIST"
               cd "$REPO"
