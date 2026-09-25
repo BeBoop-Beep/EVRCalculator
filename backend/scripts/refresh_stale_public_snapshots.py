@@ -792,7 +792,6 @@ def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List
         checks.extend(table_checks)
         timestamps.append(latest)
 
-    legacy_card_ids = _legacy_card_ids(client, set_id)
     variant_ids = sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))
     canonical_card_ids = _canonical_card_ids(client, set_id)
 
