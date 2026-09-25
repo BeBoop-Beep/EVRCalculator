@@ -1,4 +1,4 @@
 {
-  "operation": "market-vintage-db-migrate",
-  "request_id": "market-vintage-db-migrate-20260924b"
+  "operation": "scrape-cycle-status",
+  "request_id": "sep24-snapshot-cron-status"
 }
