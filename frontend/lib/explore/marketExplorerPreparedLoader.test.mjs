@@ -233,3 +233,31 @@ test("failure copy names the failed market, is concise and exposes no backend in
   assert.doesNotMatch(describePreparedFailure("Jungle", { kind: PREPARED_FAILURE.unavailable }), /sql|postgrest|rpc|statement/i);
   assert.equal(describePreparedFailure("Jungle", { kind: PREPARED_FAILURE.entitlement }), "Comparing markets is included with Index+.");
 });
+
+// Explicit vintage edition markets share one setId; loader identity is the marketKey.
+const UNL = "set:jungle-id:unlimited";
+const FIRST = "set:jungle-id:first_edition";
+
+test("two editions of one Set load as two distinct lines and removing one keeps the other", async () => {
+  const h = harness();
+  const a = h.loader.add(UNL); await h.tick(); h.ok(UNL); await a;
+  const b = h.loader.add(FIRST); await h.tick(); h.ok(FIRST); await b;
+  assert.deepEqual(loadedPreparedSeries(h.snap()).map((s) => s.key).sort(), [FIRST, UNL]);
+  h.loader.remove(UNL);
+  assert.deepEqual(h.snap().order, [FIRST]);
+  assert.deepEqual(Object.keys(h.snap().loaded), [FIRST]);
+});
+
+test("a failing edition market does not fail, remove or refetch its sibling; retry is per marketKey", async () => {
+  const h = harness();
+  const a = h.loader.add(UNL); await h.tick(); h.ok(UNL); await a;
+  const b = h.loader.add(FIRST); await h.tick(); h.fail(FIRST, 503, "PREPARED_COMPARISON_FAILED");
+  assert.equal(await b, "failed");
+  assert.deepEqual(h.snap().order, [UNL]);
+  assert.ok(h.snap().failed[FIRST] && !h.snap().failed[UNL]);
+  assert.equal(h.calls.filter((call) => call.key === UNL).length, 1, "sibling never refetched");
+  const retry = h.loader.retry(FIRST); await h.tick(); h.ok(FIRST);
+  assert.equal(await retry, "loaded");
+  assert.deepEqual(loadedPreparedSeries(h.snap()).map((s) => s.key).sort(), [FIRST, UNL]);
+  assert.equal(h.calls.filter((call) => call.key === UNL).length, 1);
+});

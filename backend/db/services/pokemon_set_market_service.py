@@ -2677,6 +2677,31 @@ def _load_market_set_value_history(
     sources: Dict[str, str],
 ) -> List[Dict[str, Any]]:
     if value_scope in EDITION_SET_VALUE_SCOPES:
+        # DB authority: a scope whose certified history contains an unreviewed
+        # or rejected large move (source defect) is withheld as a whole. Fail
+        # closed if the certification cannot be read.
+        try:
+            cert = _run_set_value_history_read(
+                lambda attempt_client: (
+                    attempt_client.table("pokemon_market_scoped_history_market_certification_v1")
+                        .select("history_publishable")
+                        .eq("set_id", set_id)
+                        .eq("market_scope", value_scope)
+                        .limit(1)
+                        .execute()
+                ),
+                operation_name="pokemon_set_value_history.edition_scope_certification",
+            )
+            cert_rows = list(cert.data or [])
+        except Exception as exc:
+            if is_transient_data_service_error(exc):
+                raise
+            warnings.append("Edition-scoped history certification could not be verified.")
+            logger.warning("[pokemon-set-market] scope certification failed set_id=%s scope=%s: %s", set_id, value_scope, exc)
+            return []
+        if not cert_rows or cert_rows[0].get("history_publishable") is not True:
+            warnings.append("Edition-scoped history is withheld pending source review.")
+            return []
         try:
             result = _run_set_value_history_read(
                 lambda attempt_client: (

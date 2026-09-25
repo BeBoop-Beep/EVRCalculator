@@ -469,7 +469,11 @@ def build_global_set_value_row(
         "scope": "market",
         "payload_json": payload,
         "market_date": target_market_date,
-        "set_count": len(published),
+        # Contract: set_count = distinct ROOT Sets represented; market_count =
+        # published market identities. market_count is DB-derived from the
+        # payload (trigger) so the writer deliberately omits the column: it
+        # stays deployable before the migration lands.
+        "set_count": len({str(row.get("setId")) for row in published}),
         "source_generation_fingerprint": fingerprint,
         "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()),
         "_diagnostics": diagnostics,

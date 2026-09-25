@@ -39,9 +39,10 @@ def test_standard_history_keeps_existing_dashboard_path():
 
 
 def test_scoped_constituents_use_root_scope_authority():
-    assert "get_pokemon_market_root_set_card_prices_latest_v1(d.set_id)" in SQL
-    assert "q.market_scope=d.metadata->>'marketScope'" in SQL
+    # DB agent's final contract: date-pinned scoped roster, never "latest".
+    assert "get_pokemon_market_root_set_card_prices_as_of_v1" in SQL
     assert "get_pokemon_cards_daily_constituents(" in SQL
+    assert "market_count" in SQL
 
 
 def test_lightweight_sync_removes_superseded_generic_set_keys():

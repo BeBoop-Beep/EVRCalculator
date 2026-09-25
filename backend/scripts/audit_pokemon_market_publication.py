@@ -963,22 +963,44 @@ def global_set_value_snapshot_problem(
             f"does not match promoted market date {market_date}"
         )
 
-    declared = snapshot_row.get("set_count")
-    if not isinstance(declared, int) or declared != len(targets):
-        return (
-            f"global Market Set Value set_count {declared!r} disagrees with the "
-            f"{len(targets)} published set(s) in payload_json.sets"
-        )
-
+    # Contract: set_count = distinct ROOT Sets represented; market_count =
+    # published Set-market identities (payload rows). Identity is marketKey.
     seen: Dict[str, int] = {}
+    market_keys: Dict[str, int] = {}
     for target in targets:
         identity = _to_text(target.get("setId") or target.get("set_id"))
         if not identity:
             return "global Market Set Value publishes a row with no setId"
         seen[identity] = seen.get(identity, 0) + 1
-    duplicates = sorted(key for key, count in seen.items() if count > 1)
+        scope = _to_text(target.get("marketScope")) or "standard"
+        market_key = _to_text(target.get("marketKey")) or (
+            f"set:{identity}" if scope == "standard" else f"set:{identity}:{scope}"
+        )
+        market_keys[market_key] = market_keys.get(market_key, 0) + 1
+    duplicates = sorted(key for key, count in market_keys.items() if count > 1)
     if duplicates:
-        return f"global Market Set Value publishes duplicate setId(s): {duplicates[:5]}"
+        return f"global Market Set Value publishes duplicate marketKey(s): {duplicates[:5]}"
+    generic_split = sorted(
+        identity for identity in seen
+        if seen[identity] > 1 and f"set:{identity}" in market_keys
+    )
+    if generic_split:
+        return f"global Market Set Value publishes a generic market beside edition markets: {generic_split[:5]}"
+
+    declared = snapshot_row.get("set_count")
+    if not isinstance(declared, int) or declared != len(seen):
+        return (
+            f"global Market Set Value set_count {declared!r} disagrees with the "
+            f"{len(seen)} distinct root set(s) in payload_json.sets"
+        )
+    declared_markets = snapshot_row.get("market_count")
+    if declared_markets is not None and (
+        not isinstance(declared_markets, int) or declared_markets != len(targets)
+    ):
+        return (
+            f"global Market Set Value market_count {declared_markets!r} disagrees with the "
+            f"{len(targets)} published market(s) in payload_json.sets"
+        )
 
     expected = {str(key) for key in expected_set_ids}
     if expected:
@@ -1461,7 +1483,7 @@ def _load_global_set_value_row(client: Any) -> Optional[Dict[str, Any]]:
     """The persisted global Set Value payload /Market's ladder actually serves."""
     result = (
         client.table(GLOBAL_SET_VALUE_TABLE)
-        .select("tcg,scope,payload_json,market_date,set_count,payload_size_bytes,updated_at")
+        .select("tcg,scope,payload_json,market_date,set_count,market_count,payload_size_bytes,updated_at")
         .eq("tcg", "pokemon")
         .eq("scope", "market")
         .limit(1)

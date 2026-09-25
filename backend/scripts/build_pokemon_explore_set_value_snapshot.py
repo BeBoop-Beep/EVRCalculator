@@ -213,54 +213,57 @@ def _market_key(set_id: str, scope: str) -> str:
     return f"set:{set_id}" if scope == "standard" else f"set:{set_id}:{scope}"
 
 
-def _expand_market_scope_rows(client, sets):
-    """Expand root Sets into explicit market identities.
+SCOPE_CONTRACT_VIEW = "pokemon_market_set_scope_contract_v1"
+SCOPE_CERTIFICATION_VIEW = "pokemon_market_scoped_history_market_certification_v1"
 
-    Standard roots publish one Standard market. Edition-split roots publish
-    each real edition scope separately and deliberately do NOT publish a
-    generic blended Set market. Incomplete scopes remain in membership so the
-    Market page can render them honestly as unavailable.
+
+def _expand_market_scope_rows(client, sets):
+    """Expand root Sets into the DB-authoritative explicit market identities.
+
+    The DB owns market existence (pokemon_market_set_scope_contract_v1, derived
+    from the edition-split profile): Standard roots publish one Standard
+    market; edition roots publish each scope and NEVER a generic blended
+    market. Identity, label and base name come from the DB view; scopes whose
+    authority is not publishable stay in membership as unavailable. One bulk
+    read per 100 roots -- no per-root reads.
     """
     base_rows = [dict(row) for row in sets]
     ids = [str(row.get("id") or "") for row in base_rows if row.get("id")]
     if not ids:
         return []
 
-    scoped_rows = []
+    contract_rows = []
     for offset in range(0, len(ids), 100):
-        scoped_rows.extend(list(
-            client.table("pokemon_market_root_set_value_latest_v1")
-            .select("set_id,market_scope,coverage_pct,publishable_100pct")
+        contract_rows.extend(list(
+            client.table(SCOPE_CONTRACT_VIEW)
+            .select("set_id,base_set_name,market_scope,market_key,display_label,publishable_100pct")
             .in_("set_id", ids[offset:offset + 100])
             .execute().data or []
         ))
-
-    scopes_by_set = defaultdict(list)
-    for row in scoped_rows:
+    by_set = defaultdict(list)
+    for row in contract_rows:
         set_id = str(row.get("set_id") or "")
-        scope = str(row.get("market_scope") or "")
-        if set_id and scope:
-            scopes_by_set[set_id].append(dict(row))
+        if set_id and row.get("market_scope"):
+            by_set[set_id].append(dict(row))
 
     expanded = []
     for row in base_rows:
         set_id = str(row.get("id") or "")
-        candidates = scopes_by_set.get(set_id) or [{"market_scope": "standard", "publishable_100pct": True}]
-        nonstandard = [item for item in candidates if str(item.get("market_scope")) != "standard"]
-        selected = nonstandard if nonstandard else [item for item in candidates if str(item.get("market_scope")) == "standard"]
-        if not selected:
-            selected = [{"market_scope": "standard", "publishable_100pct": True}]
-
-        for authority in selected:
+        base_name = row.get("name") or row.get("set_name")
+        # A root the contract does not know is an ordinary Standard market.
+        authorities = by_set.get(set_id) or [
+            {"market_scope": "standard", "publishable_100pct": True}
+        ]
+        for authority in authorities:
             scope = str(authority.get("market_scope") or "standard")
-            suffix = _scope_label(scope)
-            base_name = row.get("name") or row.get("set_name")
             next_row = dict(row)
             next_row.update({
                 "market_scope": scope,
-                "market_key": _market_key(set_id, scope),
-                "base_set_name": base_name,
-                "name": f"{base_name} - {suffix}" if suffix else base_name,
+                "market_key": str(authority.get("market_key") or _market_key(set_id, scope)),
+                "base_set_name": authority.get("base_set_name") or base_name,
+                "name": authority.get("display_label") or (
+                    f"{base_name} - {_scope_label(scope)}" if scope != "standard" else base_name
+                ),
                 "market_publication_ready": True,
                 "market_current_certification_status": (
                     "CERTIFIED" if authority.get("publishable_100pct") is True else "SCOPED_MARKET_INCOMPLETE"
@@ -268,6 +271,26 @@ def _expand_market_scope_rows(client, sets):
             })
             expanded.append(next_row)
     return expanded
+
+
+def _load_history_withheld_scopes(client, market_rows):
+    """Markets whose certified history is withheld (unreviewed/rejected >=10% move)."""
+    scoped_ids = sorted({
+        str(m.get("id") or "") for m in market_rows
+        if str(m.get("market_scope") or "standard") != "standard"
+    })
+    withheld = set()
+    for offset in range(0, len(scoped_ids), 100):
+        rows = list(
+            client.table(SCOPE_CERTIFICATION_VIEW)
+            .select("set_id,market_scope,history_publishable")
+            .in_("set_id", scoped_ids[offset:offset + 100])
+            .execute().data or []
+        )
+        for row in rows:
+            if row.get("history_publishable") is not True:
+                withheld.add(_market_key(str(row.get("set_id")), str(row.get("market_scope"))))
+    return withheld
 
 
 def _load_scoped_certified_histories(client, market_rows, *, through_date):
@@ -305,6 +328,22 @@ def _load_scoped_certified_histories(client, market_rows, *, through_date):
             })
     for rows in grouped.values():
         rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
+
+    # DB authority rules. A scope whose current authority is not publishable
+    # publishes no history at all (never a stale value under an incomplete
+    # basket). A scope whose history is withheld for an unreviewed/rejected
+    # source-defect move keeps ONLY its latest certified point, so the current
+    # certified value can still publish without the defective series.
+    incomplete = {
+        str(m.get("market_key")) for m in market_rows
+        if str(m.get("market_scope") or "standard") != "standard"
+        and m.get("market_current_certification_status") not in (None, "CERTIFIED")
+    }
+    for key in incomplete:
+        grouped.pop(key, None)
+    for key in _load_history_withheld_scopes(client, market_rows):
+        if grouped.get(key):
+            grouped[key] = grouped[key][-1:]
     return grouped
 
 def _load_canonical_histories(client, market_rows, *, through_date: str):

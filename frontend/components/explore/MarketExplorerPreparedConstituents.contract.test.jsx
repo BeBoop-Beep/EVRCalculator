@@ -213,3 +213,23 @@ test("preview mode shows five rows from the same page that expanded mode reuses"
   assert.equal(calls, 1);
   assert.equal(rowIds(renderer).length, 9);
 });
+
+test("scoped edition markets page their own marketKey and show edition metadata", async () => {
+  const requested = [];
+  globalThis.fetch = async (url) => {
+    const u = new URL(url, "http://localhost");
+    const key = u.searchParams.get("marketKey");
+    requested.push(key);
+    const edition = key.endsWith("first_edition") ? "1st-edition" : "unlimited";
+    return page([{ rank: 1, instrumentId: `v-${edition}`, cardVariantId: `v-${edition}`, canonicalCardId: "c1", cardName: "Charizard", setName: "Base", rarity: "Rare Holo", edition, printingType: "holo", marketPrice: 500 }]);
+  };
+  const unl = prepared("set:base-id:unlimited", "set", { label: "Base - Unlimited", marketScope: "unlimited" });
+  const first = prepared("set:base-id:first_edition", "set", { label: "Base - 1st Edition", marketScope: "first_edition" });
+  const renderer = await mount({ selectedSeries: [unl, first], activeSeriesId: first.key });
+  assert.deepEqual(requested, ["set:base-id:first_edition"]);
+  assert.deepEqual(rowIds(renderer), ["v-1st-edition"]);
+  assert.match(text(renderer), /1st Edition/);
+  await act(async () => { renderer.update(<MarketExplorerConstituents selectedSeries={[unl, first]} activeSeriesId={unl.key} />); await Promise.resolve(); await Promise.resolve(); });
+  assert.deepEqual(requested, ["set:base-id:first_edition", "set:base-id:unlimited"]);
+  assert.deepEqual(rowIds(renderer), ["v-unlimited"]);
+});

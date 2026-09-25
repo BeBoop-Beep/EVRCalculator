@@ -158,3 +158,12 @@ test("prepared Explorer series keep two editions of one set distinct by market k
   assert.equal(new Set(series.map((s) => s.color)).size, 2);
   assert.deepEqual(series.map((s) => s.trend[0].value), [100, 110]);
 });
+
+test("below desktop each edition is its own navigable row; the two never merge", async () => {
+  const { resolveSetMarketRowAction } = await import("./SetMarketExplorer.jsx");
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: false, clickCount: 1 }), "navigate");
+  const r = await render();
+  const keys = rowKeys(r);
+  assert.equal(new Set(keys).size, keys.length);
+  assert.ok(keys.includes("set:jungle-id:unlimited") && keys.includes("set:jungle-id:first_edition"));
+});

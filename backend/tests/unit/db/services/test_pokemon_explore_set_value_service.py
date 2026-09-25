@@ -526,7 +526,7 @@ def test_edition_scoped_markets_publish_distinct_market_identity_without_derived
     # Fail closed: no normalized index is fabricated for scoped markets.
     assert "marketIndex" not in rows["set:set-1:unlimited"]
     assert "marketIndex" not in rows["set:set-1:first_edition"]
-    assert built["set_count"] == 2
+    assert built["set_count"] == 1
 
 
 def test_incomplete_explicit_scope_remains_visible_but_unavailable():
@@ -622,7 +622,10 @@ def test_diagnostics_distinguish_root_and_market_counts():
     assert d["eligibleMarketCount"] == 6 == d["publishedMarketCount"]
     assert d["editionScopedMarketCount"] == 5
     assert d["eligibleSetCount"] == 6
-    assert built["set_count"] == 6
+    # set_count = distinct ROOT sets; the DB derives market_count from payload.
+    assert built["set_count"] == 3
+    assert "market_count" not in built
+    assert len(built["payload_json"]["sets"]) == 6
     meta = built["payload_json"]["meta"]["publicationDiagnostics"]
     assert meta["eligibleRootSetCount"] == 3 and meta["editionScopedMarketCount"] == 5
 

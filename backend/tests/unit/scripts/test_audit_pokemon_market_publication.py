@@ -786,6 +786,7 @@ def test_cards_snapshot_projection_selects_cards_json():
     # The global Market Set Value artifact is its OWN source table.
     assert "payload_json" in selected["pokemon_explore_set_value_snapshot_latest"]
     assert "set_count" in selected["pokemon_explore_set_value_snapshot_latest"]
+    assert "market_count" in selected["pokemon_explore_set_value_snapshot_latest"]
     # era_id backs the global Set Value cohort rule.
     assert "era_id" in selected["sets"]
 
@@ -1268,7 +1269,28 @@ def test_global_set_value_duplicate_set_id_fails():
     )
 
     assert not report.passed
-    assert "duplicate setId" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+    assert "duplicate marketKey" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_edition_markets_share_a_set_id_and_count_split():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    base = _global_set_value_target()
+    unl = dict(base, marketScope="unlimited", marketKey=f"set:{base['setId']}:unlimited")
+    first = dict(base, marketScope="first_edition", marketKey=f"set:{base['setId']}:first_edition")
+    ok = run_market_publication_audit(_publication_db(pokemon_explore_set_value_snapshot_latest=[
+        _global_set_value_row(sets=[unl, first], set_count=1, market_count=2)
+    ]))
+    assert "market_count" not in (_section(ok.rows[0], SECTION_GLOBAL_SET_VALUE).detail or "")
+    assert "set_count" not in (_section(ok.rows[0], SECTION_GLOBAL_SET_VALUE).detail or "")
+    bad = run_market_publication_audit(_publication_db(pokemon_explore_set_value_snapshot_latest=[
+        _global_set_value_row(sets=[unl, first], set_count=1, market_count=3)
+    ]))
+    assert not bad.passed and "market_count" in _section(bad.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+    generic = run_market_publication_audit(_publication_db(pokemon_explore_set_value_snapshot_latest=[
+        _global_set_value_row(sets=[base, unl], set_count=1, market_count=2)
+    ]))
+    assert not generic.passed and "generic market" in _section(generic.rows[0], SECTION_GLOBAL_SET_VALUE).detail
 
 
 def test_global_set_value_set_count_disagreeing_with_payload_fails():
