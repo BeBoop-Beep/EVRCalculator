@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sep24-bounded-global-market-relaunch"
+  "operation": "publication-live-debug",
+  "request_id": "sep24-bounded-run-progress-1"
 }
