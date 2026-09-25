@@ -6,12 +6,12 @@ actually stops them is this refusal, and it has to happen BEFORE the shared
 result cache and before the query engine — otherwise an unentitled caller
 either reads a cached Premium result or makes the database do work for them.
 
-READ AS SOURCE, NOT IMPORTED. `backend.api.main` pulls in the whole FastAPI
-application graph, which is not importable in the unit environment (the same
-reason the other API tests here are source-level). The properties asserted are
-structural — which helper guards which route, and in what ORDER relative to the
-cache and the engine — so source is the right level for them anyway. The plan
-hierarchy itself is behaviourally tested in
+READ AS SOURCE. `backend.api.main` IS importable in the declared environment
+(Python 3.11 + backend/requirements.txt; runtime route tests live in
+test_market_explorer_v2_routes_runtime.py), but these properties are structural
+-- which helper guards which route, and in what ORDER relative to the cache and
+the engine -- so source is the right level for them. The plan hierarchy itself
+is behaviourally tested in
 `backend/tests/unit/domain/access/test_index_plan_access.py`.
 """
 
