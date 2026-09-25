@@ -107,12 +107,20 @@ def _global_set_value_row(sets=None, **overrides):
     payload = {"sets": published, "meta": {"snapshot": {"marketDate": DATE}}}
     if "payload_json" in overrides:
         payload = overrides.pop("payload_json")
+    payload_sets = payload.get("sets") if isinstance(payload, dict) else None
+    payload_sets = payload_sets if isinstance(payload_sets, list) else []
+    root_set_ids = {
+        str(item.get("setId") or item.get("set_id") or "")
+        for item in payload_sets
+        if isinstance(item, dict) and str(item.get("setId") or item.get("set_id") or "")
+    }
     row = {
         "tcg": "pokemon",
         "scope": "market",
         "payload_json": payload,
         "market_date": DATE,
-        "set_count": len(payload.get("sets") or []) if isinstance(payload, dict) else 0,
+        "set_count": len(root_set_ids),
+        "market_count": len(payload_sets),
         "payload_size_bytes": 1024,
         "updated_at": f"{DATE}T12:00:00Z",
     }
@@ -786,6 +794,7 @@ def test_cards_snapshot_projection_selects_cards_json():
     # The global Market Set Value artifact is its OWN source table.
     assert "payload_json" in selected["pokemon_explore_set_value_snapshot_latest"]
     assert "set_count" in selected["pokemon_explore_set_value_snapshot_latest"]
+    assert "market_count" in selected["pokemon_explore_set_value_snapshot_latest"]
     # era_id backs the global Set Value cohort rule.
     assert "era_id" in selected["sets"]
 
@@ -1258,20 +1267,50 @@ def test_global_set_value_out_of_cohort_set_fails():
     assert "out-of-cohort" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
 
 
-def test_global_set_value_duplicate_set_id_fails():
+def test_global_set_value_shared_set_id_scopes_are_valid_distinct_markets():
     from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
 
     report = run_market_publication_audit(
         _publication_db(pokemon_explore_set_value_snapshot_latest=[
-            _global_set_value_row(sets=[_global_set_value_target(), _global_set_value_target()])
+            _global_set_value_row(sets=[
+                _global_set_value_target(
+                    marketScope="unlimited",
+                    marketKey="set:set-1:unlimited",
+                    name="Test Set - Unlimited",
+                ),
+                _global_set_value_target(
+                    marketScope="first_edition",
+                    marketKey="set:set-1:first_edition",
+                    name="Test Set - 1st Edition",
+                ),
+            ])
+        ])
+    )
+
+    assert report.passed
+
+
+def test_global_set_value_duplicate_market_key_fails():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    duplicate = _global_set_value_target(
+        marketScope="unlimited",
+        marketKey="set:set-1:unlimited",
+        name="Test Set - Unlimited",
+    )
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(sets=[duplicate, dict(duplicate)])
         ])
     )
 
     assert not report.passed
-    assert "duplicate setId" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+    assert "duplicate marketKey" in _section(
+        report.rows[0], SECTION_GLOBAL_SET_VALUE
+    ).detail
 
 
-def test_global_set_value_set_count_disagreeing_with_payload_fails():
+def test_global_set_value_set_count_disagreeing_with_distinct_roots_fails():
     from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
 
     report = run_market_publication_audit(
@@ -1282,6 +1321,21 @@ def test_global_set_value_set_count_disagreeing_with_payload_fails():
 
     assert not report.passed
     assert "set_count" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_market_count_disagreeing_with_payload_fails():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(market_count=99)
+        ])
+    )
+
+    assert not report.passed
+    assert "market_count" in _section(
+        report.rows[0], SECTION_GLOBAL_SET_VALUE
+    ).detail
 
 
 def test_global_set_value_malformed_sets_array_fails():

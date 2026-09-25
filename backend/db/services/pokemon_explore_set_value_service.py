@@ -169,10 +169,12 @@ def _select_eligible_sets(sets: Iterable[Mapping[str, Any]]) -> tuple[List[Dict[
     rows = [dict(row) for row in sets]
     market_authority_mode = any("market_publication_ready" in row for row in rows)
     if market_authority_mode:
-        eligible = [
-            row for row in rows
-            if str(row.get("market_scope") or "standard") == "standard"
-        ]
+        # Market membership is already explicit at the market-identity level.
+        # A modern/root market has scope=standard; an edition-split vintage root
+        # contributes one row per real scope (Unlimited, 1st Edition, Shadowless).
+        # Never collapse those rows back to set_id here: that is the ambiguity
+        # that allowed one physical edition to replace another historically.
+        eligible = rows
     else:
         eligible = [
             row for row in rows
@@ -190,8 +192,13 @@ def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> D
     Market page, per the membership/certification separation this module
     enforces.
     """
+    market_scope = str(pokemon_set.get("market_scope") or "standard")
+    market_key = str(pokemon_set.get("market_key") or _market_identity(set_id, market_scope))
     return {
         "setId": set_id,
+        "marketKey": market_key,
+        "marketScope": market_scope,
+        "baseSetName": pokemon_set.get("base_set_name") or pokemon_set.get("set_name") or pokemon_set.get("name"),
         "canonicalKey": pokemon_set.get("canonical_key"),
         "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
         "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
@@ -209,6 +216,25 @@ def _unavailable_set_value_row(pokemon_set: Mapping[str, Any], set_id: str) -> D
         "lastUpdated": None,
         "certificationStatus": pokemon_set.get("market_current_certification_status"),
     }
+
+
+def _market_scope_label(scope: Any) -> str:
+    value = str(scope or "standard")
+    return {
+        "standard": "",
+        "unlimited": "Unlimited",
+        "first_edition": "1st Edition",
+        "shadowless": "Shadowless",
+    }.get(value, value.replace("_", " ").title())
+
+
+def _market_identity(set_id: str, scope: Any) -> str:
+    value = str(scope or "standard")
+    return f"set:{set_id}" if value == "standard" else f"set:{set_id}:{value}"
+
+
+def _is_scoped(market_scope: str) -> bool:
+    return market_scope != "standard"
 
 
 def build_global_set_value_row(
@@ -232,12 +258,32 @@ def build_global_set_value_row(
     missing_market_index_ids: List[str] = []
     stale_optional_dashboard_ids: List[str] = []
     generation = []
+    seen_market_keys: set = set()
 
     for pokemon_set in eligible:
         set_id = str(pokemon_set.get("id") or pokemon_set.get("set_id") or "")
-        canonical = _points_through(canonical_histories.get(set_id) or [], target_market_date)
-        dashboard = dashboard_by_set.get(set_id)
+        market_scope = str(pokemon_set.get("market_scope") or "standard")
+        market_key = str(pokemon_set.get("market_key") or _market_identity(set_id, market_scope))
+        # History is keyed by MARKET identity. Only a Standard market may fall
+        # back to a bare set_id key (legacy callers); a scoped market can never
+        # borrow a set_id-keyed (mixed/Standard) history.
+        raw_history = canonical_histories.get(market_key)
+        if raw_history is None and not _is_scoped(market_scope):
+            raw_history = canonical_histories.get(set_id)
+        canonical = _points_through(raw_history or [], target_market_date)
+        dashboard = dashboard_by_set.get(set_id) if market_scope == "standard" else None
+        # Scoped (edition) markets NEVER derive a Market Index here. Normalizing
+        # a scoped Set Value to 100 is not proven equal to a common-cohort,
+        # chain-linked index, and financial index math must come from the
+        # server analytics layer. Until a scope-aware index authority is
+        # supplied the scoped marketIndex is omitted (fail closed).
         prepared_index = None
+        if market_key in seen_market_keys:
+            raise ExploreSetValueUnavailable(
+                f"duplicate market identity {market_key}",
+                diagnostics={"duplicateMarketKey": market_key},
+            )
+        seen_market_keys.add(market_key)
 
         value_status = "current"
         if market_authority_mode:
@@ -248,11 +294,11 @@ def build_global_set_value_row(
             # valued -- that (and only that) renders as "unavailable" rather
             # than a fabricated or borrowed number.
             if not canonical:
-                missing.append(set_id)
+                missing.append(market_key if _is_scoped(market_scope) else set_id)
                 published.append(_unavailable_set_value_row(pokemon_set, set_id))
                 continue
             if canonical[-1]["date"] != target_market_date:
-                stale.append({"setId": set_id, "canonicalDate": canonical[-1]["date"]})
+                stale.append({"setId": set_id, "marketKey": market_key, "canonicalDate": canonical[-1]["date"]})
                 value_status = "stale"
             if dashboard:
                 dashboard_date = _text(dashboard.get("latest_market_date"))
@@ -301,6 +347,9 @@ def build_global_set_value_row(
         current = canonical[-1]
         published_row = {
             "setId": set_id,
+            "marketKey": market_key,
+            "marketScope": market_scope,
+            "baseSetName": pokemon_set.get("base_set_name") or pokemon_set.get("set_name") or pokemon_set.get("name"),
             "canonicalKey": pokemon_set.get("canonical_key"),
             "name": pokemon_set.get("name") or pokemon_set.get("set_name"),
             "era": pokemon_set.get("era") or pokemon_set.get("era_name"),
@@ -331,12 +380,18 @@ def build_global_set_value_row(
             }
         published.append(published_row)
         index_value = prepared_index.get("currentValue") if prepared_index is not None else None
-        generation.append(f"{set_id}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
+        generation.append(f"{market_key}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
 
     published_index_count = sum(1 for row in published if isinstance(row.get("marketIndex"), Mapping))
     diagnostics = {
+        # Legacy names retained; they now count MARKET rows (one per explicit
+        # scope). The additive fields below distinguish roots from markets.
         "eligibleSetCount": len(eligible),
         "publishedSetCount": len(published),
+        "eligibleRootSetCount": len({str(s.get("id") or s.get("set_id") or "") for s in eligible}),
+        "eligibleMarketCount": len(eligible),
+        "publishedMarketCount": len(published),
+        "editionScopedMarketCount": sum(1 for r in published if _is_scoped(str(r.get("marketScope") or "standard"))),
         "dashboardMarketIndexAvailableCount": len(dashboard_index_available_ids),
         "publishedMarketIndexCount": published_index_count,
         "missingMarketIndexSetIds": sorted(set(missing_market_index_ids)),
@@ -371,7 +426,7 @@ def build_global_set_value_row(
         key=lambda row: (
             row.get("currentSetValue") is None,
             -(row["currentSetValue"] or 0),
-            str(row["name"] or row["setId"]),
+            str(row["name"] or row.get("marketKey") or row["setId"]),
         )
     )
     built_at = built_at or datetime.now(timezone.utc).isoformat()
@@ -390,6 +445,10 @@ def build_global_set_value_row(
                 key: diagnostics[key]
                 for key in (
                     "eligibleSetCount",
+                    "eligibleRootSetCount",
+                    "eligibleMarketCount",
+                    "publishedMarketCount",
+                    "editionScopedMarketCount",
                     "dashboardMarketIndexAvailableCount",
                     "publishedMarketIndexCount",
                     "missingMarketIndexSetIds",
@@ -405,12 +464,18 @@ def build_global_set_value_row(
             "warnings": [],
         },
     }
+    published_root_set_ids = {
+        str(row.get("setId") or row.get("set_id") or "").strip()
+        for row in published
+        if str(row.get("setId") or row.get("set_id") or "").strip()
+    }
     return {
         "tcg": "pokemon",
         "scope": "market",
         "payload_json": payload,
         "market_date": target_market_date,
-        "set_count": len(published),
+        "set_count": len(published_root_set_ids),
+        "market_count": len(published),
         "source_generation_fingerprint": fingerprint,
         "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()),
         "_diagnostics": diagnostics,
@@ -425,7 +490,12 @@ def _read_explore_set_value_snapshot_once(active: Any, *, include_explorer_segme
         raise ExploreSetValueUnavailable("global Market Set Value snapshot is unavailable")
     payload = dict(rows[0].get("payload_json") or {})
     published_sets = payload.get("sets") if isinstance(payload.get("sets"), list) else []
-    if not isinstance(payload.get("initialSelectedSetMovers"), Mapping) and published_sets:
+    if (
+        not isinstance(payload.get("initialSelectedSetMovers"), Mapping)
+        and published_sets
+        # set_id movers cannot represent an explicit edition market.
+        and str(published_sets[0].get("marketScope") or "standard") == "standard"
+    ):
         payload["initialSelectedSetMovers"] = read_initial_selected_set_movers(active, published_sets[0])
     overview = payload.get("marketOverview")
     if isinstance(overview, Mapping) and not include_explorer_segments:
