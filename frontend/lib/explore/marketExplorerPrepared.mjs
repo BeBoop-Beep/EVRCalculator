@@ -28,16 +28,19 @@ function resolveChanges(row) {
 export function buildPreparedSeries(rows = [], history = []) {
   const historyByKey = new Map();
   for (const point of history) {
-    const key = point.market_key;
+    const key = point.requested_market_key || point.market_key;
     if (!historyByKey.has(key)) historyByKey.set(key, []);
     historyByKey.get(key).push({ date: point.market_date, value: Number(point.index_value), trackedValue: point.tracked_value == null ? null : Number(point.tracked_value) });
   }
   return rows.map((row) => {
     const end = row.comparison_as_of;
     const changes = resolveChanges(row);
-    const color = resolveSeriesIdentityColor(row.market_key, row.market_key);
+    // A legacy alias resolved server-side keeps the REQUESTED key as its
+    // workspace identity; the canonical key rides along for the pager.
+    const seriesKey = row.requested_market_key || row.market_key;
+    const color = resolveSeriesIdentityColor(seriesKey, seriesKey);
     return {
-      key: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
+      key: seriesKey, canonicalMarketKey: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
       // PREPARED IDENTITY, published by the backend on the directory row and
       // carried verbatim for the constituent pager. Nothing here is derived from
       // labels or key strings. `generationId` pins paging to this exact
@@ -46,10 +49,14 @@ export function buildPreparedSeries(rows = [], history = []) {
       preparedSeriesKey: row.prepared_series_key ?? null, sourceKind: row.source_kind ?? null,
       marketScope: row.metadata?.marketScope || "standard", baseSetName: row.metadata?.baseSetName ?? null,
       marketType: row.market_type, setId: row.set_id, eraId: row.era_id, parentEraId: row.parent_era_id,
-      available: true, historyAvailable: row.history_available, basketValue: row.comparison_value,
+      available: row.available !== false, historyAvailable: row.history_available,
+      // V2-published composition + availability metadata (undefined for V1 rows).
+      compositionKind: row.composition_kind ?? undefined, availability: row.availability ?? undefined,
+      unavailableReason: row.unavailable_reason ?? null, scopeKind: row.scope_kind ?? null,
+      surfaceVersion: row.surface_version ?? null, basketValue: row.comparison_value,
       browseValue: row.current_value, sourceAsOf: row.source_as_of, comparisonAsOf: end,
       indexValue: row.comparison_index_value, historyStartDate: row.history_start_date,
-      trend: historyByKey.get(row.market_key) || [], changes, familyChanges: changes,
+      trend: historyByKey.get(seriesKey) || [], changes, familyChanges: changes,
       // Only a compact, identity-keyed authority (query-cache fingerprint
       // match) ever populates this server-side -- never a "latest" guess.
       // `null` renders as "-" in MarketExplorerDetails, which is correct
@@ -86,8 +93,8 @@ export async function fetchPreparedMarket(key, { contextKeys = [], signal } = {}
       status: response.status, code: payload?.code || detail?.code || "",
     });
   }
-  const rows = (Array.isArray(payload?.markets) ? payload.markets : []).filter((row) => row.market_key === key);
-  const history = (Array.isArray(payload?.history) ? payload.history : []).filter((point) => point.market_key === key);
+  const rows = (Array.isArray(payload?.markets) ? payload.markets : []).filter((row) => row.market_key === key || row.requested_market_key === key);
+  const history = (Array.isArray(payload?.history) ? payload.history : []).filter((point) => point.market_key === key || point.requested_market_key === key);
   const [series] = buildPreparedSeries(rows, history);
   if (!series) throw new PreparedFetchError("Unknown prepared market", { status: 404, code: "PREPARED_MARKET_UNKNOWN" });
   return series;

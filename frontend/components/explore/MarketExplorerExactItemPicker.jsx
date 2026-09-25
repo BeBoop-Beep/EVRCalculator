@@ -20,8 +20,10 @@ const SCOPES = [
   { value: "sealed", label: "Products" },
 ];
 
-export default function MarketExplorerExactItemPicker({ selectedItems = [], onChange, open = true, onClose, onCancelEdit, onBuild, onSaveAsNew, executionLocked = false, buildLabel = "Build Market", buildStatus = "idle", buildMessage = "" }) {
+export default function MarketExplorerExactItemPicker({ selectedItems = [], onChange, initialScope = "all", open = true, onClose, onCancelEdit, onBuild, onSaveAsNew, executionLocked = false, buildLabel = "Build Market", buildStatus = "idle", buildMessage = "" }) {
   const [scope, setScope] = useState("all");
+  // The active BROWSE asset is the Builder default scope ("all" unless it says otherwise).
+  useEffect(() => { setScope(initialScope); }, [initialScope]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [status, setStatus] = useState("idle");

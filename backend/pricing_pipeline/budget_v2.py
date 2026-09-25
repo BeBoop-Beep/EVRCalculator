@@ -24,6 +24,51 @@ STANDARD = "BUY_BROWSE_STANDARD"
 BULK = "BUY_BROWSE_BULK_ITEMS"
 PROVIDER_RESOURCE = {STANDARD: policy.BUCKET_BROWSE, BULK: policy.BUCKET_BROWSE_BULK}
 MAX_VERIFICATION_AGE = timedelta(hours=36)
+DB_RETRY_ATTEMPTS = 4
+
+
+def _is_transient_db_error(exc: Exception) -> bool:
+    """Return True only for transport/gateway/statement stalls that are safe to retry.
+
+    Budget decisions (exhausted, stale, unknown window, permission failures) are
+    deliberately excluded so retries never turn a policy decision into success.
+    """
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    if name in {"readtimeout", "connecttimeout", "writetimeout", "pooltimeout", "timeoutexception", "timeout"}:
+        return True
+    return (
+        "57014" in text
+        or "statement timeout" in text
+        or "read operation timed out" in text
+        or "connect operation timed out" in text
+        or "connection timeout" in text
+        or "connection terminated due to connection timeout" in text
+        or " 502" in text
+        or " 503" in text
+        or " 504" in text
+    )
+
+
+def _retry_db(call: Callable[[], Any], *, attempts: int = DB_RETRY_ATTEMPTS,
+              sleep: Callable[[float], None] | None = None) -> Any:
+    """Retry a bounded set of transient database transport failures.
+
+    Exhaustion re-raises the original exception; callers then map it to the
+    appropriate fail-closed pipeline error. No timeout is interpreted as an
+    empty ledger, zero usage, or an unlimited budget.
+    """
+    import time
+
+    sleep = sleep or time.sleep
+    for attempt in range(attempts):
+        try:
+            return call()
+        except Exception as exc:  # noqa: BLE001 - transport types vary by supabase/httpx versions
+            if not _is_transient_db_error(exc) or attempt >= attempts - 1:
+                raise
+            sleep(1.5 * (attempt + 1))
+    raise RuntimeError("unreachable")
 
 
 def keyset_identity(environment: str, client_id: str) -> str:
@@ -51,25 +96,25 @@ class PoolLedger:
             raise ValueError(bucket)
         self.client, self.keyset, self.bucket = client, keyset, bucket
 
-    RETRY_ATTEMPTS = 4
+    RETRY_ATTEMPTS = DB_RETRY_ATTEMPTS
 
     def reserve(self, market_date: str | None = None, sleep: Callable[[float], None] | None = None) -> None:
-        """Reserve one request. Transient database stalls (statement timeout / gateway errors) are retried a few times with
-        short backoff; a cancelled statement is not committed, so a retry can only over-count, never under-count."""
-        import time
+        """Reserve one request with bounded retries for transient DB transport stalls.
 
-        sleep = sleep or time.sleep
-        for attempt in range(self.RETRY_ATTEMPTS):
-            try:
-                self.client.rpc("reserve_ebay_api_request_v2", {"p_keyset": self.keyset, "p_api": API_NAME, "p_bucket": self.bucket}).execute()
-                return
-            except Exception as exc:  # noqa: BLE001 - PostgREST surfaces the SQL exception text
-                text = str(exc)
-                transient = ("57014" in text or "statement timeout" in text or " 502" in text or " 503" in text or " 504" in text)
-                if transient and attempt < self.RETRY_ATTEMPTS - 1:
-                    sleep(1.5 * (attempt + 1))
-                    continue
-                self._raise_mapped(exc, text)
+        A failed/cancelled reservation is never assumed successful. After retries
+        are exhausted, the error is mapped fail-closed.
+        """
+        try:
+            _retry_db(
+                lambda: self.client.rpc(
+                    "reserve_ebay_api_request_v2",
+                    {"p_keyset": self.keyset, "p_api": API_NAME, "p_bucket": self.bucket},
+                ).execute(),
+                attempts=self.RETRY_ATTEMPTS,
+                sleep=sleep,
+            )
+        except Exception as exc:  # noqa: BLE001 - PostgREST/httpx exception classes vary by installed version
+            self._raise_mapped(exc, str(exc))
 
     def _raise_mapped(self, exc: Exception, text: str) -> None:
         if "EBAY_BUDGET_EXHAUSTED" in text:
@@ -78,10 +123,20 @@ class PoolLedger:
             raise PipelineError("QUOTA_UNVERIFIED", "window unknown or verification older than 36h; failing closed") from exc
         raise PipelineError("BUDGET_AUTHORITY_UNAVAILABLE", text[:200]) from exc
 
-    def window(self, now: datetime | None = None) -> dict[str, Any] | None:
+    def window(self, now: datetime | None = None, sleep: Callable[[float], None] | None = None) -> dict[str, Any] | None:
         now = now or datetime.now(timezone.utc)
-        rows = self.client.table("ebay_api_request_budget_v2").select("*").eq("provider_keyset_identity", self.keyset).eq(
-            "api_name", API_NAME).eq("resource_bucket", self.bucket).order("provider_window_end", desc=True).limit(3).execute().data or []
+
+        def read_rows() -> list[dict[str, Any]]:
+            return self.client.table("ebay_api_request_budget_v2").select("*").eq(
+                "provider_keyset_identity", self.keyset
+            ).eq("api_name", API_NAME).eq("resource_bucket", self.bucket).order(
+                "provider_window_end", desc=True
+            ).limit(3).execute().data or []
+
+        try:
+            rows = _retry_db(read_rows, sleep=sleep)
+        except Exception as exc:  # never turn an unavailable budget authority into an empty window
+            raise PipelineError("BUDGET_AUTHORITY_UNAVAILABLE", str(exc)[:200]) from exc
         for row in rows:
             if _dt(row["provider_window_start"]) <= now < _dt(row["provider_window_end"]):
                 return row
@@ -139,10 +194,14 @@ class QuotaVerifier:
             if verified and verified.get("reset_at") and verified.get("window_seconds"):
                 reset = _dt(verified["reset_at"])
                 start = reset - timedelta(seconds=int(verified["window_seconds"]))
-                self.client.rpc("register_ebay_api_budget_window_v2", {
+                params = {
                     "p_keyset": self.keyset, "p_api": API_NAME, "p_bucket": bucket, "p_window_start": start.isoformat(),
                     "p_reset_at": reset.isoformat(), "p_provider_limit": verified["verified_limit"],
-                    "p_provider_used": verified.get("provider_reported_used"), "p_provider_remaining": verified.get("provider_reported_remaining")}).execute()
+                    "p_provider_used": verified.get("provider_reported_used"), "p_provider_remaining": verified.get("provider_reported_remaining")}
+                try:
+                    _retry_db(lambda: self.client.rpc("register_ebay_api_budget_window_v2", params).execute())
+                except Exception as exc:
+                    raise PipelineError("BUDGET_AUTHORITY_UNAVAILABLE", str(exc)[:200]) from exc
                 results["buckets"][bucket] = {"mode": policy.HEALTHY, "verified_limit": verified["verified_limit"], "window_end": reset.isoformat()}
             else:
                 # An OK response that omits this bucket is NOT verification of it: treat it as a non-answer for the bucket.
@@ -151,9 +210,17 @@ class QuotaVerifier:
         return results
 
     def _degraded(self, bucket: str, provider_state: str | None, now: datetime) -> dict[str, Any]:
-        rows = self.client.table("ebay_api_request_budget_v2").select("*").eq("provider_keyset_identity", self.keyset).eq(
-            "api_name", API_NAME).eq("resource_bucket", bucket).eq("provider_usage_state", "PROVIDER_USAGE_OK").order(
-            "verified_at", desc=True).limit(1).execute().data or []
+        def read_last_verified() -> list[dict[str, Any]]:
+            return self.client.table("ebay_api_request_budget_v2").select("*").eq(
+                "provider_keyset_identity", self.keyset
+            ).eq("api_name", API_NAME).eq("resource_bucket", bucket).eq(
+                "provider_usage_state", "PROVIDER_USAGE_OK"
+            ).order("verified_at", desc=True).limit(1).execute().data or []
+
+        try:
+            rows = _retry_db(read_last_verified)
+        except Exception as exc:
+            raise PipelineError("BUDGET_AUTHORITY_UNAVAILABLE", str(exc)[:200]) from exc
         last = rows[0] if rows else None
         expected = policy.KeysetIdentity(self.keyset.split(":")[0], self.keyset)
         decision = policy.authorize(

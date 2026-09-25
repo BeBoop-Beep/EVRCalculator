@@ -167,7 +167,7 @@ def _function_source(name):
 def test_endpoint_authenticates_then_requires_plus_before_reading():
     source = _function_source("get_market_explorer_prepared_constituents")
     assert (source.index("_require_authenticated_user_id") < source.index("has_index_plus_access")
-            < source.index("read_prepared_constituents("))
+            < source.index("read_constituents_v2_first("))
 
 
 def test_endpoint_maps_generation_mismatch_to_409_and_bounds_the_page():
@@ -179,5 +179,5 @@ def test_endpoint_maps_generation_mismatch_to_409_and_bounds_the_page():
 def test_context_keys_count_toward_the_compare_entitlement_but_are_never_read():
     source = _function_source("post_market_explorer_prepared_comparison")
     assert "contextMarketKeys" in source
-    assert "read_prepared_comparison_bundle(\n            service_read_client, keys" in source
+    assert "read_comparison_v2_first(\n            service_read_client, keys" in source
     assert "PREPARED_COMPARISON_TIMEOUT" in source

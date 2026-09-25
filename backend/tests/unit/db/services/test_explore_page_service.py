@@ -1786,3 +1786,36 @@ def test_pull_rate_assumptions_include_god_pack_special_rule_for_151(monkeypatch
     assert "god pack" in special_rows
     assert special_rows["god pack"]["slot_label"] == "Special pack model"
     assert special_rows["god pack"]["rarity_odds_denominator"] == 2000
+
+
+def test_history_trend_uses_authoritative_schema_without_42703_probe(monkeypatch):
+    handlers = {
+        "calculation_history_trend": lambda _q: [
+            {
+                "snapshot_date": "2026-09-24",
+                "simulated_mean_pack_value_vs_pack_cost": 0.72,
+                "simulated_median_pack_value_vs_pack_cost": 0.31,
+                "run_created_at": "2026-09-24T12:00:00Z",
+                "calculation_run_id": "run-history",
+                "p95_value_to_cost_ratio": 2.4,
+            }
+        ]
+    }
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "service_read_client", client)
+    service._UNAVAILABLE_HISTORY_TREND_SELECT_SOURCES.clear()
+
+    rows, source = service._load_history_trend_rows("set", "set-1", 30)
+
+    assert source == "OK_CANONICAL_P95"
+    assert len(rows) == 1
+    calls = [call for call in client.calls if call.table_name == "calculation_history_trend"]
+    assert len(calls) == 1
+    selected = {part.strip() for part in calls[0].select_fields.split(",")}
+    assert "mean_value_to_cost_ratio" not in selected
+    assert "median_value_to_cost_ratio" not in selected
+    assert "pack_cost" not in selected
+    assert "mean_value" not in selected
+    assert "median_value" not in selected
+    assert "simulated_mean_pack_value_vs_pack_cost" in selected
+    assert "p95_value_to_cost_ratio" in selected

@@ -29,7 +29,7 @@ def test_target_date_fast_result_proves_stale_on_date_mismatch():
     assert "2026-09-20" in result.reason
 
 
-def test_target_date_fast_result_defers_to_deep_audit_when_already_current():
+def test_target_date_fast_result_proves_current_for_completed_target_date():
     result = refresh._target_date_fast_result(
         "cards",
         snapshot_row={
@@ -38,7 +38,9 @@ def test_target_date_fast_result_defers_to_deep_audit_when_already_current():
         },
         target_market_date="2026-09-20",
     )
-    assert result is None
+    assert result.stale is False
+    assert result.snapshot_updated_at == "2026-09-20T03:00:00+00:00"
+    assert result.max_dependency_updated_at == "2026-09-20"
 
 
 def test_build_plan_skips_expensive_dependency_scans_when_target_date_is_proven_stale():
@@ -70,19 +72,11 @@ def test_build_plan_skips_expensive_dependency_scans_when_target_date_is_proven_
     assert validation.stale is False
 
 
-def test_build_plan_deep_audits_when_snapshot_dates_are_already_current():
+def test_build_plan_skips_cards_and_market_deep_audits_when_target_dates_are_current():
     set_rows = [{"id": "set-1", "canonical_key": "alpha"}]
     cards_dates = {"set-1": {"market_date": "2026-09-20", "updated_at": "u1"}}
     market_dates = {"set-1": {"market_date": "2026-09-20", "updated_at": "u2"}}
     calls = []
-
-    def cards(_client, set_id):
-        calls.append(("cards", set_id))
-        return _fresh("cards")
-
-    def market(_client, set_id, window):
-        calls.append(("market", set_id, window))
-        return _fresh("market_dashboard")
 
     def page(_client, set_id):
         calls.append(("page", set_id))
@@ -90,20 +84,20 @@ def test_build_plan_deep_audits_when_snapshot_dates_are_already_current():
 
     with patch.object(refresh, "_load_completed_scrape_set_ids", return_value={"set-1"}), patch.object(
         refresh, "_load_target_snapshot_market_dates", return_value=(cards_dates, market_dates)
-    ), patch.object(refresh, "_cards_snapshot_staleness", side_effect=cards), patch.object(
-        refresh, "_market_snapshot_staleness", side_effect=market
+    ), patch.object(
+        refresh, "_cards_snapshot_staleness", side_effect=AssertionError("target-date Cards audit must be skipped")
+    ), patch.object(
+        refresh, "_market_snapshot_staleness", side_effect=AssertionError("target-date Market audit must be skipped")
     ), patch.object(refresh, "_set_page_snapshot_staleness", side_effect=page), patch.object(
         refresh, "_global_snapshot_staleness", side_effect=_global
     ):
-        refresh._build_plan(
+        plans, _rankings, _validation, _checks = refresh._build_plan(
             object(), set_rows=set_rows, window="365d", target_market_date="2026-09-20"
         )
 
-    assert calls == [
-        ("cards", "set-1"),
-        ("market", "set-1", "365d"),
-        ("page", "set-1"),
-    ]
+    assert calls == [("page", "set-1")]
+    assert plans[0].cards.stale is False
+    assert plans[0].market_dashboard.stale is False
 
 
 def test_build_plan_falls_back_to_deep_audit_when_bulk_preload_is_unreadable():

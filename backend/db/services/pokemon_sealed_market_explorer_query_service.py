@@ -78,6 +78,7 @@ from backend.domain.pokemon.market_index import (
     compute_strict_window_movements,
 )
 from backend.domain.pokemon.sealed_market_segments import (
+    resolve_sealed_family_selection,
     SEALED_SEGMENT_CONTRACT_VERSION,
     SEALED_SEGMENT_DEFINITIONS,
     segment_definition_metadata,
@@ -154,16 +155,10 @@ def families_for_segments(segment_ids: Sequence[str]) -> frozenset[str] | None:
     selected. All three facts are read from SEALED_SEGMENT_DEFINITIONS rather
     than restated here.
     """
-    wanted = {str(value).strip() for value in segment_ids if str(value or "").strip()}
-    if not wanted:
-        return None
-    by_key = {str(definition["key"]): definition for definition in SEALED_SEGMENT_DEFINITIONS}
-    unknown = sorted(wanted - set(by_key))
-    if unknown:
-        raise MarketExplorerQueryError(f"unknown sealed product family segment(s): {unknown}")
-    return frozenset(
-        family for key in wanted for family in by_key[key]["productFamilies"]
-    )
+    try:
+        return resolve_sealed_family_selection(segment_ids)
+    except ValueError as exc:
+        raise MarketExplorerQueryError(str(exc)) from exc
 
 
 def filter_products_by_family(
@@ -370,6 +365,159 @@ def describe_sealed_query(
     return " · ".join(dimensions)
 
 
+
+# ---------------------------------------------------------------------------
+# Normalized authority path (DB: pokemon_market_explorer_sealed_*_v1)
+# ---------------------------------------------------------------------------
+# ONE deterministic identity (sealedProductId) and normalized historical rows.
+# Family identity is READ from the authority; it is never re-classified from
+# product names here. Legacy segment ids are mapped by the single seam
+# resolve_sealed_family_selection. With no family selection the universe is the
+# parent (retail) membership, matching the legacy "All Sealed Products" meaning.
+
+NORMALIZED_METADATA_TABLE = "pokemon_market_explorer_sealed_current_metadata_v1"
+NORMALIZED_DAILY_TABLE = "pokemon_market_explorer_sealed_daily_v1"
+NORMALIZED_PAGE_SIZE = 1000
+NORMALIZED_MAX_ROWS = 300_000
+_ID_CHUNK = 150
+
+
+def _paged(build_query, *, max_rows: int = NORMALIZED_MAX_ROWS) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    start = 0
+    while True:
+        page = list((build_query().range(start, start + NORMALIZED_PAGE_SIZE - 1).execute()).data or [])
+        rows.extend(page)
+        if len(page) < NORMALIZED_PAGE_SIZE:
+            return rows
+        start += NORMALIZED_PAGE_SIZE
+        if len(rows) >= max_rows:
+            raise SealedMarketExplorerQueryUnavailable("the sealed universe is too broad for one query")
+
+
+def normalized_authority_available(client: Any) -> bool:
+    """True only when the normalized metadata authority exists AND holds rows.
+
+    Absent (older environment) -> the legacy prepared-snapshot path is used.
+    """
+    try:
+        rows = list((client.table(NORMALIZED_METADATA_TABLE).select("sealed_product_id").limit(1).execute()).data or [])
+    except Exception:
+        return False
+    return bool(rows)
+
+
+def _norm_scope(query, *, era_ids, set_ids, families, parent_only):
+    if era_ids:
+        query = query.in_("era_id", list(era_ids))
+    if set_ids:
+        query = query.in_("set_id", list(set_ids))
+    if families is not None:
+        query = query.in_("product_family", sorted(families))
+    elif parent_only:
+        query = query.eq("parent_membership", True)
+    return query
+
+
+def run_normalized_sealed_query(
+    client: Any, spec: Mapping[str, Any], *, start_date: str, end_date: str, started: float,
+) -> dict[str, Any]:
+    families = families_for_segments(spec["segmentIds"])
+    explicit = spec.get("membershipMode") == "explicit"
+    era_ids = () if explicit else tuple(spec["eraIds"])
+    set_ids = () if explicit else tuple(spec["setIds"])
+    parent_only = not explicit
+    if explicit:
+        wanted = sorted(set(spec["instrumentIds"]))
+        metadata_rows: list[dict[str, Any]] = []
+        for i in range(0, len(wanted), _ID_CHUNK):
+            chunk = wanted[i:i + _ID_CHUNK]
+            metadata_rows += _paged(lambda c=chunk: client.table(NORMALIZED_METADATA_TABLE)
+                                    .select("*").in_("sealed_product_id", c).order("sealed_product_id"))
+    else:
+        metadata_rows = _paged(lambda: _norm_scope(
+            client.table(NORMALIZED_METADATA_TABLE).select("*"),
+            era_ids=era_ids, set_ids=set_ids, families=families, parent_only=parent_only,
+        ).order("sealed_product_id"))
+    if not metadata_rows:
+        raise SealedMarketExplorerQueryUnavailable("no eligible sealed product satisfies the selected filters")
+    meta_by_id = {str(r["sealed_product_id"]): r for r in metadata_rows}
+    market_date = max((str(r.get("latest_market_date") or "")[:10] for r in metadata_rows), default="")
+    if not market_date:
+        raise SealedMarketExplorerQueryUnavailable("normalized sealed authority carries no market date")
+    effective_end = min(str(end_date)[:10], market_date)
+
+    def daily(query):
+        return (query.select("sealed_product_id,market_date,market_price,set_id")
+                .gte("market_date", str(start_date)[:10]).lte("market_date", effective_end)
+                .order("market_date").order("sealed_product_id"))
+
+    if explicit:
+        ids = sorted(meta_by_id)
+        daily_rows: list[dict[str, Any]] = []
+        for i in range(0, len(ids), _ID_CHUNK):
+            chunk = ids[i:i + _ID_CHUNK]
+            daily_rows += _paged(lambda c=chunk: daily(client.table(NORMALIZED_DAILY_TABLE)).in_("sealed_product_id", c))
+        if families is not None:
+            daily_rows = [r for r in daily_rows
+                          if str(meta_by_id[str(r["sealed_product_id"])].get("product_family")) in families]
+    else:
+        daily_rows = _paged(lambda: _norm_scope(
+            daily(client.table(NORMALIZED_DAILY_TABLE)),
+            era_ids=era_ids, set_ids=set_ids, families=families, parent_only=parent_only,
+        ))
+    panel_rows = [{
+        "marketDate": str(r["market_date"])[:10], SEALED_ID_FIELD: str(r["sealed_product_id"]),
+        "marketPrice": r.get("market_price"),
+        "setId": r.get("set_id") or (meta_by_id.get(str(r["sealed_product_id"])) or {}).get("set_id"),
+    } for r in daily_rows]
+    scope_set_ids = sorted({str(r["setId"]) for r in panel_rows if r.get("setId")})
+    release_rows: list[dict[str, Any]] = []
+    for i in range(0, len(scope_set_ids), _ID_CHUNK):
+        release_rows += list((client.table("sets").select("id,release_date")
+                              .in_("id", scope_set_ids[i:i + _ID_CHUNK]).execute()).data or [])
+    panel_rows = filter_point_in_time_rows(
+        panel_rows, asset=ASSET_SEALED, price_segment_ids=spec["priceSegmentIds"],
+        release_age_cohort_ids=spec["releaseAgeCohortIds"],
+        release_date_by_set={str(r.get("id")): r.get("release_date") for r in release_rows},
+    )
+    if not panel_rows:
+        raise SealedMarketExplorerQueryUnavailable("the filtered universe has no priced history")
+    product_metadata = {
+        pid: {"productName": m.get("name"), "variantLabel": m.get("variant_label"),
+              "setId": str(m["set_id"]) if m.get("set_id") else None, "setName": m.get("set_name"),
+              "productFamily": m.get("product_family"),
+              "productFamilyLabel": m.get("product_family_label"),
+              # Sealed images: authoritative or null. Never fabricated.
+              "imageUrl": m.get("image_small_url") or m.get("image_large_url")}
+        for pid, m in meta_by_id.items()
+    }
+    series = build_sealed_query_series(panel_rows, product_metadata, mode=spec["mode"], top_n=spec["topN"])
+    if series is None:
+        raise SealedMarketExplorerQueryUnavailable("the filtered universe has no priced history")
+    series["metadata"]["seriesPath"] = "normalizedSealedAuthority"
+    set_names = {str(m["set_id"]): m.get("set_name") or "" for m in metadata_rows if m.get("set_id")}
+    era_names = {str(m["era_id"]): m.get("era_name") or "" for m in metadata_rows if m.get("era_id")}
+    return {
+        "serviceVersion": SEALED_EXPLORER_QUERY_SERVICE_VERSION,
+        "spec": {**spec, "eraIds": list(spec["eraIds"]), "setIds": list(spec["setIds"]),
+                 "segmentIds": list(spec["segmentIds"]), "pokemonIds": list(spec["pokemonIds"]),
+                 "priceSegmentIds": list(spec["priceSegmentIds"]),
+                 "releaseAgeCohortIds": list(spec["releaseAgeCohortIds"])},
+        "queryKey": query_key(spec), "queryFingerprint": query_fingerprint(spec),
+        "displayLabel": describe_sealed_query(spec, era_names=era_names, set_names=set_names),
+        "taxonomyVersion": SEALED_SEGMENT_CONTRACT_VERSION,
+        "scope": {
+            "resolvedSetCount": len(scope_set_ids), "eligibleProductCount": len(meta_by_id),
+            "requestedStartDate": str(start_date)[:10], "requestedEndDate": str(end_date)[:10],
+            "startDate": series["historyStartDate"], "endDate": effective_end, "marketDate": market_date,
+        },
+        "diagnostics": {"snapshotCount": 0, "panelRowCount": len(panel_rows),
+                        "elapsedSeconds": round(time.perf_counter() - started, 3)},
+        **series,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
@@ -403,6 +551,10 @@ def run_sealed_market_explorer_query(
         membership_mode=membership_mode, instrument_ids=instrument_ids,
     )
     started = time.perf_counter()
+
+    if normalized_authority_available(client):
+        return run_normalized_sealed_query(
+            client, spec, start_date=start_date, end_date=end_date, started=started)
 
     scope_set_ids = resolve_sealed_scope_set_ids(
         client, era_ids=spec["eraIds"], set_ids=spec["setIds"],

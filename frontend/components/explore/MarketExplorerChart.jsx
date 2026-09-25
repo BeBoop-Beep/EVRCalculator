@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
 import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
@@ -37,9 +37,19 @@ export default function MarketExplorerChart({
   timeframeLabel = "",
   timeframeOptions = [],
   onTimeframeChange,
-  onClearGraph,
   detailsOpen = false,
   onToggleDetails,
+  // The trigger is offered whenever at least one market is active (see client).
+  constituentsAvailable = true,
+  // FOCUS MODE (presentation only). null = comparison mode; a market key = that
+  // market keeps its colour and the other visible lines recede.
+  focusedSeriesKey = null,
+  onClearFocus,
+  // ARCHITECTURAL SEAM for future analytical focus tools. Capability-driven:
+  // each entry is { id, render: ({ focusedSeries }) => node }. The strip renders
+  // whatever the caller supplies; nothing is hard-coded here and none is
+  // exposed today.
+  focusTools = [],
   // The Explorer chart is an OPEN CANVAS by default: no enclosing card, no plot
   // border, no interior background. /Market keeps the card surface because it
   // never passes `minimal`.
@@ -55,6 +65,7 @@ export default function MarketExplorerChart({
   // comparable span any more — that analytic survives in the payload but is
   // never presented under a timeframe button.
   const spanLabel = timeframeLabel;
+  const focusedSeries = focusedSeriesKey ? selectedSeries.find((entry) => entry.key === focusedSeriesKey) || null : null;
 
   return (
     <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
@@ -82,30 +93,30 @@ export default function MarketExplorerChart({
             </p>
           ) : null}
           </div>
-          {/* GRAPH-LEVEL controls. Distinct from Builder Clear (which lives with
-              the Builder and only resets the draft): these three act on what is
-              CURRENTLY ON THE CHART. Show all / Hide all is one click instead of
-              toggling every series individually; Clear Graph removes every
-              active market outright and never re-adds a default. */}
-          <div
-            data-market-explorer-graph-controls
-            role="group"
-            aria-label="Graph controls"
-            className="flex flex-none flex-wrap items-center gap-1.5 text-[11px]"
-          >
-            <button
-              type="button"
-              data-market-explorer-clear-graph
-              onClick={onClearGraph}
-              disabled={!totalActiveCount}
-              aria-label="Clear Graph: remove every active market from the chart"
-              className="rounded-md border border-[rgba(248,113,113,0.4)] bg-[rgba(248,113,113,0.07)] px-2.5 py-1 font-semibold text-[rgb(248,113,113)] transition-colors hover:border-[rgba(248,113,113,0.7)] hover:bg-[rgba(248,113,113,0.16)] hover:text-[rgb(252,165,165)] disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-transparent disabled:text-[var(--text-secondary)] disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(248,113,113,0.7)]"
-            >
-              Clear Graph
-            </button>
-          </div>
         </div>
       </div>
+
+      {focusedSeries ? (
+        <div
+          data-market-explorer-focus-strip
+          role="group"
+          aria-label="Focus mode"
+          className="mx-2 mb-1 flex flex-wrap items-center gap-2 rounded-md border border-sky-400/40 bg-sky-400/[.08] px-2.5 py-1.5 text-[11px] sm:mx-3"
+        >
+          <span data-market-explorer-focus-label className="min-w-0 truncate font-semibold text-sky-100">
+            Focused: {focusedSeries.label}
+          </span>
+          <button
+            type="button"
+            data-market-explorer-clear-focus
+            onClick={onClearFocus}
+            className="min-h-8 rounded-md border border-sky-300/50 px-2.5 font-semibold text-sky-100 transition-colors hover:bg-sky-400/[.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/80"
+          >
+            Clear Focus
+          </button>
+          {focusTools.map((tool) => <Fragment key={tool.id}>{tool.render({ focusedSeries })}</Fragment>)}
+        </div>
+      ) : null}
 
       {totalActiveCount === 0 ? (
         <p role="status" data-market-explorer-no-active-markets className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3">
@@ -131,6 +142,7 @@ export default function MarketExplorerChart({
               viewMode={viewMode}
               plotClassName="h-[20rem] tab:h-[26rem] desk:h-[clamp(19rem,calc(100dvh-24rem),42rem)]"
               minimal={openCanvas}
+              focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
             />
           )
           : (
@@ -146,15 +158,15 @@ export default function MarketExplorerChart({
           It opens the in-place takeover overlay; violet marks it as an analysis
           action, distinct from performance green/red and selected-teal controls. */}
       <div data-market-explorer-chart-bottom-actions className="flex flex-none justify-center px-2 pb-2 pt-1.5 sm:px-3">
-        <button
+        {constituentsAvailable ? <button
           type="button"
           data-market-explorer-view-details
           aria-expanded={detailsOpen}
           onClick={onToggleDetails}
-          className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200 shadow-sm transition-colors hover:border-violet-300/85 hover:bg-violet-500/[.24] hover:text-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface-page)]"
+          className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200 shadow-[0_0_16px_rgba(139,92,246,0.35)] transition-colors hover:border-violet-300/85 hover:bg-violet-500/[.24] hover:text-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface-page)]"
         >
           View Constituents &amp; Comparison
-        </button>
+        </button> : null}
       </div>
     </section>
   );

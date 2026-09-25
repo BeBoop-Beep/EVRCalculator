@@ -1,0 +1,32 @@
+name: Market Explorer Ops Performance Validation
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "backend/scripts/refresh_stale_public_snapshots.py"
+      - "backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py"
+      - "backend/db/services/explore_page_service.py"
+      - "backend/tests/unit/db/services/test_explore_page_service.py"
+      - ".github/workflows/market-explorer-ops-performance-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot-refresh-contract:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile refresh orchestrator
+        run: |
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile backend/scripts/refresh_stale_public_snapshots.py
+      - name: Run stale-snapshot unit suite
+        run: |
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest             backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py -q

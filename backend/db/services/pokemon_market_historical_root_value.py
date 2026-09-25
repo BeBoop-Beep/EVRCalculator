@@ -6,6 +6,10 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Iterable, Mapping, Sequence
 
+from backend.db.services.pokemon_set_value_constituent_freeze import (
+    build_freeze_items, freeze_set_value_constituents,
+)
+
 PRICE_RPC = "get_pokemon_set_value_canonical_prices_as_of_v2_shadow"
 HISTORY_TABLE = "pokemon_set_value_daily_history"
 STANDARD_SOURCE = "canonical_root_standard_backfill_v1"
@@ -79,6 +83,10 @@ def calculate_root_as_of(client: Any, root_set_id: str, market_date: str) -> dic
     if missing:
         raise RuntimeError(f"incomplete composite root {root_set_id} on {day}: {len(missing)} unpriced cards")
     priced = sorted(priced_by_id.values(), key=lambda row: str(row["canonical_card_id"]))
+    set_by_card = {str(row["id"]): str(row["set_id"]) for row in eligible}
+    frozen_items = build_freeze_items(
+        {**row, "set_id": set_by_card[str(row["canonical_card_id"])]} for row in priced
+    )
     top10 = sorted(priced, key=lambda row: (-_money(row["market_price"]), str(row["canonical_card_id"])))[:10]
     if len(top10) != 10:
         raise RuntimeError(f"composite root {root_set_id} has fewer than 10 priced cards")
@@ -96,6 +104,7 @@ def calculate_root_as_of(client: Any, root_set_id: str, market_date: str) -> dic
             "included_card_count": total, "canonical_card_count": total, "linked_card_count": total,
             "constituent_card_ids": [str(r["canonical_card_id"]) for r in priced],
             "source": STANDARD_SOURCE,
+            "frozen_items": frozen_items,
         },
         "top10": {
             "value_scope": "top10", "set_value": str(_money(sum(_money(r["market_price"]) for r in top10))),
@@ -246,7 +255,8 @@ def plan_historical_root_backfill(client: Any, root_set_ids: Sequence[str], star
 def execute_historical_root_backfill(client: Any, root_set_ids: Sequence[str], start_date: str,
                                      end_date: str, *, commit: bool = False,
                                      normalize_provenance: bool = False,
-                                     repair_conflicting_generic: bool = False) -> list[dict[str, Any]]:
+                                     repair_conflicting_generic: bool = False,
+                                     freeze_constituents: bool = False) -> list[dict[str, Any]]:
     plan = plan_historical_root_backfill(
         client, root_set_ids, start_date, end_date,
         normalize_provenance=normalize_provenance,
@@ -314,4 +324,11 @@ def execute_historical_root_backfill(client: Any, root_set_ids: Sequence[str], s
         post = verified[0] if len(verified) == 1 else {}
         if post.get("source") != row["source"] or not _same_full_material(post, row, row["coverage_pct"]):
             raise RuntimeError("economic repair postcondition failed")
+    if freeze_constituents:
+        # Exact in-memory rows that produced each Standard value; failure propagates.
+        for row in (item for item in plan if item["value_scope"] == "standard"):
+            freeze_set_value_constituents(
+                client, root_set_id=row["set_id"], market_date=row["snapshot_date"],
+                set_value=row["set_value"], items=row["frozen_items"], commit=True,
+            )
     return plan

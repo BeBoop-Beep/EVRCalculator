@@ -1,0 +1,110 @@
+name: Market Explorer DB Expansion Validation
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "supabase/migrations/20260925170623_market_explorer_data_surface_authorities_v1.sql"
+      - "supabase/migrations/20260925170626_market_explorer_generation_surface_v2.sql"
+      - "supabase/migrations/20260925170628_market_explorer_catalog_search_v1.sql"
+      - "supabase/migrations/20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql"
+      - "supabase/migrations/20260925170643_market_explorer_rarity_daily_coverage_v1.sql"
+      - "supabase/migrations/20260925171308_freeze_daily_set_value_rosters_for_market_explorer_v2.sql"
+      - "supabase/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
+      - "backend/db/migrations/20260925170623_market_explorer_data_surface_authorities_v1.sql"
+      - "backend/db/migrations/20260925170626_market_explorer_generation_surface_v2.sql"
+      - "backend/db/migrations/20260925170628_market_explorer_catalog_search_v1.sql"
+      - "backend/db/migrations/20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql"
+      - "backend/db/migrations/20260925170643_market_explorer_rarity_daily_coverage_v1.sql"
+      - "backend/db/migrations/20260925171308_freeze_daily_set_value_rosters_for_market_explorer_v2.sql"
+      - "backend/db/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
+      - "backend/tests/unit/db/test_market_explorer_data_surface_expansion_migrations.py"
+      - "backend/tests/unit/db/test_market_explorer_background_db_load_hardening.py"
+      - "backend/tests/integration/fixtures/market_explorer_data_surface_expansion_fixture.sql"
+      - "backend/tests/integration/fixtures/market_explorer_background_db_load_fixture.sql"
+      - "backend/tests/integration/market_explorer_data_surface_expansion_acceptance.sql"
+      - ".github/workflows/market-explorer-db-expansion-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: explorer_validation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d explorer_validation"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGDATABASE: explorer_validation
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Static migration contract tests
+        run: |
+          python -m pip install --disable-pip-version-check -q pytest
+          python -m pytest \
+            backend/tests/unit/db/test_market_explorer_data_surface_expansion_migrations.py \
+            backend/tests/unit/db/test_market_explorer_background_db_load_hardening.py -q
+
+      - name: Install disposable source fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 -f backend/tests/integration/fixtures/market_explorer_data_surface_expansion_fixture.sql
+
+      - name: Compile expansion migrations on PostgreSQL 17
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925170623_market_explorer_data_surface_authorities_v1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925170626_market_explorer_generation_surface_v2.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925170628_market_explorer_catalog_search_v1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925170643_market_explorer_rarity_daily_coverage_v1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925171308_freeze_daily_set_value_rosters_for_market_explorer_v2.sql
+
+      - name: Run end-to-end candidate acceptance
+        run: |
+          psql -v ON_ERROR_STOP=1 -f backend/tests/integration/market_explorer_data_surface_expansion_acceptance.sql
+
+      - name: Compile DB-load hardening migration on PostgreSQL 17
+        run: |
+          psql -v ON_ERROR_STOP=1 -f backend/tests/integration/fixtures/market_explorer_background_db_load_fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925053152_bound_market_explorer_background_db_load.sql
+
+      - name: Exercise bounded maintenance and history presence
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.pokemon_set_value_daily_history(set_id,snapshot_date,value_scope)
+          values ('20000000-0000-0000-0000-000000000001','2026-09-24','standard');
+
+          select public.has_pokemon_market_explorer_set_history_v1(null) as global_history_exists;
+          select public.has_pokemon_market_explorer_set_history_v1(
+            array['20000000-0000-0000-0000-000000000001'::uuid]
+          ) as scoped_history_exists;
+          select public.run_price_storage_v2_shadow_cycle() as maintenance_receipt;
+
+          select proname,proconfig
+          from pg_proc
+          where proname in (
+            'run_price_storage_v2_shadow_cycle',
+            'get_pokemon_market_explorer_set_history_coverage_v1',
+            'has_pokemon_market_explorer_set_history_v1'
+          )
+          order by proname;
+          SQL

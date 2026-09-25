@@ -7,10 +7,11 @@ import {
   fetchPreparedConstituentPage,
   CONSTITUENT_PAGE_DEFAULT_LIMIT,
 } from "@/lib/explore/marketExplorerConstituentPaging.mjs";
+import { constituentPageCacheKey } from "@/lib/explore/marketExplorerWorkspace.mjs";
 
 const IDLE = {
   rows: [], totalCount: 0, nextCursor: null, asOf: null, availability: null, availabilityReason: null,
-  movementAvailable: false,
+  movementAvailable: false, key: null,
 };
 
 /**
@@ -32,8 +33,8 @@ const IDLE = {
  * dropped. A failed page keeps the rows already loaded and `retry()` re-issues
  * the SAME cursor.
  */
-export default function useMarketExplorerConstituentPage(spec, { limit = CONSTITUENT_PAGE_DEFAULT_LIMIT, autoLoad = true } = {}) {
-  const [state, setState] = useState(IDLE);
+export default function useMarketExplorerConstituentPage(spec, { limit = CONSTITUENT_PAGE_DEFAULT_LIMIT, autoLoad = true, cache = null } = {}) {
+  const [rawState, setState] = useState(IDLE);
   const [status, setStatus] = useState("idle"); // idle | loading | loadingMore | ready | error
   const [error, setError] = useState(null);
   const [errorCode, setErrorCode] = useState(null);
@@ -45,6 +46,11 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
   const lastAttemptRef = useRef({ afterRank: 0, appending: false });
 
   const specKey = spec ? JSON.stringify(spec) : null;
+  // GENERATION-PINNED CACHE KEY (generationId + marketKey for prepared markets).
+  // State is only ever exposed for the identity it was loaded for, so a late
+  // response or a stale render for the previous target can never be displayed.
+  const cacheKey = constituentPageCacheKey(spec);
+  const state = rawState.key === cacheKey ? rawState : IDLE;
 
   const load = useCallback(async (afterRank, { appending }) => {
     if (!spec) return;
@@ -60,7 +66,8 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
       // A newer request (or a different market) owns the state now.
       if (sequenceRef.current !== sequence) return;
       setState((current) => ({
-        rows: appending ? appendConstituentPage(current.rows, page) : page.rows,
+        key: cacheKey,
+        rows: appending ? appendConstituentPage(current.key === cacheKey ? current.rows : [], page) : page.rows,
         totalCount: page.totalCount,
         nextCursor: page.nextCursor,
         asOf: page.asOf,
@@ -71,7 +78,11 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
       setStatus("ready");
     } catch (exc) {
       if (sequenceRef.current !== sequence) return;
-      if (exc?.code === "GENERATION_MISMATCH") setState(IDLE);
+      if (exc?.code === "GENERATION_MISMATCH") {
+        // Invalidate ONLY the affected generation/target; other targets keep their pages.
+        setState(IDLE);
+        cache?.delete(cacheKey);
+      }
       setError(exc instanceof Error ? exc.message : "Unable to load constituents");
       setErrorCode(exc?.code || null);
       setErrorSpecKey(specKey);
@@ -87,9 +98,18 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
     setError(null);
     setErrorCode(null);
     setStatus("idle");
+    // A valid cached target (same generation + market) is restored, not refetched.
+    const cached = cache?.get(cacheKey);
+    if (spec && cached) { setState(cached); setStatus("ready"); return; }
     if (spec && autoLoad) load(0, { appending: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specKey, autoLoad]);
+
+  // Remember every settled page set for this identity, so A -> B -> A is free.
+  useEffect(() => {
+    if (cache && status === "ready" && rawState.key && rawState.key === cacheKey) cache.set(cacheKey, rawState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawState, status]);
 
   const loadMore = useCallback(() => {
     if (state.nextCursor === null || status === "loading" || status === "loadingMore") return;

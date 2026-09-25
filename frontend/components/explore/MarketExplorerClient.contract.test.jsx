@@ -1081,7 +1081,7 @@ test("Clear Graph does not reset the Builder draft", () => {
   if (eraToggle) TestRenderer.act(() => { eraToggle.props.onClick?.(); });
   const draftBefore = findAll(renderer, "data-market-builder-preview")[0]?.props?.["data-market-builder-preview"];
 
-  click(renderer, "data-market-explorer-clear-graph", undefined);
+  click(renderer, "data-market-explorer-active-clear-all", undefined);
 
   const draftAfter = findAll(renderer, "data-market-builder-preview")[0]?.props?.["data-market-builder-preview"];
   assert.equal(draftAfter, draftBefore);

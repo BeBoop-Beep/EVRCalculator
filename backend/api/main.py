@@ -175,6 +175,10 @@ from backend.db.services.market_explorer_prepared_directory import (
     read_prepared_directory,
     read_prepared_screen, read_set_context_ranking,
 )
+from backend.db.services.market_explorer_surface_v2 import (
+    SurfaceV2Error, read_asset_options, read_comparison_v2_first,
+    read_constituents_v2_first, read_directory_v2_first, search_catalog,
+)
 from backend.db.services.market_explorer_exact_basket import (
     MarketExplorerExactBasketUnavailable, run_exact_basket_v2,
 )
@@ -1441,7 +1445,7 @@ def get_market_explorer_snapshot(
 def get_market_explorer_prepared_directory():
     """Public, compact Browse authority. No Builder or query cache involved."""
     try:
-        return {"markets": read_prepared_directory(service_read_client)}
+        return {"markets": read_directory_v2_first(service_read_client)}
     except Exception:
         logger.exception("/market/explorer/prepared-directory unexpected error")
         return JSONResponse(content={"message": "Prepared markets are temporarily unavailable", "code": "PREPARED_DIRECTORY_FAILED"}, status_code=503)
@@ -1458,7 +1462,7 @@ def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
         raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
     keys = list(dict.fromkeys(payload.marketKeys))
     try:
-        return read_prepared_comparison_bundle(
+        return read_comparison_v2_first(
             service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None,
         )
     except ValueError as exc:
@@ -1504,7 +1508,7 @@ def get_market_explorer_prepared_constituents(
     if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
         raise HTTPException(status_code=403, detail={"message": "Constituents are included with Index+.", "requiredPlan": "plus"})
     try:
-        page = read_prepared_constituents(service_read_client, marketKey, generationId, afterRank, limit)
+        page = read_constituents_v2_first(service_read_client, marketKey, generationId, afterRank, limit)
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "PREPARED_CONSTITUENTS_INVALID"}, status_code=400)
     except Exception as exc:
@@ -1626,6 +1630,44 @@ def get_market_explorer_instrument_search(
         ))
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_SEARCH_INVALID"}, status_code=400)
+
+
+@app.get("/market/explorer/catalog/search")
+def get_market_explorer_catalog_search(
+    request: Request,
+    asset: str = Query(default="cards", max_length=16),
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=20, ge=1, le=50),
+):
+    """Contextual Explorer catalog search. General discovery: NOT plan-gated."""
+    forwarded = str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    network_identity = forwarded or (request.client.host if request.client else "unknown")
+    _enforce_paid_abuse(request, user_id=f"explorer-catalog-search:{network_identity}",
+                        policy_class=POLICY_SITE_SEARCH, route="/market/explorer/catalog/search")
+    try:
+        return JSONResponse(content={"results": search_catalog(service_read_client, asset, q, limit)},
+                            headers={"Cache-Control": "no-store"})
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "CATALOG_SEARCH_INVALID"}, status_code=400)
+    except SurfaceV2Error as exc:
+        logger.error("/market/explorer/catalog/search failed", extra={"code": exc.code})
+        return JSONResponse(content={"message": "Search is temporarily unavailable", "code": exc.code}, status_code=503)
+    except Exception:
+        logger.exception("/market/explorer/catalog/search unexpected error")
+        return JSONResponse(content={"message": "Search is temporarily unavailable", "code": "CATALOG_SEARCH_FAILED"}, status_code=503)
+
+
+@app.get("/market/explorer/asset-options")
+def get_market_explorer_asset_options(asset: str = Query(default="cards", max_length=16)):
+    """Truthful rarity / sealed-type availability states published by the DB."""
+    try:
+        return JSONResponse(content=read_asset_options(service_read_client, asset),
+                            headers={"Cache-Control": "no-store"})
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "ASSET_OPTIONS_INVALID"}, status_code=400)
+    except SurfaceV2Error as exc:
+        logger.error("/market/explorer/asset-options failed", extra={"code": exc.code})
+        return JSONResponse(content={"message": "Options are temporarily unavailable", "code": exc.code}, status_code=503)
 
 
 @app.get("/search")

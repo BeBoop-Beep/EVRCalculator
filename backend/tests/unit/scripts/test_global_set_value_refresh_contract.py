@@ -2,6 +2,8 @@ from pathlib import Path
 
 
 SOURCE = (Path(__file__).resolve().parents[3] / "scripts" / "refresh_stale_public_snapshots.py").read_text(encoding="utf-8")
+PUBLISHER_SOURCE = (Path(__file__).resolve().parents[3] / "scripts" / "build_pokemon_explore_set_value_snapshot.py").read_text(encoding="utf-8")
+AUDIT_SOURCE = (Path(__file__).resolve().parents[3] / "scripts" / "audit_pokemon_market_index_publication.py").read_text(encoding="utf-8")
 
 
 def test_global_set_values_refresh_after_per_set_market_and_before_other_globals():
@@ -10,6 +12,27 @@ def test_global_set_values_refresh_after_per_set_market_and_before_other_globals
     movers = SOURCE.index("_maybe_rebuild_explore_card_movers(", set_values)
     rankings = SOURCE.index("_maybe_rebuild_rankings(", movers)
     assert coordinated < set_values < movers < rankings
+
+
+
+
+
+def test_daily_global_market_publisher_defers_additive_card_segments():
+    call = PUBLISHER_SOURCE[
+        PUBLISHER_SOURCE.index("overview = build_canonical_market_overview("):
+        PUBLISHER_SOURCE.index("row = build_global_set_value_row(")
+    ]
+    assert "include_card_segments=False" in call
+
+
+def test_market_parity_audit_matches_deferred_card_segment_contract():
+    calls = [
+        chunk
+        for chunk in AUDIT_SOURCE.split("build_canonical_market_overview(")[1:]
+        if "history=" in chunk
+    ]
+    assert len(calls) >= 2
+    assert all("include_card_segments=False" in chunk.split(")", 1)[0] for chunk in calls[:2])
 
 
 def test_global_set_value_refresh_is_fail_closed():

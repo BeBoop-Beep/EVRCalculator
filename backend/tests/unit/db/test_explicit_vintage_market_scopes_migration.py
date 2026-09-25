@@ -7,7 +7,7 @@ deployed functions and fails closed if their expected sections drift.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-NAME = "20260924190000_explicit_vintage_market_scopes.sql"
+NAME = "20260925161052_explicit_vintage_market_scopes.sql"
 BACK = ROOT / "backend" / "db" / "migrations" / NAME
 SUPA = ROOT / "supabase" / "migrations" / NAME
 SQL = BACK.read_text(encoding="utf-8")
