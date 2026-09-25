@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials)"
+              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -48,7 +48,7 @@ jobs:
           set_id = set_id or ""
           request_id = request_id or ""
 
-          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher"} and not market_date:
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "explorer-prewarm-five", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher", "stop-sep24-global-card-segment-publisher", "restart-sep24-publisher-optimized", "sync-launch-sep24-publisher-optimized", "run-sep24-publisher-optimized"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
@@ -301,8 +301,70 @@ jobs:
               ;;
           esac
 
+      - name: Execute Supabase project restart
+        if: ${{ env.VM_OPERATION == 'supabase-project-restart' }}
+        shell: bash
+        env:
+          ACTIONS_SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN Actions secret missing"; exit 5; }
+          PROJECT_REF="zwxzxuuawalvwioadhmf"
+          RESPONSE_FILE="/tmp/supabase-project-restart-response.json"
+
+          echo "== request Supabase project restart =="
+          CODE="$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' -X POST \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/restart" \
+            -H "Authorization: Bearer $ACTIONS_SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json")"
+          echo "restart_http_status=$CODE"
+          if [ "$CODE" != "200" ]; then
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("/tmp/supabase-project-restart-response.json")
+          try:
+              obj = json.loads(p.read_text(encoding="utf-8"))
+          except Exception:
+              obj = {}
+          safe = {k: obj.get(k) for k in ("message","error","statusCode","code") if obj.get(k) is not None}
+          print("restart_error=" + json.dumps(safe, sort_keys=True))
+          PY
+            exit 6
+          fi
+          rm -f "$RESPONSE_FILE"
+
+          echo "== wait for database connectivity =="
+          ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" "/home/ubuntu/repos/EVRCalculator/.venv/bin/python" - <<'PY'
+          import os
+          import time
+          import psycopg
+
+          dsn = os.environ["ACTIONS_DATABASE_URL"]
+          last = None
+          for attempt in range(1, 31):
+              try:
+                  with psycopg.connect(
+                      dsn,
+                      connect_timeout=5,
+                      application_name="supabase_restart_probe",
+                      prepare_threshold=None,
+                  ) as conn:
+                      with conn.cursor() as cur:
+                          cur.execute("select current_database(), current_setting('server_version')")
+                          db, version = cur.fetchone()
+                          print(f"database_reachable=true attempt={attempt} db={db} version={version}", flush=True)
+                          raise SystemExit(0)
+              except Exception as exc:
+                  last = (type(exc).__name__, getattr(exc, "sqlstate", None))
+                  print(f"database_reachable=false attempt={attempt} error={last[0]} sqlstate={last[1]}", flush=True)
+                  time.sleep(5)
+          raise SystemExit(f"database did not recover after restart; last_error={last}")
+          PY
+          echo "SUPABASE_PROJECT_RESTART=PASS"
+
       - name: Execute approved operation
-        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' }}
+        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' && env.VM_OPERATION != 'supabase-project-restart' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -421,7 +483,8 @@ jobs:
           }
 
           # ---- pinned pricing runtime overlay (reviewed manifest; nothing here is request-supplied) ----
-          PRICING_SOURCE_SHA="c8acb916bf147dd446e3dc1e492100470a39ce53"
+          PRICING_SOURCE_SHA="138897dc795df91a4a13be7b35df0a28d5aeedd5"
+          PRICING_TEST_SOURCE_SHA="c8acb916bf147dd446e3dc1e492100470a39ce53"
           SENTINEL_PRICING_SHA="6313116b62845e1211e93215393a9609701a935c"
           PRICING_OVERLAY_PRICE_PATHS="
             backend/pricing_pipeline/__init__.py
@@ -462,6 +525,7 @@ jobs:
             backend/tests/unit/pricing_pipeline/test_daily_multi_source_pipeline.py
             backend/tests/unit/pricing_pipeline/test_ebay_quota_and_credentials.py
           "
+          PRICING_TEST_CANDIDATE_PATHS="backend/tests/unit/pricing_pipeline/test_budget_v2_transient_retry.py"
           PRICING_TEST_SENTINEL_PATHS="backend/tests/unit/sentinel/test_pricing_registration.py"
           PRICING_TEST_SUPPORT_PATHS="
             backend/db/migrations/20260921000000_p6_pipeline_runs_and_browse_budget_ledger.sql
@@ -487,7 +551,7 @@ jobs:
 
           pricing_source_check() {
             local sha f listed expected
-            for sha in "$PRICING_SOURCE_SHA" "$SENTINEL_PRICING_SHA"; do
+            for sha in "$PRICING_SOURCE_SHA" "$PRICING_TEST_SOURCE_SHA" "$SENTINEL_PRICING_SHA"; do
               git cat-file -e "$sha^{commit}" 2>/dev/null || { echo "REFUSING: pinned commit $sha is not in the production object store"; return 1; }
             done
             listed=$(git ls-tree -r --name-only "$PRICING_SOURCE_SHA" -- backend/pricing_pipeline/ | sort)
@@ -551,9 +615,13 @@ jobs:
           }
 
           pricing_candidate_tests() {
-            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_PRICE_PATHS || return 1
+            # Historical comprehensive suite/fixtures stay pinned to the original
+            # validated pricing source; candidate-specific regression tests come
+            # from the runtime candidate itself. This avoids re-promoting old DDL
+            # fixtures into canonical main merely to preserve validation coverage.
+            git -C "$PRICING_WT" checkout "$PRICING_TEST_SOURCE_SHA" -- $PRICING_TEST_PRICE_PATHS $PRICING_TEST_SUPPORT_PATHS || return 1
+            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_CANDIDATE_PATHS || return 1
             git -C "$PRICING_WT" checkout "$SENTINEL_PRICING_SHA" -- $PRICING_TEST_SENTINEL_PATHS || return 1
-            git -C "$PRICING_WT" checkout "$PRICING_SOURCE_SHA" -- $PRICING_TEST_SUPPORT_PATHS || return 1
             if ! PYTHONPATH="$PRICING_PYTEST_DEPS" "$PY" -c 'import pytest' 2>/dev/null; then
               echo "pytest unavailable; installing into $PRICING_PYTEST_DEPS (never into the production venv)"
               "$PY" -m pip install --disable-pip-version-check -q --target "$PRICING_PYTEST_DEPS" pytest || return 1
@@ -890,6 +958,19 @@ jobs:
               echo "REPAIR_SEP22_MARKET_PUBLICATION_DIRECT=PASS"
               ;;
 
+            publication-live-debug)
+              cd "$REPO"
+              echo "== publication lock =="
+              if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then echo "publication_lock=free"; else echo "publication_lock=held"; fi
+              echo "== live publication process tree =="
+              ps -eo pid=,ppid=,etimes=,pcpu=,pmem=,rss=,stat=,wchan:32=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|repair_missing_market_set_value_history|run_market_explorer_daily_publication|audit_pokemon_market_publication' | grep -v grep || true
+              echo "== publication log metadata =="
+              stat -c 'mtime=%y size=%s' publication.log 2>/dev/null || true
+              echo "== publication current tail =="
+              tail -n 140 publication.log 2>/dev/null || true
+              echo "PUBLICATION_LIVE_DEBUG=PASS"
+              ;;
+
             sep22-publication-status)
               cd "$REPO"
               echo "== publication lock =="
@@ -982,6 +1063,283 @@ jobs:
               echo "STOP_STALE_SEP22_PUBLISHER=PASS"
               ;;
 
+            stop-sep24-global-card-segment-publisher)
+              cd "$REPO"
+              test "$VM_MARKET_DATE" = "2026-09-24" || { echo "This guarded stop is scoped only to Sep24"; exit 8; }
+              set -a
+              . backend/.env
+              set +a
+              echo "== prove durable authorities before interruption =="
+              "$PY" - <<'PY'
+          import os
+          import signal
+          import subprocess
+          import time
+          from pathlib import Path
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          target = "2026-09-24"
+          c = create_service_role_client()
+          index_rows = list(
+              c.table("pokemon_market_index_daily_history")
+              .select("index_key,market_date")
+              .eq("tcg", "pokemon")
+              .eq("market_date", target)
+              .in_("index_key", ["raw", "top10"])
+              .execute().data or []
+          )
+          found = {str(row.get("index_key")) for row in index_rows}
+          global_rows = list(
+              c.table("pokemon_explore_set_value_snapshot_latest")
+              .select("market_date,updated_at")
+              .eq("tcg", "pokemon")
+              .eq("scope", "market")
+              .limit(1)
+              .execute().data or []
+          )
+          global_date = str((global_rows[0] if global_rows else {}).get("market_date") or "")[:10]
+          print({"index_keys_at_target": sorted(found), "global_market_date": global_date}, flush=True)
+          if found != {"raw", "top10"}:
+              raise SystemExit("refusing: Sep24 Raw/Top10 index authorities are not both durable")
+          if global_date == target:
+              raise SystemExit("refusing: global Market is already Sep24; no stale publisher stop is needed")
+
+          raw = subprocess.run(
+              ["ps", "-eo", "pid=,ppid=,etimes=,args="],
+              capture_output=True, text=True, check=True,
+          ).stdout.splitlines()
+          procs = []
+          for line in raw:
+              parts = line.strip().split(None, 3)
+              if len(parts) != 4:
+                  continue
+              try:
+                  pid, ppid, age = map(int, parts[:3])
+              except ValueError:
+                  continue
+              procs.append({"pid": pid, "ppid": ppid, "age": age, "args": parts[3]})
+
+          wrapper_cmd = "bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-24"
+          wrappers = [p for p in procs if p["args"].strip() == wrapper_cmd]
+          if len(wrappers) != 1:
+              raise SystemExit(f"refusing: expected one exact Sep24 wrapper, found {wrappers}")
+          wrapper = wrappers[0]
+          children = [
+              p for p in procs
+              if p["ppid"] == wrapper["pid"]
+              and "backend/scripts/refresh_stale_public_snapshots.py" in p["args"]
+              and "--market-date 2026-09-24" in p["args"]
+          ]
+          if len(children) != 1:
+              raise SystemExit(f"refusing: expected one exact Sep24 refresh child, found {children}")
+          child = children[0]
+          if min(wrapper["age"], child["age"]) < 900:
+              raise SystemExit(f"refusing: publisher is not old enough for this guarded replacement wrapper={wrapper} child={child}")
+
+          log_path = Path("/home/ubuntu/repos/EVRCalculator/publication.log")
+          text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+          marker = "[refresh-phase] planning complete; entering rebuild/write phase sets=212"
+          start = text.rfind(marker)
+          if start < 0:
+              raise SystemExit("refusing: current rebuild/write marker not found")
+          suffix = text[start:]
+          if "market_index:2026-09-24:published" not in suffix:
+              raise SystemExit("refusing: current run has not durably published Sep24 Market index")
+          if "[cards-market] constituent RPC timeout" not in suffix:
+              raise SystemExit("refusing: current run is not proven inside the slow card-segment constituent path")
+          if "refresh exit_status=" in suffix:
+              raise SystemExit("refusing: refresh already reached a terminal wrapper status")
+          print({"wrapper": wrapper, "refresh_child": child, "log_suffix_bytes": len(suffix)}, flush=True)
+
+          os.kill(child["pid"], signal.SIGTERM)
+          print("sigterm_refresh_pid=" + str(child["pid"]), flush=True)
+          for _ in range(20):
+              time.sleep(1)
+              if not Path(f"/proc/{wrapper['pid']}").exists():
+                  break
+          if Path(f"/proc/{wrapper['pid']}").exists():
+              os.kill(wrapper["pid"], signal.SIGTERM)
+              print("sigterm_wrapper_pid=" + str(wrapper["pid"]), flush=True)
+          PY
+
+              FREE=0
+              for i in $(seq 1 30); do
+                if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                  FREE=1
+                  echo "publication_lock=free"
+                  break
+                fi
+                sleep 2
+              done
+              [ "$FREE" -eq 1 ] || { echo "publication lock still held after guarded Sep24 replacement stop"; exit 23; }
+              echo "STOP_SEP24_GLOBAL_CARD_SEGMENT_PUBLISHER=PASS"
+              ;;
+
+            restart-sep24-publisher-optimized)
+              cd "$REPO"
+              test "$VM_MARKET_DATE" = "2026-09-24" || { echo "This optimized restart is scoped only to Sep24"; exit 8; }
+
+              echo "== verify exact stale Sep24 planner before interruption =="
+              "$PY" - <<'PY'
+          import os, signal, subprocess, time
+          from pathlib import Path
+
+          target="2026-09-24"
+          raw=subprocess.run(["ps","-eo","pid=,ppid=,etimes=,args="],capture_output=True,text=True,check=True).stdout.splitlines()
+          procs=[]
+          for line in raw:
+              parts=line.strip().split(None,3)
+              if len(parts)!=4:
+                  continue
+              try:
+                  pid,ppid,age=map(int,parts[:3])
+              except ValueError:
+                  continue
+              procs.append({"pid":pid,"ppid":ppid,"age":age,"args":parts[3]})
+          wrapper_cmd=f"bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh {target}"
+          wrappers=[p for p in procs if p["args"].strip()==wrapper_cmd]
+          if len(wrappers)!=1:
+              raise SystemExit(f"refusing ambiguous Sep24 wrapper count={len(wrappers)} rows={wrappers}")
+          wrapper=wrappers[0]
+          if wrapper["age"] < 3600:
+              raise SystemExit(f"refusing non-stale Sep24 publisher age={wrapper['age']}s")
+          children=[p for p in procs if p["ppid"]==wrapper["pid"] and "backend/scripts/refresh_stale_public_snapshots.py" in p["args"] and f"--market-date {target}" in p["args"]]
+          if len(children)!=1:
+              raise SystemExit(f"refusing: expected exactly one refresh child, found {children}")
+          log=Path("/home/ubuntu/repos/EVRCalculator/publication.log")
+          text=log.read_text(encoding="utf-8",errors="replace") if log.exists() else ""
+          last_start=text.rfind("[refresh-plan] starting")
+          last_complete=text.rfind("[refresh-plan] complete")
+          if last_start < 0 or last_complete > last_start:
+              raise SystemExit(f"refusing interruption outside read-only planning phase last_start={last_start} last_complete={last_complete}")
+          print({"wrapper":wrapper,"refresh_child":children[0],"last_plan_start":last_start,"last_plan_complete":last_complete},flush=True)
+          os.kill(children[0]["pid"],signal.SIGTERM)
+          time.sleep(2)
+          try:
+              os.kill(wrapper["pid"],signal.SIGTERM)
+          except ProcessLookupError:
+              pass
+          PY
+
+              FREE=0
+              for i in $(seq 1 30); do
+                if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                  FREE=1
+                  echo "publication_lock=free"
+                  break
+                fi
+                sleep 2
+              done
+              [ "$FREE" -eq 1 ] || { echo "publication lock still held after guarded stop"; exit 23; }
+
+              echo "== sync optimized canonical main =="
+              git fetch origin main
+              DIRTY_PATHS="$(git status --porcelain | sed -E 's/^.. //')"
+              if [ -n "$DIRTY_PATHS" ] && [ "$DIRTY_PATHS" != "payload_debug.json" ]; then
+                echo "Refusing safe sync: unexpected dirty paths:"
+                git status --short
+                exit 24
+              fi
+              if [ -n "$DIRTY_PATHS" ] && ! git diff --quiet HEAD..origin/main -- payload_debug.json; then
+                echo "Refusing safe sync: origin/main changes payload_debug.json"
+                exit 25
+              fi
+              git switch --detach origin/main
+              git merge-base --is-ancestor b388b29365d518bb195b3bf6bf5658994096853e HEAD || { echo "optimized snapshot commit absent from origin/main"; exit 26; }
+              echo "production_head=$(git rev-parse HEAD)"
+
+              echo "== launch canonical Sep24 publisher detached =="
+              "$PY" - <<'PY'
+          from backend.db.services.post_scrape_publication_trigger import _default_popen, CANONICAL_PUBLICATION_LOG, REBUILD_SCRIPT
+          p=_default_popen([str(REBUILD_SCRIPT),"2026-09-24"],cwd="/home/ubuntu/repos/EVRCalculator",log_path=CANONICAL_PUBLICATION_LOG)
+          print({"launched_pid":p.pid,"script":str(REBUILD_SCRIPT),"market_date":"2026-09-24"},flush=True)
+          PY
+              sleep 3
+              if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                echo "restart failed: publication lock is free"
+                tail -80 publication.log || true
+                exit 27
+              fi
+              echo "publication_lock=held_after_restart"
+              ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' | grep -v grep || true
+              echo "RESTART_SEP24_PUBLISHER_OPTIMIZED=PASS"
+              ;;
+            sync-launch-sep24-publisher-optimized)
+              cd "$REPO"
+              test "$VM_MARKET_DATE" = "2026-09-24" || { echo "This operation is scoped only to Sep24"; exit 8; }
+              if ! /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                echo "Refusing: publication lock is held"
+                exit 20
+              fi
+              if pgrep -af 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' | grep -v 'pgrep -af' | grep -q .; then
+                echo "Refusing: Sep24 publication process still exists"
+                pgrep -af 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' || true
+                exit 21
+              fi
+
+              echo "== fetch and validate preserved VM artifacts =="
+              git fetch origin main
+              TRACKED_DIRTY="$(git status --porcelain --untracked-files=no | sed -E 's/^.. //')"
+              if [ -n "$TRACKED_DIRTY" ] && [ "$TRACKED_DIRTY" != "payload_debug.json" ]; then
+                echo "Refusing: unexpected tracked modifications"
+                git status --short
+                exit 22
+              fi
+              if [ -n "$TRACKED_DIRTY" ] && ! git diff --quiet HEAD..origin/main -- payload_debug.json; then
+                echo "Refusing: origin/main changes payload_debug.json"
+                exit 23
+              fi
+              UNTRACKED="$(git status --porcelain --untracked-files=normal | awk '$1=="??" {$1=""; sub(/^ /,""); print}' | sort -u)"
+              if [ -n "$UNTRACKED" ] && [ "$UNTRACKED" != "backend/artifacts/collector_v7_refresh/" ]; then
+                echo "Refusing: unexpected untracked paths:"
+                printf '%s\n' "$UNTRACKED"
+                exit 24
+              fi
+              if [ -n "$UNTRACKED" ]; then
+                if git ls-tree -r --name-only origin/main -- backend/artifacts/collector_v7_refresh/ | grep -q .; then
+                  echo "Refusing: origin/main now tracks preserved collector artifact path"
+                  exit 25
+                fi
+                echo "preserving_untracked=backend/artifacts/collector_v7_refresh/"
+              fi
+
+              git switch --detach origin/main
+              git merge-base --is-ancestor b388b29365d518bb195b3bf6bf5658994096853e HEAD || { echo "optimized snapshot commit absent from origin/main"; exit 26; }
+              echo "production_head=$(git rev-parse HEAD)"
+              git status --short
+
+              echo "== launch canonical Sep24 publisher detached =="
+              "$PY" - <<'PY'
+          from backend.db.services.post_scrape_publication_trigger import _default_popen, CANONICAL_PUBLICATION_LOG, REBUILD_SCRIPT
+          p=_default_popen([str(REBUILD_SCRIPT),"2026-09-24"],cwd="/home/ubuntu/repos/EVRCalculator",log_path=CANONICAL_PUBLICATION_LOG)
+          print({"launched_pid":p.pid,"script":str(REBUILD_SCRIPT),"market_date":"2026-09-24"},flush=True)
+          PY
+              sleep 3
+              if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                echo "launch failed: publication lock is free"
+                tail -100 publication.log || true
+                exit 27
+              fi
+              echo "publication_lock=held_after_launch"
+              ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape.sh 2026-09-24|refresh_stale_public_snapshots.py --commit --market-date 2026-09-24' | grep -v grep || true
+              echo "SYNC_LAUNCH_SEP24_PUBLISHER_OPTIMIZED=PASS"
+              ;;
+            run-sep24-publisher-optimized)
+              cd "$REPO"
+              test "$VM_MARKET_DATE" = "2026-09-24" || { echo "This operation is scoped only to Sep24"; exit 8; }
+              git merge-base --is-ancestor b388b29365d518bb195b3bf6bf5658994096853e HEAD || { echo "optimized snapshot commit absent from production HEAD"; exit 20; }
+              if ! /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                echo "Refusing: publication lock is already held"
+                ps -eo pid=,ppid=,etimes=,args= | grep -E 'rebuild_snapshots_after_scrape.sh|refresh_stale_public_snapshots.py' | grep -v grep || true
+                exit 21
+              fi
+              echo "== run canonical Sep24 publisher in foreground on optimized main =="
+              set -o pipefail
+              backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-24 2>&1 | tee -a publication.log
+              RC=${PIPESTATUS[0]}
+              echo "canonical_publisher_exit=$RC"
+              exit "$RC"
+              ;;
             scrape-hard-kill-live-stale-dispatcher)
               cd "$REPO"
               set -a
@@ -1252,6 +1610,63 @@ jobs:
               echo "SCRAPE_CREATE_MISSING_BATCH=PASS"
               ;;
 
+            post-scrape-recovery-now)
+              cd "$REPO"
+              export PYTHONPATH="$REPO"
+              echo "== bounded post-scrape publication recovery =="
+              "$PY" - <<'PY'
+          import json
+          import time
+
+          from backend.alerts.post_scrape_publication_watchdog import (
+              PUBLICATION_LOCK_PATH,
+              _lock_is_held,
+              run_watchdog,
+          )
+
+          recovery_statuses = {
+              "stall_sigterm_requested",
+              "supersession_sigterm_requested",
+          }
+          acceptable_terminal = {
+              "relaunch_requested",
+              "skipped_already_current",
+              "skipped_already_running",
+              "in_progress",
+          }
+
+          first = run_watchdog(
+              recover_stalled=True,
+              recover_superseded=True,
+          )
+          print("watchdog_attempt_1=" + json.dumps(first, sort_keys=True, default=str), flush=True)
+
+          if first.get("status") in recovery_statuses:
+              released = False
+              for _ in range(30):
+                  time.sleep(2)
+                  if not _lock_is_held(PUBLICATION_LOCK_PATH):
+                      released = True
+                      break
+              print("publication_lock_released_after_signal=" + str(released).lower(), flush=True)
+              if not released:
+                  raise SystemExit("publication lock did not release after bounded SIGTERM recovery")
+
+              second = run_watchdog(
+                  recover_stalled=True,
+                  recover_superseded=True,
+              )
+              print("watchdog_attempt_2=" + json.dumps(second, sort_keys=True, default=str), flush=True)
+              status = str(second.get("status") or "")
+              if not second.get("healthy") and status not in acceptable_terminal:
+                  raise SystemExit(f"second watchdog attempt failed status={status}")
+          elif not first.get("healthy") and str(first.get("status") or "") not in acceptable_terminal:
+              raise SystemExit(f"watchdog recovery failed status={first.get('status')}")
+
+          print("POST_SCRAPE_RECOVERY_NOW=PASS", flush=True)
+          PY
+              ;;
+
             scrape-cycle-status)
               cd "$REPO"
               echo "== phoenix time =="
@@ -1284,6 +1699,81 @@ jobs:
               tail -n 80 backend/logs/market_freshness_watchdog.log 2>/dev/null || true
               ;;
 
+            code-red-db-load-shed)
+              cd "$REPO"
+              BACKUP_DIR="/home/ubuntu/ops-backups"
+              BACKUP="$BACKUP_DIR/crontab.code-red-db-load-shed.backup"
+              CURRENT="/tmp/index-code-red-crontab.current"
+              SHED="/tmp/index-code-red-crontab.shed"
+              mkdir -p "$BACKUP_DIR"
+              chmod 700 "$BACKUP_DIR"
+              crontab -l > "$CURRENT"
+              if [ ! -f "$BACKUP" ]; then
+                cp "$CURRENT" "$BACKUP"
+                chmod 600 "$BACKUP"
+                echo "crontab_backup_created=$BACKUP"
+              else
+                echo "crontab_backup_preserved=$BACKUP"
+              fi
+
+              # Preserve comments, blank lines, and unrelated host tasks. Disable only
+              # EVRCalculator scheduled workloads that can hit Supabase while the DB
+              # is unhealthy. Keep the inert hourly shell heartbeat.
+              awk '
+                /^[[:space:]]*#/ || /^[[:space:]]*$/ { print; next }
+                /VM heartbeat/ { print; next }
+                /\/home\/ubuntu\/repos\/EVRCalculator/ {
+                  print "# CODE_RED_DISABLED " $0
+                  next
+                }
+                { print }
+              ' "$CURRENT" > "$SHED"
+              crontab "$SHED"
+              rm -f "$CURRENT" "$SHED"
+
+              echo "== terminate currently running EVRCalculator DB workers =="
+              PATTERN='run_next_scrape_job.py|create_daily_scrape_batch.py|reconcile_stale_scrape_jobs.py|publish_post_scrape_if_needed.py|rebuild_snapshots_after_scrape.sh|refresh_stale_public_snapshots.py|post_scrape_publication_watchdog|backend.alerts.dispatcher|backend.alerts.market_freshness_watchdog|backend.sentinel.operational|run_market_explorer_maintained_cache_prewarm|check_market_explorer_maintained_cache_health|run_daily_multi_source_card_pricing|check_multi_source_pricing_health'
+              pgrep -af "$PATTERN" || true
+              pkill -TERM -f "$PATTERN" || true
+              sleep 3
+              pgrep -af "$PATTERN" || true
+
+              ACTIVE_EVR="$(crontab -l | grep -vE '^[[:space:]]*#|^[[:space:]]*$' | grep -F '/home/ubuntu/repos/EVRCalculator' | grep -v 'VM heartbeat' || true)"
+              if [ -n "$ACTIVE_EVR" ]; then
+                echo "REFUSING: EVRCalculator scheduled workload remains active"
+                echo "$ACTIVE_EVR"
+                exit 41
+              fi
+              echo "CODE_RED_DB_LOAD_SHED=PASS"
+              ;;
+
+            code-red-db-load-restore-audit)
+              cd "$REPO"
+              BACKUP="/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup"
+              test -f "$BACKUP" || { echo "REFUSING: code-red crontab backup missing"; exit 42; }
+              echo "== backup metadata =="
+              stat -c 'path=%n owner=%U group=%G mode=%a bytes=%s mtime=%y' "$BACKUP"
+              echo "== backup critical EVR entries =="
+              grep -E 'run_next_scrape_job.py|publish_post_scrape_if_needed.py|post_scrape_publication_watchdog|run_market_explorer_maintained_cache_prewarm|check_market_explorer_maintained_cache_health|market_freshness_watchdog|backend.sentinel.operational|backend.alerts.dispatcher' "$BACKUP" || true
+              echo "== backup counts =="
+              printf 'explorer_prewarm='; grep -c 'run_market_explorer_maintained_cache_prewarm' "$BACKUP" || true
+              printf 'explorer_health='; grep -c 'check_market_explorer_maintained_cache_health' "$BACKUP" || true
+              printf 'scrape_dispatcher='; grep -c 'run_next_scrape_job.py' "$BACKUP" || true
+              printf 'post_scrape_watchdog='; grep -c 'post_scrape_publication_watchdog' "$BACKUP" || true
+              printf 'six_am_publication='; grep -c 'publish_post_scrape_if_needed.py' "$BACKUP" || true
+              echo "CODE_RED_DB_LOAD_RESTORE_AUDIT=PASS"
+              ;;
+
+            code-red-db-load-restore)
+              cd "$REPO"
+              BACKUP="/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup"
+              test -f "$BACKUP" || { echo "REFUSING: code-red crontab backup missing"; exit 42; }
+              crontab "$BACKUP"
+              echo "== restored EVRCalculator cron entries =="
+              crontab -l | grep -F '/home/ubuntu/repos/EVRCalculator' || true
+              echo "CODE_RED_DB_LOAD_RESTORE=PASS"
+              ;;
+
             status)
               cd "$REPO"
               echo "== request =="
@@ -1296,6 +1786,582 @@ jobs:
               uname -m
               free -h
               df -h /
+              ;;
+
+            market-vintage-db-migrate)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              TARGET_REF="origin/fix/market-vintage-db-authority-20260924"
+              WT="/tmp/EVRCalculator-market-vintage-db-migrate"
+              MIG="supabase/migrations/20260925161052_explicit_vintage_market_scopes.sql"
+              BACKEND_MIG="backend/db/migrations/20260925161052_explicit_vintage_market_scopes.sql"
+              HIST="/tmp/market_vintage_migration_history.sql"
+
+              echo "== fetch vetted DB authority =="
+              git fetch origin fix/market-vintage-db-authority-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cd "$WT"
+              echo "db_authority_sha=$(git rev-parse HEAD)"
+              cmp "$MIG" "$BACKEND_MIG"
+              sha256sum "$MIG" "$BACKEND_MIG"
+
+              echo "== apply/verify migration through psycopg =="
+              MIG_PATH="$MIG" ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" "$PY" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          dsn = os.environ["ACTIONS_DATABASE_URL"]
+          migration_path = Path(os.environ["MIG_PATH"])
+          migration_sql = migration_path.read_text(encoding="utf-8")
+          version = "20260924190000"
+          name = "explicit_vintage_market_scopes"
+
+          parsed = conninfo_to_dict(dsn)
+          user = parsed.get("user") or ""
+          project_ref = user.split(".")[-1] if "." in user else "zwxzxuuawalvwioadhmf"
+          direct_user = user.split(".")[0] if "." in user else user
+          base_kwargs = {
+              "dbname": parsed.get("dbname") or "postgres",
+              "password": parsed.get("password") or "",
+              "sslmode": parsed.get("sslmode") or "require",
+              "connect_timeout": 15,
+              "application_name": "market_vintage_db_migrate",
+          }
+          routes = [("configured_session_pooler", dsn)]
+          pooler_host = parsed.get("host")
+          if pooler_host:
+              routes.append((
+                  "transaction_pooler_6543",
+                  make_conninfo(
+                      host=pooler_host,
+                      port=6543,
+                      user=user,
+                      **base_kwargs,
+                  ),
+              ))
+          routes.append((
+              "direct_project_5432",
+              make_conninfo(
+                  host=f"db.{project_ref}.supabase.co",
+                  port=5432,
+                  user=direct_user,
+                  **base_kwargs,
+              ),
+          ))
+
+          conn = None
+          failures = []
+          for label, candidate in routes:
+              try:
+                  conn = psycopg.connect(candidate, prepare_threshold=None)
+                  print(f"database_route={label}", flush=True)
+                  break
+              except Exception as exc:
+                  failures.append((label, type(exc).__name__, getattr(exc, "sqlstate", None)))
+                  print(
+                      json.dumps({
+                          "databaseRouteFailed": label,
+                          "errorType": type(exc).__name__,
+                          "sqlstate": getattr(exc, "sqlstate", None),
+                      }, sort_keys=True),
+                      flush=True,
+                  )
+          if conn is None:
+              raise RuntimeError(f"all database routes failed: {failures}")
+
+          with conn:
+              with conn.cursor() as cur:
+                  cur.execute("set statement_timeout = '600s'")
+                  cur.execute("set lock_timeout = '15s'")
+                  cur.execute(
+                      "select exists(select 1 from supabase_migrations.schema_migrations where version=%s)",
+                      (version,),
+                  )
+                  applied = bool(cur.fetchone()[0])
+                  cur.execute(
+                      "select (to_regclass('public.pokemon_market_set_scope_contract_v1') is not null), "
+                      "exists(select 1 from information_schema.columns where table_schema='public' "
+                      "and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count')"
+                  )
+                  contract_present, market_count_present = map(bool, cur.fetchone())
+                  print(json.dumps({
+                      "historyAppliedBefore": applied,
+                      "contractPresentBefore": contract_present,
+                      "marketCountPresentBefore": market_count_present,
+                  }, sort_keys=True), flush=True)
+
+                  if applied:
+                      if not contract_present or not market_count_present:
+                          raise RuntimeError("migration history/schema disagree; refusing to continue")
+                  else:
+                      cur.execute(migration_sql, prepare=False)
+                      cur.execute(
+                          "insert into supabase_migrations.schema_migrations(version,name,statements) "
+                          "values (%s,%s,%s) on conflict (version) do nothing",
+                          (version, name, [migration_sql]),
+                      )
+
+                  cur.execute(
+                      "select version,name,array_length(statements,1) "
+                      "from supabase_migrations.schema_migrations where version=%s",
+                      (version,),
+                  )
+                  history = cur.fetchone()
+                  cur.execute(
+                      "select "
+                      "exists(select 1 from information_schema.columns "
+                      "where table_schema='public' and table_name='pokemon_explore_set_value_snapshot_latest' "
+                      "and column_name='market_count' and is_nullable='NO'), "
+                      "(to_regclass('public.pokemon_market_set_scope_contract_v1') is not null), "
+                      "(to_regprocedure('public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)') is not null), "
+                      "(to_regprocedure('public.validate_pokemon_market_scoped_history_baskets_v1(jsonb)') is not null), "
+                      "(to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null)"
+                  )
+                  schema_checks = tuple(bool(x) for x in cur.fetchone())
+                  cur.execute(
+                      "select s.market_date,s.set_count,s.market_count,"
+                      "jsonb_array_length(s.payload_json->'sets'),"
+                      "count(distinct (e->>'setId')::uuid) "
+                      "from public.pokemon_explore_set_value_snapshot_latest s "
+                      "cross join lateral jsonb_array_elements(s.payload_json->'sets') e "
+                      "where s.tcg='pokemon' and s.scope='market' "
+                      "group by s.market_date,s.set_count,s.market_count"
+                  )
+                  snapshot = cur.fetchone()
+                  cur.execute(
+                      "select "
+                      "has_function_privilege('anon','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE'),"
+                      "has_function_privilege('authenticated','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE'),"
+                      "has_function_privilege('service_role','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE')"
+                  )
+                  privileges = tuple(bool(x) for x in cur.fetchone())
+                  cur.execute(
+                      "select "
+                      "position('already_current' in pg_get_functiondef("
+                      "'public.run_market_explorer_guarded_publisher_v1(date)'::regprocedure)) > 0,"
+                      "position('pg_advisory_xact_lock' in pg_get_functiondef("
+                      "'public.stage_pokemon_market_explorer_prepared_constituents_v1(uuid)'::regprocedure)) > 0"
+                  )
+                  preserved = tuple(bool(x) for x in cur.fetchone())
+
+                  if history is None:
+                      raise RuntimeError("migration history row missing after migration")
+                  if not all(schema_checks):
+                      raise RuntimeError(f"schema verification failed: {schema_checks}")
+                  if privileges != (False, False, True):
+                      raise RuntimeError(f"sync privilege verification failed: {privileges}")
+                  if preserved != (True, True):
+                      raise RuntimeError(f"publisher hardening verification failed: {preserved}")
+                  if snapshot is None:
+                      raise RuntimeError("Global Set Market snapshot missing after migration")
+                  if int(snapshot[2]) != int(snapshot[3]) or int(snapshot[2]) < int(snapshot[1]):
+                      raise RuntimeError(f"snapshot count contract invalid: {snapshot}")
+
+                  print(json.dumps({
+                      "migrationHistory": {
+                          "version": history[0],
+                          "name": history[1],
+                          "statementEntries": history[2],
+                      },
+                      "schemaChecks": schema_checks,
+                      "snapshot": {
+                          "marketDate": str(snapshot[0]),
+                          "setCount": snapshot[1],
+                          "marketCount": snapshot[2],
+                          "payloadMarketRows": snapshot[3],
+                          "payloadRootSets": snapshot[4],
+                      },
+                      "syncPrivileges": {
+                          "anon": privileges[0],
+                          "authenticated": privileges[1],
+                          "serviceRole": privileges[2],
+                      },
+                      "preservedHardening": {
+                          "guardedPublisherAlreadyCurrent": preserved[0],
+                          "constituentAdvisoryLock": preserved[1],
+                      },
+                  }, sort_keys=True, default=str), flush=True)
+          PY
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              echo "MARKET_VINTAGE_DB_MIGRATION=PASS"
+              ;;
+
+            market-explorer-cache-cron-disable)
+              cd "$REPO"
+              TMP_CRON="$(mktemp)"
+              BACKUP="$REPO/backend/logs/crontab.before-market-explorer-cache-disable.$(date -u +%Y%m%dT%H%M%SZ).txt"
+              mkdir -p "$REPO/backend/logs"
+              crontab -l > "$BACKUP"
+              grep -v -E 'run_market_explorer_maintained_cache_prewarm|check_market_explorer_maintained_cache_health' "$BACKUP" > "$TMP_CRON"
+              crontab "$TMP_CRON"
+              rm -f "$TMP_CRON"
+              echo "backup=$BACKUP"
+              echo "== remaining Market Explorer cache cron entries =="
+              crontab -l | grep -E 'market_explorer_(maintained_cache_prewarm|maintained_cache_health)' || true
+              echo "== publication watchdog remains =="
+              crontab -l | grep -F 'post_scrape_publication_watchdog' || { echo "FAIL: publication watchdog missing after cron edit"; exit 31; }
+              echo "== scrape dispatcher remains =="
+              crontab -l | grep -F 'run_next_scrape_job.py' || { echo "FAIL: scrape dispatcher missing after cron edit"; exit 32; }
+              echo "MARKET_EXPLORER_CACHE_CRON_DISABLED=PASS"
+              ;;
+
+            market-vintage-cutover)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              APP_SHA="2ff852c03090ec7a69cd3ab7be35e81b5b38cbb7"
+              PERF_SHA="48fa0ddb7fbbecfb8d7507f0a5878053f6510fa5"
+              APP_REF="origin/fix/market-vintage-explicit-edition-scopes-20260924"
+              WT="/tmp/EVRCalculator-market-vintage-cutover"
+              CANDIDATE="/tmp/market-vintage-candidate.json"
+              BACKUP_DIR="/home/ubuntu/ops-backups"
+              mkdir -p "$BACKUP_DIR"
+              chmod 700 "$BACKUP_DIR"
+
+              echo "== fetch pinned scoped application =="
+              git fetch origin fix/market-vintage-explicit-edition-scopes-20260924
+              git cat-file -e "$APP_SHA^{commit}"
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$APP_SHA"
+              test "$(git -C "$WT" rev-parse HEAD)" = "$APP_SHA"
+
+              echo "== layer bounded production Market Overview path =="
+              git cat-file -e "$PERF_SHA^{commit}"
+              git -C "$WT" checkout "$PERF_SHA" -- backend/db/services/canonical_market_overview.py
+              APP_BUILD_PATH="$WT/backend/scripts/build_pokemon_explore_set_value_snapshot.py" "$PY" - <<'PY'
+          import os
+          from pathlib import Path
+
+          path=Path(os.environ["APP_BUILD_PATH"])
+          text=path.read_text(encoding="utf-8")
+          old="""        overview = build_canonical_market_overview(
+              client,
+              market_date=market_date,
+              history=history,
+              set_ids=overview_set_ids,
+          )
+          """
+          new="""        overview = build_canonical_market_overview(
+              client,
+              market_date=market_date,
+              history=history,
+              set_ids=overview_set_ids,
+              include_card_segments=False,
+          )
+          """
+          if text.count(old) != 1:
+              raise SystemExit("scoped snapshot Market Overview call shape changed; refusing performance overlay")
+          path.write_text(text.replace(old,new),encoding="utf-8")
+          PY
+              echo "scoped_app_sha=$APP_SHA"
+              echo "bounded_overview_sha=$PERF_SHA"
+              git -C "$WT" diff --check
+
+              if [ -e "$WT/backend/.env" ] || [ -L "$WT/backend/.env" ]; then
+                rm -f "$WT/backend/.env"
+              fi
+              ln -s "$REPO/backend/.env" "$WT/backend/.env"
+
+              echo "== build and validate scoped snapshot candidate =="
+              (
+                cd "$WT"
+                PYTHONPATH="$WT" CANDIDATE_PATH="$CANDIDATE" "$PY" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.scripts.build_pokemon_explore_set_value_snapshot import build
+
+          client = create_service_role_client()
+          quality = list(
+              client.table("pokemon_market_date_quality")
+              .select("market_date,status,contract_version")
+              .eq("tcg","pokemon")
+              .in_("status",["READY","LEGACY_VERIFIED"])
+              .order("market_date",desc=True)
+              .limit(1)
+              .execute().data or []
+          )
+          if not quality:
+              raise RuntimeError("no approved Pokémon Market Date exists")
+          day = str(quality[0]["market_date"])[:10]
+          row = build(client=client, market_date=day, commit=False)
+          payload = row.get("payload_json") or {}
+          markets = payload.get("sets") or []
+          roots = {str(x.get("setId") or "") for x in markets if x.get("setId")}
+          keys = [str(x.get("marketKey") or "") for x in markets]
+          scoped = [x for x in markets if str(x.get("marketScope") or "standard") != "standard"]
+          scoped_roots = {str(x.get("setId")) for x in scoped}
+          generic_vintage = [
+              x for x in markets
+              if str(x.get("setId")) in scoped_roots
+              and str(x.get("marketScope") or "standard") == "standard"
+          ]
+          unavailable = [x for x in scoped if x.get("currentSetValue") is None]
+          bad_keys = []
+          for x in markets:
+              set_id = str(x.get("setId") or "")
+              scope = str(x.get("marketScope") or "standard")
+              expected = f"set:{set_id}" if scope == "standard" else f"set:{set_id}:{scope}"
+              if str(x.get("marketKey") or "") != expected:
+                  bad_keys.append((x.get("marketKey"), expected))
+
+          checks = {
+              "approvedMarketDate": day,
+              "setCount": row.get("set_count"),
+              "marketCount": row.get("market_count"),
+              "payloadRows": len(markets),
+              "rootSets": len(roots),
+              "uniqueMarketKeys": len(set(keys)),
+              "scopedMarkets": len(scoped),
+              "genericVintageMarkets": len(generic_vintage),
+              "unavailableScopedMarkets": len(unavailable),
+              "badMarketKeys": len(bad_keys),
+          }
+          print(json.dumps(checks, sort_keys=True), flush=True)
+          expected = {
+              "setCount": 156,
+              "marketCount": 167,
+              "payloadRows": 167,
+              "rootSets": 156,
+              "uniqueMarketKeys": 167,
+              "scopedMarkets": 21,
+              "genericVintageMarkets": 0,
+              "unavailableScopedMarkets": 6,
+              "badMarketKeys": 0,
+          }
+          for key, value in expected.items():
+              if checks[key] != value:
+                  raise RuntimeError(f"candidate invariant failed: {key}={checks[key]!r} expected={value!r}")
+
+          persisted = {k:v for k,v in row.items() if not str(k).startswith("_")}
+          Path(os.environ["CANDIDATE_PATH"]).write_text(
+              json.dumps({"approvedMarketDate":day,"row":persisted}, separators=(",",":")),
+              encoding="utf-8",
+          )
+          PY
+              )
+
+              echo "== atomically publish snapshot + guarded Explorer generation =="
+              ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" CANDIDATE_PATH="$CANDIDATE" BACKUP_DIR="$BACKUP_DIR" "$PY" - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          candidate = json.loads(Path(os.environ["CANDIDATE_PATH"]).read_text(encoding="utf-8"))
+          row = candidate["row"]
+          day = candidate["approvedMarketDate"]
+          dsn = os.environ["ACTIONS_DATABASE_URL"]
+
+          parsed = conninfo_to_dict(dsn)
+          user = parsed.get("user") or ""
+          project_ref = user.split(".")[-1] if "." in user else "zwxzxuuawalvwioadhmf"
+          direct_user = user.split(".")[0] if "." in user else user
+          base_kwargs = {
+              "dbname": parsed.get("dbname") or "postgres",
+              "password": parsed.get("password") or "",
+              "sslmode": parsed.get("sslmode") or "require",
+              "connect_timeout": 15,
+              "application_name": "market_vintage_cutover",
+          }
+          routes = [("configured_session_pooler", dsn)]
+          pooler_host = parsed.get("host")
+          if pooler_host:
+              routes.append(("transaction_pooler_6543", make_conninfo(
+                  host=pooler_host, port=6543, user=user, **base_kwargs)))
+          routes.append(("direct_project_5432", make_conninfo(
+              host=f"db.{project_ref}.supabase.co", port=5432, user=direct_user, **base_kwargs)))
+
+          conn = None
+          failures = []
+          for label, candidate_dsn in routes:
+              try:
+                  conn = psycopg.connect(candidate_dsn, prepare_threshold=None)
+                  print(f"database_route={label}", flush=True)
+                  break
+              except Exception as exc:
+                  failures.append((label,type(exc).__name__,getattr(exc,"sqlstate",None)))
+          if conn is None:
+              raise RuntimeError(f"all database routes failed: {failures}")
+
+          backup = {}
+          with conn:
+              with conn.cursor() as cur:
+                  cur.execute("set statement_timeout = '900s'")
+                  cur.execute("set lock_timeout = '20s'")
+                  cur.execute("select pg_advisory_xact_lock(hashtext('market-vintage-cutover'))")
+
+                  cur.execute(
+                      "select "
+                      "exists(select 1 from supabase_migrations.schema_migrations "
+                      "where version='20260924190000' or name='explicit_vintage_market_scopes'), "
+                      "exists(select 1 from information_schema.columns where table_schema='public' "
+                      "and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count'), "
+                      "to_regclass('public.pokemon_market_set_scope_contract_v1') is not null, "
+                      "to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null"
+                  )
+                  migration_applied, market_count_exists, scope_contract_exists, scoped_asof_rpc_exists = map(bool, cur.fetchone())
+                  if not all((migration_applied, market_count_exists, scope_contract_exists, scoped_asof_rpc_exists)):
+                      raise RuntimeError(
+                          "vintage scope DB migration is not fully applied: "
+                          f"history={migration_applied} market_count={market_count_exists} "
+                          f"scope_contract={scope_contract_exists} scoped_asof_rpc={scoped_asof_rpc_exists}"
+                      )
+
+                  cur.execute(
+                      "select to_jsonb(s) from public.pokemon_explore_set_value_snapshot_latest s "
+                      "where s.tcg='pokemon' and s.scope='market' limit 1"
+                  )
+                  previous_snapshot = cur.fetchone()
+                  cur.execute("select generation_id from public.pokemon_market_explorer_prepared_serving_v1 where singleton")
+                  previous_generation = cur.fetchone()[0]
+                  backup = {
+                      "capturedAt": datetime.now(timezone.utc).isoformat(),
+                      "previousGenerationId": str(previous_generation),
+                      "previousSnapshot": previous_snapshot[0] if previous_snapshot else None,
+                  }
+
+                  cur.execute(
+                      "insert into public.pokemon_explore_set_value_snapshot_latest "
+                      "(tcg,scope,payload_json,market_date,set_count,market_count,"
+                      "source_generation_fingerprint,payload_size_bytes) "
+                      "values (%s,%s,%s::jsonb,%s::date,%s,%s,%s,%s) "
+                      "on conflict (tcg,scope) do update set "
+                      "payload_json=excluded.payload_json,market_date=excluded.market_date,"
+                      "set_count=excluded.set_count,market_count=excluded.market_count,"
+                      "source_generation_fingerprint=excluded.source_generation_fingerprint,"
+                      "payload_size_bytes=excluded.payload_size_bytes",
+                      (
+                          row["tcg"],row["scope"],json.dumps(row["payload_json"],separators=(",",":")),
+                          row["market_date"],row["set_count"],row["market_count"],
+                          row["source_generation_fingerprint"],row["payload_size_bytes"],
+                      ),
+                  )
+
+                  cur.execute("select public.run_market_explorer_guarded_publisher_v1(%s::date)",(day,))
+                  publisher_result = cur.fetchone()[0]
+                  print("publisher_result="+json.dumps(publisher_result,default=str,sort_keys=True),flush=True)
+
+                  cur.execute("select generation_id from public.pokemon_market_explorer_prepared_serving_v1 where singleton")
+                  serving_generation = cur.fetchone()[0]
+
+                  cur.execute(
+                      "select count(*)::int,"
+                      "count(*) filter(where market_type='set')::int,"
+                      "count(*) filter(where market_type<>'set')::int,"
+                      "count(distinct market_key)::int,min(comparison_as_of),max(comparison_as_of),"
+                      "count(*) filter(where market_type='era')::int,"
+                      "count(*) filter(where market_type='curated')::int,"
+                      "count(*) filter(where market_type='prepared_rarity')::int,"
+                      "count(*) filter(where market_type='prepared_format')::int "
+                      "from public.pokemon_market_explorer_prepared_serving_directory_v1"
+                  )
+                  counts = cur.fetchone()
+                  expected_counts=(204,167,37,204)
+                  if tuple(counts[:4]) != expected_counts:
+                      raise RuntimeError(f"serving directory count mismatch: {counts[:4]} expected={expected_counts}")
+                  if str(counts[4]) != day or str(counts[5]) != day:
+                      raise RuntimeError(f"comparison watermark mismatch: min={counts[4]} max={counts[5]} approved={day}")
+                  if tuple(counts[6:10]) != (17,6,9,5):
+                      raise RuntimeError(f"non-Set market regression: eras/curated/rarity/sealed={counts[6:10]}")
+
+                  cur.execute(
+                      "select "
+                      "count(*) filter(where d.market_type='set' and coalesce(d.metadata->>'marketScope','standard')<>'standard')::int,"
+                      "count(*) filter(where d.market_type='set' and coalesce(d.metadata->>'marketScope','standard')<>'standard' and d.current_value is null)::int,"
+                      "count(*) filter(where d.market_type='set' and r.set_id is not null and d.market_key='set:'||d.set_id::text)::int "
+                      "from public.pokemon_market_explorer_prepared_serving_directory_v1 d "
+                      "left join public.pokemon_edition_split_root_sets_v2 r on r.set_id=d.set_id"
+                  )
+                  scoped_counts=cur.fetchone()
+                  if tuple(scoped_counts)!=(21,6,0):
+                      raise RuntimeError(f"scoped directory invariant failed: {scoped_counts}")
+
+                  cur.execute(
+                      "select count(*)::int from public.pokemon_market_explorer_prepared_serving_history_v1 h "
+                      "join public.pokemon_market_explorer_prepared_serving_directory_v1 d "
+                      "on d.generation_id=h.generation_id and d.market_key=h.market_key "
+                      "join public.pokemon_market_scoped_history_market_certification_v1 c "
+                      "on c.set_id=d.set_id and c.market_scope=d.metadata->>'marketScope' "
+                      "where c.history_publishable=false"
+                  )
+                  if cur.fetchone()[0] != 0:
+                      raise RuntimeError("withheld scoped history appeared in serving generation")
+
+                  cur.execute(
+                      "select count(*)::int from public.pokemon_market_explorer_prepared_constituents_v1 c "
+                      "join public.pokemon_market_explorer_prepared_serving_directory_v1 d "
+                      "on d.generation_id=c.generation_id and d.market_key=c.market_key "
+                      "where d.market_type='set' and coalesce(d.metadata->>'marketScope','standard')<>'standard' "
+                      "and (c.price_as_of is distinct from d.source_as_of or "
+                      "case d.metadata->>'marketScope' "
+                      "when 'first_edition' then c.item->>'edition'<>'1st-edition' "
+                      "when 'unlimited' then c.item->>'edition'<>'unlimited' "
+                      "when 'shadowless' then c.item->>'edition'<>'shadowless' "
+                      "else true end)"
+                  )
+                  if cur.fetchone()[0] != 0:
+                      raise RuntimeError("scoped constituent edition/as-of mismatch")
+
+                  cur.execute(
+                      "select s.set_count,s.market_count,jsonb_array_length(s.payload_json->'sets'),"
+                      "count(distinct (e->>'setId')::uuid),count(distinct e->>'marketKey') "
+                      "from public.pokemon_explore_set_value_snapshot_latest s "
+                      "cross join lateral jsonb_array_elements(s.payload_json->'sets') e "
+                      "where s.tcg='pokemon' and s.scope='market' "
+                      "group by s.set_count,s.market_count,s.payload_json"
+                  )
+                  snap=cur.fetchone()
+                  if tuple(snap)!=(156,167,167,156,167):
+                      raise RuntimeError(f"published snapshot count contract failed: {snap}")
+
+                  cur.execute(
+                      "select to_regprocedure('public.get_pokemon_market_explorer_prepared_constituents_v3(text,uuid,integer,integer)') is not null"
+                  )
+                  if not cur.fetchone()[0]:
+                      raise RuntimeError("prepared constituent v3 serving function is missing")
+
+                  print(json.dumps({
+                      "status":"validated_before_commit",
+                      "approvedMarketDate":day,
+                      "previousGenerationId":str(previous_generation),
+                      "servingGenerationId":str(serving_generation),
+                      "directoryCounts":{
+                          "total":counts[0],"sets":counts[1],"nonSets":counts[2],
+                          "eras":counts[6],"curated":counts[7],"rarities":counts[8],"sealed":counts[9],
+                      },
+                      "snapshotCounts":{
+                          "setCount":snap[0],"marketCount":snap[1],
+                          "payloadRows":snap[2],"rootSets":snap[3],"uniqueMarketKeys":snap[4],
+                      },
+                  },sort_keys=True),flush=True)
+
+          stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          backup_path=Path(os.environ["BACKUP_DIR"])/f"market-vintage-precutover-{stamp}.json"
+          backup_path.write_text(json.dumps(backup,default=str,separators=(",",":")),encoding="utf-8")
+          backup_path.chmod(0o600)
+          print(f"rollback_backup={backup_path}",flush=True)
+          print("MARKET_VINTAGE_CUTOVER=PASS",flush=True)
+          PY
+
+              rm -f "$CANDIDATE"
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
               ;;
 
             market-explorer-cutover-status)
@@ -1911,6 +2977,113 @@ jobs:
               git log -2 --oneline
               ;;
 
+            wait-sync-main-after-publication)
+              cd "$REPO"
+              echo "== guarded publication-to-main handoff =="
+              echo "request_id=$VM_REQUEST_ID"
+              echo "pre_wait_head=$(git rev-parse HEAD)"
+              echo "target_origin_main_before_wait=$(git rev-parse origin/main 2>/dev/null || true)"
+
+              exec {PUB_FD}>/tmp/pokemon-post-scrape-publication.lock
+              ACQUIRED=0
+              for i in $(seq 1 1440); do
+                if flock -n "$PUB_FD"; then
+                  ACQUIRED=1
+                  echo "publication_lock=acquired_after_wait"
+                  break
+                fi
+                if [ $((i % 12)) -eq 0 ]; then
+                  echo "publication_wait_seconds=$((i * 5))"
+                  ps -eo pid=,ppid=,etimes=,stat=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+                  stat -c 'publication_log_mtime=%y bytes=%s' publication.log 2>/dev/null || true
+                fi
+                sleep 5
+              done
+              [ "$ACQUIRED" -eq 1 ] || { echo "REFUSING: publication lock did not become free within 2 hours"; exit 70; }
+
+              exec {SCRAPE_FD}>/tmp/pokemon-scrape-dispatcher.lock
+              SCRAPE_ACQUIRED=0
+              for i in $(seq 1 120); do
+                if flock -n "$SCRAPE_FD"; then
+                  SCRAPE_ACQUIRED=1
+                  echo "scrape_dispatcher_lock=acquired"
+                  break
+                fi
+                sleep 5
+              done
+              [ "$SCRAPE_ACQUIRED" -eq 1 ] || { echo "REFUSING: scrape dispatcher lock did not become free within 10 minutes"; exit 71; }
+
+              if pgrep -af 'rebuild_snapshots_after_scrape.sh|refresh_stale_public_snapshots.py' | grep -v 'pgrep -af' | grep -q .; then
+                echo "REFUSING: publication process remains after lock acquisition"
+                pgrep -af 'rebuild_snapshots_after_scrape.sh|refresh_stale_public_snapshots.py' || true
+                exit 72
+              fi
+
+              echo "== sync production checkout to canonical main =="
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 73; }
+              PRE_HEAD=$(git rev-parse HEAD)
+              TARGET_HEAD=$(git rev-parse origin/main)
+              PRE_BRANCH=$(git branch --show-current)
+              echo "pre_sync_head=$PRE_HEAD"
+              echo "pre_sync_branch=${PRE_BRANCH:-DETACHED}"
+              echo "target_origin_main=$TARGET_HEAD"
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+                echo "REFUSING: tracked modifications exist"
+                git status --short --untracked-files=no
+                exit 74
+              fi
+              if [ -n "$PRE_BRANCH" ] && [ "$PRE_BRANCH" != "main" ]; then
+                echo "REFUSING: production checkout is on unexpected branch $PRE_BRANCH"
+                exit 75
+              fi
+
+              pricing_source_check || { echo "REFUSING: pinned pricing sources unavailable"; exit 76; }
+              for f in $(pricing_overlay_manifest); do
+                src=$(pricing_overlay_source_for "$f")
+                want=$(git rev-parse "$src:$f")
+                got=$(git rev-parse -q --verify "origin/main:$f" 2>/dev/null || true)
+                [ "$got" = "$want" ] || { echo "REFUSING: origin/main pricing blob mismatch path=$f"; exit 77; }
+              done
+              echo "origin_main_pricing_overlay_exact=true"
+
+              git switch -C main origin/main
+              [ "$(git rev-parse HEAD)" = "$TARGET_HEAD" ] || { echo "FAIL: HEAD did not reach origin/main"; exit 78; }
+              git merge-base --is-ancestor b388b29365d518bb195b3bf6bf5658994096853e HEAD || {
+                echo "FAIL: optimized snapshot fast-path commit absent from synced main"
+                exit 79
+              }
+              pricing_runtime_present || { echo "FAIL: pricing runtime missing after canonical sync"; exit 80; }
+              pricing_credentials_probe || { echo "FAIL: pricing credentials unavailable after canonical sync"; exit 81; }
+              REPORT=$(pricing_cron_report)
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "FAIL: managed pricing cron missing after sync"; exit 82; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT" || { echo "FAIL: managed pricing run entries != 2"; exit 82; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT" || { echo "FAIL: managed pricing health entry != 1"; exit 82; }
+              echo "post_sync_head=$(git rev-parse HEAD)"
+              echo "optimized_fast_path_present=true"
+
+              flock -u "$SCRAPE_FD"
+              exec {SCRAPE_FD}>&-
+              flock -u "$PUB_FD"
+              exec {PUB_FD}>&-
+
+              echo "== one immediate watchdog pass on synced code =="
+              export PYTHONPATH="$REPO"
+              "$PY" - <<'PY'
+          import json
+          from backend.alerts.post_scrape_publication_watchdog import run_watchdog
+          report = run_watchdog(recover_stalled=True, recover_superseded=True)
+          print("post_sync_watchdog=" + json.dumps(report, sort_keys=True, default=str), flush=True)
+          status = str(report.get("status") or "")
+          acceptable = {
+              "relaunch_requested", "skipped_already_current",
+              "skipped_already_running", "in_progress",
+          }
+          if not report.get("healthy") and status not in acceptable:
+              raise SystemExit(f"post-sync watchdog failed status={status}")
+          PY
+              echo "WAIT_SYNC_MAIN_AFTER_PUBLICATION=PASS"
+              ;;
             sync-main)
               cd "$REPO"
               if [ -n "$(git status --porcelain)" ]; then
@@ -1920,6 +3093,22 @@ jobs:
               fi
               git fetch origin main
               git switch --detach origin/main
+              git status --short
+              git log -1 --oneline
+              ;;
+
+            sync-main-preserve-untracked-artifacts)
+              cd "$REPO"
+              git fetch origin main
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+                echo "Refusing safe sync: tracked modifications exist:"
+                git status --short --untracked-files=no
+                exit 3
+              fi
+              echo "== preserved untracked paths =="
+              git status --porcelain | grep '^??' || true
+              git switch --detach origin/main
+              echo "== synced production identity =="
               git status --short
               git log -1 --oneline
               ;;
@@ -1971,6 +3160,109 @@ jobs:
                 -q
               ;;
 
+            pytest-global-market-deferred-segments-fix)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-global-market-deferred-segments"
+              git fetch origin fix/global-market-defer-card-segments-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" origin/fix/global-market-defer-card-segments-20260924
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_canonical_market_overview.py \
+                backend/tests/unit/scripts/test_global_set_value_refresh_contract.py \
+                backend/tests/unit/scripts/test_audit_pokemon_market_index_publication.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
+
+            pytest-publication-detach-fix)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-publication-detach-fix"
+              git fetch origin fix/post-scrape-github-runner-detach-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" origin/fix/post-scrape-github-runner-detach-20260924
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_post_scrape_publication_trigger.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
+
+            pytest-post-scrape-watchdog-pr363)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-vmops-pr363"
+              TARGET_SHA="dd583cf44527930301899ec4f862fc36dc5ce92e"
+              git fetch origin fix/post-scrape-wrapper-only-recovery-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_SHA"
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
+
+            pytest-refresh-target-fastpath-pr368)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-vmops-pr368"
+              TARGET_SHA="8d05bd053afccc101f61bd60b19cec5c0ba60546"
+              git fetch origin fix/post-scrape-current-date-fastpath-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_SHA"
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/scripts/test_refresh_target_date_fastpath.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
+            pytest-projection-gate-pr369)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-vmops-pr369"
+              TARGET_SHA="b35d430071d6e8d833c8c60916c97f66a6e6b7f2"
+              git fetch origin fix/projection-gate-transient-retry-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_SHA"
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_price_storage_v2_projection_gate.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              ;;
             repair-sep22-base-publication)
               cd "$REPO"
               test "$VM_MARKET_DATE" = "2026-09-22" || { echo "This repair is scoped only to 2026-09-22"; exit 8; }
@@ -2095,6 +3387,32 @@ jobs:
                 --max-caches 1
               ;;
 
+            explorer-prewarm-five)
+              cd "$REPO"
+              echo "== serial five-cache prewarm batch =="
+              for ITERATION in 1 2 3 4 5; do
+                echo "== cache process $ITERATION/5 =="
+                set +e
+                "$PY" -m backend.scripts.run_market_explorer_maintained_cache_prewarm \
+                  --commit \
+                  --market-date "$VM_MARKET_DATE" \
+                  --max-caches 1
+                RC=$?
+                set -e
+                REMAINING=$("$PY" -c 'import os; from backend.db.clients.supabase_client import create_service_role_client; target=os.environ["VM_MARKET_DATE"][:10]; c=create_service_role_client(); rows=c.table("pokemon_market_explorer_query_cache").select("status,computed_through").eq("cache_kind","maintained").eq("asset","cards").range(0,999).execute().data or []; print(sum(1 for row in rows if row.get("status")!="ready" or str(row.get("computed_through") or "")[:10] < target))')
+                echo "remaining_maintained_caches=$REMAINING"
+                if [ "$REMAINING" -eq 0 ]; then
+                  echo "maintained_cache_batch=all_current"
+                  break
+                fi
+                if [ "$RC" -ne 0 ]; then
+                  echo "REFUSING: cache process failed rc=$RC remaining=$REMAINING"
+                  exit "$RC"
+                fi
+                sleep 5
+              done
+              ;;
+
             market-dashboard-set)
               cd "$REPO"
               "$PY" backend/scripts/build_pokemon_market_dashboard_snapshots.py \
@@ -2146,6 +3464,50 @@ jobs:
 
               echo "===== final Explorer audit ====="
               "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; c=create_service_role_client(); d=list((c.table("pokemon_market_explorer_prepared_directory_v1").select("market_type,comparison_as_of,source_as_of,history_available,history_point_count").execute()).data or []); h=list((c.table("pokemon_market_explorer_prepared_history_v1").select("market_date").order("market_date", desc=True).limit(1).execute()).data or []); m=list((c.table("pokemon_set_market_dashboard_snapshot_latest").select("set_id,latest_market_date,payload_json").eq("window_key","365d").gte("latest_market_date","2026-09-18").execute()).data or []); sets=[r for r in d if r.get("market_type")=="set"]; errors=[r for r in m if ((r.get("payload_json") or {}).get("cardsMarket") or {}).get("reason")=="error"]; print({"directoryRows":len(d),"setRows":len(sets),"setsWithHistory":sum(1 for r in sets if r.get("history_available") is True),"setsWithoutHistory":sum(1 for r in sets if r.get("history_available") is not True),"comparisonAsOf":sorted({str(r.get("comparison_as_of")) for r in d if r.get("comparison_as_of")}),"sourceAsOf":sorted({str(r.get("source_as_of")) for r in d if r.get("source_as_of")}),"maxPreparedHistoryDate":(h[0].get("market_date") if h else None),"remainingDashboardErrors":len(errors)})'
+              ;;
+
+            pricing-sync-main)
+              # MUTATING tracked Git state only: sync production main to canonical origin/main after proving
+              # origin/main contains the exact reviewed pricing runtime. Untracked runtime config/artifacts are preserved.
+              cd "$REPO"
+              echo "== pricing canonical-main sync gates =="
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 21; }
+              PRE_HEAD=$(git rev-parse HEAD)
+              TARGET_HEAD=$(git rev-parse origin/main)
+              PRE_BRANCH=$(git branch --show-current)
+              echo "pre_sync_head=$PRE_HEAD"
+              echo "pre_sync_branch=${PRE_BRANCH:-DETACHED}"
+              echo "target_origin_main=$TARGET_HEAD"
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+                echo "REFUSING: tracked modifications exist"
+                git status --short --untracked-files=no
+                exit 22
+              fi
+              if [ -n "$PRE_BRANCH" ] && [ "$PRE_BRANCH" != "main" ]; then
+                echo "REFUSING: production checkout is on unexpected branch $PRE_BRANCH"
+                exit 20
+              fi
+              pricing_source_check || { echo "REFUSING: pinned pricing sources unavailable"; exit 23; }
+              for f in $(pricing_overlay_manifest); do
+                src=$(pricing_overlay_source_for "$f")
+                want=$(git rev-parse "$src:$f")
+                got=$(git rev-parse -q --verify "origin/main:$f" 2>/dev/null || true)
+                [ "$got" = "$want" ] || { echo "REFUSING: origin/main pricing blob mismatch path=$f"; exit 24; }
+              done
+              echo "origin_main_pricing_overlay_exact=true"
+              git switch -C main origin/main
+              [ "$(git branch --show-current)" = "main" ] || { echo "FAIL: production checkout did not attach to main"; exit 25; }
+              [ "$(git rev-parse HEAD)" = "$TARGET_HEAD" ] || { echo "FAIL: HEAD did not reach origin/main"; exit 25; }
+              pricing_runtime_present || { echo "FAIL: pricing runtime missing after canonical sync"; exit 26; }
+              pricing_credentials_probe || { echo "FAIL: pricing credentials unavailable after canonical sync"; exit 27; }
+              REPORT=$(pricing_cron_report)
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "FAIL: managed pricing cron missing after sync"; exit 28; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT" || { echo "FAIL: managed pricing run entries != 2"; exit 28; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT" || { echo "FAIL: managed pricing health entry != 1"; exit 28; }
+              echo "post_sync_head=$(git rev-parse HEAD)"
+              echo "pricing_runtime_files_present=true"
+              echo "PRICING_MAIN_SYNC=PASS"
               ;;
 
             pricing-status)
@@ -2362,6 +3724,35 @@ jobs:
               exit "$RC"
               ;;
 
+            pricing-run-full-now)
+              # MUTATING: exact cron-equivalent full-cap production run. No request cap override.
+              cd "$REPO"
+              echo "== exact cron-equivalent full production run =="
+              echo "request_id=$VM_REQUEST_ID"
+              pricing_runtime_present || { echo "REFUSING: pricing runtime files missing from production checkout"; exit 20; }
+              [ "$(pricing_host_timezone)" = "America/Phoenix" ] || { echo "REFUSING: host timezone is not America/Phoenix"; exit 21; }
+              pricing_credentials_probe || { echo "REFUSING: eBay credentials unresolved"; exit 22; }
+              [ "$(pricing_lock_state "$PRICING_LOCK")" != "held" ] || { echo "REFUSING: pricing lock held"; exit 23; }
+              REPORT=$(pricing_cron_report)
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "REFUSING: managed pricing cron is not installed"; exit 24; }
+              echo "== existing cron log tail before manual full run =="
+              tail -n 80 backend/logs/multi_source_pricing.log 2>/dev/null || true
+              mkdir -p "$STATE"
+              set +e
+              /usr/bin/flock -n --conflict-exit-code 99 "$PRICING_LOCK" -c "cd '$REPO' && EVR_PRICING_STATE_DIR='$STATE' '$PY' -m backend.scripts.run_daily_multi_source_card_pricing --json --resume --no-frontend-env-fallback"
+              RC=$?
+              set -e
+              echo "pipeline_exit_code=$RC"
+              case "$RC" in
+                0) echo "PRICING_RUN_FULL_NOW=PASS" ;;
+                75) echo "PRICING_RUN_FULL_NOW=WAITING_FOR_COMPLETED_TCG_BATCH" ;;
+                99) echo "PRICING_RUN_FULL_NOW=LOCK_HELD_NOTHING_RUN" ;;
+                *) echo "PRICING_RUN_FULL_NOW=FAILED" ;;
+              esac
+              exit "$RC"
+              ;;
+
             pricing-replay-verify)
               # Replays the latest COMPLETE run (current policy version) via the canonical pipeline; must be a strict no-op.
               cd "$REPO"
@@ -2460,9 +3851,10 @@ jobs:
               if git status --porcelain --untracked-files=no | sed -E 's/^.. //' | grep -vFx -e "payload_debug.json" -e "backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json" | grep -q .; then
                 echo "REFUSING: unexpected tracked modifications:"; git status --short; exit 22
               fi
-              for f in $(pricing_overlay_manifest); do
-                [ ! -e "$f" ] || { echo "REFUSING: $f already exists; the runtime is already present (use pricing-runtime-preflight)"; exit 23; }
-              done
+              if pricing_runtime_present; then
+                echo "REFUSING: pricing runtime is already fully present (use pricing-runtime-preflight)"
+                exit 23
+              fi
               MANIFEST_PATH=$(pricing_env_value SENTINEL_RUNTIME_OVERLAY_MANIFEST)
               if [ -n "$MANIFEST_PATH" ] && [ -f "$MANIFEST_PATH" ]; then
                 APPROVED_BASE=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["approvedMainSha"])' "$MANIFEST_PATH")
