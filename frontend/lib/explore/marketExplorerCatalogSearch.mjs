@@ -70,12 +70,14 @@ export function resolveSearchResultAction(result) {
     const row = result.asset === "sealed"
       ? { sealedProductId: metadata.sealedProductId || result.instrument_id }
       : { canonicalCardId: metadata.canonicalCardId, cardVariantId: metadata.cardVariantId || result.instrument_id, setId: result.set_id, setName: metadata.setName };
-    const href = resolveConstituentDetailHref(row);
+    // A card detail link needs the canonical card identity. It is never inferred from
+    // the label, search text, variant id or a per-result lookup: absent -> no link.
+    const href = result.asset === "sealed" || usable(metadata.canonicalCardId) ? resolveConstituentDetailHref(row) : null;
     const item = result.asset === "sealed"
       ? { asset: "sealed", instrumentId: result.instrument_id, name: result.label, setName: metadata.setName, productFamily: metadata.productFamily, variantLabel: metadata.variantLabel, imageUrl: result.image_url }
       : { asset: "cards", instrumentId: result.instrument_id, name: result.label, cardNumber: metadata.cardNumber, rarity: metadata.rarity, edition: metadata.edition, printingType: metadata.printingType, specialType: metadata.specialType, imageUrl: result.image_url };
     return {
-      primary: href ? { kind: "detail", href } : { kind: "none", reason: "Detail page is not available for this item." },
+      primary: href ? { kind: "detail", href } : { kind: "none", reason: "Detail page link is not available for this card yet." },
       secondary: isUnavailable(result) ? null : { kind: "basket", item },
     };
   }

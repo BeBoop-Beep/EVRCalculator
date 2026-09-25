@@ -217,3 +217,20 @@ def test_v2_absent_falls_back_to_v1_only_then(monkeypatch):
         monkeypatch.setattr(main, "service_read_client", fake)
         r = TestClient(main.app).get("/market/explorer/prepared-directory")
         assert r.json() == {"markets": [{"market_key": "legacy"}]}
+
+
+@pytest.mark.parametrize("label,key", [("Fossil", "set:fossil"), ("HeartGold & SoulSilver", "set:hgss"),
+                                       ("Base Set 2", "set:base2"), ("Rare Ultra", "rarity:rareUltra"),
+                                       ("Rare Secret", "rarity:rareSecret")])
+def test_image_fields_survive_v2_rpc_to_api_payload(monkeypatch, api, label, key):
+    import backend.db.services.market_explorer_constituent_movement as mv
+    monkeypatch.setattr(mv, "enrich_card_constituent_page", lambda c, p: {"items": p["items"], "movement_windows": {}})
+    rows = [{"cardVariantId": "v1", "name": f"{label} card", "marketPrice": 3, "priceAsOf": "2026-09-24",
+             "imageUrl": "https://i/std.png", "imageSmallUrl": "https://i/s.png", "imageLargeUrl": "https://i/l.png"},
+            {"cardVariantId": "v2", "name": "no art", "marketPrice": 1, "priceAsOf": "2026-09-24",
+             "imageUrl": None, "imageSmallUrl": None, "imageLargeUrl": None}]
+    page = {"marketKey": key, "generationId": GEN, "availability": "available", "totalCount": 2, "rows": rows}
+    r = api(Fake(directory=[drow(key)], page=page)).get("/market/explorer/prepared-constituents", params={"marketKey": key, "generationId": GEN})
+    out = r.json()["rows"]
+    assert (out[0]["imageUrl"], out[0]["imageSmallUrl"], out[0]["imageLargeUrl"]) == ("https://i/std.png", "https://i/s.png", "https://i/l.png")
+    assert out[1]["imageSmallUrl"] is None and out[1]["imageUrl"] is None

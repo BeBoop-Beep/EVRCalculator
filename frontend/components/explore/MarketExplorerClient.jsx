@@ -10,7 +10,7 @@ import MarketExplorerMethodology from "./MarketExplorerMethodology";
 import MarketExplorerBrowse from "./MarketExplorerBrowse";
 import MarketExplorerScreens from "./MarketExplorerScreens";
 import MarketExplorerRarityMarkets from "./MarketExplorerRarityMarkets";
-import MarketExplorerSealedTypes, { MarketExplorerSealedQuickMarkets } from "./MarketExplorerSealedTypes";
+import MarketExplorerSealedTypes from "./MarketExplorerSealedTypes";
 import useAssetOptions from "@/hooks/explore/useAssetOptions";
 import { unifySeriesByKey } from "@/lib/explore/marketExplorerComposition.mjs";
 import MarketExplorerContextRanking from "./MarketExplorerContextRanking";
@@ -385,6 +385,10 @@ export default function MarketExplorerClient({
           pendingKeys={preparedPendingKeys} failedKeys={preparedFailedKeys}
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared}
           assetLayer={activeBrowseAsset} onAssetLayerChange={setActiveBrowseAsset}
+          sealedTypesPanel={<MarketExplorerSealedTypes options={sealedOptionStates.data} status={sealedOptionStates.status} onRetry={sealedOptionStates.retry}
+            activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys} activeSeries={querySeries}
+            canBuild={canBuildCustomMarkets} onUpgrade={() => setCompareUpgradeVisible(true)}
+            onSelect={selectPrepared} onAddQuery={addQuery} onRemoveQuery={removeQuery} />}
           gradedReason={gradedOptionStates.data?.reason || null}
           onAddToBasket={(item) => { setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 }); setBuilderMode("exact"); setBuilderOpen(true); }}
           onBuild={() => { setBuilderMode("exact"); setBuilderOpen(true); }} />
@@ -403,13 +407,6 @@ export default function MarketExplorerClient({
             onAddQuery={addQuery}
             onRemoveQuery={removeQuery}
           /> : null}
-          {activeBrowseAsset === "sealed" ? <>
-            <MarketExplorerSealedQuickMarkets options={sealedOptionStates.data} activeKeys={preparedActiveKeys} onSelect={selectPrepared} />
-            <MarketExplorerSealedTypes options={sealedOptionStates.data} status={sealedOptionStates.status} onRetry={sealedOptionStates.retry}
-              activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys} activeSeries={querySeries}
-              canBuild={canBuildCustomMarkets} onUpgrade={() => setCompareUpgradeVisible(true)}
-              onSelect={selectPrepared} onAddQuery={addQuery} onRemoveQuery={removeQuery} />
-          </> : null}
           <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
         </div>

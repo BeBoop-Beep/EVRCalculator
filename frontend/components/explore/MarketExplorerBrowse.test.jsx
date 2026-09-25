@@ -222,12 +222,9 @@ test("directory has Cards | Sealed | Graded; Cards shows Sets/Eras/Quick/Build",
 test("Sealed lists the real prepared sealed rows and no card Sets/Eras", async () => {
   const renderer = await mount();
   await act(async () => renderer.root.findByProps({ "data-market-directory-asset": "sealed" }).props.onClick());
-  // Sealed IA (data-contract integration): Sets / Eras / Quick Markets exist for sealed, but list
-  // ONLY sealed rows -- the card Sets in this fixture never appear under Sealed.
-  for (const id of ["sets", "eras", "quick", "sealed"]) assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": id }).length, 1);
-  await act(async () => category(renderer, "sets").props.onClick());
-  assert.equal(rows(renderer).length, 0);
-  await act(async () => category(renderer, "sets").props.onClick());
+  // V1 COMPATIBILITY: the flat "Sealed Markets" list is the only sealed category (no V2 rows).
+  assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "sets" }).length, 0);
+  assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "types" }).length, 0);
   await act(async () => category(renderer, "sealed").props.onClick());
   assert.deepEqual(rows(renderer).map((row) => row.props["data-prepared-market"]).sort(), ["format:booster-box", "format:etb", "format:pack"]);
   await act(async () => searchOf(renderer).props.onChange({ target: { value: "elite" } }));

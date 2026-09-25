@@ -8,8 +8,12 @@ const CARD_CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Ma
 // Sealed IA: Sets, Eras, Quick Markets (Sealed Types + Screens render in the Analyze
 // section; the Build trigger is shared). "Sealed Markets" stays as the flat
 // list of every published sealed market.
-const SEALED_CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Markets"], ["sealed", "Sealed Markets"]];
-const CATEGORIES = [...CARD_CATEGORIES, ["sealed", "Sealed Markets"]];
+// V2 Sealed IA (approved): Sets, Eras, Quick Markets, Sealed Types -- one navigation layer.
+// Screens is the existing Analyze control; Build is the shared Build Your Market action.
+const SEALED_V2_CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Markets"], ["types", "Sealed Types"]];
+// V1 compatibility ONLY: the flat list of published sealed markets. Never shown together with V2 categories.
+const SEALED_V1_CATEGORIES = [["sealed", "Sealed Markets"]];
+const CATEGORIES = [...CARD_CATEGORIES, ["sealed", "Sealed Markets"], ["types", "Sealed Types"]];
 const GRADED_FALLBACK_REASON = "Graded markets are not available yet: there is not enough graded price coverage to publish one.";
 // Directory ASSET LAYER. Browsing state only: switching it changes which browse
 // choices are listed and never touches the chart's active markets. Graded has
@@ -29,7 +33,7 @@ const displayMarket = (market) => {
   return { label: copy?.[0] || market.label, description: copy?.[1] || null };
 };
 
-export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, enableContextualSearch = true }) {
+export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, enableContextualSearch = true, sealedTypesPanel = null }) {
   const [open, setOpen] = useState(null);
   const [search, setSearch] = useState("");
   // activeBrowseAsset: what the directory/search/builder default LIST. It never
@@ -46,6 +50,9 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
   const triggerRefs = useRef(new Map());
   const listboxId = useId();
   // One asset at a time: a sealed Set/Era is never listed under Cards and vice versa.
+  // V2 mode = the directory is published by the V2 surface. Decided from row data only.
+  const v2Mode = useMemo(() => directory.some((row) => row?.surface_version === "v2"), [directory]);
+  const SEALED_CATEGORIES = v2Mode ? SEALED_V2_CATEGORIES : SEALED_V1_CATEGORIES;
   const layerRows = useMemo(() => directory.filter((row) => (assetLayer === "sealed" ? row?.asset === "sealed" : row?.asset !== "sealed")), [directory, assetLayer]);
   const grouped = useMemo(() => groupPreparedDirectory(layerRows, search), [layerRows, search]);
   const sealedRows = useMemo(() => listPreparedSealedMarkets(directory, search), [directory, search]);
@@ -92,8 +99,10 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
       <button type="button" data-market-explorer-build-trigger onClick={onBuild} className="min-h-10 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,.16)] px-2 text-xs font-bold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(45,212,191)]"><span aria-hidden="true">＋</span> Build Your Market</button>
     </div>}
     {open ? <div data-market-directory-popover className="absolute left-3 right-3 z-40 mt-2 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-2xl">
+      {open === "types" ? <div data-market-directory-sealed-types className="max-h-[min(28rem,60vh)] overflow-y-auto p-3">{sealedTypesPanel}</div> : <>
       <input ref={searchRef} role="combobox" aria-expanded="true" aria-controls={listboxId} aria-activedescendant={highlightedIndex >= 0 && highlightedIndex < rows.length ? `${listboxId}-${highlightedIndex}` : undefined} data-market-browser-search value={search} onChange={(event) => { setSearch(event.target.value); setHighlightedIndex(NO_HIGHLIGHT); }} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); setHighlightedIndex((i) => (rows.length ? (i < 0 ? 0 : Math.min(i + 1, rows.length - 1)) : NO_HIGHLIGHT)); } if (event.key === "ArrowUp") { event.preventDefault(); setHighlightedIndex((i) => (rows.length ? (i < 0 ? rows.length - 1 : Math.max(i - 1, 0)) : NO_HIGHLIGHT)); } if (event.key === "Enter") { const target = highlightedIndex >= 0 && highlightedIndex < rows.length ? rows[highlightedIndex] : (search.trim() && rows.length === 1 ? rows[0] : null); if (target) { event.preventDefault(); choose(target.market_key); } } if (event.key === "Escape") { event.preventDefault(); close(true); } }} placeholder={`Search ${categoryLabel}…`} aria-label={`Search ${categoryLabel}`} className="w-full border-b border-[var(--border-subtle)] bg-transparent px-3 py-3 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400/70" />
-      <div id={listboxId} role="listbox" aria-label={`${categoryLabel} prepared markets`} className="max-h-[min(25rem,55vh)] overflow-y-auto p-2">{directoryStatus === "unavailable" ? <div role="alert" data-market-directory-state="unavailable" className="p-3 text-xs text-[var(--text-secondary)]"><p>Market directory is temporarily unavailable.</p><button type="button" onClick={() => globalThis.location?.reload()} className="mt-2 rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold text-[var(--text-primary)]">Retry</button></div> : !rows.length ? <p data-market-directory-state={search ? "no-match" : "empty"} className="p-3 text-xs text-[var(--text-secondary)]">{search ? `No matching ${categoryLabel}.` : open === "quick" && assetLayer === "sealed" ? NO_APPROVED_SEALED_QUICK_COPY : `No canonical ${categoryLabel} are currently published.`}</p> : groups ? groups.map((group) => <div key={group.era?.market_key || group.rows[0]?.parent_era_id}><h4 className="sticky top-0 bg-[var(--surface-page)] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">{group.era?.label || "Unknown Era"}</h4><ul>{group.rows.map((market) => row(market, rowIndex++))}</ul></div>) : <ul>{rows.map(row)}</ul>}</div>
+      <div id={listboxId} role="listbox" aria-label={`${categoryLabel} prepared markets`} className="max-h-[min(25rem,55vh)] overflow-y-auto p-2">{directoryStatus === "unavailable" ? <div role="alert" data-market-directory-state="unavailable" className="p-3 text-xs text-[var(--text-secondary)]"><p>Market directory is temporarily unavailable.</p><button type="button" onClick={() => globalThis.location?.reload()} className="mt-2 rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold text-[var(--text-primary)]">Retry</button></div> : !rows.length ? <p data-market-directory-state={search ? "no-match" : "empty"} className="p-3 text-xs text-[var(--text-secondary)]">{search ? `No matching ${categoryLabel}.` : open === "quick" && assetLayer === "sealed" ? <span data-sealed-quick-empty className="block"><strong className="block text-[var(--text-primary)]">Quick Markets</strong>{NO_APPROVED_SEALED_QUICK_COPY}</span> : `No canonical ${categoryLabel} are currently published.`}</p> : groups ? groups.map((group) => <div key={group.era?.market_key || group.rows[0]?.parent_era_id}><h4 className="sticky top-0 bg-[var(--surface-page)] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">{group.era?.label || "Unknown Era"}</h4><ul>{group.rows.map((market) => row(market, rowIndex++))}</ul></div>) : <ul>{rows.map(row)}</ul>}</div>
+      </>}
     </div> : null}
   </section>;
 }
