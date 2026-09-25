@@ -1,5 +1,4 @@
 {
-  "operation": "scrape-create-missing-batch",
-  "market_date": "2026-09-25",
-  "request_id": "snapshots-20260925-create-batch"
+  "operation": "publication-live-debug",
+  "request_id": "snapshots-20260925-sep24-debug"
 }
