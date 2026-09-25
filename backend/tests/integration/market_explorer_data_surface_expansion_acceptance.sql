@@ -46,10 +46,10 @@ from fixture_cards;
 
 insert into public.pokemon_market_explorer_card_current_metadata(
  card_variant_id,canonical_card_id,legacy_card_id,set_id,card_name,card_number,
- rarity,edition,printing_type,special_type,image_url,identity_basis
+ rarity,filter_rarity_key,edition,printing_type,special_type,image_url,identity_basis
 )
 select card_variant_id,canonical_card_id,gen_random_uuid(),set_id,
-       'GX Fixture Card '||g,g::text,'Rare Holo GX','unlimited','holo',null,
+       'GX Fixture Card '||g,g::text,'Rare Holo GX','rareHoloGx','unlimited','holo',null,
        'https://img.example/meta-'||g||'.jpg','fixture'
 from fixture_cards;
 
