@@ -1,4 +1,5 @@
 {
-  "operation": "pytest-global-market-deferred-segments-fix",
-  "request_id": "sep24-global-market-deferred-segments-test"
+  "operation": "stop-sep24-global-card-segment-publisher",
+  "market_date": "2026-09-24",
+  "request_id": "sep24-replace-slow-card-segment-publisher"
 }
