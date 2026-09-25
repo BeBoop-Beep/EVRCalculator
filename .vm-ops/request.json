@@ -1,4 +1,5 @@
 {
-  "operation": "publication-live-debug",
-  "request_id": "snapshots-20260925-sep24-progress1"
+  "operation": "sync-launch-sep24-publisher-optimized",
+  "market_date": "2026-09-24",
+  "request_id": "snapshots-20260925-sync-launch-sep24"
 }
