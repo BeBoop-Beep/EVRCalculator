@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-preserve-untracked-artifacts",
-  "request_id": "sep24-deploy-bounded-global-market"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sep24-bounded-global-market-relaunch"
 }
