@@ -10,12 +10,14 @@ on:
       - "supabase/migrations/20260924220000_market_explorer_catalog_search_v1.sql"
       - "supabase/migrations/20260925061000_market_explorer_raw_frozen_set_value_constituents_v1.sql"
       - "supabase/migrations/20260925064000_market_explorer_rarity_daily_coverage_v1.sql"
+      - "supabase/migrations/20260925173000_freeze_daily_set_value_rosters_for_market_explorer_v2.sql"
       - "supabase/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
       - "backend/db/migrations/20260924213000_market_explorer_data_surface_authorities_v1.sql"
       - "backend/db/migrations/20260924214500_market_explorer_generation_surface_v2.sql"
       - "backend/db/migrations/20260924220000_market_explorer_catalog_search_v1.sql"
       - "backend/db/migrations/20260925061000_market_explorer_raw_frozen_set_value_constituents_v1.sql"
       - "backend/db/migrations/20260925064000_market_explorer_rarity_daily_coverage_v1.sql"
+      - "backend/db/migrations/20260925173000_freeze_daily_set_value_rosters_for_market_explorer_v2.sql"
       - "backend/db/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
       - "backend/tests/unit/db/test_market_explorer_data_surface_expansion_migrations.py"
       - "backend/tests/unit/db/test_market_explorer_background_db_load_hardening.py"
@@ -74,6 +76,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260924220000_market_explorer_catalog_search_v1.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925061000_market_explorer_raw_frozen_set_value_constituents_v1.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925064000_market_explorer_rarity_daily_coverage_v1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925173000_freeze_daily_set_value_rosters_for_market_explorer_v2.sql
 
       - name: Run end-to-end candidate acceptance
         run: |
