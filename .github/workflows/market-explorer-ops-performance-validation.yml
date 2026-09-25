@@ -7,6 +7,8 @@ on:
     paths:
       - "backend/scripts/refresh_stale_public_snapshots.py"
       - "backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py"
+      - "backend/db/services/explore_page_service.py"
+      - "backend/tests/unit/db/services/test_explore_page_service.py"
       - ".github/workflows/market-explorer-ops-performance-validation.yml"
 
 permissions:
