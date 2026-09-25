@@ -2017,6 +2017,7 @@ jobs:
               cd "$REPO"
               test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
               APP_SHA="2ff852c03090ec7a69cd3ab7be35e81b5b38cbb7"
+              PERF_SHA="48fa0ddb7fbbecfb8d7507f0a5878053f6510fa5"
               APP_REF="origin/fix/market-vintage-explicit-edition-scopes-20260924"
               WT="/tmp/EVRCalculator-market-vintage-cutover"
               CANDIDATE="/tmp/market-vintage-candidate.json"
@@ -2032,6 +2033,39 @@ jobs:
               fi
               git worktree add --detach "$WT" "$APP_SHA"
               test "$(git -C "$WT" rev-parse HEAD)" = "$APP_SHA"
+
+              echo "== layer bounded production Market Overview path =="
+              git cat-file -e "$PERF_SHA^{commit}"
+              git -C "$WT" checkout "$PERF_SHA" -- backend/db/services/canonical_market_overview.py
+              APP_BUILD_PATH="$WT/backend/scripts/build_pokemon_explore_set_value_snapshot.py" "$PY" - <<'PY'
+          import os
+          from pathlib import Path
+
+          path=Path(os.environ["APP_BUILD_PATH"])
+          text=path.read_text(encoding="utf-8")
+          old="""        overview = build_canonical_market_overview(
+              client,
+              market_date=market_date,
+              history=history,
+              set_ids=overview_set_ids,
+          )
+          """
+          new="""        overview = build_canonical_market_overview(
+              client,
+              market_date=market_date,
+              history=history,
+              set_ids=overview_set_ids,
+              include_card_segments=False,
+          )
+          """
+          if text.count(old) != 1:
+              raise SystemExit("scoped snapshot Market Overview call shape changed; refusing performance overlay")
+          path.write_text(text.replace(old,new),encoding="utf-8")
+          PY
+              echo "scoped_app_sha=$APP_SHA"
+              echo "bounded_overview_sha=$PERF_SHA"
+              git -C "$WT" diff --check
+
               if [ -e "$WT/backend/.env" ] || [ -L "$WT/backend/.env" ]; then
                 rm -f "$WT/backend/.env"
               fi
