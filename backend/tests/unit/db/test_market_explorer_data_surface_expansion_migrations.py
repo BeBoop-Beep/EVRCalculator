@@ -225,7 +225,7 @@ def test_frozen_set_value_leaf_publication_is_private_bounded_and_atomic():
 def test_rarity_registry_uses_bounded_daily_coverage_not_full_history_scan():
     sql = read(MIGRATIONS[4])
     assert "pokemon_market_explorer_rarity_daily_coverage_v1" in sql
-    assert "p_through-p_from>30" in sql
+    assert "p_through-p_from>13" in sql
     assert "set statement_timeout = '15s'" in sql
     registry = sql.split(
         "create or replace function public.refresh_pokemon_market_explorer_rarity_registry_v1(", 1
