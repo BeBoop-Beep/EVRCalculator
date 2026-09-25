@@ -1,4 +1,4 @@
 {
-  "operation": "supabase-project-restart",
-  "request_id": "code-red-20260924-2100"
+  "operation": "code-red-db-load-shed",
+  "request_id": "code-red-20260924-load-shed"
 }
