@@ -1793,8 +1793,8 @@ jobs:
               test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
               TARGET_REF="origin/fix/market-vintage-db-authority-20260924"
               WT="/tmp/EVRCalculator-market-vintage-db-migrate"
-              MIG="supabase/migrations/20260924190000_explicit_vintage_market_scopes.sql"
-              BACKEND_MIG="backend/db/migrations/20260924190000_explicit_vintage_market_scopes.sql"
+              MIG="supabase/migrations/20260925161052_explicit_vintage_market_scopes.sql"
+              BACKEND_MIG="backend/db/migrations/20260925161052_explicit_vintage_market_scopes.sql"
               HIST="/tmp/market_vintage_migration_history.sql"
 
               echo "== fetch vetted DB authority =="
