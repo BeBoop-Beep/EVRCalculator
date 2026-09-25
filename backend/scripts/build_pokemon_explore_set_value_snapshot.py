@@ -331,6 +331,7 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
             market_date=market_date,
             history=history,
             set_ids=overview_set_ids,
+            include_card_segments=False,
         )
 
     row = build_global_set_value_row(
