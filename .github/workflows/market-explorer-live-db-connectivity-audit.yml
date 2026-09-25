@@ -204,11 +204,18 @@ jobs:
           gx=rr.json()
           print(f"rare_holo_gx_rows={len(gx)} sets={len({x.get('set_id') for x in gx if x.get('set_id')})} metadata_images={sum(bool(x.get('image_url')) for x in gx)} elapsed_ms={tm:.1f}")
 
-          # Confirm production does not already expose the new v2 authorities.
+          # Confirm whether production already exposes the new v2 authorities.
           for fn in (
               "get_pokemon_market_explorer_surface_directory_v2",
               "search_pokemon_market_explorer_catalog_v1",
           ):
-              rr,tm=call("POST",f"/rest/v1/rpc/{fn}",payload={} if fn.endswith("directory_v2") else {"p_asset":"graded","p_query":"audit","p_limit":1},timeout=10)
-              print(f"unexpected_v2_rpc_present={fn} elapsed_ms={tm:.1f}")
+              payload={} if fn.endswith("directory_v2") else {"p_asset":"graded","p_query":"audit","p_limit":1}
+              t0=time.monotonic()
+              rr=requests.post(base+f"/rest/v1/rpc/{fn}",headers=headers,json=payload,timeout=10)
+              tm=(time.monotonic()-t0)*1000
+              if rr.status_code in (404,400) and "PGRST202" in rr.text:
+                  print(f"v2_rpc_present=false fn={fn} elapsed_ms={tm:.1f}")
+              else:
+                  rr.raise_for_status()
+                  print(f"v2_rpc_present=true fn={fn} elapsed_ms={tm:.1f}")
           PY
