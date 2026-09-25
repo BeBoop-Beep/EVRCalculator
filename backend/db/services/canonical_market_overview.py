@@ -42,6 +42,7 @@ def build_canonical_market_overview(
     market_date: str,
     history: Sequence[Mapping[str, Any]],
     set_ids: Sequence[str],
+    include_card_segments: bool = True,
 ) -> dict[str, Any]:
     """Build the complete published Market Overview for ``market_date``.
 
@@ -62,33 +63,43 @@ def build_canonical_market_overview(
         total=sealed_market,
     )
 
-    try:
-        raw_history_start = min(
-            (
-                str(row.get("market_date"))[:10]
-                for row in history
-                if str(row.get("index_key")) == "raw"
-            ),
-            default=market_date,
-        )
-        raw_member_set_ids = expand_raw_card_member_set_ids(client, root_ids)
-        rarity_by_card = read_canonical_card_rarities(client, raw_member_set_ids)
-        constituent_rows = load_global_card_constituent_rows(
-            client,
-            raw_member_set_ids,
-            start_date=raw_history_start,
-            end_date=market_date,
-        )
-        raw_card_segments = build_global_card_segments(
-            constituent_rows,
-            rarity_by_card,
-            market_date=market_date,
-            parent_basket_value=None,
-        )
-        card_segments = build_card_segments_payload(raw_card_segments)
-    except Exception as exc:  # noqa: BLE001 - additive analytics only
-        logger.warning("card segments unavailable: %s", exc)
+    if not include_card_segments:
+        # Card rarity submarkets are additive analytics, not an authority for the
+        # Raw/Top10 Market indexes or the global Market publication date. Their
+        # source loader reconstructs full per-card daily history one set at a
+        # time and can take tens of minutes across the public cohort. Critical
+        # daily publication therefore uses the existing explicit-unavailable
+        # contract and leaves full segment generation to a noncritical caller.
+        logger.info("[market-overview] card segments deferred from critical publication path")
         card_segments = build_card_segments_payload(None)
+    else:
+        try:
+            raw_history_start = min(
+                (
+                    str(row.get("market_date"))[:10]
+                    for row in history
+                    if str(row.get("index_key")) == "raw"
+                ),
+                default=market_date,
+            )
+            raw_member_set_ids = expand_raw_card_member_set_ids(client, root_ids)
+            rarity_by_card = read_canonical_card_rarities(client, raw_member_set_ids)
+            constituent_rows = load_global_card_constituent_rows(
+                client,
+                raw_member_set_ids,
+                start_date=raw_history_start,
+                end_date=market_date,
+            )
+            raw_card_segments = build_global_card_segments(
+                constituent_rows,
+                rarity_by_card,
+                market_date=market_date,
+                parent_basket_value=None,
+            )
+            card_segments = build_card_segments_payload(raw_card_segments)
+        except Exception as exc:  # noqa: BLE001 - additive analytics only
+            logger.warning("card segments unavailable: %s", exc)
+            card_segments = build_card_segments_payload(None)
 
     overview = build_market_overview(
         history,
