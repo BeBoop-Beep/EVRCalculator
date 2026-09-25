@@ -71,7 +71,7 @@ def test_stale_certification_still_publishes_with_stale_annotation():
     assert published["valueStatus"] == "stale"
     assert published["lastUpdated"] == rows[-1]["snapshot_date"]
     assert result["_diagnostics"]["staleSets"] == [
-        {"setId": "set-1", "canonicalDate": rows[-1]["snapshot_date"]}
+        {"setId": "set-1", "marketKey": "set:set-1", "canonicalDate": rows[-1]["snapshot_date"]}
     ]
 
 
