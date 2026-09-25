@@ -450,7 +450,8 @@ def test_snapshot_row_carries_the_columns_the_table_requires():
     assert built["tcg"] == "pokemon"
     assert built["scope"] == "market"
     assert built["market_date"] == published["setValueAsOf"]
-    assert built["set_count"] == len(built["payload_json"]["sets"])
+    assert built["set_count"] == len({row["setId"] for row in built["payload_json"]["sets"]})
+    assert built["market_count"] == len(built["payload_json"]["sets"])
     assert built["payload_size_bytes"] > 0
     assert len(built["source_generation_fingerprint"]) == 64
     assert built["payload_json"]["meta"]["snapshot"]["marketDate"] == built["market_date"]
@@ -527,6 +528,7 @@ def test_edition_scoped_markets_publish_distinct_market_identity_without_derived
     assert "marketIndex" not in rows["set:set-1:unlimited"]
     assert "marketIndex" not in rows["set:set-1:first_edition"]
     assert built["set_count"] == 1
+    assert built["market_count"] == 2
 
 
 def test_incomplete_explicit_scope_remains_visible_but_unavailable():
@@ -622,10 +624,8 @@ def test_diagnostics_distinguish_root_and_market_counts():
     assert d["eligibleMarketCount"] == 6 == d["publishedMarketCount"]
     assert d["editionScopedMarketCount"] == 5
     assert d["eligibleSetCount"] == 6
-    # set_count = distinct ROOT sets; the DB derives market_count from payload.
     assert built["set_count"] == 3
-    assert "market_count" not in built
-    assert len(built["payload_json"]["sets"]) == 6
+    assert built["market_count"] == 6
     meta = built["payload_json"]["meta"]["publicationDiagnostics"]
     assert meta["eligibleRootSetCount"] == 3 and meta["editionScopedMarketCount"] == 5
 

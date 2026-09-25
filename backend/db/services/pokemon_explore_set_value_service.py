@@ -464,16 +464,18 @@ def build_global_set_value_row(
             "warnings": [],
         },
     }
+    published_root_set_ids = {
+        str(row.get("setId") or row.get("set_id") or "").strip()
+        for row in published
+        if str(row.get("setId") or row.get("set_id") or "").strip()
+    }
     return {
         "tcg": "pokemon",
         "scope": "market",
         "payload_json": payload,
         "market_date": target_market_date,
-        # Contract: set_count = distinct ROOT Sets represented; market_count =
-        # published market identities. market_count is DB-derived from the
-        # payload (trigger) so the writer deliberately omits the column: it
-        # stays deployable before the migration lands.
-        "set_count": len({str(row.get("setId")) for row in published}),
+        "set_count": len(published_root_set_ids),
+        "market_count": len(published),
         "source_generation_fingerprint": fingerprint,
         "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()),
         "_diagnostics": diagnostics,
