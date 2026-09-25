@@ -276,9 +276,9 @@ def segment_vocabulary(asset: str) -> frozenset[str]:
 
         return frozenset(str(definition["key"]) for definition in FILTER_RARITY_DEFINITIONS)
     if asset == ASSET_SEALED:
-        from backend.domain.pokemon.sealed_market_segments import SEALED_SEGMENT_DEFINITIONS
+        from backend.domain.pokemon.sealed_market_segments import sealed_selection_vocabulary
 
-        return frozenset(str(definition["key"]) for definition in SEALED_SEGMENT_DEFINITIONS)
+        return sealed_selection_vocabulary()
     raise MarketExplorerQueryError(f"unsupported asset: {asset!r}")
 
 

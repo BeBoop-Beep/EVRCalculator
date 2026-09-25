@@ -38,6 +38,7 @@ from typing import Any, Iterable, Mapping
 
 from backend.domain.pokemon.sealed_product_classifier import (
     CLASSIFICATION_VERSION,
+    FAMILY_LABELS,
     OVERVIEW_FAMILIES,
 )
 
@@ -181,3 +182,38 @@ def segment_definition_metadata() -> dict[str, Any]:
             "exactly one bucket."
         ),
     }
+
+
+#: Canonical normalized product-family identities (the classifier authority the
+#: normalized DB sealed authorities are built from). New Builder selections use
+#: these directly.
+CANONICAL_SEALED_FAMILIES: frozenset[str] = frozenset(FAMILY_LABELS)
+
+
+def sealed_selection_vocabulary() -> frozenset[str]:
+    """Every id a sealed family selection may carry: legacy segment keys + canonical families."""
+    return frozenset(str(d["key"]) for d in SEALED_SEGMENT_DEFINITIONS) | CANONICAL_SEALED_FAMILIES
+
+
+def resolve_sealed_family_selection(selection: Iterable[Any]) -> frozenset[str] | None:
+    """THE ONE seam from a saved/new selection to canonical family membership.
+
+    Legacy segment identities (boosterBox, eliteTrainerBox,
+    pokemonCenterEliteTrainerBox, boosterBundle, packs) map through
+    SEALED_SEGMENT_DEFINITIONS; canonical family keys pass through. ``None``
+    means no family filter. Raises ValueError for an unknown id.
+    """
+    wanted = {str(value).strip() for value in selection if str(value or "").strip()}
+    if not wanted:
+        return None
+    legacy = {str(d["key"]): d for d in SEALED_SEGMENT_DEFINITIONS}
+    unknown = sorted(wanted - set(legacy) - CANONICAL_SEALED_FAMILIES)
+    if unknown:
+        raise ValueError(f"unknown sealed product family segment(s): {unknown}")
+    families: set[str] = set()
+    for key in wanted:
+        if key in legacy:
+            families.update(legacy[key]["productFamilies"])
+        else:
+            families.add(key)
+    return frozenset(families)
