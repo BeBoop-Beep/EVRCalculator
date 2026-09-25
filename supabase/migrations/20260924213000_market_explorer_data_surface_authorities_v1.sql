@@ -145,6 +145,7 @@ begin
     select distinct on (coalesce(
       nullif(d.metadata->>'rarityKey',''),
       nullif(d.metadata->>'segmentKey',''),
+      nullif(d.metadata->>'segmentId',''),
       nullif(d.metadata->>'filterRarityKey','')
     ))
       coalesce(
