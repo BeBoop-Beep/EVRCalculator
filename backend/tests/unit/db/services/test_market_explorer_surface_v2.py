@@ -211,3 +211,110 @@ def test_directory_publishes_legacy_aliases_per_market():
     rows = {r["market_key"]: r for r in v2.read_directory_v2_first(c)}
     assert rows["sealed-type:booster_box"]["legacy_aliases"] == ["format:booster-box"]
     assert rows["set:a"]["legacy_aliases"] == []
+
+
+# ---- constituent movement / as-of normalization ----
+def test_price_as_of_normalized_only_when_every_row_agrees():
+    base = {"marketKey": "set:a", "generationId": GEN, "availability": "available", "totalCount": 2}
+    same = v2.normalize_constituent_page({**base, "rows": [{"priceAsOf": "2026-09-24"}, {"priceAsOf": "2026-09-24T00:00:00Z"}]}, after_rank=0, asset="cards")
+    assert same["priceAsOf"] == "2026-09-24"
+    mixed = v2.normalize_constituent_page({**base, "rows": [{"priceAsOf": "2026-09-24"}, {"priceAsOf": "2026-09-23"}]}, after_rank=0, asset="cards")
+    assert mixed["priceAsOf"] is None
+    partial = v2.normalize_constituent_page({**base, "rows": [{"priceAsOf": "2026-09-24"}, {}]}, after_rank=0, asset="cards")
+    assert partial["priceAsOf"] is None
+    junk = v2.normalize_constituent_page({**base, "rows": [{"priceAsOf": "not-a-date"}]}, after_rank=0, asset="cards")
+    assert junk["priceAsOf"] is None
+    page_level = v2.normalize_constituent_page({**base, "priceAsOf": "2026-09-22", "rows": [{"priceAsOf": "2026-09-24"}]}, after_rank=0, asset="cards")
+    assert page_level["priceAsOf"] == "2026-09-22"
+
+
+def test_v2_card_movement_enrichment_paths(monkeypatch):
+    import backend.db.services.market_explorer_constituent_movement as mv
+    calls = []
+
+    def ok(client, page):
+        calls.append(page["as_of"])
+        return {"items": [dict(r, changes={"7D": 2.0}) for r in page["items"]], "movement_windows": {"7D": {"start": "x"}}}
+    monkeypatch.setattr(mv, "enrich_card_constituent_page", ok)
+    from backend.db.services.market_explorer_prepared_directory import enrich_prepared_constituent_page
+    page = v2.normalize_constituent_page({"marketKey": "set:a", "generationId": GEN, "availability": "available", "totalCount": 1,
+                                          "rows": [{"cardVariantId": "v", "priceAsOf": "2026-09-24"}]}, after_rank=0, asset="cards")
+    out = enrich_prepared_constituent_page(object(), page)
+    assert out["movementAvailable"] is True and calls == ["2026-09-24"] and out["rows"][0]["rank"] == 1
+
+    def boom(client, page):
+        raise RuntimeError("movement down")
+    monkeypatch.setattr(mv, "enrich_card_constituent_page", boom)
+    degraded = enrich_prepared_constituent_page(object(), page)
+    assert degraded["availability"] == "available" and degraded["rows"] and degraded["movementAvailable"] is False
+
+    calls.clear()
+    monkeypatch.setattr(mv, "enrich_card_constituent_page", ok)
+    sealed = dict(page, asset="sealed")
+    assert enrich_prepared_constituent_page(object(), sealed)["movementAvailable"] is False and calls == []
+    # no as-of -> never guessed; the accepted enrichment itself returns unenriched rows
+    undated = dict(page, priceAsOf=None)
+    enrich_prepared_constituent_page(object(), undated)
+    assert calls in ([None], []), "no invented date: the accepted enrichment gets no date and declines"
+
+
+# ---- alias audit ----
+def test_alias_read_is_generation_scoped_and_canonical_wins():
+    class Spy(Client):
+        def table(self, name):
+            self.filters = []
+            outer = self
+            q = super().table(name)
+            orig = q.eq
+            q.eq = lambda k, v: (outer.filters.append((k, v)), orig(k, v))[1]
+            return q
+    c = Spy(directory=[drow("set:a", "set"), drow("format:x", "type", asset="sealed")],
+            aliases=[{"alias_key": "format:x", "market_key": "set:a"}, {"alias_key": "old", "market_key": "set:a"}],
+            history=history("set:a", [1, 2]))
+    aliases = v2.read_aliases(c, GEN)
+    assert ("generation_id", GEN) in c.filters
+    assert v2.resolve_requested_keys(["format:x", "old", "ghost"], {"set:a", "format:x"}, aliases) == {"format:x": "format:x", "old": "set:a"}
+    assert v2.resolve_requested_keys(["ghost"], {"set:a"}, aliases) == {}
+
+
+def test_constituents_and_comparison_converge_on_the_same_canonical_market():
+    page = {"marketKey": "sealed-type:booster_box", "generationId": GEN, "availability": "available", "totalCount": 0, "rows": []}
+    c = Client(directory=[drow("sealed-type:booster_box", "type", asset="sealed")], page=page,
+               aliases=[{"alias_key": "format:booster-box", "market_key": "sealed-type:booster_box"}],
+               history=history("sealed-type:booster_box", [1, 2]))
+    d = v2.read_v2_directory(c)
+    v2.read_v2_constituents(c, d, "format:booster-box", GEN)
+    sent = [a for n, a in c.calls if n == v2.CONSTITUENTS_RPC_V2][0]
+    assert sent["p_market_key"] == "sealed-type:booster_box"
+    assert v2.read_comparison_v2_bundle_key(c, d, "format:booster-box") == "sealed-type:booster_box"
+    # a page for another generation fails closed BEFORE the RPC or alias read
+    c2 = Client(directory=[drow("set:a", "set")], page=page)
+    out = v2.read_v2_constituents(c2, v2.read_v2_directory(c2), "set:a", OTHER)
+    assert out["code"] == "GENERATION_MISMATCH" and not [n for n, _ in c2.calls if n == v2.CONSTITUENTS_RPC_V2]
+
+
+def test_unknown_alias_is_missing_not_invented():
+    c = Client(directory=[drow("set:a", "set")])
+    assert v2.read_comparison_v2_first(c, ["nope"])["missingKeys"] == ["nope"]
+
+
+def test_active_v2_search_and_options_errors_do_not_invent_legacy_results():
+    with pytest.raises(v2.SurfaceV2Error):
+        v2.search_catalog(Client(fail={v2.SEARCH_RPC_V1: RuntimeError("x")}), "cards", "gengar", 5)
+    with pytest.raises(v2.SurfaceV2Error):
+        v2.read_asset_options(Client(fail={v2.ASSET_OPTIONS_RPC_V2: RuntimeError("x")}), "sealed")
+
+
+# ---- Raw: no after-the-fact reconstruction ----
+def test_application_never_reconstructs_raw_or_freezes_outside_the_backfill():
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[5] / "backend"
+    users = [p for p in root.rglob("*.py") if "tests" not in p.parts
+             and "replace_pokemon_market_set_value_constituents_v1" in p.read_text(encoding="utf-8", errors="ignore")]
+    assert {p.name for p in users} == {"pokemon_set_value_constituent_freeze.py"}, users
+    callers = [p.name for p in root.rglob("*.py") if "tests" not in p.parts
+               and "freeze_set_value_constituents" in p.read_text(encoding="utf-8", errors="ignore")]
+    assert sorted(set(callers)) == ["pokemon_market_historical_root_value.py", "pokemon_set_value_constituent_freeze.py"]
+    adapter = (root / "db/services/market_explorer_surface_v2.py").read_text(encoding="utf-8")
+    for forbidden in ("card_variants", "card_variant_prices", "latest", "raw_composition"):
+        assert forbidden not in adapter.replace("latest_", ""), forbidden

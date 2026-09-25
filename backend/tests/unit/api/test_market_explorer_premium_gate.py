@@ -100,8 +100,8 @@ def test_full_prepared_snapshot_is_server_gated_to_plus_and_never_public():
 
 def test_prepared_constituents_are_plus_gated_and_do_not_execute_custom_queries():
     route = _function_source("get_market_explorer_prepared_constituents")
-    assert route.index("_require_authenticated_user_id") < route.index("read_prepared_constituents")
-    assert route.index("has_index_plus_access") < route.index("read_prepared_constituents")
+    assert route.index("_require_authenticated_user_id") < route.index("read_constituents_v2_first")
+    assert route.index("has_index_plus_access") < route.index("read_constituents_v2_first")
     assert "normalize_query_spec" not in route
     assert "PersistentMarketExplorerCache" not in route
 

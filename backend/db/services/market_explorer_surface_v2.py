@@ -231,12 +231,29 @@ def read_v2_comparison_bundle(client: Any, directory: list[dict[str, Any]], keys
             "surface": {"version": "v2", "generationId": generation_id}}
 
 
+def _valid_iso_date(value: Any) -> str | None:
+    from datetime import date
+    text = str(value or "")[:10]
+    try:
+        return date.fromisoformat(text).isoformat() if len(text) == 10 else None
+    except ValueError:
+        return None
+
+
 def normalize_constituent_page(payload: dict[str, Any], *, after_rank: int, asset: str | None) -> dict[str, Any]:
     """V2 constituent page -> the contract the frontend page hook already consumes."""
     rows = [dict(r) for r in (payload.get("rows") or [])]
     for index, row in enumerate(rows):
         row.setdefault("rank", after_rank + index + 1)
     total = int(payload.get("totalCount") or 0)
+    # The accepted movement enrichment needs ONE as-of date. Use the page's own
+    # if published; otherwise normalize once here, and ONLY when every
+    # generation-pinned row carries the same valid ISO date. Never guess.
+    price_as_of = _valid_iso_date(payload.get("priceAsOf"))
+    if price_as_of is None and rows:
+        row_dates = {_valid_iso_date(r.get("priceAsOf")) for r in rows}
+        if len(row_dates) == 1 and None not in row_dates:
+            price_as_of = row_dates.pop()
     last_rank = int(rows[-1]["rank"]) if rows else after_rank
     next_cursor = last_rank if rows and last_rank < total else None
     return {
@@ -246,6 +263,7 @@ def normalize_constituent_page(payload: dict[str, Any], *, after_rank: int, asse
         "availabilityReason": payload.get("reason"), "totalCount": total,
         "afterRank": after_rank, "limit": payload.get("limit"),
         "rows": rows, "nextCursor": next_cursor, "sourceKind": "surface_v2",
+        "priceAsOf": price_as_of,
         "movementAvailable": False,
     }
 
@@ -256,6 +274,14 @@ def read_v2_constituents(client: Any, directory: list[dict[str, Any]] | None, ma
         raise ValueError("prepared constituents require a market key and generation id")
     if int(after_rank) < 0 or not 1 <= int(limit) <= CONSTITUENT_MAX_LIMIT:
         raise ValueError("prepared constituents require afterRank >= 0 and 1..100 rows")
+    if directory:
+        # Converge with comparison: the canonical CURRENT key wins over an alias, and
+        # aliases resolve app-side, bounded to the directory's own generation.
+        directory_generation = str(directory[0]["generation_id"])
+        if directory_generation != str(generation_id):
+            return {"code": "GENERATION_MISMATCH", "marketKey": market_key, "generationId": generation_id}
+        if market_key not in {row["market_key"] for row in directory}:
+            market_key = read_aliases(client, directory_generation).get(market_key, market_key)
     try:
         payload = client.rpc(CONSTITUENTS_RPC_V2, {
             "p_market_key": market_key, "p_generation_id": generation_id,
@@ -345,3 +371,10 @@ def read_constituents_v2_first(client: Any, market_key: str, generation_id: str,
     if v2 is None:
         return read_prepared_constituents(client, market_key, generation_id, after_rank, limit)
     return read_v2_constituents(client, v2, market_key, generation_id, after_rank, limit)
+
+
+def read_comparison_v2_bundle_key(client: Any, directory: list[dict[str, Any]], key: str) -> str | None:
+    """Canonical market a requested key resolves to (comparison's own resolver)."""
+    aliases = read_aliases(client, str(directory[0]["generation_id"]))
+    resolved = resolve_requested_keys([key], {row["market_key"] for row in directory}, aliases)
+    return resolved.get(key)

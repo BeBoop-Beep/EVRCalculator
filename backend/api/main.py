@@ -1525,9 +1525,6 @@ def get_market_explorer_prepared_constituents(
         return JSONResponse(content=page, status_code=400, headers={"Cache-Control": "no-store"})
     if not page:
         return JSONResponse(content={"message": "Constituents are temporarily unavailable", "code": "PREPARED_CONSTITUENTS_FAILED"}, status_code=503)
-    if page.get("sourceKind") == "surface_v2":
-        # V2 pages are already normalized; movement is not published for them.
-        return _tiered_response(page)
     return _tiered_response(enrich_prepared_constituent_page(service_read_client, page))
 
 
