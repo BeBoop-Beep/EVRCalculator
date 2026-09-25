@@ -219,6 +219,20 @@ begin
 
   if not exists (
     select 1 from public.pokemon_market_explorer_surface_directory_v2
+    where generation_id=g and market_key='rarity:rareHolo'
+      and taxonomy_key='rareHolo'
+      and metadata->>'legacyMarketType'='prepared_rarity'
+  ) then raise exception 'existing prepared rarity segmentId mapping was not preserved'; end if;
+
+  if not exists (
+    select 1 from public.pokemon_market_explorer_rarity_registry_v1
+    where rarity_key='rareHolo'
+      and eligibility_state='PREPARED'
+      and prepared_market_key='rarity:rareHolo'
+  ) then raise exception 'existing prepared rarity was misclassified as a new candidate'; end if;
+
+  if not exists (
+    select 1 from public.pokemon_market_explorer_surface_directory_v2
     where generation_id=g and market_key='rarity:rareHoloGx'
   ) then raise exception 'Rare Holo GX candidate missing'; end if;
 
