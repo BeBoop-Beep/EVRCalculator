@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -2898,6 +2898,28 @@ jobs:
               "$PY" -m pytest \
                 backend/tests/unit/db/services/test_pokemon_set_cards_market_analytics_service.py \
                 -q
+              ;;
+
+            pytest-global-market-deferred-segments-fix)
+              cd "$REPO"
+              WT="/tmp/EVRCalculator-global-market-deferred-segments"
+              git fetch origin fix/global-market-defer-card-segments-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" origin/fix/global-market-defer-card-segments-20260924
+              cd "$WT"
+              SUPABASE_URL="http://127.0.0.1:54321" \
+              SUPABASE_SERVICE_ROLE_KEY="test-service-role-key" \
+              SUPABASE_ANON_KEY="test-anon-key" \
+              PYTHONPATH="/tmp/evr-pytest-deps:$WT" \
+              "$PY" -m pytest \
+                backend/tests/unit/db/services/test_canonical_market_overview.py \
+                backend/tests/unit/scripts/test_global_set_value_refresh_contract.py \
+                backend/tests/unit/scripts/test_audit_pokemon_market_index_publication.py \
+                -q
+              cd "$REPO"
+              git worktree remove --force "$WT"
               ;;
 
             pytest-publication-detach-fix)
