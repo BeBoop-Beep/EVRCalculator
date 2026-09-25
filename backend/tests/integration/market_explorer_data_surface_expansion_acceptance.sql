@@ -210,6 +210,7 @@ select id,p24,'fixture','USD',timestamptz '2026-09-24 12:00:00+00' from fixture_
 select public.refresh_pokemon_market_explorer_rarity_daily_coverage_v1(
   '2026-09-17','2026-09-24'
 );
+select public.certify_pokemon_market_explorer_rarity_coverage_v1('2026-09-24');
 
 -- Build, validate and promote only inside this disposable fixture DB.
 create temp table fixture_generation(generation_id uuid primary key);
