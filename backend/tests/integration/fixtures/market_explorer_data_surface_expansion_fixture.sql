@@ -72,6 +72,7 @@ create table public.pokemon_market_explorer_card_current_metadata(
   card_name text not null,
   card_number text,
   rarity text,
+  filter_rarity_key text,
   edition text,
   printing_type text,
   special_type text,
