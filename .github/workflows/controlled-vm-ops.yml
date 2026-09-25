@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -2977,6 +2977,113 @@ jobs:
               git log -2 --oneline
               ;;
 
+            wait-sync-main-after-publication)
+              cd "$REPO"
+              echo "== guarded publication-to-main handoff =="
+              echo "request_id=$VM_REQUEST_ID"
+              echo "pre_wait_head=$(git rev-parse HEAD)"
+              echo "target_origin_main_before_wait=$(git rev-parse origin/main 2>/dev/null || true)"
+
+              exec {PUB_FD}>/tmp/pokemon-post-scrape-publication.lock
+              ACQUIRED=0
+              for i in $(seq 1 1440); do
+                if flock -n "$PUB_FD"; then
+                  ACQUIRED=1
+                  echo "publication_lock=acquired_after_wait"
+                  break
+                fi
+                if [ $((i % 12)) -eq 0 ]; then
+                  echo "publication_wait_seconds=$((i * 5))"
+                  ps -eo pid=,ppid=,etimes=,stat=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+                  stat -c 'publication_log_mtime=%y bytes=%s' publication.log 2>/dev/null || true
+                fi
+                sleep 5
+              done
+              [ "$ACQUIRED" -eq 1 ] || { echo "REFUSING: publication lock did not become free within 2 hours"; exit 70; }
+
+              exec {SCRAPE_FD}>/tmp/pokemon-scrape-dispatcher.lock
+              SCRAPE_ACQUIRED=0
+              for i in $(seq 1 120); do
+                if flock -n "$SCRAPE_FD"; then
+                  SCRAPE_ACQUIRED=1
+                  echo "scrape_dispatcher_lock=acquired"
+                  break
+                fi
+                sleep 5
+              done
+              [ "$SCRAPE_ACQUIRED" -eq 1 ] || { echo "REFUSING: scrape dispatcher lock did not become free within 10 minutes"; exit 71; }
+
+              if pgrep -af 'rebuild_snapshots_after_scrape.sh|refresh_stale_public_snapshots.py' | grep -v 'pgrep -af' | grep -q .; then
+                echo "REFUSING: publication process remains after lock acquisition"
+                pgrep -af 'rebuild_snapshots_after_scrape.sh|refresh_stale_public_snapshots.py' || true
+                exit 72
+              fi
+
+              echo "== sync production checkout to canonical main =="
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 73; }
+              PRE_HEAD=$(git rev-parse HEAD)
+              TARGET_HEAD=$(git rev-parse origin/main)
+              PRE_BRANCH=$(git branch --show-current)
+              echo "pre_sync_head=$PRE_HEAD"
+              echo "pre_sync_branch=${PRE_BRANCH:-DETACHED}"
+              echo "target_origin_main=$TARGET_HEAD"
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+                echo "REFUSING: tracked modifications exist"
+                git status --short --untracked-files=no
+                exit 74
+              fi
+              if [ -n "$PRE_BRANCH" ] && [ "$PRE_BRANCH" != "main" ]; then
+                echo "REFUSING: production checkout is on unexpected branch $PRE_BRANCH"
+                exit 75
+              fi
+
+              pricing_source_check || { echo "REFUSING: pinned pricing sources unavailable"; exit 76; }
+              for f in $(pricing_overlay_manifest); do
+                src=$(pricing_overlay_source_for "$f")
+                want=$(git rev-parse "$src:$f")
+                got=$(git rev-parse -q --verify "origin/main:$f" 2>/dev/null || true)
+                [ "$got" = "$want" ] || { echo "REFUSING: origin/main pricing blob mismatch path=$f"; exit 77; }
+              done
+              echo "origin_main_pricing_overlay_exact=true"
+
+              git switch -C main origin/main
+              [ "$(git rev-parse HEAD)" = "$TARGET_HEAD" ] || { echo "FAIL: HEAD did not reach origin/main"; exit 78; }
+              git merge-base --is-ancestor b388b29365d518bb195b3bf6bf5658994096853e HEAD || {
+                echo "FAIL: optimized snapshot fast-path commit absent from synced main"
+                exit 79
+              }
+              pricing_runtime_present || { echo "FAIL: pricing runtime missing after canonical sync"; exit 80; }
+              pricing_credentials_probe || { echo "FAIL: pricing credentials unavailable after canonical sync"; exit 81; }
+              REPORT=$(pricing_cron_report)
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "FAIL: managed pricing cron missing after sync"; exit 82; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT" || { echo "FAIL: managed pricing run entries != 2"; exit 82; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT" || { echo "FAIL: managed pricing health entry != 1"; exit 82; }
+              echo "post_sync_head=$(git rev-parse HEAD)"
+              echo "optimized_fast_path_present=true"
+
+              flock -u "$SCRAPE_FD"
+              exec {SCRAPE_FD}>&-
+              flock -u "$PUB_FD"
+              exec {PUB_FD}>&-
+
+              echo "== one immediate watchdog pass on synced code =="
+              export PYTHONPATH="$REPO"
+              "$PY" - <<'PY'
+          import json
+          from backend.alerts.post_scrape_publication_watchdog import run_watchdog
+          report = run_watchdog(recover_stalled=True, recover_superseded=True)
+          print("post_sync_watchdog=" + json.dumps(report, sort_keys=True, default=str), flush=True)
+          status = str(report.get("status") or "")
+          acceptable = {
+              "relaunch_requested", "skipped_already_current",
+              "skipped_already_running", "in_progress",
+          }
+          if not report.get("healthy") and status not in acceptable:
+              raise SystemExit(f"post-sync watchdog failed status={status}")
+          PY
+              echo "WAIT_SYNC_MAIN_AFTER_PUBLICATION=PASS"
+              ;;
             sync-main)
               cd "$REPO"
               if [ -n "$(git status --porcelain)" ]; then
