@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'backend/db/services/pokemon_explore_set_value_service.py'
+      - 'backend/db/migrations/20260924190000_explicit_vintage_market_scopes.sql'
+      - 'supabase/migrations/20260924190000_explicit_vintage_market_scopes.sql'
       - 'backend/scripts/audit_pokemon_market_publication.py'
       - 'backend/tests/unit/db/services/test_pokemon_explore_set_value_service.py'
       - 'backend/tests/unit/scripts/test_audit_pokemon_market_publication.py'
@@ -15,6 +17,8 @@ on:
     branches: [develop]
     paths:
       - 'backend/db/services/pokemon_explore_set_value_service.py'
+      - 'backend/db/migrations/20260924190000_explicit_vintage_market_scopes.sql'
+      - 'supabase/migrations/20260924190000_explicit_vintage_market_scopes.sql'
       - 'backend/scripts/audit_pokemon_market_publication.py'
       - 'backend/tests/unit/db/services/test_pokemon_explore_set_value_service.py'
       - 'backend/tests/unit/scripts/test_audit_pokemon_market_publication.py'
