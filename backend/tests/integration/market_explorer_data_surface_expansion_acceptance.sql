@@ -205,6 +205,12 @@ select id,p17,'fixture','USD',timestamptz '2026-09-17 12:00:00+00' from fixture_
 union all
 select id,p24,'fixture','USD',timestamptz '2026-09-24 12:00:00+00' from fixture_sealed;
 
+-- Prewarm bounded rarity coverage before candidate construction.
+-- Production rollout runs the same RPC in <=31-day chunks across retained history.
+select public.refresh_pokemon_market_explorer_rarity_daily_coverage_v1(
+  '2026-09-17','2026-09-24'
+);
+
 -- Build, validate and promote only inside this disposable fixture DB.
 create temp table fixture_generation(generation_id uuid primary key);
 do $$
