@@ -11,6 +11,51 @@ permissions:
   contents: read
 
 jobs:
+  hosted-connectivity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Install psycopg
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.3.6'
+      - name: Audit poolers from hosted IPv4 runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL secret missing"; exit 2; }
+          python3 - <<'PY'
+          import os, time
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          parsed = conninfo_to_dict(os.environ["ACTIONS_DATABASE_URL"])
+
+          def test(label, port):
+              cfg = dict(parsed)
+              cfg["port"] = str(port)
+              dsn = make_conninfo(**cfg)
+              t0=time.monotonic()
+              try:
+                  with psycopg.connect(dsn,connect_timeout=8,autocommit=True) as conn:
+                      with conn.cursor() as cur:
+                          cur.execute("select current_user,current_database(),current_setting('server_version')")
+                          row=cur.fetchone()
+                  print(f"{label}_connect_ok=true elapsed_ms={(time.monotonic()-t0)*1000:.1f} user={row[0]} db={row[1]} server={row[2]}")
+                  return True
+              except Exception as exc:
+                  msg=str(exc)
+                  pw=cfg.get("password") or ""
+                  if pw: msg=msg.replace(pw,"<REDACTED_PASSWORD>")
+                  print(f"{label}_connect_ok=false elapsed_ms={(time.monotonic()-t0)*1000:.1f} error_type={type(exc).__name__}")
+                  print(f"{label}_error="+msg[:500].replace("\n"," | "))
+                  return False
+
+          a=test("hosted_session_5432",5432)
+          b=test("hosted_transaction_6543",6543)
+          if not a and not b: raise SystemExit(7)
+          PY
+
   connectivity:
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
     timeout-minutes: 5
