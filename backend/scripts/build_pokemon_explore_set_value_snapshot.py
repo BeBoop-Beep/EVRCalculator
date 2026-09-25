@@ -50,6 +50,11 @@ def _attach_initial_selected_set_movers(client, row: dict) -> None:
     published_sets = payload.get("sets") or []
     if not published_sets:
         return
+    # The existing movers publication is keyed only by set_id and therefore
+    # cannot distinguish Unlimited / 1st Edition / Shadowless. Never attach a
+    # generic mover list to an explicit edition market.
+    if str(published_sets[0].get("marketScope") or "standard") != "standard":
+        return
     contract = read_initial_selected_set_movers(client, published_sets[0])
     payload["initialSelectedSetMovers"] = contract
     items = contract.get("items") or []
@@ -194,18 +199,165 @@ def _load_sets(client, *, market_date: str):
         for row in resolve_market_root_cohort(client, market_date=day)
     ]
 
-def _load_canonical_histories(client, set_ids, *, through_date: str):
+def _scope_label(scope: str) -> str:
+    return {
+        "standard": "",
+        "unlimited": "Unlimited",
+        "first_edition": "1st Edition",
+        "shadowless": "Shadowless",
+    }.get(str(scope or "standard"), str(scope or "").replace("_", " ").title())
+
+
+def _market_key(set_id: str, scope: str) -> str:
+    scope = str(scope or "standard")
+    return f"set:{set_id}" if scope == "standard" else f"set:{set_id}:{scope}"
+
+
+SCOPE_CONTRACT_VIEW = "pokemon_market_set_scope_contract_v1"
+SCOPE_CERTIFICATION_VIEW = "pokemon_market_scoped_history_market_certification_v1"
+
+
+def _expand_market_scope_rows(client, sets):
+    """Expand root Sets into the DB-authoritative explicit market identities.
+
+    The DB owns market existence (pokemon_market_set_scope_contract_v1, derived
+    from the edition-split profile): Standard roots publish one Standard
+    market; edition roots publish each scope and NEVER a generic blended
+    market. Identity, label and base name come from the DB view; scopes whose
+    authority is not publishable stay in membership as unavailable. One bulk
+    read per 100 roots -- no per-root reads.
+    """
+    base_rows = [dict(row) for row in sets]
+    ids = [str(row.get("id") or "") for row in base_rows if row.get("id")]
+    if not ids:
+        return []
+
+    contract_rows = []
+    for offset in range(0, len(ids), 100):
+        contract_rows.extend(list(
+            client.table(SCOPE_CONTRACT_VIEW)
+            .select("set_id,base_set_name,market_scope,market_key,display_label,publishable_100pct")
+            .in_("set_id", ids[offset:offset + 100])
+            .execute().data or []
+        ))
+    by_set = defaultdict(list)
+    for row in contract_rows:
+        set_id = str(row.get("set_id") or "")
+        if set_id and row.get("market_scope"):
+            by_set[set_id].append(dict(row))
+
+    expanded = []
+    for row in base_rows:
+        set_id = str(row.get("id") or "")
+        base_name = row.get("name") or row.get("set_name")
+        # A root the contract does not know is an ordinary Standard market.
+        authorities = by_set.get(set_id) or [
+            {"market_scope": "standard", "publishable_100pct": True}
+        ]
+        for authority in authorities:
+            scope = str(authority.get("market_scope") or "standard")
+            next_row = dict(row)
+            next_row.update({
+                "market_scope": scope,
+                "market_key": str(authority.get("market_key") or _market_key(set_id, scope)),
+                "base_set_name": authority.get("base_set_name") or base_name,
+                "name": authority.get("display_label") or (
+                    f"{base_name} - {_scope_label(scope)}" if scope != "standard" else base_name
+                ),
+                "market_publication_ready": True,
+                "market_current_certification_status": (
+                    "CERTIFIED" if authority.get("publishable_100pct") is True else "SCOPED_MARKET_INCOMPLETE"
+                ),
+            })
+            expanded.append(next_row)
+    return expanded
+
+
+def _load_history_withheld_scopes(client, market_rows):
+    """Markets whose certified history is withheld (unreviewed/rejected >=10% move)."""
+    scoped_ids = sorted({
+        str(m.get("id") or "") for m in market_rows
+        if str(m.get("market_scope") or "standard") != "standard"
+    })
+    withheld = set()
+    for offset in range(0, len(scoped_ids), 100):
+        rows = list(
+            client.table(SCOPE_CERTIFICATION_VIEW)
+            .select("set_id,market_scope,history_publishable")
+            .in_("set_id", scoped_ids[offset:offset + 100])
+            .execute().data or []
+        )
+        for row in rows:
+            if row.get("history_publishable") is not True:
+                withheld.add(_market_key(str(row.get("set_id")), str(row.get("market_scope"))))
+    return withheld
+
+
+def _load_scoped_certified_histories(client, market_rows, *, through_date):
+    """Load certified root history keyed by explicit market identity."""
+    grouped = defaultdict(list)
+    limit_date = str(through_date)[:10]
+    scope_by_set = defaultdict(set)
+    for market in market_rows:
+        set_id = str(market.get("id") or market.get("set_id") or "")
+        scope = str(market.get("market_scope") or "standard")
+        if set_id and scope != "standard":
+            scope_by_set[set_id].add(scope)
+    set_ids = sorted(scope_by_set)
+    for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
+        batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
+        response = client.rpc(
+            CANONICAL_HISTORY_RPC,
+            {
+                "p_root_set_ids": batch,
+                "p_start_date": CANONICAL_HISTORY_START,
+                "p_end_date": limit_date,
+            },
+        ).execute()
+        for row in list(response.data or []):
+            set_id = str(row.get("set_id") or "")
+            scope = str(row.get("market_scope") or "")
+            if scope not in scope_by_set.get(set_id, set()):
+                continue
+            if row.get("certified_on_date") is not True:
+                continue
+            grouped[_market_key(set_id, scope)].append({
+                "set_id": row.get("set_id"),
+                "snapshot_date": row.get("market_date"),
+                "set_value": row.get("set_value"),
+            })
+    for rows in grouped.values():
+        rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
+
+    # DB authority rules. A scope whose current authority is not publishable
+    # publishes no history at all (never a stale value under an incomplete
+    # basket). A scope whose history is withheld for an unreviewed/rejected
+    # source-defect move keeps ONLY its latest certified point, so the current
+    # certified value can still publish without the defective series.
+    incomplete = {
+        str(m.get("market_key")) for m in market_rows
+        if str(m.get("market_scope") or "standard") != "standard"
+        and m.get("market_current_certification_status") not in (None, "CERTIFIED")
+    }
+    for key in incomplete:
+        grouped.pop(key, None)
+    for key in _load_history_withheld_scopes(client, market_rows):
+        if grouped.get(key):
+            grouped[key] = grouped[key][-1:]
+    return grouped
+
+def _load_canonical_histories(client, market_rows, *, through_date: str):
     """Load the Set Value history that the Market page actually displays.
 
     PRE-CUTOVER keeps the historical certified-root contract plus the explicitly
     activated rollout row for the current day.
 
-    POST-CUTOVER the published Market Set Value is sourced from
-    pokemon_set_value_daily_history Standard rows. The history used for
-    deltas/charts must come from that SAME authority across the full available
-    range; mixing a certified-root historical series with only a current-day
-    Standard overlay can collapse partially-covered sets to one point and can
-    introduce a false discontinuity when the two authorities differ.
+    POST-CUTOVER standard roots continue to use
+    pokemon_set_value_daily_history Standard rows. Explicit vintage edition
+    profiles may supply a scoped override for the one-row Set Market view.
+    Scoped rows come only from certified canonical root history; incomplete
+    scoped markets therefore become stale/unavailable rather than falling back
+    to a blended Standard basket.
 
     Reads are explicitly paged with a deterministic (snapshot_date, set_id)
     order so PostgREST row caps cannot silently truncate broad Market cohorts.
@@ -213,6 +365,12 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
     grouped = defaultdict(list)
     limit_date = str(through_date)[:10]
     post_cutover = limit_date >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE
+    set_ids = sorted({str(row.get("id") or row.get("set_id") or "") for row in market_rows if row.get("id") or row.get("set_id")})
+    standard_ids = {
+        str(row.get("id") or row.get("set_id") or "")
+        for row in market_rows
+        if str(row.get("market_scope") or "standard") == "standard"
+    }
 
     if post_cutover:
         page_size = 1000
@@ -233,7 +391,10 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 )
                 rows = list(response.data or [])
                 for row in rows:
-                    grouped[str(row.get("set_id"))].append({
+                    set_id = str(row.get("set_id") or "")
+                    if set_id not in standard_ids:
+                        continue
+                    grouped[_market_key(set_id, "standard")].append({
                         "set_id": row.get("set_id"),
                         "snapshot_date": row.get("snapshot_date"),
                         "set_value": row.get("set_value"),
@@ -241,6 +402,10 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 if len(rows) < page_size:
                     break
                 start += page_size
+
+        scoped = _load_scoped_certified_histories(client, market_rows, through_date=limit_date)
+        for market_key, rows in scoped.items():
+            grouped[market_key] = list(rows)
 
         for rows in grouped.values():
             rows.sort(key=lambda row: str(row.get("snapshot_date") or ""))
@@ -261,7 +426,8 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
                 continue
             if row.get("certified_on_date") is not True:
                 continue
-            grouped[str(row.get("set_id"))].append({
+            set_id = str(row.get("set_id") or "")
+            grouped[_market_key(set_id, "standard")].append({
                 "set_id": row.get("set_id"),
                 "snapshot_date": row.get("market_date"),
                 "set_value": row.get("set_value"),
@@ -280,12 +446,13 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
         ).data or [])
         for row in rows:
             set_id = str(row.get("set_id"))
-            grouped[set_id] = [
+            market_key = _market_key(set_id, "standard")
+            grouped[market_key] = [
                 point
-                for point in grouped.get(set_id, [])
+                for point in grouped.get(market_key, [])
                 if str(point.get("snapshot_date"))[:10] != limit_date
             ]
-            grouped[set_id].append({
+            grouped[market_key].append({
                 "set_id": row.get("set_id"),
                 "snapshot_date": row.get("snapshot_date"),
                 "set_value": row.get("set_value"),
@@ -296,8 +463,17 @@ def _load_canonical_histories(client, set_ids, *, through_date: str):
     return grouped
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
-    sets = _load_sets(client, market_date=market_date)
-    set_ids = [str(row["id"]) for row in sets]
+    root_sets = _load_sets(client, market_date=market_date)
+    # Explicit edition markets exist only under the canonical root authority.
+    # Pre-cutover historical builds keep the legacy one-Standard-row contract.
+    if str(market_date)[:10] >= MARKET_ROOT_AUTHORITY_CUTOVER_DATE:
+        sets = _expand_market_scope_rows(client, root_sets)
+    else:
+        sets = [
+            {**dict(row), "market_scope": "standard", "market_key": _market_key(str(row.get("id")), "standard")}
+            for row in root_sets
+        ]
+    set_ids = sorted({str(row["id"]) for row in sets})
     if not set_ids:
         raise ExploreSetValueUnavailable(
             "no staged Market Set Value scopes are available",
@@ -317,7 +493,11 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
                 .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
             dashboards.extend(result.data or [])
 
-    histories = _load_canonical_histories(client, set_ids, through_date=market_date)
+    histories = _load_canonical_histories(
+        client,
+        sets,
+        through_date=market_date,
+    )
 
     overview = market_overview
     if overview is None:
