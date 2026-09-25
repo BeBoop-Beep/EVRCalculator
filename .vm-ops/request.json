@@ -1,4 +1,4 @@
 {
-  "operation": "market-vintage-db-migrate",
-  "request_id": "market-vintage-db-migrate-20260924e"
+  "operation": "supabase-project-restart",
+  "request_id": "sep24-unresponsive-db-restart"
 }
