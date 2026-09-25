@@ -2758,3 +2758,48 @@ def test_top_chase_current_date_validation_precedes_first_coordinated_write():
     first_write_at = source.index("upsert_row(")
 
     assert validate_at < first_write_at
+
+
+def test_set_card_freshness_avoids_schema_invalid_timestamp_probes(monkeypatch):
+    seen = []
+
+    def latest_timestamp(_client, *, table, timestamp_columns, filters=(), in_filters=()):
+        seen.append((table, tuple(timestamp_columns)))
+        return None, [f"{table}: ok"]
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
+    monkeypatch.setattr(refresh, "_variant_ids_for_set", lambda *_args: [])
+    monkeypatch.setattr(refresh, "_canonical_selected_variant_ids", lambda *_args: [])
+    monkeypatch.setattr(refresh, "_canonical_card_ids", lambda *_args: [])
+
+    refresh._latest_for_set_cards(None, "set-1")
+
+    tables = {table for table, _columns in seen}
+    assert "cards" not in tables
+    assert "card_variants" not in tables
+
+    observation_reads = [
+        columns for table, columns in seen
+        if table == "card_variant_price_observations"
+    ]
+    assert observation_reads == [("captured_at",)]
+
+
+def test_market_dashboard_price_freshness_uses_captured_at_only(monkeypatch):
+    seen = []
+
+    def latest_timestamp(_client, *, table, timestamp_columns, filters=(), in_filters=()):
+        seen.append((table, tuple(timestamp_columns)))
+        return None, [f"{table}: ok"]
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
+    monkeypatch.setattr(refresh, "_variant_ids_for_set", lambda *_args: [])
+    monkeypatch.setattr(refresh, "_canonical_selected_variant_ids", lambda *_args: [])
+
+    refresh._latest_for_market_dashboard(None, "set-1")
+
+    observation_reads = [
+        columns for table, columns in seen
+        if table == "card_variant_price_observations"
+    ]
+    assert observation_reads == [("captured_at",)]
