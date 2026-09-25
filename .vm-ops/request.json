@@ -1,4 +1,4 @@
 {
-  "operation": "wait-sync-main-after-publication",
-  "request_id": "sep25-pr378-canonical-publication-repair"
+  "operation": "publication-live-debug",
+  "request_id": "sep25-publication-progress-2339"
 }
