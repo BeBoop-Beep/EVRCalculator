@@ -1,0 +1,142 @@
+name: Code Red Read-Only DB Audit
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: [".vm-ops/code-red-audit.json"]
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 5
+    steps:
+      - name: Bounded read-only incident diagnostics
+        env:
+          ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /home/ubuntu/repos/EVRCalculator/.venv/bin/python - <<'PY'
+          import json, os, re, subprocess, time
+          from datetime import datetime, timezone
+          from pathlib import Path
+          
+          import httpx
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+          from psycopg.rows import dict_row
+          from dotenv import dotenv_values
+          
+          REPO = Path('/home/ubuntu/repos/EVRCalculator')
+          REF = 'zwxzxuuawalvwioadhmf'
+          BASE = 'https://' + REF + '.supabase.co'
+          
+          def emit(label, value):
+              print(json.dumps({'check': label, 'value': value}, default=str, sort_keys=True), flush=True)
+          
+          emit('audit_utc', datetime.now(timezone.utc).isoformat())
+          r = subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
+          if r.returncode:
+              emit('crontab_read_failed', r.returncode)
+          else:
+              lines = r.stdout.splitlines()
+              active = [x for x in lines if x.strip() and not x.lstrip().startswith('#')]
+              emit('vm_cron', {
+                  'code_red_disabled_lines': sum(x.startswith('# CODE_RED_DISABLED ') for x in lines),
+                  'active_evr_workload_lines': sum(str(REPO) in x and 'VM heartbeat' not in x for x in active),
+                  'backup_exists': Path('/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup').is_file(),
+              })
+          markers = ('run_next_scrape_job', 'rebuild_snapshots_after_scrape', 'refresh_stale_public_snapshots',
+                     'post_scrape_publication_watchdog', 'backend.alerts.dispatcher', 'backend.sentinel.operational',
+                     'run_market_explorer', 'publish_market_explorer', 'run_daily_multi_source_card_pricing')
+          workers = []
+          for path in Path('/proc').iterdir():
+              if not path.name.isdigit() or int(path.name) == os.getpid():
+                  continue
+              try:
+                  if path.stat().st_uid != os.getuid():
+                      continue
+                  args = (path / 'cmdline').read_bytes().replace(b'\0', b' ').decode(errors='replace')
+                  matches = [m for m in markers if m in args]
+                  if matches:
+                      workers.append({'pid': int(path.name), 'workloads': matches})
+              except (OSError, PermissionError):
+                  pass
+          emit('matching_worker_processes', workers[:30])
+          config = dotenv_values(REPO / 'backend/.env', interpolate=False)
+          dsn = os.getenv('ACTIONS_DATABASE_URL') or config.get('DATABASE_URL') or config.get('SUPABASE_DB_URL')
+          conn = None
+          if dsn:
+              p = conninfo_to_dict(dsn)
+              user = p.get('user', '')
+              host = p.get('host', '')
+              if not (host == 'db.' + REF + '.supabase.co' or user.endswith('.' + REF)):
+                  raise SystemExit('REFUSING unexpected database target')
+              routes = [('configured', dsn)]
+              if host != 'db.' + REF + '.supabase.co':
+                  routes.append(('direct', make_conninfo(host='db.' + REF + '.supabase.co', port=5432,
+                                dbname=p.get('dbname', 'postgres'), user=user.split('.')[0],
+                                password=p.get('password', ''), sslmode='require')))
+              for label, candidate in routes:
+                  start = time.monotonic()
+                  try:
+                      conn = psycopg.connect(candidate, connect_timeout=5, autocommit=True,
+                              prepare_threshold=None, row_factory=dict_row,
+                              application_name='index_code_red_read_only',
+                              options='-c default_transaction_read_only=on -c statement_timeout=5000 -c lock_timeout=1000')
+                      emit('db_connect', {'route': label, 'ok': True, 'seconds': round(time.monotonic()-start,3)})
+                      break
+                  except Exception as exc:
+                      emit('db_connect', {'route': label, 'ok': False, 'error_type': type(exc).__name__,
+                                         'sqlstate': getattr(exc, 'sqlstate', None)})
+          else:
+              emit('db_credential_present', False)
+          if conn:
+              queries = {
+                  'postgres_probe': 'select now() as db_now, pg_postmaster_start_time() as started_at, pg_is_in_recovery() as in_recovery, current_user as role',
+                  'settings': "select name, setting, unit from pg_settings where name in ('max_connections','shared_buffers','work_mem','maintenance_work_mem','max_parallel_workers_per_gather','track_io_timing','track_wal_io_timing')",
+                  'sessions': 'select usename, application_name, state, wait_event_type, wait_event, count(*) as n from pg_stat_activity group by 1,2,3,4,5 order by n desc limit 30',
+                  'active_queries': "select pid, usename, application_name, backend_type, state, wait_event_type, wait_event, query_id, now()-query_start as age, pg_blocking_pids(pid) as blockers from pg_stat_activity where pid<>pg_backend_pid() and (state='active' or state like 'idle in transaction%') order by query_start limit 20",
+                  'db_counters': 'select stats_reset, numbackends, xact_commit, xact_rollback, blks_read, blks_hit, temp_files, temp_bytes, deadlocks, blk_read_time, blk_write_time from pg_stat_database where datname=current_database()',
+                  'wal_archiver': 'select archived_count, last_archived_time, failed_count, last_failed_time, stats_reset from pg_stat_archiver',
+                  'database_cron': 'select jobid, jobname, schedule, active from cron.job order by jobid limit 50',
+              }
+              try:
+                  for label, query in queries.items():
+                      start = time.monotonic()
+                      try:
+                          rows = conn.execute(query).fetchall()
+                          emit(label, {'seconds': round(time.monotonic()-start,3), 'rows': rows})
+                      except Exception as exc:
+                          emit(label, {'error_type': type(exc).__name__, 'sqlstate': getattr(exc,'sqlstate',None)})
+                          if conn.closed:
+                              break
+              finally:
+                  conn.close()
+          key = config.get('SUPABASE_SERVICE_ROLE_KEY') or config.get('SUPABASE_SECRET_KEY')
+          if key:
+              headers = {'apikey': key, 'Authorization': 'Bearer ' + key}
+              with httpx.Client(timeout=10, follow_redirects=False) as client:
+                  for label, path in (('rest_read','/rest/v1/sets?select=id&limit=1'),
+                                      ('auth_health','/auth/v1/health'), ('storage_metadata','/storage/v1/bucket')):
+                      start = time.monotonic()
+                      try:
+                          response = client.get(BASE + path, headers=headers)
+                          emit(label, {'status': response.status_code, 'seconds': round(time.monotonic()-start,3)})
+                      except Exception as exc:
+                          emit(label, {'error_type': type(exc).__name__})
+                  try:
+                      response = client.get(BASE + '/customer/v1/privileged/metrics', auth=('service_role',key))
+                      emit('metrics_http', response.status_code)
+                      if response.status_code == 200:
+                          keep = re.compile(r'^(node_memory_(MemTotal|MemAvailable|SwapTotal|SwapFree|Committed_AS|CommitLimit)_bytes|node_load[15]|node_boot_time_seconds|node_cpu_seconds_total|node_disk_(io_time_seconds_total|read_bytes_total|written_bytes_total|reads_completed_total|writes_completed_total)|node_filesystem_(avail|size)_bytes)(\{|\s)')
+                          emit('metrics_sample', [line for line in response.text.splitlines() if keep.match(line)][:100])
+                  except Exception as exc:
+                      emit('metrics_error', type(exc).__name__)
+          else:
+              emit('http_credential_present', False)
+          emit('audit_finished_utc', datetime.now(timezone.utc).isoformat())
+          PY
