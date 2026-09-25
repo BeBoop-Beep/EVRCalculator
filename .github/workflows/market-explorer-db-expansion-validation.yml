@@ -8,11 +8,11 @@ on:
       - "supabase/migrations/20260924213000_market_explorer_data_surface_authorities_v1.sql"
       - "supabase/migrations/20260924214500_market_explorer_generation_surface_v2.sql"
       - "supabase/migrations/20260924220000_market_explorer_catalog_search_v1.sql"
-      - "supabase/migrations/20260925001000_bound_market_explorer_background_db_load.sql"
+      - "supabase/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
       - "backend/db/migrations/20260924213000_market_explorer_data_surface_authorities_v1.sql"
       - "backend/db/migrations/20260924214500_market_explorer_generation_surface_v2.sql"
       - "backend/db/migrations/20260924220000_market_explorer_catalog_search_v1.sql"
-      - "backend/db/migrations/20260925001000_bound_market_explorer_background_db_load.sql"
+      - "backend/db/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
       - "backend/tests/unit/db/test_market_explorer_data_surface_expansion_migrations.py"
       - "backend/tests/unit/db/test_market_explorer_background_db_load_hardening.py"
       - "backend/tests/integration/fixtures/market_explorer_data_surface_expansion_fixture.sql"
@@ -76,7 +76,7 @@ jobs:
       - name: Compile DB-load hardening migration on PostgreSQL 17
         run: |
           psql -v ON_ERROR_STOP=1 -f backend/tests/integration/fixtures/market_explorer_background_db_load_fixture.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925001000_bound_market_explorer_background_db_load.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925053152_bound_market_explorer_background_db_load.sql
 
       - name: Exercise bounded maintenance and history presence
         run: |
