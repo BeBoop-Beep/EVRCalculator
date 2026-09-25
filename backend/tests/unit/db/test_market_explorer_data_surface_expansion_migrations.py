@@ -167,11 +167,11 @@ def test_new_db_objects_are_private_and_fixed_search_path():
     assert "to service_role" in combined.lower()
     assert "from public,anon,authenticated" in combined.lower() or "from public, anon, authenticated" in combined.lower()
     scrubbed = re.sub(
-        r"grant\\s+select\\s*,\\s*insert\\s*,\\s*update\\s*,\\s*delete\\s+on[\\s\\S]*?to\\s+service_role\\s*;",
+        r"grant\s+select\s*,\s*insert\s*,\s*update\s*,\s*delete\s+on[\s\S]*?to\s+service_role\s*;",
         "",
         combined.lower(),
     )
-    assert not re.search(r"grant\\s+select\\b", scrubbed)
+    assert not re.search(r"grant\s+select\b", scrubbed)
     # All authored functions deliberately pin search_path.  No SECURITY DEFINER
     # was introduced for these authorities.
     assert "security definer" not in combined.lower()
