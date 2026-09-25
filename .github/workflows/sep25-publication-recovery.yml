@@ -1,4 +1,4 @@
-name: Sep25 validated publisher runtime upgrade
+name: Sep25 post-upgrade publication verification
 on:
   push:
     branches: [vm-ops-control]
@@ -9,119 +9,47 @@ concurrency:
   group: index-production-vm-ops-v2
   cancel-in-progress: false
 jobs:
-  upgrade:
+  verify:
     if: github.repository == 'BeBoop-Beep/EVRCalculator' && github.ref == 'refs/heads/vm-ops-control'
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
-    timeout-minutes: 8
+    timeout-minutes: 3
     steps:
-      - name: Controlled same-date upgrade, not stale-worker recovery
+      - name: Prove fresh runtime, active publication and bounded summary reads
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
           export PYTHONPATH="$PWD"
           .venv/bin/python - <<'PY'
-          import fcntl, json, subprocess, time
-          from datetime import datetime
-          from zoneinfo import ZoneInfo
-          from backend.db.clients.supabase_client import create_service_role_client
-          from backend.alerts.post_scrape_publication_watchdog import (
-              _default_all_publication_processes, _validate_active_publication_identity,
-              _default_terminate_process, PUBLICATION_LOCK_PATH)
-          TARGET='0ca31bab086f63f48b472d8119741619ad43d7ee'
-          OLD='bea8871d3bbbd5ed6314832a8961460f7858b396'
-          DAY='2026-09-25'
-          def git(*args):
-              return subprocess.check_output(['git',*args],text=True).strip()
-          def acquire(handle, seconds):
-              deadline=time.monotonic()+seconds
-              while True:
-                  try:
-                      fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
-                      return
-                  except BlockingIOError:
-                      if time.monotonic()>=deadline:
-                          raise RuntimeError('canonical lock was not released within bounded wait')
-                      time.sleep(.2)
-          assert datetime.now(ZoneInfo('America/Phoenix')).date().isoformat()==DAY
-          subprocess.run(['git','fetch','origin','main','--quiet'],check=True,timeout=30)
-          assert git('rev-parse','origin/main')==TARGET, 'Remote main changed; review before promotion'
-          head=git('rev-parse','HEAD')
-          if head==TARGET:
-              print('runtime_already_at_validated_target=true',flush=True)
-              raise SystemExit(0)
-          assert head==OLD, 'Unreviewed runtime identity; do not interrupt'
-          assert git('branch','--show-current')=='main'
-          assert not git('status','--porcelain','--untracked-files=no'), 'Tracked modifications; preserving runtime'
-          subprocess.run(['git','merge-base','--is-ancestor',OLD,TARGET],check=True)
-          expected={
-              'backend/scripts/refresh_stale_public_snapshots.py':'b546ef2cd8dda5e42b1fadc8ddd2d2a74c6216ec',
-              'backend/scripts/build_pokemon_explore_set_value_snapshot.py':'e6f3a527cb3bd4215bc12b26cb1efbdcde2e4845',
-              'backend/scripts/repair_missing_market_set_value_history.py':'9ff1255b4486c447c791887195113493c4a03f30',
-          }
-          for path,sha in expected.items():
-              assert git('hash-object',path)==sha, 'Runtime blob changed: '+path
-          assert subprocess.run(['pgrep','-f','run_daily_multi_source_card_pricing'],capture_output=True).returncode==1, 'Pricing runtime is active'
-          c=create_service_role_client()
-          batches=c.table('pokemon_scrape_batches').select('market_date,status,promoted_at,expected_set_count,succeeded_set_count,failed_set_count,missing_set_count').eq('market_date',DAY).order('id',desc=True).limit(1).execute().data or []
-          assert len(batches)==1
-          b=batches[0]
-          assert b['status']=='complete' and b['promoted_at'] and b['expected_set_count']==b['succeeded_set_count']==167 and b['failed_set_count']==b['missing_set_count']==0
-          print('batch_verified='+json.dumps(b),flush=True)
-          with open('/tmp/pokemon-scrape-dispatcher.lock','a+') as dispatcher, open(PUBLICATION_LOCK_PATH,'a+') as publication:
-              acquire(dispatcher,60)
-              processes=_default_all_publication_processes()
-              identity=_validate_active_publication_identity(processes)
-              assert identity.get('ok') and identity.get('market_date')==DAY and identity.get('refresh_pid'), 'Expected one exact Sep25 wrapper plus refresh child'
-              assert all(p['market_date']==DAY for p in processes)
-              print('runtime_upgrade_authorized='+json.dumps({'reason':'verified_old_runtime_missing_published_performance_and_delta_fixes','oldHead':OLD,'targetHead':TARGET,'identity':identity}),flush=True)
-              # Only the proven canonical refresh child is stopped. No broad pkill,
-              # no SIGKILL, no scrape/simulation/DB query cancellation, no row deletion.
-              _default_terminate_process(int(identity['refresh_pid']))
-              acquire(publication,60)
-              assert not _default_all_publication_processes(), 'Old publisher remains; no runtime mutation'
-              assert git('rev-parse','HEAD')==OLD and not git('status','--porcelain','--untracked-files=no')
-              subprocess.run(['git','switch','main'],check=True)
-              subprocess.run(['git','merge','--ff-only',TARGET],check=True)
-              assert git('rev-parse','HEAD')==TARGET
-              subprocess.run(['.venv/bin/python','-m','py_compile','backend/db/services/market_publication_sources.py','backend/scripts/repair_missing_market_set_value_history.py','backend/scripts/build_pokemon_explore_set_value_snapshot.py','backend/scripts/refresh_stale_public_snapshots.py'],check=True)
-              print('runtime_upgrade_completed='+json.dumps({'head':git('rev-parse','HEAD'),'completedSnapshotRowsPreserved':True,'scrapeRerun':False}),flush=True)
-          PY
-      - name: Fresh interpreter canonical publication request
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          export PYTHONPATH="$PWD"
-          .venv/bin/python - <<'PY'
-          import json,subprocess
-          from backend.alerts.post_scrape_publication_watchdog import run_watchdog
-          assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()=='0ca31bab086f63f48b472d8119741619ad43d7ee'
-          result=run_watchdog(recover_stalled=False,recover_superseded=False,queue_failures=False)
-          print('publication_request='+json.dumps(result,default=str),flush=True)
-          assert result.get('market_date')=='2026-09-25' and result.get('healthy')
-          assert result.get('status') in {'relaunch_requested','skipped_already_current','skipped_already_running','in_progress','price_projection_advancing'}
-          PY
-      - name: Compact result
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          export PYTHONPATH="$PWD"
-          .venv/bin/python - <<'PY'
-          import json,subprocess
+          import json, subprocess
           from pathlib import Path
           from backend.alerts.post_scrape_publication_watchdog import _default_all_publication_processes, _lock_is_held, PUBLICATION_LOCK_PATH
           from backend.db.clients.supabase_client import create_service_role_client
-          print('runtime_head='+subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),flush=True)
-          print('publication='+json.dumps({'held':_lock_is_held(PUBLICATION_LOCK_PATH),'processes':_default_all_publication_processes()}),flush=True)
+          from backend.db.services.market_publication_sources import load_compact_market_index_summaries
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert head=='0ca31bab086f63f48b472d8119741619ad43d7ee'
           c=create_service_role_client()
-          print('global='+json.dumps(c.table('pokemon_explore_set_value_snapshot_latest').select('market_date,set_count,market_count,updated_at').eq('tcg','pokemon').eq('scope','market').limit(1).execute().data),flush=True)
+          global_rows=c.table('pokemon_explore_set_value_snapshot_latest').select('market_date,set_count,market_count,updated_at').eq('tcg','pokemon').eq('scope','market').limit(1).execute().data or []
+          processes=_default_all_publication_processes()
+          report={'runtimeHead':head,'publicationLockHeld':_lock_is_held(PUBLICATION_LOCK_PATH),'processes':processes,'global':global_rows}
+          print('post_upgrade_receipt='+json.dumps(report),flush=True)
+          ids=[r['id'] for r in c.table('sets').select('id,name').in_('name',['Cosmic Eclipse','Skyridge']).execute().data or []]
+          assert len(ids)==2
+          summaries=load_compact_market_index_summaries(c,ids)
+          assert len(summaries)==2
+          evidence=[]
+          for row in summaries:
+              index=row['cardsMarket']['marketIndex']
+              assert index.get('currentValue') is not None
+              evidence.append({'setId':row['set_id'],'dashboardDate':row['latest_market_date'],'indexAsOf':index.get('asOf'),'indexValue':index['currentValue'],'movement7d':(index.get('movements') or {}).get('7d')})
+          print('compact_index_projection_smoke='+json.dumps(evidence),flush=True)
           p=Path('publication.log')
           if p.exists():
               with p.open('rb') as f:
-                  f.seek(max(0,p.stat().st_size-24000)); lines=f.read().decode('utf-8',errors='replace').splitlines()
-              signals=[line[:800] for line in lines if 'HTTP Request:' not in line and len(line)<1800]
-              print('recent_signals:\n'+'\n'.join(signals[-18:]),flush=True)
+                  f.seek(max(0,p.stat().st_size-50000)); lines=f.read().decode('utf-8',errors='replace').splitlines()
+              signals=[line[:850] for line in lines if 'HTTP Request:' not in line and len(line)<1800]
+              print('recent_publication_signals:\n'+'\n'.join(signals[-25:]),flush=True)
+          published=bool(global_rows and global_rows[0]['market_date']=='2026-09-25')
+          assert published or (processes and all(p['market_date']=='2026-09-25' for p in processes) and report['publicationLockHeld']), 'Publisher stopped before Market date advanced'
+          print('runtime_and_projection_verified=true; publication_complete='+str(published).lower(),flush=True)
           PY
