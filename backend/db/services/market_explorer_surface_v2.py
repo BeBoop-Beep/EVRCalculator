@@ -318,7 +318,16 @@ def search_catalog(client: Any, asset: str, q: str, limit: int = 20) -> list[dic
 def read_directory_v2_first(client: Any) -> list[dict[str, Any]]:
     from backend.db.services.market_explorer_prepared_directory import read_prepared_directory
     v2 = read_v2_directory(client)
-    return v2 if v2 is not None else read_prepared_directory(client)
+    if v2 is None:
+        return read_prepared_directory(client)
+    # Legacy prepared identities resolve server-side: each row publishes the
+    # generation-scoped aliases that map to it, so deep links / saved selections
+    # using an old key still land on the canonical market. React holds no table.
+    aliases = read_aliases(client, str(v2[0]["generation_id"]))
+    by_market: dict[str, list[str]] = {}
+    for alias, market in aliases.items():
+        by_market.setdefault(market, []).append(alias)
+    return [{**row, "legacy_aliases": sorted(by_market.get(row["market_key"], []))} for row in v2]
 
 
 def read_comparison_v2_first(client: Any, keys: list[str], start_date: str | None = None) -> dict[str, Any]:

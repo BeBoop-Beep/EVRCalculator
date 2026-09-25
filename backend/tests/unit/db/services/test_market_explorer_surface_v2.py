@@ -14,7 +14,7 @@ def drow(key, scope, asset="cards", **kw):
                 taxonomy_key=None, source_as_of="2026-09-24", current_tracked_value=100.5,
                 current_index_value=101.2, history_available=True, history_start_date="2026-01-01",
                 history_end_date="2026-09-24", history_point_count=5, constituent_count=3,
-                composition_kind="index_only", availability="available", unavailable_reason=None,
+                composition_kind="index", availability="available", unavailable_reason=None,
                 definition_version="d1", metadata={})
     base.update(kw)
     return base
@@ -203,3 +203,11 @@ def test_asset_options_missing_authority_is_explicit():
     with pytest.raises(v2.SurfaceV2Error) as e:
         v2.read_asset_options(Client(fail={v2.ASSET_OPTIONS_RPC_V2: err}), "cards")
     assert e.value.code == "ASSET_OPTIONS_UNAVAILABLE"
+
+
+def test_directory_publishes_legacy_aliases_per_market():
+    c = Client(directory=[drow("sealed-type:booster_box", "type", asset="sealed"), drow("set:a", "set")],
+               aliases=[{"alias_key": "format:booster-box", "market_key": "sealed-type:booster_box"}])
+    rows = {r["market_key"]: r for r in v2.read_directory_v2_first(c)}
+    assert rows["sealed-type:booster_box"]["legacy_aliases"] == ["format:booster-box"]
+    assert rows["set:a"]["legacy_aliases"] == []
