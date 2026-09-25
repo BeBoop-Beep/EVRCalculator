@@ -7,6 +7,7 @@ MIGRATIONS = (
     "20260924214500_market_explorer_generation_surface_v2.sql",
     "20260924220000_market_explorer_catalog_search_v1.sql",
     "20260925061000_market_explorer_raw_frozen_set_value_constituents_v1.sql",
+    "20260925064000_market_explorer_rarity_daily_coverage_v1.sql",
 )
 
 
@@ -218,4 +219,27 @@ def test_frozen_set_value_leaf_publication_is_private_bounded_and_atomic():
     assert "enable row level security" in sql
     assert "from public,anon,authenticated" in sql
     assert "to service_role" in sql
+    assert "security definer" not in sql
+
+
+def test_rarity_registry_uses_bounded_daily_coverage_not_full_history_scan():
+    sql = read(MIGRATIONS[4])
+    assert "pokemon_market_explorer_rarity_daily_coverage_v1" in sql
+    assert "p_through-p_from>30" in sql
+    assert "set statement_timeout = '15s'" in sql
+    registry = sql.split(
+        "create or replace function public.refresh_pokemon_market_explorer_rarity_registry_v1(", 1
+    )[1].split("$function$;", 1)[0]
+    assert "pokemon_market_explorer_rarity_daily_coverage_v1" in registry
+    assert "pokemon_market_explorer_card_daily_states_v2_shadow" not in registry
+    assert "set statement_timeout = '10s'" in registry
+    assert "RARITY_AUDIT_MARKET_DATE_NOT_MATERIALIZED" in registry
+
+
+def test_rarity_daily_coverage_is_private_incremental_and_indexed():
+    sql = read(MIGRATIONS[4]).lower()
+    assert "enable row level security" in sql
+    assert "from public,anon,authenticated" in sql
+    assert "to service_role" in sql
+    assert "filter_rarity_key,card_variant_id,set_id" in sql
     assert "security definer" not in sql
