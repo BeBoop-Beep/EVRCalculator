@@ -1,4 +1,4 @@
 {
-  "operation": "publication-live-debug",
-  "request_id": "sep24-publication-live-debug"
+  "operation": "pytest-global-market-deferred-segments-fix",
+  "request_id": "sep24-global-market-deferred-segments-test"
 }
