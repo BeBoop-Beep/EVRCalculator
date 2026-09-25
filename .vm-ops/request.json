@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sep24-snapshot-recovery-now"
+  "operation": "market-vintage-db-migrate",
+  "request_id": "market-vintage-db-migrate-20260924"
 }
