@@ -384,3 +384,26 @@ The application branch already supports `marketKey`, `marketScope`, `baseSetName
 5. Do not merge the coordinator prototype migration over this DB authority branch; reconcile the application files against this final contract.
 
 
+
+
+## Q. Production cutover durability latch
+
+A post-validation production hardening migration is recorded as
+`20260925163225_lock_vintage_scope_activation.sql`.
+
+It adds a singleton activation latch to the Global Set Market snapshot boundary.
+Before the first scoped publication, legacy one-market-per-root snapshots remain
+compatible. The first valid scoped snapshot activates the latch transactionally.
+After activation, any attempt to replace the scoped payload with an all-Standard
+legacy payload raises `LEGACY_VINTAGE_MARKET_SNAPSHOT_REJECTED` before the
+Explorer directory sync can regress.
+
+Rollback remains deliberate: service-role may call
+`rollback_pokemon_market_set_scope_activation_v1(expected_activated_at, reason)`.
+The exact activation timestamp and a non-empty reason are required. A failed
+cutover transaction never leaves the latch active because activation occurs in
+the same transaction as the scoped snapshot write.
+
+This closes the operational gap where an older scheduled publisher could
+otherwise overwrite a successful 167-market scoped cutover before application
+code is fully reconciled/deployed.

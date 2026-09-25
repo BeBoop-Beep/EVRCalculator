@@ -26,6 +26,28 @@ BEGIN
   IF to_regprocedure('public.normalize_pokemon_explore_set_value_market_count_v1()') IS NULL THEN
     RAISE EXCEPTION 'market_count normalization trigger function is missing';
   END IF;
+  IF to_regclass('public.pokemon_market_set_scope_activation_v1') IS NULL THEN
+    RAISE EXCEPTION 'scope activation latch table is missing';
+  END IF;
+  IF to_regprocedure('public.guard_pokemon_market_set_scope_snapshot_v1()') IS NULL THEN
+    RAISE EXCEPTION 'scope activation snapshot guard function is missing';
+  END IF;
+  IF to_regprocedure('public.rollback_pokemon_market_set_scope_activation_v1(timestamptz,text)') IS NULL THEN
+    RAISE EXCEPTION 'scope activation rollback function is missing';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid='public.pokemon_explore_set_value_snapshot_latest'::regclass
+      AND tgname='pokemon_explore_set_value_scope_contract_guard'
+      AND NOT tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'scope activation snapshot guard trigger is missing';
+  END IF;
+  IF has_function_privilege('anon','public.rollback_pokemon_market_set_scope_activation_v1(timestamptz,text)','EXECUTE')
+     OR has_function_privilege('authenticated','public.rollback_pokemon_market_set_scope_activation_v1(timestamptz,text)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.rollback_pokemon_market_set_scope_activation_v1(timestamptz,text)','EXECUTE') THEN
+    RAISE EXCEPTION 'scope activation rollback privileges are incorrect';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM pg_trigger
     WHERE tgrelid='public.pokemon_explore_set_value_snapshot_latest'::regclass
@@ -258,6 +280,48 @@ BEGIN
   ) INTO scoped_active;
 
   IF scoped_active THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.pokemon_market_set_scope_activation_v1 a
+      WHERE a.singleton=true AND a.active=true
+        AND a.activated_market_date=(
+          SELECT s.market_date
+          FROM public.pokemon_explore_set_value_snapshot_latest s
+          WHERE s.tcg='pokemon' AND s.scope='market'
+          LIMIT 1
+        )
+    ) THEN
+      RAISE EXCEPTION 'scoped serving snapshot did not activate the scope-contract latch';
+    END IF;
+
+    -- Once active, a legacy all-Standard payload must fail before it can
+    -- overwrite the scoped snapshot or trigger a directory regression.
+    DECLARE
+      rejected boolean := false;
+      legacy_sets jsonb;
+    BEGIN
+      SELECT coalesce(jsonb_agg(e),'[]'::jsonb)
+        INTO legacy_sets
+      FROM jsonb_array_elements(payload->'sets') e
+      WHERE coalesce(nullif(e->>'marketScope',''),'standard')='standard';
+
+      BEGIN
+        UPDATE public.pokemon_explore_set_value_snapshot_latest
+        SET payload_json=jsonb_set(payload,'{sets}',legacy_sets,true)
+        WHERE tcg='pokemon' AND scope='market';
+      EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        IF SQLERRM LIKE 'LEGACY_VINTAGE_MARKET_SNAPSHOT_REJECTED:%' THEN
+          rejected:=true;
+        ELSE
+          RAISE;
+        END IF;
+      END;
+
+      IF NOT rejected THEN
+        RAISE EXCEPTION 'active scope-contract latch allowed a legacy snapshot overwrite';
+      END IF;
+    END;
+
     payload_count:=jsonb_array_length(payload->'sets');
     SELECT count(distinct (e->>'setId')::uuid)::integer INTO root_count
     FROM jsonb_array_elements(payload->'sets') e;
