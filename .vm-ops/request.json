@@ -1,4 +1,1 @@
-{
-  "operation": "code-red-db-load-shed",
-  "request_id": "code-red-20260924-load-shed-v2"
-}
+{"operation":"market-explorer-db-diagnose","request_id":"code-red-post-restart-connection"}
