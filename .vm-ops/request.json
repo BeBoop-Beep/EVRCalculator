@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "sep24-market-explorer-pre-restart-status"
+  "operation": "market-vintage-db-migrate",
+  "request_id": "market-vintage-db-migrate-20260924d"
 }
