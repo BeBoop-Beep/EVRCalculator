@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -48,7 +48,7 @@ jobs:
           set_id = set_id or ""
           request_id = request_id or ""
 
-          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher", "restart-sep24-publisher-optimized", "sync-launch-sep24-publisher-optimized", "run-sep24-publisher-optimized"} and not market_date:
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher", "stop-sep24-global-card-segment-publisher", "restart-sep24-publisher-optimized", "sync-launch-sep24-publisher-optimized", "run-sep24-publisher-optimized"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
@@ -1061,6 +1061,118 @@ jobs:
               done
               [ "$FREE" -eq 1 ] || { echo "publication lock still held"; exit 23; }
               echo "STOP_STALE_SEP22_PUBLISHER=PASS"
+              ;;
+
+            stop-sep24-global-card-segment-publisher)
+              cd "$REPO"
+              test "$VM_MARKET_DATE" = "2026-09-24" || { echo "This guarded stop is scoped only to Sep24"; exit 8; }
+              set -a
+              . backend/.env
+              set +a
+              echo "== prove durable authorities before interruption =="
+              "$PY" - <<'PY'
+          import os
+          import signal
+          import subprocess
+          import time
+          from pathlib import Path
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          target = "2026-09-24"
+          c = create_service_role_client()
+          index_rows = list(
+              c.table("pokemon_market_index_daily_history")
+              .select("index_key,market_date")
+              .eq("tcg", "pokemon")
+              .eq("market_date", target)
+              .in_("index_key", ["raw", "top10"])
+              .execute().data or []
+          )
+          found = {str(row.get("index_key")) for row in index_rows}
+          global_rows = list(
+              c.table("pokemon_explore_set_value_snapshot_latest")
+              .select("market_date,updated_at")
+              .eq("tcg", "pokemon")
+              .eq("scope", "market")
+              .limit(1)
+              .execute().data or []
+          )
+          global_date = str((global_rows[0] if global_rows else {}).get("market_date") or "")[:10]
+          print({"index_keys_at_target": sorted(found), "global_market_date": global_date}, flush=True)
+          if found != {"raw", "top10"}:
+              raise SystemExit("refusing: Sep24 Raw/Top10 index authorities are not both durable")
+          if global_date == target:
+              raise SystemExit("refusing: global Market is already Sep24; no stale publisher stop is needed")
+
+          raw = subprocess.run(
+              ["ps", "-eo", "pid=,ppid=,etimes=,args="],
+              capture_output=True, text=True, check=True,
+          ).stdout.splitlines()
+          procs = []
+          for line in raw:
+              parts = line.strip().split(None, 3)
+              if len(parts) != 4:
+                  continue
+              try:
+                  pid, ppid, age = map(int, parts[:3])
+              except ValueError:
+                  continue
+              procs.append({"pid": pid, "ppid": ppid, "age": age, "args": parts[3]})
+
+          wrapper_cmd = "bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-24"
+          wrappers = [p for p in procs if p["args"].strip() == wrapper_cmd]
+          if len(wrappers) != 1:
+              raise SystemExit(f"refusing: expected one exact Sep24 wrapper, found {wrappers}")
+          wrapper = wrappers[0]
+          children = [
+              p for p in procs
+              if p["ppid"] == wrapper["pid"]
+              and "backend/scripts/refresh_stale_public_snapshots.py" in p["args"]
+              and "--market-date 2026-09-24" in p["args"]
+          ]
+          if len(children) != 1:
+              raise SystemExit(f"refusing: expected one exact Sep24 refresh child, found {children}")
+          child = children[0]
+          if min(wrapper["age"], child["age"]) < 900:
+              raise SystemExit(f"refusing: publisher is not old enough for this guarded replacement wrapper={wrapper} child={child}")
+
+          log_path = Path("/home/ubuntu/repos/EVRCalculator/publication.log")
+          text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+          marker = "[refresh-phase] planning complete; entering rebuild/write phase sets=212"
+          start = text.rfind(marker)
+          if start < 0:
+              raise SystemExit("refusing: current rebuild/write marker not found")
+          suffix = text[start:]
+          if "market_index:2026-09-24:published" not in suffix:
+              raise SystemExit("refusing: current run has not durably published Sep24 Market index")
+          if "[cards-market] constituent RPC timeout" not in suffix:
+              raise SystemExit("refusing: current run is not proven inside the slow card-segment constituent path")
+          if "refresh exit_status=" in suffix:
+              raise SystemExit("refusing: refresh already reached a terminal wrapper status")
+          print({"wrapper": wrapper, "refresh_child": child, "log_suffix_bytes": len(suffix)}, flush=True)
+
+          os.kill(child["pid"], signal.SIGTERM)
+          print("sigterm_refresh_pid=" + str(child["pid"]), flush=True)
+          for _ in range(20):
+              time.sleep(1)
+              if not Path(f"/proc/{wrapper['pid']}").exists():
+                  break
+          if Path(f"/proc/{wrapper['pid']}").exists():
+              os.kill(wrapper["pid"], signal.SIGTERM)
+              print("sigterm_wrapper_pid=" + str(wrapper["pid"]), flush=True)
+          PY
+
+              FREE=0
+              for i in $(seq 1 30); do
+                if /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                  FREE=1
+                  echo "publication_lock=free"
+                  break
+                fi
+                sleep 2
+              done
+              [ "$FREE" -eq 1 ] || { echo "publication lock still held after guarded Sep24 replacement stop"; exit 23; }
+              echo "STOP_SEP24_GLOBAL_CARD_SEGMENT_PUBLISHER=PASS"
               ;;
 
             restart-sep24-publisher-optimized)
