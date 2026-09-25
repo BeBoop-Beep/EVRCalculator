@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sep24-postrestart-detached-publication-fixed"
+  "operation": "scrape-cycle-status",
+  "request_id": "sep24-verify-detached-publisher-survived"
 }
