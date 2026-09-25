@@ -1,4 +1,4 @@
 {
-  "operation": "scrape-cycle-status",
-  "request_id": "sep24-snapshot-cron-status"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sep24-snapshot-recovery-after-db-return"
 }
