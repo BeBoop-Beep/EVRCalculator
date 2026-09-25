@@ -1,4 +1,4 @@
 {
-  "operation": "pytest-publication-detach-fix",
-  "request_id": "sep24-publication-detach-test"
+  "operation": "sync-main-preserve-untracked-artifacts",
+  "request_id": "sep24-deploy-publication-detach-fix"
 }
