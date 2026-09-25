@@ -234,6 +234,9 @@ def test_rarity_registry_uses_bounded_daily_coverage_not_full_history_scan():
     assert "pokemon_market_explorer_card_daily_states_v2_shadow" not in registry
     assert "set statement_timeout = '10s'" in registry
     assert "RARITY_AUDIT_MARKET_DATE_NOT_MATERIALIZED" in registry
+    assert "RARITY_COVERAGE_NOT_CERTIFIED" in registry
+    assert "certify_pokemon_market_explorer_rarity_coverage_v1" in sql
+    assert "RARITY_COVERAGE_INCOMPLETE" in sql
 
 
 def test_rarity_daily_coverage_is_private_incremental_and_indexed():
