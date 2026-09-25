@@ -1,5 +1,5 @@
 -- Run as a database owner against a database with
--- 20260924190000_explicit_vintage_market_scopes.sql applied.
+-- 20260925161052_explicit_vintage_market_scopes.sql applied.
 -- All assertions are read-only; the outer transaction is rolled back.
 
 BEGIN;

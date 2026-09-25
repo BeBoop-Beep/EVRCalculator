@@ -197,8 +197,8 @@ A scoped public serving cutover must use `run_market_explorer_guarded_publisher_
 
 Files:
 
-- `backend/db/migrations/20260924190000_explicit_vintage_market_scopes.sql`
-- `supabase/migrations/20260924190000_explicit_vintage_market_scopes.sql`
+- `backend/db/migrations/20260925161052_explicit_vintage_market_scopes.sql`
+- `supabase/migrations/20260925161052_explicit_vintage_market_scopes.sql`
 - `supabase/tests/explicit_vintage_market_scopes.sql`
 
 The two migration trees are byte-identical.
@@ -315,7 +315,7 @@ The temporary paid Supabase validation branch was used only for isolated Postgre
 
 Still requiring explicit user authorization:
 
-1. applying `20260924190000_explicit_vintage_market_scopes.sql` to production;
+1. applying `20260925161052_explicit_vintage_market_scopes.sql` to production;
 2. committing the scoped Global Set Market production snapshot;
 3. running/promoting the new guarded prepared Explorer generation;
 4. any historical source-data correction for the three withheld first-edition histories.
