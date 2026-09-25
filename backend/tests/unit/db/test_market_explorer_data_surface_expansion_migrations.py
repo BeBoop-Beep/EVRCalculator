@@ -182,3 +182,10 @@ def test_no_commercial_comparison_quota_is_encoded():
     combined = "\n".join(read(x) for x in MIGRATIONS).lower()
     for forbidden in ("index+ limit", "premium limit", "comparison quota", "max_active_markets"):
         assert forbidden not in combined
+
+
+def test_live_prepared_rarity_segment_id_is_supported():
+    authority_sql = read(MIGRATIONS[0])
+    surface_sql = read(MIGRATIONS[1])
+    assert "nullif(d.metadata->>'segmentId','')" in authority_sql
+    assert "nullif(d.metadata->>'segmentId','')" in surface_sql
