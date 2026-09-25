@@ -1,0 +1,26 @@
+name: Market Explorer Ops Performance Validation
+
+on:
+  push:
+    branches:
+      - feat/market-explorer-data-surface-expansion-20260924
+    paths:
+      - "backend/scripts/refresh_stale_public_snapshots.py"
+      - "backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py"
+      - ".github/workflows/market-explorer-ops-performance-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot-refresh-contract:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile refresh orchestrator
+        run: |
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m py_compile backend/scripts/refresh_stale_public_snapshots.py
+      - name: Run stale-snapshot unit suite
+        run: |
+          /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m pytest             backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py -q
