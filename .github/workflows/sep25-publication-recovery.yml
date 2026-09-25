@@ -1,163 +1,45 @@
-name: Sep25 bounded publication recovery
+name: Sep25 publication runtime audit
 on:
   push:
     branches: [vm-ops-control]
     paths: [.github/workflows/sep25-publication-recovery.yml]
 permissions:
   contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
 jobs:
-  retire-waiter:
+  audit:
     if: github.repository == 'BeBoop-Beep/EVRCalculator' && github.ref == 'refs/heads/vm-ops-control'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    permissions:
-      actions: write
-      contents: read
-    steps:
-      - name: Retire only this incident's waiting handoff
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json, os, time, urllib.request, urllib.error
-          base='https://api.github.com/repos/BeBoop-Beep/EVRCalculator/actions/runs/36192460198'
-          def call(method='GET'):
-              request=urllib.request.Request(base+('/cancel' if method=='POST' else ''), method=method,
-                headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'})
-              with urllib.request.urlopen(request, timeout=20) as response:
-                  raw=response.read()
-                  return json.loads(raw) if raw else {}
-          run=call()
-          assert run['head_sha']=='5be17dd21d12db89aa6fedf0198d64f5edc01f6f'
-          assert run['head_branch']=='vm-ops-control'
-          assert run['path']=='.github/workflows/controlled-vm-ops.yml'
-          assert run['head_commit']['message']=='vm-op: wait-sync-main-after-publication request_id=sep25-pr378-canonical-publication-repair'
-          if run['status']!='completed':
-              try:
-                  call('POST')
-              except urllib.error.HTTPError as error:
-                  if error.code!=409:
-                      raise
-              for _ in range(18):
-                  time.sleep(5)
-                  run=call()
-                  if run['status']=='completed':
-                      break
-          assert run['status']=='completed', 'waiting handoff did not retire within 90 seconds'
-          print(json.dumps({'retiredRun':run['id'],'status':run['status'],'conclusion':run['conclusion']}))
-          PY
-  recover:
-    needs: retire-waiter
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
-    timeout-minutes: 12
-    concurrency:
-      group: index-production-vm-ops-v2
-      cancel-in-progress: false
+    timeout-minutes: 3
     steps:
-      - name: Verify and retire superseded publisher, without launching another
+      - name: Read-only runtime and publication identity
         shell: bash
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          export PYTHONPATH="$PWD"
-          .venv/bin/python - <<'PY'
-          import json, time
-          from datetime import datetime
-          from zoneinfo import ZoneInfo
-          from backend.db.clients.supabase_client import create_service_role_client
-          from backend.alerts.post_scrape_publication_watchdog import run_watchdog, _lock_is_held, PUBLICATION_LOCK_PATH, _default_all_publication_processes
-          assert datetime.now(ZoneInfo('America/Phoenix')).date().isoformat()=='2026-09-25'
-          c=create_service_role_client()
-          rows=c.table('pokemon_scrape_batches').select('market_date,status,promoted_at,expected_set_count,succeeded_set_count,failed_set_count,missing_set_count').eq('market_date','2026-09-25').order('id',desc=True).limit(1).execute().data or []
-          assert len(rows)==1
-          b=rows[0]
-          assert b['status']=='complete' and b['promoted_at'] and b['expected_set_count']==b['succeeded_set_count'] and b['expected_set_count']>0 and b['failed_set_count']==0 and b['missing_set_count']==0
-          print('batch='+json.dumps(b),flush=True)
-          active=_default_all_publication_processes()
-          print('pre_handoff_processes='+json.dumps(active),flush=True)
-          if _lock_is_held(PUBLICATION_LOCK_PATH):
-              assert active and all(p['market_date']=='2026-09-24' for p in active), 'Only proven superseded Sep24 processes may be interrupted'
-              result=run_watchdog(client=c,recover_superseded=True,recover_stalled=False,queue_failures=False)
-              print('supersession='+json.dumps(result,default=str),flush=True)
-              assert result.get('status')=='supersession_sigterm_requested', 'Watchdog did not authorize supersession'
-              for _ in range(30):
-                  if not _lock_is_held(PUBLICATION_LOCK_PATH):
-                      break
-                  time.sleep(2)
-          assert not _lock_is_held(PUBLICATION_LOCK_PATH), 'Publication lock remains held; no second publisher will be launched'
-          assert not _default_all_publication_processes(), 'Publisher process remains; no runtime change permitted'
-          print('superseded_publisher_retired=true',flush=True)
-          PY
-      - name: Install validated main under both canonical locks
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          exec 8>/tmp/pokemon-post-scrape-publication.lock
-          flock -n 8 || { echo 'Publication active again; refusing runtime switch'; exit 1; }
-          exec 9>/tmp/pokemon-scrape-dispatcher.lock
-          flock -w 60 9 || { echo 'Scrape dispatcher active; refusing runtime switch'; exit 1; }
-          TARGET=b7d26f714886fe5819cf7e9e3caa945bddb31e57
           git fetch origin main --quiet
-          git merge-base --is-ancestor "$TARGET" origin/main
-          test "$(git rev-parse origin/main)" = "$TARGET" || { echo 'Main advanced; review newer changes before deployment'; exit 1; }
-          git merge-base --is-ancestor HEAD "$TARGET" || { echo 'Runtime has unmerged local commits; preserving them'; exit 1; }
-          DIRTY="$(git status --porcelain --untracked-files=no | sed -E 's/^.. //')"
-          if [ -n "$DIRTY" ]; then
-            test "$DIRTY" = payload_debug.json || { git status --short --untracked-files=no; exit 1; }
-            git diff --quiet HEAD.."$TARGET" -- payload_debug.json || { echo 'Debug payload conflicts with target'; exit 1; }
-          fi
-          if pgrep -f 'run_daily_multi_source_card_pricing' >/dev/null; then echo 'Pricing runtime active; refusing switch'; exit 1; fi
-          echo "pre_sync_head=$(git rev-parse HEAD)"
-          git switch -C main "$TARGET"
-          test "$(git rev-parse HEAD)" = "$TARGET"
-          .venv/bin/python -m py_compile backend/db/services/market_publication_sources.py backend/scripts/repair_missing_market_set_value_history.py backend/scripts/build_pokemon_explore_set_value_snapshot.py
-          echo "post_sync_head=$(git rev-parse HEAD)"
-          echo 'runtime_repair_installed=true'
-      - name: Request canonical September25 publication on repaired runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
-          export PYTHONPATH="$PWD"
-          .venv/bin/python - <<'PY'
-          import json
-          from backend.alerts.post_scrape_publication_watchdog import run_watchdog
-          result=run_watchdog(recover_superseded=True,recover_stalled=False,queue_failures=False)
-          print('publication_request='+json.dumps(result,default=str),flush=True)
-          assert result.get('market_date')=='2026-09-25'
-          assert result.get('healthy'), 'Publication request did not reach a healthy state'
-          assert result.get('status') in {'relaunch_requested','skipped_already_current','skipped_already_running','in_progress','price_projection_advancing'}
-          PY
-      - name: Compact final state, without dumping histories or secrets
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /home/ubuntu/repos/EVRCalculator
           export PYTHONPATH="$PWD"
           .venv/bin/python - <<'PY'
           import json, subprocess
           from pathlib import Path
-          from backend.db.clients.supabase_client import create_service_role_client
           from backend.alerts.post_scrape_publication_watchdog import _default_all_publication_processes, _lock_is_held, PUBLICATION_LOCK_PATH
+          from backend.db.clients.supabase_client import create_service_role_client
+          def git(*args):
+              p=subprocess.run(['git',*args],capture_output=True,text=True)
+              return p.stdout.strip() if p.returncode==0 else 'UNAVAILABLE'
+          target='0ca31bab086f63f48b472d8119741619ad43d7ee'
+          paths=['backend/db/services/market_publication_sources.py','backend/scripts/build_pokemon_explore_set_value_snapshot.py','backend/scripts/repair_missing_market_set_value_history.py','backend/scripts/refresh_stale_public_snapshots.py','backend/alerts/post_scrape_publication_watchdog.py']
+          print('runtime_identity='+json.dumps({'head':git('rev-parse','HEAD'),'branch':git('branch','--show-current'),'originMain':git('rev-parse','origin/main'),'recentCommits':git('log','-4','--format=%h %s'),'localOnlyCommits':git('log','origin/main..HEAD','--format=%h %s'),'trackedDirty':git('status','--porcelain','--untracked-files=no'),'differentPaths':git('diff','--name-only','origin/main','HEAD').splitlines(),'targetAncestorExit':subprocess.run(['git','merge-base','--is-ancestor',target,'HEAD']).returncode}),flush=True)
+          print('runtime_blobs='+json.dumps({path:{'local':git('hash-object',path),'target':git('rev-parse',target+':'+path)} for path in paths}),flush=True)
+          print('publication_identity='+json.dumps({'held':_lock_is_held(PUBLICATION_LOCK_PATH),'processes':_default_all_publication_processes()}),flush=True)
           c=create_service_role_client()
-          print('runtime_head='+subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
-          print('publication_lock_held='+str(_lock_is_held(PUBLICATION_LOCK_PATH)))
-          print('publisher_processes='+json.dumps(_default_all_publication_processes()))
-          for table,cols,filters in [
-              ('pokemon_explore_set_value_snapshot_latest','market_date,set_count,market_count,updated_at',{'tcg':'pokemon','scope':'market'}),
-              ('pokemon_market_date_quality','market_date,status,qualifying_set_count,evaluated_at',{'tcg':'pokemon','market_date':'2026-09-25'})]:
-              q=c.table(table).select(cols)
-              for key,value in filters.items(): q=q.eq(key,value)
-              print(table+'='+json.dumps(q.limit(2).execute().data,default=str))
-          log=Path('publication.log')
-          if log.exists():
-              with log.open('rb') as f:
-                  f.seek(max(0,log.stat().st_size-16000))
-                  lines=f.read().decode('utf-8',errors='replace').splitlines()
-              signals=[line[:700] for line in lines if 'HTTP Request:' not in line and len(line)<2000]
-              print('publication_recent_signals:\n'+'\n'.join(signals[-18:]))
+          print('global='+json.dumps(c.table('pokemon_explore_set_value_snapshot_latest').select('market_date,set_count,market_count,updated_at').eq('tcg','pokemon').eq('scope','market').limit(1).execute().data),flush=True)
+          p=Path('publication.log')
+          if p.exists():
+              with p.open('rb') as f:
+                  f.seek(max(0,p.stat().st_size-45000)); lines=f.read().decode('utf-8',errors='replace').splitlines()
+              signals=[s[:900] for s in lines if 'HTTP Request:' not in s and len(s)<1800]
+              print('recent_signals:\n'+'\n'.join(signals[-22:]),flush=True)
           PY
