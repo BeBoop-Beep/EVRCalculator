@@ -1,6 +1,6 @@
 -- Incremental rarity coverage authority for Market Explorer.
 -- Avoids rescanning the full card x date history whenever the rarity registry
--- is refreshed. Backfill is deliberately bounded to <=31 calendar days/call.
+-- is refreshed. Backfill is deliberately bounded to <=14 calendar days/call.
 
 begin;
 
@@ -53,7 +53,7 @@ begin
   if p_from is null or p_through is null or p_from>p_through then
     raise exception 'RARITY_COVERAGE_INVALID_RANGE';
   end if;
-  if p_through-p_from>30 then
+  if p_through-p_from>13 then
     raise exception 'RARITY_COVERAGE_RANGE_TOO_LARGE';
   end if;
 
