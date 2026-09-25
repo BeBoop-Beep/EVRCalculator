@@ -610,3 +610,70 @@ After the vintage prerequisite lands:
 7. atomically promote the v2 serving pointer only if all gates pass.
 
 No merge or frontend work is performed by this DB handoff.
+
+
+### Final performance refinement — rarity coverage
+
+A second publication-time performance issue was identified during the live re-audit:
+the original rarity registry history calculation scanned the complete
+`pokemon_market_explorer_card_daily_states_v2_shadow` history. The equivalent
+live aggregation exceeded a 15-second budget even when using the already-materialized
+`filter_rarity_key`.
+
+This is replaced by:
+
+- `pokemon_market_explorer_rarity_daily_coverage_v1`
+- `refresh_pokemon_market_explorer_rarity_daily_coverage_v1(from, through)`
+- `pokemon_market_explorer_rarity_coverage_certification_v1`
+- `certify_pokemon_market_explorer_rarity_coverage_v1(through)`
+
+Migration:
+- `20260925064000_market_explorer_rarity_daily_coverage_v1.sql`
+
+The materializer:
+- aggregates only a bounded date window,
+- hard-caps one call at 14 calendar days,
+- has a 15-second statement timeout and 2-second lock timeout,
+- uses the persisted `filter_rarity_key`,
+- persists priced-card count, represented-Set count, and image count per rarity/date.
+
+Live load probes:
+- 14-day-equivalent aggregation: ~404k daily-state rows, completed within the 15-second budget.
+- 31-day-equivalent aggregation: ~943k rows, also completed under 15 seconds, but was rejected as unnecessarily aggressive.
+- The contract therefore intentionally uses the smaller 14-day cap.
+
+The certification RPC derives the retained source start, verifies every accepted
+`pokemon_market_date_quality` date through the requested target has materialized rarity
+coverage, and only then records a certified range.
+
+`refresh_pokemon_market_explorer_rarity_registry_v1` now reads only the compact daily
+coverage table and refuses to run for an uncertified target date. Candidate generation
+therefore cannot silently treat a partial backfill as complete and cannot fall back to a
+whole-history scan.
+
+### Final current-head validation
+
+Code head validated:
+`0b43c1aa7ec4e0b50cf8c4c30a5b2987bbf66708`
+
+Current-head Market Explorer DB Expansion Validation: **SUCCESS**
+
+Passed stages:
+- static migration contract tests,
+- PostgreSQL 17 fixture install,
+- all Explorer expansion migrations compile,
+- exact frozen Raw leaf acceptance,
+- bounded/certified rarity coverage acceptance,
+- legacy prepared-rarity preservation,
+- Rare Holo GX candidate/search,
+- sealed parent/Set/Era/type lattice,
+- bulk-container exclusion,
+- contextual search and Graded fail-closed,
+- generation/page guards,
+- DB-load hardening compile,
+- bounded maintenance/history-presence execution.
+
+Pattern Overlay Guardrails on the corresponding current-head code path also passed.
+
+The handoff documentation commit itself may be newer than the validated code head; it
+contains documentation only.
