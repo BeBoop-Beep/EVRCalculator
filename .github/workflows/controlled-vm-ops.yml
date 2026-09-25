@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|sync-main-preserve-payload-debug|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|set-market-snapshot|explorer-prewarm-one|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -1524,6 +1524,108 @@ jobs:
               uname -m
               free -h
               df -h /
+              ;;
+
+            market-vintage-db-migrate)
+              cd "$REPO"
+              test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL Actions secret missing"; exit 5; }
+              TARGET_REF="origin/fix/market-vintage-db-authority-20260924"
+              WT="/tmp/EVRCalculator-market-vintage-db-migrate"
+              MIG="supabase/migrations/20260924190000_explicit_vintage_market_scopes.sql"
+              BACKEND_MIG="backend/db/migrations/20260924190000_explicit_vintage_market_scopes.sql"
+              HIST="/tmp/market_vintage_migration_history.sql"
+
+              echo "== fetch vetted DB authority =="
+              git fetch origin fix/market-vintage-db-authority-20260924
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET_REF"
+              cd "$WT"
+              echo "db_authority_sha=$(git rev-parse HEAD)"
+              cmp "$MIG" "$BACKEND_MIG"
+              sha256sum "$MIG" "$BACKEND_MIG"
+
+              command -v psql >/dev/null 2>&1 || { echo "psql is required on production VM"; exit 6; }
+
+              echo "== preflight migration state =="
+              APPLIED="$(psql "$ACTIONS_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select exists(select 1 from supabase_migrations.schema_migrations where version='20260924190000')::text")"
+              HAS_CONTRACT="$(psql "$ACTIONS_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select (to_regclass('public.pokemon_market_set_scope_contract_v1') is not null)::text")"
+              HAS_MARKET_COUNT="$(psql "$ACTIONS_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select exists(select 1 from information_schema.columns where table_schema='public' and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count')::text")"
+              echo "history_applied=$APPLIED contract_present=$HAS_CONTRACT market_count_present=$HAS_MARKET_COUNT"
+              if [ "$APPLIED" = "t" ]; then
+                if [ "$HAS_CONTRACT" != "t" ] || [ "$HAS_MARKET_COUNT" != "t" ]; then
+                  echo "Migration history/schema disagree; refusing to continue"
+                  exit 7
+                fi
+                echo "migration_already_current=true"
+              else
+                echo "== generate atomic migration-history record =="
+                MIG_PATH="$MIG" HIST_PATH="$HIST" python3 - <<'PY'
+import os
+from pathlib import Path
+sql = Path(os.environ["MIG_PATH"]).read_text(encoding="utf-8")
+tag = "$evr_vintage_scope_migration$"
+if tag in sql:
+    raise SystemExit("history dollar-quote tag unexpectedly present in migration")
+history = (
+    "insert into supabase_migrations.schema_migrations(version,name,statements) "
+    "values ('20260924190000','explicit_vintage_market_scopes',"
+    "ARRAY[" + tag + sql + tag + "]::text[]) "
+    "on conflict (version) do nothing;\n"
+)
+Path(os.environ["HIST_PATH"]).write_text(history, encoding="utf-8")
+PY
+                echo "== apply migration atomically =="
+                PGOPTIONS="-c statement_timeout=600000 -c lock_timeout=15000" \
+                  psql "$ACTIONS_DATABASE_URL" -X --single-transaction -v ON_ERROR_STOP=1 \
+                    -f "$MIG" -f "$HIST"
+              fi
+
+              echo "== verify production DB contract =="
+              psql "$ACTIONS_DATABASE_URL" -X -v ON_ERROR_STOP=1 -P pager=off <<'SQL'
+select version,name,array_length(statements,1) as statement_entries
+from supabase_migrations.schema_migrations
+where version='20260924190000';
+
+select
+  exists(select 1 from information_schema.columns
+         where table_schema='public'
+           and table_name='pokemon_explore_set_value_snapshot_latest'
+           and column_name='market_count'
+           and is_nullable='NO') as market_count_not_null,
+  to_regclass('public.pokemon_market_set_scope_contract_v1') is not null as scope_contract,
+  to_regprocedure('public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)') is not null as payload_validator,
+  to_regprocedure('public.validate_pokemon_market_scoped_history_baskets_v1(jsonb)') is not null as basket_validator,
+  to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null as scoped_asof_reader;
+
+select
+  s.market_date,
+  s.set_count,
+  s.market_count,
+  jsonb_array_length(s.payload_json->'sets') as payload_market_rows,
+  count(distinct (e->>'setId')::uuid) as payload_root_sets
+from public.pokemon_explore_set_value_snapshot_latest s
+cross join lateral jsonb_array_elements(s.payload_json->'sets') e
+where s.tcg='pokemon' and s.scope='market'
+group by s.market_date,s.set_count,s.market_count;
+
+select
+  has_function_privilege('anon','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as anon_sync_execute,
+  has_function_privilege('authenticated','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as authenticated_sync_execute,
+  has_function_privilege('service_role','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as service_sync_execute;
+
+select
+  position('already_current' in pg_get_functiondef('public.run_market_explorer_guarded_publisher_v1(date)'::regprocedure)) > 0
+    as guarded_publisher_already_current_preserved,
+  position('pg_advisory_xact_lock' in pg_get_functiondef('public.stage_pokemon_market_explorer_prepared_constituents_v1(uuid)'::regprocedure)) > 0
+    as constituent_advisory_lock_preserved;
+SQL
+
+              rm -f "$HIST"
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              echo "MARKET_VINTAGE_DB_MIGRATION=PASS"
               ;;
 
             market-explorer-cutover-status)
