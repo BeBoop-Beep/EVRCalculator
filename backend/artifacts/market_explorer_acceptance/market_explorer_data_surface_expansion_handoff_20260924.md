@@ -386,3 +386,227 @@ The exact final head is the commit containing this handoff document or a subsequ
 - commercial comparison quotas
 - all React/UI work
 - merge to develop
+
+
+---
+
+## 2026-09-25 continuation — live production re-audit and Raw composition correction
+
+This section supersedes any earlier statement above that live SQL connectivity was unavailable.
+
+### Production connectivity / outage result
+
+The production database recovered and direct PostgreSQL validation resumed on PostgreSQL 17.6.
+
+The preceding outage was project-origin wide rather than an Explorer-reader-only failure:
+- hosted and production-VM Supavisor session/transaction routes failed,
+- PostgREST returned sustained HTTP 522 origin timeouts,
+- the last observed successful 2xx before the sustained outage was 2026-09-24 21:42:35 UTC,
+- after recovery, the existing prepared readers returned to low-millisecond execution.
+
+Live post-recovery execution:
+- prepared serving directory: 193 rows in ~5.7 ms,
+- Fossil v3 constituent first page (62 available rows, limit 100): ~7.6 ms,
+- Rare Ultra v3 constituent page 2: ~5.0 ms.
+
+The background-load hardening is already deployed to production:
+- 15-second budget on the 15-minute Price Storage coordinator,
+- advisory overlap guard,
+- previous-month rollup bounded to one Set per invocation,
+- bounded set-history coverage,
+- indexed cheap history-presence RPC,
+- supporting queue/scrape/monthly-claim indexes.
+
+### Live serving state
+
+The client-facing prepared surface is coherent:
+- serving generation: `60c274ea-aed6-45b5-a701-ca0d29eb5f11`,
+- serving directory rows: 193,
+- serving Set markets: 156,
+- serving sealed markets: 5,
+- serving comparison watermark: 2026-09-22.
+
+The mutable workspace directory may carry another generation; public directory reads use
+`pokemon_market_explorer_prepared_serving_directory_v1`, so the v3 constituent reader and
+directory are generation-aligned.
+
+The explicit vintage scope contract and Explorer v2 surface are still not deployed to
+production because PR #357 remains open/unmerged.
+
+### Exact live image audit
+
+Current serving compact constituent coverage:
+
+| Asset | Market class | Rows | Rows with image | Coverage |
+|---|---:|---:|---:|---:|
+| Cards | Set | 19,978 | 0 | 0.00% |
+| Cards | Era | 33,978 | 33,698 | 99.18% |
+| Cards | Quick/curated | 40,753 | 40,461 | 99.28% |
+| Cards | prepared rarity | 5,949 | 5,947 | 99.97% |
+| Sealed | prepared format | 376 | 0 | 0.00% |
+
+Required Set examples:
+- Fossil: 62/62 prepared rows lack image JSON, while 62/62 have an authoritative exact-variant image.
+- HeartGold & SoulSilver: 124/124 prepared rows lack image JSON, while 124/124 have authoritative images.
+- Base Set 2: 130/130 prepared rows lack image JSON, while 130/130 have authoritative images.
+- Rare Ultra: 778/778 prepared rows have images.
+- Rare Secret: 324/324 prepared rows have images.
+
+This proves the Set-image issue is a publication/staging omission rather than missing artwork.
+
+### Exact live rarity result
+
+Latest accepted Market Date audited: 2026-09-24.
+
+Rare Holo GX:
+- 159 currently priced cards,
+- 15 represented Sets,
+- 159/159 authoritative images,
+- existing custom query-cache row is failed/not maintained.
+
+The current nine maintained ready rarity caches are:
+- Double Rare,
+- Hyper Rare,
+- Illustration Rare,
+- Rare Holo,
+- Rare Rainbow,
+- Rare Secret,
+- Rare Ultra,
+- Special Illustration Rare,
+- Ultra Rare.
+
+The registry refresh was corrected so a legacy maintained prepared rarity remains
+`PREPARED` even if a current audit fixture temporarily contains no members for that
+rarity. The no-current-data cleanup no longer downgrades a row with an existing
+`prepared_market_key`.
+
+### Exact live sealed inventory
+
+The normalized classifier audit found current positively-priced inventory in all of these
+families through 2026-09-24:
+
+- Collection Product: 395
+- Other: 310
+- Case: 193
+- Single-Pack Blister: 165
+- Multi-Product Bundle: 164
+- Loose Booster Pack: 139
+- Elite Trainer Box: 78
+- Three-Pack Blister: 77
+- Booster Box: 55
+- Display: 50
+- Sleeved Booster Pack: 46
+- Pokémon Center Elite Trainer Box: 40
+- Booster Bundle: 36
+- Fun Pack: 14
+- Half Booster Box: 9
+- Enhanced Booster Box: 2
+
+The sealed product image columns yielded zero authoritative images in this audit, so null
+image output remains correct for sealed until a trustworthy image source is added.
+
+### Graded
+
+Production coverage is exactly:
+- 1 graded variant,
+- 1 latest market row,
+- 1 price observation.
+
+`INSUFFICIENT_AUTHORITY` remains the correct production result.
+
+### Raw composition correction
+
+The first shadow Raw leaf strategy was rejected by live parity testing.
+
+Broad eligible current variants produced:
+- 33,965 leaves,
+- $662,255.71,
+versus persisted Raw 2026-09-24:
+- 19,978 cards,
+- $445,570.05.
+
+Other live/current authorities were also proven insufficient as an exact frozen Raw leaf
+source because membership or price timing can drift from the specific Set Value
+publication.
+
+The database contract is therefore corrected with a publication-time frozen Set Value
+leaf authority:
+
+- `pokemon_market_set_value_constituent_publications_v1`
+- `pokemon_market_set_value_constituents_v1`
+- `replace_pokemon_market_set_value_constituents_v1(...)`
+
+New migration:
+- `20260925061000_market_explorer_raw_frozen_set_value_constituents_v1.sql`
+
+The Set Value application publisher must call the replacement RPC with the exact
+canonical-card -> physical-variant rows it already computed for that root/date/methodology.
+The RPC validates exact card count and Set Value before marking the roster READY.
+
+Raw composition now:
+1. reads the persisted Raw Set-level index row,
+2. requires one matching READY frozen leaf publication for every Raw root,
+3. unions only those frozen leaf rows,
+4. checks global physical identity uniqueness through table constraints,
+5. reconciles exact leaf count and basket value to Raw,
+6. fails closed otherwise.
+
+It no longer scans the full current card-variant universe and no longer invokes the
+per-Set canonical price RPC 156/167 times during generation.
+
+### Current PostgreSQL 17 validation
+
+Current branch head at this audit:
+`8967d99cbbd8ee5f3cae3b9f1a34a26fb90269b0`
+
+Current-head workflows:
+- Pattern Overlay Guardrails: SUCCESS
+- Market Explorer DB Expansion Validation: SUCCESS
+
+DB validation includes:
+- 22 static contract tests passed,
+- all expansion migrations compile on PostgreSQL 17,
+- frozen Raw leaf publication + exact reconciliation acceptance,
+- maintained-rarity preservation,
+- Rare Holo GX candidate,
+- normalized sealed lattice,
+- Case exclusion from Total Sealed,
+- contextual search,
+- Graded fail-closed,
+- generation mismatch/page-limit guards,
+- DB-load hardening compile and bounded-maintenance execution.
+
+Current fixture read smoke:
+- directory: ~0.59 ms,
+- rarity search: ~2.05 ms,
+- sealed search: ~2.90 ms,
+- Raw first page: ~0.70 ms.
+
+### Additional application handoff requirement
+
+Before a production v2 candidate can make Raw composition available, the Set Value
+publisher must persist the exact leaf roster at the same time it publishes the Set Value.
+
+This is not a frontend responsibility. The publisher already has the selected rows in
+memory; it must pass them to
+`replace_pokemon_market_set_value_constituents_v1(...)`.
+
+Historical Raw composition for dates that predate this authority remains fail-closed
+unless exact historical leaf membership is independently reconstructed and certified.
+No latest/current roster may be stamped onto an older Raw date.
+
+### Remaining production gate
+
+Do not apply/promote the vintage-dependent Explorer expansion while PR #357 remains
+open.
+
+After the vintage prerequisite lands:
+1. apply the additive Explorer migrations including the frozen Set Value leaf authority,
+2. update the Set Value application publisher to persist exact leaf rosters,
+3. generate the next Set Value/Raw publication with those frozen rosters,
+4. refresh rarity/sealed authorities,
+5. build the v2 Explorer candidate,
+6. run full live parity/image/search/latency acceptance,
+7. atomically promote the v2 serving pointer only if all gates pass.
+
+No merge or frontend work is performed by this DB handoff.
