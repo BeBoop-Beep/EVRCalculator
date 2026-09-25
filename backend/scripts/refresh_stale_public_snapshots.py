@@ -781,9 +781,12 @@ def _canonical_selected_variant_ids(client: Any, set_id: str) -> List[str]:
 def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List[str]]:
     checks: List[str] = []
     timestamps: List[Optional[str]] = []
+    # Legacy cards/card_variants do not expose timestamp columns in the live
+    # schema. Probing guessed updated_at/created_at columns once per Set creates
+    # avoidable 42703 errors and extra PostgREST round-trips during recovery.
+    # pokemon_canonical_cards is the timestamped card-identity authority.
     for table, columns in (
         ("pokemon_canonical_cards", ("updated_at", "created_at")),
-        ("cards", ("updated_at", "created_at")),
     ):
         latest, table_checks = _latest_timestamp(client, table=table, timestamp_columns=columns, filters=(("set_id", set_id),))
         checks.extend(table_checks)
@@ -795,17 +798,8 @@ def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List
 
     latest, table_checks = _latest_timestamp(
         client,
-        table="card_variants",
-        timestamp_columns=("updated_at", "created_at"),
-        in_filters=(("card_id", legacy_card_ids),),
-    )
-    checks.extend(table_checks)
-    timestamps.append(latest)
-
-    latest, table_checks = _latest_timestamp(
-        client,
         table="card_variant_price_observations",
-        timestamp_columns=("captured_at", "updated_at", "created_at"),
+        timestamp_columns=("captured_at",),
         filters=(("source", "TCGPlayer"),),
         in_filters=(("card_variant_id", variant_ids),),
     )
@@ -845,7 +839,7 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
     latest, table_checks = _latest_timestamp(
         client,
         table="card_variant_price_observations",
-        timestamp_columns=("captured_at", "updated_at", "created_at"),
+        timestamp_columns=("captured_at",),
         filters=(("source", "TCGPlayer"),),
         in_filters=(("card_variant_id", sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))),),
     )
