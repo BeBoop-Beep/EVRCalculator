@@ -24,6 +24,7 @@ export function buildPreparedSeries(rows = [], history = []) {
     const color = resolveSeriesIdentityColor(row.market_key, row.market_key);
     return {
       key: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
+      marketScope: row.metadata?.marketScope || "standard", baseSetName: row.metadata?.baseSetName ?? null,
       marketType: row.market_type, setId: row.set_id, eraId: row.era_id, parentEraId: row.parent_era_id,
       available: true, historyAvailable: row.history_available, basketValue: row.comparison_value,
       browseValue: row.current_value, sourceAsOf: row.source_as_of, comparisonAsOf: end,
