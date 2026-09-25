@@ -31,6 +31,7 @@ jobs:
           expected = {
               'backend/scripts/build_pokemon_explore_set_value_snapshot.py': '0732659cd60142a5f7ad5b1526f23677a6927336',
               'backend/scripts/repair_missing_market_set_value_history.py': '9ff1255b4486c447c791887195113493c4a03f30',
+              'backend/tests/unit/db/services/test_pokemon_explore_set_value_market_authority.py': 'f9626349a0b4e81509d299a1a2512bf1ab901a7f',
           }
           for path, sha in expected.items():
               actual = subprocess.check_output(['git', 'hash-object', path], text=True).strip()
@@ -57,6 +58,10 @@ jobs:
           replace_once(path, '        return int(result.data or 0)\n',
               '        data = result.data\n'
               '        return int(data.get("rowsUpserted", 0) if isinstance(data, Mapping) else data or 0)\n')
+          # PR373 already made diagnostics scope-aware; preserve and assert that field.
+          replace_once('backend/tests/unit/db/services/test_pokemon_explore_set_value_market_authority.py',
+              '        {"setId": "set-1", "canonicalDate": rows[-1]["snapshot_date"]}\n',
+              '        {"setId": "set-1", "marketKey": "set:set-1", "canonicalDate": rows[-1]["snapshot_date"]}\n')
           PY
           python -m py_compile backend/db/services/market_publication_sources.py backend/scripts/repair_missing_market_set_value_history.py backend/scripts/build_pokemon_explore_set_value_snapshot.py
           git diff --check
@@ -83,8 +88,7 @@ jobs:
           test "$(git branch --show-current)" = fix/market-publication-date-index-repair-20260925
           git config user.name 'index-publication-repair'
           git config user.email 'publication-repair@index.invalid'
-          git add backend/scripts/build_pokemon_explore_set_value_snapshot.py backend/scripts/repair_missing_market_set_value_history.py
-          git rm .github/workflows/market-publication-repair-candidate.yml
+          git add backend/scripts/build_pokemon_explore_set_value_snapshot.py backend/scripts/repair_missing_market_set_value_history.py backend/tests/unit/db/services/test_pokemon_explore_set_value_market_authority.py
           git diff --cached --check
           git commit -m 'fix(market): restore compact canonical set deltas and composite-root daily repair'
           git push origin HEAD:refs/heads/fix/market-publication-date-index-repair-20260925
