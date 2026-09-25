@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-cache-cron-disable",
-  "request_id": "sep24-db-stabilize-disable-explorer-cache"
+  "operation": "market-vintage-db-migrate",
+  "request_id": "market-vintage-db-migrate-20260924e"
 }
