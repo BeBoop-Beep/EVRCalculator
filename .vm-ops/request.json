@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "snapshots-20260925-sep24-recover"
+  "operation": "publication-live-debug",
+  "request_id": "snapshots-20260925-sep24-progress1"
 }
