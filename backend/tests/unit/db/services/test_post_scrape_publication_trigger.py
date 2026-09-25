@@ -246,6 +246,8 @@ def test_default_popen_uses_detached_session_and_explicit_args(tmp_path, monkeyp
         return _FakeCompletedPopen()
 
     monkeypatch.setattr(trigger.subprocess, "Popen", fake_subprocess_popen)
+    monkeypatch.setenv("RUNNER_TRACKING_ID", "github-job-owned-process")
+    monkeypatch.setenv("PUBLICATION_TEST_PRESERVE", "yes")
     log_path = tmp_path / "publication.log"
 
     proc = trigger._default_popen(
@@ -256,6 +258,12 @@ def test_default_popen_uses_detached_session_and_explicit_args(tmp_path, monkeyp
     assert captured["kwargs"]["cwd"] == str(tmp_path)
     # No shell injection surface: args passed as a list, not a shell string.
     assert isinstance(captured["args"], list)
+    # The durable host publisher must escape self-hosted Actions orphan cleanup
+    # while preserving the rest of the runtime environment.
+    assert captured["kwargs"]["env"]["RUNNER_TRACKING_ID"] == ""
+    assert captured["kwargs"]["env"]["PUBLICATION_TEST_PRESERVE"] == "yes"
+    if trigger.sys.platform != "win32":
+        assert captured["kwargs"]["start_new_session"] is True
     assert log_path.exists()
 
 
