@@ -141,9 +141,34 @@ insert into public.pokemon_market_index_daily_history(
  source_generation_fingerprint,constituents_json
 ) values
  ('pokemon','raw','2026-09-17','fixture','raw-fixture-v1',225,100,3,25,'fixture','fixture',
-  '[{"setId":"20000000-0000-0000-0000-000000000001"},{"setId":"20000000-0000-0000-0000-000000000002"},{"setId":"20000000-0000-0000-0000-000000000003"}]'::jsonb),
+  '[{"setId":"20000000-0000-0000-0000-000000000001","setValue":81,"includedCardCount":9},{"setId":"20000000-0000-0000-0000-000000000002","setValue":72,"includedCardCount":8},{"setId":"20000000-0000-0000-0000-000000000003","setValue":72,"includedCardCount":8}]'::jsonb),
  ('pokemon','raw','2026-09-24','fixture','raw-fixture-v1',250,111.111111,3,25,'fixture','fixture',
-  '[{"setId":"20000000-0000-0000-0000-000000000001"},{"setId":"20000000-0000-0000-0000-000000000002"},{"setId":"20000000-0000-0000-0000-000000000003"}]'::jsonb);
+  '[{"setId":"20000000-0000-0000-0000-000000000001","setValue":90,"includedCardCount":9},{"setId":"20000000-0000-0000-0000-000000000002","setValue":80,"includedCardCount":8},{"setId":"20000000-0000-0000-0000-000000000003","setValue":80,"includedCardCount":8}]'::jsonb);
+
+-- Freeze the exact Set Value leaf rosters used by the 2026-09-24 Raw fixture.
+select public.replace_pokemon_market_set_value_constituents_v1(
+  s.set_id,'2026-09-24','raw-fixture-v1',
+  s.expected_value,s.expected_count,'fixture-set-value-publisher',
+  (
+    select jsonb_agg(jsonb_build_object(
+      'canonicalCardId',c.canonical_card_id,
+      'cardVariantId',c.card_variant_id,
+      'setId',c.set_id,
+      'marketPrice',10,
+      'capturedAt','2026-09-24',
+      'source','fixture',
+      'printingType','holo',
+      'priceSelectionReason','fixture'
+    ) order by c.canonical_card_id)
+    from fixture_cards c
+    where c.set_id=s.set_id
+  )
+)
+from (values
+  ('20000000-0000-0000-0000-000000000001'::uuid,90::numeric,9),
+  ('20000000-0000-0000-0000-000000000002'::uuid,80::numeric,8),
+  ('20000000-0000-0000-0000-000000000003'::uuid,80::numeric,8)
+) as s(set_id,expected_value,expected_count);
 
 -- Representative complete sealed taxonomy, including a bulk Case that must
 -- never enter Total Sealed.
