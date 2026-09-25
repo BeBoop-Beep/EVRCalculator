@@ -218,3 +218,29 @@ def test_legacy_roster_freezer_migration_mirrors_and_is_bounded():
         "TO service_role",
     ]:
         assert required in sql
+
+
+def test_snapshot_first_legacy_roster_freezer_migration_mirrors_and_fails_closed():
+    root = Path(__file__).resolve().parents[4]
+    name = "20260925235900_prefer_set_snapshot_for_legacy_roster_freeze.sql"
+    sql = (root / "supabase/migrations" / name).read_text()
+    assert sql == (root / "backend/db/migrations" / name).read_text()
+    for required in [
+        "pokemon_set_cards_snapshot_latest",
+        "jsonb_array_elements(v_snapshot)",
+        "count(DISTINCT card_variant_id)",
+        "count(DISTINCT canonical_card_id)",
+        "legacy_set_snapshot_frozen_v1",
+        "legacy_canonical_checklist_frozen_v1",
+        "LEGACY_SET_VALUE_ROSTER_RECONCILIATION_FAILED",
+        "replace_pokemon_market_set_value_constituents_v1",
+        "SECURITY INVOKER",
+        "statement_timeout = '20s'",
+        "lock_timeout = '2s'",
+        "FROM PUBLIC,anon,authenticated",
+        "TO service_role",
+    ]:
+        assert required in sql
+    snapshot_pos = sql.index("pokemon_set_cards_snapshot_latest")
+    fallback_pos = sql.index("-- Fallback: reproduce the original canonical-checklist price selection.")
+    assert snapshot_pos < fallback_pos
