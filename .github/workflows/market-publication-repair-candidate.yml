@@ -1,0 +1,90 @@
+name: Market publication repair candidate
+on:
+  push:
+    branches: [fix/market-publication-date-index-repair-20260925]
+    paths: [.github/workflows/market-publication-repair-candidate.yml]
+permissions:
+  contents: write
+jobs:
+  validate:
+    if: github.repository == 'BeBoop-Beep/EVRCalculator' && github.ref == 'refs/heads/fix/market-publication-date-index-repair-20260925'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_ANON_KEY: test-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply exact reviewed edits to candidate only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          expected = {
+              'backend/scripts/build_pokemon_explore_set_value_snapshot.py': '0732659cd60142a5f7ad5b1526f23677a6927336',
+              'backend/scripts/repair_missing_market_set_value_history.py': '9ff1255b4486c447c791887195113493c4a03f30',
+          }
+          for path, sha in expected.items():
+              actual = subprocess.check_output(['git', 'hash-object', path], text=True).strip()
+              assert actual == sha, (path, actual, sha)
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              assert text.count(old) == 1, (path, 'unexpected source shape')
+              p.write_text(text.replace(old, new))
+          replace_once('backend/scripts/build_pokemon_explore_set_value_snapshot.py',
+              '    if not post_cutover:\n        dashboard_fields = (\n',
+              '    if post_cutover:\n'
+              '        # Restore canonical set performance without loading large dashboard histories.\n'
+              '        from backend.db.services.market_publication_sources import load_compact_market_index_summaries\n'
+              '        standard_ids = sorted({str(row["id"]) for row in sets\n'
+              '                               if str(row.get("market_scope") or "standard") == "standard"})\n'
+              '        dashboards = load_compact_market_index_summaries(client, standard_ids)\n'
+              '    else:\n        dashboard_fields = (\n')
+          path = 'backend/scripts/repair_missing_market_set_value_history.py'
+          replace_once(path,
+              '        return client.rpc(\n            REFRESH_RPC,\n            {\n                "p_set_id": set_id,\n                "p_start_date": market_date,\n                "p_end_date": market_date,\n            },\n        ).execute()\n',
+              '        from backend.db.services.market_publication_sources import refresh_market_root_day\n'
+              '        return refresh_market_root_day(client, set_id, market_date)\n')
+          replace_once(path, '        return int(result.data or 0)\n',
+              '        data = result.data\n'
+              '        return int(data.get("rowsUpserted", 0) if isinstance(data, Mapping) else data or 0)\n')
+          PY
+          python -m py_compile backend/db/services/market_publication_sources.py backend/scripts/repair_missing_market_set_value_history.py backend/scripts/build_pokemon_explore_set_value_snapshot.py
+          git diff --check
+      - name: Install test dependencies
+        run: python -m pip install -q -r backend/requirements.txt pytest
+      - name: Validate behavioral and existing publication contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          tests = {Path('backend/tests/unit/scripts/test_market_publication_sources_repair.py')}
+          for pattern in ['test_pokemon_explore_set_value*.py', 'test_repair_missing_market_set_value*.py', 'test_global_set_value_refresh_contract.py', 'test_build_pokemon_explore_set_value*.py']:
+              tests.update(Path('backend/tests/unit').rglob(pattern))
+          assert len(tests) >= 3, tests
+          print('Focused suite:', *sorted(map(str, tests)), sep='\n', flush=True)
+          subprocess.run(['python', '-m', 'pytest', '-q', *sorted(map(str, tests))], check=True)
+          PY
+      - name: Commit validated patch to the candidate branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = fix/market-publication-date-index-repair-20260925
+          git config user.name 'index-publication-repair'
+          git config user.email 'publication-repair@index.invalid'
+          git add backend/scripts/build_pokemon_explore_set_value_snapshot.py backend/scripts/repair_missing_market_set_value_history.py
+          git rm .github/workflows/market-publication-repair-candidate.yml
+          git diff --cached --check
+          git commit -m 'fix(market): restore compact canonical set deltas and composite-root daily repair'
+          git push origin HEAD:refs/heads/fix/market-publication-date-index-repair-20260925
