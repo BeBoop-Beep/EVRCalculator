@@ -121,3 +121,94 @@ jobs:
           if not session_ok and not transaction_ok:
               raise SystemExit(7)
           PY
+
+
+  http-read-audit:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 5
+    steps:
+      - name: Audit live Explorer authorities over PostgREST
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY="/home/ubuntu/repos/EVRCalculator/.venv/bin/python"
+          "$PY" - <<'PY'
+          import json, os, sys, time
+          from collections import Counter
+          from pathlib import Path
+
+          import requests
+          from dotenv import load_dotenv
+
+          load_dotenv(Path("/home/ubuntu/repos/EVRCalculator/backend/.env"), override=False)
+          base=(os.getenv("SUPABASE_URL") or "").rstrip("/")
+          key=os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
+          if not base or not key:
+              raise SystemExit("live Supabase HTTP credentials missing from VM backend/.env")
+
+          headers={"apikey":key,"Authorization":f"Bearer {key}"}
+
+          def call(method, path, *, params=None, payload=None, count=None, timeout=20):
+              h=dict(headers)
+              if count:
+                  h["Prefer"]=f"count={count}"
+                  h["Range"]="0-0"
+              t0=time.monotonic()
+              r=requests.request(method, base+path, headers=h, params=params, json=payload, timeout=timeout)
+              elapsed=(time.monotonic()-t0)*1000
+              if r.status_code >= 400:
+                  print(f"http_audit path={path} status={r.status_code} elapsed_ms={elapsed:.1f}")
+                  print(r.text[:500])
+                  r.raise_for_status()
+              return r, elapsed
+
+          # Public serving directory via the established RPC.
+          r,ms=call("POST","/rest/v1/rpc/get_pokemon_market_explorer_prepared_directory_v1",payload={})
+          directory=r.json()
+          print(f"directory_http_ok=true rows={len(directory)} elapsed_ms={ms:.1f}")
+          print("directory_assets="+json.dumps(Counter(x.get("asset") for x in directory),sort_keys=True))
+          print("directory_market_types="+json.dumps(Counter(x.get("market_type") for x in directory),sort_keys=True))
+          generations=sorted({str(x.get("generation_id")) for x in directory if x.get("generation_id")})
+          print("directory_generation_count="+str(len(generations)))
+          source_dates=sorted({str(x.get("source_as_of")) for x in directory if x.get("source_as_of")})
+          print("directory_source_dates="+json.dumps(source_dates[-5:]))
+
+          # Serving pointer / compact composition totals are small and safe to read fully.
+          for table in (
+              "pokemon_market_explorer_prepared_serving_v1",
+              "pokemon_market_explorer_prepared_constituent_totals_v1",
+          ):
+              rr,tm=call("GET",f"/rest/v1/{table}",params={"select":"*"})
+              rows=rr.json()
+              print(f"{table}_http_ok=true rows={len(rows)} elapsed_ms={tm:.1f}")
+              if table.endswith("constituent_totals_v1"):
+                  print("constituent_total_assets="+json.dumps(Counter(x.get("asset") for x in rows),sort_keys=True))
+                  print("constituent_total_sum="+str(sum(int(x.get("total_count") or 0) for x in rows)))
+
+          # Exact count requests return only one row payload while the server returns Content-Range.
+          def exact_count(table, filters=None):
+              params={"select":"*"}
+              params.update(filters or {})
+              rr,tm=call("GET",f"/rest/v1/{table}",params=params,count="exact")
+              cr=rr.headers.get("Content-Range","")
+              total=cr.rsplit("/",1)[-1] if "/" in cr else "unknown"
+              print(f"{table}_count={total} elapsed_ms={tm:.1f} filters={json.dumps(filters or {},sort_keys=True)}")
+              return total
+
+          exact_count("sealed_products")
+          exact_count("pokemon_market_explorer_card_current_metadata",{"rarity":"eq.Rare Holo GX"})
+
+          # Rare Holo GX is a small cohort; read identities to prove set/image coverage without a large scan.
+          rr,tm=call("GET","/rest/v1/pokemon_market_explorer_card_current_metadata",
+                     params={"select":"card_variant_id,set_id,image_url,rarity","rarity":"eq.Rare Holo GX","limit":"500"})
+          gx=rr.json()
+          print(f"rare_holo_gx_rows={len(gx)} sets={len({x.get('set_id') for x in gx if x.get('set_id')})} metadata_images={sum(bool(x.get('image_url')) for x in gx)} elapsed_ms={tm:.1f}")
+
+          # Confirm production does not already expose the new v2 authorities.
+          for fn in (
+              "get_pokemon_market_explorer_surface_directory_v2",
+              "search_pokemon_market_explorer_catalog_v1",
+          ):
+              rr,tm=call("POST",f"/rest/v1/rpc/{fn}",payload={} if fn.endswith("directory_v2") else {"p_asset":"graded","p_query":"audit","p_limit":1},timeout=10)
+              print(f"unexpected_v2_rpc_present={fn} elapsed_ms={tm:.1f}")
+          PY
