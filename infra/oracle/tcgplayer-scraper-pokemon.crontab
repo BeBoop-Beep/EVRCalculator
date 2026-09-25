@@ -19,8 +19,11 @@
 # write credential and would duplicate the Actions scheduler.
 
 # Market Explorer maintained caches
-5-59/15 * * * * /usr/bin/flock -n /tmp/market-explorer-prewarm.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.run_market_explorer_maintained_cache_prewarm --commit' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_prewarm.log 2>&1
-10-59/15 * * * * /usr/bin/flock -n /tmp/market-explorer-health.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.check_market_explorer_maintained_cache_health' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_health.log 2>&1
+# TEMPORARILY UNSCHEDULED (2026-09-24): repeated PostgreSQL unclean restarts
+# correlate with the direct-DB maintained-cache/prepared-generation cadence.
+# Keep these workers manual until the guarded publisher workload is repaired
+# and proven not to destabilize production. Post-scrape publication remains
+# independently protected by its five-minute watchdog above.
 
 # Sentinel
 * * * * * /usr/bin/flock -n /tmp/index-alert-dispatcher.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.alerts.dispatcher' >> /home/ubuntu/repos/EVRCalculator/backend/logs/alert_dispatcher.log 2>&1
