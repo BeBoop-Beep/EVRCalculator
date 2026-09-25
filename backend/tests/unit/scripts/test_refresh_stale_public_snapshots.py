@@ -1087,7 +1087,7 @@ def _patch_main_pipeline(monkeypatch, *, gate_allowed=True, override=False, fail
     )
     monkeypatch.setattr(refresh, "_resolve_sets", lambda _client, set_id=None: [{"id": "set-1", "canonical_key": "alpha"}])
 
-    def _build_plan(_client, *, set_rows, window):
+    def _build_plan(_client, *, set_rows, window, target_market_date=None):
         plan = refresh.SetRefreshPlan(
             set_row=set_rows[0],
             cards=refresh.FreshnessResult("cards", True, "stale"),
