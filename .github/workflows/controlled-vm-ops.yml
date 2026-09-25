@@ -1546,83 +1546,138 @@ jobs:
               cmp "$MIG" "$BACKEND_MIG"
               sha256sum "$MIG" "$BACKEND_MIG"
 
-              command -v psql >/dev/null 2>&1 || { echo "psql is required on production VM"; exit 6; }
-
-              echo "== preflight migration state =="
-              APPLIED="$(psql "$ACTIONS_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select exists(select 1 from supabase_migrations.schema_migrations where version='20260924190000')::text")"
-              HAS_CONTRACT="$(psql "$ACTIONS_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select (to_regclass('public.pokemon_market_set_scope_contract_v1') is not null)::text")"
-              HAS_MARKET_COUNT="$(psql "$ACTIONS_DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -c "select exists(select 1 from information_schema.columns where table_schema='public' and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count')::text")"
-              echo "history_applied=$APPLIED contract_present=$HAS_CONTRACT market_count_present=$HAS_MARKET_COUNT"
-              if [ "$APPLIED" = "t" ]; then
-                if [ "$HAS_CONTRACT" != "t" ] || [ "$HAS_MARKET_COUNT" != "t" ]; then
-                  echo "Migration history/schema disagree; refusing to continue"
-                  exit 7
-                fi
-                echo "migration_already_current=true"
-              else
-                echo "== generate atomic migration-history record =="
-                MIG_PATH="$MIG" HIST_PATH="$HIST" python3 - <<'PY'
+              echo "== apply/verify migration through psycopg =="
+              MIG_PATH="$MIG" ACTIONS_DATABASE_URL="$ACTIONS_DATABASE_URL" "$PY" - <<'PY'
+          import json
           import os
           from pathlib import Path
-          sql = Path(os.environ["MIG_PATH"]).read_text(encoding="utf-8")
-          tag = "$evr_vintage_scope_migration$"
-          if tag in sql:
-              raise SystemExit("history dollar-quote tag unexpectedly present in migration")
-          history = (
-              "insert into supabase_migrations.schema_migrations(version,name,statements) "
-              "values ('20260924190000','explicit_vintage_market_scopes',"
-              "ARRAY[" + tag + sql + tag + "]::text[]) "
-              "on conflict (version) do nothing;\n"
-          )
-          Path(os.environ["HIST_PATH"]).write_text(history, encoding="utf-8")
+
+          import psycopg
+
+          dsn = os.environ["ACTIONS_DATABASE_URL"]
+          migration_path = Path(os.environ["MIG_PATH"])
+          migration_sql = migration_path.read_text(encoding="utf-8")
+          version = "20260924190000"
+          name = "explicit_vintage_market_scopes"
+
+          with psycopg.connect(
+              dsn,
+              connect_timeout=15,
+              application_name="market_vintage_db_migrate",
+              prepare_threshold=None,
+          ) as conn:
+              with conn.cursor() as cur:
+                  cur.execute("set statement_timeout = '600s'")
+                  cur.execute("set lock_timeout = '15s'")
+                  cur.execute(
+                      "select exists(select 1 from supabase_migrations.schema_migrations where version=%s)",
+                      (version,),
+                  )
+                  applied = bool(cur.fetchone()[0])
+                  cur.execute(
+                      "select (to_regclass('public.pokemon_market_set_scope_contract_v1') is not null), "
+                      "exists(select 1 from information_schema.columns where table_schema='public' "
+                      "and table_name='pokemon_explore_set_value_snapshot_latest' and column_name='market_count')"
+                  )
+                  contract_present, market_count_present = map(bool, cur.fetchone())
+                  print(json.dumps({
+                      "historyAppliedBefore": applied,
+                      "contractPresentBefore": contract_present,
+                      "marketCountPresentBefore": market_count_present,
+                  }, sort_keys=True), flush=True)
+
+                  if applied:
+                      if not contract_present or not market_count_present:
+                          raise RuntimeError("migration history/schema disagree; refusing to continue")
+                  else:
+                      cur.execute(migration_sql, prepare=False)
+                      cur.execute(
+                          "insert into supabase_migrations.schema_migrations(version,name,statements) "
+                          "values (%s,%s,%s) on conflict (version) do nothing",
+                          (version, name, [migration_sql]),
+                      )
+
+                  cur.execute(
+                      "select version,name,array_length(statements,1) "
+                      "from supabase_migrations.schema_migrations where version=%s",
+                      (version,),
+                  )
+                  history = cur.fetchone()
+                  cur.execute(
+                      "select "
+                      "exists(select 1 from information_schema.columns "
+                      "where table_schema='public' and table_name='pokemon_explore_set_value_snapshot_latest' "
+                      "and column_name='market_count' and is_nullable='NO'), "
+                      "(to_regclass('public.pokemon_market_set_scope_contract_v1') is not null), "
+                      "(to_regprocedure('public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)') is not null), "
+                      "(to_regprocedure('public.validate_pokemon_market_scoped_history_baskets_v1(jsonb)') is not null), "
+                      "(to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null)"
+                  )
+                  schema_checks = tuple(bool(x) for x in cur.fetchone())
+                  cur.execute(
+                      "select s.market_date,s.set_count,s.market_count,"
+                      "jsonb_array_length(s.payload_json->'sets'),"
+                      "count(distinct (e->>'setId')::uuid) "
+                      "from public.pokemon_explore_set_value_snapshot_latest s "
+                      "cross join lateral jsonb_array_elements(s.payload_json->'sets') e "
+                      "where s.tcg='pokemon' and s.scope='market' "
+                      "group by s.market_date,s.set_count,s.market_count"
+                  )
+                  snapshot = cur.fetchone()
+                  cur.execute(
+                      "select "
+                      "has_function_privilege('anon','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE'),"
+                      "has_function_privilege('authenticated','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE'),"
+                      "has_function_privilege('service_role','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE')"
+                  )
+                  privileges = tuple(bool(x) for x in cur.fetchone())
+                  cur.execute(
+                      "select "
+                      "position('already_current' in pg_get_functiondef("
+                      "'public.run_market_explorer_guarded_publisher_v1(date)'::regprocedure)) > 0,"
+                      "position('pg_advisory_xact_lock' in pg_get_functiondef("
+                      "'public.stage_pokemon_market_explorer_prepared_constituents_v1(uuid)'::regprocedure)) > 0"
+                  )
+                  preserved = tuple(bool(x) for x in cur.fetchone())
+
+                  if history is None:
+                      raise RuntimeError("migration history row missing after migration")
+                  if not all(schema_checks):
+                      raise RuntimeError(f"schema verification failed: {schema_checks}")
+                  if privileges != (False, False, True):
+                      raise RuntimeError(f"sync privilege verification failed: {privileges}")
+                  if preserved != (True, True):
+                      raise RuntimeError(f"publisher hardening verification failed: {preserved}")
+                  if snapshot is None:
+                      raise RuntimeError("Global Set Market snapshot missing after migration")
+                  if int(snapshot[2]) != int(snapshot[3]) or int(snapshot[2]) < int(snapshot[1]):
+                      raise RuntimeError(f"snapshot count contract invalid: {snapshot}")
+
+                  print(json.dumps({
+                      "migrationHistory": {
+                          "version": history[0],
+                          "name": history[1],
+                          "statementEntries": history[2],
+                      },
+                      "schemaChecks": schema_checks,
+                      "snapshot": {
+                          "marketDate": str(snapshot[0]),
+                          "setCount": snapshot[1],
+                          "marketCount": snapshot[2],
+                          "payloadMarketRows": snapshot[3],
+                          "payloadRootSets": snapshot[4],
+                      },
+                      "syncPrivileges": {
+                          "anon": privileges[0],
+                          "authenticated": privileges[1],
+                          "serviceRole": privileges[2],
+                      },
+                      "preservedHardening": {
+                          "guardedPublisherAlreadyCurrent": preserved[0],
+                          "constituentAdvisoryLock": preserved[1],
+                      },
+                  }, sort_keys=True, default=str), flush=True)
           PY
-                echo "== apply migration atomically =="
-                PGOPTIONS="-c statement_timeout=600000 -c lock_timeout=15000" \
-                  psql "$ACTIONS_DATABASE_URL" -X --single-transaction -v ON_ERROR_STOP=1 \
-                    -f "$MIG" -f "$HIST"
-              fi
-
-              echo "== verify production DB contract =="
-              psql "$ACTIONS_DATABASE_URL" -X -v ON_ERROR_STOP=1 -P pager=off <<'SQL'
-          select version,name,array_length(statements,1) as statement_entries
-          from supabase_migrations.schema_migrations
-          where version='20260924190000';
-          
-          select
-            exists(select 1 from information_schema.columns
-                   where table_schema='public'
-           and table_name='pokemon_explore_set_value_snapshot_latest'
-           and column_name='market_count'
-           and is_nullable='NO') as market_count_not_null,
-            to_regclass('public.pokemon_market_set_scope_contract_v1') is not null as scope_contract,
-            to_regprocedure('public.validate_pokemon_market_set_scope_payload_v1(jsonb,integer,integer)') is not null as payload_validator,
-            to_regprocedure('public.validate_pokemon_market_scoped_history_baskets_v1(jsonb)') is not null as basket_validator,
-            to_regprocedure('public.get_pokemon_market_root_set_card_prices_as_of_v1(uuid,text,date)') is not null as scoped_asof_reader;
-          
-          select
-            s.market_date,
-            s.set_count,
-            s.market_count,
-            jsonb_array_length(s.payload_json->'sets') as payload_market_rows,
-            count(distinct (e->>'setId')::uuid) as payload_root_sets
-          from public.pokemon_explore_set_value_snapshot_latest s
-          cross join lateral jsonb_array_elements(s.payload_json->'sets') e
-          where s.tcg='pokemon' and s.scope='market'
-          group by s.market_date,s.set_count,s.market_count;
-          
-          select
-            has_function_privilege('anon','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as anon_sync_execute,
-            has_function_privilege('authenticated','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as authenticated_sync_execute,
-            has_function_privilege('service_role','public.sync_pokemon_market_explorer_set_directory_v1()','EXECUTE') as service_sync_execute;
-          
-          select
-            position('already_current' in pg_get_functiondef('public.run_market_explorer_guarded_publisher_v1(date)'::regprocedure)) > 0
-              as guarded_publisher_already_current_preserved,
-            position('pg_advisory_xact_lock' in pg_get_functiondef('public.stage_pokemon_market_explorer_prepared_constituents_v1(uuid)'::regprocedure)) > 0
-              as constituent_advisory_lock_preserved;
-          SQL
-
-              rm -f "$HIST"
               cd "$REPO"
               git worktree remove --force "$WT"
               echo "MARKET_VINTAGE_DB_MIGRATION=PASS"
