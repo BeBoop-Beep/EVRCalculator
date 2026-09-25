@@ -236,12 +236,20 @@ def _default_lock_is_held(lock_path: str) -> bool:
 
 def _default_popen(args: list, *, cwd: str, log_path: Path) -> subprocess.Popen:
     log_file = open(log_path, "a", encoding="utf-8")
+    child_env = os.environ.copy()
+    # GitHub's self-hosted runner tags job-owned processes with this value and
+    # terminates matching survivors during "Complete job". The publication
+    # wrapper is intentionally a durable host process that must outlive the
+    # triggering Actions step, so it must not inherit the runner's tracking id.
+    # Keep every other runtime variable unchanged.
+    child_env["RUNNER_TRACKING_ID"] = ""
     kwargs: Dict[str, Any] = {
         "cwd": cwd,
         "stdout": log_file,
         "stderr": log_file,
         "stdin": subprocess.DEVNULL,
         "close_fds": True,
+        "env": child_env,
     }
     if sys.platform != "win32":
         kwargs["start_new_session"] = True
