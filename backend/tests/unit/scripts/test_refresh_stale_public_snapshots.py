@@ -1087,7 +1087,7 @@ def _patch_main_pipeline(monkeypatch, *, gate_allowed=True, override=False, fail
     )
     monkeypatch.setattr(refresh, "_resolve_sets", lambda _client, set_id=None: [{"id": "set-1", "canonical_key": "alpha"}])
 
-    def _build_plan(_client, *, set_rows, window):
+    def _build_plan(_client, *, set_rows, window, target_market_date=None):
         plan = refresh.SetRefreshPlan(
             set_row=set_rows[0],
             cards=refresh.FreshnessResult("cards", True, "stale"),
@@ -2758,3 +2758,52 @@ def test_top_chase_current_date_validation_precedes_first_coordinated_write():
     first_write_at = source.index("upsert_row(")
 
     assert validate_at < first_write_at
+
+
+def test_set_card_freshness_uses_compact_canonical_price_authority(monkeypatch):
+    seen = []
+
+    def latest_timestamp(_client, *, table, timestamp_columns, filters=(), in_filters=()):
+        seen.append((table, tuple(timestamp_columns), tuple(filters), tuple(in_filters)))
+        return None, [f"{table}: ok"]
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
+    monkeypatch.setattr(refresh, "_canonical_card_ids", lambda *_args: [])
+
+    refresh._latest_for_set_cards(None, "set-1")
+
+    tables = {table for table, _columns, _filters, _in_filters in seen}
+    assert "cards" not in tables
+    assert "card_variants" not in tables
+    assert "card_variant_price_observations" not in tables
+
+    price_reads = [
+        (columns, filters, in_filters)
+        for table, columns, filters, in_filters in seen
+        if table == "pokemon_canonical_card_market_prices_latest"
+    ]
+    assert price_reads == [
+        (("refreshed_at", "captured_at"), (("set_id", "set-1"),), ())
+    ]
+
+
+def test_market_dashboard_price_freshness_uses_compact_canonical_price_authority(monkeypatch):
+    seen = []
+
+    def latest_timestamp(_client, *, table, timestamp_columns, filters=(), in_filters=()):
+        seen.append((table, tuple(timestamp_columns), tuple(filters), tuple(in_filters)))
+        return None, [f"{table}: ok"]
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
+
+    refresh._latest_for_market_dashboard(None, "set-1")
+
+    assert not any(table == "card_variant_price_observations" for table, *_rest in seen)
+    price_reads = [
+        (columns, filters, in_filters)
+        for table, columns, filters, in_filters in seen
+        if table == "pokemon_canonical_card_market_prices_latest"
+    ]
+    assert price_reads == [
+        (("refreshed_at", "captured_at"), (("set_id", "set-1"),), ())
+    ]

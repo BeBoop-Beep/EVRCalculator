@@ -1,0 +1,221 @@
+name: Market Explorer Live DB Connectivity Audit
+
+on:
+  push:
+    branches:
+      - feat/market-explorer-data-surface-expansion-20260924
+    paths:
+      - ".github/workflows/market-explorer-live-db-connectivity-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-connectivity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Install psycopg
+        run: python3 -m pip install --quiet 'psycopg[binary]==3.3.6'
+      - name: Audit poolers from hosted IPv4 runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL secret missing"; exit 2; }
+          python3 - <<'PY'
+          import os, time
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          parsed = conninfo_to_dict(os.environ["ACTIONS_DATABASE_URL"])
+
+          def test(label, port):
+              cfg = dict(parsed)
+              cfg["port"] = str(port)
+              dsn = make_conninfo(**cfg)
+              t0=time.monotonic()
+              try:
+                  with psycopg.connect(dsn,connect_timeout=8,autocommit=True) as conn:
+                      with conn.cursor() as cur:
+                          cur.execute("select current_user,current_database(),current_setting('server_version')")
+                          row=cur.fetchone()
+                  print(f"{label}_connect_ok=true elapsed_ms={(time.monotonic()-t0)*1000:.1f} user={row[0]} db={row[1]} server={row[2]}")
+                  return True
+              except Exception as exc:
+                  msg=str(exc)
+                  pw=cfg.get("password") or ""
+                  if pw: msg=msg.replace(pw,"<REDACTED_PASSWORD>")
+                  print(f"{label}_connect_ok=false elapsed_ms={(time.monotonic()-t0)*1000:.1f} error_type={type(exc).__name__}")
+                  print(f"{label}_error="+msg[:500].replace("\n"," | "))
+                  return False
+
+          a=test("hosted_session_5432",5432)
+          b=test("hosted_transaction_6543",6543)
+          if not a and not b: raise SystemExit(7)
+          PY
+
+  connectivity:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 5
+    env:
+      ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Audit Supabase database connection modes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ACTIONS_DATABASE_URL:-}" || { echo "DATABASE_URL secret missing"; exit 2; }
+          PY="/home/ubuntu/repos/EVRCalculator/.venv/bin/python"
+          "$PY" - <<'PY'
+          import os, socket, time
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          original = os.environ["ACTIONS_DATABASE_URL"]
+          parsed = conninfo_to_dict(original)
+          safe = {k: parsed.get(k) for k in ("host","port","user","dbname","sslmode")}
+          safe["password_present"] = bool(parsed.get("password"))
+          print("session_config=" + repr(safe))
+
+          def test(label, dsn, *, prepare_threshold=None):
+              cfg = conninfo_to_dict(dsn)
+              host = cfg.get("host")
+              port = int(cfg.get("port") or 5432)
+              t0 = time.monotonic()
+              try:
+                  infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+                  print(f"{label}_dns_ok=true families={sorted({i[0] for i in infos})}")
+              except Exception as exc:
+                  print(f"{label}_dns_ok=false error_type={type(exc).__name__}")
+              kwargs = {"connect_timeout": 8, "autocommit": True}
+              if prepare_threshold is not None:
+                  kwargs["prepare_threshold"] = prepare_threshold
+              try:
+                  with psycopg.connect(dsn, **kwargs) as conn:
+                      with conn.cursor() as cur:
+                          cur.execute("select current_user, current_database(), current_setting('server_version')")
+                          row = cur.fetchone()
+                  elapsed = (time.monotonic() - t0) * 1000
+                  print(f"{label}_connect_ok=true elapsed_ms={elapsed:.1f} user={row[0]} db={row[1]} server={row[2]}")
+                  return True
+              except Exception as exc:
+                  elapsed = (time.monotonic() - t0) * 1000
+                  msg = str(exc)
+                  password = cfg.get("password") or ""
+                  if password:
+                      msg = msg.replace(password, "<REDACTED_PASSWORD>")
+                  print(f"{label}_connect_ok=false elapsed_ms={elapsed:.1f} error_type={type(exc).__name__} sqlstate={getattr(exc,'sqlstate',None)}")
+                  print(f"{label}_error=" + msg[:700].replace("\n"," | "))
+                  return False
+
+          session_ok = test("session_5432", original)
+          tx = dict(parsed)
+          tx["port"] = "6543"
+          transaction = make_conninfo(**tx)
+          transaction_ok = test("transaction_6543", transaction, prepare_threshold=None)
+
+          print(f"summary_session_5432={str(session_ok).lower()}")
+          print(f"summary_transaction_6543={str(transaction_ok).lower()}")
+          if not session_ok and not transaction_ok:
+              raise SystemExit(7)
+          PY
+
+
+  http-read-audit:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 5
+    steps:
+      - name: Audit live Explorer authorities over PostgREST
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY="/home/ubuntu/repos/EVRCalculator/.venv/bin/python"
+          "$PY" - <<'PY'
+          import json, os, sys, time
+          from collections import Counter
+          from pathlib import Path
+
+          import requests
+          from dotenv import load_dotenv
+
+          load_dotenv(Path("/home/ubuntu/repos/EVRCalculator/backend/.env"), override=False)
+          base=(os.getenv("SUPABASE_URL") or "").rstrip("/")
+          key=os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
+          if not base or not key:
+              raise SystemExit("live Supabase HTTP credentials missing from VM backend/.env")
+
+          headers={"apikey":key,"Authorization":f"Bearer {key}"}
+
+          def call(method, path, *, params=None, payload=None, count=None, timeout=20):
+              h=dict(headers)
+              if count:
+                  h["Prefer"]=f"count={count}"
+                  h["Range"]="0-0"
+              t0=time.monotonic()
+              r=requests.request(method, base+path, headers=h, params=params, json=payload, timeout=timeout)
+              elapsed=(time.monotonic()-t0)*1000
+              if r.status_code >= 400:
+                  print(f"http_audit path={path} status={r.status_code} elapsed_ms={elapsed:.1f}")
+                  print(r.text[:500])
+                  r.raise_for_status()
+              return r, elapsed
+
+          # Public serving directory via the established RPC.
+          r,ms=call("POST","/rest/v1/rpc/get_pokemon_market_explorer_prepared_directory_v1",payload={})
+          directory=r.json()
+          print(f"directory_http_ok=true rows={len(directory)} elapsed_ms={ms:.1f}")
+          print("directory_assets="+json.dumps(Counter(x.get("asset") for x in directory),sort_keys=True))
+          print("directory_market_types="+json.dumps(Counter(x.get("market_type") for x in directory),sort_keys=True))
+          generations=sorted({str(x.get("generation_id")) for x in directory if x.get("generation_id")})
+          print("directory_generation_count="+str(len(generations)))
+          source_dates=sorted({str(x.get("source_as_of")) for x in directory if x.get("source_as_of")})
+          print("directory_source_dates="+json.dumps(source_dates[-5:]))
+
+          # Serving pointer / compact composition totals are small and safe to read fully.
+          for table in (
+              "pokemon_market_explorer_prepared_serving_v1",
+              "pokemon_market_explorer_prepared_constituent_totals_v1",
+          ):
+              rr,tm=call("GET",f"/rest/v1/{table}",params={"select":"*"})
+              rows=rr.json()
+              print(f"{table}_http_ok=true rows={len(rows)} elapsed_ms={tm:.1f}")
+              if table.endswith("constituent_totals_v1"):
+                  print("constituent_total_assets="+json.dumps(Counter(x.get("asset") for x in rows),sort_keys=True))
+                  print("constituent_total_sum="+str(sum(int(x.get("total_count") or 0) for x in rows)))
+
+          # Exact count requests return only one row payload while the server returns Content-Range.
+          def exact_count(table, filters=None):
+              params={"select":"*"}
+              params.update(filters or {})
+              rr,tm=call("GET",f"/rest/v1/{table}",params=params,count="exact")
+              cr=rr.headers.get("Content-Range","")
+              total=cr.rsplit("/",1)[-1] if "/" in cr else "unknown"
+              print(f"{table}_count={total} elapsed_ms={tm:.1f} filters={json.dumps(filters or {},sort_keys=True)}")
+              return total
+
+          exact_count("sealed_products")
+          exact_count("pokemon_market_explorer_card_current_metadata",{"rarity":"eq.Rare Holo GX"})
+
+          # Rare Holo GX is a small cohort; read identities to prove set/image coverage without a large scan.
+          rr,tm=call("GET","/rest/v1/pokemon_market_explorer_card_current_metadata",
+                     params={"select":"card_variant_id,set_id,image_url,rarity","rarity":"eq.Rare Holo GX","limit":"500"})
+          gx=rr.json()
+          print(f"rare_holo_gx_rows={len(gx)} sets={len({x.get('set_id') for x in gx if x.get('set_id')})} metadata_images={sum(bool(x.get('image_url')) for x in gx)} elapsed_ms={tm:.1f}")
+
+          # Confirm whether production already exposes the new v2 authorities.
+          for fn in (
+              "get_pokemon_market_explorer_surface_directory_v2",
+              "search_pokemon_market_explorer_catalog_v1",
+          ):
+              payload={} if fn.endswith("directory_v2") else {"p_asset":"graded","p_query":"audit","p_limit":1}
+              t0=time.monotonic()
+              rr=requests.post(base+f"/rest/v1/rpc/{fn}",headers=headers,json=payload,timeout=10)
+              tm=(time.monotonic()-t0)*1000
+              if rr.status_code in (404,400) and "PGRST202" in rr.text:
+                  print(f"v2_rpc_present=false fn={fn} elapsed_ms={tm:.1f}")
+              else:
+                  rr.raise_for_status()
+                  print(f"v2_rpc_present=true fn={fn} elapsed_ms={tm:.1f}")
+          PY

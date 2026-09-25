@@ -5,8 +5,9 @@ This is deliberately narrower than the market freshness watchdog:
 - it distinguishes an active publisher from a missing publisher;
 - it relaunches only when NO publisher owns the canonical flock;
 - it never bypasses the publication gate;
-- SIGTERM recovery is bounded to an exact canonical refresh child whose
-  process identity is proven either stalled or superseded by a newer complete batch.
+- SIGTERM recovery is bounded to a proven canonical publisher identity: normally
+  the exact refresh child; for a wrapper stalled before refresh starts, only the
+  exact detached wrapper process group is eligible.
 """
 
 from __future__ import annotations
@@ -115,7 +116,7 @@ def _lock_is_held(lock_path: str) -> bool:
 def _default_all_publication_processes() -> list[dict[str, Any]]:
     """Return canonical wrapper/refresh processes with their exact market date."""
     result = subprocess.run(
-        ["ps", "-eo", "pid=,ppid=,etimes=,args="],
+        ["ps", "-eo", "pid=,ppid=,pgid=,etimes=,args="],
         capture_output=True,
         text=True,
         check=False,
@@ -134,13 +135,14 @@ def _default_all_publication_processes() -> list[dict[str, Any]]:
     )
     rows: list[dict[str, Any]] = []
     for raw in result.stdout.splitlines():
-        parts = raw.strip().split(None, 3)
-        if len(parts) != 4:
+        parts = raw.strip().split(None, 4)
+        if len(parts) != 5:
             continue
-        pid_text, ppid_text, age_text, args = parts
+        pid_text, ppid_text, pgid_text, age_text, args = parts
         try:
             pid = int(pid_text)
             ppid = int(ppid_text)
+            pgid = int(pgid_text)
             age_seconds = int(age_text)
         except ValueError:
             continue
@@ -164,6 +166,7 @@ def _default_all_publication_processes() -> list[dict[str, Any]]:
                 {
                     "pid": pid,
                     "ppid": ppid,
+                    "pgid": pgid,
                     "age_seconds": age_seconds,
                     "args": args,
                     "kind": kind,
@@ -186,21 +189,46 @@ def _default_publication_processes(market_date: str) -> list[dict[str, Any]]:
 def _validate_active_publication_identity(
     processes: list[dict[str, Any]],
 ) -> Dict[str, Any]:
-    """Resolve one exact wrapper -> refresh pair without an age requirement."""
+    """Resolve one exact canonical publisher identity without an age requirement.
+
+    A publisher can legitimately be in a pre-refresh stage (projection check,
+    Set Value repair, audit, or Explorer projection), so an exact wrapper with
+    no refresh child is still a provable owner. Multiple wrappers/refreshers
+    remain fail-closed.
+    """
     wrappers = [row for row in processes if row.get("kind") == "wrapper"]
     refreshers = [row for row in processes if row.get("kind") == "refresh"]
-    if len(wrappers) != 1 or len(refreshers) != 1:
+    if len(wrappers) != 1 or len(refreshers) > 1:
         return {
             "ok": False,
             "reason": "publication_process_identity_ambiguous",
             "wrapper_count": len(wrappers),
             "refresh_count": len(refreshers),
         }
+
     wrapper = wrappers[0]
-    refresh = refreshers[0]
     wrapper_date = str(wrapper.get("market_date") or "")
+    if not wrapper_date:
+        return {
+            "ok": False,
+            "reason": "publication_process_market_date_missing",
+            "wrapper_pid": wrapper.get("pid"),
+        }
+
+    if not refreshers:
+        return {
+            "ok": True,
+            "reason": "exact_wrapper_only_publication_identity",
+            "wrapper_pid": int(wrapper["pid"]),
+            "wrapper_pgid": int(wrapper.get("pgid") or -1),
+            "market_date": wrapper_date,
+            "wrapper_age_seconds": int(wrapper.get("age_seconds") or 0),
+            "refresh_count": 0,
+        }
+
+    refresh = refreshers[0]
     refresh_date = str(refresh.get("market_date") or "")
-    if not wrapper_date or wrapper_date != refresh_date:
+    if wrapper_date != refresh_date:
         return {
             "ok": False,
             "reason": "publication_process_market_date_mismatch",
@@ -219,6 +247,7 @@ def _validate_active_publication_identity(
         "ok": True,
         "reason": "exact_publication_process_identity",
         "wrapper_pid": int(wrapper["pid"]),
+        "wrapper_pgid": int(wrapper.get("pgid") or -1),
         "refresh_pid": int(refresh["pid"]),
         "market_date": wrapper_date,
         "wrapper_age_seconds": int(wrapper.get("age_seconds") or 0),
@@ -230,6 +259,13 @@ def _default_terminate_process(pid: int) -> None:
     if int(pid) <= 1:
         raise RuntimeError(f"refusing to signal unsafe pid={pid}")
     os.kill(int(pid), signal.SIGTERM)
+
+
+def _default_terminate_process_group(pgid: int) -> None:
+    """Terminate one detached publisher process group, never an arbitrary group."""
+    if int(pgid) <= 1:
+        raise RuntimeError(f"refusing to signal unsafe pgid={pgid}")
+    os.killpg(int(pgid), signal.SIGTERM)
 
 
 def _stall_recovery_marker_path(market_date: str) -> Path:
@@ -255,39 +291,80 @@ def _default_record_recovery_attempt(market_date: str, now: datetime) -> None:
 def _validate_stalled_process_identity(
     processes: list[dict[str, Any]], *, market_date: str, stall_seconds: int
 ) -> Dict[str, Any]:
+    """Prove the exact stale publisher that may be safely signalled.
+
+    The normal refresh-stage recovery still terminates only the exact refresh
+    child. If the publisher is stalled before refresh starts, recovery is
+    allowed only when there is exactly one canonical wrapper, zero refreshers,
+    it is old enough, and it is the leader of its own detached process group.
+    That lets us terminate the whole publisher group without risking unrelated
+    VM processes or leaving a child holding the inherited flock.
+    """
     wrappers = [row for row in processes if row.get("kind") == "wrapper"]
     refreshers = [row for row in processes if row.get("kind") == "refresh"]
-    if len(wrappers) != 1 or len(refreshers) != 1:
+    if len(wrappers) != 1 or len(refreshers) > 1:
         return {
             "ok": False,
             "reason": "publication_process_identity_ambiguous",
             "wrapper_count": len(wrappers),
             "refresh_count": len(refreshers),
         }
+
     wrapper = wrappers[0]
-    refresh = refreshers[0]
-    if int(refresh.get("ppid") or -1) != int(wrapper.get("pid") or -2):
-        return {
-            "ok": False,
-            "reason": "publication_process_parent_mismatch",
-            "wrapper_pid": wrapper.get("pid"),
-            "refresh_pid": refresh.get("pid"),
-            "refresh_ppid": refresh.get("ppid"),
-        }
-    if min(int(wrapper.get("age_seconds") or 0), int(refresh.get("age_seconds") or 0)) < int(stall_seconds):
+    wrapper_pid = int(wrapper.get("pid") or -1)
+    wrapper_age = int(wrapper.get("age_seconds") or 0)
+    if wrapper_age < int(stall_seconds):
         return {
             "ok": False,
             "reason": "publication_process_too_young_for_stall_recovery",
-            "wrapper_age_seconds": wrapper.get("age_seconds"),
-            "refresh_age_seconds": refresh.get("age_seconds"),
+            "wrapper_age_seconds": wrapper_age,
+        }
+
+    if not refreshers:
+        wrapper_pgid = int(wrapper.get("pgid") or -1)
+        if wrapper_pgid != wrapper_pid:
+            return {
+                "ok": False,
+                "reason": "publication_wrapper_not_detached_group_leader",
+                "wrapper_pid": wrapper_pid,
+                "wrapper_pgid": wrapper_pgid,
+            }
+        return {
+            "ok": True,
+            "reason": "exact_wrapper_only_publication_identity",
+            "termination_scope": "process_group",
+            "wrapper_pid": wrapper_pid,
+            "wrapper_pgid": wrapper_pgid,
+            "market_date": str(market_date),
+        }
+
+    refresh = refreshers[0]
+    if int(refresh.get("ppid") or -1) != wrapper_pid:
+        return {
+            "ok": False,
+            "reason": "publication_process_parent_mismatch",
+            "wrapper_pid": wrapper_pid,
+            "refresh_pid": refresh.get("pid"),
+            "refresh_ppid": refresh.get("ppid"),
+        }
+    refresh_age = int(refresh.get("age_seconds") or 0)
+    if refresh_age < int(stall_seconds):
+        return {
+            "ok": False,
+            "reason": "publication_process_too_young_for_stall_recovery",
+            "wrapper_age_seconds": wrapper_age,
+            "refresh_age_seconds": refresh_age,
         }
     return {
         "ok": True,
         "reason": "exact_publication_process_identity",
-        "wrapper_pid": int(wrapper["pid"]),
+        "termination_scope": "refresh_process",
+        "wrapper_pid": wrapper_pid,
+        "wrapper_pgid": int(wrapper.get("pgid") or -1),
         "refresh_pid": int(refresh["pid"]),
         "market_date": str(market_date),
     }
+
 
 def _log_age_seconds(log_path: Path, now: datetime) -> Optional[float]:
     try:
@@ -406,6 +483,7 @@ def run_watchdog(
     process_inspector: Callable[[str], list[dict[str, Any]]] = _default_publication_processes,
     all_process_inspector: Callable[[], list[dict[str, Any]]] = _default_all_publication_processes,
     terminate_process: Callable[[int], None] = _default_terminate_process,
+    terminate_process_group: Callable[[int], None] = _default_terminate_process_group,
     cooldown_checker: Callable[[str, datetime, int], bool] = _default_recovery_cooldown_active,
     recovery_recorder: Callable[[str, datetime], None] = _default_record_recovery_attempt,
     recovery_cooldown_seconds: int = DEFAULT_STALL_RECOVERY_COOLDOWN_SECONDS,
@@ -551,10 +629,22 @@ def run_watchdog(
                         }
                     )
                 else:
-                    refresh_pid = int(active_identity["refresh_pid"])
+                    refresh_pid = active_identity.get("refresh_pid")
+                    wrapper_pid = int(active_identity.get("wrapper_pid") or -1)
+                    wrapper_pgid = int(active_identity.get("wrapper_pgid") or -1)
+                    termination_scope = (
+                        "refresh_process" if refresh_pid is not None else "process_group"
+                    )
                     try:
                         recovery_recorder(recovery_key, resolved_now)
-                        terminate_process(refresh_pid)
+                        if refresh_pid is not None:
+                            terminate_process(int(refresh_pid))
+                        elif wrapper_pgid == wrapper_pid and wrapper_pid > 1:
+                            terminate_process_group(wrapper_pgid)
+                        else:
+                            raise RuntimeError(
+                                "wrapper-only publisher is not a proven detached process-group leader"
+                            )
                     except Exception as exc:
                         result.update(
                             {
@@ -562,6 +652,9 @@ def run_watchdog(
                                 "failure_code": "publication_supersession_sigterm_failed",
                                 "recovery_attempted": True,
                                 "refresh_pid": refresh_pid,
+                                "wrapper_pid": wrapper_pid,
+                                "wrapper_pgid": wrapper_pgid,
+                                "termination_scope": termination_scope,
                                 "error": f"{type(exc).__name__}: {exc}",
                             }
                         )
@@ -572,7 +665,9 @@ def run_watchdog(
                                 "failure_code": "publication_supersession_sigterm_requested",
                                 "recovery_attempted": True,
                                 "refresh_pid": refresh_pid,
-                                "wrapper_pid": active_identity.get("wrapper_pid"),
+                                "wrapper_pid": wrapper_pid,
+                                "wrapper_pgid": wrapper_pgid,
+                                "termination_scope": termination_scope,
                                 "recovery_cooldown_seconds": recovery_cooldown_seconds,
                             }
                         )
@@ -737,16 +832,31 @@ def run_watchdog(
                 )
             return result
 
-        refresh_pid = int(identity["refresh_pid"])
+        refresh_pid = identity.get("refresh_pid")
+        wrapper_pid = int(identity.get("wrapper_pid") or -1)
+        wrapper_pgid = int(identity.get("wrapper_pgid") or -1)
+        termination_scope = str(identity.get("termination_scope") or "refresh_process")
         try:
             recovery_recorder(market_date, resolved_now)
-            terminate_process(refresh_pid)
+            if termination_scope == "refresh_process" and refresh_pid is not None:
+                terminate_process(int(refresh_pid))
+            elif (
+                termination_scope == "process_group"
+                and wrapper_pgid == wrapper_pid
+                and wrapper_pid > 1
+            ):
+                terminate_process_group(wrapper_pgid)
+            else:
+                raise RuntimeError("no safe publication termination target resolved")
         except Exception as exc:
             result.update({
                 "status": "stall_recovery_failed",
                 "failure_code": "publication_stall_sigterm_failed",
                 "recovery_attempted": True,
                 "refresh_pid": refresh_pid,
+                "wrapper_pid": wrapper_pid,
+                "wrapper_pgid": wrapper_pgid,
+                "termination_scope": termination_scope,
                 "error": f"{type(exc).__name__}: {exc}",
                 "process_identity": identity,
             })
@@ -764,7 +874,9 @@ def run_watchdog(
             "failure_code": "publication_stall_sigterm_requested",
             "recovery_attempted": True,
             "refresh_pid": refresh_pid,
-            "wrapper_pid": identity.get("wrapper_pid"),
+            "wrapper_pid": wrapper_pid,
+            "wrapper_pgid": wrapper_pgid,
+            "termination_scope": termination_scope,
             "recovery_cooldown_seconds": recovery_cooldown_seconds,
             "process_identity": identity,
         })

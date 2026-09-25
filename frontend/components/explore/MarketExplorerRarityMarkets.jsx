@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import { normalizeQuerySpec, QUERY_ASSET_CARDS } from "../../lib/explore/marketExplorerQuery.mjs";
+import { ASSET_OPTION_ACTION, normalizeRarityOptions } from "../../lib/explore/marketExplorerAssetOptions.mjs";
 
 const clean = (value) => String(value || "").trim().toLowerCase();
 const isSingleRarityQuery = (series, segmentId) => {
@@ -19,6 +20,9 @@ const isSingleRarityQuery = (series, segmentId) => {
 export default function MarketExplorerRarityMarkets({
   directory = [],
   rarityOptions = [],
+  // Full V2 taxonomy with truthful states (get_pokemon_market_explorer_asset_options_v2).
+  // Absent -> LEGACY MODE: every listed rarity behaves exactly as before.
+  assetOptions = null,
   activeKeys = [],
   pendingKeys = [],
   activeSeries = [],
@@ -52,7 +56,9 @@ export default function MarketExplorerRarityMarkets({
       .map((market) => [clean(market.label), market]),
   ), [directory]);
 
+  const v2Options = useMemo(() => normalizeRarityOptions(assetOptions), [assetOptions]);
   const options = useMemo(() => {
+    if (v2Options.length) return v2Options.map((entry) => ({ id: entry.id, label: entry.label, v2: entry }));
     const canonical = (Array.isArray(rarityOptions) ? rarityOptions : [])
       .map((entry) => ({
         id: String(entry.key || entry.id || ""),
@@ -63,7 +69,7 @@ export default function MarketExplorerRarityMarkets({
     return directory
       .filter((market) => market?.market_type === "prepared_rarity")
       .map((market) => ({ id: String(market?.metadata?.segmentId || market.market_key), label: market.label }));
-  }, [directory, rarityOptions]);
+  }, [directory, rarityOptions, v2Options]);
 
   const filtered = useMemo(() => {
     const needle = clean(search);
@@ -71,6 +77,13 @@ export default function MarketExplorerRarityMarkets({
   }, [options, search]);
 
   const stateFor = (option) => {
+    if (option.v2) {
+      const v2 = option.v2;
+      const prepared = v2.action === ASSET_OPTION_ACTION.prepared ? { market_key: v2.marketKey } : null;
+      const preparedActive = prepared ? activeKeys.includes(prepared.market_key) : false;
+      const query = v2.action === ASSET_OPTION_ACTION.build ? (activeSeries.find((series) => isSingleRarityQuery(series, option.id)) || null) : null;
+      return { prepared, preparedActive, query, active: preparedActive || Boolean(query) };
+    }
     const prepared = preparedBySegment.get(option.id) || preparedByLabel.get(clean(option.label)) || null;
     const preparedActive = prepared ? activeKeys.includes(prepared.market_key) : false;
     const query = activeSeries.find((series) => isSingleRarityQuery(series, option.id)) || null;
@@ -80,6 +93,11 @@ export default function MarketExplorerRarityMarkets({
   const toggle = async (option) => {
     const state = stateFor(option);
     setMessage("");
+    if (option.v2 && option.v2.action === ASSET_OPTION_ACTION.none) {
+      // Never click -> nothing: a blocked option always explains itself.
+      setMessage(option.v2.reason);
+      return;
+    }
     if (state.prepared) {
       onSelect?.(state.prepared.market_key);
       return;
@@ -141,7 +159,8 @@ export default function MarketExplorerRarityMarkets({
         <div className="max-h-72 space-y-1 overflow-y-auto pr-1" role="listbox" aria-label="All rarity markets">
           {filtered.map((option) => {
             const state = stateFor(option);
-            const preparedMarket = preparedBySegment.get(option.id) || preparedByLabel.get(clean(option.label)) || null;
+            const preparedMarket = option.v2 ? state.prepared : (preparedBySegment.get(option.id) || preparedByLabel.get(clean(option.label)) || null);
+            const blocked = option.v2?.action === ASSET_OPTION_ACTION.none;
             // A prepared rarity is "adding" only while ITS load is in flight; a
             // failed or removed load clears it (the lifecycle owns that state).
             const pending = pendingId === option.id || Boolean(preparedMarket && pendingKeys.includes(preparedMarket.market_key));
@@ -152,12 +171,14 @@ export default function MarketExplorerRarityMarkets({
                 key={option.id}
                 data-rarity-market={option.id}
                 aria-selected={state.active}
-                disabled={pending}
+                disabled={pending || blocked}
+                data-rarity-market-state={option.v2?.state || undefined}
+                data-rarity-market-action={option.v2?.action || undefined}
                 onClick={() => toggle(option)}
                 className={`flex w-full items-center justify-between gap-3 rounded-md border-l-2 px-2 py-2 text-left text-xs transition-colors hover:bg-white/[.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,.65)] ${state.active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.12)] font-bold text-[rgb(45,212,191)]" : "border-transparent text-[var(--text-primary)]"}`}
               >
-                <span className="min-w-0 truncate">{option.label}</span>
-                <span className="flex-none text-[10px] font-semibold">{pending ? "Adding…" : state.active ? "Remove" : "+ Compare"}</span>
+                <span className="min-w-0"><span className="block truncate">{option.label}</span>{blocked ? <span data-rarity-market-reason className="block text-[9px] font-normal text-[var(--text-secondary)]">{option.v2.reason}</span> : null}</span>
+                <span className="flex-none text-[10px] font-semibold">{pending ? "Adding…" : blocked ? "Unavailable" : state.active ? "Remove" : option.v2?.action === ASSET_OPTION_ACTION.build && !canUse ? "Build · Upgrade" : "+ Compare"}</span>
               </button>
             );
           })}

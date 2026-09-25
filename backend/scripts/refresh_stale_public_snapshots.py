@@ -781,33 +781,28 @@ def _canonical_selected_variant_ids(client: Any, set_id: str) -> List[str]:
 def _latest_for_set_cards(client: Any, set_id: str) -> Tuple[Optional[str], List[str]]:
     checks: List[str] = []
     timestamps: List[Optional[str]] = []
+    # Legacy cards/card_variants do not expose timestamp columns in the live
+    # schema. Probing guessed updated_at/created_at columns once per Set creates
+    # avoidable 42703 errors and extra PostgREST round-trips during recovery.
+    # pokemon_canonical_cards is the timestamped card-identity authority.
     for table, columns in (
         ("pokemon_canonical_cards", ("updated_at", "created_at")),
-        ("cards", ("updated_at", "created_at")),
     ):
         latest, table_checks = _latest_timestamp(client, table=table, timestamp_columns=columns, filters=(("set_id", set_id),))
         checks.extend(table_checks)
         timestamps.append(latest)
 
-    legacy_card_ids = _legacy_card_ids(client, set_id)
-    variant_ids = sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))
     canonical_card_ids = _canonical_card_ids(client, set_id)
 
+    # Price Storage V2 refreshes this compact one-row-per-canonical-card
+    # authority after projecting a Set. Reading its per-Set refresh watermark
+    # avoids the raw observation table + large card_variant_id ANY(...) scan
+    # that timed out repeatedly during the 2026-09-24 database incident.
     latest, table_checks = _latest_timestamp(
         client,
-        table="card_variants",
-        timestamp_columns=("updated_at", "created_at"),
-        in_filters=(("card_id", legacy_card_ids),),
-    )
-    checks.extend(table_checks)
-    timestamps.append(latest)
-
-    latest, table_checks = _latest_timestamp(
-        client,
-        table="card_variant_price_observations",
-        timestamp_columns=("captured_at", "updated_at", "created_at"),
-        filters=(("source", "TCGPlayer"),),
-        in_filters=(("card_variant_id", variant_ids),),
+        table="pokemon_canonical_card_market_prices_latest",
+        timestamp_columns=("refreshed_at", "captured_at"),
+        filters=(("set_id", set_id),),
     )
     checks.extend(table_checks)
     timestamps.append(latest)
@@ -844,10 +839,9 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
 
     latest, table_checks = _latest_timestamp(
         client,
-        table="card_variant_price_observations",
-        timestamp_columns=("captured_at", "updated_at", "created_at"),
-        filters=(("source", "TCGPlayer"),),
-        in_filters=(("card_variant_id", sorted(set(_variant_ids_for_set(client, set_id)) | set(_canonical_selected_variant_ids(client, set_id)))),),
+        table="pokemon_canonical_card_market_prices_latest",
+        timestamp_columns=("refreshed_at", "captured_at"),
+        filters=(("set_id", set_id),),
     )
     checks.extend(table_checks)
     timestamps.append(latest)
@@ -1900,11 +1894,20 @@ def _load_target_snapshot_market_dates(
 
 def _target_date_fast_result(
     family: str, *, snapshot_row: Optional[Mapping[str, Optional[str]]], target_market_date: str
-) -> Optional[FreshnessResult]:
-    """Return a proven-stale result when the snapshot authority predates the target.
+) -> FreshnessResult:
+    """Classify Cards/Market freshness from the canonical target-date marker.
 
-    ``None`` means the cheap authority date is already current and the caller
-    must continue into the existing deep dependency audit.
+    This fast path is used only when an explicit promoted --market-date is
+    supplied and the exact set belongs to that date's completed scrape cohort.
+    The post-scrape wrapper has already repaired and verified required Set Value
+    coverage before this planner starts. In that phase, Cards and Market are
+    date-authoritative read models: matching the promoted market date proves
+    the market-pricing publication is current for this pass.
+
+    The later coordinated opening publication deliberately does not pass a
+    target market date into this refresher, so simulation/RIP changes still use
+    the full dependency audit. This keeps the optimization phase-scoped instead
+    of weakening general freshness semantics.
     """
     if not snapshot_row:
         return FreshnessResult(
@@ -1913,18 +1916,25 @@ def _target_date_fast_result(
             [f"target-date fast path: expected {target_market_date}; snapshot row missing"],
         )
     snapshot_market_date = _to_text(snapshot_row.get("market_date"))
+    snapshot_updated_at = _to_text(snapshot_row.get("updated_at"))
     if snapshot_market_date != target_market_date:
         return FreshnessResult(
             family, True,
             f"snapshot market date {snapshot_market_date or 'missing'} differs from completed scrape market date {target_market_date}",
-            _to_text(snapshot_row.get("updated_at")),
-            target_market_date,
+            snapshot_updated_at, target_market_date,
             [
                 f"target-date fast path: snapshot_market_date={snapshot_market_date or 'missing'}",
                 f"target-date fast path: completed_scrape_market_date={target_market_date}",
             ],
         )
-    return None
+    return FreshnessResult(
+        family, False, "current for completed target-date scrape cohort",
+        snapshot_updated_at, target_market_date,
+        [
+            f"target-date fast path: snapshot_market_date={snapshot_market_date}",
+            f"target-date fast path: completed_scrape_market_date={target_market_date}",
+        ],
+    )
 
 def _build_plan(
     client: Any,
@@ -1998,8 +2008,6 @@ def _build_plan(
                 and set_id in completed_scrape_set_ids
                 and target_day
             )
-            cards = None
-            market = None
             if use_target_fastpath:
                 cards = _target_date_fast_result(
                     "cards",
@@ -2011,9 +2019,8 @@ def _build_plan(
                     snapshot_row=market_target_dates.get(set_id),
                     target_market_date=target_day,
                 )
-            if cards is None:
+            else:
                 cards = _cards_snapshot_staleness(client, set_id)
-            if market is None:
                 market = _market_snapshot_staleness(client, set_id, window)
             if use_target_fastpath and (cards.stale or market.stale):
                 page = FreshnessResult(

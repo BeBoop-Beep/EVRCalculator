@@ -222,7 +222,9 @@ test("directory has Cards | Sealed | Graded; Cards shows Sets/Eras/Quick/Build",
 test("Sealed lists the real prepared sealed rows and no card Sets/Eras", async () => {
   const renderer = await mount();
   await act(async () => renderer.root.findByProps({ "data-market-directory-asset": "sealed" }).props.onClick());
+  // V1 COMPATIBILITY: the flat "Sealed Markets" list is the only sealed category (no V2 rows).
   assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "sets" }).length, 0);
+  assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "types" }).length, 0);
   await act(async () => category(renderer, "sealed").props.onClick());
   assert.deepEqual(rows(renderer).map((row) => row.props["data-prepared-market"]).sort(), ["format:booster-box", "format:etb", "format:pack"]);
   await act(async () => searchOf(renderer).props.onChange({ target: { value: "elite" } }));
@@ -239,14 +241,16 @@ test("Sealed with no published sealed rows is honestly empty, never fabricated",
   renderer.unmount();
 });
 
-test("Graded is visible but disabled and cannot select or open anything", async () => {
+test("Graded is selectable but publishes no markets: it shows the unavailable reason and cannot select anything", async () => {
   const selected = [];
-  const renderer = await mount({ onSelect: (k) => selected.push(k) });
+  const renderer = await mount({ onSelect: (k) => selected.push(k), gradedReason: "Graded production coverage is not yet broad enough." });
   const graded = renderer.root.findByProps({ "data-market-directory-asset": "graded" });
-  assert.equal(graded.props.disabled, true);
-  assert.equal(graded.props.onClick, undefined);
-  assert.match(JSON.stringify(renderer.toJSON()), /Graded · Coming later/);
+  assert.notEqual(graded.props.disabled, true);
+  await act(async () => graded.props.onClick());
+  assert.match(JSON.stringify(renderer.toJSON()), /Graded production coverage is not yet broad enough\./);
+  assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "sets" }).length, 0);
   assert.equal(renderer.root.findAllByProps({ "data-market-directory-popover": true }).length, 0);
+  assert.equal(renderer.root.findAllByProps({ "data-market-explorer-build-trigger": true }).length, 0);
   assert.deepEqual(selected, []);
   renderer.unmount();
 });

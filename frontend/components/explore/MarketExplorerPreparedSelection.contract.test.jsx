@@ -72,7 +72,9 @@ test("the Client owns prepared selection only through the loader lifecycle", () 
 
 test("Sets, Eras, Quick, Rarity and Screens all route through the same selectPrepared", () => {
   const client = read("./MarketExplorerClient.jsx");
-  assert.equal((client.match(/onSelect=\{selectPrepared\}/g) || []).length, 3, "Browse, Rarity and Screens share one handler");
+  // Browse, Rarity, Screens and Sealed Types all share ONE handler
+  // (Sealed Types now lives inside the Browse navigation layer).
+  assert.equal((client.match(/onSelect=\{selectPrepared\}/g) || []).length, 4, "every entry point shares one handler");
   assert.match(client, /onCompare=\{comparePrepared\}/);
 });
 

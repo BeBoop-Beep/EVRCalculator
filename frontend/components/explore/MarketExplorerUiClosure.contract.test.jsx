@@ -14,6 +14,7 @@ const client = read("./MarketExplorerClient.jsx");
 const browse = read("./MarketExplorerBrowse.jsx");
 const perf = read("./MarketPerformanceChart.jsx");
 const pokemonPerf = read("./PokemonMarketPerformance.jsx");
+const activeMarkets = read("./MarketExplorerActiveMarkets.jsx");
 
 const model = (values) => ({
   available: true,
@@ -29,7 +30,7 @@ const surfaceOf = (props) => {
 };
 
 test("(A) the constituents trigger is no longer in the top toolbar beside the Index toggle", () => {
-  const toolbar = chart.slice(chart.indexOf("data-market-explorer-chart-toolbar"), chart.indexOf("data-market-explorer-graph-controls"));
+  const toolbar = chart.slice(chart.indexOf("data-market-explorer-chart-toolbar"), chart.indexOf("data-market-explorer-focus-strip"));
   assert.doesNotMatch(toolbar, /data-market-explorer-view-details/);
   assert.equal(chart.match(/data-market-explorer-view-details/g).length, 1);
 });
@@ -75,16 +76,18 @@ test("(E) Explorer gets the open-canvas chart; other consumers keep the card sur
   assert.doesNotMatch(pokemonPerf, /minimal/, "/Market chart never opts into the open canvas");
 });
 
-test("(F) Clear Graph is a restrained red danger control without loudening Remove", () => {
-  const button = chart.slice(chart.indexOf("data-market-explorer-clear-graph"), chart.indexOf("Clear Graph\n"));
+// SUPERSEDED: "Clear Graph" (chart) + "Clear all" (Active Markets) were consolidated
+// into ONE workspace-level red "Clear All" that lives in Active Markets.
+test("(F) the single workspace-level Clear All is a restrained red danger control without loudening Remove", () => {
+  assert.doesNotMatch(chart, /data-market-explorer-clear-graph/, "the chart no longer owns a second clear control");
+  assert.equal(activeMarkets.match(/data-market-explorer-active-clear-all/g).length, 1);
+  const button = activeMarkets.slice(activeMarkets.indexOf("data-market-explorer-active-clear-all"), activeMarkets.indexOf(">Clear All</button>"));
   assert.match(button, /text-\[rgb\(248,113,113\)\]/);
   assert.match(button, /border-\[rgba\(248,113,113,0\.4\)\]/);
   assert.match(button, /bg-\[rgba\(248,113,113,0\.07\)\]/);
   assert.match(button, /hover:border-\[rgba\(248,113,113,0\.7\)\]/);
   assert.match(button, /hover:bg-\[rgba\(248,113,113,0\.16\)\]/);
   assert.match(button, /focus-visible:ring-\[rgba\(248,113,113,0\.7\)\]/);
-  assert.match(button, /disabled:opacity-40/);
-  assert.match(button, /disabled:cursor-not-allowed/);
 });
 
 test("(G) Browse Markets gets modest top padding above the Market Directory heading", () => {
