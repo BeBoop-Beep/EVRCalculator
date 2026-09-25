@@ -450,7 +450,8 @@ def test_snapshot_row_carries_the_columns_the_table_requires():
     assert built["tcg"] == "pokemon"
     assert built["scope"] == "market"
     assert built["market_date"] == published["setValueAsOf"]
-    assert built["set_count"] == len(built["payload_json"]["sets"])
+    assert built["set_count"] == len({row["setId"] for row in built["payload_json"]["sets"]})
+    assert built["market_count"] == len(built["payload_json"]["sets"])
     assert built["payload_size_bytes"] > 0
     assert len(built["source_generation_fingerprint"]) == 64
     assert built["payload_json"]["meta"]["snapshot"]["marketDate"] == built["market_date"]
@@ -490,3 +491,162 @@ def test_fingerprint_tracks_the_source_generation():
     moved = [dict(row) for row in rows]
     moved[-1]["set_value"] = moved[-1]["set_value"] + 1.0
     assert _build(moved) != _build(rows)
+
+
+def test_edition_scoped_markets_publish_distinct_market_identity_without_derived_index():
+    unlimited = history(days=10, start=100.0)
+    first = history(days=10, start=200.0)
+    target_date = unlimited[-1]["snapshot_date"]
+    sets = [
+        {
+            "id": "set-1", "canonical_key": "jungle", "name": "Jungle - Unlimited",
+            "base_set_name": "Jungle", "era": "Base", "market_scope": "unlimited",
+            "market_key": "set:set-1:unlimited", "market_publication_ready": True,
+        },
+        {
+            "id": "set-1", "canonical_key": "jungle", "name": "Jungle - 1st Edition",
+            "base_set_name": "Jungle", "era": "Base", "market_scope": "first_edition",
+            "market_key": "set:set-1:first_edition", "market_publication_ready": True,
+        },
+    ]
+    built = build_global_set_value_row(
+        sets,
+        [],
+        {
+            "set:set-1:unlimited": unlimited,
+            "set:set-1:first_edition": first,
+        },
+        target_market_date=target_date,
+    )
+    rows = {row["marketKey"]: row for row in built["payload_json"]["sets"]}
+    assert set(rows) == {"set:set-1:unlimited", "set:set-1:first_edition"}
+    assert rows["set:set-1:unlimited"]["marketScope"] == "unlimited"
+    assert rows["set:set-1:first_edition"]["marketScope"] == "first_edition"
+    assert rows["set:set-1:unlimited"]["currentSetValue"] == 109.0
+    assert rows["set:set-1:first_edition"]["currentSetValue"] == 209.0
+    # Fail closed: no normalized index is fabricated for scoped markets.
+    assert "marketIndex" not in rows["set:set-1:unlimited"]
+    assert "marketIndex" not in rows["set:set-1:first_edition"]
+    assert built["set_count"] == 1
+    assert built["market_count"] == 2
+
+
+def test_incomplete_explicit_scope_remains_visible_but_unavailable():
+    target_date = "2026-01-10"
+    built = build_global_set_value_row(
+        [{
+            "id": "set-1", "canonical_key": "base", "name": "Base - Shadowless",
+            "base_set_name": "Base", "era": "Base", "market_scope": "shadowless",
+            "market_key": "set:set-1:shadowless", "market_publication_ready": True,
+            "market_current_certification_status": "SCOPED_MARKET_INCOMPLETE",
+        }],
+        [],
+        {"set:set-1:shadowless": []},
+        target_market_date=target_date,
+    )
+    row = built["payload_json"]["sets"][0]
+    assert row["marketKey"] == "set:set-1:shadowless"
+    assert row["marketScope"] == "shadowless"
+    assert row["valueStatus"] == "unavailable"
+    assert row["currentSetValue"] is None
+    assert "marketIndex" not in row
+
+
+def _scoped(set_id, name, base, scope):
+    return {
+        "id": set_id, "canonical_key": base.lower(), "name": name, "base_set_name": base,
+        "era": "Base", "market_scope": scope, "market_key": f"set:{set_id}:{scope}",
+        "market_publication_ready": True,
+    }
+
+
+def _mixed_build(unlimited_start=100.0):
+    unl = history(days=10, start=unlimited_start)
+    first = history(days=10, start=200.0)
+    modern = history(days=10, start=50.0)
+    sets = [
+        {"id": "modern", "canonical_key": "modern", "name": "Modern", "era": "SV", "market_publication_ready": True},
+        _scoped("jungle", "Jungle - Unlimited", "Jungle", "unlimited"),
+        _scoped("jungle", "Jungle - 1st Edition", "Jungle", "first_edition"),
+        _scoped("base", "Base - Unlimited", "Base", "unlimited"),
+        _scoped("base", "Base - 1st Edition", "Base", "first_edition"),
+        _scoped("base", "Base - Shadowless", "Base", "shadowless"),
+    ]
+    hist = {
+        "set:modern": modern,
+        "set:jungle:unlimited": unl, "set:jungle:first_edition": first,
+        "set:base:unlimited": unl, "set:base:first_edition": first, "set:base:shadowless": [],
+    }
+    return build_global_set_value_row(sets, [], hist, target_market_date=unl[-1]["snapshot_date"])
+
+
+def test_standard_root_one_market_and_vintage_roots_expand_without_generic_row():
+    built = _mixed_build()
+    rows = built["payload_json"]["sets"]
+    keys = [r["marketKey"] for r in rows]
+    assert len(keys) == len(set(keys)) == 6
+    assert "set:modern" in keys and next(r for r in rows if r["marketKey"] == "set:modern")["marketScope"] == "standard"
+    assert {r["name"] for r in rows} >= {"Jungle - Unlimited", "Jungle - 1st Edition", "Base - Unlimited", "Base - 1st Edition", "Base - Shadowless"}
+    assert not any(r["name"] in {"Jungle", "Base"} for r in rows)
+    assert [r["setId"] for r in rows].count("base") == 3
+    assert "set:jungle" not in keys and "set:base" not in keys
+
+
+def test_unavailable_scope_stays_visible_and_never_zero():
+    rows = {r["marketKey"]: r for r in _mixed_build()["payload_json"]["sets"]}
+    shadowless = rows["set:base:shadowless"]
+    assert shadowless["valueStatus"] == "unavailable"
+    assert shadowless["currentSetValue"] is None
+
+
+def test_scoped_market_cannot_borrow_setid_keyed_history():
+    unl = history(days=10, start=100.0)
+    built = build_global_set_value_row(
+        [_scoped("jungle", "Jungle - Unlimited", "Jungle", "unlimited")], [],
+        {"jungle": unl}, target_market_date=unl[-1]["snapshot_date"],
+    )
+    assert built["payload_json"]["sets"][0]["valueStatus"] == "unavailable"
+
+
+def test_ranking_orders_market_rows_not_root_sets():
+    rows = _mixed_build()["payload_json"]["sets"]
+    values = [r["currentSetValue"] for r in rows if r["currentSetValue"] is not None]
+    assert values == sorted(values, reverse=True)
+    jungle = [r for r in rows if r["setId"] == "jungle"]
+    assert len(jungle) == 2 and jungle[0]["currentSetValue"] != jungle[1]["currentSetValue"]
+    assert rows[-1]["currentSetValue"] is None
+
+
+def test_diagnostics_distinguish_root_and_market_counts():
+    built = _mixed_build()
+    d = built["_diagnostics"]
+    assert d["eligibleRootSetCount"] == 3
+    assert d["eligibleMarketCount"] == 6 == d["publishedMarketCount"]
+    assert d["editionScopedMarketCount"] == 5
+    assert d["eligibleSetCount"] == 6
+    assert built["set_count"] == 3
+    assert built["market_count"] == 6
+    meta = built["payload_json"]["meta"]["publicationDiagnostics"]
+    assert meta["eligibleRootSetCount"] == 3 and meta["editionScopedMarketCount"] == 5
+
+
+def test_fingerprint_changes_when_scope_value_changes():
+    assert _mixed_build(100.0)["source_generation_fingerprint"] != _mixed_build(101.0)["source_generation_fingerprint"]
+
+
+def test_duplicate_market_identity_is_rejected():
+    unl = history(days=10, start=100.0)
+    row = _scoped("jungle", "Jungle - Unlimited", "Jungle", "unlimited")
+    with pytest.raises(ExploreSetValueUnavailable):
+        build_global_set_value_row([row, dict(row)], [], {"set:jungle:unlimited": unl}, target_market_date=unl[-1]["snapshot_date"])
+
+
+def test_reader_never_preloads_generic_movers_for_scoped_first_row(monkeypatch):
+    called = []
+    monkeypatch.setattr(svc, "read_initial_selected_set_movers", lambda *a, **k: called.append(1) or {})
+    row = {
+        "market_date": "2026-08-28", "updated_at": "now", "payload_size_bytes": 1,
+        "payload_json": {"sets": [{"setId": "s", "marketScope": "unlimited"}], "meta": {}},
+    }
+    payload = read_explore_set_value_snapshot(client=_SnapshotClient(row))
+    assert not called and "initialSelectedSetMovers" not in payload

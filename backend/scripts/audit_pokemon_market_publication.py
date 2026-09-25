@@ -963,29 +963,67 @@ def global_set_value_snapshot_problem(
             f"does not match promoted market date {market_date}"
         )
 
-    declared = snapshot_row.get("set_count")
-    if not isinstance(declared, int) or declared != len(targets):
+    declared_market_count = snapshot_row.get("market_count")
+    if not isinstance(declared_market_count, int) or declared_market_count != len(targets):
         return (
-            f"global Market Set Value set_count {declared!r} disagrees with the "
-            f"{len(targets)} published set(s) in payload_json.sets"
+            f"global Market Set Value market_count {declared_market_count!r} disagrees with the "
+            f"{len(targets)} published market(s) in payload_json.sets"
         )
 
-    seen: Dict[str, int] = {}
+    root_set_ids: set[str] = set()
+    seen_market_keys: Dict[str, int] = {}
     for target in targets:
-        identity = _to_text(target.get("setId") or target.get("set_id"))
-        if not identity:
+        set_id = _to_text(target.get("setId") or target.get("set_id"))
+        if not set_id:
             return "global Market Set Value publishes a row with no setId"
-        seen[identity] = seen.get(identity, 0) + 1
-    duplicates = sorted(key for key, count in seen.items() if count > 1)
-    if duplicates:
-        return f"global Market Set Value publishes duplicate setId(s): {duplicates[:5]}"
+        root_set_ids.add(set_id)
+
+        market_scope = (
+            _to_text(target.get("marketScope") or target.get("market_scope"))
+            or "standard"
+        )
+        expected_market_key = (
+            f"set:{set_id}"
+            if market_scope == "standard"
+            else f"set:{set_id}:{market_scope}"
+        )
+        market_key = _to_text(target.get("marketKey") or target.get("market_key"))
+        if not market_key:
+            if market_scope != "standard":
+                return (
+                    "global Market Set Value publishes a scoped row with no marketKey: "
+                    f"setId={set_id!r} marketScope={market_scope!r}"
+                )
+            market_key = expected_market_key
+        elif market_key != expected_market_key:
+            return (
+                f"global Market Set Value marketKey {market_key!r} disagrees with "
+                f"setId/marketScope identity {expected_market_key!r}"
+            )
+        seen_market_keys[market_key] = seen_market_keys.get(market_key, 0) + 1
+
+    declared_set_count = snapshot_row.get("set_count")
+    if not isinstance(declared_set_count, int) or declared_set_count != len(root_set_ids):
+        return (
+            f"global Market Set Value set_count {declared_set_count!r} disagrees with the "
+            f"{len(root_set_ids)} distinct root Set(s) in payload_json.sets"
+        )
+
+    duplicate_market_keys = sorted(
+        key for key, count in seen_market_keys.items() if count > 1
+    )
+    if duplicate_market_keys:
+        return (
+            "global Market Set Value publishes duplicate marketKey(s): "
+            f"{duplicate_market_keys[:5]}"
+        )
 
     expected = {str(key) for key in expected_set_ids}
     if expected:
-        unexpected = sorted(set(seen) - expected)
+        unexpected = sorted(root_set_ids - expected)
         if unexpected:
             return f"global Market Set Value publishes out-of-cohort setId(s): {unexpected[:5]}"
-        absent = sorted(expected - set(seen))
+        absent = sorted(expected - root_set_ids)
         if absent:
             return (
                 f"global Market Set Value is missing {len(absent)} eligible cohort set(s): {absent[:5]}"
@@ -1461,7 +1499,7 @@ def _load_global_set_value_row(client: Any) -> Optional[Dict[str, Any]]:
     """The persisted global Set Value payload /Market's ladder actually serves."""
     result = (
         client.table(GLOBAL_SET_VALUE_TABLE)
-        .select("tcg,scope,payload_json,market_date,set_count,payload_size_bytes,updated_at")
+        .select("tcg,scope,payload_json,market_date,set_count,market_count,payload_size_bytes,updated_at")
         .eq("tcg", "pokemon")
         .eq("scope", "market")
         .limit(1)

@@ -5,6 +5,12 @@ const MODES = [["value", "Top 10 by Value"], ["risers", "Biggest Risers"], ["fal
 export default function MarketExplorerContextRanking({ market, timeframe, canUse, onUpgrade }) {
   const [result, setResult] = useState(null);
   if (market?.marketType !== "set") return null;
+  // This ranking is keyed by set_id and would blend Unlimited / 1st Edition /
+  // Shadowless constituents. Hidden for explicit edition markets until a
+  // scope-aware ranking authority exists.
+  if ((market?.marketScope || "standard") !== "standard") {
+    return <section data-market-context-ranking-scoped className="border-t border-[var(--border-subtle)] px-3 py-3 text-[11px] text-[var(--text-secondary)] sm:px-4">Set analysis is not available for edition-scoped markets yet.</section>;
+  }
   const run = async (ranking) => {
     if (!canUse) return onUpgrade();
     if (ranking !== "value" && !["7D", "30D", "90D"].includes(timeframe)) {
