@@ -219,7 +219,12 @@ begin
     coalesce(nullif(d.metadata->>'baseSetName',''),d.label),
     d.source_kind,d.set_id,d.era_id,
     nullif(d.metadata->>'marketScope',''),
-    coalesce(nullif(d.metadata->>'rarityKey',''),nullif(d.metadata->>'segmentKey','')),
+    coalesce(
+      nullif(d.metadata->>'rarityKey',''),
+      nullif(d.metadata->>'segmentKey',''),
+      nullif(d.metadata->>'segmentId',''),
+      nullif(d.metadata->>'filterRarityKey','')
+    ),
     d.source_as_of,
     d.comparison_value,d.comparison_index_value,d.history_available,
     d.history_start_date,d.history_end_date,d.history_point_count,
