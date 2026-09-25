@@ -1,4 +1,5 @@
 {
-  "operation": "code-red-db-load-restore",
-  "request_id": "snapshots-20260925-restore-cron"
+  "operation": "scrape-create-missing-batch",
+  "market_date": "2026-09-25",
+  "request_id": "snapshots-20260925-create-batch"
 }
