@@ -200,7 +200,7 @@ begin
     audited_at=clock_timestamp()
   from current_stats c
   full join history_stats h using (rarity_key)
-  left join prepared p using (rarity_key)
+  full join prepared p using (rarity_key)
   where r.rarity_key=coalesce(c.rarity_key,h.rarity_key,p.rarity_key);
 
   get diagnostics v_rows=row_count;
