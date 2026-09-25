@@ -1,5 +1,4 @@
 {
-  "operation": "explorer-prewarm-drain",
-  "market_date": "2026-09-24",
-  "request_id": "explorer-db-promote-drain-01"
+  "operation": "publication-live-debug",
+  "request_id": "snapshots-20260925-sep24-writephase3"
 }
