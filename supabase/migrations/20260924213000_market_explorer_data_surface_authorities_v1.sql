@@ -213,11 +213,12 @@ begin
       prepared_market_key=null,eligibility_state='UNAVAILABLE',
       reason='No current positively priced constituents',
       audited_at=clock_timestamp()
-  where not exists (
-    select 1
-    from public.pokemon_market_explorer_card_current_metadata m
-    where public.market_explorer_filter_rarity_key(m.rarity)=r.rarity_key
-  );
+  where r.prepared_market_key is null
+    and not exists (
+      select 1
+      from public.pokemon_market_explorer_card_current_metadata m
+      where public.market_explorer_filter_rarity_key(m.rarity)=r.rarity_key
+    );
 
   return jsonb_build_object(
     'marketDate',v_market_date,
