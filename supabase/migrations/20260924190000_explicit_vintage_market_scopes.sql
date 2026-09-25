@@ -1087,3 +1087,6 @@ $section$;
   execute v_sql;
 end;
 $$;
+
+-- Make the new API-visible market_count/scope authorities immediately visible to PostgREST.
+NOTIFY pgrst,'reload schema';

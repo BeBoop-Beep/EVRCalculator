@@ -354,4 +354,8 @@ BEGIN
 END
 $test$;
 
+-- Deployment contract: the migration ends with
+-- NOTIFY pgrst,'reload schema'; so the scoped writer can send market_count
+-- immediately after deployment without waiting for schema-cache expiry.
+
 ROLLBACK;
