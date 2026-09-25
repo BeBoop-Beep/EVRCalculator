@@ -69,7 +69,8 @@ insert into public.pokemon_market_explorer_prepared_directory_v1(
  return_7d_pct,screen_group,screen_eligible,source_kind,source_status,metadata,
  generation_id,generated_at
 )
-values(
+values
+(
  'set:20000000-0000-0000-0000-000000000001','set','Fixture Set A','cards',
  '20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',
  '10000000-0000-0000-0000-000000000001','fixture-set-series',
@@ -78,21 +79,38 @@ values(
  'public_set_snapshot','READY',
  '{"marketScope":"standard","baseSetName":"Fixture Set A"}'::jsonb,
  '30000000-0000-0000-0000-000000000001',now()
+),
+(
+ 'rarity:rareHolo','prepared_rarity','Rare Holo','cards',
+ null,null,null,'fixture-rarity-series',
+ '2026-09-24','2026-09-24',100,100,110,true,
+ '2026-09-17','2026-09-24',2,10,'card',true,
+ 'maintained_query_cache','READY',
+ '{"segmentId":"rareHolo","sourceComputedThrough":"2026-09-24"}'::jsonb,
+ '30000000-0000-0000-0000-000000000001',now()
 );
 
 insert into public.pokemon_market_explorer_prepared_history_v1(
  market_key,market_date,index_value,tracked_value,chain_segment_id,generation_id
 ) values
  ('set:20000000-0000-0000-0000-000000000001','2026-09-17',100,75,0,'30000000-0000-0000-0000-000000000001'),
- ('set:20000000-0000-0000-0000-000000000001','2026-09-24',111.111111,84,0,'30000000-0000-0000-0000-000000000001');
+ ('set:20000000-0000-0000-0000-000000000001','2026-09-24',111.111111,84,0,'30000000-0000-0000-0000-000000000001'),
+ ('rarity:rareHolo','2026-09-17',100,90,0,'30000000-0000-0000-0000-000000000001'),
+ ('rarity:rareHolo','2026-09-24',110,100,0,'30000000-0000-0000-0000-000000000001');
 
 insert into public.pokemon_market_explorer_prepared_constituent_totals_v1(
  generation_id,market_key,asset,source_kind,definition_version,source_as_of,total_count,availability
 )
-values(
+values
+(
  '30000000-0000-0000-0000-000000000001',
  'set:20000000-0000-0000-0000-000000000001',
  'cards','public_set_snapshot','fixture','2026-09-24',1,'available'
+),
+(
+ '30000000-0000-0000-0000-000000000001',
+ 'rarity:rareHolo',
+ 'cards','maintained_query_cache','fixture','2026-09-24',1,'available'
 );
 
 insert into public.pokemon_market_explorer_prepared_constituents_v1(
@@ -103,6 +121,16 @@ select
  'set:20000000-0000-0000-0000-000000000001',
  1,card_variant_id::text,'cards',10,'2026-09-24',
  jsonb_build_object('setId',set_id,'cardVariantId',card_variant_id,'name','GX Fixture Card '||g)
+from fixture_cards order by g limit 1;
+
+insert into public.pokemon_market_explorer_prepared_constituents_v1(
+ generation_id,market_key,rank,instrument_id,asset,market_price,price_as_of,item
+)
+select
+ '30000000-0000-0000-0000-000000000001',
+ 'rarity:rareHolo',
+ 1,card_variant_id::text,'cards',10,'2026-09-24',
+ jsonb_build_object('setId',set_id,'cardVariantId',card_variant_id,'name','Prepared Rarity Fixture')
 from fixture_cards order by g limit 1;
 
 -- Raw index stays Set-level mathematically; the new 25-card roster is only the
