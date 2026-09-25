@@ -1,4 +1,4 @@
 {
-  "operation": "market-vintage-cutover",
-  "request_id": "market-vintage-cutover-20260925-a"
+  "operation": "scrape-cycle-status",
+  "request_id": "snapshots-20260925-a"
 }
