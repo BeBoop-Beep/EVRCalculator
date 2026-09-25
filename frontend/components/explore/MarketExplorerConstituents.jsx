@@ -18,6 +18,8 @@ import {
   resolveSeriesConstituents,
   resolveVariantLabel,
 } from "@/lib/explore/marketExplorerConstituents.mjs";
+import ConstituentThumbnail from "./MarketExplorerConstituentPreview";
+import { buildConstituentSwitcherEntries } from "@/lib/explore/marketExplorerWorkspace.mjs";
 import useMarketExplorerConstituentPage from "@/hooks/explore/useMarketExplorerConstituentPage";
 import { CONSTITUENT_ERROR } from "@/lib/explore/marketExplorerConstituentPaging.mjs";
 
@@ -175,29 +177,42 @@ function MovementWindowSelector({ value, onChange }) {
   );
 }
 
-function SeriesPicker({ series, activeId, onSelect }) {
-  if (series.length <= 1) return null;
+/**
+ * The constituent SWITCHER. Lists every ACTIVE market so the user can change what
+ * the panel inspects without closing it. Clicking a chip changes ONLY the
+ * constituent target: it never removes a market, toggles chart visibility,
+ * changes focus, or triggers the Builder. A chart-hidden market stays
+ * selectable; a market that cannot be enumerated renders disabled/unavailable
+ * (marked by data-market-constituents-target-unavailable) instead of pretending
+ * to load. The current target has the strongest (violet) state.
+ */
+function ConstituentSwitcher({ entries, onSelect }) {
+  if (entries.length <= 1) return null;
   return (
-    <div data-market-constituents-picker className="flex flex-wrap gap-1.5 px-3 pb-2 sm:px-4">
-      {series.map((entry) => {
-        const isActive = entry.key === activeId;
+    <div data-market-constituents-picker role="group" aria-label="Constituent market" className="flex flex-wrap gap-1.5 px-3 pb-2 sm:px-4">
+      {entries.map((entry) => {
+        const stateProps = entry.disabled
+          ? { "data-market-constituents-target-unavailable": entry.key, disabled: true, "aria-disabled": true, title: "This market has no enumerable constituent roster" }
+          : { "data-market-constituents-target": entry.key, "aria-pressed": entry.isTarget, onClick: () => onSelect?.(entry.key) };
         return (
           <button
             key={entry.key}
             type="button"
-            data-market-constituents-target={entry.key}
-            aria-pressed={isActive}
-            onClick={() => onSelect?.(entry.key)}
+            {...stateProps}
+            data-market-constituents-target-hidden={entry.isHidden ? "true" : undefined}
             className={[
               "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors desk:min-h-0 desk:py-1",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
-              isActive
-                ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]"
-                : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80",
+              entry.disabled
+                ? "cursor-not-allowed border-dashed border-[var(--border-subtle)] text-[var(--text-secondary)] opacity-45"
+                : entry.isTarget
+                  ? "border-violet-300 bg-violet-500/[.22] font-semibold text-violet-100 shadow-[inset_0_0_0_1px_rgba(196,181,253,.25)]"
+                  : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-violet-400/50 hover:text-[var(--text-primary)]",
             ].join(" ")}
           >
             <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-[2px]" style={{ backgroundColor: entry.color }} />
-            <span className="max-w-[14rem] truncate">{entry.shortLabel || entry.label}</span>
+            <span className="max-w-[14rem] truncate">{entry.label}</span>
+            {entry.isHidden ? <span className="text-[9px] font-normal text-[var(--text-secondary)]">(hidden on chart)</span> : null}
           </button>
         );
       })}
@@ -218,7 +233,7 @@ function SeriesPicker({ series, activeId, onSelect }) {
  * (`useMarketExplorerConstituentPage`), independent of the chart's, so a slow
  * or failed constituent page never blocks the rest of the workspace.
  */
-function QueryConstituentSection({ series, identity, movementWindow, mode = "expanded", prepared = false, onRefreshPrepared }) {
+function QueryConstituentSection({ series, identity, movementWindow, mode = "expanded", prepared = false, onRefreshPrepared, pageCache = null }) {
   const asset = resolveSeriesAsset(series);
   const idField = asset === "sealed" ? "sealedProductId" : "canonicalCardId";
   // Query rows represent physical instruments. Legitimate card variants may
@@ -226,7 +241,7 @@ function QueryConstituentSection({ series, identity, movementWindow, mode = "exp
   const rowKey = (row) => row.instrumentId || row.cardVariantId || row[idField] || row.rank;
   const columns = buildConstituentColumns(asset, movementWindow);
   const primaryColumn = columns.find((column) => column.primary);
-  const page = useMarketExplorerConstituentPage(identity);
+  const page = useMarketExplorerConstituentPage(identity, { cache: pageCache });
   const previewOnly = mode === "preview";
   const visibleRows = previewOnly ? page.rows.slice(0, PREVIEW_ROWS) : page.rows;
   const mismatch = prepared && page.errorCode === CONSTITUENT_ERROR.generationMismatch
@@ -320,7 +335,7 @@ function QueryConstituentSection({ series, identity, movementWindow, mode = "exp
                       <ChangeCell row={row} window={column.window} label={cellValue(row, primaryColumn)} />
                     ) : column.primary ? (
                       <span className="inline-flex min-w-0 items-center gap-2">
-                        {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className="h-10 w-7 flex-none rounded object-cover" /> : null}
+                        <ConstituentThumbnail row={row} asset={asset} />
                         <span className="min-w-0 truncate">{cellValue(row, column)}</span>
                         {asset === "cards" ? <VariantBadge row={row} /> : null}
                       </span>
@@ -336,7 +351,7 @@ function QueryConstituentSection({ series, identity, movementWindow, mode = "exp
         {visibleRows.map((row) => (
           <li key={rowKey(row)} data-market-constituent={rowKey(row)} className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2">
             <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
-            {row.imageUrl ? <img src={row.imageUrl} alt="" loading="lazy" className="h-12 w-9 flex-none rounded object-cover" /> : null}
+            <ConstituentThumbnail row={row} asset={asset} className="h-12 w-9" />
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-center">
                 <span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">{cellValue(row, primaryColumn)}</span>
@@ -397,6 +412,9 @@ export default function MarketExplorerConstituents({
   onEditSeries,
   mode = "expanded",
   onRefreshPrepared,
+  hiddenSeriesKeys = null,
+  focusedSeriesKey = null,
+  pageCache = null,
 }) {
   // Local, unpersisted: which window you are reading is a posture, not
   // research, and it does not belong in the URL beside the chart's timeframe.
@@ -473,12 +491,15 @@ export default function MarketExplorerConstituents({
         ) : null}
       </div>
 
-      <SeriesPicker series={inspectable} activeId={active?.key || null} onSelect={onSelectSeries} />
+      <ConstituentSwitcher
+        entries={buildConstituentSwitcherEntries(selectedSeries.filter(Boolean), { targetKey: active?.key || null, hiddenKeys: hiddenSeriesKeys instanceof Set ? hiddenSeriesKeys : new Set(), focusedKey: focusedSeriesKey })}
+        onSelect={onSelectSeries}
+      />
 
       {isPaged ? (
         // NEVER the 33k-row static path — always the paged backend consumer.
         <QueryConstituentSection series={active} identity={pagedIdentity} movementWindow={movementWindow}
-          mode={mode} prepared={isPrepared} onRefreshPrepared={onRefreshPrepared} />
+          mode={mode} prepared={isPrepared} onRefreshPrepared={onRefreshPrepared} pageCache={pageCache} />
       ) : model.availability === CONSTITUENTS_AVAILABLE ? (
         <>
           {model.belowRequestedTopN ? (
@@ -537,9 +558,7 @@ export default function MarketExplorerConstituents({
                           />
                         ) : column.primary ? (
                           <span className="flex items-center gap-2">
-                            {row.imageUrl ? (
-                              <img src={row.imageUrl} alt="" loading="lazy" className="h-10 w-7 flex-none rounded object-cover" />
-                            ) : null}
+                            <ConstituentThumbnail row={row} asset={model.asset} />
                             <span className="min-w-0 truncate">{cellValue(row, column)}</span>
                             {model.asset === "cards" ? <VariantBadge row={row} /> : null}
                           </span>
@@ -563,9 +582,7 @@ export default function MarketExplorerConstituents({
                 className="flex items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 px-2.5 py-2"
               >
                 <span className="w-5 flex-none pt-0.5 text-[10px] tabular-nums text-[var(--text-secondary)]">{row.rank}</span>
-                {row.imageUrl ? (
-                  <img src={row.imageUrl} alt="" loading="lazy" className="h-12 w-9 flex-none rounded object-cover" />
-                ) : null}
+                <ConstituentThumbnail row={row} asset={model.asset} className="h-12 w-9" />
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center">
                     <span className="min-w-0 truncate text-xs font-medium text-[var(--text-primary)]">
