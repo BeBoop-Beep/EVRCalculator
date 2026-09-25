@@ -104,14 +104,8 @@ def missing_market_root_set_ids(
 
 def _refresh_one(set_id: str, market_date: str) -> int:
     def refresh(client: Any, _attempt: int):
-        return client.rpc(
-            REFRESH_RPC,
-            {
-                "p_set_id": set_id,
-                "p_start_date": market_date,
-                "p_end_date": market_date,
-            },
-        ).execute()
+        from backend.db.services.market_publication_sources import refresh_market_root_day
+        return refresh_market_root_day(client, set_id, market_date)
 
     result = run_supabase_with_transient_retry(
         refresh,
@@ -119,7 +113,8 @@ def _refresh_one(set_id: str, market_date: str) -> int:
         max_attempts=DEFAULT_RETRY_ATTEMPTS,
     )
     try:
-        return int(result.data or 0)
+        data = result.data
+        return int(data.get("rowsUpserted", 0) if isinstance(data, Mapping) else data or 0)
     except (TypeError, ValueError):
         return 0
 

@@ -482,7 +482,13 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
 
     dashboards = []
     post_cutover = str(market_date)[:10] >= MARKET_ROOT_AUTHORITY_TABLE_CUTOVER_DATE
-    if not post_cutover:
+    if post_cutover:
+        # Restore canonical set performance without loading large dashboard histories.
+        from backend.db.services.market_publication_sources import load_compact_market_index_summaries
+        standard_ids = sorted({str(row["id"]) for row in sets
+                               if str(row.get("market_scope") or "standard") == "standard"})
+        dashboards = load_compact_market_index_summaries(client, standard_ids)
+    else:
         dashboard_fields = (
             "set_id,window_key,set_value_histories_json,latest_market_date,updated_at,"
             "cardsMarket:payload_json->cardsMarket"
