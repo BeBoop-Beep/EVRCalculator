@@ -6,6 +6,7 @@ MIGRATIONS = (
     "20260924213000_market_explorer_data_surface_authorities_v1.sql",
     "20260924214500_market_explorer_generation_surface_v2.sql",
     "20260924220000_market_explorer_catalog_search_v1.sql",
+    "20260925061000_market_explorer_raw_frozen_set_value_constituents_v1.sql",
 )
 
 
@@ -189,3 +190,32 @@ def test_live_prepared_rarity_segment_id_is_supported():
     surface_sql = read(MIGRATIONS[1])
     assert "nullif(d.metadata->>'segmentId','')" in authority_sql
     assert "nullif(d.metadata->>'segmentId','')" in surface_sql
+
+
+def test_raw_composition_successor_uses_frozen_set_value_leaves():
+    sql = read(MIGRATIONS[3])
+    assert "pokemon_market_set_value_constituent_publications_v1" in sql
+    assert "pokemon_market_set_value_constituents_v1" in sql
+    assert "replace_pokemon_market_set_value_constituents_v1" in sql
+    assert "Frozen Set Value leaf publications incomplete or mismatched" in sql
+    stage = sql.split(
+        "create or replace function public.stage_pokemon_market_explorer_raw_composition_v1(", 1
+    )[1].split("$function$;", 1)[0]
+    assert "pokemon_market_set_value_constituents_v1" in stage
+    assert "pokemon_market_explorer_card_daily_states_v2_shadow" not in stage
+    assert "get_pokemon_set_value_canonical_prices_as_of_v2_shadow" not in stage
+    assert "'standard'::text as market_scope" in stage
+    assert "round(v_value,2)=round(v_raw.basket_value,2)" in stage
+    assert "v_count=v_raw.card_count" in stage
+
+
+def test_frozen_set_value_leaf_publication_is_private_bounded_and_atomic():
+    sql = read(MIGRATIONS[3]).lower()
+    assert "p_expected_card_count > 2000" in sql
+    assert "pg_advisory_xact_lock" in sql
+    assert "set statement_timeout = '10s'" in sql
+    assert "set lock_timeout = '2s'" in sql
+    assert "enable row level security" in sql
+    assert "from public,anon,authenticated" in sql
+    assert "to service_role" in sql
+    assert "security definer" not in sql
