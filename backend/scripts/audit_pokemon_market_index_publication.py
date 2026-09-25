@@ -146,12 +146,14 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
     try:
         expected_overview = build_canonical_market_overview(
             client, market_date=market_date, history=expected_history, set_ids=set_ids,
+            include_card_segments=False,
         )
     except Exception as exc:
         failures.append(f"expected overview invalid: {exc}"); expected_overview = None
     try:
         persisted_overview = build_canonical_market_overview(
             client, market_date=market_date, history=persisted_history, set_ids=set_ids,
+            include_card_segments=False,
         )
     except Exception as exc:
         failures.append(f"persisted overview invalid: {exc}"); persisted_overview = None
