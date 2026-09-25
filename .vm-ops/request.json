@@ -1,4 +1,4 @@
 {
-  "operation": "scrape-cycle-status",
-  "request_id": "snapshots-20260925-a"
+  "operation": "code-red-db-load-restore",
+  "request_id": "snapshots-20260925-restore-cron"
 }
