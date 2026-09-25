@@ -1,1 +1,4 @@
-{"operation":"market-explorer-db-diagnose","request_id":"code-red-post-restart-connection"}
+{
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sep24-postrestart-final-publication"
+}
