@@ -1,4 +1,4 @@
 {
-  "operation": "code-red-db-load-restore-audit",
-  "request_id": "sep24-code-red-restore-audit"
+  "operation": "sep22-publication-status",
+  "request_id": "sep24-publication-final-stage-check"
 }
