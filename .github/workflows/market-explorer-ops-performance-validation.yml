@@ -3,7 +3,7 @@ name: Market Explorer Ops Performance Validation
 on:
   push:
     branches:
-      - feat/market-explorer-data-surface-expansion-20260924
+      - develop
     paths:
       - "backend/scripts/refresh_stale_public_snapshots.py"
       - "backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py"

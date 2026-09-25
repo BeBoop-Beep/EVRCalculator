@@ -3,7 +3,7 @@ name: Market Explorer Live DB Connectivity Audit
 on:
   push:
     branches:
-      - feat/market-explorer-data-surface-expansion-20260924
+      - develop
     paths:
       - ".github/workflows/market-explorer-live-db-connectivity-audit.yml"
 
