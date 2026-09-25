@@ -1,5 +1,4 @@
 {
-  "operation": "stop-sep24-global-card-segment-publisher",
-  "market_date": "2026-09-24",
-  "request_id": "sep24-replace-slow-card-segment-publisher"
+  "operation": "sync-main-preserve-untracked-artifacts",
+  "request_id": "sep24-deploy-bounded-global-market"
 }
