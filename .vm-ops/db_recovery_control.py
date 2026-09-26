@@ -1,8 +1,4 @@
-"""Explicitly authorized, serial recovery on the upgraded production project.
-
-Ordinary schedules stay paused during catch-up. Each approved phase has its own
-receipt. No arbitrary command arguments, credentials, or automatic retry loop.
-"""
+"""Explicit, serial recovery with durable phase receipts and resource limits."""
 from __future__ import annotations
 import argparse
 import fcntl
@@ -20,27 +16,28 @@ from zoneinfo import ZoneInfo
 ROOT=Path('/home/ubuntu/repos/EVRCalculator')
 STATE=Path('/home/ubuntu/state/db-safety')
 PY=STATE/'recovery-venv/bin/python'
+# setup-python's Linux ARM64 build needs its lib directory even after the
+# originating Actions job exits. Derive it from the validated interpreter;
+# never alter the system loader or the existing scraper virtual environment.
+PY_LIB=PY.resolve().parent.parent/'lib'
+if PY_LIB.is_dir():
+    os.environ['LD_LIBRARY_PATH']=str(PY_LIB)+(os.pathsep+os.environ['LD_LIBRARY_PATH'] if os.environ.get('LD_LIBRARY_PATH') else '')
 PHASES=('simulations','collector','publication','explorer','pricing')
 sys.path.insert(0,str(ROOT))
 spec=importlib.util.spec_from_file_location('db_guard',STATE/'db_workload_guard.py')
 guard=importlib.util.module_from_spec(spec);spec.loader.exec_module(guard)
 
-
 def emit(value):
     print(json.dumps(value,default=str,sort_keys=True),flush=True)
-
 
 def receipt_path(day,phase):
     return STATE/'recovery'/day/(phase+'.json')
 
-
 def write_receipt(day,phase,value):
     guard.atomic_write(receipt_path(day,phase),json.dumps(value,default=str)+'\n')
 
-
 def loaded(day,phase):
     return guard.load(receipt_path(day,phase))
-
 
 def running(pid):
     try:
@@ -48,7 +45,6 @@ def running(pid):
         cmd=(Path('/proc')/str(pid)/'cmdline').read_bytes()
         return b'--action\0worker' in cmd
     except (OSError,TypeError,ValueError):return False
-
 
 def commands(phase,day):
     if phase=='simulations':
@@ -62,7 +58,6 @@ def commands(phase,day):
     if phase=='pricing':
         return [str(PY),'-m','backend.scripts.run_daily_multi_source_card_pricing','--json','--resume','--no-frontend-env-fallback']
     raise ValueError('unsupported phase')
-
 
 def simulation_body(day):
     from backend.db.clients.supabase_client import create_service_role_client
@@ -89,7 +84,6 @@ def simulation_body(day):
     emit({'stage':'simulation_verified','ok':after.ok,'eligible':after.eligible_count,'target':day})
     return 0 if after.ok else 1
 
-
 def worker(day,phase):
     import shlex
     os.chdir(ROOT)
@@ -106,17 +100,16 @@ def worker(day,phase):
         write_receipt(day,phase,record);emit(record)
         rc=75
         try:
-            command=shlex.join(commands(phase,day))
-            rc=guard.run_command(command,state=lane,interval=20)
+            rc=guard.run_command(shlex.join(commands(phase,day)),state=lane,interval=20)
         finally:
             record.update(status='completed' if rc==0 else 'blocked',exit_code=rc,finished_at=datetime.now(ZoneInfo('UTC')).isoformat())
             write_receipt(day,phase,record);emit(record)
     return rc
 
-
 def start(day,phase):
     if not PY.is_file() or not (STATE/'recovery-venv/READY').is_file():
         raise RuntimeError('validated_recovery_runtime_missing')
+    subprocess.run([str(PY),'-c','import scipy,numpy; from backend.jobs.evr_runner import EVRRunOrchestrator'],cwd=ROOT,check=True,timeout=20,stdout=subprocess.DEVNULL)
     reason=guard.live_pressure()
     if reason:raise RuntimeError('resource_preflight:'+reason)
     if not (STATE/'hold.json').exists():raise RuntimeError('global_recovery_hold_missing')
@@ -135,11 +128,12 @@ def start(day,phase):
         with log.open('a') as out:
             p=subprocess.Popen([str(PY),str(Path(__file__).resolve()),'--action','worker','--phase',phase,'--market-date',day],cwd=ROOT,env=env,start_new_session=True,stdin=subprocess.DEVNULL,stdout=out,stderr=out)
         os.chmod(log,0o600)
-        emit({'status':'launched','phase':phase,'pid':p.pid,'log':str(log),'global_hold_preserved':True})
         time.sleep(2)
+        if p.poll() is not None and p.returncode!=0:
+            status(day);raise RuntimeError('worker_exited_before_start_confirmation')
+        emit({'status':'launched','phase':phase,'pid':p.pid,'log':str(log),'global_hold_preserved':True})
         status(day)
     return 0
-
 
 def status(day):
     emit({'target':day,'global_hold':(STATE/'hold.json').exists(),'resource_preflight':guard.live_pressure()})
@@ -151,12 +145,10 @@ def status(day):
         if path.exists():
             with path.open('rb') as f:
                 f.seek(max(0,path.stat().st_size-50000));text=f.read().decode(errors='replace')
-            selected=[l for l in text.splitlines() if ('[daily-opening-publication]' in l or '[refresh-' in l or l.startswith('{') or 'ERROR' in l or 'Traceback' in l or 'Error:' in l or '[START]' in l or 'COLLECTOR_' in l or '[simulation-freshness]' in l)]
+            selected=[l for l in text.splitlines() if ('[daily-opening-publication]' in l or '[refresh-' in l or l.startswith('{') or 'ERROR' in l or 'Traceback' in l or 'Error:' in l or 'error while' in l or '[START]' in l or 'COLLECTOR_' in l or '[simulation-freshness]' in l)]
             for l in selected[-18:]:
-                l=re.sub(r'eyJ[A-Za-z0-9_.-]+','<REDACTED>',l)
-                print(l[:1200],flush=True)
+                print(re.sub(r'eyJ[A-Za-z0-9_.-]+','<REDACTED>',l)[:1200],flush=True)
     return 0
-
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--action',choices=('start','worker','status','simulation-body'),required=True);p.add_argument('--phase',choices=PHASES);p.add_argument('--market-date',required=True)
