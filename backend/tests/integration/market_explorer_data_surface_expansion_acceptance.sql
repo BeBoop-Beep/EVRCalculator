@@ -5,10 +5,10 @@
 insert into public.eras(id,name) values
  ('10000000-0000-0000-0000-000000000001','Fixture Era');
 
-insert into public.sets(id,name,era_id,catalog_only) values
- ('20000000-0000-0000-0000-000000000001','Fixture Set A','10000000-0000-0000-0000-000000000001',false),
- ('20000000-0000-0000-0000-000000000002','Fixture Set B','10000000-0000-0000-0000-000000000001',false),
- ('20000000-0000-0000-0000-000000000003','Fixture Set C','10000000-0000-0000-0000-000000000001',false);
+insert into public.sets(id,name,era_id,release_date,catalog_only) values
+ ('20000000-0000-0000-0000-000000000001','Fixture Set A','10000000-0000-0000-0000-000000000001','2026-08-01',false),
+ ('20000000-0000-0000-0000-000000000002','Fixture Set B','10000000-0000-0000-0000-000000000001','2023-09-24',false),
+ ('20000000-0000-0000-0000-000000000003','Fixture Set C','10000000-0000-0000-0000-000000000001','2010-01-01',false);
 
 insert into public.pokemon_market_set_scope_contract_v1(
  set_id,base_set_name,profile,market_scope,market_key,display_label
@@ -33,7 +33,9 @@ from generate_series(1,25) g;
 insert into public.pokemon_canonical_cards(
  id,set_id,name,number,printed_number,rarity,set_value_eligible,image_small_url,image_large_url
 )
-select canonical_card_id,set_id,'GX Fixture Card '||g,g::text,g::text,'Rare Holo GX',true,
+select canonical_card_id,set_id,
+       case g when 1 then 'Dragonite' when 2 then 'Charizard' when 3 then 'Pikachu' else 'GX Fixture Card '||g end,
+       g::text,g::text,'Rare Holo GX',true,
        'https://img.example/canonical-'||g||'-small.jpg',
        'https://img.example/canonical-'||g||'-large.jpg'
 from fixture_cards;
@@ -49,7 +51,8 @@ insert into public.pokemon_market_explorer_card_current_metadata(
  rarity,filter_rarity_key,edition,printing_type,special_type,image_url,identity_basis
 )
 select card_variant_id,canonical_card_id,gen_random_uuid(),set_id,
-       'GX Fixture Card '||g,g::text,'Rare Holo GX','rareHoloGx','unlimited','holo',null,
+       case g when 1 then 'Dragonite' when 2 then 'Charizard' when 3 then 'Pikachu' else 'GX Fixture Card '||g end,
+       g::text,'Rare Holo GX','rareHoloGx','unlimited','holo',null,
        'https://img.example/meta-'||g||'.jpg','fixture'
 from fixture_cards;
 
@@ -60,6 +63,13 @@ select d::date,c.card_variant_id,c.set_id,
        case when d::date='2026-09-17' then 9.00 else 10.00 end
 from fixture_cards c
 cross join (values ('2026-09-17'::date),('2026-09-24'::date)) v(d);
+
+insert into public.pokemon_market_explorer_card_daily_coverage_v2_shadow(
+  set_id,retained_from,computed_through,row_count,retention_days
+)
+select set_id,'2026-09-17','2026-09-24',count(*)*2,8
+from fixture_cards
+group by set_id;
 
 -- Legacy prepared baseline to prove seed-copy and compact-image enrichment.
 insert into public.pokemon_market_explorer_prepared_directory_v1(
@@ -89,6 +99,9 @@ values
  '{"segmentId":"rareHolo","sourceComputedThrough":"2026-09-24"}'::jsonb,
  '30000000-0000-0000-0000-000000000001',now()
 );
+
+insert into public.pokemon_market_explorer_prepared_serving_v1(singleton,generation_id)
+values (true,'30000000-0000-0000-0000-000000000001');
 
 insert into public.pokemon_market_explorer_prepared_history_v1(
  market_key,market_date,index_value,tracked_value,chain_segment_id,generation_id
@@ -304,10 +317,44 @@ begin
   where availability='INSUFFICIENT_AUTHORITY';
   if n<>1 then raise exception 'graded fail-closed state missing'; end if;
 
+  select count(*) into n
+  from public.pokemon_market_explorer_sealed_quick_registry_v1
+  where status='APPROVED';
+  if n<>6 then raise exception 'sealed Quick market approval count wrong: %',n; end if;
+
+  select count(*) into n
+  from public.pokemon_market_explorer_surface_directory_v2
+  where generation_id=g and market_key like 'sealed-quick:%'
+    and comparison_as_of='2026-09-24';
+  if n<>6 then raise exception 'sealed Quick markets missing/currentness wrong: %',n; end if;
+
   if exists (
-    select 1 from public.pokemon_market_explorer_sealed_quick_registry_v1
-    where status='APPROVED'
-  ) then raise exception 'unapproved sealed quick market was published'; end if;
+    select 1 from public.pokemon_market_explorer_surface_constituents_v2
+    where generation_id=g and market_key like 'sealed-quick:%'
+      and coalesce((item->>'isBulkContainer')::boolean,false)
+  ) then raise exception 'bulk container leaked into sealed Quick market'; end if;
+
+  select count(*) into n
+  from public.pokemon_market_explorer_surface_constituents_v2
+  where generation_id=g and market_key='sealed-quick:global-top10';
+  if n<>10 then raise exception 'sealed Global Top 10 count wrong: %',n; end if;
+
+  select count(*) into n
+  from public.search_pokemon_market_explorer_leaves_v3('Dragonite','cards',20);
+  if n<1 then raise exception 'Dragonite leaf search missing'; end if;
+  select count(*) into n
+  from public.search_pokemon_market_explorer_leaves_v3('Charizard','cards',20);
+  if n<1 then raise exception 'Charizard leaf search missing'; end if;
+  select count(*) into n
+  from public.search_pokemon_market_explorer_leaves_v3('Pikachu','cards',20);
+  if n<1 then raise exception 'Pikachu leaf search missing'; end if;
+
+  select count(*) into n
+  from public.get_pokemon_market_explorer_surface_screen_v2('top-performers','all',25,g);
+  if n>25 then raise exception 'Top Performers exceeded limit'; end if;
+  select count(*) into n
+  from public.get_pokemon_market_explorer_surface_screen_v2('worst-performers','all',25,g);
+  if n>25 then raise exception 'Worst Performers exceeded limit'; end if;
 
   if (select status from public.pokemon_market_explorer_focus_readiness_v1 where feature_key='demandPressure')
        <>'DEMAND_PRESSURE_NOT_READY'
@@ -343,6 +390,17 @@ from public.search_pokemon_market_explorer_catalog_v1('cards','Rare Holo GX',20)
 
 select count(*) as sealed_search_rows
 from public.search_pokemon_market_explorer_catalog_v1('sealed','Booster Box',20);
+
+select count(*) as dragonite_leaf_rows
+from public.search_pokemon_market_explorer_leaves_v3('Dragonite','cards',20);
+
+select count(*) as sealed_three_pack_rows
+from public.search_pokemon_market_explorer_leaves_v3('3 pack','sealed',20);
+
+select count(*) as top_screen_rows
+from public.get_pokemon_market_explorer_surface_screen_v2(
+  'top-performers','all',25,(select generation_id from fixture_generation)
+);
 
 select jsonb_array_length(
   public.get_pokemon_market_explorer_surface_constituents_v2(
