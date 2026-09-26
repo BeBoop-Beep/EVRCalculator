@@ -59,3 +59,15 @@ def read_active_overall_rows(client: Any) -> list[dict[str, Any]]:
         })
         projected.append(public_row)
     return projected
+
+
+def active_overall_public_index(client: Any) -> dict[str, dict[str, Any]]:
+    """``sealedProductId -> generic public Overall projection`` from the ONE active authority.
+
+    Model-number independent: whichever Overall model the singleton pointer names (V12 today, V14 after
+    an authorized activation) is what comes back, with its own ``version`` and ``componentLineage``. A
+    service that needs the current Overall for a product reads this instead of a model-specific
+    ``overall_rip_v12_*`` column, so a pointer flip needs no application change. Empty when nothing is
+    published. Read-only; it can never move the pointer.
+    """
+    return {row["sealedProductId"]: row for row in read_active_overall_rows(client)}

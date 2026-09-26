@@ -171,8 +171,13 @@ from backend.db.services.market_explorer_options_snapshot import (
     read_market_explorer_options_snapshot,
 )
 from backend.db.services.market_explorer_prepared_directory import (
-    read_prepared_comparison, read_prepared_directory, read_prepared_history,
+    read_prepared_comparison_bundle, read_prepared_constituents, enrich_prepared_constituent_page,
+    read_prepared_directory,
     read_prepared_screen, read_set_context_ranking,
+)
+from backend.db.services.market_explorer_surface_v2 import (
+    SurfaceV2Error, read_asset_options, read_comparison_v2_first,
+    read_constituents_v2_first, read_directory_v2_first, search_catalog,
 )
 from backend.db.services.market_explorer_exact_basket import (
     MarketExplorerExactBasketUnavailable, run_exact_basket_v2,
@@ -322,6 +327,11 @@ class MarketExplorerPreflightRequest(BaseModel):
 
 class PreparedComparisonRequest(BaseModel):
     marketKeys: List[str] = Field(min_length=1, max_length=25)
+    # Keys already on the caller's chart. NEVER read here (each market's rows are
+    # independent, so the client fetches only what it is adding); they exist
+    # solely so the Index+ "compare" entitlement is judged on the whole
+    # workspace rather than being bypassed by one-market-at-a-time requests.
+    contextMarketKeys: List[str] = Field(default_factory=list, max_length=25)
     startDate: Optional[date] = None
 
 
@@ -1435,7 +1445,7 @@ def get_market_explorer_snapshot(
 def get_market_explorer_prepared_directory():
     """Public, compact Browse authority. No Builder or query cache involved."""
     try:
-        return {"markets": read_prepared_directory(service_read_client)}
+        return {"markets": read_directory_v2_first(service_read_client)}
     except Exception:
         logger.exception("/market/explorer/prepared-directory unexpected error")
         return JSONResponse(content={"message": "Prepared markets are temporarily unavailable", "code": "PREPARED_DIRECTORY_FAILED"}, status_code=503)
@@ -1445,16 +1455,77 @@ def get_market_explorer_prepared_directory():
 def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token")):
-    if len(set(payload.marketKeys)) > 1:
+    comparing = len(set(payload.marketKeys) | set(payload.contextMarketKeys)) > 1
+    if comparing:
         _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
-    if len(set(payload.marketKeys)) > 1 and not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+    if comparing and not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
         raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
     keys = list(dict.fromkeys(payload.marketKeys))
     try:
-        return {"markets": read_prepared_comparison(service_read_client, keys),
-                "history": read_prepared_history(service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None)}
+        return read_comparison_v2_first(
+            service_read_client, keys, payload.startDate.isoformat() if payload.startDate else None,
+        )
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "PREPARED_COMPARISON_INVALID"}, status_code=400)
+    except Exception as exc:
+        # Live QA (2026-09-22) reproduced a bare, unhandled 500 ("Internal
+        # Server Error") from this route for even a single Set market, taking
+        # 10-16s against the underlying RPCs' own `statement_timeout = '5s'`
+        # — almost certainly a Postgres statement timeout or similar RPC-level
+        # failure surfacing uncaught because only ValueError was handled here.
+        # This does not fix the slow query itself (root cause needs direct DB
+        # access this session did not have), but it stops a raw crash from
+        # reaching the client and matches the graceful-failure shape already
+        # used by /market/explorer/prepared-screen and /prepared-directory.
+        logger.exception("/market/explorer/prepared-comparison unexpected error", extra={"marketKeys": keys})
+        if _is_statement_timeout(exc):
+            return JSONResponse(content={"message": "This market took too long to load. Try again.", "code": "PREPARED_COMPARISON_TIMEOUT"}, status_code=504)
+        return JSONResponse(content={"message": "Prepared comparison is temporarily unavailable", "code": "PREPARED_COMPARISON_FAILED"}, status_code=503)
+
+
+def _is_statement_timeout(exc: BaseException) -> bool:
+    text = f"{type(exc).__name__} {exc}".lower()
+    return "57014" in text or "statement timeout" in text or "timeout" in text
+
+
+@app.get("/market/explorer/prepared-constituents")
+def get_market_explorer_prepared_constituents(
+    marketKey: str = Query(min_length=1, max_length=200),
+    generationId: str = Query(min_length=1, max_length=64),
+    afterRank: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """One bounded, generation-pinned page of a PREPARED market's constituents.
+
+    Read-only. Per-market-type authority is dispatched by the RPC from the
+    directory row's own source_kind (maintained query cache / canonical Set
+    roster / published sealed roster). Movement is attached only for cards, from
+    the accepted V2 constituent-movement authority.
+    """
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(status_code=403, detail={"message": "Constituents are included with Index+.", "requiredPlan": "plus"})
+    try:
+        page = read_constituents_v2_first(service_read_client, marketKey, generationId, afterRank, limit)
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "PREPARED_CONSTITUENTS_INVALID"}, status_code=400)
+    except Exception as exc:
+        logger.exception("/market/explorer/prepared-constituents unexpected error", extra={"marketKey": marketKey})
+        if _is_statement_timeout(exc):
+            return JSONResponse(content={"message": "Constituents took too long to load. Try again.", "code": "PREPARED_CONSTITUENTS_TIMEOUT"}, status_code=504)
+        return JSONResponse(content={"message": "Constituents are temporarily unavailable", "code": "PREPARED_CONSTITUENTS_FAILED"}, status_code=503)
+    code = page.get("code")
+    if code == "GENERATION_MISMATCH":
+        return JSONResponse(content=page, status_code=409, headers={"Cache-Control": "no-store"})
+    if code == "UNKNOWN_MARKET":
+        return JSONResponse(content=page, status_code=404, headers={"Cache-Control": "no-store"})
+    if code == "INVALID_CURSOR":
+        return JSONResponse(content=page, status_code=400, headers={"Cache-Control": "no-store"})
+    if not page:
+        return JSONResponse(content={"message": "Constituents are temporarily unavailable", "code": "PREPARED_CONSTITUENTS_FAILED"}, status_code=503)
+    return _tiered_response(enrich_prepared_constituent_page(service_read_client, page))
 
 
 @app.get("/market/explorer/prepared-screen")
@@ -1559,6 +1630,44 @@ def get_market_explorer_instrument_search(
         ))
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_SEARCH_INVALID"}, status_code=400)
+
+
+@app.get("/market/explorer/catalog/search")
+def get_market_explorer_catalog_search(
+    request: Request,
+    asset: str = Query(default="cards", max_length=16),
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=20, ge=1, le=50),
+):
+    """Contextual Explorer catalog search. General discovery: NOT plan-gated."""
+    forwarded = str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    network_identity = forwarded or (request.client.host if request.client else "unknown")
+    _enforce_paid_abuse(request, user_id=f"explorer-catalog-search:{network_identity}",
+                        policy_class=POLICY_SITE_SEARCH, route="/market/explorer/catalog/search")
+    try:
+        return JSONResponse(content={"results": search_catalog(service_read_client, asset, q, limit)},
+                            headers={"Cache-Control": "no-store"})
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "CATALOG_SEARCH_INVALID"}, status_code=400)
+    except SurfaceV2Error as exc:
+        logger.error("/market/explorer/catalog/search failed", extra={"code": exc.code})
+        return JSONResponse(content={"message": "Search is temporarily unavailable", "code": exc.code}, status_code=503)
+    except Exception:
+        logger.exception("/market/explorer/catalog/search unexpected error")
+        return JSONResponse(content={"message": "Search is temporarily unavailable", "code": "CATALOG_SEARCH_FAILED"}, status_code=503)
+
+
+@app.get("/market/explorer/asset-options")
+def get_market_explorer_asset_options(asset: str = Query(default="cards", max_length=16)):
+    """Truthful rarity / sealed-type availability states published by the DB."""
+    try:
+        return JSONResponse(content=read_asset_options(service_read_client, asset),
+                            headers={"Cache-Control": "no-store"})
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "ASSET_OPTIONS_INVALID"}, status_code=400)
+    except SurfaceV2Error as exc:
+        logger.error("/market/explorer/asset-options failed", extra={"code": exc.code})
+        return JSONResponse(content={"message": "Options are temporarily unavailable", "code": exc.code}, status_code=503)
 
 
 @app.get("/search")

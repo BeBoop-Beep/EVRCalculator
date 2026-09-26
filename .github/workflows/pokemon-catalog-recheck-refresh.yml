@@ -34,7 +34,7 @@ concurrency:
   # Temporary recovery preemption: this maintenance push must be able to cancel
   # the stale scheduled one-time repair that is occupying the production runner.
   # Restore to false after the blocked pricing recovery is complete.
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   refresh:

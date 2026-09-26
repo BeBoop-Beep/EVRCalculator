@@ -286,7 +286,7 @@ def finalize_sealed_product_rip(
         bundle_fn = get_collector_appeal_bundle
     if read_rows_fn is None:
         from backend.db.repositories.sealed_product_results_repository import (
-            get_sealed_product_results_for_runs as read_rows_fn,  # type: ignore[misc]
+            get_sealed_product_finalization_inputs_for_runs as read_rows_fn,  # type: ignore[misc]
         )
     if update_fn is None:
         from backend.db.repositories.sealed_product_results_repository import (

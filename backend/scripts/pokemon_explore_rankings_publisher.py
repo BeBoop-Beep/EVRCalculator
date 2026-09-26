@@ -60,8 +60,9 @@ from backend.db.services.public_rip_publication_contract import (
     set_value_contract_problems,
     supported_cohort_fingerprint,
 )
-from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION, OVERALL_RIP_V12_VERSION
+from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION, OVERALL_RIP_V12_VERSION, OVERALL_RIP_V14_VERSION
 from backend.desirability.public_rip_contract_v11 import PUBLIC_RIP_CONTRACT_V11_KEY
+from backend.desirability.public_rip_contract_v12 import PUBLIC_RIP_CONTRACT_V12_KEY
 from backend.desirability.public_rip_contract_v10 import PUBLIC_RIP_CONTRACT_V10_KEY
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_RANKINGS_LIMIT,
@@ -70,6 +71,10 @@ from backend.scripts.pokemon_snapshot_builders import (
 )
 from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
 from backend.db.services.chase_accessibility_service import SNAPSHOT_TABLE as CHASE_ACCESSIBILITY_SNAPSHOT_TABLE
+from backend.db.services.opening_simulation_gate import (
+    STATUS_CURRENT,
+    evaluate_opening_simulation_freshness,
+)
 from backend.db.services.rankings_publication_lifecycle import (
     CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
     CLASSIFICATION_FAILED_WITH_ATTEMPT,
@@ -234,6 +239,9 @@ def _ranked(target: Dict[str, Any], key: str) -> bool:
 _CANONICAL_PUBLIC_RIP_CONTRACT_TARGET_KEYS: Dict[str, str] = {
     "overall_rip_v10_90_financial_v4_10_collector_appeal_v5": PUBLIC_RIP_CONTRACT_V10_KEY,
     OVERALL_RIP_V12_VERSION: PUBLIC_RIP_CONTRACT_V11_KEY,
+    # REGISTERED, NOT SELECTED: lets the candidate lineage be understood; the canonical selection
+    # (CANONICAL_OVERALL_RIP_VERSION) is unchanged, so runtime still resolves to publicRipContractV11.
+    OVERALL_RIP_V14_VERSION: PUBLIC_RIP_CONTRACT_V12_KEY,
 }
 
 
@@ -741,6 +749,35 @@ def publish_explore_rip_rankings_snapshot(
         build_kwargs["rankings_top_chase_snapshot_rows"] = staged_set_pages
     if source_rankings_payload is not None:
         build_kwargs["source_rankings_payload"] = source_rankings_payload
+
+    # The promoted-date freshness gate owns the exact simulation cohort.
+    # Never let the RIP builder independently reinterpret "current" as the
+    # newest row per set: partial reruns can otherwise mix generations before
+    # the later Chase/run-match gate catches them.
+    if market_date:
+        freshness = evaluate_opening_simulation_freshness(client, market_date=market_date)
+        if not freshness.ok:
+            detail = freshness.error or "; ".join(
+                f"{item.canonical_key or item.set_id}:{item.status}"
+                for item in freshness.failures
+            )
+            raise RuntimeError(
+                "Refusing Explore RIP leaderboard build before verified simulation "
+                f"cohort is complete for {market_date}: {detail}"
+            )
+        expected_run_by_set = {
+            str(item.set_id): str(item.calculation_run_id)
+            for item in freshness.statuses
+            if item.status == STATUS_CURRENT and item.set_id and item.calculation_run_id
+        }
+        if len(expected_run_by_set) != freshness.eligible_count:
+            raise RuntimeError(
+                "Refusing Explore RIP leaderboard build: verified simulation cohort "
+                f"run-id map is incomplete expected={freshness.eligible_count} "
+                f"actual={len(expected_run_by_set)}"
+            )
+        build_kwargs["expected_run_by_set"] = expected_run_by_set
+
     row = build_explore_rankings_snapshot_row(**build_kwargs)
     snapshot, history_rows = publication_contract(row)
     if market_date and snapshot["market_date"] != market_date:

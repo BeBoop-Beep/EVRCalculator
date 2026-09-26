@@ -6,12 +6,12 @@ actually stops them is this refusal, and it has to happen BEFORE the shared
 result cache and before the query engine — otherwise an unentitled caller
 either reads a cached Premium result or makes the database do work for them.
 
-READ AS SOURCE, NOT IMPORTED. `backend.api.main` pulls in the whole FastAPI
-application graph, which is not importable in the unit environment (the same
-reason the other API tests here are source-level). The properties asserted are
-structural — which helper guards which route, and in what ORDER relative to the
-cache and the engine — so source is the right level for them anyway. The plan
-hierarchy itself is behaviourally tested in
+READ AS SOURCE. `backend.api.main` IS importable in the declared environment
+(Python 3.11 + backend/requirements.txt; runtime route tests live in
+test_market_explorer_v2_routes_runtime.py), but these properties are structural
+-- which helper guards which route, and in what ORDER relative to the cache and
+the engine -- so source is the right level for them. The plan hierarchy itself
+is behaviourally tested in
 `backend/tests/unit/domain/access/test_index_plan_access.py`.
 """
 
@@ -96,6 +96,14 @@ def test_full_prepared_snapshot_is_server_gated_to_plus_and_never_public():
     assert snapshot.index("_require_authenticated_user_id") < snapshot.index("read_market_explorer_snapshot")
     assert snapshot.index("has_index_plus_access") < snapshot.index("read_market_explorer_snapshot")
     assert "status_code=403" in snapshot
+
+
+def test_prepared_constituents_are_plus_gated_and_do_not_execute_custom_queries():
+    route = _function_source("get_market_explorer_prepared_constituents")
+    assert route.index("_require_authenticated_user_id") < route.index("read_constituents_v2_first")
+    assert route.index("has_index_plus_access") < route.index("read_constituents_v2_first")
+    assert "normalize_query_spec" not in route
+    assert "PersistentMarketExplorerCache" not in route
 
 
 def test_exact_instrument_discovery_is_plus_but_execution_remains_spec_gated():

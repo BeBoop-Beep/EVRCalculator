@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
 import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
@@ -37,9 +37,25 @@ export default function MarketExplorerChart({
   timeframeLabel = "",
   timeframeOptions = [],
   onTimeframeChange,
-  onClearGraph,
+  detailsOpen = false,
+  onToggleDetails,
+  // The trigger is offered whenever at least one market is active (see client).
+  constituentsAvailable = true,
+  // FOCUS MODE (presentation only). null = comparison mode; a market key = that
+  // market keeps its colour and the other visible lines recede.
+  focusedSeriesKey = null,
+  onClearFocus,
+  // ARCHITECTURAL SEAM for future analytical focus tools. Capability-driven:
+  // each entry is { id, render: ({ focusedSeries }) => node }. The strip renders
+  // whatever the caller supplies; nothing is hard-coded here and none is
+  // exposed today.
+  focusTools = [],
+  // The Explorer chart is an OPEN CANVAS by default: no enclosing card, no plot
+  // border, no interior background. /Market keeps the card surface because it
+  // never passes `minimal`.
+  openCanvas = true,
 }) {
-  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_PERFORMANCE);
+  const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_INDEX);
   const visibleModel = useMemo(
     () => (timeframe ? buildExplorerChartModel(overview, selectedSeries, timeframe) : null),
     [overview, selectedSeries, timeframe]
@@ -49,13 +65,16 @@ export default function MarketExplorerChart({
   // comparable span any more — that analytic survives in the payload but is
   // never presented under a timeframe button.
   const spanLabel = timeframeLabel;
+  const focusedSeries = focusedSeriesKey ? selectedSeries.find((entry) => entry.key === focusedSeriesKey) || null : null;
 
   return (
     <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
-      <div className="px-3 py-3 sm:px-4">
+      <div className="px-2 pb-1 pt-2 sm:px-3">
         <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
-        <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-6">
-          <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+        <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
           <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
             <MarketExplorerTimeframeSelector
               options={timeframeOptions}
@@ -65,7 +84,7 @@ export default function MarketExplorerChart({
             />
           </div>
         </div>
-        <div className="mt-2 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-2">
+        <div className="mt-1 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-1.5">
           <div className="min-w-0 flex-1">
           <p className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
           {timeframe === "All" ? (
@@ -74,42 +93,42 @@ export default function MarketExplorerChart({
             </p>
           ) : null}
           </div>
-          {/* GRAPH-LEVEL controls. Distinct from Builder Clear (which lives with
-              the Builder and only resets the draft): these three act on what is
-              CURRENTLY ON THE CHART. Show all / Hide all is one click instead of
-              toggling every series individually; Clear Graph removes every
-              active market outright and never re-adds a default. */}
-          <div
-            data-market-explorer-graph-controls
-            role="group"
-            aria-label="Graph controls"
-            className="flex flex-none flex-wrap items-center gap-1.5 text-[11px]"
-          >
-            <button
-              type="button"
-              data-market-explorer-clear-graph
-              onClick={onClearGraph}
-              disabled={!totalActiveCount}
-              aria-label="Clear Graph: remove every active market from the chart"
-              className="rounded-md px-2 py-1 font-medium text-[var(--text-secondary)] opacity-70 transition-colors hover:bg-[rgba(248,113,113,0.06)] hover:text-[rgb(248,113,113)] disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
-            >
-              Clear Graph
-            </button>
-          </div>
         </div>
       </div>
 
+      {focusedSeries ? (
+        <div
+          data-market-explorer-focus-strip
+          role="group"
+          aria-label="Focus mode"
+          className="mx-2 mb-1 flex flex-wrap items-center gap-2 rounded-md border border-sky-400/40 bg-sky-400/[.08] px-2.5 py-1.5 text-[11px] sm:mx-3"
+        >
+          <span data-market-explorer-focus-label className="min-w-0 truncate font-semibold text-sky-100">
+            Focused: {focusedSeries.label}
+          </span>
+          <button
+            type="button"
+            data-market-explorer-clear-focus
+            onClick={onClearFocus}
+            className="min-h-8 rounded-md border border-sky-300/50 px-2.5 font-semibold text-sky-100 transition-colors hover:bg-sky-400/[.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/80"
+          >
+            Clear Focus
+          </button>
+          {focusTools.map((tool) => <Fragment key={tool.id}>{tool.render({ focusedSeries })}</Fragment>)}
+        </div>
+      ) : null}
+
       {totalActiveCount === 0 ? (
-        <p role="status" data-market-explorer-no-active-markets className="px-3 pb-2 text-[11px] text-[var(--text-secondary)] sm:px-4">
+        <p role="status" data-market-explorer-no-active-markets className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3">
           No active markets. Select a market above or build one to add a line to the chart.
         </p>
       ) : selectedSeries.length === 0 ? (
-        <p role="status" data-market-explorer-all-hidden className="px-3 pb-2 text-[11px] text-[var(--text-secondary)] sm:px-4">
+        <p role="status" data-market-explorer-all-hidden className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3">
           Every active market is hidden. Use &quot;Show all&quot; or toggle one on in Active Markets below.
         </p>
       ) : null}
 
-      <div className="min-w-0 flex-1 px-3 pb-3 sm:px-4">
+      <div className="min-w-0 flex-1 pl-2 pr-3 sm:pl-3 sm:pr-4">
         {visibleModel?.available
           ? (
             // THE PLOT IS THE PRODUCT, so it gets real height at every width.
@@ -121,7 +140,9 @@ export default function MarketExplorerChart({
               model={visibleModel}
               timeframe={timeframe}
               viewMode={viewMode}
-              plotClassName="h-[24rem] tab:h-[30rem] desk:h-[38rem] 2xl:h-[42rem]"
+              plotClassName="h-[20rem] tab:h-[26rem] desk:h-[clamp(19rem,calc(100dvh-24rem),42rem)]"
+              minimal={openCanvas}
+              focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
             />
           )
           : (
@@ -129,6 +150,23 @@ export default function MarketExplorerChart({
               {spanLabel ? describeUnavailableWindow(spanLabel) : "Market performance history is unavailable."}
             </p>
           )}
+      </div>
+
+      {/* BOTTOM-CENTER ANALYSIS ACTION. Lives inside the chart pane directly under
+          the x-axis dates, so it is part of the chart workspace (visible without
+          scrolling, centred on the plot) rather than the toolbar or a page section.
+          It opens the in-place takeover overlay; violet marks it as an analysis
+          action, distinct from performance green/red and selected-teal controls. */}
+      <div data-market-explorer-chart-bottom-actions className="flex flex-none justify-center px-2 pb-2 pt-1.5 sm:px-3">
+        {constituentsAvailable ? <button
+          type="button"
+          data-market-explorer-view-details
+          aria-expanded={detailsOpen}
+          onClick={onToggleDetails}
+          className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200 shadow-[0_0_16px_rgba(139,92,246,0.35)] transition-colors hover:border-violet-300/85 hover:bg-violet-500/[.24] hover:text-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface-page)]"
+        >
+          View Constituents &amp; Comparison
+        </button> : null}
       </div>
     </section>
   );

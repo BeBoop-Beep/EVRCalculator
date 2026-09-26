@@ -1,0 +1,72 @@
+{
+  "label": "COMBINED_IDENTITY_V3_PROSPECTIVE_DIAGNOSTIC_NON_CERTIFYING",
+  "note": "Prospective diagnostic only (D3-v6 + unchanged IMAGE-v2 + unchanged COMBINED-v2 policy). NOT a certification. E2.9B is consumed, post-hoc, non-certifying evidence here.",
+  "text_matcher_version": "index_fair_value_ebay_d3_v6",
+  "results": {
+    "V4": {
+      "cohort": "V4",
+      "accepted_count": 203,
+      "true_accepts": 203,
+      "false_accepts": 0,
+      "accepted_precision": 1.0,
+      "accepted_precision_wilson_95": [
+        0.9814280036381673,
+        1.0000000000000002
+      ],
+      "card_coverage": 0.8,
+      "distinct_cards_covered": 56,
+      "catastrophic_false_accepts": [],
+      "catastrophic_false_accept_count": 0
+    },
+    "V5": {
+      "cohort": "V5",
+      "accepted_count": 206,
+      "true_accepts": 206,
+      "false_accepts": 0,
+      "accepted_precision": 1.0,
+      "accepted_precision_wilson_95": [
+        0.981693518324343,
+        0.9999999999999999
+      ],
+      "card_coverage": 0.8,
+      "distinct_cards_covered": 56,
+      "catastrophic_false_accepts": [],
+      "catastrophic_false_accept_count": 0
+    },
+    "E2.9B": {
+      "cohort": "E2.9B",
+      "accepted_count": 185,
+      "true_accepts": 185,
+      "false_accepts": 0,
+      "accepted_precision": 1.0,
+      "accepted_precision_wilson_95": [
+        0.9796577571223828,
+        1.0
+      ],
+      "card_coverage": 0.7714285714285715,
+      "distinct_cards_covered": 54,
+      "catastrophic_false_accepts": [],
+      "catastrophic_false_accept_count": 0
+    }
+  },
+  "gates": {
+    "V4": {
+      "precision_ge_0_99": true,
+      "wilson_lower_ge_0_98": true,
+      "coverage_ge_0_80": true,
+      "catastrophic_eq_0": true
+    },
+    "V5": {
+      "precision_ge_0_99": true,
+      "wilson_lower_ge_0_98": true,
+      "coverage_ge_0_80": true,
+      "catastrophic_eq_0": true
+    },
+    "E2.9B": {
+      "precision_ge_0_99": true,
+      "wilson_lower_ge_0_98": false,
+      "coverage_ge_0_80": false,
+      "catastrophic_eq_0": true
+    }
+  }
+}

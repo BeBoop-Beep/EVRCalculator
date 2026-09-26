@@ -1,6 +1,14 @@
 "use client";
 
-import { formatChangePercent, formatIndexValue, getPricePerformanceChange } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { changeDirection, formatChangePercent, formatIndexValue, getPricePerformanceChange } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+
+const returnColor = (change) => {
+  const direction = changeDirection(change);
+  if (direction === "positive") return POSITIVE_VALUE_COLOR;
+  if (direction === "negative") return NEGATIVE_VALUE_COLOR;
+  return "var(--text-secondary)";
+};
 
 // ---------------------------------------------------------------------------
 // ACTIVE MARKETS — the ONE answer to "what is on this chart right now".
@@ -28,6 +36,9 @@ import { formatChangePercent, formatIndexValue, getPricePerformanceChange } from
 //
 // The series marker stays IDENTITY. A selected chip is a green chip carrying
 // its market's own color, never a chip repainted in its market's color.
+//
+// FOCUS IS A THIRD, INDEPENDENT STATE. The magnifier focuses one market on the
+// chart (the others recede); it is not selection-for-detail and not visibility.
 // ---------------------------------------------------------------------------
 export default function MarketExplorerActiveMarkets({
   series = [],
@@ -41,6 +52,8 @@ export default function MarketExplorerActiveMarkets({
   onShowAll,
   onHideAll,
   onClearAll,
+  focusedSeriesKey = null,
+  onFocus,
   timeframe = "7D",
 }) {
   if (!series.length) return null;
@@ -82,7 +95,13 @@ export default function MarketExplorerActiveMarkets({
             >
               Hide all
             </button>
-            <button type="button" data-market-explorer-active-clear-all onClick={onClearAll} className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-red-300/40 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60">Clear all</button>
+            <button
+              type="button"
+              data-market-explorer-active-clear-all
+              onClick={onClearAll}
+              aria-label="Clear All: remove every active market from the workspace"
+              className="rounded-full border border-[rgba(248,113,113,0.4)] bg-[rgba(248,113,113,0.07)] px-2.5 py-0.5 text-[10px] font-semibold text-[rgb(248,113,113)] transition-colors hover:border-[rgba(248,113,113,0.7)] hover:bg-[rgba(248,113,113,0.16)] hover:text-[rgb(252,165,165)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(248,113,113,0.7)]"
+            >Clear All</button>
         </div>
       </div>
       {/* Keep one stable row. The parent already owns horizontal overflow; a
@@ -94,6 +113,7 @@ export default function MarketExplorerActiveMarkets({
         {series.map((entry) => {
           const isActive = entry.key === activeSeriesId;
           const isHidden = hidden.has(entry.key);
+          const isFocused = entry.key === focusedSeriesKey;
           // Custom markets have no summary card anywhere else on the page, so
           // their index level rides on the chip. Prepared markets already have
           // a card and would only be repeating themselves.
@@ -105,16 +125,35 @@ export default function MarketExplorerActiveMarkets({
                 data-market-explorer-active-chip={entry.key}
                 data-market-explorer-active-chip-selected={isActive ? "true" : "false"}
                 data-market-explorer-active-chip-hidden={isHidden ? "true" : "false"}
+                data-market-explorer-active-chip-focused={isFocused ? "true" : "false"}
                 data-market-explorer-active-chip-asset={entry.asset || undefined}
                 data-market-explorer-active-chip-source={entry.queryKey ? "query" : "prepared"}
                 className={[
-                  "flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
+                  "group flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
+                  isFocused ? "ring-2 ring-sky-400/80" : "",
                   isHidden ? "opacity-50" : "",
                   isActive
                     ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.15)]"
                     : "border-[var(--border-subtle)] bg-[var(--surface-page)]/35 hover:border-[rgba(45,212,191,0.38)]",
                 ].join(" ")}
               >
+                {/* FOCUS. Shown on hover and on keyboard focus for pointer devices,
+                    and ALWAYS shown where hover does not exist (touch). Focusing never
+                    removes a market, changes the constituent target or rebuilds data. */}
+                <button
+                  type="button"
+                  data-market-explorer-active-focus={entry.key}
+                  aria-pressed={isFocused}
+                  aria-label={isFocused ? `Clear focus on ${entry.label}` : `Focus on ${entry.label}`}
+                  onClick={() => onFocus?.(entry.key)}
+                  className={[
+                    "flex-none rounded-full p-0.5 leading-none transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80",
+                    "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100",
+                    isFocused ? "!opacity-100 text-sky-300" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+                  ].join(" ")}
+                >
+                  <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="6.5" cy="6.5" r="4.5" /><path d="M10 10l4 4" /></svg>
+                </button>
                 <button
                   type="button"
                   data-market-explorer-active-visibility={entry.key}
@@ -142,7 +181,7 @@ export default function MarketExplorerActiveMarkets({
                     {formatIndexValue(entry.indexValue)}
                   </span>
                 ) : null}
-                <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums text-[var(--text-secondary)]">{formatChangePercent(periodChange)}</span>
+                <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums" style={{ color: returnColor(periodChange) }}>{formatChangePercent(periodChange)}</span>
                 {entry.instanceId ? (
                   <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${entry.label}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
                 ) : null}

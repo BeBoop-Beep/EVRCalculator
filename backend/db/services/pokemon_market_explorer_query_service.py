@@ -49,10 +49,13 @@ frontend APIs, movers payloads, chase UI lists, or ad-hoc TCGplayer calls.
 
 from __future__ import annotations
 
+import httpx
 import math
 import time
 from datetime import date, timedelta
 from typing import Any, Iterable, Mapping, Sequence
+
+from postgrest.exceptions import APIError
 
 from backend.db.services.pokemon_set_cards_market_analytics_service import (
     load_card_constituent_rows,
@@ -549,6 +552,31 @@ def _merge_v2_interval_fallback_batches(
     return merged
 
 
+def _is_v2_interval_timeout(exc: Exception) -> bool:
+    """Recognize only the timeout forms observed at the interval RPC boundary."""
+    if isinstance(exc, APIError):
+        return str(exc.code) in {"57014", "504"}
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code == 504
+    return isinstance(exc, httpx.ReadTimeout) or str(exc) == "The read operation timed out"
+
+
+def _execute_v2_interval_batch(
+    client: Any, payload: dict[str, Any],
+) -> list[list[dict[str, Any]]]:
+    """Resolve one set partition, splitting only a timed-out partition."""
+    try:
+        return [list(getattr(client.rpc(V2_INTERVAL_FALLBACK_RPC, payload).execute(),
+                             "data", None) or [])]
+    except Exception as exc:
+        set_ids = payload["p_set_ids"]
+        if len(set_ids) <= 1 or not _is_v2_interval_timeout(exc):
+            raise
+        midpoint = len(set_ids) // 2
+        return (_execute_v2_interval_batch(client, {**payload, "p_set_ids": set_ids[:midpoint]})
+                + _execute_v2_interval_batch(client, {**payload, "p_set_ids": set_ids[midpoint:]}))
+
+
 def load_filtered_daily_cohort_rows(
     client: Any,
     set_ids: Sequence[str],
@@ -654,6 +682,9 @@ def load_filtered_daily_cohort_rows(
         batch_pages: list[list[dict[str, Any]]] = []
         for set_batch in set_batches:
             batch_payload = {**payload, "p_set_ids": [str(value) for value in set_batch]}
+            if rpc_name == V2_INTERVAL_FALLBACK_RPC and top_n is None:
+                batch_pages.extend(_execute_v2_interval_batch(client, batch_payload))
+                continue
             call_rpc = rpc_name
             if (rpc_name == V2_DAILY_PROJECTION_RPC
                     and (chunk_end < last or not include_latest_basket)):

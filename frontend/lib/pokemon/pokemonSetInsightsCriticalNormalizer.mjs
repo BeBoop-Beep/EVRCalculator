@@ -43,6 +43,9 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     // needs no frontend transport work - the backend decides which contract it
     // serves, and the reader already prefers V10 when one arrives.
     financialRipV4: toPlainObject(payload?.financialRipV4),
+    financialRipV5: toPlainObject(payload?.financialRipV5),
+    overallRipV14: toPlainObject(payload?.overallRipV14),
+    overallRipV14Composition: toPlainObject(payload?.overallRipV14Composition),
     overallRipV10: toPlainObject(payload?.overallRipV10),
     publicRipContractV10: toPlainObject(payload?.publicRipContractV10),
     // CURRENT canonical Overall RIP model (0.86 Financial V4 + 0.04 Chase

@@ -300,6 +300,27 @@ const V3_CARDS = [
   },
 ];
 
+// Financial RIP V5 replaces Loss Resilience with Shortfall Resilience. The card is chosen by which component the
+// payload actually carries, so a V4 payload never shows a Shortfall label and a V5 payload never shows Loss.
+const SHORTFALL_CARD = {
+  key: "shortfallResilience",
+  snakeKey: "shortfall_resilience",
+  title: "Shortfall Resilience",
+  interpretation: "How little a pack falls short of its cost, counting deep shortfalls extra.",
+  headline: (raw) => formatPercent(raw.cappedRecovery),
+  metrics: (raw) => [
+    { label: "Average shortfall from cost", value: formatPercent(raw.expectedShortfallToCost) },
+    { label: "Average deep shortfall (under half of cost)", value: formatPercent(raw.expectedDeepShortfall) },
+  ],
+};
+
+export const FINANCIAL_RIP_V5_CARD_ORDER = V3_CARDS.map((card) => (card.key === "lossResilience" ? SHORTFALL_CARD.title : card.title));
+
+function cardsForComponents(components) {
+  const hasShortfall = Boolean(components.shortfall_resilience ?? components.shortfallResilience);
+  return hasShortfall ? V3_CARDS.map((card) => (card.key === "lossResilience" ? SHORTFALL_CARD : card)) : V3_CARDS;
+}
+
 export const FINANCIAL_RIP_V3_CARD_ORDER = V3_CARDS.map((card) => card.title);
 
 // --- Selector ---------------------------------------------------------------
@@ -325,7 +346,7 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
   const missingFields = [];
   const missingPublicScoreFields = [];
 
-  const rows = V3_CARDS.map((card) => {
+  const rows = cardsForComponents(components).map((card) => {
     // The backend keys components in snake_case on the runtime object and in
     // camelCase in the compact public contract. Both are accepted so the same
     // component is read whichever surface supplied it — this is a casing
@@ -496,6 +517,8 @@ export function selectFinancialRipV3DetailedMetrics(financialRipV3 = {}) {
 
   const realistic = raw("realistic_upside");
   const jackpot = raw("jackpot_upside");
+  const shortfall = raw("shortfall_resilience");
+  const isShortfall = Object.keys(shortfall).length > 0;
   const loss = raw("loss_resilience");
   const base = raw("base_economic_efficiency");
 
@@ -510,21 +533,36 @@ export function selectFinancialRipV3DetailedMetrics(financialRipV3 = {}) {
       label: "Average return, top 1%",
       value: formatDollars(jackpot.jackpotTailMeanValue),
     },
-    {
-      key: "averageLosingReturn",
-      label: "Average return when losing",
-      value: formatDollars(loss.averageLosingReturnValue),
-    },
-    {
-      key: "hardLossProbability",
-      label: "Chance of recovering under half of cost",
-      value: formatPercent(loss.hardLossProbability),
-    },
-    {
-      key: "softLossShare",
-      label: "Near-miss share of losing packs",
-      value: formatPercent(loss.softLossShareGivenLoss),
-    },
+    ...(isShortfall
+      ? [
+          {
+            key: "expectedShortfall",
+            label: "Average shortfall from cost",
+            value: formatPercent(shortfall.expectedShortfallToCost),
+          },
+          {
+            key: "expectedDeepShortfall",
+            label: "Average deep shortfall (under half of cost)",
+            value: formatPercent(shortfall.expectedDeepShortfall),
+          },
+        ]
+      : [
+          {
+            key: "averageLosingReturn",
+            label: "Average return when losing",
+            value: formatDollars(loss.averageLosingReturnValue),
+          },
+          {
+            key: "hardLossProbability",
+            label: "Chance of recovering under half of cost",
+            value: formatPercent(loss.hardLossProbability),
+          },
+          {
+            key: "softLossShare",
+            label: "Near-miss share of losing packs",
+            value: formatPercent(loss.softLossShareGivenLoss),
+          },
+        ]),
     {
       key: "totalRtp",
       label: "Total return to player",

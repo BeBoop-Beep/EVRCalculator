@@ -369,7 +369,7 @@ test("there is ONE movement column behind a local window control, not four", () 
   const changeHeaders = headers(renderer).filter((label) => String(label).includes("Change"));
   assert.equal(changeHeaders.length, 1, "four simultaneous change columns overflow the table");
   const windows = windowButtons(renderer).map((node) => node.props["data-market-constituents-window"]);
-  assert.deepEqual([...new Set(windows)], ["1D", "7D", "30D", "3M"]);
+  assert.deepEqual([...new Set(windows)], ["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]);
 });
 
 test("7D is the default window", () => {

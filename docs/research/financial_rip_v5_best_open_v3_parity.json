@@ -1,0 +1,11 @@
+{
+  "methodVersion": "budget_product_best_open_price_full_market_v3_dual_financial_v5_overall_v14",
+  "sourceRankingMethod": "budget_product_ranking_v2",
+  "snapshotId": "0e65fb6d-ff33-4331-99d5-d6a214ecc712",
+  "productsCompared": 138,
+  "thresholdsCompared": 276,
+  "mismatchedProducts": 0,
+  "mismatches": {},
+  "complete": true,
+  "perThresholdEquality": true
+}

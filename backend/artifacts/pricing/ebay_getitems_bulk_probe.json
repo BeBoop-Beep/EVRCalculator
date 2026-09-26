@@ -1,0 +1,102 @@
+{
+ "search_status": 200,
+ "ids_available": 50,
+ "attempts": [
+  {
+   "n": 5,
+   "http_status": 403,
+   "items_returned": 0,
+   "warnings": [],
+   "errors": [
+    {
+     "errorId": 1100,
+     "domain": "ACCESS",
+     "category": "REQUEST",
+     "message": "Access denied",
+     "longMessage": "Insufficient permissions to fulfill the request."
+    }
+   ]
+  }
+ ],
+ "parity": {
+  "valid": false,
+  "reason": "getItems returned HTTP 403 errorId 1100 (Access denied) for a 5-id request, so no bulk items were returned; field/decision parity CANNOT be assessed. The individual getItem side returned full data (Language, condition descriptors, shipping, seller, image, buying options, price).",
+  "individual_getItem_probe": [
+   {
+    "item": "v1|157665724",
+    "fields_present_single": [
+     "localizedAspects",
+     "conditionDescriptors",
+     "condition",
+     "shippingOptions",
+     "seller",
+     "image",
+     "buyingOptions",
+     "price",
+     "title",
+     "itemWebUrl"
+    ],
+    "single": {
+     "state": "ENGLISH_PRICE_ELIGIBLE",
+     "reason": "exact_english_nm_fixed_landed_ask",
+     "landed_ask_usd": "237.49",
+     "item_price_usd": "237.49",
+     "shipping_price_usd": "0.00",
+     "provider_language_normalized": "ENGLISH"
+    }
+   },
+   {
+    "item": "v1|157972527",
+    "fields_present_single": [
+     "localizedAspects",
+     "conditionDescriptors",
+     "condition",
+     "seller",
+     "image",
+     "buyingOptions",
+     "price",
+     "title",
+     "itemWebUrl"
+    ],
+    "single": {
+     "state": "CONDITION_EXCLUDED",
+     "reason": "explicit_non_nm_or_graded_evidence",
+     "landed_ask_usd": null,
+     "item_price_usd": "64.95",
+     "shipping_price_usd": null,
+     "provider_language_normalized": "ENGLISH"
+    }
+   },
+   {
+    "item": "v1|168705213",
+    "fields_present_single": [
+     "localizedAspects",
+     "conditionDescriptors",
+     "condition",
+     "shippingOptions",
+     "seller",
+     "image",
+     "buyingOptions",
+     "price",
+     "title",
+     "itemWebUrl"
+    ],
+    "single": {
+     "state": "ENGLISH_PRICE_ELIGIBLE",
+     "reason": "exact_english_nm_fixed_landed_ask",
+     "landed_ask_usd": "16.28",
+     "item_price_usd": "15.50",
+     "shipping_price_usd": "0.78",
+     "provider_language_normalized": "ENGLISH"
+    }
+   }
+  ]
+ },
+ "conclusion": {
+  "getItems_available": false,
+  "max_item_ids": "undeterminable (request rejected at 5 ids; larger sizes not attempted)",
+  "bucket_charged": "BUY_BROWSE_BULK_ITEMS (2 bulk reservations recorded in our ledger; provider attribution unverifiable because usage lags)",
+  "bulk_hydration": "NOT implemented; individual getItem retained",
+  "required_access": "eBay restricted-API approval for getItems (same Application Growth Check path)"
+ }
+}

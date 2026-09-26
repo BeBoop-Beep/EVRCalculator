@@ -198,3 +198,51 @@ def test_if_missing_lookup_failure_proceeds_to_normal_creation_path(monkeypatch,
     payload = json.loads(capsys.readouterr().out)
     assert payload["batch_id"] == 57
     assert payload["new_set_discovery"] == {"status": "skipped"}
+
+
+def test_create_batch_retries_transient_statement_timeout_then_succeeds():
+    calls = []
+    sleeps = []
+
+    def create_fn(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise RuntimeError(
+                "{'message': 'canceling statement due to statement timeout', 'code': '57014'}"
+            )
+        return {
+            "id": 54,
+            "market_date": kwargs["market_date"],
+            "status": "running",
+            "expected_set_count": 165,
+            "queued_set_count": 165,
+        }
+
+    batch = script.create_batch(
+        "2026-09-18",
+        "scheduled",
+        create_fn=create_fn,
+        sleep_fn=sleeps.append,
+    )
+
+    assert batch["id"] == 54
+    assert len(calls) == 2
+    assert sleeps == [5]
+
+
+def test_create_batch_does_not_retry_non_transient_failure():
+    calls = []
+
+    def create_fn(**kwargs):
+        calls.append(kwargs)
+        raise RuntimeError("cohort validation failed")
+
+    with pytest.raises(RuntimeError, match="cohort validation failed"):
+        script.create_batch(
+            "2026-09-18",
+            "scheduled",
+            create_fn=create_fn,
+            sleep_fn=lambda delay: pytest.fail("non-transient failure must not sleep"),
+        )
+
+    assert len(calls) == 1

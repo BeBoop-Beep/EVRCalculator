@@ -1,0 +1,13 @@
+{
+  "token": "BOUNDED_EXACT_MULTI_Q_FUSED_VALIDATED",
+  "codeCommit": "fea175c2f22a88fecf3d2fd4a28ef08b685aa8fa",
+  "snapshotId": "0e65fb6d-ff33-4331-99d5-d6a214ecc712",
+  "authorityFingerprint": "faad453f7d29eff1831fb2e212a13dad7d9d553536dc283af90c9bfbd53e48b0",
+  "parity": {"products": 138, "thresholdCents": "276/276", "unresolved": 0, "exactnessFailures": 0},
+  "control": {"wallSeconds": 8554, "peakRssMiB": 304.43, "candidatePrices": 1167908, "qConstructions": 4831, "medianSeconds": 4.64, "p95Seconds": 319.57, "maxSeconds": 511.71},
+  "batched": {"wallSeconds": 1463.80, "peakRssMiB": 462.9, "baselineRssMiB": 126.4, "candidatePrices": 1167908, "qConstructions": 5769, "qConsumed": 4831, "speculativeUnused": 938, "speculativeWasteRatio": 0.1626, "batchBuilds": 573, "maxPending": 24, "maxResidentPrepared": 1, "maxEstimatedBatchBytes": 240000000, "fallbacks": 0, "productWallMedian": 3.91, "productWallP95": 39.02, "productWallMax": 64.74, "physicalConstructionSeconds": 675.13, "preparedScorerSeconds": 485.95, "candidateScoringSeconds": 97.38, "comparatorSeconds": 7.64, "effectiveRngDraws": 55695000000, "legacyEquivalentRngDraws": 875288000000},
+  "speedup": 5.84,
+  "stratified23": {"controlWallSeconds": 2477.8, "batchedWallSeconds": 403.4, "exact": "46/46", "controlPeakRssMiB": 275.8, "batchedPeakRssMiB": 447.4},
+  "phase10bFour": {"exact": "8/8", "wallSeconds": 89.05},
+  "tests": {"focusedPassed": 487, "skipped": 187, "unrelatedEnvFailures": 11}
+}

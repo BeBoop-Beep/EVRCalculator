@@ -6,9 +6,9 @@ const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
 
 test("Market Explorer uses a graph-first desktop workspace and compact mobile controls", async () => {
   const source = await read("./MarketExplorerClient.jsx");
-  assert.match(source, />Market Explorer<\/h1>/);
+  assert.doesNotMatch(source, /data-market-explorer-product-header/);
   assert.match(source, /data-market-explorer-workspace/);
-  assert.match(source, /desk:grid-cols-\[minmax\(19rem,22rem\)_minmax\(0,1fr\)\]/);
+  assert.match(source, /desk:grid-cols-\[minmax\(18rem,20rem\)_minmax\(0,1fr\)\]/);
   assert.match(source, /data-market-explorer-sidebar/);
   assert.match(source, /data-market-explorer-mobile-tools/);
   assert.match(source, /desk:hidden/);
@@ -16,22 +16,24 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
 
   const explore = source.indexOf('data-market-explorer-zone="explore"');
   const compare = source.indexOf('data-market-explorer-zone="compare"');
-  const filter = source.indexOf('data-market-explorer-sidebar-section="filter"');
   const build = source.indexOf('data-market-explorer-zone="build"');
   const sidebarEnd = source.indexOf("</aside>", explore);
   const active = source.indexOf("data-market-explorer-active-strip", compare);
+  const workspace = source.indexOf("data-market-explorer-chart-workspace", compare);
   const graph = source.indexOf("data-market-explorer-graph", compare);
-  const overview = source.indexOf("data-market-explorer-signals", compare);
   const results = source.indexOf("data-market-explorer-compare-results", compare);
-  assert.ok(explore >= 0 && compare >= 0 && filter >= 0 && build >= 0);
-  assert.ok(filter < sidebarEnd && sidebarEnd < build && build < compare, "sidebar tools precede the independent overlay and graph");
+  assert.ok(explore >= 0 && compare >= 0 && build >= 0);
+  assert.ok(sidebarEnd < build && build < compare, "browse rail precedes the unified builder overlay and graph");
   assert.ok(source.indexOf("<MarketExplorerBrowse", explore) < compare);
   assert.ok(source.indexOf("<MarketExplorerScreens", explore) < compare);
-  assert.ok(active < graph && graph < results);
-  assert.match(source.slice(overview, overview + 160), /order-3/);
-  assert.match(source.slice(graph, graph + 120), /order-2/);
-  assert.ok(source.indexOf("<MarketExplorerQueryBuilder", filter) > filter);
+  assert.ok(active < workspace && workspace < graph && graph < results);
+  assert.doesNotMatch(source, /desk:row-start-2/);
+  assert.doesNotMatch(source, /data-market-explorer-research-peek/);
+  assert.match(source, /inert=\{detailsOpen \? true : undefined\}/);
+  assert.equal(source.indexOf('data-market-explorer-sidebar-section="filter"'), -1);
+  assert.ok(source.indexOf("<MarketExplorerQueryBuilder", build) > build);
   assert.ok(source.indexOf("<MarketExplorerExactBasket", build) > build);
+  assert.match(source, /data-market-explorer-hide-details/);
   assert.equal(source.match(/<MarketExplorerBrowse/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerScreens/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerQueryBuilder/g)?.length, 1);
@@ -44,7 +46,13 @@ test("chart toolbar keeps the primary toggle left and responsive timeframes righ
   const windows = await read("./MarketOverviewWindowSelector.jsx");
   assert.match(chart, /data-market-explorer-chart-toolbar/);
   assert.ok(chart.indexOf("<MarketChartViewToggle") < chart.indexOf("<MarketExplorerTimeframeSelector"));
+  assert.match(chart, /data-market-explorer-view-details/);
+  assert.match(chart, /desk:h-\[clamp\(19rem,calc\(100dvh-24rem\),42rem\)\]/);
+  assert.doesNotMatch(chart, /desk:h-\[40rem\]/);
+  assert.doesNotMatch(chart, /2xl:h-\[46rem\]/);
   assert.match(chart, /desk:flex-row/);
+  assert.ok(toggle.indexOf("MARKET_CHART_VIEW_INDEX") < toggle.indexOf("MARKET_CHART_VIEW_PERFORMANCE, label"));
+  assert.match(toggle, /value = MARKET_CHART_VIEW_INDEX/);
   assert.match(toggle, /min-h-10/);
   assert.match(toggle, /bg-cyan-400\/15/);
   assert.match(windows, /min-w-max flex-nowrap/);

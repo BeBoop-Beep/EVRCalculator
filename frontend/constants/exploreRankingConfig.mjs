@@ -248,8 +248,26 @@ export function getTierField(modeId) {
   return getModeConfig(modeId).tierField || "overallRipV12.tier";
 }
 
+// Release-aware field paths. The mode config names the V12/V4 block; a target that carries the V14/V5 block
+// resolves the SAME field on it instead. Which block is present is decided by the backend's release, so this is
+// selection, not scoring, and neither release is ever read as the other's fallback.
+const RELEASE_BLOCK_SUCCESSORS = [["overallRipV12.", "overallRipV14"], ["financialRipV4.", "financialRipV5"]];
+
+export function resolveModeFieldPath(target, field) {
+  if (typeof field !== "string" || !target || typeof target !== "object") {
+    return field;
+  }
+  for (const [legacyPrefix, successorKey] of RELEASE_BLOCK_SUCCESSORS) {
+    const successor = target[successorKey];
+    if (field.startsWith(legacyPrefix) && successor && typeof successor === "object") {
+      return successorKey + field.slice(legacyPrefix.length - 1);
+    }
+  }
+  return field;
+}
+
 export function getScoreForMode(target, modeId) {
-  return toNumber(getFieldValue(target, getScoreField(modeId)));
+  return toNumber(getFieldValue(target, resolveModeFieldPath(target, getScoreField(modeId))));
 }
 
 export function getRankForMode(target, modeId) {
@@ -257,7 +275,7 @@ export function getRankForMode(target, modeId) {
   if (!field) {
     return null;
   }
-  return toNumber(getFieldValue(target, field));
+  return toNumber(getFieldValue(target, resolveModeFieldPath(target, field)));
 }
 
 export function getRankedSetCountField(modeId) {
@@ -269,11 +287,11 @@ export function getRankedSetCountForMode(target, modeId) {
   if (!field) {
     return null;
   }
-  return toNumber(getFieldValue(target, field));
+  return toNumber(getFieldValue(target, resolveModeFieldPath(target, field)));
 }
 
 export function getTierForMode(target, modeId) {
-  const value = getFieldValue(target, getTierField(modeId));
+  const value = getFieldValue(target, resolveModeFieldPath(target, getTierField(modeId)));
   return value === null || value === undefined ? null : String(value);
 }
 

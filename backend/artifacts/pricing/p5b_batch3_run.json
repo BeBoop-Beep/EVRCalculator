@@ -1,0 +1,9 @@
+{
+  "batch": 3,
+  "run_id": "4648be34c0f54dba97fb169a3a39c6b6",
+  "requests_attempted": 277,
+  "requests_successful": 277,
+  "requests_failed": 0,
+  "retries": 0,
+  "target_count": 40
+}

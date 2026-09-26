@@ -14,11 +14,17 @@ function editItems(series) {
   return (spec.instruments || []).map((item) => ({ ...(metadata.get(`${item.asset}:${item.instrumentId}`) || {}), ...item }));
 }
 
-export default function MarketExplorerExactBasket({ currentPlan, editingSeries, onAddQuery, onUpdateQuery, onCancelEdit, onClose }) {
+export default function MarketExplorerExactBasket({ currentPlan, editingSeries, initialScope = "all", seedItem = null, customFilters = null, onAddQuery, onUpdateQuery, onCancelEdit, onClose }) {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const premium = currentPlan === "premium";
+  // A search result can seed the basket. It goes through the SAME item list and the
+  // same Premium-gated build() -- no second basket, no entitlement bypass.
+  useEffect(() => {
+    if (!seedItem?.item) return;
+    setItems((current) => (current.some((row) => row.asset === seedItem.item.asset && row.instrumentId === seedItem.item.instrumentId) ? current : [...current, seedItem.item]));
+  }, [seedItem]);
   const editingExact = editingSeries?.spec?.membershipMode === QUERY_MEMBERSHIP_EXPLICIT;
   useEffect(() => {
     if (!editingExact) return;
@@ -32,6 +38,7 @@ export default function MarketExplorerExactBasket({ currentPlan, editingSeries, 
     setStatus("building"); setMessage("");
     try {
       const outcome = editingExact && !saveAsNew ? await onUpdateQuery?.(editingSeries.instanceId, spec, { exactItems: items }) : await onAddQuery?.(spec, { exactItems: items });
+      if (outcome === "cancelled") { setStatus("idle"); setMessage("Build cancelled."); return; }
       setStatus("success");
       setMessage(outcome === "updated" ? "Market updated." : outcome === "duplicate" ? "This market is already active." : "Market added to comparison.");
       if (outcome !== "duplicate") {
@@ -42,5 +49,5 @@ export default function MarketExplorerExactBasket({ currentPlan, editingSeries, 
     } catch (error) { setStatus("error"); setMessage(error?.message || "Unable to build your market."); }
   };
   const cancelEdit = editingExact ? () => { onCancelEdit?.(); onClose?.(); } : null;
-  return <MarketExplorerExactItemPicker selectedItems={items} onChange={setItems} onClose={onClose} onCancelEdit={cancelEdit} onBuild={() => build(false)} onSaveAsNew={editingExact ? () => build(true) : null} buildLabel={editingExact ? "Update Market" : "Build Market"} buildStatus={status} buildMessage={message} executionLocked={!premium} />;
+  return <MarketExplorerExactItemPicker selectedItems={items} onChange={setItems} initialScope={initialScope} customFilters={customFilters} onClose={onClose} onCancelEdit={cancelEdit} onBuild={() => build(false)} onSaveAsNew={editingExact ? () => build(true) : null} buildLabel={editingExact ? "Update Market" : "Build Market"} buildStatus={status} buildMessage={message} executionLocked={!premium} />;
 }

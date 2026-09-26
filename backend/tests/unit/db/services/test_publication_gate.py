@@ -78,7 +78,13 @@ def _complete_batch(**overrides):
 
 def _required(client, **kwargs):
     # Force required mode so ambient PUBLICATION_GATE_MODE never leaks in.
-    return evaluate_publication_gate(client, mode=MODE_REQUIRED, **kwargs)
+    # Unit tests must not spend real wall-clock time in transient backoff.
+    return evaluate_publication_gate(
+        client,
+        mode=MODE_REQUIRED,
+        authority_sleep=lambda _delay: None,
+        **kwargs,
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -69,6 +69,11 @@ TABLE_COLUMNS = {
         # publication audit uses to derive the global Set Value cohort.
         "era_id", "has_sealed_details_url", "ready_for_daily_scrape",
     },
+    "calculation_runs": {
+        "id", "target_type", "target_id", "valuation_method", "market_date",
+        "created_at", "simulated_mean_pack_value_vs_pack_cost",
+        "simulated_median_pack_value_vs_pack_cost",
+    },
     "calculation_history_trend": {
         "target_type", "target_id", "snapshot_date", "calculation_run_id",
         "simulated_mean_pack_value_vs_pack_cost",
@@ -92,6 +97,7 @@ TABLE_COLUMNS = {
         "set_id", "payload_json", "title_card_json", "market_summary_json", "as_of", "updated_at",
     },
     "pokemon_set_value_daily_history": {"set_id", "snapshot_date", "set_value", "value_scope"},
+    "pokemon_set_top_chase_card_daily_history": {"set_id", "snapshot_date", "rank"},
     "sealed_products": {"id", "set_id", "name"},
     "sealed_product_price_observations": {"sealed_product_id", "captured_at"},
     "pokemon_explore_rankings_snapshot_latest": {
@@ -327,6 +333,9 @@ def _market_fixtures(market_date=MARKET_DATE):
             # corrupt the canonical set value and the section would fail.
             {"set_id": SET_ID, "snapshot_date": market_date, "set_value": 999.0, "value_scope": "hits"},
         ],
+        "pokemon_set_top_chase_card_daily_history": [
+            {"set_id": SET_ID, "snapshot_date": market_date, "rank": 1},
+        ],
         "sealed_products": [{"id": "sp-1", "set_id": SET_ID, "name": "Alpha Booster Box"}],
         "sealed_product_price_observations": [
             {"sealed_product_id": "sp-1", "captured_at": f"{market_date}T09:00:00+00:00"},
@@ -438,6 +447,7 @@ class _Client:
         self._summary = summary_rows
         self._tables = _market_fixtures() if tables is None else dict(tables)
         self._raise_on = dict(raise_on or {})
+        self.authority_reads = 0
         self.history_reads = 0
         self.ops = []
 
@@ -452,6 +462,29 @@ class _Client:
             return _Query(name, self._sets, self.ops)
         if name == "simulation_run_summary":
             return _Query(name, self._summary, self.ops)
+        if name == "calculation_runs":
+            index = min(self.authority_reads, len(self._history_pages) - 1)
+            self.authority_reads += 1
+            history = self._history_pages[index]
+            rows = []
+            for position, row in enumerate(history):
+                rows.append(
+                    {
+                        "id": row.get("calculation_run_id"),
+                        "target_type": row.get("target_type") or "set",
+                        "target_id": row.get("target_id"),
+                        "valuation_method": "combined",
+                        "market_date": row.get("snapshot_date"),
+                        "created_at": f"{row.get('snapshot_date')}T00:00:{position:02d}+00:00",
+                        "simulated_mean_pack_value_vs_pack_cost": row.get(
+                            "simulated_mean_pack_value_vs_pack_cost"
+                        ),
+                        "simulated_median_pack_value_vs_pack_cost": row.get(
+                            "simulated_median_pack_value_vs_pack_cost"
+                        ),
+                    }
+                )
+            return _Query(name, rows, self.ops)
         if name == "calculation_history_trend":
             index = min(self.history_reads, len(self._history_pages) - 1)
             self.history_reads += 1
@@ -555,33 +588,66 @@ def test_simulations_run_before_snapshots_are_built(patched):
     assert summary.snapshot_publication_status == "published"
 
 
-def test_previous_day_rollover_defers_without_launching_simulation(monkeypatch, patched):
-    persisted = []
-    monkeypatch.setattr(orchestrator, "_persist_rankings_deferral", lambda _client, report: persisted.append(report))
-    client = _client([_history(STALE_DATE)])
+def test_previous_day_rollover_repairs_with_explicit_market_date(patched):
+    # Modern calculation runs persist the promoted market_date explicitly, so
+    # execution on the following Phoenix day is a valid repair, not a reason to
+    # defer. The fake history advances after the simulated repair just like the
+    # real calculation_history view does.
+    client = _client([_history(STALE_DATE), _history(MARKET_DATE)])
 
     summary = _orchestrate(client, simulation_execution_date="2026-08-02")
+
+    assert ("simulate", ["alpha"]) in patched
+    assert summary.simulation_execution_date == "2026-08-02"
+    assert summary.verification_passed is True
+    assert summary.exit_code == EXIT_OK
+    assert summary.rankings_readiness_reason_code != "DEFERRED_SIMULATION_DATE_ROLLOVER"
+
+
+def test_rollover_repair_refuses_superseded_price_authority(monkeypatch, patched):
+    import backend.scripts.audit_opening_analytics_publication as audit_module
+
+    def resolve_with_newer_authority(_client, explicit):
+        if explicit:
+            return str(explicit)[:10], None
+        return "2026-08-02", None
+
+    monkeypatch.setattr(audit_module, "resolve_market_date", resolve_with_newer_authority)
+    persisted = []
+    monkeypatch.setattr(
+        orchestrator,
+        "_persist_rankings_deferral",
+        lambda _client, report: persisted.append(report) or "attempt-superseded",
+    )
+
+    summary = _orchestrate(
+        _client([_history(STALE_DATE)]),
+        market_date=MARKET_DATE,
+        simulation_execution_date="2026-08-02",
+    )
 
     assert not [call for call in patched if call[0] == "simulate"]
     assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
     assert summary.rankings_readiness_reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
-    assert summary.simulation_execution_date == "2026-08-02"
-    assert "cannot be backdated" in summary.error
+    assert "latest=2026-08-02" in summary.error
+    assert "refusing historical reconstruction" in summary.error
     assert persisted and persisted[0].reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
 
-def test_rollover_dry_run_never_persists_attempt(monkeypatch, patched):
+def test_rollover_dry_run_does_not_persist_a_deferral(monkeypatch, patched):
     monkeypatch.setattr(
         orchestrator,
         "_persist_rankings_deferral",
         lambda *_a, **_k: pytest.fail("dry-run must not persist a publication attempt"),
     )
     summary = _orchestrate(
-        _client([_history(STALE_DATE)]),
+        _client([_history(STALE_DATE), _history(MARKET_DATE)]),
         simulation_execution_date="2026-08-02",
         dry_run=True,
     )
-    assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
+    assert ("simulate", ["alpha"]) in patched
+    assert summary.verification_passed is True
+    assert summary.rankings_readiness_reason_code != "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
 
 def test_mixed_current_day_cohort_runs_only_stale_sets(monkeypatch, patched):
@@ -1297,20 +1363,29 @@ def test_state_published_outcome_survives_to_the_final_summary(monkeypatch, patc
     assert outcome["publication_attempted"] is True
 
 
-def test_state_deferred_with_attempt_outcome_from_rollover(monkeypatch, patched):
-    """(2) DEFERRED_WITH_ATTEMPT — classification/attempt/reason retained, legacy status='deferred'."""
+def test_state_deferred_with_attempt_outcome_from_incomplete_cohort(monkeypatch, patched):
+    """(2) DEFERRED_WITH_ATTEMPT — a genuinely incomplete cohort remains fail-closed."""
     monkeypatch.setattr(
-        orchestrator, "_persist_rankings_deferral", lambda _client, _report: "attempt-rollover"
+        orchestrator, "_persist_rankings_deferral", lambda _client, _report: "attempt-incomplete"
     )
-    client = _client([_history(STALE_DATE)])
+
+    def failing_sims(set_keys, **_kwargs):
+        patched.append(("simulate", list(set_keys)))
+        return [
+            orchestrator.SimulationOutcome(canonical_key=key, succeeded=False, reason="boom")
+            for key in set_keys
+        ]
+
+    monkeypatch.setattr(orchestrator, "run_simulations_for_sets", failing_sims)
+    client = _client([_history(STALE_DATE), _history(STALE_DATE)])
 
     summary = _orchestrate(client, simulation_execution_date="2026-08-02")
 
     assert summary.rankings_publication_status == "deferred"
     outcome = summary.rankings_publication_outcome
     assert outcome["classification"] == CLASSIFICATION_DEFERRED_WITH_ATTEMPT
-    assert outcome["attempt_id"] == "attempt-rollover"
-    assert outcome["reason_code"] == "DEFERRED_SIMULATION_DATE_ROLLOVER"
+    assert outcome["attempt_id"] == "attempt-incomplete"
+    assert outcome["reason_code"] == "DEFERRED_SIMULATION_COHORT_INCOMPLETE"
     assert outcome["publication_attempted"] is False
 
 

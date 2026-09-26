@@ -35,6 +35,7 @@
 // ---------------------------------------------------------------------------
 
 import { QUERY_ASSET_CARDS, QUERY_ASSET_SEALED } from "./marketExplorerQuery.mjs";
+import { hasPublishedCompositionMetadata, resolveCompositionCapability } from "./marketExplorerComposition.mjs";
 
 /** The Sealed Market parent's series id. Not `sealed:`-prefixed, unlike its children. */
 const SEALED_PARENT_SERIES_ID = "sealedMarket";
@@ -55,7 +56,11 @@ export const PENDING_PUBLICATION_MESSAGE =
  * because 1D on a daily-observed market is mostly noise and 30D is too slow to
  * show what changed this week.
  */
-export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze(["1D", "7D", "30D", "3M"]);
+export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze([
+  "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking",
+]);
+export const constituentMovementWindowLabel = (window) =>
+  (window === "SinceTracking" ? "Since Tracking" : window);
 export const DEFAULT_CONSTITUENT_MOVEMENT_WINDOW = "7D";
 
 export function normalizeConstituentMovementWindow(requested) {
@@ -167,7 +172,7 @@ export function buildConstituentColumns(asset, movementWindow) {
   const window = normalizeConstituentMovementWindow(movementWindow);
   return [
     ...base,
-    { key: "changes", label: `${window} Change`, align: "right", change: true, window },
+    { key: "changes", label: `${constituentMovementWindowLabel(window)} Change`, align: "right", change: true, window },
   ];
 }
 
@@ -212,6 +217,9 @@ export function resolveSeriesAsset(series) {
  */
 export function isEnumerableSeries(series) {
   if (!series) return false;
+  // Published composition metadata (V2) decides; a market is never non-enumerable
+  // merely because it is a parent.
+  if (hasPublishedCompositionMetadata(series)) return resolveCompositionCapability(series).inspectable;
   if (series.isParent !== true) return true;
   return Boolean(series.currentConstituents);
 }
@@ -267,7 +275,8 @@ export function resolveSeriesConstituents(
     return {
       ...base,
       availability: CONSTITUENTS_NOT_APPLICABLE,
-      reason: `${series.label || "This market"} is a parent market covering the whole tracked universe.`,
+      reason: resolveCompositionCapability(series).reason
+        || `${series.label || "This market"} is a parent market covering the whole tracked universe.`,
     };
   }
 

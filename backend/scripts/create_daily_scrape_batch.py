@@ -38,6 +38,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -63,6 +64,37 @@ logger = logging.getLogger(__name__)
 BATCH_TAG = "[scrape-batch-create]"
 MARKET_TIMEZONE = "America/Phoenix"
 DISCOVERY_TIMEOUT_SECONDS = 180
+BATCH_CREATE_MAX_ATTEMPTS = 4
+BATCH_CREATE_RETRY_DELAYS_SECONDS = (5, 15, 30)
+_TRANSIENT_BATCH_ERROR_MARKERS = (
+    "57014",
+    "PGRST002",
+    "connection reset",
+    "connection terminated",
+    "connection timeout",
+    "timed out",
+    "timeout",
+    "temporarily unavailable",
+    "database system is not accepting connections",
+    "web server is down",
+    "internal server error",
+    "bad gateway",
+    "service unavailable",
+    "gateway timeout",
+    "status=500",
+    "status=502",
+    "status=503",
+    "status=504",
+    "code': 500",
+    "code': 502",
+    "code': 503",
+    "code': 504",
+    "code': 520",
+    "code': 521",
+    "code': 522",
+    "code': 523",
+    "code': 524",
+)
 
 
 def run_preflight_or_fail(market_date: str, *, preflight_runner=None) -> RuntimePreflightReport:
@@ -137,26 +169,68 @@ def persist_runtime_provenance(batch_id, report: RuntimePreflightReport) -> dict
     }
 
 
-def create_batch(market_date: str, trigger_source: str) -> dict:
-    batch = create_daily_scrape_batch(
-        market_date=market_date,
-        timezone_name=MARKET_TIMEZONE,
-        trigger_source=trigger_source,
-    )
-    if not batch:
-        raise RuntimeError("create_daily_scrape_batch returned no batch row")
-    logger.info(
-        "%s batch ready id=%s market_date=%s status=%s expected=%s queued=%s trigger=%s",
-        BATCH_TAG,
-        batch.get("id"),
-        batch.get("market_date"),
-        batch.get("status"),
-        batch.get("expected_set_count"),
-        batch.get("queued_set_count"),
-        trigger_source,
-    )
-    return batch
+def _is_transient_batch_create_error(exc: Exception) -> bool:
+    """Return True only for infrastructure/database failures that are safe to retry.
 
+    Batch creation is idempotent on market_date, so retrying a transient transport
+    or statement-timeout failure is safe. Logical/preflight failures deliberately
+    do not match this classifier and continue to fail closed.
+    """
+    text = str(exc).lower()
+    return any(marker.lower() in text for marker in _TRANSIENT_BATCH_ERROR_MARKERS)
+
+
+def create_batch(
+    market_date: str,
+    trigger_source: str,
+    *,
+    max_attempts: int = BATCH_CREATE_MAX_ATTEMPTS,
+    retry_delays_seconds=BATCH_CREATE_RETRY_DELAYS_SECONDS,
+    create_fn=create_daily_scrape_batch,
+    sleep_fn=time.sleep,
+) -> dict:
+    """Create the idempotent daily batch with bounded transient retries."""
+    attempts = max(1, int(max_attempts))
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            batch = create_fn(
+                market_date=market_date,
+                timezone_name=MARKET_TIMEZONE,
+                trigger_source=trigger_source,
+            )
+            if not batch:
+                raise RuntimeError("create_daily_scrape_batch returned no batch row")
+            if attempt > 1:
+                logger.info(
+                    "%s batch creation recovered on attempt %s/%s market_date=%s",
+                    BATCH_TAG, attempt, attempts, market_date,
+                )
+            logger.info(
+                "%s batch ready id=%s market_date=%s status=%s expected=%s queued=%s trigger=%s",
+                BATCH_TAG,
+                batch.get("id"),
+                batch.get("market_date"),
+                batch.get("status"),
+                batch.get("expected_set_count"),
+                batch.get("queued_set_count"),
+                trigger_source,
+            )
+            return batch
+        except Exception as exc:
+            last_error = exc
+            if attempt >= attempts or not _is_transient_batch_create_error(exc):
+                raise
+            delay_index = min(attempt - 1, len(retry_delays_seconds) - 1)
+            delay = max(0, int(retry_delays_seconds[delay_index]))
+            logger.warning(
+                "%s transient batch creation failure attempt=%s/%s market_date=%s "
+                "retry_in=%ss error=%s",
+                BATCH_TAG, attempt, attempts, market_date, delay, exc,
+            )
+            sleep_fn(delay)
+
+    raise RuntimeError(f"batch creation exhausted retries: {last_error}")
 
 def check_only(market_date: str, deadline: str) -> int:
     batch = get_active_batch(market_date)

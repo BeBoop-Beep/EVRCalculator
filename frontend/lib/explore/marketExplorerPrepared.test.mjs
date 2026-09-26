@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildPreparedSeries, groupPreparedDirectory, normalizePreparedDirectorySearch, QUICK_MARKET_KEYS } from "./marketExplorerPrepared.mjs";
+import { buildExplorerChartModel } from "./marketExplorerSeries.mjs";
 
 const era = { market_key: "era:e1", market_type: "era", era_id: "e1", label: "Scarlet & Violet" };
 const set = { market_key: "set:s1", market_type: "set", set_id: "s1", parent_era_id: "e1", label: "Temporal Forces", current_value: 123, source_as_of: "2026-09-10", comparison_as_of: "2026-09-08", comparison_value: 120, comparison_index_value: 105, history_available: true, return_7d_pct: 2, return_30d_pct: 4, return_90d_pct: 8, return_1y_pct: null };
@@ -54,4 +55,30 @@ test("browse-only Sets remain selectable while comparison history is unavailable
   assert.equal(series.available, true);
   assert.equal(series.historyAvailable, false);
   assert.deepEqual(series.trend, []);
+});
+
+test("prepared charts retain actual long-window observations without inventing returns", () => {
+  const start = Date.parse("2026-04-07T00:00:00Z");
+  const history = Array.from({ length: 165 }, (_, index) => ({
+    market_key: "set:s1", market_date: new Date(start + index * 86400000).toISOString().slice(0, 10),
+    index_value: 100 + index / 10,
+  }));
+  const [series] = buildPreparedSeries([{ ...set, comparison_as_of: "2026-09-18", history_start_date: "2026-04-07" }], history);
+  assert.equal(series.familyChanges["3M"].percent, 8);
+  for (const window of ["3M", "6M", "1Y", "All"]) {
+    const model = buildExplorerChartModel(null, [series], window);
+    assert.equal(model.available, true, window);
+    assert.ok(model.series[0].points.length > 2, window);
+    assert.equal(model.endDate, "2026-09-18", window);
+  }
+  assert.equal(buildExplorerChartModel(null, [series], "All").startDate, "2026-04-07");
+  assert.equal(buildExplorerChartModel(null, [series], "1Y").series[0].change.available, false);
+  assert.equal(buildExplorerChartModel(null, [series], "1Y").series[0].change.percent, null);
+  assert.equal(buildExplorerChartModel(null, [series], "1D").available, false);
+  const [shorter] = buildPreparedSeries([{ ...set, market_key: "set:short", comparison_as_of: "2026-09-18" }],
+    history.slice(-20).map((point) => ({ ...point, market_key: "set:short" })));
+  const compared = buildExplorerChartModel(null, [series, shorter], "All");
+  assert.equal(compared.startDate, "2026-04-07");
+  assert.equal(compared.series[1].values[0], null);
+  assert.equal(compared.series[0].values[0], 100);
 });

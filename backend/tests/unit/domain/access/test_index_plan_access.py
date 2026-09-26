@@ -496,3 +496,17 @@ def test_plus_insights_critical_projection_receives_v12_and_v11():
     assert result["overallRipV12"]["rank"] == 2
     assert result["publicRipContractV11"]["overallRip"]["rank"] == 2
     assert result["overallRipV10"]["rank"] == 3
+
+
+def test_v14_v5_blocks_follow_the_same_plan_gate_as_the_v12_v4_blocks_they_succeed():
+    """The release's new keys are allowlisted, not opened: Plus keeps them, Basic still gets none."""
+    critical = {
+        "overallRipV12": {"score": 1}, "financialRipV4": {"score": 2}, "publicRipContractV11": {"x": 1},
+        "overallRipV14": {"score": 3}, "overallRipV14Composition": {"version": "v"},
+        "financialRipV5": {"score": 4}, "publicRipContractV12": {"x": 2},
+    }
+    v14_keys = {"overallRipV14", "overallRipV14Composition", "financialRipV5", "publicRipContractV12"}
+    plus = project_insights_critical_response(critical, INDEX_PLAN_PLUS)
+    assert v14_keys <= set(plus)
+    basic = project_insights_critical_response(critical, "free")
+    assert not v14_keys & set(basic) and not {"overallRipV12", "financialRipV4"} & set(basic)

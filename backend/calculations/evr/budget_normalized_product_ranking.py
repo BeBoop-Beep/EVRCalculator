@@ -524,3 +524,144 @@ def rank_budget_cohort(
             }
         )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Ranking V2 - Financial RIP V5 + Overall RIP V14 (EXPLICIT, NON-CANONICAL)
+# ---------------------------------------------------------------------------
+# V2 changes the scoring authority ONLY: Financial V4 -> V5 and Overall V12 ->
+# V14. Allocation (``budget_allocation_floor_quantity_v1``), Full Market anchor,
+# $50 rounding, comparison scope and the comparator SHAPE are unchanged. Nothing
+# above this line is modified and no default resolves to V2; selecting it is an
+# explicit act, and the canonical switch is a separate cutover.
+
+#: Never mutate the meaning of V1 (``BUDGET_NORMALIZED_RANKING_METHOD_VERSION``).
+BUDGET_NORMALIZED_RANKING_METHOD_VERSION_V2 = "budget_product_ranking_v2"
+SORT_AUTHORITY_V14 = "overall_rip_v14"
+
+
+def score_budget_strategy_v2(
+    values: np.ndarray,
+    actual_committed_capital: float,
+    collector_appeal_score: Optional[float],
+    *,
+    chase_accessibility_raw: Optional[float] = None,
+    min_simulation_count: int = 0,
+    prepared: Any = None,
+) -> Dict[str, Any]:
+    """Financial RIP V5 then Overall RIP V14 for one exact q-unit strategy.
+
+    Uses the production ``build_financial_rip_v5`` (never the research
+    candidate). The V3 payload supplies the V4 control (exactly the V3-then-
+    project chain V1 uses) so V4 is not recomputed. Chase Accessibility and
+    Collector Appeal are the SAME set-level values V1 uses. Every emitted field
+    is V5/V14-named; nothing here is written to a V4/V12 field.
+    """
+    from backend.calculations.evr.financial_rip_v3 import PreparedFinancialRipDistribution
+    from backend.calculations.evr.financial_rip_v5 import build_financial_rip_v5
+    from backend.desirability.overall_rip_v14 import compute_overall_rip_v14
+    from backend.desirability.scoring_config import (
+        FINANCIAL_RIP_V5_VERSION,
+        overall_rip_v14_required_chase_accessibility_version,
+        overall_rip_v14_required_collector_appeal_version,
+    )
+
+    prepared = prepared or PreparedFinancialRipDistribution.prepare(values)
+    kwargs = {} if not min_simulation_count else {"min_simulation_count": min_simulation_count}
+    v3_payload = prepared.score(actual_committed_capital, **kwargs)
+    control = project_financial_rip_v4_from_v3_payload(v3_payload)
+    v5 = build_financial_rip_v5(prepared, actual_committed_capital, control_payload=control)
+    v3_raw = {
+        key: record.get("raw")
+        for key, record in ((v3_payload.get("audit") or {}).get("normalizedInputs") or {}).items()
+    }
+    v5_rankable = bool(v5.get("rankable")) and v5.get("score") is not None
+    overall = None
+    if v5_rankable and collector_appeal_score is not None and chase_accessibility_raw is not None:
+        overall = compute_overall_rip_v14(
+            v5.get("score"), chase_accessibility_raw, collector_appeal_score,
+            financial_version=FINANCIAL_RIP_V5_VERSION,
+            chase_accessibility_version=overall_rip_v14_required_chase_accessibility_version(),
+            collector_appeal_version=overall_rip_v14_required_collector_appeal_version(),
+        )
+    return {
+        "financialRipV5Score": v5.get("score"),
+        "financialRipV5Status": v5.get("status"),
+        "financialRipV5Rankable": v5_rankable,
+        "financialRipV5Version": v5.get("scoreVersion"),
+        "financialRipV5Payload": v5,
+        "overallRipV14Score": overall.get("score") if overall else None,
+        "overallRipV14Status": overall.get("status") if overall else "unavailable_missing_input",
+        "overallRipV14Rankable": bool(overall.get("rankable")) if overall else False,
+        "overallRipV14Version": overall.get("version") if overall else None,
+        "overallRipV14Payload": overall,
+        "expectedValue": float(np.mean(values)) if values is not None else None,
+        "medianValue": float(np.median(values)) if values is not None else None,
+        "topOneOutcomeValueShare": (v3_payload.get("distributionDisclosures") or {}).get("jackpotValueShare"),
+        "averageReturn": (
+            float(np.mean(values)) / actual_committed_capital
+            if values is not None and actual_committed_capital else None
+        ),
+        "chanceToRecoverCapital": v3_raw.get("true_win_probability"),
+        "typicalRetentionRatio": v3_raw.get("typical_retention_ratio"),
+        "shortfallResilience": (v5.get("components") or {}).get("shortfall_resilience", {}).get("score"),
+    }
+
+
+def _tier_sort_key_v14(entry: Mapping[str, Any]) -> tuple:
+    """Overall V14 (desc) -> Financial V5 (desc) -> chance-to-recover (desc) ->
+    committed-capital mismatch (asc) -> sealed_product_id. Same shape as
+    :func:`_tier_sort_key_v12` with the versioned fields substituted."""
+    overall = entry.get("overallRipV14Score")
+    financial = entry.get("financialRipV5Score")
+    recover = entry.get("chanceToRecoverCapital")
+    mismatch = abs(entry.get("actualCommittedCapital", 0.0) - entry.get("targetBudget", 0.0))
+    return (
+        -(overall if overall is not None else float("-inf")),
+        -(financial if financial is not None else float("-inf")),
+        -(recover if recover is not None else float("-inf")),
+        mismatch,
+        str(entry.get("sealedProductId") or ""),
+    )
+
+
+def financial_only_comparator_key_v5(entry: Mapping[str, Any]) -> tuple:
+    """Financial RIP V5 (desc) -> sealed_product_id."""
+    financial = entry.get("financialRipV5Score")
+    return (
+        -(financial if financial is not None else float("-inf")),
+        str(entry.get("sealedProductId") or ""),
+    )
+
+
+def rank_by_financial_only_v5(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Financial-V5-only ordering; emits ``financialOnlyRankV5`` (never V4's key)."""
+    ordered = sorted(strategies, key=financial_only_comparator_key_v5)
+    return [{**entry, "financialOnlyRankV5": i} for i, entry in enumerate(ordered, start=1)]
+
+
+def rank_budget_cohort_v2(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Rank only strategies whose V14 result is rankable. There is deliberately
+    no ``sort_authority`` argument and no fallback to V10/V12 or V4 fields: a
+    row without V14 evidence is excluded, never ordered by another model."""
+    rankable = [
+        s for s in strategies
+        if s.get("overallRipV14Rankable") is True and s.get("overallRipV14Score") is not None
+        and s.get("financialRipV5Rankable") is True
+    ]
+    ordered = sorted(rankable, key=_tier_sort_key_v14)
+    size = len(ordered)
+    financial_only_rank = {
+        str(e.get("sealedProductId")): e["financialOnlyRankV5"]
+        for e in rank_by_financial_only_v5(rankable)
+    }
+    return [
+        {
+            **entry,
+            "budgetRankV14": index,
+            "budgetCohortSizeV14": size,
+            "budgetTierV14": assign_composite_tier(entry["overallRipV14Score"]),
+            "financialOnlyRankV5": financial_only_rank[str(entry.get("sealedProductId"))],
+        }
+        for index, entry in enumerate(ordered, start=1)
+    ]

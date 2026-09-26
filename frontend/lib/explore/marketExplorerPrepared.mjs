@@ -7,29 +7,61 @@ const change = (value, startDate, endDate) => value == null ? { available: false
   available: true, percent: Number(value), startDate, endDate,
 };
 
+// Server-computed long-window returns, keyed exactly like
+// compute_strict_window_movements (1D/7D/30D/3M/6M/1Y/SinceTracking) --
+// see backend/db/services/market_explorer_prepared_directory.py's
+// read_prepared_comparison_bundle. Falls back to the row-level 7D/30D/90D/1Y
+// columns (with SinceTracking genuinely unavailable) only if a caller
+// somehow still hands this the un-enriched `read_prepared_comparison` shape
+// with no `window_movements` at all -- never a fabricated 0%.
+function resolveChanges(row) {
+  const movements = row.window_movements;
+  if (movements && typeof movements === "object" && Object.keys(movements).length) return movements;
+  const end = row.comparison_as_of;
+  return {
+    "7D": change(row.return_7d_pct, startFor(end, 7), end), "30D": change(row.return_30d_pct, startFor(end, 30), end),
+    "3M": change(row.return_90d_pct, startFor(end, 90), end), "1Y": change(row.return_1y_pct, startFor(end, 365), end),
+    SinceTracking: change(null),
+  };
+}
+
 export function buildPreparedSeries(rows = [], history = []) {
   const historyByKey = new Map();
   for (const point of history) {
-    const key = point.market_key;
+    const key = point.requested_market_key || point.market_key;
     if (!historyByKey.has(key)) historyByKey.set(key, []);
     historyByKey.get(key).push({ date: point.market_date, value: Number(point.index_value), trackedValue: point.tracked_value == null ? null : Number(point.tracked_value) });
   }
   return rows.map((row) => {
     const end = row.comparison_as_of;
-    const changes = {
-      "7D": change(row.return_7d_pct, startFor(end, 7), end), "30D": change(row.return_30d_pct, startFor(end, 30), end),
-      "90D": change(row.return_90d_pct, startFor(end, 90), end), "1Y": change(row.return_1y_pct, startFor(end, 365), end),
-      SinceTracking: change(null),
-    };
-    const color = resolveSeriesIdentityColor(row.market_key, row.market_key);
+    const changes = resolveChanges(row);
+    // A legacy alias resolved server-side keeps the REQUESTED key as its
+    // workspace identity; the canonical key rides along for the pager.
+    const seriesKey = row.requested_market_key || row.market_key;
+    const color = resolveSeriesIdentityColor(seriesKey, seriesKey);
     return {
-      key: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
+      key: seriesKey, canonicalMarketKey: row.market_key, label: row.label, shortLabel: row.label, group: row.asset === "sealed" ? "sealed" : "card",
+      // PREPARED IDENTITY, published by the backend on the directory row and
+      // carried verbatim for the constituent pager. Nothing here is derived from
+      // labels or key strings. `generationId` pins paging to this exact
+      // publication; a mismatch is reloaded, never mixed.
+      asset: row.asset === "sealed" ? "sealed" : "cards", generationId: row.generation_id ?? null,
+      preparedSeriesKey: row.prepared_series_key ?? null, sourceKind: row.source_kind ?? null,
       marketScope: row.metadata?.marketScope || "standard", baseSetName: row.metadata?.baseSetName ?? null,
       marketType: row.market_type, setId: row.set_id, eraId: row.era_id, parentEraId: row.parent_era_id,
-      available: true, historyAvailable: row.history_available, basketValue: row.comparison_value,
+      available: row.available !== false, historyAvailable: row.history_available,
+      // V2-published composition + availability metadata (undefined for V1 rows).
+      compositionKind: row.composition_kind ?? undefined, availability: row.availability ?? undefined,
+      unavailableReason: row.unavailable_reason ?? null, scopeKind: row.scope_kind ?? null,
+      surfaceVersion: row.surface_version ?? null, basketValue: row.comparison_value,
       browseValue: row.current_value, sourceAsOf: row.source_as_of, comparisonAsOf: end,
       indexValue: row.comparison_index_value, historyStartDate: row.history_start_date,
-      trend: historyByKey.get(row.market_key) || [], changes, familyChanges: changes,
+      trend: historyByKey.get(seriesKey) || [], changes, familyChanges: changes,
+      // Only a compact, identity-keyed authority (query-cache fingerprint
+      // match) ever populates this server-side -- never a "latest" guess.
+      // `null` renders as "-" in MarketExplorerDetails, which is correct
+      // when the count cannot be proven to match this comparison's as-of.
+      constituentCount: row.constituent_count ?? null,
       analytics: {
         currentDrawdown: row.current_drawdown_pct, maxDrawdown: row.max_drawdown_pct,
         relative7D: row.relative_7d_vs_era_pct, relative30D: row.relative_30d_vs_era_pct,
@@ -39,6 +71,33 @@ export function buildPreparedSeries(rows = [], history = []) {
       color, softColor: softSeriesColor(color),
     };
   });
+}
+
+/**
+ * Fetch ONE prepared market (its directory row + its own history) and build its
+ * series. `contextKeys` are the other markets already on the chart; the backend
+ * uses them only to judge the Index+ compare entitlement and never reads them.
+ * A market the backend does not return is an INVALID_KEY failure, never a
+ * silently empty success.
+ */
+export async function fetchPreparedMarket(key, { contextKeys = [], signal } = {}) {
+  const response = await fetch("/api/market/explorer/prepared", {
+    method: "POST", credentials: "include", cache: "no-store", signal,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ marketKeys: [key], contextMarketKeys: contextKeys.slice(0, 25) }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = payload?.detail && typeof payload.detail === "object" ? payload.detail : null;
+    throw new PreparedFetchError("Prepared market request failed", {
+      status: response.status, code: payload?.code || detail?.code || "",
+    });
+  }
+  const rows = (Array.isArray(payload?.markets) ? payload.markets : []).filter((row) => row.market_key === key || row.requested_market_key === key);
+  const history = (Array.isArray(payload?.history) ? payload.history : []).filter((point) => point.market_key === key || point.requested_market_key === key);
+  const [series] = buildPreparedSeries(rows, history);
+  if (!series) throw new PreparedFetchError("Unknown prepared market", { status: 404, code: "PREPARED_MARKET_UNKNOWN" });
+  return series;
 }
 
 export const QUICK_MARKET_KEYS = Object.freeze([
@@ -75,3 +134,22 @@ export function groupPreparedDirectory(rows = [], search = "") {
   return { eras, sets: [...sets.values()].sort((a, b) => (a.era?.label || "").localeCompare(b.era?.label || "")), quick };
 }
 import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
+import { PreparedFetchError } from "./marketExplorerPreparedLoader.mjs";
+
+/**
+ * The ACTUAL published prepared Sealed markets (asset 'sealed', e.g. Booster
+ * Boxes / Elite Trainer Boxes / Packs prepared_format rows), searchable by
+ * label. Nothing here is synthesised: an empty directory yields an empty list,
+ * and card Sets/Eras are never re-labelled as Sealed.
+ */
+export function listPreparedSealedMarkets(rows = [], search = "") {
+  const terms = normalizePreparedDirectorySearch(search).split(" ").filter(Boolean);
+  return rows
+    .filter((row) => row?.asset === "sealed")
+    .filter((row) => {
+      if (!terms.length) return true;
+      const label = normalizePreparedDirectorySearch(row.label);
+      return terms.every((term) => label.includes(term));
+    })
+    .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+}

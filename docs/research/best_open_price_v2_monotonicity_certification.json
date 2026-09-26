@@ -1,0 +1,2575 @@
+{
+  "anomalies": {
+    "allSweptCents": {
+      "financial": {
+        "cents": 2862249,
+        "lossResilienceUpStepsThatRaiseFinancial": 619,
+        "lossToWinTransitions": 7,
+        "oneCentIslands": 1,
+        "plateauPairs": 656074,
+        "productsWithMultipleWinSegments": 7,
+        "productsWithUpwardScoreStep": 112,
+        "quantityBoundaryLossToWin": 7,
+        "quantityBoundaryUpwardSteps": 1763,
+        "sweeps": 138,
+        "sweepsNotDownClosed": 7,
+        "upwardScoreSteps": 2382,
+        "winCents": 315988,
+        "winSegments": 145,
+        "winnerChangesWithUnchangedScore": 0,
+        "withinQuantityComponentIncreases": {
+          "avgRetention": 56168,
+          "hardLossDecreases": 0,
+          "lrScore": 57868,
+          "softShare": 131051,
+          "trueWin": 0
+        },
+        "withinQuantityUpwardSteps": 619
+      },
+      "overall": {
+        "cents": 2862249,
+        "lossResilienceUpStepsThatRaiseFinancial": 619,
+        "lossToWinTransitions": 15,
+        "oneCentIslands": 0,
+        "plateauPairs": 704587,
+        "productsWithMultipleWinSegments": 15,
+        "productsWithUpwardScoreStep": 112,
+        "quantityBoundaryLossToWin": 15,
+        "quantityBoundaryUpwardSteps": 1763,
+        "sweeps": 138,
+        "sweepsNotDownClosed": 15,
+        "upwardScoreSteps": 2373,
+        "winCents": 302374,
+        "winSegments": 153,
+        "winnerChangesWithUnchangedScore": 0,
+        "withinQuantityComponentIncreases": {
+          "avgRetention": 56168,
+          "hardLossDecreases": 0,
+          "lrScore": 57868,
+          "softShare": 131051,
+          "trueWin": 0
+        },
+        "withinQuantityUpwardSteps": 610
+      }
+    },
+    "legalSearchDomain": {
+      "financial": {
+        "cents": 1468080,
+        "lossResilienceUpStepsThatRaiseFinancial": 619,
+        "lossToWinTransitions": 7,
+        "oneCentIslands": 1,
+        "plateauPairs": 87709,
+        "productsWithMultipleWinSegments": 7,
+        "productsWithUpwardScoreStep": 108,
+        "quantityBoundaryLossToWin": 7,
+        "quantityBoundaryUpwardSteps": 1466,
+        "sweeps": 138,
+        "sweepsNotDownClosed": 7,
+        "upwardScoreSteps": 2085,
+        "winCents": 315721,
+        "winSegments": 145,
+        "winnerChangesWithUnchangedScore": 0,
+        "withinQuantityComponentIncreases": {
+          "avgRetention": 37744,
+          "hardLossDecreases": 0,
+          "lrScore": 38900,
+          "softShare": 82730,
+          "trueWin": 0
+        },
+        "withinQuantityUpwardSteps": 619
+      },
+      "overall": {
+        "cents": 1468080,
+        "lossResilienceUpStepsThatRaiseFinancial": 619,
+        "lossToWinTransitions": 15,
+        "oneCentIslands": 0,
+        "plateauPairs": 91246,
+        "productsWithMultipleWinSegments": 15,
+        "productsWithUpwardScoreStep": 108,
+        "quantityBoundaryLossToWin": 15,
+        "quantityBoundaryUpwardSteps": 1466,
+        "sweeps": 138,
+        "sweepsNotDownClosed": 15,
+        "upwardScoreSteps": 2076,
+        "winCents": 302107,
+        "winSegments": 153,
+        "winnerChangesWithUnchangedScore": 0,
+        "withinQuantityComponentIncreases": {
+          "avgRetention": 37744,
+          "hardLossDecreases": 0,
+          "lrScore": 38900,
+          "softShare": 82730,
+          "trueWin": 0
+        },
+        "withinQuantityUpwardSteps": 610
+      }
+    }
+  },
+  "branchAndBound": {
+    "bnbScores": 26768,
+    "boundEvaluations": 6288,
+    "boundViolations": 0,
+    "entries": 9461,
+    "exhaustiveScans": 2312118,
+    "falsePrunes": 0,
+    "intervalsWithTieBand": 1,
+    "leafScores": 20480,
+    "mismatches": 0,
+    "prunedCents": 2291638,
+    "tieBandCents": 1
+  },
+  "classes": {
+    "A": {
+      "bnbScores": 26705,
+      "exhaustiveScans": 2301343,
+      "idealizedBinarySearchScores": 44638,
+      "intervalCents": 2415207,
+      "intervals": 9458,
+      "prunedCents": 2280873
+    },
+    "B": {
+      "bnbScores": 63,
+      "exhaustiveScans": 10775,
+      "idealizedBinarySearchScores": 46,
+      "intervalCents": 43333,
+      "intervals": 3,
+      "prunedCents": 10765
+    },
+    "C": {
+      "bnbScores": 0,
+      "exhaustiveScans": 0,
+      "idealizedBinarySearchScores": 0,
+      "intervalCents": 0,
+      "intervals": 0,
+      "prunedCents": 0
+    }
+  },
+  "decisionToken": "PARTIAL_CERTIFIED_SEARCH_SPACE_REDUCTION_SUPPORTED",
+  "exhaustiveScansByAxis": {
+    "financial": 1150888,
+    "overall": 1161230
+  },
+  "frozenControlTotals": {
+    "comparatorSeconds": 8.016246211715043,
+    "naiveScoreCount": 2312394.0,
+    "priceScoringSeconds": 101.1144396829186,
+    "quantityConstructionSeconds": 3616.6979566004593,
+    "uniqueCandidatePricesScored": 1167908.0,
+    "uniqueQuantitiesConstructed": 5383.0
+  },
+  "nonDownClosedProducts": {
+    "allSweptCents": {
+      "financial": [
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 26000,
+              "fromQuantity": 5,
+              "quantityBoundary": true,
+              "toPriceCents": 26001,
+              "toQuantity": 4
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "e20fb22d-937a-409e-be29-32ec262083b8",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4482,
+              "fromQuantity": 29,
+              "fromScore": 91.7966,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4483,
+              "toQuantity": 28,
+              "toScore": 91.8338,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 4642,
+              "fromQuantity": 28,
+              "fromScore": 91.6279,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4643,
+              "toQuantity": 27,
+              "toScore": 91.6495,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 2280,
+              "fromQuantity": 57,
+              "quantityBoundary": true,
+              "toPriceCents": 2281,
+              "toQuantity": 56
+            }
+          ],
+          "oneCentIslandPrices": [
+            2281
+          ],
+          "pattern": "W L W L",
+          "sealedProductId": "e6b942ff-f435-4bb4-af0f-42ec81c7ecab",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 2166,
+              "fromQuantity": 60,
+              "fromScore": 53.3716,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 2167,
+              "toQuantity": 59,
+              "toScore": 53.5032,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 2203,
+              "fromQuantity": 59,
+              "fromScore": 51.6295,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 2204,
+              "toQuantity": 58,
+              "toScore": 51.7638,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "0c96f395-8263-458b-bc49-ed3dbbf5a3a6",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 6500,
+              "fromQuantity": 20,
+              "fromScore": 50.2028,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 6501,
+              "toQuantity": 19,
+              "toScore": 52.3097,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "fromScore": 47.0514,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18,
+              "toScore": 48.6277,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 18571,
+              "fromQuantity": 7,
+              "quantityBoundary": true,
+              "toPriceCents": 18572,
+              "toQuantity": 6
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "1072db0c-3b44-4af8-8552-8c4761dd1eaf",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 16250,
+              "fromQuantity": 8,
+              "fromScore": 62.4299,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 16251,
+              "toQuantity": 7,
+              "toScore": 63.0375,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 18571,
+              "fromQuantity": 7,
+              "fromScore": 47.3718,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 18572,
+              "toQuantity": 6,
+              "toScore": 48.6077,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 10833,
+              "fromQuantity": 12,
+              "quantityBoundary": true,
+              "toPriceCents": 10834,
+              "toQuantity": 11
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "a3610e17-f0d0-4b4f-88a0-fb6374b0d458",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 10000,
+              "fromQuantity": 13,
+              "fromScore": 57.7474,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 10001,
+              "toQuantity": 12,
+              "toScore": 58.1474,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 10833,
+              "fromQuantity": 12,
+              "fromScore": 48.5251,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 10834,
+              "toQuantity": 11,
+              "toScore": 49.2067,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "cea689d1-46d0-48b7-850a-ff6cf44fa71e",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "fromScore": 48.312,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3,
+              "toScore": 49.8493,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 43333,
+              "fromQuantity": 3,
+              "fromScore": 34.211,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 43334,
+              "toQuantity": 2,
+              "toScore": 34.5694,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "469913eb-c3eb-45af-9a20-61026faaa7e7",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 10833,
+              "fromQuantity": 12,
+              "fromScore": 54.2418,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 10834,
+              "toQuantity": 11,
+              "toScore": 54.7126,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "fromScore": 48.0523,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10,
+              "toScore": 49.0368,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        }
+      ],
+      "overall": [
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 7222,
+              "fromQuantity": 18,
+              "quantityBoundary": true,
+              "toPriceCents": 7223,
+              "toQuantity": 17
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "18ded802-ec1d-4247-b29a-2e07e41f9bf2",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 7222,
+              "fromQuantity": 18,
+              "fromScore": 52.7975,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 7223,
+              "toQuantity": 17,
+              "toScore": 53.1476,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 7647,
+              "fromQuantity": 17,
+              "fromScore": 49.3511,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 7648,
+              "toQuantity": 16,
+              "toScore": 50.0865,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 8666,
+              "fromQuantity": 15,
+              "quantityBoundary": true,
+              "toPriceCents": 8667,
+              "toQuantity": 14
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "a98ce200-a891-4076-8c10-5130df7e5ad6",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 8666,
+              "fromQuantity": 15,
+              "fromScore": 52.623,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 8667,
+              "toQuantity": 14,
+              "toScore": 53.1378,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 9285,
+              "fromQuantity": 14,
+              "fromScore": 46.7068,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 9286,
+              "toQuantity": 13,
+              "toScore": 47.2748,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 26000,
+              "fromQuantity": 5,
+              "quantityBoundary": true,
+              "toPriceCents": 26001,
+              "toQuantity": 4
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "e20fb22d-937a-409e-be29-32ec262083b8",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4482,
+              "fromQuantity": 29,
+              "fromScore": 89.0181,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4483,
+              "toQuantity": 28,
+              "toScore": 89.0501,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 4642,
+              "fromQuantity": 28,
+              "fromScore": 88.8731,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4643,
+              "toQuantity": 27,
+              "toScore": 88.8916,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "1de25f6a-cbc8-49e4-8092-85e549c89604",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "fromScore": 52.4087,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18,
+              "toScore": 52.8983,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 7222,
+              "fromQuantity": 18,
+              "fromScore": 49.0037,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 7223,
+              "toQuantity": 17,
+              "toScore": 49.481,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 4062,
+              "fromQuantity": 32,
+              "quantityBoundary": true,
+              "toPriceCents": 4063,
+              "toQuantity": 31
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "12073425-7937-4cdf-8422-1ea9eff7c175",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4062,
+              "fromQuantity": 32,
+              "fromScore": 52.6134,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 4063,
+              "toQuantity": 31,
+              "toScore": 53.228,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 4193,
+              "fromQuantity": 31,
+              "fromScore": 51.2318,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 4194,
+              "toQuantity": 30,
+              "toScore": 51.6204,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 6500,
+              "fromQuantity": 20,
+              "quantityBoundary": true,
+              "toPriceCents": 6501,
+              "toQuantity": 19
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "b02156c5-f2e8-4d01-8b6b-f763bdaf9b1a",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 6500,
+              "fromQuantity": 20,
+              "fromScore": 52.6942,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6501,
+              "toQuantity": 19,
+              "toScore": 53.1023,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "fromScore": 48.6854,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18,
+              "toScore": 48.9723,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "e827c1cd-9025-46d8-93f7-c14915bc52bf",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "fromScore": 52.2801,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9,
+              "toScore": 52.9183,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 14444,
+              "fromQuantity": 9,
+              "fromScore": 46.2272,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 14445,
+              "toQuantity": 8,
+              "toScore": 46.3782,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 2888,
+              "fromQuantity": 45,
+              "quantityBoundary": true,
+              "toPriceCents": 2889,
+              "toQuantity": 44
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "541c5909-535b-496d-a779-6e78ed60556f",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 2888,
+              "fromQuantity": 45,
+              "fromScore": 52.789,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 2889,
+              "toQuantity": 44,
+              "toScore": 52.9534,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 2954,
+              "fromQuantity": 44,
+              "fromScore": 50.736,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 2955,
+              "toQuantity": 43,
+              "toScore": 50.8527,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 3611,
+              "fromQuantity": 36,
+              "quantityBoundary": true,
+              "toPriceCents": 3612,
+              "toQuantity": 35
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "f0e6a6b6-5fe7-427b-b95f-544a7cd1477c",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 2136,
+              "fromQuantity": 60,
+              "fromScore": 79.1156,
+              "fromWin": true,
+              "quantityBoundary": false,
+              "toPriceCents": 2137,
+              "toQuantity": 60,
+              "toScore": 79.1179,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 2152,
+              "fromQuantity": 60,
+              "fromScore": 79.0297,
+              "fromWin": true,
+              "quantityBoundary": false,
+              "toPriceCents": 2153,
+              "toQuantity": 60,
+              "toScore": 79.0298,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 14444,
+              "fromQuantity": 9,
+              "quantityBoundary": true,
+              "toPriceCents": 14445,
+              "toQuantity": 8
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "55d50d9e-d68b-4f3b-b552-da2c065fad3f",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 14444,
+              "fromQuantity": 9,
+              "fromScore": 51.676,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 14445,
+              "toQuantity": 8,
+              "toScore": 52.9702,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 16250,
+              "fromQuantity": 8,
+              "fromScore": 45.1493,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 16251,
+              "toQuantity": 7,
+              "toScore": 45.614,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 5652,
+              "fromQuantity": 23,
+              "quantityBoundary": true,
+              "toPriceCents": 5653,
+              "toQuantity": 22
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "928eeef5-8a7e-4c1f-a634-ae332c8c0219",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 5652,
+              "fromQuantity": 23,
+              "fromScore": 52.6256,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 5653,
+              "toQuantity": 22,
+              "toScore": 52.9407,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 5909,
+              "fromQuantity": 22,
+              "fromScore": 49.4326,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 5910,
+              "toQuantity": 21,
+              "toScore": 49.7397,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 65000,
+              "fromQuantity": 2,
+              "quantityBoundary": true,
+              "toPriceCents": 65001,
+              "toQuantity": 1
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "dbfd9f2d-5509-45b2-a08f-ba5e09ad2ff4",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4814,
+              "fromQuantity": 27,
+              "fromScore": 94.049,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4815,
+              "toQuantity": 26,
+              "toScore": 94.0561,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 5000,
+              "fromQuantity": 26,
+              "fromScore": 93.9571,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 5001,
+              "toQuantity": 25,
+              "toScore": 93.963,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "cea689d1-46d0-48b7-850a-ff6cf44fa71e",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "fromScore": 52.2124,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3,
+              "toScore": 53.5345,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 43333,
+              "fromQuantity": 3,
+              "fromScore": 40.0856,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 43334,
+              "toQuantity": 2,
+              "toScore": 40.3938,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "fe2349b8-9f72-487d-b831-b58e83a05d88",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 3823,
+              "fromQuantity": 34,
+              "fromScore": 84.0292,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 3824,
+              "toQuantity": 33,
+              "toScore": 84.0673,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 3939,
+              "fromQuantity": 33,
+              "fromScore": 83.8226,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 3940,
+              "toQuantity": 32,
+              "toScore": 83.8581,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "b1e99164-f8bd-4188-8c8f-e225586efb5f",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "fromScore": 52.387,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10,
+              "toScore": 52.9634,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "fromScore": 46.7013,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9,
+              "toScore": 46.9377,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        }
+      ]
+    },
+    "legalSearchDomain": {
+      "financial": [
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 26000,
+              "fromQuantity": 5,
+              "quantityBoundary": true,
+              "toPriceCents": 26001,
+              "toQuantity": 4
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "e20fb22d-937a-409e-be29-32ec262083b8",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4482,
+              "fromQuantity": 29,
+              "fromScore": 91.7966,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4483,
+              "toQuantity": 28,
+              "toScore": 91.8338,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 4642,
+              "fromQuantity": 28,
+              "fromScore": 91.6279,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4643,
+              "toQuantity": 27,
+              "toScore": 91.6495,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 2280,
+              "fromQuantity": 57,
+              "quantityBoundary": true,
+              "toPriceCents": 2281,
+              "toQuantity": 56
+            }
+          ],
+          "oneCentIslandPrices": [
+            2281
+          ],
+          "pattern": "W L W L",
+          "sealedProductId": "e6b942ff-f435-4bb4-af0f-42ec81c7ecab",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 2166,
+              "fromQuantity": 60,
+              "fromScore": 53.3716,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 2167,
+              "toQuantity": 59,
+              "toScore": 53.5032,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 2203,
+              "fromQuantity": 59,
+              "fromScore": 51.6295,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 2204,
+              "toQuantity": 58,
+              "toScore": 51.7638,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "0c96f395-8263-458b-bc49-ed3dbbf5a3a6",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 6500,
+              "fromQuantity": 20,
+              "fromScore": 50.2028,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 6501,
+              "toQuantity": 19,
+              "toScore": 52.3097,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "fromScore": 47.0514,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18,
+              "toScore": 48.6277,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 18571,
+              "fromQuantity": 7,
+              "quantityBoundary": true,
+              "toPriceCents": 18572,
+              "toQuantity": 6
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "1072db0c-3b44-4af8-8552-8c4761dd1eaf",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 16250,
+              "fromQuantity": 8,
+              "fromScore": 62.4299,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 16251,
+              "toQuantity": 7,
+              "toScore": 63.0375,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 18571,
+              "fromQuantity": 7,
+              "fromScore": 47.3718,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 18572,
+              "toQuantity": 6,
+              "toScore": 48.6077,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 10833,
+              "fromQuantity": 12,
+              "quantityBoundary": true,
+              "toPriceCents": 10834,
+              "toQuantity": 11
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "a3610e17-f0d0-4b4f-88a0-fb6374b0d458",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 10000,
+              "fromQuantity": 13,
+              "fromScore": 57.7474,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 10001,
+              "toQuantity": 12,
+              "toScore": 58.1474,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 10833,
+              "fromQuantity": 12,
+              "fromScore": 48.5251,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 10834,
+              "toQuantity": 11,
+              "toScore": 49.2067,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "cea689d1-46d0-48b7-850a-ff6cf44fa71e",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "fromScore": 48.312,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3,
+              "toScore": 49.8493,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 43333,
+              "fromQuantity": 3,
+              "fromScore": 34.211,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 43334,
+              "toQuantity": 2,
+              "toScore": 34.5694,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "469913eb-c3eb-45af-9a20-61026faaa7e7",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 10833,
+              "fromQuantity": 12,
+              "fromScore": 54.2418,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 10834,
+              "toQuantity": 11,
+              "toScore": 54.7126,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "fromScore": 48.0523,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10,
+              "toScore": 49.0368,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        }
+      ],
+      "overall": [
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 7222,
+              "fromQuantity": 18,
+              "quantityBoundary": true,
+              "toPriceCents": 7223,
+              "toQuantity": 17
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "18ded802-ec1d-4247-b29a-2e07e41f9bf2",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 7222,
+              "fromQuantity": 18,
+              "fromScore": 52.7975,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 7223,
+              "toQuantity": 17,
+              "toScore": 53.1476,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 7647,
+              "fromQuantity": 17,
+              "fromScore": 49.3511,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 7648,
+              "toQuantity": 16,
+              "toScore": 50.0865,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 8666,
+              "fromQuantity": 15,
+              "quantityBoundary": true,
+              "toPriceCents": 8667,
+              "toQuantity": 14
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "a98ce200-a891-4076-8c10-5130df7e5ad6",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 8666,
+              "fromQuantity": 15,
+              "fromScore": 52.623,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 8667,
+              "toQuantity": 14,
+              "toScore": 53.1378,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 9285,
+              "fromQuantity": 14,
+              "fromScore": 46.7068,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 9286,
+              "toQuantity": 13,
+              "toScore": 47.2748,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 26000,
+              "fromQuantity": 5,
+              "quantityBoundary": true,
+              "toPriceCents": 26001,
+              "toQuantity": 4
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "e20fb22d-937a-409e-be29-32ec262083b8",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4482,
+              "fromQuantity": 29,
+              "fromScore": 89.0181,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4483,
+              "toQuantity": 28,
+              "toScore": 89.0501,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 4642,
+              "fromQuantity": 28,
+              "fromScore": 88.8731,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4643,
+              "toQuantity": 27,
+              "toScore": 88.8916,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "1de25f6a-cbc8-49e4-8092-85e549c89604",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "fromScore": 52.4087,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18,
+              "toScore": 52.8983,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 7222,
+              "fromQuantity": 18,
+              "fromScore": 49.0037,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 7223,
+              "toQuantity": 17,
+              "toScore": 49.481,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 4062,
+              "fromQuantity": 32,
+              "quantityBoundary": true,
+              "toPriceCents": 4063,
+              "toQuantity": 31
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "12073425-7937-4cdf-8422-1ea9eff7c175",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4062,
+              "fromQuantity": 32,
+              "fromScore": 52.6134,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 4063,
+              "toQuantity": 31,
+              "toScore": 53.228,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 4193,
+              "fromQuantity": 31,
+              "fromScore": 51.2318,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 4194,
+              "toQuantity": 30,
+              "toScore": 51.6204,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 6500,
+              "fromQuantity": 20,
+              "quantityBoundary": true,
+              "toPriceCents": 6501,
+              "toQuantity": 19
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "b02156c5-f2e8-4d01-8b6b-f763bdaf9b1a",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 6500,
+              "fromQuantity": 20,
+              "fromScore": 52.6942,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6501,
+              "toQuantity": 19,
+              "toScore": 53.1023,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 6842,
+              "fromQuantity": 19,
+              "fromScore": 48.6854,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 6843,
+              "toQuantity": 18,
+              "toScore": 48.9723,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "e827c1cd-9025-46d8-93f7-c14915bc52bf",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "fromScore": 52.2801,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9,
+              "toScore": 52.9183,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 14444,
+              "fromQuantity": 9,
+              "fromScore": 46.2272,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 14445,
+              "toQuantity": 8,
+              "toScore": 46.3782,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 2888,
+              "fromQuantity": 45,
+              "quantityBoundary": true,
+              "toPriceCents": 2889,
+              "toQuantity": 44
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "541c5909-535b-496d-a779-6e78ed60556f",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 2888,
+              "fromQuantity": 45,
+              "fromScore": 52.789,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 2889,
+              "toQuantity": 44,
+              "toScore": 52.9534,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 2954,
+              "fromQuantity": 44,
+              "fromScore": 50.736,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 2955,
+              "toQuantity": 43,
+              "toScore": 50.8527,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 3611,
+              "fromQuantity": 36,
+              "quantityBoundary": true,
+              "toPriceCents": 3612,
+              "toQuantity": 35
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "f0e6a6b6-5fe7-427b-b95f-544a7cd1477c",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 2136,
+              "fromQuantity": 60,
+              "fromScore": 79.1156,
+              "fromWin": true,
+              "quantityBoundary": false,
+              "toPriceCents": 2137,
+              "toQuantity": 60,
+              "toScore": 79.1179,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 2152,
+              "fromQuantity": 60,
+              "fromScore": 79.0297,
+              "fromWin": true,
+              "quantityBoundary": false,
+              "toPriceCents": 2153,
+              "toQuantity": 60,
+              "toScore": 79.0298,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 14444,
+              "fromQuantity": 9,
+              "quantityBoundary": true,
+              "toPriceCents": 14445,
+              "toQuantity": 8
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "55d50d9e-d68b-4f3b-b552-da2c065fad3f",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 14444,
+              "fromQuantity": 9,
+              "fromScore": 51.676,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 14445,
+              "toQuantity": 8,
+              "toScore": 52.9702,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 16250,
+              "fromQuantity": 8,
+              "fromScore": 45.1493,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 16251,
+              "toQuantity": 7,
+              "toScore": 45.614,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 5652,
+              "fromQuantity": 23,
+              "quantityBoundary": true,
+              "toPriceCents": 5653,
+              "toQuantity": 22
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "928eeef5-8a7e-4c1f-a634-ae332c8c0219",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 5652,
+              "fromQuantity": 23,
+              "fromScore": 52.6256,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 5653,
+              "toQuantity": 22,
+              "toScore": 52.9407,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 5909,
+              "fromQuantity": 22,
+              "fromScore": 49.4326,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 5910,
+              "toQuantity": 21,
+              "toScore": 49.7397,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 65000,
+              "fromQuantity": 2,
+              "quantityBoundary": true,
+              "toPriceCents": 65001,
+              "toQuantity": 1
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "dbfd9f2d-5509-45b2-a08f-ba5e09ad2ff4",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 4814,
+              "fromQuantity": 27,
+              "fromScore": 94.049,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 4815,
+              "toQuantity": 26,
+              "toScore": 94.0561,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 5000,
+              "fromQuantity": 26,
+              "fromScore": 93.9571,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 5001,
+              "toQuantity": 25,
+              "toScore": 93.963,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "cea689d1-46d0-48b7-850a-ff6cf44fa71e",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 32500,
+              "fromQuantity": 4,
+              "fromScore": 52.2124,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 32501,
+              "toQuantity": 3,
+              "toScore": 53.5345,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 43333,
+              "fromQuantity": 3,
+              "fromScore": 40.0856,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 43334,
+              "toQuantity": 2,
+              "toScore": 40.3938,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "fe2349b8-9f72-487d-b831-b58e83a05d88",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 3823,
+              "fromQuantity": 34,
+              "fromScore": 84.0292,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 3824,
+              "toQuantity": 33,
+              "toScore": 84.0673,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 3939,
+              "fromQuantity": 33,
+              "fromScore": 83.8226,
+              "fromWin": true,
+              "quantityBoundary": true,
+              "toPriceCents": 3940,
+              "toQuantity": 32,
+              "toScore": 83.8581,
+              "toWin": true
+            }
+          ],
+          "winSegments": 2
+        },
+        {
+          "lossToWinExamples": [
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10
+            }
+          ],
+          "oneCentIslandPrices": [],
+          "pattern": "W L W L",
+          "sealedProductId": "b1e99164-f8bd-4188-8c8f-e225586efb5f",
+          "upwardScoreStepExamples": [
+            {
+              "fromPriceCents": 11818,
+              "fromQuantity": 11,
+              "fromScore": 52.387,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 11819,
+              "toQuantity": 10,
+              "toScore": 52.9634,
+              "toWin": true
+            },
+            {
+              "fromPriceCents": 13000,
+              "fromQuantity": 10,
+              "fromScore": 46.7013,
+              "fromWin": false,
+              "quantityBoundary": true,
+              "toPriceCents": 13001,
+              "toQuantity": 9,
+              "toScore": 46.9377,
+              "toWin": false
+            }
+          ],
+          "winSegments": 2
+        }
+      ]
+    }
+  },
+  "productCount": 138,
+  "provenance": {
+    "authorityFingerprint": "faad453f7d29eff1831fb2e212a13dad7d9d553536dc283af90c9bfbd53e48b0",
+    "controlArtifact": "docs/research/financial_rip_v5_best_open_v2_control.json",
+    "controlArtifactSha256": "2186b6970a53fd5e701b933680de189c989a9416291064c900a83b5404c765b7",
+    "fullMarketBudgetCents": 130000,
+    "marketDate": "2026-09-14",
+    "rawSweepArtifacts": "logs/mono_raw_*.jsonl (local, gitignored; regenerate with the runner)",
+    "sourceSnapshotId": "0e65fb6d-ff33-4331-99d5-d6a214ecc712"
+  },
+  "qLevel": {
+    "axesWithExtendedWindow": 47,
+    "axesWithHoles": 0,
+    "examples": []
+  },
+  "quantityBoundary": {
+    "financial": {
+      "legalLossToWin": 7,
+      "legalUpwardScoreSteps": 1466,
+      "lossToWin": 7,
+      "upwardScoreSteps": 1763
+    },
+    "overall": {
+      "legalLossToWin": 15,
+      "legalUpwardScoreSteps": 1466,
+      "lossToWin": 15,
+      "upwardScoreSteps": 1763
+    }
+  },
+  "reproducingRealCases": [
+    {
+      "axis": "financial",
+      "examples": [],
+      "kind": "within_quantity_score_rebound",
+      "predicateDownClosedWithinQuantity": true,
+      "sealedProductId": "2c4b1825-03d4-4bfa-9438-2878a3f05d58",
+      "withinQuantityUpwardSteps": 81
+    },
+    {
+      "axis": "overall",
+      "examples": [],
+      "kind": "within_quantity_score_rebound",
+      "predicateDownClosedWithinQuantity": true,
+      "sealedProductId": "2c4b1825-03d4-4bfa-9438-2878a3f05d58",
+      "withinQuantityUpwardSteps": 80
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 15408,
+      "frozenQuantity": 17,
+      "frozenThresholdCents": 7266,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 7222,
+          "fromQuantity": 18,
+          "quantityBoundary": true,
+          "toPriceCents": 7223,
+          "toQuantity": 17
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "18ded802-ec1d-4247-b29a-2e07e41f9bf2"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 12588,
+      "frozenQuantity": 14,
+      "frozenThresholdCents": 8697,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 8666,
+          "fromQuantity": 15,
+          "quantityBoundary": true,
+          "toPriceCents": 8667,
+          "toQuantity": 14
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "a98ce200-a891-4076-8c10-5130df7e5ad6"
+    },
+    {
+      "axis": "financial",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 39795,
+      "frozenQuantity": 4,
+      "frozenThresholdCents": 27394,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 26000,
+          "fromQuantity": 5,
+          "quantityBoundary": true,
+          "toPriceCents": 26001,
+          "toQuantity": 4
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "e20fb22d-937a-409e-be29-32ec262083b8"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 39795,
+      "frozenQuantity": 4,
+      "frozenThresholdCents": 27070,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 26000,
+          "fromQuantity": 5,
+          "quantityBoundary": true,
+          "toPriceCents": 26001,
+          "toQuantity": 4
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "e20fb22d-937a-409e-be29-32ec262083b8"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 11625,
+      "frozenQuantity": 18,
+      "frozenThresholdCents": 6850,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 6842,
+          "fromQuantity": 19,
+          "quantityBoundary": true,
+          "toPriceCents": 6843,
+          "toQuantity": 18
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "1de25f6a-cbc8-49e4-8092-85e549c89604"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 8416,
+      "frozenQuantity": 31,
+      "frozenThresholdCents": 4084,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 4062,
+          "fromQuantity": 32,
+          "quantityBoundary": true,
+          "toPriceCents": 4063,
+          "toQuantity": 31
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "12073425-7937-4cdf-8422-1ea9eff7c175"
+    },
+    {
+      "axis": "financial",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 3690,
+      "frozenQuantity": 56,
+      "frozenThresholdCents": 2281,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 2280,
+          "fromQuantity": 57,
+          "quantityBoundary": true,
+          "toPriceCents": 2281,
+          "toQuantity": 56
+        }
+      ],
+      "oneCentIslandPrices": [
+        2281
+      ],
+      "pattern": "W L W L",
+      "sealedProductId": "e6b942ff-f435-4bb4-af0f-42ec81c7ecab"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 13873,
+      "frozenQuantity": 19,
+      "frozenThresholdCents": 6519,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 6500,
+          "fromQuantity": 20,
+          "quantityBoundary": true,
+          "toPriceCents": 6501,
+          "toQuantity": 19
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "b02156c5-f2e8-4d01-8b6b-f763bdaf9b1a"
+    },
+    {
+      "axis": "financial",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 15219,
+      "frozenQuantity": 18,
+      "frozenThresholdCents": 6847,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 6842,
+          "fromQuantity": 19,
+          "quantityBoundary": true,
+          "toPriceCents": 6843,
+          "toQuantity": 18
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "0c96f395-8263-458b-bc49-ed3dbbf5a3a6"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 31706,
+      "frozenQuantity": 9,
+      "frozenThresholdCents": 13013,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 13000,
+          "fromQuantity": 10,
+          "quantityBoundary": true,
+          "toPriceCents": 13001,
+          "toQuantity": 9
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "e827c1cd-9025-46d8-93f7-c14915bc52bf"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 10527,
+      "frozenQuantity": 44,
+      "frozenThresholdCents": 2892,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 2888,
+          "fromQuantity": 45,
+          "quantityBoundary": true,
+          "toPriceCents": 2889,
+          "toQuantity": 44
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "541c5909-535b-496d-a779-6e78ed60556f"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 6484,
+      "frozenQuantity": 35,
+      "frozenThresholdCents": 3615,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 3611,
+          "fromQuantity": 36,
+          "quantityBoundary": true,
+          "toPriceCents": 3612,
+          "toQuantity": 35
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "f0e6a6b6-5fe7-427b-b95f-544a7cd1477c"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 27068,
+      "frozenQuantity": 8,
+      "frozenThresholdCents": 14467,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 14444,
+          "fromQuantity": 9,
+          "quantityBoundary": true,
+          "toPriceCents": 14445,
+          "toQuantity": 8
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "55d50d9e-d68b-4f3b-b552-da2c065fad3f"
+    },
+    {
+      "axis": "financial",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 27856,
+      "frozenQuantity": 6,
+      "frozenThresholdCents": 18581,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 18571,
+          "fromQuantity": 7,
+          "quantityBoundary": true,
+          "toPriceCents": 18572,
+          "toQuantity": 6
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "1072db0c-3b44-4af8-8552-8c4761dd1eaf"
+    },
+    {
+      "axis": "financial",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 17144,
+      "frozenQuantity": 11,
+      "frozenThresholdCents": 10901,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 10833,
+          "fromQuantity": 12,
+          "quantityBoundary": true,
+          "toPriceCents": 10834,
+          "toQuantity": 11
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "a3610e17-f0d0-4b4f-88a0-fb6374b0d458"
+    },
+    {
+      "axis": "financial",
+      "bnbTop": 10256,
+      "exhaustiveTop": 10256,
+      "high": 10833,
+      "kind": "financial_score_equals_benchmark_band",
+      "low": 10001,
+      "quantity": 12,
+      "sealedProductId": "4e9d90e0-4628-4748-83b3-51da7db11344",
+      "tieBandCents": 1
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 15543,
+      "frozenQuantity": 22,
+      "frozenThresholdCents": 5661,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 5652,
+          "fromQuantity": 23,
+          "quantityBoundary": true,
+          "toPriceCents": 5653,
+          "toQuantity": 22
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "928eeef5-8a7e-4c1f-a634-ae332c8c0219"
+    },
+    {
+      "axis": "financial",
+      "examples": [],
+      "kind": "within_quantity_score_rebound",
+      "predicateDownClosedWithinQuantity": true,
+      "sealedProductId": "dbfd9f2d-5509-45b2-a08f-ba5e09ad2ff4",
+      "withinQuantityUpwardSteps": 63
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 129317,
+      "frozenQuantity": 1,
+      "frozenThresholdCents": 66243,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 65000,
+          "fromQuantity": 2,
+          "quantityBoundary": true,
+          "toPriceCents": 65001,
+          "toQuantity": 1
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "dbfd9f2d-5509-45b2-a08f-ba5e09ad2ff4"
+    },
+    {
+      "axis": "overall",
+      "examples": [],
+      "kind": "within_quantity_score_rebound",
+      "predicateDownClosedWithinQuantity": true,
+      "sealedProductId": "dbfd9f2d-5509-45b2-a08f-ba5e09ad2ff4",
+      "withinQuantityUpwardSteps": 62
+    },
+    {
+      "axis": "financial",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 61200,
+      "frozenQuantity": 3,
+      "frozenThresholdCents": 33523,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 32500,
+          "fromQuantity": 4,
+          "quantityBoundary": true,
+          "toPriceCents": 32501,
+          "toQuantity": 3
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "cea689d1-46d0-48b7-850a-ff6cf44fa71e"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 61200,
+      "frozenQuantity": 3,
+      "frozenThresholdCents": 33220,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 32500,
+          "fromQuantity": 4,
+          "quantityBoundary": true,
+          "toPriceCents": 32501,
+          "toQuantity": 3
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "cea689d1-46d0-48b7-850a-ff6cf44fa71e"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 27576,
+      "frozenQuantity": 9,
+      "frozenThresholdCents": 13052,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 13000,
+          "fromQuantity": 10,
+          "quantityBoundary": true,
+          "toPriceCents": 13001,
+          "toQuantity": 9
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "fe2349b8-9f72-487d-b831-b58e83a05d88"
+    },
+    {
+      "axis": "overall",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 28870,
+      "frozenQuantity": 10,
+      "frozenThresholdCents": 11836,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 11818,
+          "fromQuantity": 11,
+          "quantityBoundary": true,
+          "toPriceCents": 11819,
+          "toQuantity": 10
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "b1e99164-f8bd-4188-8c8f-e225586efb5f"
+    },
+    {
+      "axis": "financial",
+      "boundaryQuantityEqualsThresholdQuantity": true,
+      "currentPriceCents": 30844,
+      "frozenQuantity": 10,
+      "frozenThresholdCents": 11882,
+      "kind": "quantity_boundary_separated_winning_ranges",
+      "lossToWin": [
+        {
+          "fromPriceCents": 11818,
+          "fromQuantity": 11,
+          "quantityBoundary": true,
+          "toPriceCents": 11819,
+          "toQuantity": 10
+        }
+      ],
+      "oneCentIslandPrices": [],
+      "pattern": "W L W L",
+      "sealedProductId": "469913eb-c3eb-45af-9a20-61026faaa7e7"
+    }
+  ],
+  "runtimeOpportunity": {
+    "centScoringPlusComparatorSeconds": 109.13068589463364,
+    "centScoringShareOfRuntime": 0.029290312670298115,
+    "note": "cent pruning cannot remove a physical-q construction; only an interval-level bound that needs no distribution could, and none exists",
+    "physicalQuantitiesConstructed": 5383.0,
+    "quantityConstructionSeconds": 3616.6979566004593
+  },
+  "scanReconciliation": {
+    "mismatches": [],
+    "productsChecked": 138,
+    "productsMatching": 138
+  },
+  "scope": {
+    "centsScored": 2862249,
+    "leaderAxes": 2,
+    "products": 138,
+    "quantityIntervalsSwept": 6083,
+    "thresholdsExpected": 276,
+    "thresholdsReproduced": 276
+  },
+  "syntheticEvidence": {
+    "authorityDisagreement": {
+      "financialMonotoneOverallNot": "PLATEAU: Financial 'W L', Overall 'L W L'",
+      "overallMonotoneFinancialNot": "REBOUND window [260,400]: Financial 'L W L', Overall 'W'"
+    },
+    "financialPredicatePatterns": {
+      "controlWL": {
+        "benchmarkFinancial": 76.0,
+        "pattern": "W L",
+        "windowCents": [
+          401,
+          519
+        ]
+      },
+      "oneCentIslandLWL": {
+        "benchmarkFinancial": 82.9319,
+        "windowCents": [
+          260,
+          400
+        ],
+        "winners": [
+          301
+        ]
+      },
+      "reboundWLW": {
+        "benchmarkFinancial": 82.7,
+        "pattern": "W L W",
+        "windowCents": [
+          250,
+          305
+        ]
+      },
+      "scoreRiseWithoutPredicateChange": {
+        "benchmarkFinancial": 70.0,
+        "pattern": "W",
+        "windowCents": [
+          250,
+          400
+        ]
+      },
+      "separatedRangesWLWL": {
+        "benchmarkFinancial": 82.9319,
+        "pattern": "W L W L",
+        "windowCents": [
+          250,
+          400
+        ]
+      }
+    },
+    "financialScoreRisesWithPrice": [
+      {
+        "fixture": "REBOUND",
+        "from": 85.8908,
+        "fromCents": 200,
+        "to": 86.1992,
+        "toCents": 201
+      },
+      {
+        "fixture": "REBOUND",
+        "from": 80.489,
+        "fromCents": 300,
+        "to": 82.9319,
+        "toCents": 301
+      },
+      {
+        "fixture": "REBOUND",
+        "from": 78.676,
+        "fromCents": 400,
+        "lossResilienceFrom": 55.0,
+        "lossResilienceTo": 58.6409,
+        "overallFrom": 76.5075,
+        "overallTo": 76.9606,
+        "to": 79.2028,
+        "toCents": 401,
+        "trueWinFrom": 0.97,
+        "trueWinTo": 0.96
+      }
+    ],
+    "fixtures": {
+      "PLATEAU": "100 outcomes all worth 10.0; q=1, target 100",
+      "REBOUND": "100 outcomes: values 1,2,3,4 once each, 10 x95, 12 x1; q=1, target 100"
+    },
+    "notFound": [],
+    "overallTieBreakHigherPriceWins": {
+      "benchmarkCapital": 0.025,
+      "financialVerdicts": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "fixture": "PLATEAU",
+      "headline": {
+        "financial": 100.0,
+        "overall": 94.8462,
+        "trueWin": 1.0
+      },
+      "identicalHeadlineAtCents": [
+        1,
+        2,
+        3
+      ],
+      "note": "capital closeness |capital - target| decreases with price",
+      "overallVerdicts": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "pricesCents": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "quantityBoundaryReversal": {
+      "budgetCents": 1000,
+      "pattern": "L W",
+      "q2": [
+        334,
+        500
+      ],
+      "q3": [
+        251,
+        333
+      ]
+    }
+  },
+  "theoremA": {
+    "crossingPairs": 978162,
+    "eventFreePairs": 1878004,
+    "nonRegionCents": 105238,
+    "nonRegionUpwardSteps": 619,
+    "regionCents": 2757011,
+    "regionUpwardSteps": 0
+  },
+  "thresholdMismatches": [],
+  "withinFixedQuantity": {
+    "intervalsSwept": 6083,
+    "lossToWinTransitionsInsideAQuantityInterval": 0,
+    "maxTrueWinAtAnyThreshold": 0.223187,
+    "scoreReboundsInsideAQuantityInterval": 619,
+    "thresholdsWithTrueWinAboveOneHalf": 0
+  }
+}

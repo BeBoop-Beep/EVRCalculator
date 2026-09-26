@@ -3,6 +3,32 @@ import pytest
 from backend.db.services import explore_rip_statistics_service as service
 
 
+def test_verified_simulation_authority_accepts_exact_runs_and_ignores_extra_targets():
+    service._assert_expected_simulation_run_authority(
+        [
+            {"set_id": "set-a", "calculation_run_id": "run-a"},
+            {"set_id": "set-b", "calculation_run_id": "run-b"},
+            {"set_id": "non-opening-extra", "calculation_run_id": "run-extra"},
+        ],
+        {"set-a": "run-a", "set-b": "run-b"},
+    )
+
+
+def test_verified_simulation_authority_rejects_latest_per_set_drift():
+    with pytest.raises(service.ExploreRipStatisticsTargetsError) as exc_info:
+        service._assert_expected_simulation_run_authority(
+            [
+                {"set_id": "set-a", "calculation_run_id": "run-new-unverified"},
+                {"set_id": "set-b", "calculation_run_id": "run-b"},
+            ],
+            {"set-a": "run-a-verified", "set-b": "run-b"},
+        )
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.code == "SIMULATION_COHORT_AUTHORITY_MISMATCH"
+    assert "run-new-unverified" in exc_info.value.message
+    assert "run-a-verified" in exc_info.value.message
+
+
 def test_align_overall_rip_v12_authority_status_relabels_mismatch():
     """Phase 2 status-label alignment: authority mismatch -> explicit status.
 

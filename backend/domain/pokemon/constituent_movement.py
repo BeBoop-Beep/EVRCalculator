@@ -44,13 +44,15 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from backend.domain.pokemon.market_index import resolve_window_baselines
 
-CONSTITUENT_MOVEMENT_CONTRACT_VERSION = "pokemon-constituent-movement-v1"
+CONSTITUENT_MOVEMENT_CONTRACT_VERSION = "pokemon-constituent-movement-v2"
 
 #: The compact windows the table offers. Deliberately four, not the full
 #: ``WINDOWS`` tuple: the table shows ONE at a time behind a local selector, and
 #: publishing 6M/1Y/SinceTracking as well would double the payload for controls
 #: that do not exist.
-CONSTITUENT_MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M")
+CONSTITUENT_MOVEMENT_WINDOWS = (
+    "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking",
+)
 
 
 def _price(value: Any) -> float | None:

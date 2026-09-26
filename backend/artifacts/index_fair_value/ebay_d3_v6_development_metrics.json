@@ -1,0 +1,77 @@
+{
+  "label": "EBAY_D3_V6_DEVELOPMENT_METRICS_NON_CERTIFYING",
+  "text_matcher_v5_fingerprint": "93301e5da1cf8129896993f12cfec2b66c5c887d679cb6f0755785c884581c69",
+  "text_matcher_v6_fingerprint": "45803f7683b3706a3b7c66253e89c2833b0cff6eeb5ab79eab80fc0a0475544d",
+  "results": {
+    "V4": {
+      "cohort": "V4",
+      "row_count": 420,
+      "reason_code_transitions": {
+        "MEDIUM_CONFIDENCE->REJECTED": 1
+      },
+      "new_high_confidence_rows": {
+        "true_positive_rows": [],
+        "false_positive_rows": [],
+        "count_yes": 0,
+        "count_no": 0
+      },
+      "new_rejected_rows": {
+        "correctly_rejected_no_rows": [
+          "D4-0230"
+        ],
+        "incorrectly_rejected_yes_rows": [],
+        "count_no": 1,
+        "count_yes": 0
+      }
+    },
+    "V5": {
+      "cohort": "V5",
+      "row_count": 417,
+      "reason_code_transitions": {
+        "MEDIUM_CONFIDENCE->REJECTED": 2
+      },
+      "new_high_confidence_rows": {
+        "true_positive_rows": [],
+        "false_positive_rows": [],
+        "count_yes": 0,
+        "count_no": 0
+      },
+      "new_rejected_rows": {
+        "correctly_rejected_no_rows": [
+          "D5-0166",
+          "D5-0225"
+        ],
+        "incorrectly_rejected_yes_rows": [],
+        "count_no": 2,
+        "count_yes": 0
+      }
+    },
+    "E2.9B": {
+      "cohort": "E2.9B",
+      "row_count": 414,
+      "reason_code_transitions": {
+        "MEDIUM_CONFIDENCE->REJECTED": 1
+      },
+      "new_high_confidence_rows": {
+        "true_positive_rows": [],
+        "false_positive_rows": [],
+        "count_yes": 0,
+        "count_no": 0
+      },
+      "new_rejected_rows": {
+        "correctly_rejected_no_rows": [
+          "E9B-0165"
+        ],
+        "incorrectly_rejected_yes_rows": [],
+        "count_no": 1,
+        "count_yes": 0
+      }
+    }
+  },
+  "summary": {
+    "new_high_confidence_true_positives": 0,
+    "new_high_confidence_false_positives": 0,
+    "new_rejected_correct_no_rows": 4,
+    "new_rejected_incorrect_yes_rows": 0
+  }
+}

@@ -344,16 +344,31 @@ def build_single_q_parity_distributions(
                 continue
             relevant = sampled[:min(flat_stop, quantity_total) - flat_start]
             carry = carries[quantity]
-            combined = np.concatenate((carry, relevant)) if carry.size else relevant
-            complete_count = (int(combined.size) // quantity) * quantity
-            if complete_count:
-                rows = complete_count // quantity
-                position = output_positions[quantity]
+            position = output_positions[quantity]
+            offset = 0
+            if carry.size:
+                # Finish the one row split across the previous chunk boundary
+                # with a tiny (< q element) concatenation instead of copying the
+                # whole chunk.  The row's contents and order are unchanged, so
+                # its row-wise sum is bitwise identical to the canonical path.
+                needed = quantity - int(carry.size)
+                if int(relevant.size) < needed:
+                    carries[quantity] = np.concatenate((carry, relevant))
+                    continue
+                boundary_row = np.concatenate((carry, relevant[:needed]))
+                outputs[quantity][position:position + 1] = boundary_row.reshape(1, quantity).sum(axis=1)
+                position += 1
+                offset = needed
+            rows = (int(relevant.size) - offset) // quantity
+            if rows:
+                stop = offset + rows * quantity
                 outputs[quantity][position:position + rows] = (
-                    combined[:complete_count].reshape(rows, quantity).sum(axis=1)
+                    relevant[offset:stop].reshape(rows, quantity).sum(axis=1)
                 )
-                output_positions[quantity] = position + rows
-            carries[quantity] = combined[complete_count:].copy()
+                position += rows
+                offset = stop
+            output_positions[quantity] = position
+            carries[quantity] = relevant[offset:].copy()
         del indices, sampled
 
     if any(output_positions[q] != n or carries[q].size for q in bootstrap_quantities):

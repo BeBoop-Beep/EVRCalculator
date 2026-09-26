@@ -175,6 +175,8 @@ def test_set_ev_representativeness_inherits_from_the_same_run_published_ranking_
         "pokemon_explore_rankings_snapshot_latest", "simulation_sealed_product_results",
         "pokemon_set_sealed_market_snapshot_latest",
         "pokemon_set_chase_accessibility_snapshot_latest",
+        # the serving-release resolution (pointer, then the run it points to), once per request
+        "pokemon_overall_rip_current_publication", "pokemon_overall_rip_publication_runs",
     }
 
 

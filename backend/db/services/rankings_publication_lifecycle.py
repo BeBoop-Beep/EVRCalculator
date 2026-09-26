@@ -34,6 +34,7 @@ DEFERRED_SEALED_PRODUCT_FINALIZATION_INCOMPLETE = "DEFERRED_SEALED_PRODUCT_FINAL
 DEFERRED_PRODUCT_RANKINGS_INCOMPLETE = "DEFERRED_PRODUCT_RANKINGS_INCOMPLETE"
 DEFERRED_SET_RIP_INCOMPLETE = "DEFERRED_SET_RIP_INCOMPLETE"
 DEFERRED_CHASE_ACCESSIBILITY_INTEGRITY = "DEFERRED_CHASE_ACCESSIBILITY_INTEGRITY"
+BLOCKED_RELEASE_AUTHORITY_MISMATCH = "BLOCKED_RELEASE_AUTHORITY_MISMATCH"
 FAILED_PUBLICATION_CONTRACT = "FAILED_PUBLICATION_CONTRACT"
 FAILED_PUBLICATION_RPC = "FAILED_PUBLICATION_RPC"
 FAILED_POST_PUBLICATION_PARITY = "FAILED_POST_PUBLICATION_PARITY"
@@ -86,6 +87,20 @@ class RankingsPublicationOutcome:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+
+def _overall_target_key(release: Any = None) -> str:
+    """The Overall target key of the SELECTED release; ``None`` keeps the static canonical (V12) selection."""
+    return release.overall_target_key if release is not None else canonical_overall_rip_target_key()
+
+
+def _publication_identity(release: Any = None) -> Dict[str, str]:
+    """Identity a snapshot of the selected release must carry. V14 = the candidate identity; else canonical."""
+    if release is not None and release.requires_v5_schema:
+        from backend.db.services.public_rip_publication_contract import candidate_publication_identity
+
+        return candidate_publication_identity()
+    return canonical_publication_identity()
 
 
 def _text(value: Any) -> str:
@@ -173,14 +188,21 @@ def deferred_simulation_readiness(
 def deferred_simulation_rollover_readiness(
     *, market_date: str, simulation_date: str, expected_count: int,
     current_count: int, pending_keys: Sequence[str],
+    latest_promoted_market_date: Optional[str] = None,
 ) -> RankingsReadinessReport:
+    """Historical reason code retained for a superseded-market repair refusal.
+
+    Modern runs persist calculation_runs.market_date and CAN be repaired after
+    midnight. What remains unsafe is rebuilding an older market date after a newer
+    scrape batch has already become the price authority: that would risk labeling
+    newer input prices as historical simulation evidence.
+    """
     pending = sorted(str(key) for key in pending_keys)
     detail = (
-        f"promoted market date {market_date} cannot be repaired by simulations executed "
-        f"on {simulation_date} because calculation history is dated from actual execution "
-        f"time and simulations cannot be backdated; waiting for promoted market date "
-        f"{simulation_date}; current={current_count}/{expected_count}; "
-        f"pending={','.join(pending)}"
+        f"requested simulation market date {market_date} is no longer the latest promoted "
+        f"price authority (latest={latest_promoted_market_date or 'unknown'}); refusing "
+        f"historical reconstruction from execution date {simulation_date}; "
+        f"current={current_count}/{expected_count}; pending={','.join(pending)}"
     )
     return RankingsReadinessReport(
         status=DEFERRED_SIMULATION_DATE_ROLLOVER,
@@ -199,14 +221,30 @@ def evaluate_rankings_publication_readiness(
     sealed_product_finalization_status: Optional[str] = None,
     sealed_product_finalization_report: Optional[Mapping[str, Any]] = None,
     chase_accessibility_rows: Optional[Sequence[Mapping[str, Any]]] = None,
+    release: Any = None,
 ) -> RankingsReadinessReport:
-    """Evaluate the already-built candidate before the publication RPC."""
+    """Evaluate the already-built candidate before the publication RPC.
+
+    ``release`` (a ``RipReleaseBundle``) names the generation the candidate must belong to. ``None`` keeps the
+    historical behaviour (the static canonical V12 selection). When given, the candidate is also required to be
+    a coherent snapshot of that release (no mixed or foreign authority) or readiness is blocked.
+    """
     payload = row.get("ranking_payload_json") if isinstance(row, Mapping) else None
     payload = payload if isinstance(payload, Mapping) else {}
     targets = list(payload.get("targets") or [])
     ranked = [target for target in targets if isinstance(target, Mapping) and
-              (target.get(canonical_overall_rip_target_key()) or {}).get("rank") is not None]
+              (target.get(_overall_target_key(release)) or {}).get("rank") is not None]
     market_date = _text(snapshot.get("market_date")) or None
+    if release is not None:
+        from backend.db.services.rankings_release_authority import snapshot_release_problems
+
+        mixed = snapshot_release_problems(payload, release)
+        if mixed:
+            return RankingsReadinessReport(
+                status=BLOCKED_RELEASE_AUTHORITY_MISMATCH, reason_code=BLOCKED_RELEASE_AUTHORITY_MISMATCH,
+                detail="; ".join(mixed[:5]), market_date=market_date,
+                expected_supported_cohort_count=int(snapshot.get("eligible_cohort_count") or 0),
+                verified_simulation_cohort_count=len(ranked), problems=mixed)
     supported = supported_cohort_fingerprint()
     expected_count = int(supported.get("count") or snapshot.get("eligible_cohort_count") or 0)
     source_runs = {
@@ -354,7 +392,7 @@ def evaluate_rankings_publication_readiness(
                 problems=[failure.get("detail", "") for failure in chase_failures],
             )
 
-    identity = canonical_publication_identity()
+    identity = _publication_identity(release)
     versions = {
         "overallRipVersion": identity["overallRipVersion"],
         "financialRipVersion": identity["financialRipVersion"],
@@ -485,7 +523,7 @@ def finish_rankings_publication_attempt(
 
 
 def assert_rankings_publication_parity(
-    client: Any, report: RankingsReadinessReport, *, publication_id: str,
+    client: Any, report: RankingsReadinessReport, *, publication_id: str, release: Any = None,
 ) -> Dict[str, Any]:
     latest = _first(client.table("pokemon_explore_rankings_snapshot_latest")
                     .select("ranking_payload_json,updated_at")
@@ -502,7 +540,7 @@ def assert_rankings_publication_parity(
         _text(target.get("canonical_key") or target.get("set_id") or target.get("target_id")):
         _text(target.get("calculation_run_id"))
         for target in latest_payload.get("targets") or []
-        if (target.get(canonical_overall_rip_target_key()) or {}).get("rank") is not None
+        if (target.get(_overall_target_key(release)) or {}).get("rank") is not None
     }
     if published_runs != report.source_run_ids:
         problems.append("latest source run authority differs from the ready candidate")
@@ -515,7 +553,7 @@ def assert_rankings_publication_parity(
         _text(target.get("canonical_key") or target.get("set_id") or target.get("target_id")):
         _text(target.get("calculation_run_id"))
         for target in history_payload.get("targets") or []
-        if (target.get(canonical_overall_rip_target_key()) or {}).get("rank") is not None
+        if (target.get(_overall_target_key(release)) or {}).get("rank") is not None
     }
     if historical_runs != report.source_run_ids:
         problems.append("historical source run authority differs from the ready candidate")
@@ -536,3 +574,15 @@ def assert_rankings_publication_parity(
     return {"status": "passed", "publicationId": publication_id,
             "marketDate": report.market_date, "sourceRunFingerprint": report.source_run_fingerprint,
             "updatedAt": (latest or {}).get("updated_at")}
+
+
+def evaluate_candidate_generation_readiness(**kwargs: Any) -> Dict[str, Any]:
+    """Is the Financial V5 / Overall V14 / contract-V12 CANDIDATE complete and coherent?
+
+    Deliberately separate from :func:`evaluate_rankings_publication_readiness`, which answers whether the
+    CURRENT canonical (V4/V12/V11) publication is healthy. Neither answer is derived from the other; a
+    candidate that is absent or not ready never marks the canonical publication broken.
+    """
+    from backend.db.services.v5_v14_candidate_readiness import evaluate_v5_v14_candidate_readiness
+
+    return evaluate_v5_v14_candidate_readiness(**kwargs)

@@ -235,6 +235,17 @@ export function selectOverallRipExplanationHierarchy(...sources) {
   // rather than being silently upgraded from unvalidated data. This safety
   // rule is orthogonal to which version is canonical - it is a validation
   // gate, not a V10-preference rule, and stays in force after the cutover.
+  // Public Contract V12 (Overall RIP V14) is preferred, and only through its explicit contract key.
+  for (const source of sources) {
+    const v12 = toObject(toObject(source).publicRipContractV12);
+    if (hasContent(v12) && hasContent(v12.overallRipV14) && hasContent(v12.overallRipV14Composition)) {
+      // The V14 blocks have the V12 explanation's shape; only the block names differ.
+      return buildV12Explanation({
+        overallRipV12: v12.overallRipV14,
+        overallRipV12Composition: v12.overallRipV14Composition,
+      });
+    }
+  }
   for (const source of sources) {
     const safe = toObject(source);
     const v11 = toObject(safe.publicRipContractV11);

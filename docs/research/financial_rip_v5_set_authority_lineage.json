@@ -1,0 +1,782 @@
+{
+ "contract": "set_financial_authority_v1",
+ "targets": 22,
+ "classificationCounts": {
+  "A": 22
+ },
+ "allProven": true,
+ "records": [
+  {
+   "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+   "setName": "Temporal Forces",
+   "calculationRunId": "b404db2f-bc1f-407a-9b61-0d00cfa45181",
+   "packCost": 9.73,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 43.5646,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "d2fd73a7852deaf3f1b017532bea556a47e5c6318174eb7aadb70b80cb8e383d",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 46.3741,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 11.42,
+     "v4": 39.9611
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 9.73,
+     "v4": 43.5646
+    }
+   ]
+  },
+  {
+   "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+   "setName": "Paradox Rift",
+   "calculationRunId": "4c5227d8-fcf9-492a-bd5b-358ddbf63756",
+   "packCost": 8.33,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 39.0815,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "72ca0f16b0231016ce59f0b718475ad66c1b6371697da987504f6808f43b99dd",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 41.8964,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 11.43,
+     "v4": 30.2005
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 8.33,
+     "v4": 39.0815
+    }
+   ]
+  },
+  {
+   "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+   "setName": "Ascended Heroes",
+   "calculationRunId": "dfd825c6-4186-405f-86d7-14337ca746f7",
+   "packCost": 12.99,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 30.5671,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "6f9bcf7f07d16ddee0fad90672dd26c6064b06514c9a068ff652847638213c52",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 32.9523,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 13.22,
+     "v4": 30.0724
+    }
+   ]
+  },
+  {
+   "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+   "setName": "Twilight Masquerade",
+   "calculationRunId": "52108fd1-dc2c-4f37-aef0-03ab4aca2b5e",
+   "packCost": 9.14,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 37.172,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "de8d1eec28b4c2c841ad76405c342d1397d8e58110b3add5c318148d52014de6",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 39.827,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 10.38,
+     "v4": 32.8878
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 9.14,
+     "v4": 37.172
+    }
+   ]
+  },
+  {
+   "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+   "setName": "Scarlet and Violet 151",
+   "calculationRunId": "6c3e3714-550d-44a3-a0b8-aa99b574e6ff",
+   "packCost": 28.74,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 36.6083,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "ccd4e5059bc65e7ee4b484849f9aa3dd560e363e787b5663d6792c779547c1bc",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 38.8425,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 28.74,
+     "v4": 36.6083
+    }
+   ]
+  },
+  {
+   "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+   "setName": "Journey Together",
+   "calculationRunId": "7d62e3a8-9b85-4b6a-b906-149bfe49033e",
+   "packCost": 6.77,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 31.7427,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "086b02848809ff58b1c198c12b0a239a5b260a9c7075738e9390f18004ce03b0",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 34.4805,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 9.15,
+     "v4": 23.9853
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 6.72,
+     "v4": 31.9723
+    }
+   ]
+  },
+  {
+   "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+   "setName": "Destined Rivals",
+   "calculationRunId": "d2690eed-dba3-416c-b55d-d0e865bd7204",
+   "packCost": 9.0,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 32.0981,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "d3efe8f82d41f333bc4eb73131f88468fc825f24067fd75075a0e7d246aa13eb",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 34.6372,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 11.06,
+     "v4": 26.9114
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 9.0,
+     "v4": 32.0981
+    }
+   ]
+  },
+  {
+   "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+   "setName": "Scarlet and Violet Base Set",
+   "calculationRunId": "f2031b66-ae76-4911-96ca-d26cf14d5622",
+   "packCost": 8.88,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 36.1591,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "ecc084bec75c75afe9a68e3d9b40c04e8a9b3b84927c4a4059b44b1995cd1d6c",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 38.8322,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 11.16,
+     "v4": 29.4328
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 8.88,
+     "v4": 36.1591
+    }
+   ]
+  },
+  {
+   "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+   "setName": "Perfect Order",
+   "calculationRunId": "90171ac3-ac65-481e-a87d-c8e7d1149c3e",
+   "packCost": 5.62,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 31.6464,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "0ce9018fb75e1f7b0b2522e7057a0e6017b9c5ba41ebd8ad289dd4d332bc1ab3",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 34.1983,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 7.64,
+     "v4": 23.0702
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 5.62,
+     "v4": 31.6464
+    }
+   ]
+  },
+  {
+   "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+   "setName": "Mega Evolution",
+   "calculationRunId": "b6131e0d-abe2-4e89-9d47-82739487c20f",
+   "packCost": 8.37,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 28.5822,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "b8c753ffe2d8c065f6913f285cffad6e4920defce3531a42fe2f3d8a221bf6f1",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 30.9662,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 10.24,
+     "v4": 23.4388
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 8.37,
+     "v4": 28.5822
+    }
+   ]
+  },
+  {
+   "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+   "setName": "Pitch Black",
+   "calculationRunId": "61620e0d-8fcd-40cd-9122-04395a3e37e9",
+   "packCost": 5.76,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 34.6124,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "b73c961b83d1ee683da7890f8748733e5296c6b69f4bb31d2b69735601130910",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 37.342,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 7.43,
+     "v4": 26.446
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 5.76,
+     "v4": 34.6124
+    }
+   ]
+  },
+  {
+   "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+   "setName": "Surging Sparks",
+   "calculationRunId": "1b3c053a-19d3-45c7-ac50-ac367e52a31b",
+   "packCost": 8.28,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 29.7388,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "9b1a2884ab02438b508a19dff825f2840e26aa11749e27c25820697c2cf7ebd8",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 32.0976,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 11.98,
+     "v4": 19.5
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 8.28,
+     "v4": 29.7388
+    }
+   ]
+  },
+  {
+   "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+   "setName": "Stellar Crown",
+   "calculationRunId": "f6f059dc-b20b-4e03-b42a-d2a172f15911",
+   "packCost": 10.68,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 28.2371,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "26f6ebd74b58cf2f0ea63a546e4a456846a3fc0e8cd8725847b0e66dcbdcfb4f",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 30.4385,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 10.61,
+     "v4": 28.4835
+    },
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 10.82,
+     "v4": 27.7699
+    }
+   ]
+  },
+  {
+   "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+   "setName": "Chaos Rising",
+   "calculationRunId": "3d644515-0725-4b08-bdad-a559016d9473",
+   "packCost": 5.39,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 32.2528,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "34ac876f59d6dfc1acb41480738b17f3ed506cc4342117bf1ee40390db4ea17a",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 34.9414,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 6.98,
+     "v4": 23.0029
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 5.31,
+     "v4": 32.7262
+    }
+   ]
+  },
+  {
+   "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+   "setName": "Prismatic Evolutions",
+   "calculationRunId": "139ffb20-daa5-4011-88dc-5f5601fc12b8",
+   "packCost": 14.26,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 21.3703,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "5daa78a40d55a739b8b0d2819d3e1da8a8568d7c5b7ebc5959ec6ad537497752",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 22.9558,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 14.26,
+     "v4": 21.3703
+    }
+   ]
+  },
+  {
+   "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+   "setName": "White Flare",
+   "calculationRunId": "5892f3b8-ac5c-4935-94e5-78640e75bde2",
+   "packCost": 13.93,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 30.8647,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "9f5c2bc768e385d6a10b0a409c5961d472945286e86ddb4d34edca6a47ddf23e",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 33.0211,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 13.93,
+     "v4": 30.8647
+    }
+   ]
+  },
+  {
+   "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+   "setName": "Obsidian Flames",
+   "calculationRunId": "241633d0-e620-41c6-9447-0c636718e430",
+   "packCost": 13.23,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 27.3619,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "4b5a6017365edebbe5e779b852f6dfe2dbeff2f29adf0c5218c0631ef222ee58",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 29.5428,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 13.75,
+     "v4": 26.5794
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 13.23,
+     "v4": 27.3619
+    }
+   ]
+  },
+  {
+   "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+   "setName": "Shrouded Fable",
+   "calculationRunId": "f1f1106d-71c7-4f29-ac5f-acb8dc23be06",
+   "packCost": 14.84,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 36.5576,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "1d4f7f3da233c90dbdc08e6a9707b7b1f8dfa51011a3e45897a6a0e40ab62df0",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 38.9844,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 14.84,
+     "v4": 36.5576
+    }
+   ]
+  },
+  {
+   "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+   "setName": "Paldea Evolved",
+   "calculationRunId": "9f5eda28-89d4-4992-b52e-bce1496e0648",
+   "packCost": 15.67,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 29.2853,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "22d57aea24bb258cd912d3ff99d037d0a96fe3648f8ab5afdf2a719e8b31d664",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 31.2832,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 17.17,
+     "v4": 27.0462
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 15.67,
+     "v4": 29.2853
+    }
+   ]
+  },
+  {
+   "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+   "setName": "Black Bolt",
+   "calculationRunId": "e3f524b0-ca4a-4386-8e8d-b78c9150b4e4",
+   "packCost": 14.8,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 29.446,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "5f87f99b96c4c4a33b831f763b90ee7b31fd43e98ed34de1867898fa0b173e35",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 31.4252,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 14.76,
+     "v4": 29.519
+    }
+   ]
+  },
+  {
+   "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+   "setName": "Phantasmal Flames",
+   "calculationRunId": "dd0f2f3e-1ef7-4321-9110-6a6ffa762ba3",
+   "packCost": 12.15,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 17.8213,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "09e69aba32ecc286cc8d62a845e8a715a80afde4b3ed24f04a618aac813f0e46",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 19.5064,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "sleeved_booster_pack",
+     "packCount": 1,
+     "cost": 14.47,
+     "v4": 14.7577
+    },
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 12.15,
+     "v4": 17.8213
+    }
+   ]
+  },
+  {
+   "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+   "setName": "Paldean Fates",
+   "calculationRunId": "48ca5bf8-04a9-4b0f-8752-7dae4351527e",
+   "packCost": 24.89,
+   "v4Version": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+   "v4Score": 16.9912,
+   "classification": "A",
+   "reason": null,
+   "checks": {
+    "v3ComponentsMaxAbsDiff": 0.0,
+    "v3ScoreAbsDiff": 0.0,
+    "v4ControlAbsDiff": 0.0,
+    "v4ComponentsMaxAbsDiff": 0.0
+   },
+   "artifact": {
+    "rawSha256": "fd848bf17b294e1645a3448cb367437a91b0bb19f86b97792eae4481b44a73e4",
+    "outcomeCount": 1000000
+   },
+   "v5Score": 18.3941,
+   "v5Version": "financial_rip_v5_shortfall_resilience_25_20_15_25_10_5",
+   "v5LineageParity": "exact",
+   "sameRunSealedRows": [
+    {
+     "family": "loose_booster_pack",
+     "packCount": 1,
+     "cost": 24.89,
+     "v4": 16.9912
+    }
+   ]
+  }
+ ]
+}

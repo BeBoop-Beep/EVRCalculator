@@ -253,13 +253,35 @@ export function getSeriesFamilyChange(series, windowKey) {
  * A series whose own change for the window is unavailable contributes no line
  * rather than a partial one drawn over a span it cannot support.
  */
+function preparedHistoryWindow(entry, windowKey) {
+  if (!entry.marketType || windowKey === "1D") return null;
+  const trend = (entry.trend || []).filter((point) => point?.date && Number.isFinite(point.value))
+    .sort((left, right) => left.date.localeCompare(right.date));
+  if (trend.length < 2) return null;
+  const firstDate = trend[0].date;
+  const lastDate = trend[trend.length - 1].date;
+  const endDate = entry.comparisonAsOf && entry.comparisonAsOf < lastDate ? entry.comparisonAsOf : lastDate;
+  const days = { "7D": 7, "30D": 30, "3M": 90, "6M": 183, "1Y": 365 }[windowKey];
+  if (windowKey !== "All" && !days) return null;
+  const requestedStart = days ? new Date(Date.parse(`${endDate}T00:00:00Z`) - days * 86400000).toISOString().slice(0, 10) : firstDate;
+  const startDate = requestedStart > firstDate ? requestedStart : firstDate;
+  if (trend.filter((point) => point.date >= startDate && point.date <= endDate).length < 2) return null;
+  // The line uses actual published observations; an unavailable analytical
+  // return stays unavailable in legends and detail cells.
+  return { available: false, percent: null, startDate, endDate };
+}
+
 export function buildExplorerChartModel(overview, series, windowKey) {
   const definition = MARKET_OVERVIEW_WINDOWS.find((entry) => entry.key === windowKey);
   const active = (series || []).filter((entry) => entry.available !== false);
   const drawable = definition
     ? active
-      .map((entry) => ({ entry, change: getPricePerformanceChange(entry, windowKey) }))
-      .filter(({ change }) => change?.available === true && change.startDate && change.endDate)
+      .map((entry) => {
+        const publishedChange = getPricePerformanceChange(entry, windowKey);
+        return { entry, change: publishedChange?.available === true
+          ? publishedChange : preparedHistoryWindow(entry, windowKey) };
+      })
+      .filter(({ change }) => change?.startDate && change.endDate)
     : [];
   if (drawable.length === 0) {
     return { windowKey, available: false, startDate: null, endDate: null, dates: [], series: [] };

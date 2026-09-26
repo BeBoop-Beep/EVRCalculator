@@ -1,0 +1,767 @@
+{
+  "captured_utc": "2026-09-19 23:19:56 UTC",
+  "classification_meaning": {
+    "TCGPLAYER_AUTHORITY": "Historical TCGPlayer authority, direct or through a source-locked upstream reader",
+    "SOURCE_PARAMETERIZED": "Caller selects source and result preserves it",
+    "SOURCE_NEUTRAL": "Source-dimensional storage, ingestion, or inspection without collapsing source authority",
+    "SOURCE_BLIND_BUG": "Prior behavior could let another source alter TCGPlayer semantics; fix authored",
+    "NON_PRODUCTION_RESEARCH_ONLY": "Legacy shadow, comparison, or local research path outside production authority"
+  },
+  "entries": [
+    {
+      "consumer": "get_card_variant_price_observed_history_v2",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_PARAMETERIZED",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness_raw_card_shadow",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness_v2_shadow",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_pokemon_canonical_card_market_prices_latest_for_set_legacy_",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_pokemon_canonical_card_market_prices_latest_for_set_v2_shad",
+      "relation": "card_variant_price_current_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_lateral",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_resolved_universe",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_v2_shadow",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_v3_shadow",
+      "relation": "card_variant_price_events_v2",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_v4_shadow",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "get_pokemon_market_root_set_card_prices_latest_v1_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_pokemon_market_root_set_card_prices_latest_v1_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "get_pokemon_market_root_set_standard_daily_history_v2_fast_shad",
+      "relation": "card_variant_price_events_v2",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_pokemon_set_value_canonical_prices_as_of_raw_oracle",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "get_pokemon_set_value_canonical_prices_as_of_v2_shadow",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "get_pokemon_set_value_daily_rows_v2_hybrid_shadow",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "merge_pokemon_card_variant_price_observations",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "pokemon_scrape_missing_sets",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "preflight_price_storage_v2_member_publication",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "process_price_storage_v2_backfill_sets",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "prune_old_card_variant_price_observations",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "rebuild_card_variant_price_events_v2_from_raw_scope",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "rebuild_card_variant_price_monthly_rollups_v2_shadow_for_set",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "rebuild_card_variant_price_observation_ranges_v2_from_raw_scope",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "rebuild_pokemon_card_variant_price_monthly_rollups",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "rebuild_pokemon_market_price_intervals_v2_shadow_for_sets",
+      "relation": "card_variant_price_events_v2",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "refresh_card_market_top_hits_by_edition_latest",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "sql_function",
+      "consumer": "refresh_card_market_top_hits_latest",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "reason": "legacy function targets absent card_market_top_hits_latest relation; no active publication path"
+    },
+    {
+      "consumer": "refresh_card_variant_market_metrics_latest",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "refresh_pokemon_set_value_daily_history",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "sql_function",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "retire_pokemon_card_variant_predecessor",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "rollup_card_variant_price_observations_monthly",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "rollup_card_variant_price_observations_previous_month",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "sync_pokemon_market_price_intervals_v2_shadow_set_from_date",
+      "relation": "card_variant_price_events_v2",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "sync_price_observation_ranges_v2_set_date",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "sync_price_storage_v2_set_date",
+      "relation": "card_variant_price_events_v2",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "sql_function"
+    },
+    {
+      "consumer": "card_market_usd_latest",
+      "relation": "card_variant_price_current_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "view",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "card_market_usd_latest_by_condition",
+      "relation": "card_variant_price_current_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "view",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "card_market_usd_latest_by_condition_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "view"
+    },
+    {
+      "consumer": "card_market_usd_latest_by_condition_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "view"
+    },
+    {
+      "consumer": "card_market_usd_latest_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "view"
+    },
+    {
+      "consumer": "card_market_usd_latest_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "view"
+    },
+    {
+      "consumer": "graded_card_market_latest",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "view"
+    },
+    {
+      "consumer": "pokemon_canonical_card_market_price_missing_cards",
+      "relation": "pokemon_canonical_card_market_prices_latest",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "kind": "view"
+    },
+    {
+      "consumer": "pokemon_canonical_card_market_price_set_diagnostics",
+      "relation": "pokemon_canonical_card_market_prices_latest",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "kind": "view"
+    },
+    {
+      "consumer": "pokemon_set_combined_market_value_latest",
+      "relation": "pokemon_canonical_card_market_prices_latest",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "kind": "view"
+    },
+    {
+      "consumer": "price_storage_v2_history_scope_inventory",
+      "relation": "card_variant_price_observations",
+      "classification": "SOURCE_NEUTRAL",
+      "kind": "view"
+    },
+    {
+      "consumer": "simulation_input_cards_with_near_mint_price",
+      "relation": "card_variant_price_current_v2",
+      "classification": "SOURCE_BLIND_BUG",
+      "kind": "view",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "selects or counts a source without constraining TCGPlayer",
+      "fix": "20260919231000_lock_tcgplayer_price_reads.sql",
+      "test": "p5a_disposable_postgres.mjs",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "consumer": "simulation_input_cards_with_near_mint_price_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "view"
+    },
+    {
+      "consumer": "simulation_input_cards_with_near_mint_price_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY",
+      "kind": "view"
+    },
+    {
+      "consumer": "user_card_holdings_with_market",
+      "relation": "card_market_usd_latest_by_condition",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "kind": "view"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "get_pokemon_cards_daily_constituents",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "get_pokemon_cards_daily_constituents_v2_guarded",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "get_pokemon_cards_daily_constituents_v2_hybrid_shadow",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "get_pokemon_cards_daily_constituents_v5_shadow",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "get_pokemon_cards_daily_constituents_v6_shadow",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "get_pokemon_market_root_set_card_prices_latest_v1",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "refresh_pokemon_canonical_card_market_prices_latest_for_set",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "sql_wrapper",
+      "consumer": "refresh_market_analytics_latest",
+      "classification": "TCGPLAYER_AUTHORITY",
+      "via": "source-locked underlying resolver, constituent reader, or refresher"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/repositories/card_variant_prices_repository.py",
+      "classification": "SOURCE_PARAMETERIZED"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/repositories/cards_repository.py",
+      "classification": "SOURCE_NEUTRAL"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/repositories/user_collection_summary_repository.py",
+      "classification": "SOURCE_NEUTRAL"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/cards_service.py",
+      "classification": "SOURCE_NEUTRAL"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/chase_economics_service.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/chase_efficiency_service.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/collection_portfolio_service.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/explore_page_service.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/explore_rip_statistics_service.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/guaranteed_component_pricing_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/pokemon_card_detail_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/pokemon_market_historical_root_value.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/pokemon_public_snapshot_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/pokemon_set_market_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/public_profile_page_service.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/rip_decision_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/db/services/scrape_postcondition.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/research/chase_identity_stage9_analysis.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/research/ev_representativeness/counterfactual.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/accept_market_explorer_variant_engine.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/audit_market_explorer_pass3.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/audit_market_explorer_variant_identity.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/audit_treatment_market_prestige_v3_round13_ecard.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_card_market_amplification_study.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_card_treatment_prestige_v2_study.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_chase_separability_stage10.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_chase_significance_stage11.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_chase_tier_research.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_index_fair_value_research_dataset.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_opening_appeal_study.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_pokemon_market_index_history.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_product_chase_stage5a.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_pull_scarcity_control_research.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_tmp_variant_collection_cutover.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_treatment_market_prestige_v3.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_treatment_market_prestige_v3_round22.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_treatment_market_prestige_v3_round23.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_treatment_market_prestige_v3_round24.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_treatment_market_prestige_v3_round3.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/build_treatment_market_prestige_v3_round7.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/compare_price_storage_v2_pipeline.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/diagnose_pokemon_set_slim_contract_completeness.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/pokemon_snapshot_builders.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/refresh_stale_public_snapshots.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/repair_market_explorer_vintage_predecessor_identities.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/repair_pokemon_pricing_snapshots.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/repair_set_value_market_day_dates.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/research_collector_appeal_market_validation.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/research_desirability_chase_definition_variants.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/select_ebay_daily_pricing_targets.py",
+      "classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/validate_desirability_v2_selected_sets.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/scripts/validate_frozen_collector_appeal_v7.py",
+      "classification": "NON_PRODUCTION_RESEARCH_ONLY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/services/pokemon_onboarding_publication_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/services/pokemon_onboarding_verification_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    },
+    {
+      "kind": "backend_file",
+      "consumer": "backend/services/pokemon_set_onboarding_service.py",
+      "classification": "SOURCE_BLIND_BUG",
+      "expected_semantic": "TCGPlayer USD historical authority",
+      "current_behavior": "raw observation query lacked source predicate",
+      "fix": "explicit .eq(\"source\", \"TCGPlayer\") in the named reader",
+      "post_fix_classification": "TCGPLAYER_AUTHORITY"
+    }
+  ]
+}

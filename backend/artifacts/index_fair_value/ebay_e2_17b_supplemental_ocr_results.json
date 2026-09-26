@@ -1,0 +1,794 @@
+{
+  "note": "OCR-v1 candidate applied UNCHANGED (imported from ebay_e2_17_ocr_v1_japanese_language_feasibility.py, not reimplemented) to the 11 of 25 E2.17A specific-language rows that were absent from the original 139-row E2.17 OCR results file. No rule/threshold/engine change.",
+  "ocr_v1_source_sha256": "54ad9bf1b33a7247e2a7db52e0e5806c827271cbb0271e96737e0573b9de8212",
+  "model_load_seconds": 1.1265320777893066,
+  "n_rows": 11,
+  "rows": [
+    {
+      "row_id": "e16_e2_16_dev_0092",
+      "source": "e2_16",
+      "canonical_card_id": "0331d96e-d8af-44d3-9552-85f784d9b4ca",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "ENGLISH",
+      "listing_title": "Pokemon Chinese ID Set #PMSS1022 Trubbish R",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 20,
+      "total_recognized_text": 50,
+      "japanese_kana_count": 1,
+      "cjk_shared_count": 33,
+      "korean_hangul_count": 0,
+      "latin_char_count": 10,
+      "distinct_regions_with_kana": 1,
+      "high_conf_kana_count": 0,
+      "mean_region_conf": 0.2048,
+      "max_region_conf": 0.9457,
+      "ocr_v1_decision": "LANGUAGE_UNVERIFIED",
+      "raw_regions_sample": [
+        [
+          "\u5712\u56db\u578b",
+          0.6613675735293026
+        ],
+        [
+          "n",
+          0.09552827544556308
+        ],
+        [
+          "@",
+          0.9456790925146983
+        ],
+        [
+          "\u7834\u7834\u888b",
+          0.8628184795379639
+        ],
+        [
+          "\u306b2",
+          0.1581894381411038
+        ],
+        [
+          "NI",
+          0.11030606236112474
+        ],
+        [
+          "\u56e0\u540c",
+          0.22990471920125197
+        ],
+        [
+          "\u56fd",
+          0.017114946174700885
+        ],
+        [
+          "\u56e0\u540c",
+          0.007560052993322833
+        ],
+        [
+          "\u7d0d\u65cf1\u70b9\u548c",
+          0.003659764748327636
+        ],
+        [
+          "\u653b\u5fd7",
+          0.02616867336471947
+        ],
+        [
+          "\u56e0\u5c40",
+          0.07831050242312305
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0000",
+      "specific_language_if_known": "CHINESE"
+    },
+    {
+      "row_id": "e16b_e2_16b_dev_0046",
+      "source": "e2_16b",
+      "canonical_card_id": "23d6bd35-bbf0-49b2-911e-4949e66ff8bb",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "JAPANESE",
+      "listing_title": "Pachirisu 2023 SV4a 062/190 C Nintendo Gamefreak Pokemon Card Japanese F/S",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 33,
+      "total_recognized_text": 249,
+      "japanese_kana_count": 118,
+      "cjk_shared_count": 28,
+      "korean_hangul_count": 0,
+      "latin_char_count": 65,
+      "distinct_regions_with_kana": 18,
+      "high_conf_kana_count": 63,
+      "mean_region_conf": 0.5983,
+      "max_region_conf": 0.9999,
+      "ocr_v1_decision": "LANGUAGE_MISMATCH",
+      "raw_regions_sample": [
+        [
+          "\u305f\u306d",
+          0.9994839087079007
+        ],
+        [
+          "\u30d1\u30c1\u30ea\u30b9",
+          0.9958956241607666
+        ],
+        [
+          "WP",
+          0.8343694862024377
+        ],
+        [
+          "70",
+          0.999876764839143
+        ],
+        [
+          "\u5ddd\u56f3N00417",
+          0.6943467063269715
+        ],
+        [
+          "\u3067\u3093\u304d\u308a\u3059\u30db\u30af\u30e2\u30f3",
+          0.573364338595755
+        ],
+        [
+          "\u9ad8\u3055",
+          0.5068106448886713
+        ],
+        [
+          "04m",
+          0.9484011880975407
+        ],
+        [
+          "\u4e2d\u304d",
+          0.7800141510320243
+        ],
+        [
+          "39ku",
+          0.37456014752388
+        ],
+        [
+          "\u7279\u6027",
+          0.5381418347276861
+        ],
+        [
+          "\u3053\u3056\u305b\u3044",
+          0.15286920964717865
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0004",
+      "specific_language_if_known": "JAPANESE"
+    },
+    {
+      "row_id": "e16_e2_16_dev_0105",
+      "source": "e2_16",
+      "canonical_card_id": "2e5780f8-1769-4d26-9e3e-87e4a27d4dfe",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "ENGLISH",
+      "listing_title": "Pokemon Japanese Dachsbun Ex 129 Stella Miracle Special Art Rare SAR NM Holo",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 37,
+      "total_recognized_text": 305,
+      "japanese_kana_count": 162,
+      "cjk_shared_count": 41,
+      "korean_hangul_count": 0,
+      "latin_char_count": 63,
+      "distinct_regions_with_kana": 26,
+      "high_conf_kana_count": 26,
+      "mean_region_conf": 0.3698,
+      "max_region_conf": 1.0,
+      "ocr_v1_decision": "LANGUAGE_MISMATCH",
+      "raw_regions_sample": [
+        [
+          "\u5c71\u9032\u3057",
+          0.015398356852829406
+        ],
+        [
+          "\u30d0\u30a6\u30c3\u30c4\u30a7\u30eb\u56db",
+          0.28604116485866177
+        ],
+        [
+          "WP",
+          0.22458754704147493
+        ],
+        [
+          "250",
+          0.9999874049413062
+        ],
+        [
+          "\u30d0\u30d3\u30e2\u30c3\u30c1\u304b\u3089\u3087\u5316",
+          0.08411092000104142
+        ],
+        [
+          "~\u3055\u304f\u305b\u3044",
+          0.45993809465996727
+        ],
+        [
+          "\u7279\u6027",
+          0.9081459994392037
+        ],
+        [
+          "\u307e\u3093p\u304f\u30bf\u30a4\u74dc",
+          0.02359004593851551
+        ],
+        [
+          "I\u3093",
+          0.168144001844194
+        ],
+        [
+          "\u3057\u3093",
+          0.8801521770289723
+        ],
+        [
+          "\u304b\u3044\u3064\u304b",
+          0.9414520263671875
+        ],
+        [
+          "\u3058\u3075\u3093",
+          0.3215152521454312
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0006",
+      "specific_language_if_known": "JAPANESE"
+    },
+    {
+      "row_id": "e16b_e2_16b_dev_0025",
+      "source": "e2_16b",
+      "canonical_card_id": "31566cbb-0eeb-499e-aa6d-b9b0bd85fc8b",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "JAPANESE",
+      "listing_title": "Chaos Rising Mega greninja EX Holo Pokemon Card Japanese Standard 350HP",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 8,
+      "total_recognized_text": 35,
+      "japanese_kana_count": 22,
+      "cjk_shared_count": 0,
+      "korean_hangul_count": 0,
+      "latin_char_count": 2,
+      "distinct_regions_with_kana": 4,
+      "high_conf_kana_count": 0,
+      "mean_region_conf": 0.1877,
+      "max_region_conf": 0.7283,
+      "ocr_v1_decision": "LANGUAGE_UNVERIFIED",
+      "raw_regions_sample": [
+        [
+          "\u30e1\u30b1\u30ed\u30a6\u30d4\u3046",
+          0.015334973384176644
+        ],
+        [
+          "'359 -",
+          0.48261359738823134
+        ],
+        [
+          "9",
+          0.044848520146008264
+        ],
+        [
+          "\u3057\u3083\u3068",
+          0.048778841889388753
+        ],
+        [
+          "Co",
+          0.728332517275768
+        ],
+        [
+          "720+",
+          0.18126215040683746
+        ],
+        [
+          "\u3055\u3093\u3058\u304b\u3046\u30fc\u30fc\u30fc",
+          2.8785583838369907e-06
+        ],
+        [
+          "\u3058\u3046\u3093\u3057\u3046",
+          0.00037794405271385884
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0007",
+      "specific_language_if_known": "JAPANESE"
+    },
+    {
+      "row_id": "e16b_e2_16b_dev_0008",
+      "source": "e2_16b",
+      "canonical_card_id": "3baf2f12-759f-427a-b8d0-2511e639310f",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "JAPANESE",
+      "listing_title": "Mega Gardevoir ex 087/063 M1s: Mega Symphonia Holo (Japanese)",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 18,
+      "total_recognized_text": 178,
+      "japanese_kana_count": 95,
+      "cjk_shared_count": 25,
+      "korean_hangul_count": 0,
+      "latin_char_count": 25,
+      "distinct_regions_with_kana": 10,
+      "high_conf_kana_count": 15,
+      "mean_region_conf": 0.2071,
+      "max_region_conf": 0.9856,
+      "ocr_v1_decision": "LANGUAGE_MISMATCH",
+      "raw_regions_sample": [
+        [
+          "\u5df1\u84ee\u5316",
+          0.002687930797836596
+        ],
+        [
+          "\u3093' \u6b4c\u4ef0@",
+          7.015993736507722e-05
+        ],
+        [
+          "\u7530@",
+          0.04558904014209908
+        ],
+        [
+          "\u30ad\u30eb\u30ea\u30a2\u304b\u3089\u5c71",
+          0.29351544412205566
+        ],
+        [
+          "@C\u305dDRD\u56db",
+          5.967920291737973e-05
+        ],
+        [
+          "\u3042\u3075\u308c\u308b\u306d\u304c\u3044",
+          0.9856246105500724
+        ],
+        [
+          "\u304a\u306e\u30daM\u30c1\u30dd\u30b1\u30e2\u30f3\u5cef\u899a\u5c3c; \u8def\u69cc\u304b\u5360[\u672c\u3042\u30a8\u30cd\u30eb\u30ae",
+          0.0011140038633708597
+        ],
+        [
+          "\u300f\u3072=\u306b\u3051\u308b\u3002 \u305d\u3057\u3066\u8fe6\u30d7\u3092\u5207\u308b\u3002",
+          0.003052500624233397
+        ],
+        [
+          "\u30e1\u30ac\u30b7\u30f3\u30d5\u30a9\u30cb\u30a2",
+          0.5890065136544961
+        ],
+        [
+          "@",
+          0.30156780645143044
+        ],
+        [
+          "\u53e3",
+          0.007447876561496314
+        ],
+        [
+          "`\u306e\u30dd\u30b1\u6bdb\u30b7\u9054\u771e\u306b\u3064\u3044\u3066\u3044\u308b\u30a8\u30cd\u30eb\u30ae\u30e5\u306e\u65705\u30ed\u30c0\u203b",
+          0.002506853924656122
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0008",
+      "specific_language_if_known": "JAPANESE"
+    },
+    {
+      "row_id": "e16b_e2_16b_dev_0019",
+      "source": "e2_16b",
+      "canonical_card_id": "4206e794-1ec6-4d55-94d4-63267ac9a183",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "JAPANESE",
+      "listing_title": "Mega Dragonite ex 246/193 M2a: High Class Pack: Mega Dream Ex Holo (Japanese)",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 26,
+      "total_recognized_text": 234,
+      "japanese_kana_count": 102,
+      "cjk_shared_count": 32,
+      "korean_hangul_count": 0,
+      "latin_char_count": 56,
+      "distinct_regions_with_kana": 13,
+      "high_conf_kana_count": 5,
+      "mean_region_conf": 0.2938,
+      "max_region_conf": 1.0,
+      "ocr_v1_decision": "LANGUAGE_MISMATCH",
+      "raw_regions_sample": [
+        [
+          "2025 POKEMONMZaJP",
+          0.7316148251120094
+        ],
+        [
+          "#246",
+          0.5543476751471612
+        ],
+        [
+          "MEGA DRAGONITE ex",
+          0.6708125565755276
+        ],
+        [
+          "GEM NIT",
+          0.5934051153633582
+        ],
+        [
+          "SPECIAL ARTAARE",
+          0.5916642542677565
+        ],
+        [
+          "10",
+          0.9999755549153756
+        ],
+        [
+          "\u539a\u5ddd",
+          0.00708289160254931
+        ],
+        [
+          "\u65e5\u304d\u5317",
+          0.0008149349609030454
+        ],
+        [
+          "\u5bcc\u305d@",
+          0.0018616476358489422
+        ],
+        [
+          "w370",
+          0.0956619554789235
+        ],
+        [
+          "\u30cf\u30af\u30ea\u30e5\u30fc\u304b\u3089\u6817\u30eb",
+          0.040988086711311725
+        ],
+        [
+          "\u8fe6\u300f\u304c\u3046\u52a0\u56de\u307f\u8fba\u3057\u306b\u3064\u304b\u30ed",
+          1.808212553414043e-05
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0010",
+      "specific_language_if_known": "JAPANESE"
+    },
+    {
+      "row_id": "e16b_e2_16b_dev_0029",
+      "source": "e2_16b",
+      "canonical_card_id": "55096ab6-1773-47c4-bbff-20c1db011223",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "JAPANESE",
+      "listing_title": "Victini AR 097/086 SV11B Black Bolt Pokemon Card Japanese",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 24,
+      "total_recognized_text": 159,
+      "japanese_kana_count": 28,
+      "cjk_shared_count": 27,
+      "korean_hangul_count": 0,
+      "latin_char_count": 73,
+      "distinct_regions_with_kana": 13,
+      "high_conf_kana_count": 1,
+      "mean_region_conf": 0.1298,
+      "max_region_conf": 0.5732,
+      "ocr_v1_decision": "LANGUAGE_UNVERIFIED",
+      "raw_regions_sample": [
+        [
+          "\u53f3.",
+          0.04816177309438742
+        ],
+        [
+          "\u30d3\u30af\u30c6\u30a4:",
+          0.4775933362934049
+        ],
+        [
+          "s80",
+          0.22809659440192787
+        ],
+        [
+          "@\u826f\u3054\u753a\u3010\u306b\u9f3b",
+          2.5412248614531326e-05
+        ],
+        [
+          "\u300a",
+          0.5078846737322061
+        ],
+        [
+          "Vy\u3014 \u30af",
+          0.0029144499165193577
+        ],
+        [
+          "\u60e3",
+          0.0015709827482564137
+        ],
+        [
+          "\u5fc3\u3089\u3058\u308a",
+          0.1048549935221672
+        ],
+        [
+          "\u81ea\u5206\u306e\u30da\u30b8\u5b50\u30dd\u30b1\u5c3c\u6c99",
+          0.010303905671035854
+        ],
+        [
+          "\u516c8\u9b8e \u5c3c\u306e\u56de\u30ea",
+          0.001022470270275553
+        ],
+        [
+          "82",
+          0.16807045106528276
+        ],
+        [
+          "\u53e3\u56db\u306e",
+          0.5732409534698484
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0011",
+      "specific_language_if_known": "JAPANESE"
+    },
+    {
+      "row_id": "e16b_e2_16b_dev_0072",
+      "source": "e2_16b",
+      "canonical_card_id": "97165c7e-1d85-4962-807e-5661c2115d7d",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "JAPANESE",
+      "listing_title": "Furret 110/100 Battle Partners Holo (Japanese) NM/M Journey Together",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 25,
+      "total_recognized_text": 127,
+      "japanese_kana_count": 34,
+      "cjk_shared_count": 27,
+      "korean_hangul_count": 0,
+      "latin_char_count": 47,
+      "distinct_regions_with_kana": 13,
+      "high_conf_kana_count": 5,
+      "mean_region_conf": 0.1468,
+      "max_region_conf": 0.9998,
+      "ocr_v1_decision": "LANGUAGE_MISMATCH",
+      "raw_regions_sample": [
+        [
+          "\u5c71\u9032\u5316",
+          0.05146329911374113
+        ],
+        [
+          "\u30d6\u99c5",
+          0.014446003606091204
+        ],
+        [
+          "\u76bf",
+          0.17435666157261753
+        ],
+        [
+          "\u300e8",
+          0.012138173117074881
+        ],
+        [
+          "\u30aa\u30bf\u30c1\u304b\u3089\u9032\u5316",
+          0.9918781473184722
+        ],
+        [
+          "\u3072\u304b\u304f",
+          0.10787974212366386
+        ],
+        [
+          "_",
+          0.00245650444537239
+        ],
+        [
+          "\u30b8\u30a7\u30c3\u30c8\u30d8|?",
+          0.008490328747118303
+        ],
+        [
+          "\u305d",
+          0.004299074701164196
+        ],
+        [
+          "\u591a2",
+          0.09507325391110732
+        ],
+        [
+          "\u6398\u822a\u5185",
+          0.0017050612707609487
+        ],
+        [
+          "l\u5fc3\u540d",
+          0.001969973550642107
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0016",
+      "specific_language_if_known": "JAPANESE"
+    },
+    {
+      "row_id": "e16_e2_16_dev_0064",
+      "source": "e2_16",
+      "canonical_card_id": "a3d56338-1f3f-4b99-8920-5d71b8b85737",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "KOREAN",
+      "listing_title": "Pikachu ex SAR 234/193 MEGA Dream ex M2a Pokemon Card Korean",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 20,
+      "total_recognized_text": 210,
+      "japanese_kana_count": 27,
+      "cjk_shared_count": 114,
+      "korean_hangul_count": 0,
+      "latin_char_count": 27,
+      "distinct_regions_with_kana": 7,
+      "high_conf_kana_count": 0,
+      "mean_region_conf": 0.1766,
+      "max_region_conf": 0.8333,
+      "ocr_v1_decision": "LANGUAGE_UNVERIFIED",
+      "raw_regions_sample": [
+        [
+          "\u5200\u7560",
+          0.004728580931172272
+        ],
+        [
+          "@\u753a",
+          0.005685320600737297
+        ],
+        [
+          "W",
+          0.5987733822409247
+        ],
+        [
+          "\u306e0@",
+          0.33519964725564355
+        ],
+        [
+          "\u308a\u8f9b\u30d3\u4e09\u9091\u88fd\u5f15\u5531\u5225\u8d8a.\u30d5\u5009\u5f15\u5439\u306e\u5ddd\u660c\u8d8a\u5203\u5f18\u304d\u308a.",
+          5.407928714497453e-06
+        ],
+        [
+          "\u7686\u5f15\u8a08\u65e6",
+          0.03255210816860199
+        ],
+        [
+          "\u753a\u3064\u70c8\u53f7\u306e\u5ddd \u753a*\u5225\u662f\u5370\u5916\u660c\u5f15\u5203\u5225* \u8def\u5442\u53ec\u660e\u306e\u4e8c\u306e\u6b63\u70c8\u5442\u753a",
+          2.7276114830685505e-07
+        ],
+        [
+          "\u5916\u753a\u753a\u660c\u3056\u306e\u5916\u767b\u8a08 \u53eb\u5ddd\u667a\u8a08* \u8e0f\u53f8\u5442\u5baeHP\u30d510_8\u667a\u5370\u5f13",
+          4.626444450782876e-06
+        ],
+        [
+          "\u664b\u536f\u53f0\u516d\u300e\u3002",
+          0.0007778605869211204
+        ],
+        [
+          "\u6606\u6cb3\u5948\u66fd\u4e98",
+          0.009092858038164233
+        ],
+        [
+          "300",
+          0.12942376234455605
+        ],
+        [
+          "\u306e\u7b20\u6c99\u5fcc\u306e\u5217\u7ba1\u306e|\u544a \u536f\u76f4\u3075\u5bcc3\u6c34 \u5305\u5247\u8a13\u30a4\u5de8\u5f15\u8a08a\u3002",
+          2.951388155954376e-06
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0017",
+      "specific_language_if_known": "KOREAN"
+    },
+    {
+      "row_id": "e16_e2_16_dev_0065",
+      "source": "e2_16",
+      "canonical_card_id": "a922341e-4646-470b-95cf-2a59055b18ce",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "KOREAN",
+      "listing_title": "Spidops ex SR 091/078 SV1V Violet ex - Pokemon Card Korean",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 24,
+      "total_recognized_text": 148,
+      "japanese_kana_count": 20,
+      "cjk_shared_count": 86,
+      "korean_hangul_count": 0,
+      "latin_char_count": 19,
+      "distinct_regions_with_kana": 7,
+      "high_conf_kana_count": 0,
+      "mean_region_conf": 0.1082,
+      "max_region_conf": 0.9466,
+      "ocr_v1_decision": "LANGUAGE_UNVERIFIED",
+      "raw_regions_sample": [
+        [
+          "J\u897f\u753a",
+          0.009100678618354358
+        ],
+        [
+          "}\u525b\u525b\u525b@?",
+          0.001580968207217484
+        ],
+        [
+          "\u6b64",
+          0.0011386600432707894
+        ],
+        [
+          "260",
+          0.9465584005252798
+        ],
+        [
+          "\u5370\u5f18\u9577\u5f15\u306e\u5ddd -\u8a08",
+          0.00020423827026817376
+        ],
+        [
+          "Co",
+          0.09092497981552884
+        ],
+        [
+          "\u53f7\u8c37",
+          0.35492188518204143
+        ],
+        [
+          "\u9577\u7fd2\u753a\u5f15\u525b\u526f",
+          0.0006080433366701024
+        ],
+        [
+          "@\u8077\u7f6e\u8df3\u304d \u53f8\u8c37\u753a\u53eb\u660c \u738b\u70c8\u9091\u5f15{\u91ce\u306e\u7fd2\u8c46\u53f8 \u306e\u3051\u30fb\u5c45\u300f\u5e7d",
+          1.7402966876262062e-06
+        ],
+        [
+          "\u9ad8\u753a\u525b",
+          0.0006291163468254503
+        ],
+        [
+          "\u76df@\u753a\u95a3",
+          0.002774782944470644
+        ],
+        [
+          "\u305f",
+          0.15015892000193176
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0018",
+      "specific_language_if_known": "KOREAN"
+    },
+    {
+      "row_id": "e16_e2_16_dev_0061",
+      "source": "e2_16",
+      "canonical_card_id": "f01e01fe-17e4-48b7-8ba3-9a88f876acd4",
+      "human_truth_label": "NON_ENGLISH",
+      "split": "DESIGN",
+      "language_aspect_normalized": "CHINESE",
+      "listing_title": "Meowth 02/07 CBB1C Holo Chinese Pokemon TCG Pokemon Card Basic 2022 HP 70",
+      "ocr_ok": true,
+      "error": null,
+      "num_regions": 9,
+      "total_recognized_text": 47,
+      "japanese_kana_count": 7,
+      "cjk_shared_count": 21,
+      "korean_hangul_count": 0,
+      "latin_char_count": 9,
+      "distinct_regions_with_kana": 2,
+      "high_conf_kana_count": 0,
+      "mean_region_conf": 0.304,
+      "max_region_conf": 0.9999,
+      "ocr_v1_decision": "LANGUAGE_UNVERIFIED",
+      "raw_regions_sample": [
+        [
+          "\u9676+",
+          0.0014757320359486128
+        ],
+        [
+          "\u7a32\u8ca1\u732b",
+          0.015115051150491133
+        ],
+        [
+          "\u5207\u308b\u306e\u3008\u529b\u6b63\u30fb; \u753ay\u6a2b\u5bfe\u7528\u3070\u5ca1\u3070\u306b\u53e5",
+          8.530896446128171e-07
+        ],
+        [
+          "\u767d\u3093\u6c57\u91d1\u53ef\u591a5\u63db",
+          0.00033395758523863464
+        ],
+        [
+          "\u4eae\u722a",
+          0.5912425218071631
+        ],
+        [
+          "20",
+          0.9999268338549803
+        ],
+        [
+          "i",
+          0.9409436496551713
+        ],
+        [
+          "Iyu",
+          0.1471310676312082
+        ],
+        [
+          "09o7ion",
+          0.03979584619265286
+        ]
+      ],
+      "queue_row_id": "e217_lang_review_0024",
+      "specific_language_if_known": "CHINESE"
+    }
+  ]
+}

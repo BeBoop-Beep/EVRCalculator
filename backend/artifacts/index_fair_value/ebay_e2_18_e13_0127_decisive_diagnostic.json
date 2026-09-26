@@ -1,0 +1,9 @@
+{
+  "classification": "HISTORICAL_POST_HOC_NON_CERTIFYING",
+  "row_id": "E13-0127",
+  "human_truth": "NO",
+  "eligible": true,
+  "combined_v4_state": "TIER_B_TEXT_VERIFIED_IMAGE_UNVERIFIED",
+  "false_accept": true,
+  "mandatory_e13_rejection_gate_passed": false
+}

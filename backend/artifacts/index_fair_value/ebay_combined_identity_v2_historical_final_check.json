@@ -1,0 +1,116 @@
+{
+  "label": "COMBINED_IDENTITY_V2_HISTORICAL_FINAL_CHECK_NON_CERTIFYING",
+  "policy_version": "ebay_combined_identity_policy_v2",
+  "source_diagnostic": "ebay_combined_identity_v1_historical_post_hoc_diagnostic.json",
+  "results": {
+    "V4": {
+      "tier_a": {
+        "accepted_count": 115,
+        "true_accepts": 115,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.96767577,
+          1.0
+        ],
+        "card_coverage": 0.68571429,
+        "cards_with_true_accept": 48,
+        "cards_total": 70,
+        "catastrophic_false_accepts": [],
+        "catastrophic_false_accept_count": 0,
+        "note": "identical population to v1 VERIFIED_MATCH -- v2 does not change Tier A's decision rule."
+      },
+      "tier_b": {
+        "accepted_count": 88,
+        "true_accepts": 88,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.95817293,
+          1.0
+        ],
+        "card_coverage": "UNMEASURED_NO_PER_ROW_CARD_JOIN",
+        "catastrophic_false_accepts": [],
+        "catastrophic_false_accept_count": 0,
+        "sample_size_caveat": "Wilson interval reported for completeness; not gate-evaluable in isolation per EBAY_E2_9 instructions when it duplicates Tier A's certifying role."
+      },
+      "combined": {
+        "accepted_count": 203,
+        "true_accepts": 203,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.981428,
+          1.0
+        ],
+        "card_coverage": "UNMEASURED_NO_PER_ROW_CARD_JOIN",
+        "catastrophic_false_accepts": [],
+        "catastrophic_false_accept_count": 0
+      },
+      "gates": {
+        "tier_a_catastrophic_zero": true,
+        "tier_b_catastrophic_zero": true,
+        "combined_precision_gate": "PASS",
+        "combined_wilson_gate": "PASS",
+        "combined_coverage_gate": "UNMEASURED",
+        "combined_catastrophic_gate": "PASS",
+        "overall_gate_result": "NOT_READY_COVERAGE_UNMEASURED"
+      }
+    },
+    "V5": {
+      "tier_a": {
+        "accepted_count": 107,
+        "true_accepts": 107,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.96534276,
+          1.0
+        ],
+        "card_coverage": 0.62857143,
+        "cards_with_true_accept": 44,
+        "cards_total": 70,
+        "catastrophic_false_accepts": [],
+        "catastrophic_false_accept_count": 0,
+        "note": "identical population to v1 VERIFIED_MATCH -- v2 does not change Tier A's decision rule."
+      },
+      "tier_b": {
+        "accepted_count": 99,
+        "true_accepts": 99,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.96264679,
+          1.0
+        ],
+        "card_coverage": "UNMEASURED_NO_PER_ROW_CARD_JOIN",
+        "catastrophic_false_accepts": [],
+        "catastrophic_false_accept_count": 0,
+        "sample_size_caveat": "Wilson interval reported for completeness; not gate-evaluable in isolation per EBAY_E2_9 instructions when it duplicates Tier A's certifying role."
+      },
+      "combined": {
+        "accepted_count": 206,
+        "true_accepts": 206,
+        "false_accepts": 0,
+        "accepted_precision": 1.0,
+        "accepted_precision_wilson_95": [
+          0.98169352,
+          1.0
+        ],
+        "card_coverage": "UNMEASURED_NO_PER_ROW_CARD_JOIN",
+        "catastrophic_false_accepts": [],
+        "catastrophic_false_accept_count": 0
+      },
+      "gates": {
+        "tier_a_catastrophic_zero": true,
+        "tier_b_catastrophic_zero": true,
+        "combined_precision_gate": "PASS",
+        "combined_wilson_gate": "PASS",
+        "combined_coverage_gate": "UNMEASURED",
+        "combined_catastrophic_gate": "PASS",
+        "overall_gate_result": "NOT_READY_COVERAGE_UNMEASURED"
+      }
+    }
+  },
+  "note": "Re-classifies the frozen v1 historical cross-tab under COMBINED-IDENTITY-v2's decision table. Combined card coverage is UNMEASURED (not failing) because the source cross-tab is aggregated, not per-listing; see module docstring."
+}

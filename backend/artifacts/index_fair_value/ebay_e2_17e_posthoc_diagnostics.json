@@ -1,0 +1,105 @@
+{
+  "classification": "HISTORICAL_POST_HOC_NON_CERTIFYING",
+  "status": "BLOCKED_MISSING_RETAINED_LANGUAGE_V2_INPUTS",
+  "reason": "The retained E2.14/V4/V5/E2.9B artifacts lack per-row getItem localizedAspects and frozen OCR-v3 predictions. Reusing human language labels or titles as provider evidence would be invalid.",
+  "e214_key_row": {
+    "row_id": "E13-0127",
+    "listing_item_id": "v1|407215142815|0",
+    "human_language_review": "NON_ENGLISH",
+    "provider_language_aspect": null,
+    "ocr_v3_state": null,
+    "language_v2_state": "UNSCORABLE",
+    "combined_v4_state": "UNSCORABLE"
+  },
+  "e214_v2_baseline_not_v4": {
+    "definitive_row_count": 551,
+    "accepted_count": 259,
+    "true_accepts": 258,
+    "false_accepts": 1,
+    "rejected_count": 292,
+    "true_rejects": 214,
+    "false_rejects": 78,
+    "accepted_precision": 0.9961389961389961,
+    "accepted_precision_wilson_95": [
+      0.9784576202034251,
+      0.9993181125637599
+    ],
+    "recall": 0.7678571428571429,
+    "row_acceptance_rate": 0.47005444646098005,
+    "distinct_card_coverage": 0.8285714285714286,
+    "card_coverage_count": 58,
+    "catastrophic_false_accepts": [
+      {
+        "row_id": "E13-0127",
+        "canonical_card_id": "2c445258-b198-43de-b710-0921ebe3f0ab",
+        "target_card_name": "Pikachu ex",
+        "target_set_name": "Ascended Heroes",
+        "target_card_number": "277",
+        "listing_title": "PIKACHU EX #277 POKEMON ASCENDED HEROES - MINT/NEAR MINT",
+        "human_no_derived_reason": "WRONG_LANGUAGE",
+        "d3_v5_text_state": "HIGH_CONFIDENCE",
+        "image_v2_state": "UNVERIFIED",
+        "combined_v2_tier": "TIER_B",
+        "combined_v2_state": "TIER_B_TEXT_VERIFIED_IMAGE_UNVERIFIED",
+        "canonical_resolution_identity": "2c445258-b198-43de-b710-0921ebe3f0ab"
+      }
+    ]
+  },
+  "prior_v3_diagnostics_not_v4": {
+    "V4": {
+      "cohort": "V4",
+      "accepted_count": 203,
+      "true_accepts": 203,
+      "false_accepts": 0,
+      "accepted_precision": 1.0,
+      "accepted_precision_wilson_95": [
+        0.9814280036381673,
+        1.0000000000000002
+      ],
+      "card_coverage": 0.8,
+      "distinct_cards_covered": 56,
+      "catastrophic_false_accepts": [],
+      "catastrophic_false_accept_count": 0
+    },
+    "V5": {
+      "cohort": "V5",
+      "accepted_count": 206,
+      "true_accepts": 206,
+      "false_accepts": 0,
+      "accepted_precision": 1.0,
+      "accepted_precision_wilson_95": [
+        0.981693518324343,
+        0.9999999999999999
+      ],
+      "card_coverage": 0.8,
+      "distinct_cards_covered": 56,
+      "catastrophic_false_accepts": [],
+      "catastrophic_false_accept_count": 0
+    },
+    "E2.9B": {
+      "cohort": "E2.9B",
+      "accepted_count": 185,
+      "true_accepts": 185,
+      "false_accepts": 0,
+      "accepted_precision": 1.0,
+      "accepted_precision_wilson_95": [
+        0.9796577571223828,
+        1.0
+      ],
+      "card_coverage": 0.7714285714285715,
+      "distinct_cards_covered": 54,
+      "catastrophic_false_accepts": [],
+      "catastrophic_false_accept_count": 0
+    }
+  },
+  "e214_v4": null,
+  "v4_v5_e29b_v4": null,
+  "new_blind_capture_justified": false,
+  "blocked_gates": [
+    "E13-0127 rejection unverified",
+    "E2.14 v4 false accepts unmeasured",
+    "E2.14 v4 Wilson lower unmeasured",
+    "E2.14 v4 coverage unmeasured",
+    "newly rejected human-YES rows unmeasured"
+  ]
+}

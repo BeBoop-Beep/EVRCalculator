@@ -1,0 +1,9 @@
+{
+  "version": "ebay_combined_identity_policy_v4",
+  "source_sha256": "9d0399c0825f5f83ccf1aff0c9895eabcdffb297ff6f6e391721c1f9a6cf3403",
+  "prior_combined_v3_source_sha256": "823a0113a91b549edb735d7dd9a4410087b8b56a3d75d3a2de3f7b1dc815f8be",
+  "language_v2_freeze_fingerprint": "a858449b281de3523bd9ac2be64bbead216bb1c8da1388f93cdad38c9793d6bd",
+  "semantics": "COMBINED-v3 unchanged except LANGUAGE-v2 input; mismatch rejects before eligibility",
+  "production_authority": false,
+  "freeze_fingerprint_sha256": "8c5e3cf2b30af626b178874db97a4cff0d4fdc8fb60186a12a72b760e7430fe4"
+}

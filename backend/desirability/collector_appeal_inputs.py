@@ -167,6 +167,67 @@ def _chunked(values: Sequence[Any], size: int) -> Iterable[Sequence[Any]]:
         yield values[index:index + size]
 
 
+def _keyset_select_pull_model_rows(client: Any, *, attempts: int = 4) -> List[Dict[str, Any]]:
+    """Read the primary pull-model snapshot without OFFSET pagination.
+
+    pokemon_set_page_snapshot_latest.set_id is the table primary key, so a
+    keyset cursor visits the exact same rows/columns as the historical OFFSET
+    reader while avoiding the progressively more expensive OFFSET N scan that
+    caused production timeouts around row ~97. This is transport-only: source
+    table, selected columns, payload keys and mapping arithmetic are unchanged,
+    so the pull-model policy/fingerprint deliberately do not move.
+    """
+    rows: List[Dict[str, Any]] = []
+    cursor: Optional[str] = None
+    while True:
+        page: Optional[List[Dict[str, Any]]] = None
+        last_error: Optional[Exception] = None
+        for attempt in range(1, attempts + 1):
+            try:
+                query = (
+                    client.table(PULL_MODEL_SOURCE_TABLE)
+                    .select(PULL_MODEL_SOURCE_COLUMNS)
+                    .order("set_id")
+                    .limit(PULL_MODEL_READ_PAGE_SIZE)
+                )
+                if cursor is not None:
+                    query = query.gt("set_id", cursor)
+                response = query.execute()
+                page = list(response.data or [])
+                break
+            except Exception as exc:  # pragma: no cover - network shape
+                last_error = exc
+                failure = classify_data_service_error(exc)
+                if not failure.transient or attempt >= attempts:
+                    logger.error(
+                        "[collector-appeal-inputs] keyset read failed cursor=%s attempt=%s/%s "
+                        "error_type=%s code=%s status=%s transient=%s final=true",
+                        cursor, attempt, attempts, failure.error_type, failure.code,
+                        failure.status_code, failure.transient,
+                    )
+                    break
+                base_delay = min(4.0, 0.5 * (2 ** (attempt - 1)))
+                logger.warning(
+                    "[collector-appeal-inputs] keyset read retry cursor=%s attempt=%s/%s "
+                    "error_type=%s code=%s status=%s",
+                    cursor, attempt, attempts, failure.error_type, failure.code,
+                    failure.status_code,
+                )
+                time.sleep(max(0.0, base_delay + random.uniform(0.0, base_delay * 0.5)))
+        if page is None:
+            raise RuntimeError(
+                f"pull-model keyset read failed after {attempts} attempts at cursor {cursor}"
+            ) from last_error
+        if not page:
+            return rows
+        rows.extend(page)
+        next_cursor = str(page[-1].get("set_id") or "")
+        if not next_cursor or next_cursor == cursor:
+            raise RuntimeError("pull-model keyset read did not advance set_id cursor")
+        cursor = next_cursor
+        if len(page) < PULL_MODEL_READ_PAGE_SIZE:
+            return rows
+
 def load_pull_rate_model(client: Any) -> Dict[str, Dict[str, Dict[str, Any]]]:
     """``set_id -> {rarity_key: {probability, slot_group}}`` from the modeled pack model.
 
@@ -186,10 +247,7 @@ def load_pull_rate_model(client: Any) -> Dict[str, Dict[str, Dict[str, Any]]]:
     exceeds the 8s statement_timeout on every attempt - a deterministic failure
     that no retry can clear, and the reason CA7 was unavailable for every set.
     """
-    rows = _paged_select(
-        lambda: client.table(PULL_MODEL_SOURCE_TABLE).select(PULL_MODEL_SOURCE_COLUMNS),
-        page_size=PULL_MODEL_READ_PAGE_SIZE,
-    )
+    rows = _keyset_select_pull_model_rows(client)
     by_set: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for row in rows:
         payload = row.get("payload_json")

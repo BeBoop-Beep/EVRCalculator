@@ -2862,6 +2862,7 @@ def _load_paginated_top_chase_observation_rows(
             query = (
                 client.table("card_variant_price_observations")
                 .select("id,card_variant_id,condition_id,captured_at,market_price")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_chunk)
             )
             if len(condition_ids) == 1:
@@ -2919,6 +2920,7 @@ def _load_top_chase_histories_from_observations(
             latest_result = (
                 client.table("card_variant_price_observations")
                 .select("captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4008,6 +4010,7 @@ def _load_selected_price_observations(
             client,
             "card_variant_price_observations",
             lambda query: query.select("id,card_variant_id,condition_id,market_price,source,captured_at")
+            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_ids)
             .in_("condition_id", condition_ids)
             .gte("captured_at", start_date)
@@ -4576,12 +4579,21 @@ def build_explore_rankings_snapshot_row(
     *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None,
     rankings_top_chase_snapshot_rows: Optional[List[Dict[str, Any]]] = None,
     source_rankings_payload: Optional[Dict[str, Any]] = None,
+    expected_run_by_set: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     built_at = utc_now_iso()
     target_kwargs = {"limit": limit}
     if rankings_top_chase_snapshot_rows is not None:
         target_kwargs["rankings_top_chase_snapshot_rows"] = rankings_top_chase_snapshot_rows
+    if expected_run_by_set is not None:
+        target_kwargs["expected_run_by_set"] = expected_run_by_set
     payload = source_rankings_payload or get_rip_statistics_targets_payload(**target_kwargs)
+    if source_rankings_payload is not None and expected_run_by_set:
+        from backend.db.services.explore_rip_statistics_service import _assert_expected_simulation_run_authority
+        _assert_expected_simulation_run_authority(
+            list(payload.get("targets") or []),
+            expected_run_by_set,
+        )
     targets = list(payload.get("targets") or [])
     opening_targets = [target for target in targets if is_opening_set_row(target)]
     service_client = get_client()

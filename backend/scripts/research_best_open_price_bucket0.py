@@ -44,6 +44,7 @@ from backend.db.services.budget_product_ranking_authority import (
     EXPECTED_OVERALL_RIP_V12_VERSION,
     _fetch_all_ready_rows,
 )
+from backend.db.services.public_read_retry import run_bounded_page_read_with_retry
 from backend.desirability.weighted_rip import compute_overall_rip_v12
 from backend.db.services.pack_outcome_artifact_service import load_pack_outcome_artifact
 from backend.scripts.build_budget_normalized_product_rankings import cohort_fingerprint
@@ -51,6 +52,11 @@ from backend.scripts.pokemon_snapshot_builders import get_client
 
 METHOD_VERSION = "budget_product_best_open_price_full_market_v1_research"
 _PAGE_SIZE = 1000
+
+#: Bounded retry budget for a single page's read. Only the failed page is
+#: retried (see :func:`run_bounded_page_read_with_retry`); pages already
+#: accumulated by the caller's loop are never re-fetched.
+_FETCH_MAX_ATTEMPTS = 4
 
 
 def quantity_price_interval_cents(budget_cents: int, quantity: int) -> tuple[int, int]:
@@ -76,7 +82,16 @@ def _rows(response: Any) -> list[dict[str, Any]]:
 
 
 def _fetch_source_rows(client: Any, snapshot_id: str) -> list[dict[str, Any]]:
-    """Read every row even when a snapshot is exactly at PostgREST's page cap."""
+    """Read every row even when a snapshot is exactly at PostgREST's page cap.
+
+    Pages are fetched in stable order (``sealed_product_id``, ``target_budget``,
+    ``budget_type``) and bounded at ``_PAGE_SIZE``. Bucket 4's full-cohort run
+    observed this source load repeatedly hitting Postgres statement timeouts
+    (57014); each page's ``.execute()`` is now retried in isolation via
+    :func:`run_bounded_page_read_with_retry` so only the failed page redoes
+    work -- prior pages already accumulated in ``rows`` are never re-fetched --
+    and a non-transient error is not retried.
+    """
     rows: list[dict[str, Any]] = []
     offset = 0
     while True:
@@ -86,9 +101,24 @@ def _fetch_source_rows(client: Any, snapshot_id: str) -> list[dict[str, Any]]:
             .order("target_budget").order("budget_type")
         )
         range_query = getattr(query, "range", None)
-        page = _rows(query.range(offset, offset + _PAGE_SIZE - 1).execute()) if range_query else _rows(query.execute())
+        if range_query is None:
+            return rows + _rows(query.execute())
+
+        end = offset + _PAGE_SIZE - 1
+
+        def _fetch_page(query: Any = query, offset: int = offset, end: int = end) -> Any:
+            return query.range(offset, end).execute()
+
+        response = run_bounded_page_read_with_retry(
+            _fetch_page,
+            operation_name="budget_product_ranking_rows.fetch_source_rows",
+            page_offset=offset,
+            page_end=end,
+            max_attempts=_FETCH_MAX_ATTEMPTS,
+        )
+        page = _rows(response)
         rows.extend(page)
-        if range_query is None or len(page) < _PAGE_SIZE:
+        if len(page) < _PAGE_SIZE:
             return rows
         offset += _PAGE_SIZE
 

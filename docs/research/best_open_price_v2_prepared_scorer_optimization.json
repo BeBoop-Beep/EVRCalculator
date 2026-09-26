@@ -1,0 +1,8 @@
+{"token":"PREPARED_SCORER_OPTIMIZATION_VALIDATED","snapshotId":"0e65fb6d-ff33-4331-99d5-d6a214ecc712","authorityFingerprint":"faad453f7d29eff1831fb2e212a13dad7d9d553536dc283af90c9bfbd53e48b0",
+"bucket2ControlRerun":{"python":"3.11","phase10b":"8/8","stratified":"46/46","full":"276/276","productWallSum":1669.5,"physicalConstruction":771.1,"preparedScorer":487.3,"candidateScoring":97.4,"comparator":7.6,"median":4.80,"p95":43.6,"max":54.5,"peakRssMiB":453,"originalUncontendedWall":1463.8},
+"bucket3":{"exact":"276/276","fallbacks":0,"unresolved":0,"productWallSum":1251.9,"physicalConstruction":663.0,"preparedScorer":93.9,"candidateScoring":95.6,"comparator":7.6,"median":3.72,"p95":31.7,"max":74.4,"peakRssMiB":467,"batches":573,"generated":5769,"consumed":4831,"speculative":938,"speculativePct":16.3,"speculativePreparationsAvoided":938,"avgWidth":10.07,"maxRawPendingBytes":192000000,"maxPreparedBytes":16000008,"maxEstimatedBlockBytes":240000000,"maxActivePrepared":1},
+"prepareProfileSharePct":{"sort_stable":62.4,"median":8.2,"p95":7.5,"p05":7.3,"p99":7.3,"prefix":2.9,"unclassified":2.8,"other":1.6},
+"speculative":{"preparationSeconds":0,"marginalConstructionSecondsStratified":12.0,"stratifiedConstructionSeconds":265.6},
+"policyRealStratified":{"ramp4_24":{"wallSeconds":406.7,"speculativePct":9.0},"const12":{"wallSeconds":458.6,"speculativePct":9.7}},
+"phase0b":{"py311Utf8":"878 passed, 5 skipped, 0 failed","causes":["Windows cp1252 read_text (9)","ast.unparse on py3.8 (1)","py3.8 lock test (1)"]},
+"microParityTests":47,"decision":"PREPARED_SCORER_OPTIMIZATION_VALIDATED"}

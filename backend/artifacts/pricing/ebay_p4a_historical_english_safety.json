@@ -1,0 +1,195 @@
+{
+  "classification": "HISTORICAL_POST_HOC_NON_CERTIFYING",
+  "policy_version": "ebay_english_price_eligibility_v1",
+  "policy_fingerprint": "8ea70a8ace82d1879f81850d997429cb58cd211446d681717051a0c7f33206f5",
+  "cohorts": {
+    "E2.14": {
+      "total_rows": 553,
+      "human_yes": 336,
+      "human_non_english": 3,
+      "rules": {
+        "image_match": {
+          "accepted": 140,
+          "human_exact_english_yes_accepted": 140,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 196,
+          "listing_coverage": 0.25316455696202533,
+          "card_coverage": 50
+        },
+        "provider_english": {
+          "accepted": 83,
+          "human_exact_english_yes_accepted": 83,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 253,
+          "listing_coverage": 0.15009041591320071,
+          "card_coverage": 21
+        },
+        "either": {
+          "accepted": 185,
+          "human_exact_english_yes_accepted": 185,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 151,
+          "listing_coverage": 0.3345388788426763,
+          "card_coverage": 54
+        },
+        "both": {
+          "accepted": 38,
+          "human_exact_english_yes_accepted": 38,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 298,
+          "listing_coverage": 0.06871609403254973,
+          "card_coverage": 14
+        }
+      }
+    },
+    "V4": {
+      "total_rows": 420,
+      "human_yes": 248,
+      "human_non_english": 1,
+      "rules": {
+        "image_match": {
+          "accepted": 115,
+          "human_exact_english_yes_accepted": 115,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 133,
+          "listing_coverage": 0.27380952380952384,
+          "card_coverage": 48
+        },
+        "provider_english": {
+          "accepted": 0,
+          "human_exact_english_yes_accepted": 0,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 248,
+          "listing_coverage": 0.0,
+          "card_coverage": 0
+        },
+        "either": {
+          "accepted": 115,
+          "human_exact_english_yes_accepted": 115,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 133,
+          "listing_coverage": 0.27380952380952384,
+          "card_coverage": 48
+        },
+        "both": {
+          "accepted": 0,
+          "human_exact_english_yes_accepted": 0,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 248,
+          "listing_coverage": 0.0,
+          "card_coverage": 0
+        }
+      }
+    },
+    "V5": {
+      "total_rows": 417,
+      "human_yes": 252,
+      "human_non_english": 1,
+      "rules": {
+        "image_match": {
+          "accepted": 107,
+          "human_exact_english_yes_accepted": 107,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 145,
+          "listing_coverage": 0.2565947242206235,
+          "card_coverage": 44
+        },
+        "provider_english": {
+          "accepted": 0,
+          "human_exact_english_yes_accepted": 0,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 252,
+          "listing_coverage": 0.0,
+          "card_coverage": 0
+        },
+        "either": {
+          "accepted": 107,
+          "human_exact_english_yes_accepted": 107,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 145,
+          "listing_coverage": 0.2565947242206235,
+          "card_coverage": 44
+        },
+        "both": {
+          "accepted": 0,
+          "human_exact_english_yes_accepted": 0,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 252,
+          "listing_coverage": 0.0,
+          "card_coverage": 0
+        }
+      }
+    },
+    "E2.9B": {
+      "total_rows": 414,
+      "human_yes": 238,
+      "human_non_english": 0,
+      "rules": {
+        "image_match": {
+          "accepted": 107,
+          "human_exact_english_yes_accepted": 107,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 131,
+          "listing_coverage": 0.2584541062801932,
+          "card_coverage": 45
+        },
+        "provider_english": {
+          "accepted": 0,
+          "human_exact_english_yes_accepted": 0,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 238,
+          "listing_coverage": 0.0,
+          "card_coverage": 0
+        },
+        "either": {
+          "accepted": 107,
+          "human_exact_english_yes_accepted": 107,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 131,
+          "listing_coverage": 0.2584541062801932,
+          "card_coverage": 45
+        },
+        "both": {
+          "accepted": 0,
+          "human_exact_english_yes_accepted": 0,
+          "human_no_accepted": 0,
+          "human_uncertain_accepted": 0,
+          "human_non_english_accepted": 0,
+          "human_english_lost": 238,
+          "listing_coverage": 0.0,
+          "card_coverage": 0
+        }
+      }
+    }
+  }
+}

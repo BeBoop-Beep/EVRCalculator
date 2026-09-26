@@ -1,0 +1,692 @@
+{
+  "version": "ebay_p4a_adaptive_capture_v1",
+  "run_id": "4c0b7bd3a6d54f419f888611f6a0caf5",
+  "market_date": "2026-09-20",
+  "selector_fingerprint": "db3748699387f8cf6de6688eeb86dde9dae03f881f7f9d2484c75713832db1e7",
+  "eligibility_policy_fingerprint": "8ea70a8ace82d1879f81850d997429cb58cd211446d681717051a0c7f33206f5",
+  "request_cap": 330,
+  "requests_attempted": 270,
+  "requests_successful": 270,
+  "requests_failed": 0,
+  "retries": 0,
+  "targets": [
+    {
+      "canonical_card_id": "4ad38231-6b4e-4260-913c-4fefd858dab9",
+      "card_variant_id": "8acea1aa-17ac-40a3-89a5-1bc11ceb1890",
+      "set_id": "98301e8a-8aa3-43d8-a85b-908883264721",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "tcgplayer_market_price": 0.37,
+      "price_band": "low",
+      "raw_search_listings": 100,
+      "candidate_count": 87,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 5,
+        "LANGUAGE_UNRESOLVED": 3
+      }
+    },
+    {
+      "canonical_card_id": "cda48fe5-42c1-48e4-bbe8-95dd6c6857e7",
+      "card_variant_id": "8dc18d1f-f0ed-4657-9fc5-301775344dcf",
+      "set_id": "537d3312-9622-4015-9ef2-66e16a27287c",
+      "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "tcgplayer_market_price": 34.2,
+      "price_band": "mid",
+      "raw_search_listings": 100,
+      "candidate_count": 82,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 3,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 3,
+        "CONDITION_EXCLUDED": 4,
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "e9fcd4c8-8016-455e-b744-49d083ebc374",
+      "card_variant_id": "3d6afa20-0603-4e0f-9bfb-15892adc870e",
+      "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": 2.3,
+      "price_band": "low",
+      "raw_search_listings": 63,
+      "candidate_count": 40,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 1,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 7,
+        "ENGLISH_PRICE_ELIGIBLE": 1
+      }
+    },
+    {
+      "canonical_card_id": "528ec558-67ba-4a1e-8b50-5b11dbe4d787",
+      "card_variant_id": "e1eeea88-caa0-4747-a243-9b9501617f9f",
+      "set_id": "78c7f000-9a9e-45ca-8233-8f36030f6019",
+      "era_id": "798fec5b-4e8c-4bc1-bbd1-bdacf5e7105c",
+      "tcgplayer_market_price": 279.99,
+      "price_band": "high",
+      "raw_search_listings": 0,
+      "candidate_count": 0,
+      "search_calls": 2,
+      "detail_calls": 0,
+      "eligible_seller_count": 0,
+      "state_counts": {}
+    },
+    {
+      "canonical_card_id": "fa2b2ff8-2963-4ac6-81b0-3c516d4b6559",
+      "card_variant_id": "a499d51f-89a0-4731-9674-377af789c10d",
+      "set_id": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+      "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+      "tcgplayer_market_price": 13.28,
+      "price_band": "low",
+      "raw_search_listings": 100,
+      "candidate_count": 90,
+      "search_calls": 1,
+      "detail_calls": 5,
+      "eligible_seller_count": 5,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 5
+      }
+    },
+    {
+      "canonical_card_id": "6edc2e28-ef57-4648-b0d1-6dafd30d5ca4",
+      "card_variant_id": null,
+      "set_id": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+      "era_id": "a5571ca6-0dae-4366-8d16-d043a9b1659d",
+      "tcgplayer_market_price": null,
+      "price_band": "missing",
+      "raw_search_listings": 43,
+      "candidate_count": 2,
+      "search_calls": 2,
+      "detail_calls": 2,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "NON_ENGLISH_EXCLUDED": 1,
+        "CONDITION_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "f1382f1c-6efd-4b58-80fb-2d9439c8bd50",
+      "card_variant_id": "29f1a27b-321e-41ce-aae6-a3ff1ace97d0",
+      "set_id": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 2.82,
+      "price_band": "low",
+      "raw_search_listings": 89,
+      "candidate_count": 1,
+      "search_calls": 2,
+      "detail_calls": 1,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "9f6fc751-3494-4dbb-a08b-7077c2566043",
+      "card_variant_id": "2e2e8fbb-7514-4cb7-a784-1195aa70b59a",
+      "set_id": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+      "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+      "tcgplayer_market_price": 20.32,
+      "price_band": "mid",
+      "raw_search_listings": 87,
+      "candidate_count": 59,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 1,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 1,
+        "CONDITION_EXCLUDED": 7
+      }
+    },
+    {
+      "canonical_card_id": "7465c998-e55e-4dd5-84b6-eb98c60eab72",
+      "card_variant_id": "7a285d13-aa10-4c2f-8a36-561a1f4ed0f8",
+      "set_id": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "tcgplayer_market_price": 2.6,
+      "price_band": "low",
+      "raw_search_listings": 100,
+      "candidate_count": 75,
+      "search_calls": 1,
+      "detail_calls": 6,
+      "eligible_seller_count": 5,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 5,
+        "CONDITION_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "4e7dd74a-4336-4546-8089-f4bc3142076c",
+      "card_variant_id": "d7f3f639-ae6f-4d39-b803-f6782c54788e",
+      "set_id": "5e160c6d-8f0e-4694-bf72-1fc3b7f01e45",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "tcgplayer_market_price": 63.51,
+      "price_band": "mid",
+      "raw_search_listings": 100,
+      "candidate_count": 8,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 4,
+        "CONDITION_EXCLUDED": 3,
+        "BUYING_FORMAT_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "c4e95fe7-f82d-4550-8c8b-f871ec338bb1",
+      "card_variant_id": null,
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "tcgplayer_market_price": null,
+      "price_band": "missing",
+      "raw_search_listings": 33,
+      "candidate_count": 0,
+      "search_calls": 2,
+      "detail_calls": 0,
+      "eligible_seller_count": 0,
+      "state_counts": {}
+    },
+    {
+      "canonical_card_id": "cc642eda-5fac-44b2-98a4-bfe0993884ba",
+      "card_variant_id": null,
+      "set_id": "7ceb2e94-7968-4394-95cb-742b01804974",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": null,
+      "price_band": "missing",
+      "raw_search_listings": 100,
+      "candidate_count": 18,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 1,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 6,
+        "ENGLISH_PRICE_ELIGIBLE": 1,
+        "BUYING_FORMAT_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "069eeb09-34c0-4c5a-ae08-23e829d59a34",
+      "card_variant_id": null,
+      "set_id": "7a2814b3-1153-4b1a-a0b2-2a0725258214",
+      "era_id": "85f7d2c4-1193-4da4-b86c-1f2f50625205",
+      "tcgplayer_market_price": null,
+      "price_band": "missing",
+      "raw_search_listings": 200,
+      "candidate_count": 0,
+      "search_calls": 2,
+      "detail_calls": 0,
+      "eligible_seller_count": 0,
+      "state_counts": {}
+    },
+    {
+      "canonical_card_id": "72af2db3-51e3-4655-958e-1158964c1de7",
+      "card_variant_id": "b0167ef5-751c-4c10-9b39-7dc6de30ebe5",
+      "set_id": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 49.22,
+      "price_band": "mid",
+      "raw_search_listings": 51,
+      "candidate_count": 22,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 2,
+        "CONDITION_EXCLUDED": 6
+      }
+    },
+    {
+      "canonical_card_id": "7b75e7de-5b0a-4f55-bb28-55282a14b715",
+      "card_variant_id": "17be6ace-813a-4a66-9781-fde7aa6b697a",
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": 35.43,
+      "price_band": "mid",
+      "raw_search_listings": 60,
+      "candidate_count": 5,
+      "search_calls": 1,
+      "detail_calls": 5,
+      "eligible_seller_count": 1,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 1,
+        "CONDITION_EXCLUDED": 3,
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "d61162f5-c024-4222-a355-1e0594254d7f",
+      "card_variant_id": "93bfd7ab-5ca8-4c95-82ae-a3d1a9cefe26",
+      "set_id": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 239.66,
+      "price_band": "high",
+      "raw_search_listings": 183,
+      "candidate_count": 1,
+      "search_calls": 2,
+      "detail_calls": 1,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "1cbddc17-6863-46c6-a16c-386a5dad2641",
+      "card_variant_id": "0370326b-ffce-4623-85cb-091091b983d7",
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": 162.9,
+      "price_band": "high",
+      "raw_search_listings": 61,
+      "candidate_count": 39,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 2,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 6,
+        "ENGLISH_PRICE_ELIGIBLE": 2
+      }
+    },
+    {
+      "canonical_card_id": "f28978a5-6e50-45a3-abf1-7712024a15bf",
+      "card_variant_id": "19a475c2-e18c-4dc2-ae4b-4d264a4e0532",
+      "set_id": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "tcgplayer_market_price": 246.7,
+      "price_band": "high",
+      "raw_search_listings": 100,
+      "candidate_count": 13,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 5,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 1,
+        "CONDITION_EXCLUDED": 2,
+        "ENGLISH_PRICE_ELIGIBLE": 5
+      }
+    },
+    {
+      "canonical_card_id": "7c76ef6f-fafb-4a25-885f-fe20db7ca599",
+      "card_variant_id": "8f6bf240-50ca-4cad-b7d7-aac524c7e3a3",
+      "set_id": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 135.07,
+      "price_band": "high",
+      "raw_search_listings": 25,
+      "candidate_count": 0,
+      "search_calls": 2,
+      "detail_calls": 0,
+      "eligible_seller_count": 0,
+      "state_counts": {}
+    },
+    {
+      "canonical_card_id": "53769a9e-e38a-4bf1-90be-6427f5e8a6ee",
+      "card_variant_id": "f493bb67-f724-4a10-81d6-f38eefe51ea6",
+      "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 10.15,
+      "price_band": "low",
+      "raw_search_listings": 56,
+      "candidate_count": 47,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 4,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 4,
+        "CONDITION_EXCLUDED": 3,
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "a694efe4-c30c-4100-883e-76ae2aeffe01",
+      "card_variant_id": "3e9fc72a-5905-46b6-abfa-5d474b1055a6",
+      "set_id": "7ceb2e94-7968-4394-95cb-742b01804974",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": 9.99,
+      "price_band": "low",
+      "raw_search_listings": 52,
+      "candidate_count": 25,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 3,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 3,
+        "CONDITION_EXCLUDED": 5
+      }
+    },
+    {
+      "canonical_card_id": "8797bf2b-d91d-4979-a6b6-97398ef31385",
+      "card_variant_id": "513d1b14-e2a2-4516-8cbb-3bf5a42b63a3",
+      "set_id": "26fedb88-87d7-487a-9f01-528d603c682e",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "tcgplayer_market_price": 13.21,
+      "price_band": "low",
+      "raw_search_listings": 100,
+      "candidate_count": 69,
+      "search_calls": 1,
+      "detail_calls": 7,
+      "eligible_seller_count": 5,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 1,
+        "ENGLISH_PRICE_ELIGIBLE": 5,
+        "CONDITION_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "da31f0c7-76f1-4bb4-8512-2edb444a3cf4",
+      "card_variant_id": "8517ef09-505e-44f1-9d81-c024d4bad662",
+      "set_id": "98301e8a-8aa3-43d8-a85b-908883264721",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "tcgplayer_market_price": 9.7,
+      "price_band": "low",
+      "raw_search_listings": 99,
+      "candidate_count": 85,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 4,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 4,
+        "CONDITION_EXCLUDED": 3,
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "f9902a40-8a42-4d8d-9e16-0701364d69d8",
+      "card_variant_id": "ed84a121-563b-4b58-8980-ac03a30ec05e",
+      "set_id": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "tcgplayer_market_price": 39.48,
+      "price_band": "mid",
+      "raw_search_listings": 86,
+      "candidate_count": 37,
+      "search_calls": 1,
+      "detail_calls": 7,
+      "eligible_seller_count": 5,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 2,
+        "ENGLISH_PRICE_ELIGIBLE": 5
+      }
+    },
+    {
+      "canonical_card_id": "9b63fa38-0e08-4575-8999-545512c82c6a",
+      "card_variant_id": "371470f7-e23a-4eae-87b4-cc0c3e7f9728",
+      "set_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "tcgplayer_market_price": 20.44,
+      "price_band": "mid",
+      "raw_search_listings": 37,
+      "candidate_count": 20,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 4,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 4,
+        "CONDITION_EXCLUDED": 3,
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "6e3e47c4-4358-4d95-876f-a77b218fde6f",
+      "card_variant_id": "bc11aa71-b09b-4a02-9291-0bb7650a87a1",
+      "set_id": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 51.54,
+      "price_band": "mid",
+      "raw_search_listings": 98,
+      "candidate_count": 1,
+      "search_calls": 2,
+      "detail_calls": 1,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "c13df24c-09fc-4ce1-8048-49c0b75edad1",
+      "card_variant_id": "c78921b2-a000-4e39-a5cb-da66b42080d9",
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": 88.74,
+      "price_band": "mid",
+      "raw_search_listings": 40,
+      "candidate_count": 9,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 4,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 4,
+        "BUYING_FORMAT_EXCLUDED": 2,
+        "CONDITION_EXCLUDED": 1,
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "43a18910-4f61-41bb-9ea8-27ffab8d41d2",
+      "card_variant_id": "af11f483-8502-4eb0-af1d-aa8cf72aa9aa",
+      "set_id": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "tcgplayer_market_price": 62.15,
+      "price_band": "mid",
+      "raw_search_listings": 100,
+      "candidate_count": 13,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 3,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 2,
+        "ENGLISH_PRICE_ELIGIBLE": 3,
+        "CONDITION_EXCLUDED": 1,
+        "CONDITION_UNRESOLVED": 1,
+        "BUYING_FORMAT_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "aa27a8e0-3bd6-4c8b-9d24-6d9de5dfcf76",
+      "card_variant_id": "7ec78e4d-372b-4735-8ac6-2ee9437ff79d",
+      "set_id": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+      "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+      "tcgplayer_market_price": 53.3,
+      "price_band": "mid",
+      "raw_search_listings": 100,
+      "candidate_count": 78,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 2,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 6,
+        "ENGLISH_PRICE_ELIGIBLE": 2
+      }
+    },
+    {
+      "canonical_card_id": "4cea0547-8412-4372-874e-131ece2e7236",
+      "card_variant_id": "f75677a1-f95c-40a1-aa0c-d1bd6162b7b6",
+      "set_id": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+      "era_id": "bc3b2c64-7d14-4e68-91bc-3be348f2e977",
+      "tcgplayer_market_price": 116.44,
+      "price_band": "high",
+      "raw_search_listings": 100,
+      "candidate_count": 27,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 1,
+      "state_counts": {
+        "LANGUAGE_UNRESOLVED": 3,
+        "CONDITION_EXCLUDED": 4,
+        "ENGLISH_PRICE_ELIGIBLE": 1
+      }
+    },
+    {
+      "canonical_card_id": "f977bccd-c147-4d6d-bc66-934064a1235c",
+      "card_variant_id": "604cf32b-8016-454f-8e60-695d5f84f8f7",
+      "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 290.0,
+      "price_band": "high",
+      "raw_search_listings": 61,
+      "candidate_count": 2,
+      "search_calls": 2,
+      "detail_calls": 2,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 2
+      }
+    },
+    {
+      "canonical_card_id": "642c9ce1-df21-479a-8b8d-120d698bd653",
+      "card_variant_id": "f4fc097c-4a83-48af-a72a-f04029f466b7",
+      "set_id": "93212749-ce0e-498e-975e-7d947a3448ce",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "tcgplayer_market_price": 312.61,
+      "price_band": "high",
+      "raw_search_listings": 100,
+      "candidate_count": 27,
+      "search_calls": 1,
+      "detail_calls": 7,
+      "eligible_seller_count": 5,
+      "state_counts": {
+        "ENGLISH_PRICE_ELIGIBLE": 5,
+        "CONDITION_EXCLUDED": 1,
+        "LANGUAGE_UNRESOLVED": 1
+      }
+    },
+    {
+      "canonical_card_id": "a44bfb11-0a90-4a38-9269-c5174d5dbf26",
+      "card_variant_id": "bff7bdbd-c0b2-4d24-a053-494de86362f4",
+      "set_id": "d425bce0-952c-456b-8402-707daeb35850",
+      "era_id": "f7b8e747-8a40-4f25-8050-548a19064119",
+      "tcgplayer_market_price": 324.49,
+      "price_band": "high",
+      "raw_search_listings": 55,
+      "candidate_count": 1,
+      "search_calls": 2,
+      "detail_calls": 1,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 1
+      }
+    },
+    {
+      "canonical_card_id": "33bb40c7-eacb-4735-af6b-a496f12c6e53",
+      "card_variant_id": "15ab240e-e26d-4bb1-9259-958396cf44ac",
+      "set_id": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "tcgplayer_market_price": 450.72,
+      "price_band": "high",
+      "raw_search_listings": 69,
+      "candidate_count": 16,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 1,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 7,
+        "ENGLISH_PRICE_ELIGIBLE": 1
+      }
+    },
+    {
+      "canonical_card_id": "dd7e9b63-e544-4c90-bfb6-ef89ae8ce010",
+      "card_variant_id": "67c5d8ba-c3fb-4127-ac66-349acc1d3867",
+      "set_id": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+      "era_id": "2abcc397-1f21-4fd7-9d86-b823e4535496",
+      "tcgplayer_market_price": 259.25,
+      "price_band": "high",
+      "raw_search_listings": 100,
+      "candidate_count": 74,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 4,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 4,
+        "ENGLISH_PRICE_ELIGIBLE": 4
+      }
+    },
+    {
+      "canonical_card_id": "7ccbd958-27e5-4799-aef4-9b5d976424c2",
+      "card_variant_id": "03f7a6bf-3d4b-43ce-8e69-fbe580183ba0",
+      "set_id": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+      "era_id": "ac03d99a-370d-42ee-99dd-32380c1bd25d",
+      "tcgplayer_market_price": 325.0,
+      "price_band": "high",
+      "raw_search_listings": 66,
+      "candidate_count": 2,
+      "search_calls": 2,
+      "detail_calls": 2,
+      "eligible_seller_count": 0,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 2
+      }
+    },
+    {
+      "canonical_card_id": "75e584ae-28cc-431a-863a-f544833bfce8",
+      "card_variant_id": "8af71b8a-33c2-4efd-bb32-a7f3093cbaca",
+      "set_id": "be7c981b-c55e-4f60-a1b8-be922531452d",
+      "era_id": "cdae9eb9-0f9e-4d93-9fdf-4221cfbdb90d",
+      "tcgplayer_market_price": 1.31,
+      "price_band": "low",
+      "raw_search_listings": 7,
+      "candidate_count": 5,
+      "search_calls": 2,
+      "detail_calls": 5,
+      "eligible_seller_count": 3,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 1,
+        "LANGUAGE_UNRESOLVED": 1,
+        "ENGLISH_PRICE_ELIGIBLE": 3
+      }
+    },
+    {
+      "canonical_card_id": "b90db58e-89fe-4c45-a1f5-03d332840b3c",
+      "card_variant_id": "c0680ef9-72de-4afd-959f-8fd3d96cc175",
+      "set_id": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+      "era_id": "0a40145e-ccee-46f7-af06-1fbf89ce1b39",
+      "tcgplayer_market_price": 797.47,
+      "price_band": "high",
+      "raw_search_listings": 34,
+      "candidate_count": 5,
+      "search_calls": 1,
+      "detail_calls": 5,
+      "eligible_seller_count": 1,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 4,
+        "ENGLISH_PRICE_ELIGIBLE": 1
+      }
+    },
+    {
+      "canonical_card_id": "95827231-abc7-4f05-8dac-d8d7536a9cfb",
+      "card_variant_id": "7db91c71-a6fa-4451-823e-21f539a9c024",
+      "set_id": "aac3de95-9f92-44af-966d-70b1d201c01e",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": 1400.0,
+      "price_band": "high",
+      "raw_search_listings": 100,
+      "candidate_count": 32,
+      "search_calls": 1,
+      "detail_calls": 8,
+      "eligible_seller_count": 4,
+      "state_counts": {
+        "CONDITION_EXCLUDED": 4,
+        "ENGLISH_PRICE_ELIGIBLE": 4
+      }
+    },
+    {
+      "canonical_card_id": "bc8ba2d2-10c4-4885-b9a0-5d4bb1d247c4",
+      "card_variant_id": "566e6149-ccc1-4985-9f04-abfd90df887e",
+      "set_id": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+      "era_id": "5a5cb2b9-714b-437d-a64f-e80722d75aed",
+      "tcgplayer_market_price": 199.95,
+      "price_band": "high",
+      "raw_search_listings": 55,
+      "candidate_count": 0,
+      "search_calls": 2,
+      "detail_calls": 0,
+      "eligible_seller_count": 0,
+      "state_counts": {}
+    }
+  ],
+  "raw_artifact_path": "D:\\EVRCalculator\\backend\\artifacts\\pricing\\ebay_p4a_4c0b7bd3a6d54f419f888611f6a0caf5.raw.jsonl",
+  "decisions_artifact_path": "D:\\EVRCalculator\\backend\\artifacts\\pricing\\ebay_p4a_4c0b7bd3a6d54f419f888611f6a0caf5.decisions.jsonl",
+  "capture_fingerprint": "c002eb3f47617a02bdbafffab016f184be8cbf9811685ac12d27693ccd1faa0f"
+}

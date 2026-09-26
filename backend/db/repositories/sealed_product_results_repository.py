@@ -111,6 +111,39 @@ def update_sealed_product_enrichment(row_id: Any, values: Dict[str, Any]) -> Lis
     return list(response.data or [])
 
 
+
+# Batch finalization only needs these scalar authority fields.  Using the full
+# product read model here pulls several large JSONB payloads per row and caused
+# production PostgREST statement timeouts for the 22-set cohort.
+_FINALIZATION_INPUT_FIELDS = (
+    "id,calculation_run_id,set_id,"
+    "financial_rip_v3_score,"
+    "financial_rip_v4_score,financial_rip_v4_version"
+)
+
+
+def get_sealed_product_finalization_inputs_for_runs(
+    calculation_run_ids: Sequence[Any],
+) -> List[Dict[str, Any]]:
+    """Minimal rows required by sealed-product RIP enrichment.
+
+    The explicit run list remains the cohort boundary.  This deliberately does
+    not select distribution statistics or historical RIP payload JSON because
+    the finalizer never reads them.
+    """
+    ids = [str(value) for value in calculation_run_ids if value is not None]
+    if not ids:
+        return []
+    response = (
+        supabase.table(TABLE)
+        .select(_FINALIZATION_INPUT_FIELDS)
+        .in_("calculation_run_id", ids)
+        .order("calculation_run_id")
+        .order("id")
+        .execute()
+    )
+    return list(response.data or [])
+
 def get_sealed_product_results_for_runs(calculation_run_ids: Sequence[Any]) -> List[Dict[str, Any]]:
     """Every product row belonging to an EXPLICIT list of calculation runs.
 
@@ -196,3 +229,54 @@ def get_latest_sealed_product_result_for_family(set_id: Any, product_family: str
         return (_num(row.get("overall_rip_score")), _num(row.get("financial_rip_v3_score")))
 
     return max(candidates, key=_rank_key)
+
+
+# ---------------------------------------------------------------------------
+# Financial RIP V5 (additive; columns land in migration 20260920000000)
+# ---------------------------------------------------------------------------
+# Deliberately NOT part of ``_SELECT_FIELDS`` / ``ENRICHMENT_FIELDS``: selecting
+# columns that a database has not yet received fails every read, so V5 has its
+# own write and read paths that only run once the columns exist. V4 columns are
+# never written here. V5 is built from the exact outcome artifact - never
+# projected from a V4 payload.
+
+FINANCIAL_RIP_V5_FIELDS = (
+    "financial_rip_v5_score",
+    "financial_rip_v5_status",
+    "financial_rip_v5_rankable",
+    "financial_rip_v5_version",
+    "financial_rip_v5_payload",
+)
+
+
+def update_sealed_product_financial_v5(
+    row_id: Any, values: Dict[str, Any], *, client: Optional[Any] = None
+) -> List[Dict[str, Any]]:
+    """Write ONLY the Financial RIP V5 columns of one product row, by primary key."""
+    unknown = sorted(set(values) - set(FINANCIAL_RIP_V5_FIELDS))
+    if unknown:
+        raise ValueError(f"{TABLE} V5 write may only touch {FINANCIAL_RIP_V5_FIELDS}; refused: {unknown}")
+    if not values:
+        return []
+    response = run_with_transient_retry(
+        lambda _attempt: _client(client).table(TABLE)
+        .update(dict(values)).eq("id", str(row_id)).execute(),
+        operation_name="simulation_sealed_product_results_financial_v5_update",
+    )
+    return list(response.data or [])
+
+
+def get_sealed_product_financial_v5_for_runs(
+    calculation_run_ids: Sequence[Any], *, client: Optional[Any] = None
+) -> List[Dict[str, Any]]:
+    """V5 columns for an EXPLICIT run list. Requires the V5 migration to be applied."""
+    ids = [str(value) for value in calculation_run_ids if value is not None]
+    if not ids:
+        return []
+    response = (
+        _client(client).table(TABLE)
+        .select("id,calculation_run_id,sealed_product_id," + ",".join(FINANCIAL_RIP_V5_FIELDS))
+        .in_("calculation_run_id", ids)
+        .execute()
+    )
+    return list(response.data or [])

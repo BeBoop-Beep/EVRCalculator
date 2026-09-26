@@ -523,3 +523,213 @@ def test_summary_contains_required_keys():
 def _tmp_lock() -> str:
     return os.path.join(tempfile.gettempdir(),
                          f"market_explorer_cache_prewarm_test_{os.getpid()}_{id(object())}.lock")
+
+
+
+# --- Prepared generation handoff ---------------------------------------------
+
+def test_no_stale_caches_refreshes_prepared_generation_when_unscoped_commit():
+    rows = [_row("fp-current", "2026-09-17", status="ready")]
+    client = Client()
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "refreshed", "targetMarketDate": "2026-09-17"}) as refresh:
+        result = worker.run_prewarm(
+            client=client, commit=True, lock=worker.FileLock(_tmp_lock())
+        )
+
+    refresh.assert_called_once_with(
+        client, target_market_date="2026-09-17", commit=True, verify=False
+    )
+    assert result["preparedRefresh"]["status"] == "refreshed"
+    assert result["failed"] == 0
+
+
+def test_final_stale_cache_advance_triggers_prepared_generation_handoff():
+    stale_row = _row("fp-last", "2026-09-15", status="ready")
+    current_row = _row("fp-last", "2026-09-17", status="ready")
+    discoveries = [[stale_row], [current_row]]
+
+    with patch.object(worker, "discover_maintained_caches", side_effect=discoveries), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "refreshed", "targetMarketDate": "2026-09-17"}) as refresh:
+        result = worker.run_prewarm(
+            client=Client(), commit=True, lock=worker.FileLock(_tmp_lock()), guard=_ok_guard
+        )
+
+    assert result["advanced"] == 1
+    assert result["preparedRefresh"]["status"] == "refreshed"
+    assert refresh.call_count == 1
+
+
+def test_prepared_generation_remains_deferred_while_any_cache_is_stale():
+    rows_before = [_row("fp-a", "2026-09-15"), _row("fp-b", "2026-09-15")]
+    rows_after = [_row("fp-a", "2026-09-17"), _row("fp-b", "2026-09-15")]
+
+    with patch.object(worker, "discover_maintained_caches",
+                      side_effect=[rows_before, rows_after]), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "advance_one_maintained_cache",
+                      side_effect=_fake_advance_factory()), \
+         patch.object(worker, "refresh_prepared_if_current") as refresh:
+        result = worker.run_prewarm(
+            client=Client(), commit=True, max_caches=1,
+            lock=worker.FileLock(_tmp_lock()), guard=_ok_guard
+        )
+
+    refresh.assert_not_called()
+    assert result["preparedRefresh"] == {
+        "status": "deferred",
+        "reason": "maintained_caches_still_stale",
+        "staleCount": 1,
+    }
+
+
+def test_scoped_prewarm_never_owns_global_prepared_handoff():
+    rows = [_row("fp-a", "2026-09-17", set_ids=["set-a"])]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "refresh_prepared_if_current") as refresh:
+        result = worker.run_prewarm(
+            client=Client(), commit=True, only_set_ids=["set-a"],
+            lock=worker.FileLock(_tmp_lock())
+        )
+
+    refresh.assert_not_called()
+    assert result["preparedRefresh"] is None
+
+
+def test_prepared_refresh_failure_is_a_hard_worker_failure():
+    rows = [_row("fp-current", "2026-09-17", status="ready")]
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-17"), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "failed", "error": "watermark mismatch"}):
+        result = worker.run_prewarm(
+            client=Client(), commit=True, lock=worker.FileLock(_tmp_lock())
+        )
+
+    assert result["failed"] == 1
+    assert result["preparedRefresh"]["status"] == "failed"
+
+
+class _PreparedCursor:
+    def __init__(self, existing=None, result=None, error=None):
+        self.existing = existing
+        self.result = result or {"generationId": "candidate"}
+        self.error = error
+        self.queries = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, query, params=None):
+        self.queries.append((query, params))
+        if self.error and worker.PREPARED_REFRESH_RPC in query:
+            raise self.error
+
+    def fetchone(self):
+        query = self.queries[-1][0]
+        if "join public.pokemon_market_explorer_prepared_generations_v1" in query:
+            return (self.existing,) if self.existing else None
+        return (self.result,)
+
+
+class _PreparedConnection:
+    def __init__(self, cursor):
+        self._cursor = cursor
+        self.commits = 0
+        self.rollbacks = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def cursor(self):
+        return self._cursor
+
+    def commit(self):
+        self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
+
+
+def test_direct_db_dry_run_calls_guard_and_rolls_back_without_promotion():
+    cursor = _PreparedCursor()
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker._run_guarded_prepared_db("2026-09-19", commit=False)
+    assert result["status"] == "verified_rollback_only"
+    assert conn.commits == 0 and conn.rollbacks == 1
+    assert any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
+    assert not any("join public.pokemon_market_explorer_prepared_generations_v1" in query
+                   for query, _ in cursor.queries)
+
+
+def test_direct_db_commit_uses_local_timeout_and_guarded_function():
+    cursor = _PreparedCursor()
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker._run_guarded_prepared_db("2026-09-19", commit=True)
+    assert result["status"] == "refreshed"
+    assert conn.commits == 1 and conn.rollbacks == 0
+    assert any("set_config('statement_timeout'" in query
+               and params == (f"{worker.PREPARED_DB_TIMEOUT_SECONDS}s",)
+               for query, params in cursor.queries)
+    assert any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
+
+
+def test_already_current_generation_skips_needless_refresh():
+    cursor = _PreparedCursor(existing="generation-a")
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker._run_guarded_prepared_db("2026-09-19", commit=True)
+    assert result == {"status": "already_current", "generationId": "generation-a"}
+    assert conn.commits == 0 and conn.rollbacks == 1
+    assert not any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
+
+
+def test_direct_db_error_rolls_back_and_never_logs_connection_secret():
+    secret = "postgresql://user:password@host/db"
+    cursor = _PreparedCursor(error=RuntimeError(secret))
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": secret}), \
+         patch("psycopg.connect", return_value=conn):
+        result = worker.refresh_prepared_if_current(Client(), target_market_date="2026-09-19", commit=True)
+    assert result["status"] == "failed"
+    assert conn.commits == 0 and conn.rollbacks == 1
+    assert secret not in str(result)
+
+
+def test_direct_db_missing_credential_fails_closed_without_rest_fallback():
+    with patch.dict(os.environ, {"DATABASE_URL": "", "SUPABASE_DB_URL": ""}):
+        result = worker.refresh_prepared_if_current(Client(), target_market_date="2026-09-19", commit=True)
+    assert result["status"] == "failed"
+    assert result["error"] == "direct_db_credential_missing"
+
+
+def test_explicit_verify_dry_run_holds_existing_lock_and_calls_direct_guard():
+    rows = [_row("fp-current", "2026-09-19", status="ready")]
+    client = Client()
+    with patch.object(worker, "discover_maintained_caches", return_value=rows), \
+         patch.object(worker, "resolve_latest_approved_market_date", return_value="2026-09-19"), \
+         patch.object(worker, "refresh_prepared_if_current",
+                      return_value={"status": "verified_rollback_only"}) as refresh:
+        result = worker.run_prewarm(client, commit=False, verify_prepared_direct_db=True,
+                                    lock=worker.FileLock(_tmp_lock()))
+    refresh.assert_called_once_with(client,
+                                    target_market_date="2026-09-19", commit=False, verify=True)
+    assert result["preparedRefresh"]["status"] == "verified_rollback_only"
