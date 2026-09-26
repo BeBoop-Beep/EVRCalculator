@@ -1,0 +1,36 @@
+BEGIN; SET LOCAL statement_timeout='12s'; SET LOCAL lock_timeout='1s';
+DO $test$
+DECLARE root_id uuid; s jsonb; s2 jsonb; reviewed jsonb; b public.pokemon_market_basket_bindings_v3%ROWTYPE; other_variant uuid; approved_version integer; rejected boolean; tests jsonb:='[]';
+BEGIN
+ SELECT id INTO STRICT root_id FROM public.sets WHERE canonical_key='fossil';
+ s:=public.stage_pokemon_market_basket_v3(root_id,'first_edition','rollback-v3-guard-fossil-first','Rollback-only exact-edition guard tests against current catalog.');
+ IF (s->>'expectedCards')::integer<>62 OR (s->'resolutionCounts'->>'BOUND')::integer<>62 THEN RAISE EXCEPTION 'TESTFAIL: first edition is not 62/62 bound'; END IF;
+ tests:=tests||jsonb_build_array('first_edition_62_of_62_bound');
+ s2:=public.stage_pokemon_market_basket_v3(root_id,'first_edition','rollback-v3-guard-fossil-first','Replay the same staged request without extra writes.');
+ IF s2<>s THEN RAISE EXCEPTION 'TESTFAIL: idempotent staging changed result'; END IF;
+ tests:=tests||jsonb_build_array('same_request_is_idempotent');
+ s2:=public.stage_pokemon_market_basket_v3(root_id,'first_edition','rollback-v3-guard-fossil-repeat','Independent staging must preserve the same exact physical identities.');
+ IF s2->>'bindingFingerprint'<>s->>'bindingFingerprint' THEN RAISE EXCEPTION 'TESTFAIL: binding selection was not deterministic'; END IF;
+ tests:=tests||jsonb_build_array('independent_definition_same_binding_fingerprint');
+ SELECT * INTO STRICT b FROM public.pokemon_market_basket_bindings_v3 WHERE root_set_id=root_id AND market_scope='first_edition' AND basket_version=(s->>'basketVersion')::integer ORDER BY canonical_card_id LIMIT 1;
+ SELECT m.card_variant_id INTO STRICT other_variant FROM public.pokemon_market_explorer_card_current_metadata m WHERE m.canonical_card_id=b.canonical_card_id AND m.edition='unlimited' AND m.printing_type IS NOT DISTINCT FROM b.printing_type AND coalesce(m.special_type,'')='' LIMIT 1;
+ rejected:=false; BEGIN UPDATE public.pokemon_market_basket_bindings_v3 SET card_variant_id=other_variant,edition='unlimited' WHERE root_set_id=root_id AND market_scope='first_edition' AND basket_version=b.basket_version AND canonical_card_id=b.canonical_card_id; EXCEPTION WHEN check_violation THEN rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'TESTFAIL: truthful Unlimited variant entered First Edition basket'; END IF; tests:=tests||jsonb_build_array('cross_edition_binding_check_rejects');
+ rejected:=false; BEGIN UPDATE public.pokemon_market_basket_bindings_v3 SET card_variant_id=other_variant WHERE root_set_id=root_id AND market_scope='first_edition' AND basket_version=b.basket_version AND canonical_card_id=b.canonical_card_id; EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'V3 exact variant binding disagrees%' THEN RAISE; END IF; rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'TESTFAIL: variant with a forged First Edition label entered'; END IF; tests:=tests||jsonb_build_array('forged_edition_metadata_rejects');
+ rejected:=false; BEGIN INSERT INTO public.pokemon_market_registry_v3(root_set_id,market_scope,profile,condition_id,registered_authority_date) SELECT root_id,'standard','standard',condition_id,registered_authority_date FROM public.pokemon_market_registry_v3 WHERE root_set_id=root_id AND market_scope='first_edition'; EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'V3 market profile disagrees%' THEN RAISE; END IF; rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'TESTFAIL: generic vintage identity was allowed'; END IF; tests:=tests||jsonb_build_array('generic_vintage_insert_rejects');
+ rejected:=false; BEGIN PERFORM public.stage_pokemon_market_basket_v3(root_id,'standard','rollback-v3-unknown-scope','Must not substitute Standard for an edition-split root.'); EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'V3 unknown market%' THEN RAISE; END IF; rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'TESTFAIL: unknown market fallback was accepted'; END IF; tests:=tests||jsonb_build_array('unknown_scope_has_no_standard_fallback');
+ rejected:=false; BEGIN PERFORM public.approve_pokemon_market_basket_v3(root_id,'first_edition',b.basket_version,s->>'catalogFingerprint',repeat('0',64),'Intentionally wrong binding hash must reject.'); EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'V3 approval fingerprint mismatch%' THEN RAISE; END IF; rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'TESTFAIL: incorrect reviewed hash accepted'; END IF; tests:=tests||jsonb_build_array('wrong_approval_fingerprint_rejects');
+ SELECT max(basket_version) INTO approved_version FROM public.pokemon_market_basket_versions_v3 WHERE root_set_id=root_id AND market_scope='first_edition' AND state='APPROVED' AND effective_from=timezone('America/Phoenix',now())::date;
+ IF approved_version IS NULL THEN reviewed:=s; ELSE b.basket_version:=approved_version; reviewed:=public.inspect_pokemon_market_basket_v3(root_id,'first_edition',approved_version); END IF;
+ s2:=public.approve_pokemon_market_basket_v3(root_id,'first_edition',b.basket_version,reviewed->>'catalogFingerprint',reviewed->>'bindingFingerprint','Rollback-only full-basket approval or approved receipt replay after identity guard checks.');
+ IF s2->>'state'<>'APPROVED' THEN RAISE EXCEPTION 'TESTFAIL: complete basket did not approve'; END IF; tests:=tests||jsonb_build_array('complete_basket_approves');
+ rejected:=false; BEGIN DELETE FROM public.pokemon_market_basket_bindings_v3 WHERE root_set_id=root_id AND market_scope='first_edition' AND basket_version=b.basket_version AND canonical_card_id=b.canonical_card_id; EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'V3 approved basket membership%' THEN RAISE; END IF; rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'TESTFAIL: approved binding deletion succeeded'; END IF; tests:=tests||jsonb_build_array('approved_binding_delete_rejects');
+ rejected:=false; BEGIN UPDATE public.pokemon_market_basket_versions_v3 SET state='DRAFT',approved_at=NULL,binding_fingerprint=NULL WHERE root_set_id=root_id AND market_scope='first_edition' AND basket_version=b.basket_version; EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'V3 approved definitions are immutable%' THEN RAISE; END IF; rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'TESTFAIL: approved header downgrade succeeded'; END IF; tests:=tests||jsonb_build_array('approved_header_downgrade_rejects');
+ PERFORM set_config('market_v3.test_receipt',jsonb_build_object('passed',jsonb_array_length(tests),'tests',tests,'all_changes_rolled_back',true)::text,true);
+END $test$; SELECT current_setting('market_v3.test_receipt')::jsonb AS validation; ROLLBACK;
