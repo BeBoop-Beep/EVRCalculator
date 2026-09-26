@@ -1,0 +1,40 @@
+name: DB Recovery Runtime
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/db-recovery-runtime.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  runtime:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Create isolated runtime without modifying scraper environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          STATE=/home/ubuntu/state/db-safety
+          test ! -e "$STATE/recovery-venv/READY"
+          python -m venv "$STATE/recovery-venv"
+          PY="$STATE/recovery-venv/bin/python"
+          "$PY" -m pip install -q -r "$REPO/backend/requirements.txt" psutil scipy==1.18.1
+          "$PY" -m pip check
+          cd "$REPO"
+          "$PY" - <<'PY'
+          import json,sys,numpy,scipy,pandas
+          from backend.jobs.evr_runner import EVRRunOrchestrator
+          from backend.scripts.run_daily_opening_publication import orchestrate
+          from backend.scripts.operationalize_historical_rip import default_hooks
+          print(json.dumps({'python':sys.version.split()[0],'numpy':numpy.__version__,'scipy':scipy.__version__,'pandas':pandas.__version__,'simulation_import':'passed','publication_import':'passed'}))
+          PY
+          sha256sum backend/requirements.txt > "$STATE/recovery-venv/READY"
+          chmod 600 "$STATE/recovery-venv/READY"
+          echo 'ISOLATED_RECOVERY_RUNTIME_READY=true'
