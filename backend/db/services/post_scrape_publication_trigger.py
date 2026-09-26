@@ -39,6 +39,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from backend.db.services.production_db_safety import (
+    maintenance_hold_active,
+    require_maintenance_allowed,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -147,18 +152,21 @@ def evaluate_post_scrape_publication_currency(
     A current/future scalar date never proves the whole publication current;
     the existing full audit + Explorer V2 coverage checks still run.
     """
+    if maintenance_hold_active():
+        return PublicationCurrencyStatus.UNKNOWN
     target = str(market_date)[:10]
     try:
         global_market_date = _global_market_authority_date(client)
     except Exception as exc:
         logger.warning(
             "%s scalar global-Market currency probe unavailable for market_date=%s; "
-            "falling back to full audit: %s: %s",
+            "refusing heavier fallback audit: %s: %s",
             TRIGGER_TAG,
             market_date,
             type(exc).__name__,
             exc,
         )
+        return PublicationCurrencyStatus.UNKNOWN
     else:
         if global_market_date is None or global_market_date < target:
             logger.info(
@@ -171,16 +179,19 @@ def evaluate_post_scrape_publication_currency(
             return PublicationCurrencyStatus.STALE
 
     try:
+        from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
         if audit_runner is None:
-            from backend.scripts.audit_pokemon_market_publication import (
-                PHASE_POST_SCRAPE,
+            # The CLI already uses this adapter. Use the same compact reads and
+            # current publication contracts for the pre-launch check as well.
+            from backend.scripts.audit_pokemon_market_publication_resilient import (
                 run_market_publication_audit,
             )
-            audit_runner = run_market_publication_audit
+            report = run_market_publication_audit(
+                market_date=market_date, phase=PHASE_POST_SCRAPE,
+            )
         else:
-            from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
-
-        report = audit_runner(client, market_date=market_date, phase=PHASE_POST_SCRAPE)
+            # Preserve the injected test/operator callable contract.
+            report = audit_runner(client, market_date=market_date, phase=PHASE_POST_SCRAPE)
         if report.market_date != market_date or not report.passed:
             return PublicationCurrencyStatus.STALE
         if not _market_explorer_v2_current(client, market_date):
@@ -235,6 +246,7 @@ def _default_lock_is_held(lock_path: str) -> bool:
 
 
 def _default_popen(args: list, *, cwd: str, log_path: Path) -> subprocess.Popen:
+    require_maintenance_allowed()
     log_file = open(log_path, "a", encoding="utf-8")
     child_env = os.environ.copy()
     # GitHub's self-hosted runner tags job-owned processes with this value and
@@ -366,6 +378,10 @@ def trigger_post_scrape_publication_if_needed(
             TRIGGER_TAG, market_date,
         )
         result["status"] = STATUS_INVALID_MARKET_DATE
+        return result
+
+    if maintenance_hold_active():
+        result["status"] = "skipped_database_safety_hold"
         return result
 
     market_date = str(market_date)

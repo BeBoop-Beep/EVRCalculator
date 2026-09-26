@@ -135,11 +135,12 @@ def test_currency_check_exception_returns_unknown_and_never_launches():
 
 
 def test_default_publication_current_returns_unknown_on_audit_exception(monkeypatch):
-    def broken_audit(client, market_date, phase):
+    monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-01")
+    def broken_audit(*, market_date, phase):
         raise RuntimeError("db unreachable")
 
     monkeypatch.setattr(
-        "backend.scripts.audit_pokemon_market_publication.run_market_publication_audit",
+        "backend.scripts.audit_pokemon_market_publication_resilient.run_market_publication_audit",
         broken_audit,
     )
 
@@ -325,6 +326,7 @@ class _ExplorerCurrencyAuditReport:
 
 
 def test_currency_is_stale_when_canonical_passes_but_explorer_v2_is_stale(monkeypatch):
+    monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-20")
     monkeypatch.setattr(trigger, "_market_explorer_v2_current", lambda client, market_date: False)
     status = trigger.evaluate_post_scrape_publication_currency(
         object(),
@@ -335,6 +337,7 @@ def test_currency_is_stale_when_canonical_passes_but_explorer_v2_is_stale(monkey
 
 
 def test_currency_is_current_only_when_canonical_and_explorer_v2_are_current(monkeypatch):
+    monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-20")
     seen = []
     monkeypatch.setattr(
         trigger,
@@ -351,6 +354,7 @@ def test_currency_is_current_only_when_canonical_and_explorer_v2_are_current(mon
 
 
 def test_currency_is_unknown_when_explorer_v2_authority_errors(monkeypatch):
+    monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-20")
     def broken(client, market_date):
         raise RuntimeError("coverage unavailable")
 
