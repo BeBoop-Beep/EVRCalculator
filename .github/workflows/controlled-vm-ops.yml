@@ -2929,14 +2929,29 @@ jobs:
 
             market-explorer-v2-repair)
               cd "$REPO"
+              TARGET_DATE="${VM_MARKET_DATE:-2026-09-20}"
               echo "== V2 repair preflight =="
+              echo "target_market_date=$TARGET_DATE"
               git status --short
               git log -3 --oneline
               "$PY" -m backend.scripts.run_market_explorer_daily_publication \
                 --commit \
-                --market-date 2026-09-20
+                --market-date "$TARGET_DATE"
               echo "== V2 repair complete =="
-              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids; c=create_service_role_client(); tracked=set(resolve_tracked_set_ids(c)); cov=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").execute().data or []); by={str(r.get("set_id")):str(r.get("computed_through") or "")[:10] for r in cov if r.get("set_id")}; missing=sorted(tracked-set(by)); stale=sorted(s for s in tracked if by.get(s,"")<"2026-09-20"); print({"tracked":len(tracked),"coverageRows":len(cov),"missing":len(missing),"stale":len(stale),"minThrough":min((by.get(s,"") for s in tracked),default=None),"maxThrough":max((by.get(s,"") for s in tracked),default=None)}); raise SystemExit(0 if not missing and not stale else 7)'
+              TARGET_DATE="$TARGET_DATE" "$PY" - <<'PY'
+          import os
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids
+          target = os.environ["TARGET_DATE"][:10]
+          c = create_service_role_client()
+          tracked = set(resolve_tracked_set_ids(c))
+          cov = list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").execute().data or [])
+          by = {str(r.get("set_id")): str(r.get("computed_through") or "")[:10] for r in cov if r.get("set_id")}
+          missing = sorted(tracked - set(by))
+          stale = sorted(s for s in tracked if by.get(s, "") < target)
+          print({"target":target,"tracked":len(tracked),"coverageRows":len(cov),"missing":len(missing),"stale":len(stale),"minThrough":min((by.get(s,"") for s in tracked),default=None),"maxThrough":max((by.get(s,"") for s in tracked),default=None)})
+          raise SystemExit(0 if not missing and not stale else 7)
+          PY
               ;;
 
             market-explorer-coverage-rpc-cutover)
