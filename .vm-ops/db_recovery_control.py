@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 ROOT=Path('/home/ubuntu/repos/EVRCalculator')
 STATE=Path('/home/ubuntu/state/db-safety')
-PY=ROOT/'.venv/bin/python'
+PY=STATE/'recovery-venv/bin/python'
 PHASES=('simulations','collector','publication','explorer','pricing')
 sys.path.insert(0,str(ROOT))
 spec=importlib.util.spec_from_file_location('db_guard',STATE/'db_workload_guard.py')
@@ -99,12 +99,10 @@ def worker(day,phase):
     os.environ['EVR_PRICING_STATE_DIR']='/home/ubuntu/state/multi_source_pricing'
     lane=STATE/'recovery'/day/'admission'
     lane.mkdir(parents=True,exist_ok=True)
-    # This is the SAME host lock used by the scheduled-command guard. The
-    # global incident HOLD remains present, fencing other canonical launches.
     with (STATE/'worker.lock').open('a') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:raise RuntimeError('another_guarded_workload_is_active')
-        record={'phase':phase,'market_date':day,'status':'running','pid':os.getpid(),'started_at':datetime.now(ZoneInfo('UTC')).isoformat(),'app_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()}
+        record={'phase':phase,'market_date':day,'status':'running','pid':os.getpid(),'started_at':datetime.now(ZoneInfo('UTC')).isoformat(),'app_sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'python':str(PY)}
         write_receipt(day,phase,record);emit(record)
         rc=75
         try:
@@ -117,6 +115,8 @@ def worker(day,phase):
 
 
 def start(day,phase):
+    if not PY.is_file() or not (STATE/'recovery-venv/READY').is_file():
+        raise RuntimeError('validated_recovery_runtime_missing')
     reason=guard.live_pressure()
     if reason:raise RuntimeError('resource_preflight:'+reason)
     if not (STATE/'hold.json').exists():raise RuntimeError('global_recovery_hold_missing')
