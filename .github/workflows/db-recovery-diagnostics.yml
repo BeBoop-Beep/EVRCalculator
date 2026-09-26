@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           cd /home/ubuntu/repos/EVRCalculator
-          /home/ubuntu/state/db-safety/recovery-venv/bin/python - <<'PY'
+          .venv/bin/python - <<'PY'
           import json,os,time
           from pathlib import Path
           from dotenv import dotenv_values
