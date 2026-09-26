@@ -31,10 +31,11 @@ jobs:
           test -f /home/ubuntu/state/db-safety/hold.json
           git -C "$REPO" fetch --quiet origin vm-ops-control
           git -C "$REPO" worktree add --detach "$WT" "$BASE"
-          for FILE in production_db_safety.py patch_publication_db_safety.py test_publication_db_safety.py; do
+          for FILE in production_db_safety.py patch_publication_db_safety.py test_publication_db_safety.py patch_safety_test_fixtures.py; do
             git -C "$REPO" show "$SOURCE_SHA:.vm-ops/$FILE" > "$TMP/$FILE"
           done
           "$PY" "$TMP/patch_publication_db_safety.py" "$WT"
+          "$PY" "$TMP/patch_safety_test_fixtures.py" "$WT"
           bash -n "$WT/backend/scripts/rebuild_snapshots_after_scrape.sh"
           (
             cd "$WT"
@@ -44,15 +45,14 @@ jobs:
             export INDEX_DB_SAFETY_HOLD_PATH="$TMP/isolated-absent-hold"
             export PYTHONPATH="$WT:/tmp/evr-pytest-deps"
             "$PY" -m unittest -v backend.tests.unit.db.services.test_publication_db_safety
-            timeout 90 "$PY" -m pytest -q -p no:cacheprovider backend/tests/unit/db/services/test_post_scrape_publication_trigger.py -k 'not default_publication_current'
+            timeout 90 "$PY" -m pytest -q -p no:cacheprovider backend/tests/unit/db/services/test_post_scrape_publication_trigger.py
             "$PY" -m py_compile backend/db/services/production_db_safety.py backend/db/services/post_scrape_publication_trigger.py
           )
-          FILES=(backend/db/services/production_db_safety.py backend/db/services/post_scrape_publication_trigger.py backend/scripts/rebuild_snapshots_after_scrape.sh backend/tests/unit/db/services/test_publication_db_safety.py)
+          FILES=(backend/db/services/production_db_safety.py backend/db/services/post_scrape_publication_trigger.py backend/scripts/rebuild_snapshots_after_scrape.sh backend/tests/unit/db/services/test_publication_db_safety.py backend/tests/unit/db/services/test_post_scrape_publication_trigger.py)
           git -C "$WT" add -- "${FILES[@]}"
           git -C "$WT" diff --cached --check
           git -C "$WT" -c user.name=index-vm-ops -c user.email=vm-ops@index.invalid commit -m 'fix(ops): fence publication under incident hold and avoid legacy JSON audit'
           CANDIDATE=$(git -C "$WT" rev-parse HEAD)
-          # Standard GitHub Actions repository token; never print the header.
           AUTH=$(printf 'x-access-token:%s' "$REPO_TOKEN" | base64 -w0)
           GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $AUTH" git -C "$WT" push https://github.com/BeBoop-Beep/EVRCalculator.git "HEAD:refs/heads/$BRANCH"
           unset AUTH REPO_TOKEN
@@ -73,7 +73,6 @@ jobs:
           set -e
           test "$RC" = 75
           "$PY" - <<'PY'
-          from pathlib import Path
           from backend.db.services.post_scrape_publication_trigger import trigger_post_scrape_publication_if_needed
           result=trigger_post_scrape_publication_if_needed('2026-09-25')
           assert result['status']=='skipped_database_safety_hold', result
