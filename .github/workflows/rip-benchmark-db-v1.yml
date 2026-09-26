@@ -4,6 +4,16 @@ on:
     branches: [feat/rip-benchmark-db-v1-20260926]
     paths:
       - backend/db/benchmarks/rip_benchmark_foundation_v1.sql
+      - backend/db/migrations/*_rip_benchmark_foundation_v1.sql
+      - supabase/migrations/*_rip_benchmark_foundation_v1.sql
+      - backend/tests/integration/rip_benchmark_v1_postgres.py
+      - .github/workflows/rip-benchmark-db-v1.yml
+  pull_request:
+    branches: [develop]
+    paths:
+      - backend/db/benchmarks/rip_benchmark_foundation_v1.sql
+      - backend/db/migrations/*_rip_benchmark_foundation_v1.sql
+      - supabase/migrations/*_rip_benchmark_foundation_v1.sql
       - backend/tests/integration/rip_benchmark_v1_postgres.py
       - .github/workflows/rip-benchmark-db-v1.yml
 permissions:
@@ -17,13 +27,13 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:17.6
+        image: postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
         env:
           POSTGRES_PASSWORD: isolated_test_only
           POSTGRES_DB: benchmark_test
         ports: [5432:5432]
         options: >-
-          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+          --health-cmd "pg_isready -U postgres -d benchmark_test" --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       PGHOST: 127.0.0.1
       PGPORT: 5432
@@ -31,20 +41,19 @@ jobs:
       PGPASSWORD: isolated_test_only
       PGDATABASE: benchmark_test
     steps:
-      - uses: actions/checkout@v4
-      - name: Generate migration with pinned Supabase CLI
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify CLI-generated migration mirrors
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p benchmark-test-output
-          npx --yes supabase@2.118.0 --version
-          npx --yes supabase@2.118.0 migration --help
-          npx --yes supabase@2.118.0 migration new --help
-          npx --yes supabase@2.118.0 migration new rip_benchmark_foundation_v1
-          migration=$(find supabase/migrations -maxdepth 1 -name '*_rip_benchmark_foundation_v1.sql' | sort | tail -1)
-          test -n "$migration"
-          cp backend/db/benchmarks/rip_benchmark_foundation_v1.sql "$migration"
-          cp "$migration" "backend/db/migrations/$(basename "$migration")"
+          mapfile -t migrations < <(find supabase/migrations -maxdepth 1 -name '*_rip_benchmark_foundation_v1.sql')
+          test "${#migrations[@]}" -eq 1
+          migration="${migrations[0]}"
+          cmp "$migration" "backend/db/migrations/$(basename "$migration")"
+          cmp "$migration" backend/db/benchmarks/rip_benchmark_foundation_v1.sql
           printf '%s\n' "$(basename "$migration")" | tee benchmark-test-output/migration-name.txt
           cp "$migration" benchmark-test-output/
       - name: PostgreSQL security, atomicity, lineage and scale tests
@@ -52,9 +61,9 @@ jobs:
         run: |
           set -euo pipefail
           python backend/tests/integration/rip_benchmark_v1_postgres.py 2>&1 | tee benchmark-test-output/test.log
-      - name: Retain test evidence and CLI-generated migration
+      - name: Retain test evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: rip-benchmark-db-v1-evidence
           path: benchmark-test-output/
