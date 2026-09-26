@@ -20,6 +20,7 @@ import {
 } from "@/lib/explore/marketExplorerConstituents.mjs";
 import ConstituentThumbnail from "./MarketExplorerConstituentPreview";
 import { buildConstituentSwitcherEntries } from "@/lib/explore/marketExplorerWorkspace.mjs";
+import { resolveCompositionCapability } from "@/lib/explore/marketExplorerComposition.mjs";
 import useMarketExplorerConstituentPage from "@/hooks/explore/useMarketExplorerConstituentPage";
 import { CONSTITUENT_ERROR } from "@/lib/explore/marketExplorerConstituentPaging.mjs";
 
@@ -271,9 +272,20 @@ function QueryConstituentSection({ series, identity, movementWindow, mode = "exp
   }
   if (page.error && page.rows.length === 0) {
     const message = prepared ? (PREPARED_ERROR_COPY[page.errorCode] || PREPARED_ERROR_COPY.default) : page.error;
+    // LOCKED is a deliberate product state, not a failure: constituents are an
+    // Index+ feature. It is distinct from unavailable / failed / empty / loading.
+    if (prepared && NON_RETRYABLE.has(page.errorCode)) {
+      return (
+        <div role="status" data-market-constituents-state="locked" data-market-constituents-locked={page.errorCode} className="mx-3 mb-6 mt-1 rounded-lg border border-violet-400/40 bg-violet-500/[.08] px-3 py-3 text-xs text-[var(--text-secondary)] sm:mx-4">
+          <strong className="block text-[var(--text-primary)]">Constituents are included with Index+</strong>
+          <span className="block">{page.errorCode === CONSTITUENT_ERROR.auth ? "Sign in with an Index+ plan to see what is inside this market." : "Upgrade to Index+ to see what is inside this market."}</span>
+          <a href={page.errorCode === CONSTITUENT_ERROR.auth ? "/login" : "/pricing"} data-market-constituents-locked-link className="mt-2 inline-block rounded-md border border-violet-300/60 px-2.5 py-1 font-semibold text-violet-100">{page.errorCode === CONSTITUENT_ERROR.auth ? "Sign in" : "See Index+"}</a>
+        </div>
+      );
+    }
     return (
       <div className="px-3 pb-6 pt-1 sm:px-4">
-        <p role="alert" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
+        <p role="alert" data-market-constituents-state="failed" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
           {message}
         </p>
         {NON_RETRYABLE.has(page.errorCode) ? null : (
@@ -374,7 +386,7 @@ function QueryConstituentSection({ series, identity, movementWindow, mode = "exp
       ) : null}
       {page.error ? (
         <div className="px-3 pb-4 sm:px-4">
-          <p role="alert" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
+          <p role="alert" data-market-constituents-state="failed" data-market-constituents-page-error className="text-xs text-[var(--text-secondary)]">
             {prepared ? (PREPARED_ERROR_COPY[page.errorCode] || PREPARED_ERROR_COPY.default) : page.error}
           </p>
           {NON_RETRYABLE.has(page.errorCode) ? null : (
@@ -434,6 +446,11 @@ export default function MarketExplorerConstituents({
     (series) => series && series.available !== false && isEnumerableSeries(series)
   );
   const active = inspectable.find((series) => series.key === activeSeriesId) || null;
+  // Active markets that publish no roster are SAID, never silently skipped.
+  const notInspectable = selectedSeries.filter((series) => series && !(series.available !== false && isEnumerableSeries(series)));
+  const notInspectableReason = (series) => resolveCompositionCapability(series).reason
+    || series.unavailableReason
+    || `${series.label || "This market"} composition is not available in the current published generation.`;
   // A QUERY-BUILT market pages its roster from the backend; a prepared/parent
   // market keeps reading its already-published (small) summary.
   const isQuerySourced = Boolean(active?.queryFingerprint);
@@ -478,7 +495,7 @@ export default function MarketExplorerConstituents({
           </span>
         ) : (
           <span className="text-[11px] text-[var(--text-secondary)]">
-            Select a market to see what is inside it.
+            {notInspectable.length && !inspectable.length ? "No inspectable market is active." : "Select a market to see what is inside it."}
           </span>
         )}
         {(isPaged || model.availability === CONSTITUENTS_AVAILABLE) ? (
@@ -495,6 +512,16 @@ export default function MarketExplorerConstituents({
         entries={buildConstituentSwitcherEntries(selectedSeries.filter(Boolean), { targetKey: active?.key || null, hiddenKeys: hiddenSeriesKeys instanceof Set ? hiddenSeriesKeys : new Set(), focusedKey: focusedSeriesKey })}
         onSelect={onSelectSeries}
       />
+
+      {notInspectable.length ? (
+        <ul data-market-constituents-not-inspectable className="space-y-0.5 px-3 pb-2 text-[10px] text-[var(--text-secondary)] sm:px-4">
+          {notInspectable.map((series) => (
+            <li key={series.key} data-market-constituents-not-inspectable-item={series.key}>
+              <span className="font-semibold text-[var(--text-primary)]">{series.shortLabel || series.label}</span>: {notInspectableReason(series)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {isPaged ? (
         // NEVER the 33k-row static path — always the paged backend consumer.
@@ -626,7 +653,7 @@ export default function MarketExplorerConstituents({
         >
           {model.availability === CONSTITUENTS_PENDING_PUBLICATION
             ? model.reason
-            : (model.reason || "Select a market to see what is inside it.")}
+            : (model.reason || (!active && notInspectable.length && !inspectable.length ? "None of the active markets publishes an inspectable composition right now." : "Select a market to see what is inside it."))}
         </p>
       )}
     </section>

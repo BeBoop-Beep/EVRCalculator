@@ -302,3 +302,31 @@ test("ADD (real comparison) still sends the workspace as context", async () => {
   await h.tick();
   assert.deepEqual(h.calls.find((c) => c.key === "set:jungle").contextKeys, ["set:fossil"]);
 });
+
+// Wire-level: loader + the real fetchPreparedMarket + the real request body.
+test("wire: a replacement POST carries contextMarketKeys=[] (what the backend counts)", async () => {
+  const { fetchPreparedMarket } = await import("./marketExplorerPrepared.mjs");
+  const bodies = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    bodies.push(body);
+    const key = body.marketKeys[0];
+    return new Response(JSON.stringify({
+      markets: [{ market_key: key, market_type: "set", label: key, asset: "cards", comparison_as_of: "2026-09-22", generation_id: "g" }],
+      history: [{ market_key: key, market_date: "2026-09-21", index_value: 100 }, { market_key: key, market_date: "2026-09-22", index_value: 101 }],
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const loader = createPreparedMarketLoader({ fetchMarket: fetchPreparedMarket });
+    assert.equal(await loader.replace("set:fossil"), "loaded");
+    assert.equal(await loader.replace("set:jungle"), "loaded");
+    assert.equal(await loader.replace("era:neo"), "loaded");
+    assert.deepEqual(bodies.map((b) => b.contextMarketKeys), [[], [], []]);
+    assert.deepEqual(loader.getSnapshot().order, ["era:neo"]);
+    assert.equal(await loader.add("set:base2"), "loaded");
+    assert.deepEqual(bodies.at(-1).contextMarketKeys, ["era:neo"]); // real comparison keeps context
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
