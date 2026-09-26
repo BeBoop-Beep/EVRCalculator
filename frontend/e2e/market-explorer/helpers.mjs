@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const OUT_DIR = path.resolve(process.cwd(), "../backend/artifacts/market_explorer_acceptance/ui_regression_20260925");
+export const OUT_DIR = path.resolve(process.cwd(), "../backend/artifacts/market_explorer_acceptance/final_ui_gap_closure_20260925");
 export const URLS = {
   liveAnon: process.env.EXPLORER_LIVE_URL || "http://127.0.0.1:3200", // real backend, anonymous only
   v2: process.env.EXPLORER_FIXTURE_V2_URL || "http://127.0.0.1:3202", // FIXTURE V2
@@ -37,6 +37,28 @@ export async function ensureTools(page) {
   }
 }
 
+/** Remove the default parent markets before exercising paid-plan capacity. */
+export async function clearDefaults(page) {
+  const button = page.locator("[data-market-explorer-active-clear-all]");
+  if (await button.count()) {
+    await button.click();
+    await page.waitForFunction(() => document.querySelectorAll("[data-market-explorer-active-chip]").length === 0);
+  }
+}
+
+/** Close the paid-user directory popover so workspace controls remain reachable. */
+export async function closeDirectory(page) {
+  if (await page.locator("[data-market-directory-popover]").count()) {
+    await page.locator("[data-market-explorer-chart-pane]").click({ position: { x: 4, y: 4 } });
+    await page.locator("[data-market-directory-popover]").waitFor({ state: "detached" });
+  }
+}
+
+export async function dismissNotice(page) {
+  const dismiss = page.locator("[data-market-explorer-compare-upgrade] button", { hasText: "Dismiss" });
+  if (await dismiss.count()) await dismiss.click();
+}
+
 export async function chooseCategory(page, category) {
   await ensureTools(page);
   const popover = page.locator("[data-market-directory-popover]");
@@ -55,7 +77,7 @@ export const activeChips = (page) => page.locator("[data-market-explorer-active-
 
 export async function shot(page, name) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  await page.screenshot({ path: path.join(OUT_DIR, `${name}.png`) });
+  await page.screenshot({ path: path.join(OUT_DIR, `${name}.jpg`), type: "jpeg", quality: 70 });
 }
 
 export async function fixtureRequests(backend = URLS.backend) {

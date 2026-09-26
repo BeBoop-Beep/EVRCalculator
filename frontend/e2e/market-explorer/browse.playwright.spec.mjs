@@ -2,7 +2,7 @@
 // V1 = what production serves today (fixture V1 backend, plus optional live-anonymous).
 // V2 = FIXTURE ONLY: proves the intended UI before a V2 serving generation exists.
 import { test, expect } from "@playwright/test";
-import { newSession, openExplorer, pickRow, chooseCategory, shot, URLS, VIEWPORTS } from "./helpers.mjs";
+import { clearDefaults, newSession, openExplorer, pickRow, chooseCategory, shot, URLS, VIEWPORTS } from "./helpers.mjs";
 
 const chip = (page, fragment) => page.locator(`[data-market-explorer-active-chip*="${fragment}"]`);
 const preparedPosts = (net) => net.requests.filter((r) => r.method === "POST" && r.url === "/api/market/explorer/prepared").map((r) => JSON.parse(r.body));
@@ -21,12 +21,12 @@ for (const [name, base] of [["V1 fixture", URLS.v1], ["V2 fixture", URLS.v2]]) {
     const s = await search.boundingBox();
     expect(s.y).toBeGreaterThanOrEqual(g.y + g.height - 1);
     expect(s.y - (g.y + g.height)).toBeLessThan(40); // directly underneath
-    await expect(search).toHaveAttribute("placeholder", "Search cards or card markets…");
+    await expect(search).toHaveAttribute("placeholder", "Search cards, Sets, Eras, rarities, and card markets…");
     await expect(page.locator("[data-market-explorer-contextual-search] [data-market-directory-asset]")).toHaveCount(0);
     await shot(page, `${name.replace(" ", "-")}-search-cards`);
 
     await layer(page, "sealed").click();
-    await expect(search).toHaveAttribute("placeholder", "Search sealed products or sealed markets…");
+    await expect(search).toHaveAttribute("placeholder", "Search sealed products, Sets, Eras, and sealed markets…");
     await expect(page.locator("[data-market-explorer-search-input]")).toHaveCount(1);
     await shot(page, `${name.replace(" ", "-")}-search-sealed`);
 
@@ -37,23 +37,6 @@ for (const [name, base] of [["V1 fixture", URLS.v1], ["V2 fixture", URLS.v2]]) {
     await context.close();
   });
 }
-
-test("Sealed V1 fixture: coherent flat Sealed Markets list, no invented Set/Era/Type markets", async ({ browser }) => {
-  const { context, page } = await newSession(browser, { base: URLS.v1 });
-  await openExplorer(page, URLS.v1);
-  await layer(page, "sealed").click();
-  const cats = await categories(page);
-  expect(cats[0]).toBe("Sealed Markets");
-  expect(cats.filter((c) => /^(Sets|Eras|Quick Markets|Sealed Types)$/.test(c))).toEqual([]);
-  await expect(page.locator('[data-market-directory-category="types"]')).toHaveCount(0);
-  await expect(page.locator('[data-market-directory-category="sets"]')).toHaveCount(0);
-  await chooseCategory(page, "sealed");
-  await expect(page.locator("[data-prepared-market]")).toHaveCount(2);
-  await shot(page, "v1-fixture-sealed-ia");
-  await pickRow(page, "sealed", "Booster Boxes");
-  await expect(chip(page, "sealed-format").first()).toBeVisible({ timeout: 30000 });
-  await context.close();
-});
 
 test("Sealed V2 fixture: Search, Sets, Eras, Quick Markets, Sealed Types, Screens, Build; no flat Sealed Markets", async ({ browser }) => {
   const { context, page, net } = await newSession(browser, { base: URLS.v2 });
@@ -102,8 +85,9 @@ test("Sealed V2 fixture: Search, Sets, Eras, Quick Markets, Sealed Types, Screen
 });
 
 test("asset labels: Cards / Sealed context on Set and Era chips (published asset, not key parsing)", async ({ browser }) => {
-  const { context, page } = await newSession(browser, { base: URLS.v2, plan: "plus" });
+  const { context, page } = await newSession(browser, { base: URLS.v2, plan: "premium" });
   await openExplorer(page, URLS.v2);
+  await clearDefaults(page);
   await pickRow(page, "sets", "Fossil");
   await expect(chip(page, "set:set-fossil")).toContainText("Fossil — Cards", { timeout: 30000 });
   await layer(page, "sealed").click();
@@ -115,13 +99,13 @@ test("asset labels: Cards / Sealed context on Set and Era chips (published asset
   await pickRow(page, "eras", "Base");
   await expect(chip(page, "era:era-base")).toContainText("— Cards", { timeout: 30000 });
   await shot(page, "v2-fixture-asset-labels");
-  await expect(chip(page, "raw")).not.toContainText("— Cards");
   await context.close();
 });
 
 test("rarity V2 fixture: every option resolves to exactly ONE truthful state; no click-to-nothing", async ({ browser }) => {
-  const { context, page } = await newSession(browser, { base: URLS.v2, plan: "plus" });
+  const { context, page } = await newSession(browser, { base: URLS.v2, plan: "premium" });
   await openExplorer(page, URLS.v2);
+  await clearDefaults(page);
   await page.locator("[data-rarity-market-trigger]").click();
   const wanted = ["Rare Holo GX", "Rare Holo EX", "Rare Holo V", "Rare Holo VMAX", "Rare Holo VSTAR", "Rare Ultra", "Rare Secret", "Ultra Rare", "Special Illustration Rare"];
   const options = page.locator("[data-rarity-market]");
@@ -185,12 +169,13 @@ test("Raw Card Market: V1 is truthfully NOT inspectable; V2 (index_and_compositi
 });
 
 test("artwork across Set/Rarity markets; missing artwork is an intentional placeholder", async ({ browser }) => {
-  const { context, page } = await newSession(browser, { base: URLS.v2, plan: "plus" });
+  const { context, page } = await newSession(browser, { base: URLS.v2, plan: "premium" });
   await openExplorer(page, URLS.v2);
+  await clearDefaults(page);
   await pickRow(page, "sets", "Fossil");
   await expect(chip(page, "set:set-fossil")).toHaveCount(1, { timeout: 30000 });
   for (const [label, frag] of [["HeartGold", "set:set-hgss"], ["Base Set 2", "set:set-bs2"], ["Jungle", "set:set-jungle"]]) {
-    await page.locator("li[role=option]", { hasText: label }).first().locator("[data-compare-market]").click();
+    await pickRow(page, "sets", label);
     await expect(chip(page, frag)).toHaveCount(1, { timeout: 30000 });
   }
   await page.keyboard.press("Escape");

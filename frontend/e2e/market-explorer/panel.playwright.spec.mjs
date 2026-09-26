@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
-import { newSession, openExplorer, pickRow, shot, URLS, VIEWPORTS, OUT_DIR, resetFixtureRequests } from "./helpers.mjs";
+import { clearDefaults, newSession, openExplorer, pickRow, shot, URLS, VIEWPORTS, OUT_DIR, resetFixtureRequests } from "./helpers.mjs";
 
 const chip = (page, fragment) => page.locator(`[data-market-explorer-active-chip*="${fragment}"]`);
 const centerX = async (locator) => { const b = await locator.boundingBox(); return b.x + b.width / 2; };
@@ -16,7 +16,7 @@ const record = (key, value) => {
 };
 
 async function compareAdd(page, label, fragment) {
-  await page.locator("li[role=option]", { hasText: label }).first().locator("[data-compare-market]").click();
+  await page.locator("li[role=option]", { hasText: label }).first().locator("[data-prepared-market]").click();
   await expect(chip(page, fragment)).toHaveCount(1, { timeout: 30000 });
 }
 
@@ -97,6 +97,7 @@ test("constituent entitlement: anonymous sees a deliberate LOCKED state, Index+/
   for (const plan of ["plus", "premium"]) {
     s = await newSession(browser, { base: URLS.v2, plan });
     await openExplorer(s.page, URLS.v2);
+    await clearDefaults(s.page);
     await pickRow(s.page, "sets", "Fossil");
     await expect(chip(s.page, "set-fossil")).toHaveCount(1, { timeout: 30000 });
     await s.page.click("[data-market-explorer-view-details]");
@@ -118,6 +119,7 @@ test("constituent switcher: A/B/C stay active, cached A is not refetched, hidden
   await resetFixtureRequests();
   const { context, page, net } = await newSession(browser, { base: URLS.v2, plan: "plus" });
   await openExplorer(page, URLS.v2);
+  await clearDefaults(page);
   await pickRow(page, "sets", "Fossil");
   await expect(chip(page, "set-fossil")).toHaveCount(1, { timeout: 30000 });
   await compareAdd(page, "Jungle", "set-jungle");

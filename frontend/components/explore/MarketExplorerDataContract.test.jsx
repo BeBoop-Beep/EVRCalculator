@@ -44,7 +44,7 @@ test("search: placeholders, combobox/listbox semantics, keyboard navigation and 
   const activated = [];
   const { renderer, fetches } = await mountSearch({ asset: "cards", onActivateMarket: (k) => activated.push(k) }, [SET, { ...SET, label: "Gengar Set", market_key: "set:gengar" }]);
   const el = input(renderer);
-  assert.equal(el.props.placeholder, "Search cards or card markets…");
+  assert.equal(el.props.placeholder, "Search cards, Sets, Eras, rarities, and card markets…");
   assert.equal(el.props.role, "combobox");
   assert.equal(el.props["aria-autocomplete"], "list");
   await type(renderer, "fos");
@@ -74,7 +74,7 @@ test("search result type is rendered; a market result shows active/loading/faile
 test("instrument result: primary Open detail (new tab), secondary Add to Exact Basket; never an aggregate market", async () => {
   const basket = []; const activated = [];
   const { renderer } = await mountSearch({ asset: "sealed", onActivateMarket: (k) => activated.push(k), onAddToBasket: (i) => basket.push(i) }, [PRODUCT]);
-  assert.equal(input(renderer).props.placeholder, "Search sealed products or sealed markets…");
+  assert.equal(input(renderer).props.placeholder, "Search sealed products, Sets, Eras, and sealed markets…");
   await type(renderer, "evolving skies booster box");
   const detail = renderer.root.findByProps({ "data-search-primary": "detail" });
   assert.equal(detail.props.target, "_blank");
@@ -120,7 +120,7 @@ test("search: switching asset re-scopes the same field (no second dropdown) and 
   await act(async () => { renderer.update(<MarketExplorerContextualSearch asset="sealed" controllerFactory={h.factory} />); });
   await act(async () => { await tick(); await tick(); });
   assert.equal(h.fetches.at(-1).asset, "sealed");
-  assert.equal(input(renderer).props.placeholder, "Search sealed products or sealed markets…");
+  assert.equal(input(renderer).props.placeholder, "Search sealed products, Sets, Eras, and sealed markets…");
   assert.equal(renderer.root.findAllByType("select").length, 0);
   renderer.unmount();
 });

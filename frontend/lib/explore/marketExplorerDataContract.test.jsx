@@ -155,8 +155,8 @@ test("search actions: market activates via prepared loader; instrument opens det
 });
 
 test("placeholders match the contract per asset", () => {
-  assert.equal(SEARCH_PLACEHOLDER.cards, "Search cards or card markets…");
-  assert.equal(SEARCH_PLACEHOLDER.sealed, "Search sealed products or sealed markets…");
+  assert.equal(SEARCH_PLACEHOLDER.cards, "Search cards, Sets, Eras, rarities, and card markets…");
+  assert.equal(SEARCH_PLACEHOLDER.sealed, "Search sealed products, Sets, Eras, and sealed markets…");
   assert.equal(SEARCH_PLACEHOLDER.graded, "Search graded cards…");
 });
 

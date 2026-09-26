@@ -1,7 +1,7 @@
 // Single-market replacement is NOT comparison. Anonymous/basic users must be able
 // to switch Set -> Set and Era -> Era with no login/Index+ prompt and no compare call.
 import { test, expect } from "@playwright/test";
-import { newSession, openExplorer, pickRow, chooseCategory, shot, URLS, VIEWPORTS } from "./helpers.mjs";
+import { clearDefaults, newSession, openExplorer, pickRow, chooseCategory, shot, URLS, VIEWPORTS } from "./helpers.mjs";
 
 const chips = (page) => page.locator("[data-market-explorer-active-chip]");
 const preparedPosts = (net) => net.requests.filter((r) => r.method === "POST" && r.url === "/api/market/explorer/prepared").map((r) => JSON.parse(r.body));
@@ -81,9 +81,10 @@ test("fixture-v1: a failed replacement keeps the old market and does not compare
 test("fixture-v1: Index+ users still compare and the backend still enforces it", async ({ browser }) => {
   const { context, page, net } = await newSession(browser, { base: URLS.v1, plan: "plus" });
   await openExplorer(page, URLS.v1);
+  await clearDefaults(page);
   await pickRow(page, "sets", "Fossil");
   await expect(page.locator('[data-market-explorer-active-chip*="fossil"]')).toHaveCount(1, { timeout: 30000 });
-  await page.locator('[data-compare-market="set:set-jungle"]').click();
+  await page.locator('[data-prepared-market="set:set-jungle"]').click();
   await expect(page.locator('[data-market-explorer-active-chip*="jungle"]')).toHaveCount(1, { timeout: 30000 });
   const jungle = preparedPosts(net).find((p) => p.marketKeys[0] === "set:set-jungle");
   expect(jungle.contextMarketKeys.length).toBeGreaterThan(0); // real comparison keeps its context

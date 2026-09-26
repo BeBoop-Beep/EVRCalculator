@@ -197,8 +197,17 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
       if (route === "/market/explorer/catalog/search") {
         const q = String(url.searchParams.get("q") || "").toLowerCase();
         const asset = url.searchParams.get("asset");
-        const all = directory(mode).filter((row) => row.asset === asset && row.label.toLowerCase().includes(q));
-        return reply(200, { results: all.slice(0, 8).map((row) => ({ result_kind: row.market_type === "era" ? "era" : row.market_type === "set" ? "set" : "prepared_market", market_key: row.market_key, label: row.label, subtitle: row.asset, asset: row.asset, availability: "AVAILABLE", metadata: {} })) });
+        if (q.startsWith("slow")) return setTimeout(() => reply(200, { results: [{ result_kind: "prepared_market", market_key: "stale:marker", label: "STALE RESULT", subtitle: asset, asset, availability: "AVAILABLE", metadata: {} }] }), 1500);
+        const instruments = asset === "sealed"
+          ? [{ result_kind: "instrument", instrument_id: "sealed-prod-1", label: "Fixture Booster Box", subtitle: "Fossil · Booster Box", asset: "sealed", availability: "AVAILABLE", metadata: { sealedProductId: "sealed-prod-1", setName: "Fossil", productFamily: "Booster Box" } }]
+          : asset === "cards"
+            ? [{ result_kind: "instrument", instrument_id: "var-gengar", label: "Fixture Gengar", subtitle: "Fossil · 5 Rare Holo", asset: "cards", set_id: SET.fossil, availability: "AVAILABLE", metadata: { cardVariantId: "var-gengar", cardNumber: "5", rarity: "Rare Holo" } }]
+            : [];
+        const all = [...directory(mode), ...candidateRows(mode)].filter((row) => row.asset === asset && row.label.toLowerCase().includes(q));
+        const matchedInstruments = instruments.filter((item) => item.label.toLowerCase().includes(q) || q.includes("gengar") && item.label.includes("Gengar") || q.includes("product") && item.asset === "sealed");
+        if (asset === "graded") return reply(200, { results: [{ result_kind: "instrument", label: "Graded cards", subtitle: "Graded markets are not available yet.", asset: "graded", availability: "INSUFFICIENT_AUTHORITY", metadata: {} }] });
+        const asResult = (row) => ({ result_kind: row.market_type === "era" ? "era" : row.market_type === "set" ? "set" : "prepared_market", market_key: row.market_key, label: row.label, subtitle: row.asset, asset: row.asset, availability: "AVAILABLE", metadata: {} });
+        return reply(200, { results: [...all.map(asResult), ...matchedInstruments].slice(0, 8) });
       }
       if (route === "/market/explorer/query/options") return reply(404, { message: "fixture: not modelled" });
       return reply(404, { message: `fixture: ${route} not modelled` });

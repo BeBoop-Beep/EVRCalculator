@@ -1,0 +1,102 @@
+{
+  "focus-recede": {
+    "chipStates": [
+      {
+        "key": "set:set-fossil",
+        "dimmed": "true",
+        "opacity": 0.6,
+        "filter": "grayscale(1)"
+      },
+      {
+        "key": "set:set-jungle",
+        "dimmed": "false",
+        "opacity": 1,
+        "filter": "none"
+      },
+      {
+        "key": "set:set-bs2",
+        "dimmed": "true",
+        "opacity": 0.6,
+        "filter": "grayscale(1)"
+      }
+    ],
+    "lines": [
+      "dimmed",
+      "dimmed",
+      "focused"
+    ]
+  },
+  "rarity-states": [
+    {
+      "id": "rareHoloGX",
+      "state": "PREPARED_CANDIDATE",
+      "action": "prepared",
+      "disabled": false,
+      "reason": null
+    },
+    {
+      "id": "rareHoloEX",
+      "state": "INSUFFICIENT_COHORT",
+      "action": "none",
+      "disabled": true,
+      "reason": "Not enough currently priced cards across enough Sets to form a market yet."
+    },
+    {
+      "id": "rareHoloV",
+      "state": "CUSTOM_BUILD_AVAILABLE",
+      "action": "build",
+      "disabled": false,
+      "reason": null
+    },
+    {
+      "id": "rareHoloVMAX",
+      "state": "INSUFFICIENT_HISTORY",
+      "action": "none",
+      "disabled": true,
+      "reason": "Not enough price history to form a market yet."
+    },
+    {
+      "id": "rareHoloVSTAR",
+      "state": "UNAVAILABLE",
+      "action": "none",
+      "disabled": true,
+      "reason": "No current priced inventory is available for this option."
+    },
+    {
+      "id": "rareUltra",
+      "state": "PREPARED",
+      "action": "prepared",
+      "disabled": false,
+      "reason": null
+    },
+    {
+      "id": "rareSecret",
+      "state": "PREPARED",
+      "action": "prepared",
+      "disabled": false,
+      "reason": null
+    },
+    {
+      "id": "ultraRare",
+      "state": "PREPARED",
+      "action": "prepared",
+      "disabled": false,
+      "reason": null
+    },
+    {
+      "id": "specialIllustrationRare",
+      "state": "PREPARED",
+      "action": "prepared",
+      "disabled": false,
+      "reason": null
+    }
+  ],
+  "center-1440x900": {
+    "viewOffset": 0.01,
+    "hideOffset": 0
+  },
+  "center-1920x1080": {
+    "viewOffset": 0.01,
+    "hideOffset": 0
+  }
+}
