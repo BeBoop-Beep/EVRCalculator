@@ -1,0 +1,79 @@
+name: DB Recovery Preflight
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/db-recovery-preflight.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 4
+    steps:
+      - name: Read resource and workload state without changing hold
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          .venv/bin/python - <<'PY'
+          import base64,importlib.util,json,os,re,subprocess,time
+          from pathlib import Path
+          import httpx
+          from dotenv import dotenv_values
+          root=Path.cwd(); state=Path('/home/ubuntu/state/db-safety')
+          def emit(k,v): print(json.dumps({'check':k,'value':v},default=str),flush=True)
+          emit('head',subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
+          emit('git_status',subprocess.check_output(['git','status','--short'],text=True).splitlines()[:20])
+          emit('hold',json.loads((state/'hold.json').read_text()) if (state/'hold.json').exists() else None)
+          cron=subprocess.check_output(['crontab','-l'],text=True)
+          rows=[]
+          for line in cron.splitlines():
+              if '--run-encoded ' in line:
+                  encoded=line.split('--run-encoded ',1)[1].split()[0]
+                  rows.append({'disabled':line.startswith('#'),'schedule':line.replace('# CODE_RED_DISABLED ','',1).split()[:5], 'command':base64.b64decode(encoded).decode()})
+          emit('scheduled_commands',rows)
+          markers=['run_next_scrape_job','run_all_v2_sets','run_daily_opening_publication','refresh_stale_public_snapshots','rebuild_snapshots_after_scrape','run_market_explorer','publish_market_explorer','backend.alerts','backend.sentinel']
+          workers=[]
+          for p in Path('/proc').iterdir():
+              if not p.name.isdigit() or int(p.name)==os.getpid():continue
+              try:
+                  if p.stat().st_uid!=os.getuid():continue
+                  cmd=(p/'cmdline').read_bytes().replace(b'\0',b' ').decode(errors='replace')
+                  found=[m for m in markers if m in cmd]
+                  if found: workers.append({'pid':int(p.name),'markers':found})
+              except OSError:pass
+          emit('workers',workers)
+          config=dotenv_values(root/'backend/.env',interpolate=False)
+          key=config.get('SUPABASE_SERVICE_ROLE_KEY'); assert key
+          base='https://zwxzxuuawalvwioadhmf.supabase.co'
+          with httpx.Client(timeout=10) as c:
+              for i in range(2):
+                  if i:time.sleep(20)
+                  r=c.get(base+'/customer/v1/privileged/metrics',auth=('service_role',key));r.raise_for_status()
+                  metrics={}
+                  for line in r.text.splitlines():
+                      if not line or line.startswith('#'):continue
+                      name,_,v=line.rpartition(' ')
+                      if re.match(r'^(node_memory_|node_vmstat_|node_disk_|node_load1|pg_up)',name):
+                          try:metrics[name]=float(v)
+                          except ValueError:pass
+                  def v(n):return next((v for k,v in metrics.items() if k.split('{')[0]==n),None)
+                  emit('resources',{'sample':i,'memory_total_mib':v('node_memory_MemTotal_bytes')/1048576,'memory_available_mib':v('node_memory_MemAvailable_bytes')/1048576,'swap_total_mib':v('node_memory_SwapTotal_bytes')/1048576,'swap_free_mib':v('node_memory_SwapFree_bytes')/1048576,'committed_mib':v('node_memory_Committed_AS_bytes')/1048576,'commit_limit_mib':v('node_memory_CommitLimit_bytes')/1048576,'oom_kills':v('node_vmstat_oom_kill'),'pg_up':v('pg_up'),'load1':v('node_load1')})
+              for path in ['/rest/v1/sets?select=id&limit=1','/auth/v1/health','/storage/v1/bucket']:
+                  t=time.monotonic();r=c.get(base+path,headers={'apikey':key,'Authorization':'Bearer '+key});emit('service',{'path':path,'status':r.status_code,'ms':round((time.monotonic()-t)*1000)})
+          spec=importlib.util.spec_from_file_location('guard',state/'db_workload_guard.py');g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g)
+          emit('guard_pressure',g.live_pressure())
+          for pattern in ['*collector*','*multi_source*','*price_storage*','*market_explorer*','*daily_opening*']:
+              emit('script_inventory',{'pattern':pattern,'paths':[p.name for p in (root/'backend/scripts').glob(pattern) if p.is_file()]})
+          for name in ['run_daily_opening_publication.py','run_market_explorer_daily_publication.py','operationalize_historical_rip.py']:
+              p=root/'backend/scripts'/name;s=p.read_text().splitlines()
+              indexes=[i for i,l in enumerate(s) if 'add_argument(' in l or l.startswith('def build_parser')]
+              emitted=set();out=[]
+              for i in indexes:
+                  for n in range(i,min(i+6,len(s))):
+                      if n not in emitted:out.append(f'{n+1}: {s[n]}');emitted.add(n)
+              emit('cli_contract',{'path':name,'lines':out})
+          PY
