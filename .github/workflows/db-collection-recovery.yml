@@ -11,9 +11,9 @@ concurrency:
 jobs:
   collection:
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
-    timeout-minutes: 7
+    timeout-minutes: 12
     steps:
-      - name: Test, install collection-only schedule, and verify bounded progress
+      - name: Test and deploy the explicitly selected bounded stage
         env:
           SOURCE_SHA: ${{ github.sha }}
         shell: bash
@@ -25,36 +25,44 @@ jobs:
           TMP=$(mktemp -d)
           trap 'rm -rf "$TMP"' EXIT
           git -C "$REPO" fetch --quiet origin vm-ops-control
-          for NAME in collection_recovery.py test_collection_recovery.py; do
+          for NAME in collection_recovery.py test_collection_recovery.py price_projection_recovery.py test_price_projection_recovery.py; do
             git -C "$REPO" show "$SOURCE_SHA:.vm-ops/$NAME" > "$TMP/$NAME"
           done
-          (cd "$TMP" && "$PY" -m unittest -v test_collection_recovery)
-          "$PY" -m py_compile "$TMP/collection_recovery.py"
+          (cd "$TMP" && "$PY" -m unittest -v test_collection_recovery test_price_projection_recovery)
+          "$PY" -m py_compile "$TMP/collection_recovery.py" "$TMP/price_projection_recovery.py"
           git -C "$REPO" show "$SOURCE_SHA:.vm-ops/collection-recovery-request.json" > "$TMP/request.json"
-          "$PY" - "$TMP/request.json" <<'PY'
+          MODE=$("$PY" - "$TMP/request.json" <<'PY'
           import json,sys
           request=json.load(open(sys.argv[1]))
-          assert request['operation']=='restore-bounded-collection'
           assert request['preserve_publication_hold'] is True
+          modes={'restore-bounded-collection':'collection','restore-bounded-price-projection':'price-projection'}
+          print(modes[request['operation']])
           PY
-          "$PY" "$TMP/collection_recovery.py" --install
-          mkdir -p "$STATE/collection"
+          )
+          if [[ "$MODE" = collection ]]; then
+            SCRIPT=collection_recovery.py
+            WAIT_ARGS=()
+          else
+            SCRIPT=price_projection_recovery.py
+            WAIT_ARGS=(--wait-seconds 150)
+            cmp "$TMP/collection_recovery.py" "$STATE/collection_recovery.py" || { echo 'REFUSING changed shared resource policy'; exit 21; }
+          fi
+          "$PY" "$TMP/$SCRIPT" --install
           umask 077
           set +e
-          "$PY" "$STATE/collection_recovery.py" --tick > "$STATE/collection/first-tick.log" 2>&1
+          "$PY" "$STATE/$SCRIPT" --tick "${WAIT_ARGS[@]}" > "$STATE/$MODE/first-tick.log" 2>&1
           RC=$?
           set -e
-          "$PY" - "$RC" <<'PY'
+          "$PY" - "$RC" "$MODE" <<'PY'
           import json,sys,subprocess,re
           from pathlib import Path
           state=Path('/home/ubuntu/state/db-safety')
-          lane=state/'collection'
-          print(json.dumps({'first_tick_exit_code':int(sys.argv[1]),'global_hold_preserved':(state/'hold.json').exists()}))
+          lane=state/sys.argv[2]
+          print(json.dumps({'stage':sys.argv[2],'first_tick_exit_code':int(sys.argv[1]),'global_hold_preserved':(state/'hold.json').exists()}))
           for name in ('authorization.json','latest_resources.json','last_stop_evidence.json','hold.json'):
             path=lane/name
             if path.exists():
-              value=json.loads(path.read_text())
-              value.pop('approved_incident_hold_sha256',None)
+              value=json.loads(path.read_text());value.pop('approved_incident_hold_sha256',None)
               print(json.dumps({'file':name,'state':value}))
           for path in lane.glob('*.progress.json'):
             print(json.dumps({'progress':json.loads(path.read_text())}))
@@ -62,11 +70,10 @@ jobs:
             path=lane/name
             if not path.exists():continue
             with path.open('rb') as f:
-              f.seek(max(0,path.stat().st_size-20000))
-              text=f.read().decode(errors='replace')
+              f.seek(max(0,path.stat().st_size-20000));text=f.read().decode(errors='replace')
             lines=[l for l in text.splitlines() if 'final status update' in l or 'batch ready' in l or l.startswith('{') or 'Traceback' in l or 'Error:' in l or 'FAILED' in l]
-            print(json.dumps({'log':name,'events':[re.sub(r'eyJ[A-Za-z0-9_.-]+','<REDACTED>',l[:600]) for l in lines[-16:]]}))
+            print(json.dumps({'log':name,'events':[re.sub(r'eyJ[A-Za-z0-9_.-]+','<REDACTED>',l[:1200]) for l in lines[-12:]]}))
           cron=subprocess.check_output(['crontab','-l'],text=True)
-          print(json.dumps({'active_collection_entries':sum('collection_recovery.py --tick' in l and not l.lstrip().startswith('#') for l in cron.splitlines()),'old_disabled_entries':sum(l.startswith('# CODE_RED_DISABLED ') for l in cron.splitlines())}))
+          print(json.dumps({'active_collection_entries':sum('collection_recovery.py --tick' in l and not l.lstrip().startswith('#') for l in cron.splitlines()),'active_projection_entries':sum('price_projection_recovery.py --tick' in l and not l.lstrip().startswith('#') for l in cron.splitlines()),'old_disabled_entries':sum(l.startswith('# CODE_RED_DISABLED ') for l in cron.splitlines())}))
           PY
           test "$RC" = 0 -o "$RC" = 75
