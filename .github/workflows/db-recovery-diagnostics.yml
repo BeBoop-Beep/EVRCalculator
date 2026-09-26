@@ -1,0 +1,58 @@
+name: Recovery Dependency Diagnostics
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/db-recovery-diagnostics.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 3
+    steps:
+      - name: Inspect exact configured routes and resumable source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          /home/ubuntu/state/db-safety/recovery-venv/bin/python - <<'PY'
+          import json,os,time
+          from pathlib import Path
+          from dotenv import dotenv_values
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict
+          def emit(k,v):print(json.dumps({'check':k,'value':v},default=str),flush=True)
+          config=dotenv_values('backend/.env',interpolate=False)
+          seen=set()
+          for name in ('DATABASE_URL','SUPABASE_DB_URL','SUPABASE_DATABASE_URL'):
+              dsn=config.get(name)
+              if not dsn or dsn in seen:continue
+              seen.add(dsn)
+              try:
+                  params=conninfo_to_dict(dsn)
+                  role=params.get('user','');host=params.get('host','')
+                  if not (host=='db.zwxzxuuawalvwioadhmf.supabase.co' or role.endswith('.zwxzxuuawalvwioadhmf')):
+                      emit('route',{'name':name,'status':'unexpected_target_refused'});continue
+                  start=time.monotonic()
+                  with psycopg.connect(dsn,connect_timeout=5,application_name='index_recovery_dependency_probe') as conn:
+                      conn.execute("set local statement_timeout='3s'")
+                      row=conn.execute("select current_user,pg_is_in_recovery(),has_function_privilege(current_user,'public.run_market_explorer_guarded_publisher_v1(date)','EXECUTE')").fetchone()
+                  emit('route',{'name':name,'configured_role':role.split('.')[0],'port':params.get('port'),'ok':True,'result':row,'seconds':round(time.monotonic()-start,3)})
+              except Exception as exc:
+                  emit('route',{'name':name,'ok':False,'error_type':type(exc).__name__,'sqlstate':getattr(exc,'sqlstate',None)})
+          root=Path('backend/artifacts/collector_v7_refresh')
+          files=[]
+          if root.exists():
+              for path in list(root.rglob('*'))[:100]:
+                  if path.is_file():files.append({'path':str(path),'bytes':path.stat().st_size,'mtime':path.stat().st_mtime})
+          emit('collector_checkpoints',files)
+          path=Path('backend/scripts/run_market_explorer_maintained_cache_prewarm.py');lines=path.read_text().splitlines()
+          selection=set()
+          for i,l in enumerate(lines):
+              if 'add_argument(' in l or 'prepared' in l.lower() and i>210:
+                  selection.update(range(max(0,i-2),min(len(lines),i+7)))
+          emit('prewarm_contract',[str(i+1)+': '+lines[i] for i in sorted(selection)])
+          PY
