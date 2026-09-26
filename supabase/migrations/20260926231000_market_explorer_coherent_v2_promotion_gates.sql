@@ -598,4 +598,93 @@ from public,anon,authenticated;
 grant execute on function public.promote_pokemon_market_explorer_surface_v2(uuid)
 to service_role;
 
+create or replace function public.publish_pokemon_market_explorer_surface_current_v2()
+returns jsonb
+language plpgsql
+volatile
+security invoker
+set search_path = ''
+set statement_timeout = '300s'
+set lock_timeout = '2s'
+as $function$
+declare
+  v_base uuid;
+  v_min_date date;
+  v_max_date date;
+  v_target date;
+  v_raw_method text;
+  v_existing uuid;
+  v_build jsonb;
+  v_generation uuid;
+  v_promotion jsonb;
+begin
+  select s.generation_id into v_base
+  from public.pokemon_market_explorer_prepared_serving_v1 s
+  where s.singleton
+  limit 1;
+
+  if v_base is null then
+    raise exception 'CURRENT_V2_BASE_PREPARED_GENERATION_MISSING';
+  end if;
+
+  select min(d.comparison_as_of),max(d.comparison_as_of)
+  into v_min_date,v_max_date
+  from public.pokemon_market_explorer_prepared_directory_v1 d
+  where d.generation_id=v_base;
+
+  if v_min_date is null or v_min_date is distinct from v_max_date then
+    raise exception 'CURRENT_V2_BASE_COMPARISON_DATE_NOT_COHERENT: % / %',
+      v_min_date,v_max_date;
+  end if;
+  v_target:=v_max_date;
+
+  select h.methodology_version into v_raw_method
+  from public.pokemon_market_index_daily_history h
+  where h.tcg='pokemon' and h.index_key='raw' and h.market_date=v_target
+  order by h.updated_at desc
+  limit 1;
+
+  if v_raw_method is null then
+    raise exception 'CURRENT_V2_RAW_METHODOLOGY_MISSING';
+  end if;
+
+  select s.generation_id into v_existing
+  from public.pokemon_market_explorer_surface_serving_v2 s
+  join public.pokemon_market_explorer_surface_generations_v2 g
+    on g.generation_id=s.generation_id
+  where s.singleton=1
+    and g.state='VALIDATED'
+    and g.comparison_as_of=v_target
+  limit 1;
+
+  if v_existing is not null then
+    return jsonb_build_object(
+      'status','already_current',
+      'generationId',v_existing,
+      'comparisonAsOf',v_target
+    );
+  end if;
+
+  v_build:=public.build_pokemon_market_explorer_surface_candidate_v2(
+    v_base,v_target,v_raw_method
+  );
+  v_generation:=(v_build->>'generationId')::uuid;
+
+  v_promotion:=public.promote_pokemon_market_explorer_surface_v2(v_generation);
+
+  return jsonb_build_object(
+    'status','promoted',
+    'generationId',v_generation,
+    'comparisonAsOf',v_target,
+    'build',v_build,
+    'promotion',v_promotion
+  );
+end;
+$function$;
+
+revoke all on function public.publish_pokemon_market_explorer_surface_current_v2()
+from public,anon,authenticated;
+grant execute on function public.publish_pokemon_market_explorer_surface_current_v2()
+to service_role;
+
 commit;
