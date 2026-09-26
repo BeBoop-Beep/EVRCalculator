@@ -31,6 +31,8 @@ on:
       - "backend/tests/unit/db/test_market_explorer_data_surface_expansion_migrations.py"
       - "backend/tests/unit/db/test_market_explorer_background_db_load_hardening.py"
       - "backend/tests/unit/db/test_market_explorer_coherent_currentness_migrations.py"
+      - "backend/scripts/run_market_explorer_maintained_cache_prewarm.py"
+      - "backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py"
       - "backend/tests/integration/fixtures/market_explorer_data_surface_expansion_fixture.sql"
       - "backend/tests/integration/fixtures/market_explorer_background_db_load_fixture.sql"
       - "backend/tests/integration/market_explorer_data_surface_expansion_acceptance.sql"
@@ -74,7 +76,8 @@ jobs:
           python -m pytest \
             backend/tests/unit/db/test_market_explorer_data_surface_expansion_migrations.py \
             backend/tests/unit/db/test_market_explorer_background_db_load_hardening.py \
-            backend/tests/unit/db/test_market_explorer_coherent_currentness_migrations.py -q
+            backend/tests/unit/db/test_market_explorer_coherent_currentness_migrations.py \
+            backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py -q
 
       - name: Install disposable source fixture
         run: |
