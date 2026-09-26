@@ -218,6 +218,12 @@ select id,p17,'fixture','USD',timestamptz '2026-09-17 12:00:00+00' from fixture_
 union all
 select id,p24,'fixture','USD',timestamptz '2026-09-24 12:00:00+00' from fixture_sealed;
 
+-- Materialize the normalized sealed authority through the candidate date.
+select public.refresh_pokemon_market_explorer_sealed_daily_v1(
+  '2026-09-17','2026-09-24'
+);
+select public.refresh_pokemon_market_explorer_sealed_current_metadata_v1();
+
 -- Prewarm bounded rarity coverage before candidate construction.
 -- Production rollout runs the same RPC in <=14-day chunks across retained history.
 select public.refresh_pokemon_market_explorer_rarity_daily_coverage_v1(
