@@ -1,0 +1,44 @@
+name: DB Recovery Control
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/db-recovery-request.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  recovery:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 4
+    steps:
+      - name: Validate request and execute pinned recovery controller
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          STATE=/home/ubuntu/state/db-safety
+          git -C "$REPO" fetch --quiet origin vm-ops-control
+          FILE="$STATE/db_recovery_control.$SOURCE_SHA.py"
+          git -C "$REPO" show "$SOURCE_SHA:.vm-ops/db_recovery_control.py" > "$FILE"
+          chmod 600 "$FILE"
+          "$REPO/.venv/bin/python" -m py_compile "$FILE"
+          "$REPO/.venv/bin/python" - "$SOURCE_SHA" "$FILE" <<'PY'
+          import json,subprocess,sys
+          from datetime import date
+          sha,path=sys.argv[1:]
+          root='/home/ubuntu/repos/EVRCalculator'
+          request=json.loads(subprocess.check_output(['git','-C',root,'show',sha+':.vm-ops/db-recovery-request.json'],text=True))
+          action=request['action'];phase=request.get('phase');day=request['market_date']
+          assert action in ('start','status')
+          date.fromisoformat(day)
+          args=[sys.executable,path,'--action',action,'--market-date',day]
+          if phase:
+              assert phase in ('simulations','collector','publication','explorer','pricing')
+              args+=['--phase',phase]
+          result=subprocess.run(args,cwd=root)
+          raise SystemExit(result.returncode)
+          PY
