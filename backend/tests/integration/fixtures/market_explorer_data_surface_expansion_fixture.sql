@@ -44,6 +44,7 @@ create table public.sets(
   id uuid primary key,
   name text not null,
   era_id uuid references public.eras(id),
+  release_date date,
   parent_opening_set_id uuid,
   counts_toward_parent_set_value boolean default false,
   catalog_only boolean default false
@@ -87,6 +88,14 @@ create table public.pokemon_market_explorer_card_daily_states_v2_shadow(
   market_price numeric not null,
   primary key(market_date,card_variant_id)
 );
+create table public.pokemon_market_explorer_card_daily_coverage_v2_shadow(
+  set_id uuid primary key,
+  retained_from date not null,
+  computed_through date not null,
+  row_count bigint not null default 0,
+  retention_days integer,
+  refreshed_at timestamptz not null default now()
+);
 create table public.pokemon_market_date_quality(
   tcg text not null,
   market_date date not null,
@@ -129,6 +138,10 @@ create table public.pokemon_market_explorer_prepared_directory_v1(
   metadata jsonb not null default '{}'::jsonb,
   generation_id uuid not null,
   generated_at timestamptz not null
+);
+create table public.pokemon_market_explorer_prepared_serving_v1(
+  singleton boolean primary key default true check (singleton),
+  generation_id uuid not null
 );
 create table public.pokemon_market_explorer_prepared_history_v1(
   market_key text not null references public.pokemon_market_explorer_prepared_directory_v1(market_key) on delete cascade,
@@ -214,6 +227,27 @@ create table public.sealed_product_price_observations(
 );
 create index on public.sealed_product_price_observations(captured_at);
 create index on public.sealed_product_price_observations(sealed_product_id,captured_at desc);
+
+create or replace function public.search_pokemon_market_explorer_instruments_v2_unfiltered_phase2(
+  p_query text,p_asset text default 'all',p_limit integer default 20
+)
+returns table(
+  asset text,instrument_id uuid,name text,set_id uuid,set_name text,image_url text,
+  card_number text,rarity text,edition text,printing_type text,special_type text,
+  product_family text,variant_label text,match_kind text,relevance_score integer,name_similarity real
+)
+language sql stable set search_path='' as $
+  select
+    'cards'::text,m.card_variant_id,m.card_name,m.set_id,s.name,m.image_url,
+    m.card_number,m.rarity,m.edition,m.printing_type,m.special_type,
+    null::text,null::text,'fixture'::text,900::integer,1.0::real
+  from public.pokemon_market_explorer_card_current_metadata m
+  left join public.sets s on s.id=m.set_id
+  where p_asset in ('all','cards')
+    and lower(m.card_name) like '%'||lower(p_query)||'%'
+  order by m.card_name
+  limit least(greatest(coalesce(p_limit,20),1),50);
+$;
 
 create or replace function public.search_pokemon_market_explorer_instruments_v2(
   p_query text,p_asset text default 'all',p_limit integer default 20
