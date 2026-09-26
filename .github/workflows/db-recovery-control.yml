@@ -22,14 +22,31 @@ jobs:
           REPO=/home/ubuntu/repos/EVRCalculator
           STATE=/home/ubuntu/state/db-safety
           git -C "$REPO" fetch --quiet origin vm-ops-control
-          FILE="$STATE/db_recovery_control.$SOURCE_SHA.py"
-          git -C "$REPO" show "$SOURCE_SHA:.vm-ops/db_recovery_control.py" > "$FILE"
-          chmod 600 "$FILE"
-          "$REPO/.venv/bin/python" -m py_compile "$FILE"
-          "$REPO/.venv/bin/python" - "$SOURCE_SHA" "$FILE" <<'PY'
-          import json,subprocess,sys
+          for NAME in db_recovery_control explorer_recovery; do
+            FILE="$STATE/$NAME.$SOURCE_SHA.py"
+            git -C "$REPO" show "$SOURCE_SHA:.vm-ops/$NAME.py" > "$FILE"
+            chmod 600 "$FILE"
+            "$REPO/.venv/bin/python" -m py_compile "$FILE"
+          done
+          "$REPO/.venv/bin/python" - "$SOURCE_SHA" "$STATE/db_recovery_control.$SOURCE_SHA.py" "$STATE/explorer_recovery.$SOURCE_SHA.py" <<'PY'
+          import importlib.util,json,subprocess,sys,unittest
           from datetime import date
-          sha,path=sys.argv[1:]
+          sha,path,helper=sys.argv[1:]
+          spec=importlib.util.spec_from_file_location('explorer_helper',helper);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+          def row(key='a',status='ready',day='2026-09-25'):return {'query_fingerprint':key,'status':status,'computed_through':day}
+          class ProgressTests(unittest.TestCase):
+              def test_current(self):self.assertEqual(m.stale([row()], '2026-09-25'),set())
+              def test_failed_is_stale(self):self.assertEqual(m.stale([row(status='failed')],'2026-09-25'),{'a'})
+              def test_old_is_stale(self):self.assertEqual(m.stale([row(day='2026-09-24')],'2026-09-25'),{'a'})
+              def test_progress(self):self.assertEqual(m.prove_progress([row(day='2026-09-24')],[row()],'2026-09-25'),(1,0))
+              def test_no_progress_stops(self):
+                  with self.assertRaises(RuntimeError):m.prove_progress([row(day='2026-09-24')],[row(day='2026-09-24')],'2026-09-25')
+              def test_cohort_drift_stops(self):
+                  with self.assertRaises(RuntimeError):m.prove_progress([row(day='2026-09-24')],[row('b')],'2026-09-25')
+              def test_regression_stops(self):
+                  with self.assertRaises(RuntimeError):m.prove_progress([row()],[row(day='2026-09-24')],'2026-09-25')
+          result=unittest.TextTestRunner(verbosity=1).run(unittest.defaultTestLoader.loadTestsFromTestCase(ProgressTests))
+          if not result.wasSuccessful():raise SystemExit(1)
           root='/home/ubuntu/repos/EVRCalculator'
           request=json.loads(subprocess.check_output(['git','-C',root,'show',sha+':.vm-ops/db-recovery-request.json'],text=True))
           action=request['action'];phase=request.get('phase');day=request['market_date']
