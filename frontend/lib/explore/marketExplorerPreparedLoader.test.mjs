@@ -261,3 +261,44 @@ test("a failing edition market does not fail, remove or refetch its sibling; ret
   assert.deepEqual(loadedPreparedSeries(h.snap()).map((s) => s.key).sort(), [FIRST, UNL]);
   assert.equal(h.calls.filter((call) => call.key === UNL).length, 1);
 });
+
+// REGRESSION (live develop): Fossil -> Jungle replacement sent
+// marketKeys=[Jungle], contextMarketKeys=[Fossil]; the backend counted two unique
+// keys as a comparison and demanded Index+. Replacement is NOT comparison.
+test("REPLACE never sends the outgoing market as comparison context", async () => {
+  const h = harness();
+  const first = h.loader.replace("set:fossil");
+  await h.tick();
+  h.ok("set:fossil");
+  await first;
+  const second = h.loader.replace("set:jungle");
+  await h.tick();
+  const jungle = h.calls.find((c) => c.key === "set:jungle");
+  assert.deepEqual(jungle.contextKeys, []);
+  // the previous line is still visible until the replacement lands
+  assert.deepEqual(h.snap().order.includes("set:fossil"), true);
+  h.ok("set:jungle");
+  assert.equal(await second, "loaded");
+  assert.deepEqual(h.snap().order, ["set:jungle"]);
+});
+
+test("a failed REPLACE keeps the old market and still sent no context", async () => {
+  const h = harness();
+  const first = h.loader.replace("set:fossil");
+  await h.tick(); h.ok("set:fossil"); await first;
+  const second = h.loader.replace("set:jungle");
+  await h.tick();
+  h.fail("set:jungle", 500, "X");
+  assert.equal(await second, "failed");
+  assert.deepEqual(h.snap().order, ["set:fossil"]);
+  assert.deepEqual(h.calls.find((c) => c.key === "set:jungle").contextKeys, []);
+});
+
+test("ADD (real comparison) still sends the workspace as context", async () => {
+  const h = harness();
+  const first = h.loader.add("set:fossil");
+  await h.tick(); h.ok("set:fossil"); await first;
+  h.loader.add("set:jungle");
+  await h.tick();
+  assert.deepEqual(h.calls.find((c) => c.key === "set:jungle").contextKeys, ["set:fossil"]);
+});
