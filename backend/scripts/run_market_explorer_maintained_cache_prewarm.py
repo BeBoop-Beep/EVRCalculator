@@ -75,6 +75,7 @@ DEFAULT_MIN_AVAILABLE_MEMORY_PERCENT = 25.0
 DEFAULT_MAX_LOAD_PER_CPU = 1.5
 DEFAULT_FAILURE_COOLDOWN_SECONDS = 900.0
 PREPARED_REFRESH_RPC = "run_market_explorer_guarded_publisher_v1"
+V2_CURRENT_PUBLISH_RPC = "publish_pokemon_market_explorer_surface_current_v2"
 PREPARED_DB_TIMEOUT_SECONDS = 240  # guarded dry runs measured about 55 seconds
 PREPARED_DB_CONNECT_TIMEOUT_SECONDS = 10
 
@@ -128,6 +129,33 @@ def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[s
                     return {"status": "refreshed", "result": payload}
                 conn.rollback()
                 return {"status": "verified_rollback_only", "result": payload}
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def _run_current_v2_surface_db() -> dict[str, Any]:
+    """Build/validate/promote V2 only after the prepared generation is current.
+
+    This intentionally uses a separate transaction from the V1 prepared
+    publisher. A blocked V2 promotion must never roll back a valid V1 refresh.
+    """
+    import psycopg
+
+    with psycopg.connect(
+        _prepared_db_dsn(), connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
+        application_name="market_explorer_v2_surface_publisher",
+    ) as conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("select set_config('statement_timeout', %s, true)",
+                               (f"{PREPARED_DB_TIMEOUT_SECONDS}s",))
+                cursor.execute("select set_config('lock_timeout', '5s', true)")
+                cursor.execute(f"select public.{V2_CURRENT_PUBLISH_RPC}()")
+                row = cursor.fetchone()
+                payload = row[0] if row else None
+                conn.commit()
+                return payload if isinstance(payload, dict) else {"status": "unknown", "result": payload}
         except Exception:
             conn.rollback()
             raise
@@ -389,12 +417,21 @@ def refresh_prepared_if_current(client: Any, *, target_market_date: str, commit:
         return {"status": "skipped", "reason": "dry_run"}
     try:
         payload = _run_guarded_prepared_db(str(target_market_date)[:10], commit=commit)
-        return {
+        result = {
             "status": payload["status"],
             "targetMarketDate": str(target_market_date)[:10],
             **({"result": payload["result"]} if "result" in payload else {}),
             **({"generationId": payload["generationId"]} if "generationId" in payload else {}),
         }
+        if commit and payload.get("status") in {"refreshed", "already_current"}:
+            try:
+                result["v2Surface"] = _run_current_v2_surface_db()
+            except Exception as exc:  # V1 stays committed; V2 remains fail-closed.
+                result["v2Surface"] = {
+                    "status": "deferred",
+                    "error": _prepared_db_error(exc),
+                }
+        return result
     except Exception as exc:  # noqa: BLE001 - fail closed, caller records failure
         return {
             "status": "failed",
