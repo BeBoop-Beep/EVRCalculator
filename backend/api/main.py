@@ -69,6 +69,7 @@ from backend.domain.access.index_plan_access import (
     evaluate_market_query_access,
     filter_set_market_signal_access,
     has_index_plus_access,
+    market_explorer_active_market_limit,
     has_index_premium_access,
     has_index_feature_access,
     project_card_detail_response,
@@ -1458,8 +1459,13 @@ def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
     comparing = len(set(payload.marketKeys) | set(payload.contextMarketKeys)) > 1
     if comparing:
         _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
-    if comparing and not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
-        raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
+    if comparing:
+        plan = _resolve_index_plan(authorization, token_cookie)
+        if not has_index_plus_access(plan):
+            raise HTTPException(status_code=403, detail={"message": "Compare markets with Index+.", "requiredPlan": "plus"})
+        limit = market_explorer_active_market_limit(plan)
+        if len(set(payload.marketKeys) | set(payload.contextMarketKeys)) > limit:
+            raise HTTPException(status_code=403, detail={"message": f"Your plan supports up to {limit} active comparison markets.", "code": "ACTIVE_MARKET_LIMIT", "limit": limit})
     keys = list(dict.fromkeys(payload.marketKeys))
     try:
         return read_comparison_v2_first(

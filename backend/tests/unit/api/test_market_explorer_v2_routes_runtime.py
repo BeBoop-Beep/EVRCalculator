@@ -234,3 +234,22 @@ def test_image_fields_survive_v2_rpc_to_api_payload(monkeypatch, api, label, key
     out = r.json()["rows"]
     assert (out[0]["imageUrl"], out[0]["imageSmallUrl"], out[0]["imageLargeUrl"]) == ("https://i/std.png", "https://i/s.png", "https://i/l.png")
     assert out[1]["imageSmallUrl"] is None and out[1]["imageUrl"] is None
+
+
+def test_comparison_enforces_plan_active_market_limit(monkeypatch, api):
+    keys = [f"set:{c}" for c in "abcdefghijkl"]
+    client = api(Fake(directory=[drow(k) for k in keys]))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda a, t: "plus")
+    ok = client.post("/market/explorer/prepared-comparison", json={"marketKeys": [keys[2]], "contextMarketKeys": keys[:2]})
+    assert ok.status_code == 200
+    over = client.post("/market/explorer/prepared-comparison", json={"marketKeys": [keys[3]], "contextMarketKeys": keys[:3]})
+    assert over.status_code == 403 and over.json()["detail"]["code"] == "ACTIVE_MARKET_LIMIT" and over.json()["detail"]["limit"] == 3
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda a, t: "premium")
+    ten = client.post("/market/explorer/prepared-comparison", json={"marketKeys": [keys[9]], "contextMarketKeys": keys[:9]})
+    assert ten.status_code == 200
+    eleven = client.post("/market/explorer/prepared-comparison", json={"marketKeys": [keys[10]], "contextMarketKeys": keys[:10]})
+    assert eleven.status_code == 403 and eleven.json()["detail"]["limit"] == 10
+    # A single market (replacement, contextMarketKeys=[]) is never a comparison.
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda a, t: "basic")
+    single = client.post("/market/explorer/prepared-comparison", json={"marketKeys": [keys[0]], "contextMarketKeys": []})
+    assert single.status_code == 200

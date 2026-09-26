@@ -98,6 +98,16 @@ def has_index_plus_access(plan: Any) -> bool:
     return normalize_index_plan(plan) in (INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM)
 
 
+# Market Explorer: simultaneous ACTIVE comparison markets per plan. ONE constant;
+# mirror of frontend/lib/explore/marketExplorerAccess.mjs (Basic 1 / Index+ 3 / Premium 10).
+# The prepared-comparison route counts marketKeys U contextMarketKeys against it.
+MARKET_EXPLORER_ACTIVE_MARKET_LIMIT = {None: 1, INDEX_PLAN_PLUS: 3, INDEX_PLAN_PREMIUM: 10}
+
+
+def market_explorer_active_market_limit(plan: Any) -> int:
+    return MARKET_EXPLORER_ACTIVE_MARKET_LIMIT[normalize_index_plan(plan)]
+
+
 def has_index_premium_access(plan: Any) -> bool:
     return normalize_index_plan(plan) == INDEX_PLAN_PREMIUM
 
