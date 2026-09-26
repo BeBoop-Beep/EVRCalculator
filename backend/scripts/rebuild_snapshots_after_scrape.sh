@@ -32,6 +32,13 @@
 
 set -euo pipefail
 
+# This state is outside Git and is intentionally not removed by deployment or
+# cron restoration. Also fences a direct manual launch of this wrapper.
+if [[ -e /home/ubuntu/state/db-safety/hold.json || -L /home/ubuntu/state/db-safety/hold.json ]]; then
+  printf '[post-scrape-publication] production_database_safety_hold_active; no database work launched\n'
+  exit 75
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
