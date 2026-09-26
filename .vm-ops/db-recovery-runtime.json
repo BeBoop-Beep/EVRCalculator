@@ -1,0 +1,1 @@
+{"operation":"provision-isolated-recovery-runtime","python":"3.13","dependency_policy":"existing-opening-watchdog"}
