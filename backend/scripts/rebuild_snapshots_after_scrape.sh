@@ -43,6 +43,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-${REPO_ROOT}/.venv/bin/python}"
 
+# Detached publication must hold the same resource-admission lock as scheduled
+# writers for its ENTIRE lifetime. The triggering cron process can return first.
+DB_GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
+if [[ -f "$DB_GUARD" && "${INDEX_POST_SCRAPE_GUARDED:-0}" != "1" ]]; then
+  ENCODED="$("${PYTHON_BIN}" - "$0" "$@" <<'GUARD_PY'
+import base64, shlex, sys
+print(base64.b64encode(shlex.join(['bash', *sys.argv[1:]]).encode()).decode())
+GUARD_PY
+)"
+  export INDEX_POST_SCRAPE_GUARDED=1
+  exec "${PYTHON_BIN}" "$DB_GUARD" --wait-lock-seconds 120 --run-encoded "$ENCODED"
+fi
+
 # Single-publisher lock: covers canonical refresh + audit + Market Explorer
 # projection. Prevents the immediate post-scrape trigger, the 6:00 AM fallback,
 # and an accidental manual invocation from ever running concurrent publishers.

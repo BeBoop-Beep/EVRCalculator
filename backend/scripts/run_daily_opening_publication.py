@@ -1257,13 +1257,11 @@ def _run_market_publication_audit(
     if dry_run or skip_snapshots:
         return "skipped"
 
-    from backend.scripts.audit_pokemon_market_publication import (
-        format_report_lines,
-        run_market_publication_audit,
-    )
+    from backend.scripts.audit_pokemon_market_publication import format_report_lines
+    from backend.scripts.audit_pokemon_market_publication_resilient import run_market_publication_audit
 
     try:
-        report = run_market_publication_audit(client, market_date=resolved_market_date)
+        report = run_market_publication_audit(market_date=resolved_market_date)
     except Exception as exc:  # noqa: BLE001 - an unreadable audit must not read as success
         logger.warning("%s market publication audit raised", TAG, exc_info=True)
         return f"error:{exc}"

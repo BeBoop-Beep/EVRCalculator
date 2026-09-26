@@ -255,6 +255,7 @@ def _default_popen(args: list, *, cwd: str, log_path: Path) -> subprocess.Popen:
     # triggering Actions step, so it must not inherit the runner's tracking id.
     # Keep every other runtime variable unchanged.
     child_env["RUNNER_TRACKING_ID"] = ""
+    child_env.pop("INDEX_POST_SCRAPE_GUARDED", None)
     kwargs: Dict[str, Any] = {
         "cwd": cwd,
         "stdout": log_file,
