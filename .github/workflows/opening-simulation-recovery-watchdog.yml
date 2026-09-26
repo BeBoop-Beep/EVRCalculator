@@ -1,6 +1,6 @@
 name: Opening Simulation Recovery Watchdog
-# Sep 24 publication recovery preemption tick: PR363 validation/deploy.
-# Retrigger after Sep 21 finalizer recovery ad4e99bc.
+# Sep 26: honor the persistent incident hold before any database work.
+# Workflow maintenance pushes preempt an in-flight recovery to free VM ops.
 
 on:
   workflow_dispatch:
@@ -65,6 +65,15 @@ jobs:
         run: |
           set -euo pipefail
           LIVE=/home/ubuntu/repos/EVRCalculator
+          # The hold lives outside every checkout, including the develop
+          # checkout used by this watchdog. No DB probe is allowed under HOLD.
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+          if [[ -e "$HOLD" || -L "$HOLD" || ! -x /home/ubuntu/state/db-safety ]]; then
+            echo 'needs_recovery=false' >> "$GITHUB_OUTPUT"
+            echo 'blocked_by_database_safety_hold=true' >> "$GITHUB_OUTPUT"
+            echo 'Database safety hold active or unreadable; no watchdog database work.'
+            exit 0
+          fi
           PY="$RUNNER_TEMP/opening-watchdog-venv/bin/python"
           cd "$GITHUB_WORKSPACE"
           export PYTHONPATH="$GITHUB_WORKSPACE"
@@ -172,6 +181,12 @@ jobs:
         run: |
           set -euo pipefail
           LIVE=/home/ubuntu/repos/EVRCalculator
+          # Recheck because an incident may have started after preflight.
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+          if [[ -e "$HOLD" || -L "$HOLD" || ! -x /home/ubuntu/state/db-safety ]]; then
+            echo 'Database safety hold active or unreadable; recovery deferred.'
+            exit 0
+          fi
           PY="$RUNNER_TEMP/opening-watchdog-venv/bin/python"
           TARGET="${{ steps.preflight.outputs.target }}"
           cd "$GITHUB_WORKSPACE"
