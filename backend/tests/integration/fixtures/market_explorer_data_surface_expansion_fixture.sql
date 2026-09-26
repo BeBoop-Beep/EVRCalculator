@@ -236,7 +236,7 @@ returns table(
   card_number text,rarity text,edition text,printing_type text,special_type text,
   product_family text,variant_label text,match_kind text,relevance_score integer,name_similarity real
 )
-language sql stable set search_path='' as $
+language sql stable set search_path='' as $function$
   select
     'cards'::text,m.card_variant_id,m.card_name,m.set_id,s.name,m.image_url,
     m.card_number,m.rarity,m.edition,m.printing_type,m.special_type,
@@ -247,7 +247,7 @@ language sql stable set search_path='' as $
     and lower(m.card_name) like '%'||lower(p_query)||'%'
   order by m.card_name
   limit least(greatest(coalesce(p_limit,20),1),50);
-$;
+$function$;
 
 create or replace function public.search_pokemon_market_explorer_instruments_v2(
   p_query text,p_asset text default 'all',p_limit integer default 20
