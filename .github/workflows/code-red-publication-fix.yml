@@ -1,0 +1,82 @@
+name: Code Red Publication Fix
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: [".vm-ops/deploy-publication-safety.json"]
+permissions:
+  contents: write
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 6
+    steps:
+      - name: Test, preserve source branch, and deploy reviewed files only
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          BASE=0ca31bab086f63f48b472d8119741619ad43d7ee
+          BRANCH=fix/production-db-safety-hold-20260925
+          TMP=$(mktemp -d)
+          WT="$TMP/candidate"
+          cleanup() { git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$TMP"; }
+          trap cleanup EXIT
+          test -f /home/ubuntu/state/db-safety/hold.json
+          git -C "$REPO" fetch --quiet origin vm-ops-control
+          git -C "$REPO" worktree add --detach "$WT" "$BASE"
+          for FILE in production_db_safety.py patch_publication_db_safety.py test_publication_db_safety.py; do
+            git -C "$REPO" show "$SOURCE_SHA:.vm-ops/$FILE" > "$TMP/$FILE"
+          done
+          "$PY" "$TMP/patch_publication_db_safety.py" "$WT"
+          bash -n "$WT/backend/scripts/rebuild_snapshots_after_scrape.sh"
+          (
+            cd "$WT"
+            export SUPABASE_URL=http://127.0.0.1:54321
+            export SUPABASE_SERVICE_ROLE_KEY=test-service-role-key
+            export SUPABASE_ANON_KEY=test-anon-key
+            export INDEX_DB_SAFETY_HOLD_PATH="$TMP/isolated-absent-hold"
+            export PYTHONPATH="$WT:/tmp/evr-pytest-deps"
+            "$PY" -m unittest -v backend.tests.unit.db.services.test_publication_db_safety
+            timeout 90 "$PY" -m pytest -q -p no:cacheprovider backend/tests/unit/db/services/test_post_scrape_publication_trigger.py -k 'not default_publication_current'
+            "$PY" -m py_compile backend/db/services/production_db_safety.py backend/db/services/post_scrape_publication_trigger.py
+          )
+          FILES=(backend/db/services/production_db_safety.py backend/db/services/post_scrape_publication_trigger.py backend/scripts/rebuild_snapshots_after_scrape.sh backend/tests/unit/db/services/test_publication_db_safety.py)
+          git -C "$WT" add -- "${FILES[@]}"
+          git -C "$WT" diff --cached --check
+          git -C "$WT" -c user.name=index-vm-ops -c user.email=vm-ops@index.invalid commit -m 'fix(ops): fence publication under incident hold and avoid legacy JSON audit'
+          CANDIDATE=$(git -C "$WT" rev-parse HEAD)
+          # Standard GitHub Actions repository token; never print the header.
+          AUTH=$(printf 'x-access-token:%s' "$REPO_TOKEN" | base64 -w0)
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $AUTH" git -C "$WT" push https://github.com/BeBoop-Beep/EVRCalculator.git "HEAD:refs/heads/$BRANCH"
+          unset AUTH REPO_TOKEN
+          echo "review_branch=$BRANCH candidate_sha=$CANDIDATE"
+          test -f /home/ubuntu/state/db-safety/hold.json
+          test "$(git -C "$REPO" rev-parse HEAD)" = "$BASE" || { echo 'REFUSING production HEAD changed'; exit 21; }
+          git -C "$REPO" diff --quiet -- "${FILES[@]}" || { echo 'REFUSING dirty target files'; exit 22; }
+          git -C "$REPO" diff --cached --quiet || { echo 'REFUSING unrelated staged work'; exit 23; }
+          for FILE in backend/db/services/production_db_safety.py backend/tests/unit/db/services/test_publication_db_safety.py; do
+            test ! -e "$REPO/$FILE" || { echo 'REFUSING untracked target collision'; exit 24; }
+          done
+          git -C "$REPO" checkout "$CANDIDATE" -- "${FILES[@]}"
+          git -C "$REPO" -c user.name=index-vm-ops -c user.email=vm-ops@index.invalid commit -m "fix(ops): deploy verified database publication hold ($CANDIDATE)" -- "${FILES[@]}"
+          cd "$REPO"
+          set +e
+          bash backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-25
+          RC=$?
+          set -e
+          test "$RC" = 75
+          "$PY" - <<'PY'
+          from pathlib import Path
+          from backend.db.services.post_scrape_publication_trigger import trigger_post_scrape_publication_if_needed
+          result=trigger_post_scrape_publication_if_needed('2026-09-25')
+          assert result['status']=='skipped_database_safety_hold', result
+          print('LIVE_WRAPPER_AND_TRIGGER_HOLD=PASS')
+          PY
+          echo "PRODUCTION_SAFETY_FIX_DEPLOYED=$(git rev-parse HEAD)"
