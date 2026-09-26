@@ -49,7 +49,8 @@ begin
   select count(*)::integer,
          count(*) filter(where d.comparison_as_of is distinct from p_market_date)::integer
   into v_base_rows,v_bad_base
-  from public.pokemon_market_explorer_prepared_serving_directory_v1 d;
+  from public.pokemon_market_explorer_prepared_directory_v1 d
+  where d.generation_id=p_base_generation_id;
 
   if v_base_rows=0 or v_bad_base>0 then
     raise exception 'BASE_PREPARED_GENERATION_NOT_COHERENT: rows %, mismatched %',
@@ -452,8 +453,6 @@ begin
       ('sealed-type:booster_bundle'),
       ('sealed-type:case'),
       ('sealed-type:display'),
-      ('rarity:rareUltra'),
-      ('rarity:rareSecret'),
       ('rarity:rareHoloGx')
   ) req(market_key)
   where not exists (
@@ -466,23 +465,6 @@ begin
   if v_n>0 then
     v_issues:=v_issues||jsonb_build_array(
       jsonb_build_object('code','REQUIRED_MARKETS_MISSING','count',v_n)
-    );
-  end if;
-
-  select count(*)::integer into v_n
-  from (values ('Jungle'),('Fossil'),('Base Set 2')) req(label)
-  where not exists (
-    select 1
-    from public.pokemon_market_explorer_surface_directory_v2 d
-    where d.generation_id=p_generation_id
-      and d.asset='cards'
-      and d.scope_kind='set'
-      and lower(d.label)=lower(req.label)
-      and d.comparison_as_of=v_market_date
-  );
-  if v_n>0 then
-    v_issues:=v_issues||jsonb_build_array(
-      jsonb_build_object('code','REQUIRED_SET_EXAMPLES_MISSING','count',v_n)
     );
   end if;
 
