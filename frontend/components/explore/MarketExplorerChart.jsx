@@ -50,6 +50,9 @@ export default function MarketExplorerChart({
   // whatever the caller supplies; nothing is hard-coded here and none is
   // exposed today.
   focusTools = [],
+  // Server-published overlay series ({ id, label, values } aligned to the chart
+  // dates). Empty by default; nothing is ever derived client-side.
+  overlays = [],
   // The Explorer chart is an OPEN CANVAS by default: no enclosing card, no plot
   // border, no interior background. /Market keeps the card surface because it
   // never passes `minimal`.
@@ -143,6 +146,7 @@ export default function MarketExplorerChart({
               plotClassName="h-[20rem] tab:h-[26rem] desk:h-[clamp(19rem,calc(100dvh-24rem),42rem)]"
               minimal={openCanvas}
               focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
+              overlays={overlays}
             />
           )
           : (

@@ -71,6 +71,9 @@ export const FEATURE_CHASE_RANKINGS = "chase_rankings";
 // above. "Which sealed product gives the most reach into a set's important
 // value at my budget?", not "what's the best way to pursue this card?".
 export const FEATURE_PRODUCT_CHASE_INTELLIGENCE = "product_chase_intelligence";
+// Market Explorer focus tools (controls only; data authority is separate).
+export const FEATURE_MARKET_EXPLORER_DEMAND_PRESSURE = "market_explorer_demand_pressure";
+export const FEATURE_MARKET_EXPLORER_FAIR_VALUE = "market_explorer_fair_value";
 
 export const PLUS_FEATURES = Object.freeze(new Set([
   FEATURE_CARD_COLLECTOR_APPEAL,
@@ -81,6 +84,7 @@ export const PLUS_FEATURES = Object.freeze(new Set([
   FEATURE_MARKET_EXPLORER_PREPARED_COMPARE,
   FEATURE_MARKET_EXPLORER_ANALYTICAL_SCREENS,
   FEATURE_MARKET_EXPLORER_ADVANCED_RANKING,
+  FEATURE_MARKET_EXPLORER_DEMAND_PRESSURE,
 ]));
 export const PREMIUM_FEATURES = Object.freeze(new Set([
   FEATURE_CARD_CHASE_EFFICIENCY, FEATURE_CHASE_OPENING_ROUTE,
@@ -89,6 +93,7 @@ export const PREMIUM_FEATURES = Object.freeze(new Set([
   FEATURE_MARKET_EXPLORER_POKEMON, FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS,
   FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS, FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
   FEATURE_PRODUCT_CHASE_INTELLIGENCE,
+  FEATURE_MARKET_EXPLORER_FAIR_VALUE,
 ]));
 
 export function hasIndexFeatureAccess(plan, feature) {

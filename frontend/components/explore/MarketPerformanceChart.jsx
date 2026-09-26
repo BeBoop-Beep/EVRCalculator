@@ -50,7 +50,7 @@ export function resolveAreaOpacity(seriesCount) {
   return Math.max(0.03, (BASE_AREA_OPACITY * AREA_OPACITY_FULL_AT) / count);
 }
 
-export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]", minimal = false, focusedSeriesKey = null }) {
+export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]", minimal = false, focusedSeriesKey = null, overlays = [] }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipAnchor, setTooltipAnchor] = useState(null);
   const [tooltipSize, setTooltipSize] = useState({ width: 248, height: 160 });
@@ -69,6 +69,13 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
     values: projectMarketChartValues(entry.values || [], viewMode),
     performanceValues: projectMarketChartValues(entry.values || [], MARKET_CHART_VIEW_PERFORMANCE),
   }));
+
+  // SERVER-PUBLISHED OVERLAYS (e.g. inDex Fair Value). Each is { id, label, values }
+  // with `values` aligned 1:1 to model.dates in INDEX units, published by the backend.
+  // Nothing is derived or synthesised here; an empty/absent list draws nothing.
+  const overlayLines = (Array.isArray(overlays) ? overlays : [])
+    .filter((overlay) => overlay && overlay.id && Array.isArray(overlay.values) && overlay.values.length === dates.length)
+    .map((overlay) => ({ ...overlay, values: projectMarketChartValues(overlay.values, viewMode) }));
 
   const clearSelection = () => { setActiveIndex(null); setTooltipAnchor(null); };
   const anchorFromBounds = (bounds, source = "keyboard", pointerYRatio = null) => ({
@@ -142,7 +149,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
     return () => observer.disconnect();
   }, [activeIndex, series.length, viewMode]);
 
-  const allValues = series.flatMap((entry) => (entry.values || []).filter((value) => value !== null).map((value) => ({ value })));
+  const allValues = [...series, ...overlayLines].flatMap((entry) => (entry.values || []).filter((value) => value !== null && value !== undefined).map((value) => ({ value })));
   if (series.length === 0) {
     return (
       <div data-market-performance-visibility-empty className={["flex items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 text-xs text-[var(--text-secondary)]", plotClassName, className].filter(Boolean).join(" ")}>
@@ -284,6 +291,10 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
           {lineOrder.map((entry) => (entry.coordinates.length >= 2
             ? <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} data-market-performance-focus={focusActive ? (isDimmed(entry) ? "dimmed" : "focused") : undefined} points={entry.polyline} fill="none" stroke={paintOf(entry)} strokeOpacity={isDimmed(entry) ? 0.5 : undefined} strokeWidth={focusActive && !isDimmed(entry) ? "3" : "2"} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             : null))}
+          {overlayLines.map((overlay) => {
+            const points = overlay.values.map((value, index) => (value === null || value === undefined ? null : `${xAt(index).toFixed(2)},${yAt(value).toFixed(2)}`)).filter(Boolean).join(" ");
+            return points ? <polyline key={`overlay-${overlay.id}`} data-market-performance-overlay={overlay.id} points={points} fill="none" stroke={overlay.color || "rgba(226,232,240,0.9)"} strokeWidth="2" strokeDasharray="6 4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /> : null;
+          })}
           {activeIndex === null ? null : (
             <line data-market-performance-guide x1={xAt(activeIndex)} x2={xAt(activeIndex)} y1={PLOT_TOP} y2={PLOT_BOTTOM} stroke="rgba(255,255,255,0.2)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           )}

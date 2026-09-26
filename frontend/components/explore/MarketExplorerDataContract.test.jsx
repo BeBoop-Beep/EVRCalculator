@@ -185,7 +185,7 @@ test("Sealed Types renders whatever the DB publishes with truthful actions; Case
   }
   const caseRow = renderer.root.findByProps({ "data-sealed-type": "case" });
   const note = caseRow.findByProps({ "data-sealed-type-note": true });
-  assert.match(note.children.join(""), /not part of Total Sealed/);
+  assert.match(note.children.join(""), /Bulk container — tracked separately from Total Sealed/);
   assert.equal(renderer.root.findByProps({ "data-sealed-type": "booster_box" }).findAllByProps({ "data-sealed-type-note": true }).length, 0);
   await act(async () => renderer.root.findByProps({ "data-sealed-type-action-button": "booster_box" }).props.onClick());
   assert.deepEqual(selected, ["sealed-type:booster_box"]);
@@ -257,12 +257,13 @@ test("V2 Sealed Quick with zero approved entries is a deliberate empty state, no
   renderer.unmount();
 });
 
-test("V1 fallback: only the flat Sealed Markets list; never both", async () => {
+test("V1 fallback keeps the SAME Sealed IA as V2 (superseded flat Sealed Markets list): formats live inside Sealed Types", async () => {
   const v1Sealed = { market_key: "format:etb", market_type: "prepared_format", asset: "sealed", label: "Elite Trainer Boxes" };
   const renderer = await mountBrowse([cardSet, v1Sealed], { assetLayer: "sealed" });
-  assert.deepEqual(cats(renderer), ["sealed"]);
-  await act(async () => renderer.root.findByProps({ "data-market-directory-category": "sealed" }).props.onClick());
-  assert.deepEqual(rowKeys(renderer), ["format:etb"]);
+  assert.deepEqual(cats(renderer), ["sets", "eras", "quick", "types"]);
+  await act(async () => renderer.root.findByProps({ "data-market-directory-category": "types" }).props.onClick());
+  const formats = renderer.root.findAll((node) => node.type === "button" && node.props?.["data-prepared-market"]).map((node) => node.props["data-prepared-market"]);
+  assert.deepEqual(formats, ["format:etb"]);
   renderer.unmount();
 });
 
@@ -332,7 +333,7 @@ test("Client: activeBrowseAsset is browsing state, never fed to the chart select
   // Rarity only for Cards; Sealed Types/Quick only for Sealed; Graded gets neither
   assert.match(client, /activeBrowseAsset === "cards" \? <MarketExplorerRarityMarkets/);
   // Sealed Types is a Browse category (single navigation layer), not a second control.
-  assert.match(client, /sealedTypesPanel=\{<MarketExplorerSealedTypes/);
+  assert.match(client, /sealedTypesPanel=\{\(\{ v2Mode, formatMarkets \}\) => <MarketExplorerSealedTypes/);
   assert.equal((client.match(/<MarketExplorerSealedTypes/g) || []).length, 1);
   assert.doesNotMatch(client, /<MarketExplorerSealedQuickMarkets/);
   // interaction foundation (e3d85bc1) still present

@@ -193,7 +193,7 @@ function ConstituentSwitcher({ entries, onSelect }) {
     <div data-market-constituents-picker role="group" aria-label="Constituent market" className="flex flex-wrap gap-1.5 px-3 pb-2 sm:px-4">
       {entries.map((entry) => {
         const stateProps = entry.disabled
-          ? { "data-market-constituents-target-unavailable": entry.key, disabled: true, "aria-disabled": true, title: "This market has no enumerable constituent roster" }
+          ? { "data-market-constituents-target-unavailable": entry.key, disabled: true, "aria-disabled": true, title: entry.reason || "This market has no enumerable constituent roster" }
           : { "data-market-constituents-target": entry.key, "aria-pressed": entry.isTarget, onClick: () => onSelect?.(entry.key) };
         return (
           <button
@@ -214,6 +214,7 @@ function ConstituentSwitcher({ entries, onSelect }) {
             <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-[2px]" style={{ backgroundColor: entry.color }} />
             <span className="max-w-[14rem] truncate">{entry.label}</span>
             {entry.isHidden ? <span className="text-[9px] font-normal text-[var(--text-secondary)]">(hidden on chart)</span> : null}
+            {entry.disabled ? <span data-market-constituents-target-reason className="text-[9px] font-normal">· composition unavailable</span> : null}
           </button>
         );
       })}

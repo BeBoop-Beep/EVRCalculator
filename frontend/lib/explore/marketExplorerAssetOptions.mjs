@@ -84,6 +84,8 @@ export function normalizeRarityOptions(payload) {
   }));
 }
 
+export const BULK_CONTAINER_NOTE = "Bulk container — tracked separately from Total Sealed";
+
 /** Normalize a V2 sealed `types[]` payload. Bulk containers are informational, never "invalid". */
 export function normalizeSealedTypeOptions(payload) {
   const rows = Array.isArray(payload?.types) ? payload.types : [];
@@ -91,7 +93,7 @@ export function normalizeSealedTypeOptions(payload) {
     id: String(row.key), label: String(row.label), raw: row, ...resolveAssetOptionAction(row),
     bulkContainer: row.bulkContainer === true,
     parentMembership: row.parentMembership === true,
-    note: row.bulkContainer === true ? "Bulk container — tracked as its own market, not part of Total Sealed." : null,
+    note: row.bulkContainer === true ? BULK_CONTAINER_NOTE : null,
     counts: { products: row.currentProductCount ?? null, priced: row.currentPricedCount ?? null, sets: row.representedSetCount ?? null, eras: row.representedEraCount ?? null, history: row.historyPointCount ?? null },
   }));
 }

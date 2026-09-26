@@ -40,8 +40,9 @@ test("a requested market is 'loading', never styled as active", async () => {
   assert.equal(stateOf(renderer, "set:base"), "active");
   assert.equal(stateOf(renderer, "set:jungle"), "loading");
   assert.equal(stateOf(renderer, "set:fossil"), "idle");
-  const jungle = renderer.root.findByProps({ "data-compare-market": "set:jungle" });
-  assert.equal(jungle.props["aria-pressed"], false);
+  // A loading row shows "Adding…" text, not an active/remove control.
+  assert.equal(renderer.root.findAllByProps({ "data-market-row-adding": true }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-compare-market": "set:jungle" }).length, 0);
 });
 
 test("a failed market is not falsely active and offers Retry through the same click", async () => {

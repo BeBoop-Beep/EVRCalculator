@@ -78,7 +78,7 @@ test("sealed matrix: every published family gets a truthful action across all st
 test("Cases are bulk containers: a note explains they are separate from Total Sealed, never marked invalid", () => {
   const [caseType] = normalizeSealedTypeOptions({ types: [{ key: "case", label: "Case", eligibilityState: "PREPARED_CANDIDATE", preparedMarketKey: "sealed-type:case", bulkContainer: true, parentMembership: false }] });
   assert.equal(caseType.action, "prepared");
-  assert.match(caseType.note, /not part of Total Sealed/);
+  assert.match(caseType.note, /Bulk container — tracked separately from Total Sealed/);
   const [box] = normalizeSealedTypeOptions({ types: [{ key: "booster_box", label: "Booster Box", eligibilityState: "PREPARED", preparedMarketKey: "sealed-type:booster_box", preparedMarketAvailable: true, bulkContainer: false, parentMembership: true }] });
   assert.equal(box.note, null);
 });

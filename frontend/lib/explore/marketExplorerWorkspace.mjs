@@ -27,6 +27,7 @@
 // No rule here depends on the number of markets or on the plan.
 // ---------------------------------------------------------------------------
 import { isEnumerableSeries } from "./marketExplorerConstituents.mjs";
+import { resolveCompositionCapability } from "./marketExplorerComposition.mjs";
 
 export const WORKSPACE_VIEW_ACTIONS = Object.freeze({
   toggleVisibility: "toggleVisibility",
@@ -92,6 +93,9 @@ export function buildConstituentSwitcherEntries(series, { targetKey = null, hidd
       color: entry.color,
       enumerable,
       disabled: !enumerable,
+      // A disabled chip always says WHY (published reason first, then a generic one).
+      reason: enumerable ? null : (resolveCompositionCapability(entry).reason || entry.unavailableReason
+        || "Composition is not available in the current published generation."),
       isTarget: enumerable && entry.key === targetKey,
       isHidden: hiddenKeys.has(entry.key),
       isFocused: entry.key === focusedKey,

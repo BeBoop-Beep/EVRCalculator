@@ -34,10 +34,11 @@ test("V1 parent without a roster explains itself; V2 Raw with composition is ins
 test("component contract: single-market selection replaces, comparison is Index+ only, rows never show a per-row upsell", () => {
   const client = read("../../components/explore/MarketExplorerClient.jsx");
   assert.match(client, /preparedLoader\.replace\(seriesId\)/);
-  assert.match(client, /if \(canComparePreparedMarkets\) return comparePrepared\(seriesId\);/);
+  assert.match(client, /if \(canComparePreparedMarkets\) \{[\s\S]*return comparePrepared\(seriesId\);/);
   const browse = read("../../components/explore/MarketExplorerBrowse.jsx");
   assert.doesNotMatch(browse, /Compare with Index\+/);
-  assert.match(browse, /\{canCompare \? <button type="button" data-compare-market=/);
+  // The secondary control exists only to Remove an active market / Retry a failed one.
+  assert.match(browse, /\{canCompare && \(active \|\| failed\) \? <button type="button" data-compare-market=/);
   assert.match(browse, /data-compare-upsell/);
   const loader = read("./marketExplorerPreparedLoader.mjs");
   assert.match(loader, /const contextKeys = replaceOthers\s*\n\s*\? \[\]/);

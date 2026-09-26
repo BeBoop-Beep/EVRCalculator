@@ -32,7 +32,10 @@ function resolveChanges(row) {
 export function assetContextLabel(row) {
   const label = row?.label;
   if (!label) return label;
-  const scoped = row.market_type === "set" || row.market_type === "era" || row.scope_kind === "set" || row.scope_kind === "era";
+  // Sets, Eras, Rarity markets and Sealed Types share names across assets ("Fossil",
+  // "Booster Boxes" vs a Cards rarity), so each is qualified from its published asset.
+  const scoped = ["set", "era", "prepared_rarity", "prepared_format"].includes(row.market_type)
+    || ["set", "era", "rarity", "type"].includes(row.scope_kind);
   if (!scoped) return label;
   const suffix = row.asset === "sealed" ? "Sealed" : "Cards";
   return label.toLowerCase().includes(suffix.toLowerCase()) ? label : `${label} — ${suffix}`;
@@ -144,7 +147,10 @@ export function groupPreparedDirectory(rows = [], search = "") {
     sets.get(key).rows.push(row);
   }
   const quick = QUICK_MARKET_KEYS.map((key) => visible.find((row) => row.market_key === key)).filter(Boolean);
-  return { eras, sets: [...sets.values()].sort((a, b) => (a.era?.label || "").localeCompare(b.era?.label || "")), quick };
+  // Whole-asset parents (Raw Card Market / Total Sealed): published V2 directory rows,
+  // listed first under Sets so the whole market stays selectable after Clear All.
+  const parents = visible.filter((row) => row.market_type === "parent");
+  return { parents, eras, sets: [...sets.values()].sort((a, b) => (a.era?.label || "").localeCompare(b.era?.label || "")), quick };
 }
 import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
 import { PreparedFetchError } from "./marketExplorerPreparedLoader.mjs";

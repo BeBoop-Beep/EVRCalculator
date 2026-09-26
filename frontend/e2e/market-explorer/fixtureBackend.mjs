@@ -26,7 +26,9 @@ const AS_OF = "2026-09-22";
 let ART_ORIGIN = "http://127.0.0.1:8201";
 const GEN = { v1: "fixture-gen-v1", v2: "fixture-gen-v2" };
 const ERA = { base: "era-base", neo: "era-neo", hgss: "era-hgss" };
-const SET = { fossil: "set-fossil", jungle: "set-jungle", bs2: "set-bs2", hgss: "set-hgss", neoGenesis: "set-neo-genesis" };
+const SET = { fossil: "set-fossil", jungle: "set-jungle", bs2: "set-bs2", hgss: "set-hgss", neoGenesis: "set-neo-genesis", neoDiscovery: "set-neo-discovery", neoRevelation: "set-neo-revelation", neoDestiny: "set-neo-destiny" };
+// FIXTURE-ONLY commercial limits, mirroring backend MARKET_EXPLORER_ACTIVE_MARKET_LIMIT.
+const PLAN_LIMIT = { plus: 3, premium: 10 };
 
 const money = (n) => Math.round(n * 100) / 100;
 function base(over) {
@@ -67,13 +69,14 @@ function directoryV2() {
   for (const asset of ["cards", "sealed"]) {
     rows.push(v2Scoped("era", asset, ERA.base, "Base/WOTC"), v2Scoped("era", asset, ERA.neo, "Neo"), v2Scoped("era", asset, ERA.hgss, "HeartGold & SoulSilver"));
     rows.push(v2Scoped("set", asset, SET.fossil, "Fossil", ERA.base), v2Scoped("set", asset, SET.jungle, "Jungle", ERA.base), v2Scoped("set", asset, SET.bs2, "Base Set 2", ERA.base), v2Scoped("set", asset, SET.hgss, "HeartGold & SoulSilver", ERA.hgss));
+    rows.push(...[["neoGenesis", "Neo Genesis"], ["neoDiscovery", "Neo Discovery"], ["neoRevelation", "Neo Revelation"], ["neoDestiny", "Neo Destiny"]].map(([id, label]) => v2Scoped("set", asset, SET[id], label, ERA.neo)));
   }
   rows.push(
     v2({ market_key: "raw", scope_kind: "parent", market_type: "parent", label: "Raw Card Market", asset: "cards", composition_kind: "index_and_composition", availability: "available" }),
     v2({ market_key: "sealedMarket", scope_kind: "parent", market_type: "parent", label: "Total Sealed", asset: "sealed", composition_kind: "index_and_composition", availability: "available" }),
     ...["rarity:rareUltra:Rare Ultra", "rarity:rareSecret:Rare Secret", "rarity:ultraRare:Ultra Rare", "rarity:specialIllustrationRare:Special Illustration Rare"]
       .map((entry) => { const [a, k, l] = entry.split(":"); return v2({ market_key: `${a}:${k}`, scope_kind: "rarity", market_type: "prepared_rarity", label: l, asset: "cards", composition_kind: "index_and_composition" }); }),
-    ...["case:Cases", "display:Displays", "booster_box:Booster Boxes"]
+    ...["case:Cases", "display:Displays", "booster_box:Booster Boxes", "elite_trainer_box:Elite Trainer Boxes", "three_pack_blister:Three-Pack Blisters", "collection_product:Collection Products"]
       .map((entry) => { const [k, l] = entry.split(":"); return v2({ market_key: `sealed-type:${k}`, scope_kind: "type", market_type: "prepared_format", label: l, asset: "sealed", composition_kind: "index_and_composition" }); }),
     ...["obtainable:Obtainable", "premium:Premium"].map((entry) => { const [k, l] = entry.split(":"); return v2({ market_key: `curated:${k}`, scope_kind: "quick", market_type: "curated", label: l, asset: "cards" }); }),
   );
@@ -81,10 +84,16 @@ function directoryV2() {
 }
 
 // Sets that publish no roster (composition index-only) prove the "not inspectable" chip.
-const IMAGE_MARKETS = new Set([`set:${SET.fossil}`, `set:${SET.hgss}`, `set:${SET.bs2}`, "rarity:rareUltra", "rarity:rareSecret", `sealed-set:${SET.fossil}`]);
+const IMAGE_MARKETS = new Set([`set:${SET.fossil}`, `set:${SET.hgss}`, `set:${SET.bs2}`, "rarity:rareUltra", "rarity:rareSecret", "rarity:rareHoloGx", "raw", `sealed-set:${SET.fossil}`]);
+// Published image URLs that 404: the row must fall back to the neutral placeholder.
+const BROKEN_IMAGE_MARKETS = new Set([`set:${SET.neoGenesis}`]);
 const NO_IMAGE_MARKETS = new Set([`set:${SET.jungle}`]);
 
 function directory(mode) { return mode === "v2" ? directoryV2() : directoryV1(); }
+// PREPARED_CANDIDATE identities: absent from the directory but loadable by key through the
+// same prepared loader (asset-options publishes preparedMarketKey). Rare Holo GX is one.
+const candidateRows = (mode) => (mode === "v2" ? [v2({ market_key: "rarity:rareHoloGx", scope_kind: "rarity", market_type: "prepared_rarity", label: "Rare Holo GX", asset: "cards" })] : []);
+const resolveRows = (mode, keys) => [...directory(mode), ...candidateRows(mode)].filter((row) => keys.includes(row.market_key));
 
 function seeded(key) { let h = 0; for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
 function historyFor(key, generation) {
@@ -114,6 +123,7 @@ function constituentRows(market, after, limit) {
     const row = sealed
       ? { rank, sealedProductId: `${market}-p${rank}`, productName: `${market} Product ${rank}`, setName: "Fixture Set", productFamilyLabel: "Booster Box", marketPrice: money(900 - rank * 3) }
       : { rank, canonicalCardId: `${market}-c${rank}`, cardVariantId: `${market}-v${rank}`, instrumentId: `${market}-v${rank}`, cardName: `${market} Card ${rank}`, setName: "Fixture Set", setId: SET.fossil, rarity: "Rare Holo", marketPrice: money(700 - rank * 2) };
+    if (BROKEN_IMAGE_MARKETS.has(market)) Object.assign(row, { imageSmallUrl: `${ART_ORIGIN}/fixture-art-broken/${rank}-s.png`, imageLargeUrl: `${ART_ORIGIN}/fixture-art-broken/${rank}-l.png` });
     if (withImages) Object.assign(row, { imageSmallUrl: `${ART_ORIGIN}/fixture-art/${encodeURIComponent(market)}-${rank}-s.svg`, imageLargeUrl: `${ART_ORIGIN}/fixture-art/${encodeURIComponent(market)}-${rank}-l.svg` });
     rows.push(row);
   }
@@ -131,6 +141,7 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
       res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": "no-store" });
       return res.end(`<svg xmlns="http://www.w3.org/2000/svg" width="245" height="342" viewBox="0 0 245 342"><rect width="245" height="342" fill="#3b2a6b"/><text x="122" y="176" fill="#fff" font-size="18" text-anchor="middle">${decodeURIComponent(url.pathname.split("/").pop()).replace(/[<&]/g, "")}</text></svg>`);
     }
+    if (url.pathname.startsWith("/fixture-art-broken/")) { res.writeHead(404); return res.end(); }
     if (url.pathname === "/__fixture/reset") { log.length = 0; return send(200, { ok: true }); }
     const route = url.pathname;
     const chunks = [];
@@ -150,8 +161,9 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
         if (keys.size > 1) {
           if (!token) return reply(401, { message: "Sign in to compare markets.", code: "AUTH" });
           if (!plan) return reply(403, { message: "Comparing markets is included with Index+.", requiredPlan: "plus" });
+          if (keys.size > PLAN_LIMIT[plan]) return reply(403, { detail: { message: `Your plan supports up to ${PLAN_LIMIT[plan]} active comparison markets.`, code: "ACTIVE_MARKET_LIMIT", limit: PLAN_LIMIT[plan] } });
         }
-        const rows = directory(mode).filter((row) => (body?.marketKeys || []).includes(row.market_key));
+        const rows = resolveRows(mode, body?.marketKeys || []);
         const generation = mode === "v2" ? GEN.v2 : GEN.v1;
         return reply(200, { markets: rows.map((row) => ({ ...row, window_movements: {}, constituent_count: 130 })), history: rows.flatMap((row) => historyFor(row.market_key, generation)), missingKeys: [] });
       }
@@ -171,12 +183,12 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
         const asset = url.searchParams.get("asset");
         if (asset === "sealed") {
           const type = (key, label, extra = {}) => ({ key, label, eligibilityState: "PREPARED", preparedMarketAvailable: true, preparedMarketKey: `sealed-type:${key}`, bulkContainer: false, parentMembership: true, ...extra });
-          return reply(200, { types: [type("booster_box", "Booster Boxes"), type("case", "Cases", { bulkContainer: true, parentMembership: false }), type("display", "Displays", { bulkContainer: true, parentMembership: false })], quickMarkets: [] });
+          return reply(200, { types: [type("booster_box", "Booster Boxes"), type("elite_trainer_box", "Elite Trainer Boxes"), type("three_pack_blister", "Three-Pack Blisters"), type("collection_product", "Collection Products"), type("case", "Cases", { bulkContainer: true, parentMembership: false }), type("display", "Displays", { bulkContainer: true, parentMembership: false }), type("half_booster_box", "Half Booster Boxes", { eligibilityState: "UNAVAILABLE", preparedMarketAvailable: false, preparedMarketKey: null, reason: "No current priced inventory is available for this option." })], quickMarkets: [] });
         }
         const prepared = (key, label) => ({ key, label, eligibilityState: "PREPARED", preparedMarketAvailable: true, preparedMarketKey: `rarity:${key}` });
         const other = (key, label, eligibilityState, reason) => ({ key, label, eligibilityState, preparedMarketAvailable: false, preparedMarketKey: null, reason });
         return reply(200, { rarities: [
-          other("rareHoloGX", "Rare Holo GX", "CUSTOM_BUILD_AVAILABLE"), other("rareHoloEX", "Rare Holo EX", "INSUFFICIENT_COHORT"),
+          { key: "rareHoloGX", label: "Rare Holo GX", eligibilityState: "PREPARED_CANDIDATE", preparedMarketAvailable: false, preparedMarketKey: "rarity:rareHoloGx" }, other("rareHoloEX", "Rare Holo EX", "INSUFFICIENT_COHORT"),
           other("rareHoloV", "Rare Holo V", "CUSTOM_BUILD_AVAILABLE"), other("rareHoloVMAX", "Rare Holo VMAX", "INSUFFICIENT_HISTORY"),
           other("rareHoloVSTAR", "Rare Holo VSTAR", "UNAVAILABLE"), prepared("rareUltra", "Rare Ultra"), prepared("rareSecret", "Rare Secret"),
           prepared("ultraRare", "Ultra Rare"), prepared("specialIllustrationRare", "Special Illustration Rare"),
