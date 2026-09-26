@@ -1,8 +1,34 @@
 """Local read-only observations for long recovery phases."""
 from pathlib import Path
-import json,os,re,time
+import base64,json,os,re,subprocess,time
 ROOT=Path('/home/ubuntu/state/db-safety/recovery/2026-09-25')
+STATE=ROOT.parent.parent
+REPO=Path('/home/ubuntu/repos/EVRCalculator')
 def emit(x):print(json.dumps(x,default=str,sort_keys=True),flush=True)
+for path in (STATE/'hold.json',ROOT/'admission/hold.json',STATE/'reactivation.json'):
+    report={'safety_file':str(path),'exists':path.exists()}
+    if path.is_file():
+        try:
+            payload=json.loads(path.read_text())
+            report['state']={k:payload[k] for k in ('version','status','reason','created_at','released_at','market_date','guarded_schedules','global_hold') if k in payload}
+        except (OSError,ValueError):report['read_error']=True
+    emit(report)
+cron=subprocess.run(['crontab','-l'],text=True,capture_output=True,timeout=5)
+if cron.returncode:
+    emit({'cron_read_error':cron.returncode})
+else:
+    rows=[]
+    for original in cron.stdout.splitlines():
+        if not original.strip():continue
+        line=original.removeprefix('# CODE_RED_DISABLED ')
+        if '--run-encoded ' not in line:continue
+        try:
+            encoded=line.split('--run-encoded ',1)[1].split()[0]
+            command=base64.b64decode(encoded,validate=True).decode()
+            markers=[m for m in ('create_daily_scrape_batch','reconcile_stale_scrape_jobs','run_next_scrape_job','publish_post_scrape_if_needed','post_scrape_publication_watchdog','backend.alerts.dispatcher','market_freshness_watchdog','backend.sentinel.operational','run_daily_multi_source_card_pricing','check_multi_source_pricing_health','run_market_explorer_maintained_cache_prewarm') if m in command]
+            rows.append({'disabled':original.lstrip().startswith('#'),'schedule':' '.join(line.split()[:5]),'workloads':markers})
+        except (ValueError,UnicodeError):rows.append({'decode_error':True})
+    emit({'cron_state':rows,'active_guarded_schedules':sum(not r.get('disabled',True) for r in rows)})
 for p in ROOT.glob('*.json'):
     r=json.loads(p.read_text());emit({'receipt':r})
     if r.get('status')=='completed':continue
