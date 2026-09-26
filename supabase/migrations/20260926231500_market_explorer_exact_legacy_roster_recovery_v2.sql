@@ -182,7 +182,131 @@ begin
     );
   end if;
 
-  -- Strategy 2: current root resolver can contain multiple canonical aliases
+  -- Strategy 2: preserve the published snapshot's exact Set-Value-eligible
+  -- canonical membership, but replay the original legacy per-canonical
+  -- Near-Mint price-selection rule. This recovers publication-time prices
+  -- without broadening to today's full canonical universe.
+  with near_mint as (
+    select id
+    from public.conditions
+    where lower(name)='near mint'
+    order by id
+    limit 1
+  ),
+  snapshot_members as materialized (
+    select
+      nullif(coalesce(c->>'id',c->>'canonicalCardId',c->>'canonical_card_id'),'')::uuid
+        canonical_card_id
+    from public.pokemon_set_cards_snapshot_latest s
+    cross join lateral jsonb_array_elements(s.cards_json) c
+    join public.pokemon_canonical_cards cc
+      on cc.id=nullif(coalesce(c->>'id',c->>'canonicalCardId',c->>'canonical_card_id'),'')::uuid
+    where s.set_id=p_root_set_id
+      and coalesce(cc.set_value_eligible,false)
+  ),
+  canonical_links as materialized (
+    select distinct
+      sm.canonical_card_id,
+      c.id card_id
+    from snapshot_members sm
+    join public.pokemon_canonical_cards cc on cc.id=sm.canonical_card_id
+    join public.cards c
+      on c.set_id=cc.set_id
+     and (
+       c.pokemon_tcg_api_id=cc.pokemon_tcg_api_card_id
+       or (
+         lower(regexp_replace(coalesce(cc.name,''),'[[:space:]]+',' ','g'))=
+           lower(regexp_replace(coalesce(c.name,''),'[[:space:]]+',' ','g'))
+         and (
+           coalesce(cc.number,'')=coalesce(c.card_number,'')
+           or coalesce(cc.printed_number,'')=coalesce(c.card_number,'')
+           or ltrim(split_part(coalesce(cc.number,''),'/',1),'0')=
+              ltrim(split_part(coalesce(c.card_number,''),'/',1),'0')
+           or ltrim(split_part(coalesce(cc.printed_number,''),'/',1),'0')=
+              ltrim(split_part(coalesce(c.card_number,''),'/',1),'0')
+         )
+       )
+     )
+  ),
+  variants as materialized (
+    select distinct
+      l.canonical_card_id,
+      cv.id card_variant_id,
+      cv.printing_type
+    from canonical_links l
+    join public.card_variants cv on cv.card_id=l.card_id
+    where (cv.special_type is null or cv.special_type='')
+      and (cv.printing_type is null or cv.printing_type in ('holo','non-holo'))
+  ),
+  repriced as materialized (
+    select
+      sm.canonical_card_id,
+      px.card_variant_id,
+      p_root_set_id set_id,
+      px.market_price,
+      px.captured_at,
+      px.source,
+      px.printing_type,
+      'legacy_snapshot_membership_price_replay_exact'::text price_selection_reason
+    from snapshot_members sm
+    cross join near_mint nm
+    join lateral (
+      select
+        v.card_variant_id,
+        o.market_price,
+        timezone('utc',o.captured_at)::date captured_at,
+        o.source,
+        v.printing_type
+      from variants v
+      join public.card_variant_price_observations o
+        on o.card_variant_id=v.card_variant_id
+      where v.canonical_card_id=sm.canonical_card_id
+        and o.condition_id=nm.id
+        and o.market_price>0
+        and o.captured_at is not null
+        and o.captured_at < ((p_market_date+interval '1 day') at time zone 'UTC')
+      order by o.captured_at desc,o.id desc
+      limit 1
+    ) px on true
+  )
+  select
+    count(*)::integer,
+    count(distinct card_variant_id)::integer,
+    count(distinct canonical_card_id)::integer,
+    round(sum(market_price),2),
+    jsonb_agg(
+      jsonb_build_object(
+        'canonicalCardId',canonical_card_id,
+        'cardVariantId',card_variant_id,
+        'setId',set_id,
+        'marketPrice',market_price,
+        'capturedAt',captured_at,
+        'source',source,
+        'printingType',printing_type,
+        'priceSelectionReason',price_selection_reason
+      )
+      order by canonical_card_id
+    )
+  into v_count,v_unique_variants,v_unique_canonical,v_value,v_items
+  from repriced;
+
+  if v_count=v_expected_count
+     and v_unique_variants=v_expected_count
+     and v_unique_canonical=v_expected_count
+     and round(v_value,2)=round(v_expected_value,2)
+  then
+    perform public.replace_pokemon_market_set_value_constituents_v1(
+      p_root_set_id,p_market_date,v_methodology,v_expected_value,v_expected_count,
+      'legacy_snapshot_membership_price_replay_exact_frozen_v2',v_items
+    );
+    return jsonb_build_object(
+      'status','frozen','strategy','snapshot_membership_price_replay_exact',
+      'setId',p_root_set_id,'marketDate',p_market_date,
+      'constituentCount',v_count,'constituentValue',v_value
+    );
+  end if;
+
+  -- Strategy 3: current root resolver can contain multiple canonical aliases
   -- for one physical variant. Collapse aliases by physical card identity and
   -- accept only if the physical basket exactly matches persisted economics.
   with candidates as materialized (
