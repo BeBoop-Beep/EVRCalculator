@@ -212,8 +212,8 @@ begin
       'opening_economics_basis','source_manifest') then raise exception 'unknown header field: %',k; end if;
   end loop;
   if exists(select 1 from jsonb_array_elements(p_rows) x cross join lateral jsonb_object_keys(x) keys(field_name)
-     where keys.field_name in ('publication_id','market_date','raw_delta','score_delta') or not exists(select 1 from pg_catalog.pg_attribute a
-       where a.attrelid='public.pokemon_rip_benchmark_rows_v1'::regclass and a.attnum>0 and not a.attisdropped and a.attname=keys.field_name))
+     where keys.field_name in ('publication_id','market_date','raw_delta','score_delta') or not exists(select 1 from pg_catalog.pg_attribute attr
+       where attr.attrelid='public.pokemon_rip_benchmark_rows_v1'::regclass and attr.attnum>0 and not attr.attisdropped and attr.attname=keys.field_name))
     then raise exception 'unknown or server-owned row field'; end if;
   h:=jsonb_populate_record(null::public.pokemon_rip_benchmark_publications_v1,p_header);
   if h.id is null or h.market_date is null or h.benchmark_key is null or h.calibration_version is null then raise exception 'publication identity required'; end if;
