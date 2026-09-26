@@ -1,0 +1,60 @@
+name: RIP Benchmark V1 database contract
+on:
+  push:
+    branches: [feat/rip-benchmark-db-v1-20260926]
+    paths:
+      - backend/db/benchmarks/rip_benchmark_foundation_v1.sql
+      - backend/tests/integration/rip_benchmark_v1_postgres.py
+      - .github/workflows/rip-benchmark-db-v1.yml
+permissions:
+  contents: read
+concurrency:
+  group: rip-benchmark-db-v1-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_PASSWORD: isolated_test_only
+          POSTGRES_DB: benchmark_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: isolated_test_only
+      PGDATABASE: benchmark_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate migration with pinned Supabase CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-test-output
+          npx --yes supabase@2.118.0 --version
+          npx --yes supabase@2.118.0 migration --help
+          npx --yes supabase@2.118.0 migration new --help
+          npx --yes supabase@2.118.0 migration new rip_benchmark_foundation_v1
+          migration=$(find supabase/migrations -maxdepth 1 -name '*_rip_benchmark_foundation_v1.sql' | sort | tail -1)
+          test -n "$migration"
+          cp backend/db/benchmarks/rip_benchmark_foundation_v1.sql "$migration"
+          cp "$migration" "backend/db/migrations/$(basename "$migration")"
+          printf '%s\n' "$(basename "$migration")" | tee benchmark-test-output/migration-name.txt
+          cp "$migration" benchmark-test-output/
+      - name: PostgreSQL security, atomicity, lineage and scale tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python backend/tests/integration/rip_benchmark_v1_postgres.py 2>&1 | tee benchmark-test-output/test.log
+      - name: Retain test evidence and CLI-generated migration
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rip-benchmark-db-v1-evidence
+          path: benchmark-test-output/
