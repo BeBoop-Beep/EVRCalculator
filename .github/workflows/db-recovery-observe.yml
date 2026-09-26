@@ -1,0 +1,27 @@
+name: Observe Recovery
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/observe-recovery.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  observe:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 2
+    steps:
+      - name: Read bounded local status
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          git fetch --quiet origin vm-ops-control
+          FILE=$(mktemp)
+          trap 'rm -f "$FILE"' EXIT
+          git show "$SOURCE_SHA:.vm-ops/observe_recovery.py" > "$FILE"
+          .venv/bin/python "$FILE"
