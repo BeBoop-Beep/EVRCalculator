@@ -36,7 +36,9 @@ export function resolveCompositionCapability(series) {
     };
   }
   if (series.isParent === true) {
-    return { inspectable: Boolean(series.currentConstituents), source: "legacy_parent", reason: null };
+    const inspectable = Boolean(series.currentConstituents);
+    // V1 publishes no enumerable roster for a parent market. Say so plainly.
+    return { inspectable, source: "legacy_parent", reason: inspectable ? null : `${series.label || "This market"} composition is not available in the current published generation.` };
   }
   return { inspectable: true, source: "legacy", reason: null };
 }

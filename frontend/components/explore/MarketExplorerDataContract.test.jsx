@@ -44,7 +44,7 @@ test("search: placeholders, combobox/listbox semantics, keyboard navigation and 
   const activated = [];
   const { renderer, fetches } = await mountSearch({ asset: "cards", onActivateMarket: (k) => activated.push(k) }, [SET, { ...SET, label: "Gengar Set", market_key: "set:gengar" }]);
   const el = input(renderer);
-  assert.equal(el.props.placeholder, "Search cards or card markets…");
+  assert.equal(el.props.placeholder, "Search cards, Sets, Eras, rarities, and card markets…");
   assert.equal(el.props.role, "combobox");
   assert.equal(el.props["aria-autocomplete"], "list");
   await type(renderer, "fos");
@@ -74,7 +74,7 @@ test("search result type is rendered; a market result shows active/loading/faile
 test("instrument result: primary Open detail (new tab), secondary Add to Exact Basket; never an aggregate market", async () => {
   const basket = []; const activated = [];
   const { renderer } = await mountSearch({ asset: "sealed", onActivateMarket: (k) => activated.push(k), onAddToBasket: (i) => basket.push(i) }, [PRODUCT]);
-  assert.equal(input(renderer).props.placeholder, "Search sealed products or sealed markets…");
+  assert.equal(input(renderer).props.placeholder, "Search sealed products, Sets, Eras, and sealed markets…");
   await type(renderer, "evolving skies booster box");
   const detail = renderer.root.findByProps({ "data-search-primary": "detail" });
   assert.equal(detail.props.target, "_blank");
@@ -120,7 +120,7 @@ test("search: switching asset re-scopes the same field (no second dropdown) and 
   await act(async () => { renderer.update(<MarketExplorerContextualSearch asset="sealed" controllerFactory={h.factory} />); });
   await act(async () => { await tick(); await tick(); });
   assert.equal(h.fetches.at(-1).asset, "sealed");
-  assert.equal(input(renderer).props.placeholder, "Search sealed products or sealed markets…");
+  assert.equal(input(renderer).props.placeholder, "Search sealed products, Sets, Eras, and sealed markets…");
   assert.equal(renderer.root.findAllByType("select").length, 0);
   renderer.unmount();
 });
@@ -185,7 +185,7 @@ test("Sealed Types renders whatever the DB publishes with truthful actions; Case
   }
   const caseRow = renderer.root.findByProps({ "data-sealed-type": "case" });
   const note = caseRow.findByProps({ "data-sealed-type-note": true });
-  assert.match(note.children.join(""), /not part of Total Sealed/);
+  assert.match(note.children.join(""), /Bulk container — tracked separately from Total Sealed/);
   assert.equal(renderer.root.findByProps({ "data-sealed-type": "booster_box" }).findAllByProps({ "data-sealed-type-note": true }).length, 0);
   await act(async () => renderer.root.findByProps({ "data-sealed-type-action-button": "booster_box" }).props.onClick());
   assert.deepEqual(selected, ["sealed-type:booster_box"]);
@@ -257,12 +257,13 @@ test("V2 Sealed Quick with zero approved entries is a deliberate empty state, no
   renderer.unmount();
 });
 
-test("V1 fallback: only the flat Sealed Markets list; never both", async () => {
+test("V1 fallback keeps the SAME Sealed IA as V2 (superseded flat Sealed Markets list): formats live inside Sealed Types", async () => {
   const v1Sealed = { market_key: "format:etb", market_type: "prepared_format", asset: "sealed", label: "Elite Trainer Boxes" };
   const renderer = await mountBrowse([cardSet, v1Sealed], { assetLayer: "sealed" });
-  assert.deepEqual(cats(renderer), ["sealed"]);
-  await act(async () => renderer.root.findByProps({ "data-market-directory-category": "sealed" }).props.onClick());
-  assert.deepEqual(rowKeys(renderer), ["format:etb"]);
+  assert.deepEqual(cats(renderer), ["sets", "eras", "quick", "types"]);
+  await act(async () => renderer.root.findByProps({ "data-market-directory-category": "types" }).props.onClick());
+  const formats = renderer.root.findAll((node) => node.type === "button" && node.props?.["data-prepared-market"]).map((node) => node.props["data-prepared-market"]);
+  assert.deepEqual(formats, ["format:etb"]);
   renderer.unmount();
 });
 
@@ -332,7 +333,7 @@ test("Client: activeBrowseAsset is browsing state, never fed to the chart select
   // Rarity only for Cards; Sealed Types/Quick only for Sealed; Graded gets neither
   assert.match(client, /activeBrowseAsset === "cards" \? <MarketExplorerRarityMarkets/);
   // Sealed Types is a Browse category (single navigation layer), not a second control.
-  assert.match(client, /sealedTypesPanel=\{<MarketExplorerSealedTypes/);
+  assert.match(client, /sealedTypesPanel=\{\(\{ v2Mode, formatMarkets \}\) => <MarketExplorerSealedTypes/);
   assert.equal((client.match(/<MarketExplorerSealedTypes/g) || []).length, 1);
   assert.doesNotMatch(client, /<MarketExplorerSealedQuickMarkets/);
   // interaction foundation (e3d85bc1) still present

@@ -44,7 +44,8 @@ test("a parent market that publishes a roster can be inspected; one that does no
 
   const summarised = resolveSeriesConstituents(rawParent);
   assert.equal(summarised.availability, CONSTITUENTS_NOT_APPLICABLE);
-  assert.match(summarised.reason, /parent market/);
+  // Superseded wording: V1 parents now say plainly that no roster is published (was "parent market ...").
+  assert.match(summarised.reason, /Raw Card Market composition is not available in the current published generation\./);
 });
 
 // --- Constituent movement ---------------------------------------------------

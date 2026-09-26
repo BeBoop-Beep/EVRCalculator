@@ -36,6 +36,10 @@ import useMarketExplorerFilterOptions from "@/hooks/explore/useMarketExplorerFil
 import useMarketExplorerSelection from "@/hooks/explore/useMarketExplorerSelection";
 import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { useAuth } from "@/components/AuthContext";
+import {
+  FOCUS_TOOL_STATE, NO_BACKEND_CAPABILITIES, countActiveMarkets, evaluateActiveMarketAdd, resolveFocusToolStates,
+} from "@/lib/explore/marketExplorerAccess.mjs";
+import { buildFocusTools } from "./MarketExplorerFocusTools";
 
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
@@ -87,6 +91,8 @@ export default function MarketExplorerClient({
   preparedDirectory = [],
   preparedDirectoryStatus = "ready",
   initialPreparedKey = null,
+  /** Server-published focus-tool authority (Demand Pressure / Fair Value). Default: none. */
+  marketCapabilities = NO_BACKEND_CAPABILITIES,
 }) {
   const auth = useAuth();
   // An unresolved/null client context must not erase the server-resolved paid
@@ -109,6 +115,10 @@ export default function MarketExplorerClient({
   } = useMarketExplorerSelection({ overview, sealedSegments, cardSegments, initialState, hasExternalSeries: Boolean(initialPreparedKey) });
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   const [compareUpgradeVisible, setCompareUpgradeVisible] = useState(false);
+  // WORKSPACE LIMIT NOTICE. A full workspace never removes or replaces a market for
+  // paid plans; it shows this notice instead. null = no limit notice.
+  const [limitNotice, setLimitNotice] = useState(null);
+  const slotCountRef = useRef(0);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderMode, setBuilderMode] = useState("exact");
   // activeBrowseAsset is BROWSING state (search scope, categories, rarity/type controls,
@@ -134,8 +144,17 @@ export default function MarketExplorerClient({
     () => new Map((preparedDirectory || []).map((row) => [row.market_key, row.label])), [preparedDirectory]);
 
   useEffect(() => {
-    if (canComparePreparedMarkets && compareUpgradeVisible) setCompareUpgradeVisible(false);
-  }, [canComparePreparedMarkets, compareUpgradeVisible]);
+    if (canComparePreparedMarkets && compareUpgradeVisible && !limitNotice) setCompareUpgradeVisible(false);
+  }, [canComparePreparedMarkets, compareUpgradeVisible, limitNotice]);
+  // Ask the ONE access authority whether another market fits. Hidden markets count;
+  // focus does not. Returns true when allowed; otherwise raises the notice.
+  const requestActiveSlot = useCallback(() => {
+    const verdict = evaluateActiveMarketAdd(indexPlan, slotCountRef.current);
+    if (verdict.allowed) { setLimitNotice(null); return true; }
+    setLimitNotice(verdict);
+    setCompareUpgradeVisible(true);
+    return false;
+  }, [indexPlan]);
   useEffect(() => {
     if (!builderOpen) return undefined;
     if (typeof document === "undefined") return undefined;
@@ -166,7 +185,11 @@ export default function MarketExplorerClient({
   // deterministic fallback (first enumerable market) when it is removed. No second
   // state variable exists for the target. Focus never writes to it.
   const [requestedDetailSeriesId, setRequestedDetailSeriesId] = useState(null);
-  const { querySeries, addQuery, updateQuery, removeQuery, clearAll: clearAllQueries } = useMarketExplorerQueries();
+  const { querySeries, addQuery: addQueryUnlimited, updateQuery, removeQuery, clearAll: clearAllQueries } = useMarketExplorerQueries();
+  const addQuery = useCallback(async (spec, options) => {
+    if (!requestActiveSlot()) return "limit";
+    return addQueryUnlimited(spec, options);
+  }, [addQueryUnlimited, requestActiveSlot]);
   const [editingSeriesId, setEditingSeriesId] = useState(null);
   // ACTIVE != VISIBLE != TARGET != FOCUSED. A hidden series is still an Active
   // Market (still counted, still inspectable in Constituents; un-hiding never
@@ -236,17 +259,23 @@ export default function MarketExplorerClient({
     }
     // Duplicate clicks while loading are guarded; the pending strip can cancel.
     if (current.pending.includes(seriesId)) return "pending";
+    if (!requestActiveSlot()) return "limit";
     preparedLoader.add(seriesId).then((outcome) => {
       if (outcome === "loaded") setRequestedDetailSeriesId(seriesId);
     });
     return "added";
-  }, [canComparePreparedMarkets, preparedLoader]);
+  }, [canComparePreparedMarkets, preparedLoader, requestActiveSlot]);
 
   // Comparison-capable users accumulate markets. Selecting a third market must
   // never silently delete the first two; active prepared markets toggle in
   // place and can be removed from the same surface that added them.
   const selectPrepared = useCallback((seriesId) => {
-    if (canComparePreparedMarkets) return comparePrepared(seriesId);
+    if (canComparePreparedMarkets) {
+      // PRIMARY ROW ACTION = OPEN THIS MARKET. An already-active market becomes the
+      // constituent target (removal is the explicit secondary control).
+      if (preparedLoader.getSnapshot().loaded[seriesId]) { setRequestedDetailSeriesId(seriesId); return "targeted"; }
+      return comparePrepared(seriesId);
+    }
     // Basic: one workspace market. The previous line stays until the
     // replacement has LOADED, so a failed swap leaves the chart intact.
     preparedLoader.replace(seriesId).then((outcome) => {
@@ -304,6 +333,7 @@ export default function MarketExplorerClient({
   );
   const allSeriesKeys = useMemo(() => selectedSeries.map((series) => series.key), [selectedSeries]);
   const hideAllActiveSeries = useCallback(() => hideAllSeries(allSeriesKeys), [hideAllSeries, allSeriesKeys]);
+  slotCountRef.current = countActiveMarkets({ activeKeys: allSeriesKeys, pendingKeys: preparedPendingKeys });
 
   // Derived, never stored: the requested target is kept while it is still on
   // the chart, so adding a market cannot yank the panel away from what the user
@@ -320,6 +350,29 @@ export default function MarketExplorerClient({
   useEffect(() => {
     dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reconcile, activeKeys: allSeriesKeys });
   }, [allSeriesKeys]);
+  // FOCUS TOOLS. Controls only; availability comes from server-published capabilities
+  // (default none). Fair Value, when explicitly available, defaults ON on entering
+  // focus; the user may toggle it off/on for that focus session.
+  const focusToolStates = useMemo(
+    () => resolveFocusToolStates(indexPlan, focusedSeriesKey, marketCapabilities),
+    [indexPlan, focusedSeriesKey, marketCapabilities]);
+  const [focusToolToggles, setFocusToolToggles] = useState({});
+  useEffect(() => { setFocusToolToggles({}); }, [focusedSeriesKey]);
+  const fairValueOn = focusToolStates.fairValue.state === FOCUS_TOOL_STATE.available
+    && (focusToolToggles["fair-value"] ?? true);
+  const demandPressureOn = focusToolStates.demandPressure.state === FOCUS_TOOL_STATE.available
+    && (focusToolToggles["demand-pressure"] ?? false);
+  const toggleFocusTool = useCallback((id) => setFocusToolToggles((current) => ({
+    ...current, [id]: !(current[id] ?? (id === "fair-value")),
+  })), []);
+  const focusTools = useMemo(
+    () => buildFocusTools({ states: focusToolStates, fairValueOn, demandPressureOn, onToggle: toggleFocusTool }),
+    [focusToolStates, fairValueOn, demandPressureOn, toggleFocusTool]);
+  const chartOverlays = useMemo(() => {
+    const published = fairValueOn ? marketCapabilities?.fairValue?.[focusedSeriesKey] : null;
+    return published && Array.isArray(published.values)
+      ? [{ id: `fair-value:${focusedSeriesKey}`, label: "inDex Fair Value", values: published.values }] : [];
+  }, [fairValueOn, marketCapabilities, focusedSeriesKey]);
   // The workspace has nothing to show once the last active market is gone.
   const hasActiveMarkets = selectedSeries.length > 0;
   useEffect(() => {
@@ -361,11 +414,11 @@ export default function MarketExplorerClient({
         <section data-market-explorer-compare-upgrade role="status" className={`${styles.surfaceQuiet} set-glass-surface fixed left-1/2 top-20 z-[80] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 px-4 py-4 shadow-2xl`}>
           <div className="flex flex-wrap items-start gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Compare markets with Index+</h2>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Put Sets, Eras and Quick Markets on the same timeline and see what is actually outperforming.</p>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">{limitNotice && limitNotice.tier !== "basic" ? "Active market limit reached" : "Compare markets with Index+"}</h2>
+              <p data-market-explorer-limit-message className="mt-1 text-xs text-[var(--text-secondary)]">{limitNotice?.message || "Put Sets, Eras and Quick Markets on the same timeline and see what is actually outperforming."}</p>
             </div>
-            <a href="/pricing" data-market-explorer-compare-upgrade-link className="rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-3 py-2 text-xs font-semibold text-[rgb(45,212,191)]">Upgrade to Index+</a>
-            <button type="button" aria-label="Dismiss comparison upgrade" onClick={() => setCompareUpgradeVisible(false)} className="rounded px-2 py-1 text-xs text-[var(--text-secondary)]">Dismiss</button>
+            {!limitNotice || limitNotice.upgrade ? <a href="/pricing" data-market-explorer-compare-upgrade-link className="rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-3 py-2 text-xs font-semibold text-[rgb(45,212,191)]">{limitNotice?.tier === "plus" ? "Upgrade to Premium" : "Upgrade to Index+"}</a> : null}
+            <button type="button" aria-label="Dismiss comparison upgrade" onClick={() => { setCompareUpgradeVisible(false); setLimitNotice(null); }} className="rounded px-2 py-1 text-xs text-[var(--text-secondary)]">Dismiss</button>
           </div>
         </section>
       ) : null}
@@ -385,7 +438,8 @@ export default function MarketExplorerClient({
           pendingKeys={preparedPendingKeys} failedKeys={preparedFailedKeys}
           canCompare={canComparePreparedMarkets} onSelect={selectPrepared} onCompare={comparePrepared}
           assetLayer={activeBrowseAsset} onAssetLayerChange={setActiveBrowseAsset}
-          sealedTypesPanel={<MarketExplorerSealedTypes options={sealedOptionStates.data} status={sealedOptionStates.status} onRetry={sealedOptionStates.retry}
+          sealedTypesPanel={({ v2Mode, formatMarkets }) => <MarketExplorerSealedTypes options={sealedOptionStates.data} status={sealedOptionStates.status} onRetry={sealedOptionStates.retry}
+            v2Mode={v2Mode} formatMarkets={formatMarkets}
             activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys} activeSeries={querySeries}
             canBuild={canBuildCustomMarkets} onUpgrade={() => setCompareUpgradeVisible(true)}
             onSelect={selectPrepared} onAddQuery={addQuery} onRemoveQuery={removeQuery} />}
@@ -528,6 +582,8 @@ export default function MarketExplorerClient({
             constituentsAvailable={hasActiveMarkets}
             focusedSeriesKey={focusedSeriesKey}
             onClearFocus={clearFocus}
+            focusTools={focusTools}
+            overlays={chartOverlays}
           />
         </div>
         {detailsOpen ? (

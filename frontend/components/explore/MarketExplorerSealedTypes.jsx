@@ -29,6 +29,10 @@ export default function MarketExplorerSealedTypes({
   onAddQuery,
   onRemoveQuery,
   onRetry,
+  // V1 mode: the published sealed-format rows (Booster Boxes, ETBs, Packs, ...) are shown
+  // INSIDE this category; V2 types come from the asset-options registry.
+  v2Mode = true,
+  formatMarkets = [],
 }) {
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState(null);
@@ -58,9 +62,21 @@ export default function MarketExplorerSealedTypes({
   return <section data-market-explorer-sealed-types className="py-2" aria-labelledby="sealed-types-heading">
     <h3 id="sealed-types-heading" className="text-xs font-semibold text-[var(--text-primary)]">Sealed Types</h3>
     <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Product-family markets. Bulk containers such as Cases and Displays are separate markets and are not part of Total Sealed.</p>
-    {status === "unavailable" ? <div role="alert" data-sealed-types-state="unavailable" className="mt-2 flex items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]"><span>Sealed types are temporarily unavailable.</span>{onRetry ? <button type="button" onClick={onRetry} className="rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold">Retry</button> : null}</div> : null}
-    {status === "loading" && !types.length ? <p role="status" className="mt-2 text-[11px] text-[var(--text-secondary)]">Loading sealed types…</p> : null}
-    {types.length ? <>
+    {!v2Mode ? <>
+      {formatMarkets.length ? <ul data-sealed-v1-formats className="mt-2 space-y-1" aria-label="Published sealed types">
+        {formatMarkets.map((market) => {
+          const active = activeKeys.includes(market.market_key);
+          const pending = pendingKeys.includes(market.market_key);
+          return <li key={market.market_key} data-sealed-type={market.market_key} data-sealed-type-action="prepared" className={`rounded-md border-l-2 ${active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.12)]" : "border-transparent"}`}>
+            <button type="button" data-prepared-market={market.market_key} aria-pressed={active} disabled={pending} onClick={() => onSelect?.(market.market_key)} className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-xs text-[var(--text-primary)]"><span className="min-w-0 truncate">{market.label}{active ? <span aria-label="Active market"> ✓</span> : null}</span>{pending ? <span className="text-[10px] text-[var(--text-secondary)]">Adding…</span> : null}</button>
+          </li>;
+        })}
+      </ul> : <p data-sealed-awaiting="types" className="mt-2 text-[11px] text-[var(--text-secondary)]">Sealed Type markets are awaiting the next prepared market generation.</p>}
+      <p data-sealed-types-awaiting-more className="mt-2 text-[10px] text-[var(--text-secondary)]">Further Sealed Types (such as Cases, Displays and Elite Trainer Boxes) appear here as they are published in the next prepared market generation.</p>
+    </> : null}
+    {v2Mode && status === "unavailable" ? <div role="alert" data-sealed-types-state="unavailable" className="mt-2 flex items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]"><span>Sealed types are temporarily unavailable.</span>{onRetry ? <button type="button" onClick={onRetry} className="rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold">Retry</button> : null}</div> : null}
+    {v2Mode && status === "loading" && !types.length ? <p role="status" className="mt-2 text-[11px] text-[var(--text-secondary)]">Loading sealed types…</p> : null}
+    {v2Mode && types.length ? <>
       <input type="search" data-sealed-type-search value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search sealed types…" aria-label="Search sealed types" className="mt-2 min-h-9 w-full rounded-md border border-[var(--border-subtle)] bg-transparent px-3 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70" />
       <ul className="mt-1 max-h-72 space-y-1 overflow-y-auto pr-1" aria-label="Sealed types">
         {filtered.map((type) => {

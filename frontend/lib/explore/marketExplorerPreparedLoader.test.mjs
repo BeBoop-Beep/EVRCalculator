@@ -261,3 +261,72 @@ test("a failing edition market does not fail, remove or refetch its sibling; ret
   assert.deepEqual(loadedPreparedSeries(h.snap()).map((s) => s.key).sort(), [FIRST, UNL]);
   assert.equal(h.calls.filter((call) => call.key === UNL).length, 1);
 });
+
+// REGRESSION (live develop): Fossil -> Jungle replacement sent
+// marketKeys=[Jungle], contextMarketKeys=[Fossil]; the backend counted two unique
+// keys as a comparison and demanded Index+. Replacement is NOT comparison.
+test("REPLACE never sends the outgoing market as comparison context", async () => {
+  const h = harness();
+  const first = h.loader.replace("set:fossil");
+  await h.tick();
+  h.ok("set:fossil");
+  await first;
+  const second = h.loader.replace("set:jungle");
+  await h.tick();
+  const jungle = h.calls.find((c) => c.key === "set:jungle");
+  assert.deepEqual(jungle.contextKeys, []);
+  // the previous line is still visible until the replacement lands
+  assert.deepEqual(h.snap().order.includes("set:fossil"), true);
+  h.ok("set:jungle");
+  assert.equal(await second, "loaded");
+  assert.deepEqual(h.snap().order, ["set:jungle"]);
+});
+
+test("a failed REPLACE keeps the old market and still sent no context", async () => {
+  const h = harness();
+  const first = h.loader.replace("set:fossil");
+  await h.tick(); h.ok("set:fossil"); await first;
+  const second = h.loader.replace("set:jungle");
+  await h.tick();
+  h.fail("set:jungle", 500, "X");
+  assert.equal(await second, "failed");
+  assert.deepEqual(h.snap().order, ["set:fossil"]);
+  assert.deepEqual(h.calls.find((c) => c.key === "set:jungle").contextKeys, []);
+});
+
+test("ADD (real comparison) still sends the workspace as context", async () => {
+  const h = harness();
+  const first = h.loader.add("set:fossil");
+  await h.tick(); h.ok("set:fossil"); await first;
+  h.loader.add("set:jungle");
+  await h.tick();
+  assert.deepEqual(h.calls.find((c) => c.key === "set:jungle").contextKeys, ["set:fossil"]);
+});
+
+// Wire-level: loader + the real fetchPreparedMarket + the real request body.
+test("wire: a replacement POST carries contextMarketKeys=[] (what the backend counts)", async () => {
+  const { fetchPreparedMarket } = await import("./marketExplorerPrepared.mjs");
+  const bodies = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    bodies.push(body);
+    const key = body.marketKeys[0];
+    return new Response(JSON.stringify({
+      markets: [{ market_key: key, market_type: "set", label: key, asset: "cards", comparison_as_of: "2026-09-22", generation_id: "g" }],
+      history: [{ market_key: key, market_date: "2026-09-21", index_value: 100 }, { market_key: key, market_date: "2026-09-22", index_value: 101 }],
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const loader = createPreparedMarketLoader({ fetchMarket: fetchPreparedMarket });
+    assert.equal(await loader.replace("set:fossil"), "loaded");
+    assert.equal(await loader.replace("set:jungle"), "loaded");
+    assert.equal(await loader.replace("era:neo"), "loaded");
+    assert.deepEqual(bodies.map((b) => b.contextMarketKeys), [[], [], []]);
+    assert.deepEqual(loader.getSnapshot().order, ["era:neo"]);
+    assert.equal(await loader.add("set:base2"), "loaded");
+    assert.deepEqual(bodies.at(-1).contextMarketKeys, ["era:neo"]); // real comparison keeps context
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -78,7 +78,7 @@ test("sealed matrix: every published family gets a truthful action across all st
 test("Cases are bulk containers: a note explains they are separate from Total Sealed, never marked invalid", () => {
   const [caseType] = normalizeSealedTypeOptions({ types: [{ key: "case", label: "Case", eligibilityState: "PREPARED_CANDIDATE", preparedMarketKey: "sealed-type:case", bulkContainer: true, parentMembership: false }] });
   assert.equal(caseType.action, "prepared");
-  assert.match(caseType.note, /not part of Total Sealed/);
+  assert.match(caseType.note, /Bulk container — tracked separately from Total Sealed/);
   const [box] = normalizeSealedTypeOptions({ types: [{ key: "booster_box", label: "Booster Box", eligibilityState: "PREPARED", preparedMarketKey: "sealed-type:booster_box", preparedMarketAvailable: true, bulkContainer: false, parentMembership: true }] });
   assert.equal(box.note, null);
 });
@@ -155,8 +155,8 @@ test("search actions: market activates via prepared loader; instrument opens det
 });
 
 test("placeholders match the contract per asset", () => {
-  assert.equal(SEARCH_PLACEHOLDER.cards, "Search cards or card markets…");
-  assert.equal(SEARCH_PLACEHOLDER.sealed, "Search sealed products or sealed markets…");
+  assert.equal(SEARCH_PLACEHOLDER.cards, "Search cards, Sets, Eras, rarities, and card markets…");
+  assert.equal(SEARCH_PLACEHOLDER.sealed, "Search sealed products, Sets, Eras, and sealed markets…");
   assert.equal(SEARCH_PLACEHOLDER.graded, "Search graded cards…");
 });
 

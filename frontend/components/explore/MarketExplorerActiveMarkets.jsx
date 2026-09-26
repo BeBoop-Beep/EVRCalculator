@@ -114,6 +114,10 @@ export default function MarketExplorerActiveMarkets({
           const isActive = entry.key === activeSeriesId;
           const isHidden = hidden.has(entry.key);
           const isFocused = entry.key === focusedSeriesKey;
+          // FOCUS RECEDES THE REST. While a market is focused every OTHER chip is
+          // desaturated and more transparent (same rule the chart applies to lines),
+          // yet stays present, readable and fully interactive.
+          const isDimmed = Boolean(focusedSeriesKey) && !isFocused;
           // Custom markets have no summary card anywhere else on the page, so
           // their index level rides on the chip. Prepared markets already have
           // a card and would only be repeating themselves.
@@ -126,11 +130,13 @@ export default function MarketExplorerActiveMarkets({
                 data-market-explorer-active-chip-selected={isActive ? "true" : "false"}
                 data-market-explorer-active-chip-hidden={isHidden ? "true" : "false"}
                 data-market-explorer-active-chip-focused={isFocused ? "true" : "false"}
+                data-market-explorer-active-chip-dimmed={isDimmed ? "true" : "false"}
                 data-market-explorer-active-chip-asset={entry.asset || undefined}
                 data-market-explorer-active-chip-source={entry.queryKey ? "query" : "prepared"}
                 className={[
                   "group flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
-                  isFocused ? "ring-2 ring-sky-400/80" : "",
+                  isFocused ? "ring-2 ring-sky-400/80 font-semibold" : "",
+                  isDimmed ? "opacity-60 grayscale hover:opacity-90 focus-within:opacity-90" : "",
                   isHidden ? "opacity-50" : "",
                   isActive
                     ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.15)]"

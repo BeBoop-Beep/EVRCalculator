@@ -134,7 +134,11 @@ export function createPreparedMarketLoader({
     timers.set(key, timer);
     // Context keys are NEVER read by the backend; they only let the Index+
     // compare entitlement judge the whole workspace.
-    const contextKeys = state.order.filter((k) => k !== key && (state.loaded[k] || state.pending.includes(k)));
+    // REPLACEMENT IS NOT COMPARISON: a replace request must never carry the line it
+    // is about to swap out, or the backend counts two unique keys as a comparison.
+    const contextKeys = replaceOthers
+      ? []
+      : state.order.filter((k) => k !== key && (state.loaded[k] || state.pending.includes(k)));
     if (replaceOthers) {
       // A superseded in-flight request must not later land; loaded lines stay
       // until the replacement succeeds, so a failed swap leaves the chart intact.

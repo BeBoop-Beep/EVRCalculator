@@ -31,6 +31,8 @@ function ImagePlaceholder({ className }) {
  */
 export function ConstituentPreview({ row, asset, position, id }) {
   const model = buildConstituentPreviewModel(row, { asset, formatPrice: formatBasketValue });
+  // A broken large-image URL falls back to the neutral placeholder, never a broken icon.
+  const [previewFailed, setPreviewFailed] = useState(false);
   return (
     <div
       id={id}
@@ -40,9 +42,9 @@ export function ConstituentPreview({ row, asset, position, id }) {
       className="pointer-events-none fixed z-[90] overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.97)] p-2.5 text-left shadow-[0_14px_32px_rgba(0,0,0,0.45)]"
       style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }}
     >
-      {model.image.previewUrl ? (
+      {model.image.previewUrl && !previewFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={model.image.previewUrl} alt="" data-market-constituent-preview-image className="mx-auto mb-2 h-44 w-full object-contain" />
+        <img src={model.image.previewUrl} alt="" data-market-constituent-preview-image onError={() => setPreviewFailed(true)} className="mx-auto mb-2 h-44 w-full object-contain" />
       ) : <ImagePlaceholder className="mb-2 h-44 w-full" />}
       <p className="text-xs font-semibold text-[var(--text-primary)]">{model.title}</p>
       <dl className="mt-1.5 space-y-0.5 text-[10px]">

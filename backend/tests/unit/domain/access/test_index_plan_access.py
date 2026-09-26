@@ -510,3 +510,11 @@ def test_v14_v5_blocks_follow_the_same_plan_gate_as_the_v12_v4_blocks_they_succe
     assert v14_keys <= set(plus)
     basic = project_insights_critical_response(critical, "free")
     assert not v14_keys & set(basic) and not {"overallRipV12", "financialRipV4"} & set(basic)
+
+
+def test_market_explorer_active_market_limit_per_plan():
+    from backend.domain.access.index_plan_access import market_explorer_active_market_limit
+    assert market_explorer_active_market_limit(None) == 1
+    assert market_explorer_active_market_limit("basic") == 1
+    assert market_explorer_active_market_limit("plus") == 3
+    assert market_explorer_active_market_limit("PREMIUM") == 10

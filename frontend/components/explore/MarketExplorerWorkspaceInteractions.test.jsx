@@ -415,7 +415,8 @@ async function mountClient() {
 }
 async function addFossil(renderer) {
   click(renderer, "data-market-directory-category", "sets"); await flush();
-  click(renderer, "data-compare-market", "set:fossil"); await flush();
+  // PRIMARY ROW ACTION = open this market (the per-row compare button no longer exists).
+  click(renderer, "data-prepared-market", "set:fossil"); await flush();
 }
 async function addQuery(renderer) {
   // The Builder dialog opens on Cards & Products; Custom Filters owns the plain Build button.
@@ -618,9 +619,11 @@ test("mobile + accessibility contracts: the controls that matter are present wit
   // Focus control strip: Clear Focus is a 32px+ target and wraps on narrow widths.
   assert.match(chart, /flex flex-wrap items-center/);
   assert.match(chart, /data-market-explorer-clear-focus[\s\S]*min-h-8/);
-  // Architectural seam for future analytical tools; nothing named/exposed today.
+  // Architectural seam for analytical tools. The chart and chips still name none of them;
+  // the controls live in MarketExplorerFocusTools and render no value (see the
+  // reconciliation suite).
   assert.match(chart, /focusTools = \[\]/);
-  assert.doesNotMatch(chart + client + active, /Demand Pressure|Fair Value/);
+  assert.doesNotMatch(chart + active, /Demand Pressure|Fair Value/);
   // No plan-quota conditionals were introduced in the workspace state.
   assert.doesNotMatch(client, /plan\s*===\s*["'](plus|premium)["']\s*&&\s*\w*\.length/);
 });

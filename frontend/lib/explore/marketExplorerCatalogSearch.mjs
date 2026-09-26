@@ -20,8 +20,8 @@ export const SEARCH_LIMIT = 12; // bounded list; backend cap is 50
 export const SEARCH_DEBOUNCE_MS = 250; // within the 200-300ms contract
 
 export const SEARCH_PLACEHOLDER = Object.freeze({
-  cards: "Search cards or card markets…",
-  sealed: "Search sealed products or sealed markets…",
+  cards: "Search cards, Sets, Eras, rarities, and card markets…",
+  sealed: "Search sealed products, Sets, Eras, and sealed markets…",
   graded: "Search graded cards…",
 });
 
