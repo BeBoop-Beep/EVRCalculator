@@ -89,7 +89,7 @@ test("Cards Rarity uses the full locally searchable filter taxonomy", () => {
   const rarity = renderer.root.find((node) => node.props?.name === "cards-segment");
   assert.equal(rarity.props.searchable, true);
   assert.deepEqual(rarity.props.options.map((row) => row.id), ["sir", "legend"]);
-  assert.equal(rarity.props.searchPlaceholder, "Search raritiesâ€¦");
+  assert.equal(rarity.props.searchPlaceholder, "Search rarities…");
 });
 
 test("a truthful empty preflight disables Build without executing the expensive query", async () => {
