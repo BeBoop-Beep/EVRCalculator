@@ -19,19 +19,21 @@ on:
       - 'infra/oracle/run_market_explorer_prewarm_guarded.sh'
       - 'infra/oracle/market-explorer-prewarm.crontab'
       - 'infra/oracle/install_market_explorer_prewarm_cron.sh'
-      - 'infra/oracle/run_market_explorer_prewarm_guarded.sh'
-      - 'infra/oracle/market-explorer-prewarm.crontab'
-      - 'infra/oracle/install_market_explorer_prewarm_cron.sh'
   pull_request:
     branches: [develop, main]
     paths:
       - 'backend/sentinel/**'
       - 'backend/pricing_pipeline/health.py'
       - 'backend/alerts/market_freshness_watchdog.py'
+      - 'backend/scripts/run_market_explorer_maintained_cache_prewarm.py'
       - 'backend/tests/unit/sentinel/**'
       - 'backend/tests/unit/alerts/test_market_freshness_watchdog.py'
+      - 'backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py'
       - '.github/workflows/sentinel-runtime-backstop.yml'
       - '.github/workflows/sentinel-reliability-guardrails.yml'
+      - 'infra/oracle/run_market_explorer_prewarm_guarded.sh'
+      - 'infra/oracle/market-explorer-prewarm.crontab'
+      - 'infra/oracle/install_market_explorer_prewarm_cron.sh'
 
 permissions:
   contents: read
