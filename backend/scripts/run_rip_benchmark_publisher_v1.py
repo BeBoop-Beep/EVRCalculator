@@ -1,4 +1,4 @@
-"""RIP Benchmark V1 production-shaped dry run. Production writes are disabled."""
+"""RIP Benchmark V1 dry-run/publisher with atomic DB publication and durable attempt receipts."""
 from __future__ import annotations
 
 import argparse
