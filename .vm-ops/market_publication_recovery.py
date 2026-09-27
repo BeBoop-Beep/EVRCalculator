@@ -4,7 +4,7 @@ The price cohort must be complete and current before any builders run. Exact
 counts protect this boundary from the same API pagination defect as histories.
 """
 from __future__ import annotations
-import argparse,fcntl,hashlib,importlib.util,json,os,subprocess,sys,time
+import argparse,fcntl,hashlib,importlib.util,json,os,re,subprocess,sys,time
 from datetime import datetime,timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -20,6 +20,14 @@ def module(name,path):
     spec=importlib.util.spec_from_file_location(name,path)
     result=importlib.util.module_from_spec(spec);spec.loader.exec_module(result);return result
 
+def parse_timestamp(value):
+    # Python 3.10 rejects PostgreSQL's valid 1/2/4/5 fractional digits.
+    # Pad zeros, preserving the exact instant; never truncate real precision.
+    text=re.sub(r'\.(\d{1,6})(?=Z$|[+-]\d{2}:\d{2}$|$)',lambda m:'.'+m.group(1).ljust(6,'0'),str(value))
+    result=datetime.fromisoformat(text.replace('Z','+00:00'))
+    if result.tzinfo is None:raise ValueError('source timestamp requires timezone')
+    return result
+
 def source_ready(batch,jobs,projections):
     if not batch or batch.get('status')!='complete' or not batch.get('promoted_at'):return False
     expected=int(batch.get('expected_set_count') or 0)
@@ -28,8 +36,7 @@ def source_ready(batch,jobs,projections):
     latest={}
     for job in jobs:
         if job.get('status')!='completed' or not job.get('completed_at') or not job.get('set_id'):return False
-        key=job['set_id']
-        completed=datetime.fromisoformat(job['completed_at'].replace('Z','+00:00'))
+        key=job['set_id'];completed=parse_timestamp(job['completed_at'])
         if key not in latest or completed>latest[key]:latest[key]=completed
     if len(latest)!=expected:return False
     by_id={row['set_id']:row for row in projections}
@@ -37,8 +44,8 @@ def source_ready(batch,jobs,projections):
     for root,completed in latest.items():
         row=by_id.get(root,{})
         if row.get('status')!='complete' or not row.get('source_completed_at') or not row.get('completed_at'):return False
-        if datetime.fromisoformat(row['source_completed_at'].replace('Z','+00:00'))<completed:return False
-        if datetime.fromisoformat(row['completed_at'].replace('Z','+00:00'))<completed:return False
+        if parse_timestamp(row['source_completed_at'])<completed:return False
+        if parse_timestamp(row['completed_at'])<completed:return False
     return True
 
 def read_complete(client,table,fields,day):
@@ -104,8 +111,6 @@ def body(day,guard):
     repair=repair_missing_market_set_values(client,market_date=day,commit=True,max_passes=1,sleep_seconds=0)
     if not repair.get('ok'):raise RuntimeError('market_root_materialization_incomplete')
     checkpoint('market_root_coverage',missing_before=repair['missing_before_count'],missing_after=repair['missing_after_count'])
-    # Use the canonical index CLI, including rollout preparation and Market
-    # quality checks; never insert an ad-hoc READY row or disable a gate.
     checkpoint('publishing_canonical_market_index')
     env=os.environ.copy();env['MARKET_PUBLICATION_GATE_MODE']='required'
     subprocess.run([sys.executable,'backend/scripts/build_pokemon_market_index_history.py','--market-date',day,'--commit'],env=env,check=True)
