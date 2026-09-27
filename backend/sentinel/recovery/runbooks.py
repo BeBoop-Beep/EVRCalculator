@@ -9,6 +9,7 @@ canonical entrypoints:
 5. pricing.ebay.scheduler / EBAY_DAILY_SCHEDULE_MISSING
 6. market_explorer.maintenance_scheduler / MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING
 7. market_explorer.maintenance_progress / MARKET_EXPLORER_CONVERGENCE_STALLED
+8. sentinel.runtime_scheduler / SENTINEL_RUNTIME_SCHEDULE_MISSING
 
 Historical eBay continuity gaps remain observation-only because current active
 listings cannot truthfully reconstruct a missed past market date.
@@ -31,6 +32,10 @@ from backend.sentinel.models import CheckOutcome, IncidentRecord
 from backend.sentinel.checks.pricing import (
     PRICING_SCHEDULER_CHECK_KEY,
     check_pricing_scheduler,
+)
+from backend.sentinel.checks.runtime_scheduler import (
+    SENTINEL_SCHEDULER_CHECK_KEY,
+    check_sentinel_scheduler,
 )
 from backend.sentinel.checks.explorer import (
     MARKET_EXPLORER_PROGRESS_CHECK_KEY,
@@ -57,6 +62,7 @@ PRICING_RUNBOOK = "run_daily_multi_source_pricing_v1"
 PRICING_SCHEDULER_RUNBOOK = "install_multi_source_pricing_cron_v1"
 MARKET_EXPLORER_SCHEDULER_RUNBOOK = "install_market_explorer_prewarm_cron_v1"
 MARKET_EXPLORER_PROGRESS_RUNBOOK = "advance_market_explorer_convergence_v1"
+SENTINEL_SCHEDULER_RUNBOOK = "install_sentinel_runtime_cron_v1"
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PRICING_LOCK_PATH = "/tmp/multi-source-pricing.lock"
@@ -68,6 +74,7 @@ MARKET_EXPLORER_CRON_INSTALLER = (
 MARKET_EXPLORER_GUARDED_WORKER = (
     REPO_ROOT / "infra" / "oracle" / "run_market_explorer_prewarm_guarded.sh"
 )
+SENTINEL_CRON_INSTALLER = REPO_ROOT / "infra" / "oracle" / "install_sentinel_cron.sh"
 
 
 def _default_client() -> Any:
@@ -107,6 +114,8 @@ def build_safe_recovery_registry(
     market_explorer_cron_installer: Optional[Callable[[], dict]] = None,
     market_explorer_progress_checker: Optional[Callable[..., Any]] = None,
     market_explorer_worker: Optional[Callable[[], dict]] = None,
+    sentinel_scheduler_checker: Optional[Callable[..., Any]] = None,
+    sentinel_cron_installer: Optional[Callable[[], dict]] = None,
 ) -> RecoveryRegistry:
     """Build the P6 exact-match recovery allowlist.
 
@@ -202,6 +211,8 @@ def build_safe_recovery_registry(
 
     if market_explorer_scheduler_checker is None:
         market_explorer_scheduler_checker = check_market_explorer_scheduler
+    if sentinel_scheduler_checker is None:
+        sentinel_scheduler_checker = check_sentinel_scheduler
     if market_explorer_progress_checker is None:
         market_explorer_progress_checker = check_market_explorer_progress
 
@@ -238,6 +249,22 @@ def build_safe_recovery_registry(
                 else "failed"
             )
             return {"status": status, "exit_code": int(result.returncode)}
+
+    if sentinel_cron_installer is None:
+        def sentinel_cron_installer() -> dict:
+            result = subprocess.run(
+                ["bash", str(SENTINEL_CRON_INSTALLER), "--apply"],
+                cwd=str(REPO_ROOT),
+                env=os.environ.copy(),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15 * 60,
+            )
+            return {
+                "status": "installed" if result.returncode == 0 else "failed",
+                "exit_code": int(result.returncode),
+            }
 
     registry = RecoveryRegistry()
 
@@ -691,6 +718,48 @@ def build_safe_recovery_registry(
             verify=market_explorer_progress_verify,
             max_attempts=1,
             cooldown_seconds=30 * 60,
+        )
+    )
+
+    def sentinel_scheduler_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        live = sentinel_scheduler_checker(_check_context(context))
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block("sentinel_scheduler_already_healthy")
+        if live.failure_code != "SENTINEL_RUNTIME_SCHEDULE_MISSING":
+            return RecoveryDecision.block(
+                "sentinel_scheduler_failure_signature_changed",
+                live_failure=live.failure_code,
+            )
+        return RecoveryDecision.allow(observed=dict(live.observed))
+
+    def sentinel_scheduler_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del incident, context
+        result = dict(sentinel_cron_installer() or {})
+        if str(result.get("status") or "") == "installed":
+            return RecoveryExecution.succeeded(result=result, mutation_performed=True)
+        return RecoveryExecution.failed(result=result)
+
+    def sentinel_scheduler_verify(
+        incident: IncidentRecord, context: RecoveryContext
+    ):
+        del incident
+        return sentinel_scheduler_checker(_check_context(context))
+
+    registry.register(
+        RecoveryRunbook(
+            key=SENTINEL_SCHEDULER_RUNBOOK,
+            version="1",
+            check_key=SENTINEL_SCHEDULER_CHECK_KEY,
+            failure_code="SENTINEL_RUNTIME_SCHEDULE_MISSING",
+            precondition=sentinel_scheduler_precondition,
+            execute=sentinel_scheduler_execute,
+            verify=sentinel_scheduler_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
         )
     )
 
