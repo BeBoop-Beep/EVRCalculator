@@ -2992,6 +2992,7 @@ jobs:
               "$PY" -m pytest \
                 backend/tests/unit/db/services/test_market_explorer_direct_publisher.py \
                 backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+              backend/tests/unit/scripts/test_run_market_explorer_convergence.py \
                 -q
               ;;
 
