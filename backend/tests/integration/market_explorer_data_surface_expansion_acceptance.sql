@@ -5,10 +5,10 @@
 insert into public.eras(id,name) values
  ('10000000-0000-0000-0000-000000000001','Fixture Era');
 
-insert into public.sets(id,name,era_id,catalog_only) values
- ('20000000-0000-0000-0000-000000000001','Fixture Set A','10000000-0000-0000-0000-000000000001',false),
- ('20000000-0000-0000-0000-000000000002','Fixture Set B','10000000-0000-0000-0000-000000000001',false),
- ('20000000-0000-0000-0000-000000000003','Fixture Set C','10000000-0000-0000-0000-000000000001',false);
+insert into public.sets(id,name,era_id,release_date,catalog_only) values
+ ('20000000-0000-0000-0000-000000000001','Fixture Set A','10000000-0000-0000-0000-000000000001','2026-07-01',false),
+ ('20000000-0000-0000-0000-000000000002','Fixture Set B','10000000-0000-0000-0000-000000000001','2024-09-23',false),
+ ('20000000-0000-0000-0000-000000000003','Fixture Set C','10000000-0000-0000-0000-000000000001','2020-01-01',false);
 
 insert into public.pokemon_market_set_scope_contract_v1(
  set_id,base_set_name,profile,market_scope,market_key,display_label
@@ -89,6 +89,9 @@ values
  '{"segmentId":"rareHolo","sourceComputedThrough":"2026-09-24"}'::jsonb,
  '30000000-0000-0000-0000-000000000001',now()
 );
+
+insert into public.pokemon_market_explorer_prepared_serving_v1(singleton,generation_id)
+values (true,'30000000-0000-0000-0000-000000000001');
 
 insert into public.pokemon_market_explorer_prepared_history_v1(
  market_key,market_date,index_value,tracked_value,chain_segment_id,generation_id
@@ -212,6 +215,13 @@ select public.refresh_pokemon_market_explorer_rarity_daily_coverage_v1(
 );
 select public.certify_pokemon_market_explorer_rarity_coverage_v1('2026-09-24');
 
+-- Pre-materialize the asset-specific Sealed authority so the coherent-date
+-- oracle is true BEFORE the V3 candidate builder runs.
+select public.refresh_pokemon_market_explorer_sealed_daily_v1(
+  '2026-09-17','2026-09-24'
+);
+select public.refresh_pokemon_market_explorer_sealed_current_metadata_v1();
+
 -- Build, validate and promote only inside this disposable fixture DB.
 create temp table fixture_generation(generation_id uuid primary key);
 do $$
@@ -219,7 +229,7 @@ declare
   j jsonb;
   g uuid;
 begin
-  j:=public.build_pokemon_market_explorer_surface_candidate_v2(
+  j:=public.build_pokemon_market_explorer_surface_candidate_v3(
     '30000000-0000-0000-0000-000000000001',
     '2026-09-24',
     'raw-fixture-v1'
@@ -227,12 +237,12 @@ begin
   g:=(j->>'generationId')::uuid;
   insert into fixture_generation values(g);
 
-  j:=public.validate_pokemon_market_explorer_surface_candidate_v2(g);
+  j:=public.validate_pokemon_market_explorer_surface_candidate_v3(g);
   if j->>'state'<>'VALIDATED' then
     raise exception 'fixture candidate rejected: %',j;
   end if;
 
-  perform public.promote_pokemon_market_explorer_surface_v2(g);
+  perform public.promote_pokemon_market_explorer_surface_v3(g);
 end $$;
 
 -- Acceptance assertions.
@@ -304,10 +314,55 @@ begin
   where availability='INSUFFICIENT_AUTHORITY';
   if n<>1 then raise exception 'graded fail-closed state missing'; end if;
 
+  if (select count(*) from public.pokemon_market_explorer_sealed_quick_registry_v1
+      where status='APPROVED')<>6
+  then raise exception 'expected exactly six approved sealed quick definitions'; end if;
+
+  if (select count(*) from public.pokemon_market_explorer_surface_directory_v2
+      where generation_id=g and market_key like 'sealed-quick:%'
+        and comparison_as_of='2026-09-24')<>6
+  then raise exception 'expected six coherent sealed quick markets'; end if;
+
   if exists (
-    select 1 from public.pokemon_market_explorer_sealed_quick_registry_v1
-    where status='APPROVED'
-  ) then raise exception 'unapproved sealed quick market was published'; end if;
+    select 1 from public.pokemon_market_explorer_surface_constituents_v2
+    where generation_id=g and market_key like 'sealed-quick:%'
+      and coalesce((item->>'isBulkContainer')::boolean,false)
+  ) then raise exception 'bulk container leaked into sealed quick market'; end if;
+
+  if coalesce((
+    select total_count from public.pokemon_market_explorer_surface_constituent_totals_v2
+    where generation_id=g and market_key='sealed-quick:global-top10'
+  ),0)<>10
+  then raise exception 'sealed Global Top 10 must contain exactly ten products'; end if;
+
+  if not exists (
+    select 1 from public.pokemon_market_explorer_surface_directory_v2
+    where generation_id=g and market_key='sealed-quick:new-releases'
+      and constituent_count>0
+  ) then raise exception 'New Releases quick market should be non-empty'; end if;
+
+  if not exists (
+    select 1 from public.pokemon_market_explorer_surface_directory_v2
+    where generation_id=g and market_key='sealed-quick:established'
+      and constituent_count>0
+  ) then raise exception 'Established quick market should be non-empty'; end if;
+
+  if exists (
+    select 1 from public.pokemon_market_explorer_surface_directory_v2
+    where generation_id=g and comparison_as_of is distinct from '2026-09-24'::date
+  ) then raise exception 'surface directory comparison watermark mismatch'; end if;
+
+  select count(*) into n
+  from public.get_pokemon_market_explorer_surface_screen_v2(
+    'top-performers',null,25,g
+  );
+  if n<1 then raise exception 'Top Performers screen missing'; end if;
+
+  select count(*) into n
+  from public.get_pokemon_market_explorer_surface_screen_v2(
+    'worst-performers',null,25,g
+  );
+  if n<1 then raise exception 'Worst Performers screen missing'; end if;
 
   if (select status from public.pokemon_market_explorer_focus_readiness_v1 where feature_key='demandPressure')
        <>'DEMAND_PRESSURE_NOT_READY'
