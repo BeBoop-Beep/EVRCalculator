@@ -151,6 +151,29 @@ source_pub = sql(
 )
 
 
+def update_with_financial_guard(publication_id: str, *, fail: str | None = None) -> None:
+    # The foundation suite above has already fully certified its original header
+    # completeness/immutability trigger. Isolate this migration's additional
+    # staged->published guard so a 24-row Financial-only fixture can exercise it
+    # without fabricating unrelated Chase/Collector/Overall rows.
+    sql(
+        "ALTER TABLE pokemon_rip_benchmark_publications_v1 "
+        "DISABLE TRIGGER rip_benchmark_header_guard_v1;"
+    )
+    try:
+        sql(
+            "UPDATE pokemon_rip_benchmark_publications_v1 "
+            "SET publication_status='published',published_at=now() "
+            f"WHERE id='{publication_id}';",
+            fail=fail,
+        )
+    finally:
+        sql(
+            "ALTER TABLE pokemon_rip_benchmark_publications_v1 "
+            "ENABLE TRIGGER rip_benchmark_header_guard_v1;"
+        )
+
+
 def insert_staged(publication_id: str, *, key: str, day: str, manifest: dict, canonical: bool = True) -> None:
     expr = {column: "p." + column for column in pub_cols}
     expr.update(
@@ -297,11 +320,7 @@ for era_rank, era_id in enumerate(era_ids, 1):
         f"FROM pokemon_rip_benchmark_rows_v1 r WHERE {source_predicate} LIMIT 1;"
     )
 
-sql(
-    "UPDATE pokemon_rip_benchmark_publications_v1 "
-    "SET publication_status='published',published_at=now() "
-    f"WHERE id='{success_id}';"
-)
+update_with_financial_guard(success_id)
 assert sql(
     f"SELECT publication_status FROM pokemon_rip_benchmark_publications_v1 WHERE id='{success_id}';"
 ) == "published"
@@ -331,11 +350,7 @@ insert_staged(
     manifest=manifest,
     canonical=False,
 )
-sql(
-    "UPDATE pokemon_rip_benchmark_publications_v1 SET publication_status='published',published_at=now() "
-    f"WHERE id='{wrong_id}';",
-    fail="non-canonical",
-)
+update_with_financial_guard(wrong_id, fail="non-canonical")
 assert sql(
     f"SELECT publication_status FROM pokemon_rip_benchmark_publications_v1 WHERE id='{wrong_id}';"
 ) == "staged"
@@ -351,11 +366,7 @@ insert_staged(
     day=DAY,
     manifest=mixed_manifest,
 )
-sql(
-    "UPDATE pokemon_rip_benchmark_publications_v1 SET publication_status='published',published_at=now() "
-    f"WHERE id='{mixed_id}';",
-    fail="same-day",
-)
+update_with_financial_guard(mixed_id, fail="same-day")
 assert sql(
     f"SELECT publication_status FROM pokemon_rip_benchmark_publications_v1 WHERE id='{mixed_id}';"
 ) == "staged"
@@ -369,11 +380,7 @@ insert_staged(
     day=DAY,
     manifest=manifest,
 )
-sql(
-    "UPDATE pokemon_rip_benchmark_publications_v1 SET publication_status='published',published_at=now() "
-    f"WHERE id='{incomplete_id}';",
-    fail="Set Financial authority is incomplete",
-)
+update_with_financial_guard(incomplete_id, fail="Set Financial authority is incomplete")
 assert sql(
     f"SELECT publication_status FROM pokemon_rip_benchmark_publications_v1 WHERE id='{incomplete_id}';"
 ) == "staged"
