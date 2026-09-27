@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from backend.sentinel.checks.explorer import (
+    MARKET_EXPLORER_PROGRESS_CHECK_KEY,
     MARKET_EXPLORER_SCHEDULER_AUTHORITY,
     MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+    check_market_explorer_progress,
     check_market_explorer_scheduler,
 )
 from backend.sentinel.models import CheckOutcome, RunnerIdentity, Severity
@@ -51,3 +53,71 @@ def test_unbounded_or_duplicate_explorer_schedule_fails_closed():
 """
     result = check_market_explorer_scheduler(CTX, crontab_loader=lambda: text)
     assert result.outcome == CheckOutcome.FAILURE
+
+
+
+def _health(*, v2_healthy=False, alerts=None, ready=10, maintained=37):
+    return {
+        "latest_approved_market_date": "2026-09-27",
+        "maintained_count": maintained,
+        "ready_and_current": ready,
+        "v2": {
+            "healthy": v2_healthy,
+            "min_computed_through": "2026-09-27" if v2_healthy else "2026-09-26",
+            "max_computed_through": "2026-09-27",
+        },
+        "alerts": list(alerts or []),
+    }
+
+
+def test_explorer_progress_is_healthy_while_normal_worker_is_advancing():
+    rows = [
+        {"status": "ready", "computed_through": "2026-09-27", "updated_at": "2026-09-27T17:58:00+00:00"},
+        {"status": "ready", "computed_through": "2026-09-26", "updated_at": "2026-09-27T17:59:00+00:00"},
+    ]
+    result = check_market_explorer_progress(
+        CTX,
+        client=object(),
+        health_checker=lambda _client: _health(v2_healthy=False, ready=1, maintained=2),
+        cache_rows_loader=lambda _client: rows,
+    )
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert result.check_key == MARKET_EXPLORER_PROGRESS_CHECK_KEY
+    assert result.observed["state"] == "converging"
+    assert result.observed["stale_maintained_count"] == 1
+
+
+def test_explorer_progress_stalls_when_no_recent_worker_progress():
+    rows = [
+        {"status": "ready", "computed_through": "2026-09-26", "updated_at": "2026-09-27T17:00:00+00:00"},
+    ]
+    result = check_market_explorer_progress(
+        CTX,
+        client=object(),
+        max_progress_age_seconds=600,
+        health_checker=lambda _client: _health(v2_healthy=False, ready=0, maintained=1),
+        cache_rows_loader=lambda _client: rows,
+    )
+    assert result.outcome == CheckOutcome.FAILURE
+    assert result.failure_code == "MARKET_EXPLORER_CONVERGENCE_STALLED"
+    assert result.severity == Severity.CRITICAL
+    assert result.authority_identity == "2026-09-27"
+
+
+def test_explorer_progress_stalls_immediately_on_failed_cache():
+    rows = [
+        {"status": "failed", "computed_through": "2026-09-26", "updated_at": "2026-09-27T17:59:00+00:00"},
+    ]
+    result = check_market_explorer_progress(
+        CTX,
+        client=object(),
+        health_checker=lambda _client: _health(
+            v2_healthy=False,
+            ready=0,
+            maintained=1,
+            alerts=[{"reason": "failed", "fingerprint": "x"}],
+        ),
+        cache_rows_loader=lambda _client: rows,
+    )
+    assert result.outcome == CheckOutcome.FAILURE
+    assert result.failure_code == "MARKET_EXPLORER_CONVERGENCE_STALLED"
