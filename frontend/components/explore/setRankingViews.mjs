@@ -6,7 +6,6 @@ export const SET_RANKING_VIEWS = Object.freeze([
   { value: "collectorAppeal", label: "Collector", requiredPlan: INDEX_PLAN_PLUS },
   { value: "chaseAccessibility", label: "Chase", requiredPlan: INDEX_PLAN_PLUS },
   { value: "packEconomics", label: "Pack Economics", requiredPlan: null },
-  { value: "compareMetrics", label: "Compare Metrics", requiredPlan: INDEX_PLAN_PLUS },
 ]);
 
 export function findSetRankingView(value) {

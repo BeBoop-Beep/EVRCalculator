@@ -16,11 +16,12 @@ test("Rankings and Era navigation use the Bucket 1 information architecture", ()
   assert.ok(!page.includes("Pokémon RIP Rankings"));
 });
 
-test("Set hub defaults to RIP Score and exposes the six Bucket 2 tabs", () => {
+test("Set hub defaults to RIP Score and exposes the five Benchmark V1 lenses", () => {
   assert.ok(hub.includes('initialView = "ripScore"'));
   assert.ok(hub.includes("useState(initialView)"));
   const registry = read("./setRankingViews.mjs");
-  for (const label of ["RIP Score", "Financial", "Collector", "Chase", "Pack Economics", "Compare Metrics"]) assert.ok(registry.includes(`label: "${label}"`));
+  for (const label of ["RIP Score", "Financial", "Collector", "Chase", "Pack Economics"]) assert.ok(registry.includes(`label: "${label}"`));
+  assert.ok(!registry.includes('label: "Compare Metrics"'));
 });
 
 test("public leaderboard reads only canonical Benchmark presentation", () => {
@@ -31,9 +32,9 @@ test("public leaderboard reads only canonical Benchmark presentation", () => {
   for (const paid of ["Financial RIP", "Chase Accessibility", "Collector Appeal", "Format Strength", "RankingsFamilyCells"]) assert.ok(!leaderboard.includes(paid));
 });
 
-test("Compare Metrics is one Plus lock and entitled users receive the existing dense table", () => {
+test("paid Benchmark lenses share one Plus lock and no legacy dense score table is reachable", () => {
   assert.ok(hub.includes("<PlanLock requiredPlan={INDEX_PLAN_PLUS}"));
-  assert.ok(hub.includes('view === "compareMetrics" ? <ExploreTableClient'));
+  assert.ok(!hub.includes("ExploreTableClient"));
   assert.equal((hub.match(/<PlanLock requiredPlan=/g) || []).length, 1);
 });
 

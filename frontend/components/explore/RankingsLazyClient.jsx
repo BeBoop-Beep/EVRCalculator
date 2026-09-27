@@ -45,7 +45,6 @@ async function readLens(response, fallbackMessage) {
 export default function RankingsLazyClient({
   targets,
   openingEconomics,
-  loadError,
   rankingsMarketDate = null,
 }) {
   const { canViewRankingsIntelligence, canViewCardChaseEfficiency, canViewCardCollectorAppeal, authStatus, requestKey } = useRankingsAccess();
@@ -273,7 +272,7 @@ export default function RankingsLazyClient({
         ) : setsUnavailable ? (
           <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => loadSets({ force: true, foreground: true })}>Retry</button></section>
         ) : (
-              <SetRankingsHub key={`${sessionCache.identity}:${setEntryView}`} initialView={setEntryView} targets={setTargets} benchmark={visibleSetsState.benchmark} openingEconomics={openingEconomics} loadError={loadError || setsUnavailable} canViewRankingsIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} onClearEraFilter={() => setSelectedEra(null)} marketDate={visibleSetsState.benchmark?.freshness?.benchmarkMarketDate || visibleSetsState.marketDate} />
+              <SetRankingsHub key={`${sessionCache.identity}:${setEntryView}`} initialView={setEntryView} targets={setTargets} benchmark={visibleSetsState.benchmark} openingEconomics={openingEconomics} canViewRankingsIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} onClearEraFilter={() => setSelectedEra(null)} marketDate={visibleSetsState.benchmark?.freshness?.benchmarkMarketDate || visibleSetsState.marketDate} />
         )
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
