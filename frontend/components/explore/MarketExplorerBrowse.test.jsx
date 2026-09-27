@@ -106,6 +106,18 @@ test("Quick Markets stay selected together and do not delete prior selections", 
   }
 });
 
+test("published Sealed Quick labels are not rewritten as Cards", async () => {
+  const quick = ["Obtainable", "Intermediate", "Premium", "New Releases", "Established", "Global Top 10"]
+    .map((label, index) => ({ market_key: `sealed-quick:${index}`, label, asset: "sealed", market_type: "curated", scope_kind: "quick", available: true }));
+  let renderer;
+  await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse directory={quick} assetLayer="sealed" activeKeys={[]} canCompare={false} onSelect={noop} onCompare={noop} onBuild={noop} />, { createNodeMock: () => ({ focus: noop }) }); });
+  await act(async () => category(renderer, "quick").props.onClick());
+  const copy = JSON.stringify(renderer.toJSON());
+  for (const label of quick.map((row) => row.label)) assert.match(copy, new RegExp(label));
+  assert.doesNotMatch(copy, /Obtainable Cards|Premium Cards|Global Top 10 Cards/);
+  renderer.unmount();
+});
+
 test("unmatched query is category-specific while unavailable never masquerades as no-match", async () => {
   let renderer;
   await act(async () => { renderer = TestRenderer.create(<MarketExplorerBrowse directory={directory} onSelect={noop} onCompare={noop} onBuild={noop} />); });

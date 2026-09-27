@@ -34,6 +34,9 @@ const QUICK_COPY = {
   "Global Top 10": ["Global Top 10 Cards", "The ten highest-ranked cards in the global card market."],
 };
 const displayMarket = (market) => {
+  // Card Quick copy predates the sealed V2 publication. Sealed Quick labels and
+  // definitions are DB authority and must not be relabelled as card markets.
+  if (market?.asset === "sealed") return { label: market.label, description: null };
   const copy = market?.market_type === "curated" ? QUICK_COPY[market.label] : null;
   return { label: copy?.[0] || market.label, description: copy?.[1] || null };
 };

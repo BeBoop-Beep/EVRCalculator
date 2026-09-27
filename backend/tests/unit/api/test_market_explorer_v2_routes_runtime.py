@@ -71,7 +71,7 @@ class Fake:
             raise self.fail[name]
         data = {v2.DIRECTORY_RPC_V2: self.directory, v2.HISTORY_RPC_V2: self.history,
                 v2.CONSTITUENTS_RPC_V2: self.page, v2.SEARCH_RPC_V1: self.search,
-                v2.ASSET_OPTIONS_RPC_V2: self.options, leaf_search.SEARCH_RPC: self.leaves,
+                v2.ASSET_OPTIONS_RPC_V2: self.options, leaf_search.LEAF_SEARCH_RPC: self.leaves,
                 v1.SCREEN_RPC: self.screen}.get(name)
         return Resp(data)
 
@@ -284,7 +284,7 @@ def test_leaf_search_is_public_normalized_and_graded_is_stably_unavailable(monke
 
 
 def test_leaf_search_validation_and_failures_are_browser_safe(api):
-    client = api(Fake(fail={leaf_search.SEARCH_RPC: RuntimeError("secret database relation")}, leaves=[]))
+    client = api(Fake(fail={leaf_search.LEAF_SEARCH_RPC: RuntimeError("secret database relation")}, leaves=[]))
     assert client.get("/market/explorer/leaves/search", params={"asset": "cards", "q": "x"}).status_code == 422
     failed = client.get("/market/explorer/leaves/search", params={"asset": "cards", "q": "Dragonite"})
     assert failed.status_code == 503 and "secret" not in failed.text

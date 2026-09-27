@@ -7,7 +7,11 @@ from typing import Any
 MIN_QUERY_LENGTH = 2
 MAX_RESULTS = 50
 MAX_QUERY_LENGTH = 120
-SEARCH_RPC = "search_pokemon_market_explorer_instruments_v2"
+LEGACY_SEARCH_RPC = "search_pokemon_market_explorer_instruments_v2"
+LEAF_SEARCH_RPC = "search_pokemon_market_explorer_leaves_v1"
+# Compatibility alias for callers that imported the original constant. Explorer
+# leaf discovery intentionally does not use it.
+SEARCH_RPC = LEGACY_SEARCH_RPC
 SITEWIDE_SEARCH_RPC = "search_pokemon_sitewide_instruments_v1"
 GRADED_UNAVAILABLE_REASON = "Graded leaf search is not available from the current published authority."
 
@@ -72,7 +76,7 @@ def _canonical_item(row: dict[str, Any]) -> dict[str, Any] | None:
             "productFamily": family,
             "productType": _text(row, "product_type", "productType") or family,
             "variantLabel": _text(row, "variant_label", "variantLabel"),
-            "bulkContainer": _value(row, "bulk_container", "bulkContainer"),
+            "bulkContainer": _value(row, "is_bulk_container", "bulk_container", "bulkContainer"),
         })
     return {key: value for key, value in item.items() if value is not None}
 
@@ -85,7 +89,7 @@ def search_market_explorer_instruments(client: Any, *, q: str, asset: str = "all
     if asset not in ("all", "cards", "sealed"):
         raise ValueError("asset must be all, cards, or sealed")
     cap = max(1, min(int(limit), MAX_RESULTS))
-    rows = list((client.rpc(SEARCH_RPC, {
+    rows = list((client.rpc(LEGACY_SEARCH_RPC, {
         "p_query": needle, "p_asset": asset, "p_limit": cap,
     }).execute()).data or [])
     # Preserve SQL order: the database owns normalization, relevance, fuzzy
@@ -110,7 +114,13 @@ def search_market_explorer_leaves(client: Any, *, q: str, asset: str, limit: int
             "availability": "INSUFFICIENT_AUTHORITY", "reason": GRADED_UNAVAILABLE_REASON,
         }
     try:
-        return search_market_explorer_instruments(client, q=needle, asset=asset, limit=int(limit))
+        cap = int(limit)
+        rows = list((client.rpc(LEAF_SEARCH_RPC, {
+            "p_asset": asset, "p_query": needle, "p_limit": cap,
+        }).execute()).data or [])
+        items = [item for row in rows if (item := _canonical_item(dict(row)))]
+        items = [item for item in items if item["asset"] == asset]
+        return {"query": needle, "asset": asset, "limit": cap, "items": items[:cap]}
     except Exception as exc:
         text = f"{type(exc).__name__} {exc}".lower()
         code = "LEAF_SEARCH_UNAVAILABLE" if (
