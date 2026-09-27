@@ -14,6 +14,8 @@ from backend.db.clients.supabase_client import supabase
 
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 TERMINAL_BATCH_STATES = {"complete", "failed", "incomplete"}
+EXPLORER_CONVERGENCE_AUTHORITY_KEYS = ("explorer_v2",)
+
 REQUIRED_AUTHORITY_DATE_KEYS = (
     "accepted_market_quality",
     "set_value",
@@ -66,17 +68,27 @@ def evaluate_watchdog_state(state: Mapping[str, Any], *, now: datetime) -> List[
             failures.append({"alert_type": "market_publication_stale", "failure_class": "accepted_date_stale",
                              "message": f"Latest accepted market date is {public_date or 'missing'}; expected {market_date}."})
 
-        missing_authorities = [key for key in REQUIRED_AUTHORITY_DATE_KEYS if not dates.get(key)]
+        explorer_deadline = _clock(
+            os.getenv("MARKET_EXPLORER_CONVERGENCE_DEADLINE_AZ", "10:30")
+        )
+        required_keys = tuple(
+            key for key in REQUIRED_AUTHORITY_DATE_KEYS
+            if (
+                local_now.time() >= explorer_deadline
+                or key not in EXPLORER_CONVERGENCE_AUTHORITY_KEYS
+            )
+        )
+        missing_authorities = [key for key in required_keys if not dates.get(key)]
         if missing_authorities:
             failures.append({
                 "alert_type": "market_snapshot_date_divergence",
                 "failure_class": "authority_date_missing",
                 "message": f"Public market authorities are missing dates: {', '.join(missing_authorities)}.",
-                "actual_dates": {key: dates.get(key) for key in REQUIRED_AUTHORITY_DATE_KEYS},
+                "actual_dates": {key: dates.get(key) for key in required_keys},
                 "missing_authorities": missing_authorities,
             })
 
-        present = {key: value for key, value in dates.items() if value}
+        present = {key: dates.get(key) for key in required_keys if dates.get(key)}
         if present and len(set(present.values())) > 1:
             failures.append({"alert_type": "market_snapshot_date_divergence", "failure_class": "authority_date_mismatch",
                              "message": f"Public market authorities disagree: {present}.", "actual_dates": present})
