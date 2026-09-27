@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -1984,6 +1984,60 @@ jobs:
               pricing_cron_report
               rm -f "$CURRENT"
               echo "CODE_RED_DB_LOAD_RESTORE_AUDIT=PASS"
+              ;;
+
+            code-red-db-load-restore-merge)
+              cd "$REPO"
+              CURRENT="/tmp/index-code-red-merge.current"
+              RESTORED="/tmp/index-code-red-merge.restored"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              test ! -e "$HOLD" && test ! -L "$HOLD" || { echo "REFUSING: database safety hold is active"; exit 43; }
+              crontab -l > "$CURRENT"
+              DISABLED_BEFORE=$(grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true)
+              [ "$DISABLED_BEFORE" -gt 0 ] || { echo "REFUSING: no CODE_RED_DISABLED entries to restore"; exit 44; }
+              sed 's/^# CODE_RED_DISABLED //' "$CURRENT" > "$RESTORED"
+
+              python3 - "$CURRENT" "$RESTORED" <<'PY'
+          import sys
+          from pathlib import Path
+          before = Path(sys.argv[1]).read_text().splitlines()
+          after = Path(sys.argv[2]).read_text().splitlines()
+          if len(before) != len(after):
+              raise SystemExit("line count changed")
+          changed = 0
+          for old, new in zip(before, after):
+              if old.startswith("# CODE_RED_DISABLED "):
+                  if new != old[len("# CODE_RED_DISABLED "):]:
+                      raise SystemExit("invalid restored code-red line")
+                  changed += 1
+              elif old != new:
+                  raise SystemExit("non-code-red crontab line changed")
+          if changed == 0:
+              raise SystemExit("no code-red lines changed")
+          print(f"restored_line_count={changed}")
+          PY
+
+              set -a
+              . backend/.env
+              set +a
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          c.table("pokemon_scrape_batches").select("id").limit(1).execute()
+          print("database_reachable=true")
+          PY
+
+              crontab "$RESTORED"
+              rm -f "$CURRENT" "$RESTORED"
+              DISABLED_AFTER=$(crontab -l | grep -c '^# CODE_RED_DISABLED ' || true)
+              echo "code_red_disabled_before=$DISABLED_BEFORE"
+              echo "code_red_disabled_after=$DISABLED_AFTER"
+              [ "$DISABLED_AFTER" -eq 0 ] || { echo "RESTORE FAILED: disabled entries remain"; exit 45; }
+              echo "== preserved managed/recovery blocks =="
+              crontab -l | grep -E 'BEGIN multi-source-pricing|INDEX_BOUNDED_COLLECTION_V1|INDEX_BOUNDED_PRICE_PROJECTION_V1|INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1' || true
+              echo "== restored canonical jobs =="
+              crontab -l | grep -E 'create_daily_scrape_batch|run_next_scrape_job|publish_post_scrape_if_needed|post_scrape_publication_watchdog|market_freshness_watchdog|backend.sentinel.operational' || true
+              echo "CODE_RED_DB_LOAD_RESTORE_MERGE=PASS"
               ;;
 
             code-red-db-load-restore)
