@@ -1,1 +1,7 @@
-{"operation":"edition-coverage-source-research","purpose":"read-only catalogue and parser comparison for six unavailable markets","database_writes":false,"runtime_changes":false}
+{
+  "operation": "edition-coverage-source-research",
+  "purpose": "read-only catalogue and parser comparison for remaining Base and Neo edition snapshot gaps",
+  "database_writes": false,
+  "runtime_changes": false,
+  "request_id": "20260927-base-neo-source-recheck"
+}
