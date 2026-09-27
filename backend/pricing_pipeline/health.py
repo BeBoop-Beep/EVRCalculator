@@ -17,7 +17,7 @@ OK, DEGRADED, CRITICAL = "ok", "degraded_multi_source_coverage", "critical"
 # Scheduled 04:10 Phoenix; a run is considered overdue only after this local time.
 RUN_DEADLINE_PHOENIX = time(8, 0)
 MAX_EVIDENCE_AGE_HOURS = 36
-COVERAGE_LOOKBACK_DAYS = 3
+COVERAGE_LOOKBACK_DAYS = 7
 
 
 def expected_market_date(now: datetime) -> date:
