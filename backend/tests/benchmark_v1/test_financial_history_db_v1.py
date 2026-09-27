@@ -145,7 +145,7 @@ def test_assembly_failure_is_recorded_without_a_publication(monkeypatch):
     row = client.tables[publisher._ATTEMPT_TABLE][0]
     assert row["status"] == "failed"
     assert row["reason_code"] == "ASSEMBLY_FAILED"
-    assert row["resulting_publication_id"] if "resulting_publication_id" in row else True
+    assert row.get("resulting_publication_id") is None
     assert "incomplete cohort" in row["reason_detail"]
 
 
