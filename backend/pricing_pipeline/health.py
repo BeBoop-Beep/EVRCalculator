@@ -179,9 +179,28 @@ def sentinel_results(snapshot: Mapping[str, Any]):
 
     out = []
     for r in assess(snapshot):
+        observed = r["observed"]
+        authority_identity = (
+            observed.get("expected_market_date")
+            or observed.get("coverage_end")
+            or observed.get("latest_evidence_market_date")
+            or observed.get("latest_estimate_market_date")
+            or observed.get("latest_shadow_market_date")
+        )
         if r["status"] == OK:
-            out.append(CheckResult.healthy(r["check"], observed=r["observed"], checked_at=snapshot["now"]))
+            out.append(CheckResult.healthy(
+                r["check"],
+                authority_identity=authority_identity,
+                observed=observed,
+                checked_at=snapshot["now"],
+            ))
         else:
-            out.append(CheckResult.failure(r["check"], failure_code=r["code"], severity=Severity.CRITICAL if r["status"] == CRITICAL else Severity.WARNING,
-                                           observed=r["observed"], checked_at=snapshot["now"]))
+            out.append(CheckResult.failure(
+                r["check"],
+                failure_code=r["code"],
+                severity=Severity.CRITICAL if r["status"] == CRITICAL else Severity.WARNING,
+                authority_identity=authority_identity,
+                observed=observed,
+                checked_at=snapshot["now"],
+            ))
     return out
