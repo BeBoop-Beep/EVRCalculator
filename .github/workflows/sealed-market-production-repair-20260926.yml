@@ -1,0 +1,151 @@
+name: Sealed Market Production Repair 2026-09-26
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sealed-market-production-repair-20260926.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Rebuild sealed snapshots and republish Sep 26 Market
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          TARGET=2026-09-26
+          PUBLICATION_LOCK=/tmp/pokemon-post-scrape-publication.lock
+          WATCHDOG_LOCK=/tmp/post-scrape-publication-watchdog.lock
+
+          test -x "$PY"
+          test -f "$LIVE/backend/.env"
+
+          exec 8>"$WATCHDOG_LOCK"
+          flock -w 180 8
+          exec 9>"$PUBLICATION_LOCK"
+          flock -w 180 9
+
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+
+          echo "=== source ==="
+          echo "workspace_head=$(git rev-parse HEAD)"
+          echo "target=$TARGET"
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          rows=list(c.table("sealed_product_price_observations").select("captured_at").order("captured_at",desc=True).limit(1).execute().data or [])
+          print("sealed_source_max_date="+str((rows[0] if rows else {}).get("captured_at")))
+          g=list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,market_count,set_count,payload_json").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or [])
+          if g:
+              p=g[0].get("payload_json") or {}
+              o=p.get("marketOverview") or {}
+              def last(k):
+                  t=(o.get(k) or {}).get("trend") or []
+                  return (t[-1][0] if t else None)
+              print("before_market_date="+str(g[0].get("market_date")))
+              print("before_raw_last="+str(last("raw")))
+              print("before_sealed_last="+str(last("sealedMarket")))
+          PY
+
+          echo "=== focused production-code validation ==="
+          "$PY" -m pytest -q             backend/tests/unit/scripts/test_build_pokemon_set_sealed_market_snapshots.py             backend/tests/unit/db/services/test_pokemon_set_sealed_market_snapshot_service.py             backend/tests/unit/db/services/test_pokemon_global_sealed_market_service.py
+
+          echo "=== rebuild prepared sealed snapshots ==="
+          "$PY" backend/scripts/build_pokemon_set_sealed_market_snapshots.py --all --commit             > "$RUNNER_TEMP/sealed-snapshot-rebuild.log"
+          tail -n 80 "$RUNNER_TEMP/sealed-snapshot-rebuild.log"
+
+          echo "=== verify prepared sealed history reaches source ==="
+          TARGET="$TARGET" "$PY" - <<'PY'
+          import os
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          target=os.environ["TARGET"]
+          rows=list(c.table("pokemon_set_sealed_market_snapshot_latest").select("set_id,market_date,payload_json").eq("tcg","pokemon").execute().data or [])
+          if not rows:
+              raise SystemExit("no prepared sealed snapshots")
+          max_market=max(str(r.get("market_date") or "")[:10] for r in rows)
+          history_max=""
+          history_target_products=0
+          for row in rows:
+              for product in ((row.get("payload_json") or {}).get("products") or []):
+                  history=product.get("history") or []
+                  if history:
+                      day=str((history[-1] or {}).get("date") or "")[:10]
+                      history_max=max(history_max,day)
+                      if day == target:
+                          history_target_products += 1
+          print("prepared_snapshot_rows="+str(len(rows)))
+          print("prepared_market_max="+max_market)
+          print("prepared_history_max="+history_max)
+          print("products_observed_on_target="+str(history_target_products))
+          if history_max != target:
+              raise SystemExit("prepared sealed history did not reach promoted date")
+          PY
+
+          echo "=== republish canonical global Market snapshot ==="
+          "$PY" backend/scripts/build_pokemon_explore_set_value_snapshot.py             --commit --market-date "$TARGET"
+
+          echo "=== verify production database snapshot ==="
+          TARGET="$TARGET" "$PY" - <<'PY'
+          import os
+          from collections import Counter
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          target=os.environ["TARGET"]
+          rows=list(c.table("pokemon_explore_set_value_snapshot_latest").select("market_date,set_count,market_count,payload_json,updated_at").eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or [])
+          if not rows:
+              raise SystemExit("global Market snapshot missing")
+          r=rows[0]; p=r.get("payload_json") or {}; o=p.get("marketOverview") or {}
+          def last(k):
+              t=(o.get(k) or {}).get("trend") or []
+              return str(t[-1][0])[:10] if t else None
+          scopes=Counter(str(x.get("marketScope") or "standard") for x in (p.get("sets") or []))
+          print("db_market_date="+str(r.get("market_date")))
+          print("db_set_count="+str(r.get("set_count")))
+          print("db_market_count="+str(r.get("market_count")))
+          print("db_scope_counts="+repr(dict(sorted(scopes.items()))))
+          print("db_raw_last="+str(last("raw")))
+          print("db_sealed_last="+str(last("sealedMarket")))
+          print("db_updated_at="+str(r.get("updated_at")))
+          if str(r.get("market_date"))[:10] != target or last("raw") != target or last("sealedMarket") != target:
+              raise SystemExit("database Market overview is not coherent on promoted date")
+          if int(r.get("set_count") or 0) != 156 or int(r.get("market_count") or 0) != 167:
+              raise SystemExit("market inventory contract changed during repair")
+          PY
+
+          echo "=== verify public Render response ==="
+          BODY="$RUNNER_TEMP/public-market.json"
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 --retry-all-errors             --max-time 45 https://evrcalculator.onrender.com/explore/set-value-market > "$BODY"
+          TARGET="$TARGET" BODY="$BODY" "$PY" - <<'PY'
+          import json,os
+          target=os.environ["TARGET"]
+          p=json.load(open(os.environ["BODY"]))
+          o=p.get("marketOverview") or {}
+          def last(k):
+              t=(o.get(k) or {}).get("trend") or []
+              return str(t[-1][0])[:10] if t else None
+          market_date=str(p.get("marketDate") or ((p.get("meta") or {}).get("snapshot") or {}).get("marketDate") or "")[:10]
+          print("public_market_date="+market_date)
+          print("public_raw_last="+str(last("raw")))
+          print("public_sealed_last="+str(last("sealedMarket")))
+          if market_date != target or last("raw") != target or last("sealedMarket") != target:
+              raise SystemExit("public Market response is not coherent on promoted date")
+          PY
+
+          flock -u 9
+          flock -u 8
