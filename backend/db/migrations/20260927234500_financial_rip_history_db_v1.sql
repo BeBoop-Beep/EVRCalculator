@@ -91,7 +91,7 @@ begin
        'financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5'
      or new.overall_model_version <>
        'overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5'
-     or new.chase_model_version <> 'chase_accessibility_v1'
+     or new.chase_model_version <> 'chase_accessibility_v1_hc_value_squared_modeled_probability'
      or new.collector_model_version <>
        'collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2'
   then
