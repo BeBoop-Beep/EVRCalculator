@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-cron-observe",
-  "request_id": "rip-benchmark-prod-explorer-post-recovery"
+  "operation": "sentinel-reliability-tests",
+  "request_id": "sentinel-convergence-reliability-tests-20260927"
 }
