@@ -324,7 +324,7 @@ export function readCanonicalOverallRipV10(source) {
  * reader so every surface quotes the same wording.
  */
 export const PUBLIC_SCORE_SCALE_NOTE =
-  "Scores follow the current leader's curve on a 0–10 scale; 10.0 is the leader and every other score shows how closely it tracks that result.";
+  "Scores use a 0–10 Benchmark scale: 5.0 is the current Pokémon benchmark, above 5 is above it, and below 5 is below it. Rank #1 identifies the leader; 10.0 is the upper endpoint.";
 
 /**
  * True when the canonical Overall RIP V7 headline can be rendered for a target.

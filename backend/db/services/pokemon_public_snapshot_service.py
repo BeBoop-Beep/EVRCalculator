@@ -2152,7 +2152,6 @@ _HOMEPAGE_RANKINGS_TARGET_FIELDS = frozenset({
     "desirability_is_fallback", "desirabilityIsFallback",
     "is_opening_set", "isOpeningSet",
 })
-_HOMEPAGE_RANKINGS_SETRIP_FIELDS = frozenset({"score", "tier", "rank", "cohortSize", "rankable"})
 _HOMEPAGE_RANKINGS_DESIRABILITY_FIELDS = frozenset({"score", "rank"})
 
 
@@ -2166,9 +2165,6 @@ def _project_public_homepage_rankings_target(target: Any) -> Dict[str, Any]:
     if not isinstance(target, dict):
         return {}
     projected = {key: target[key] for key in _HOMEPAGE_RANKINGS_TARGET_FIELDS if key in target}
-    set_rip = target.get("setRipV1")
-    if isinstance(set_rip, dict):
-        projected["setRipV1"] = {key: set_rip[key] for key in _HOMEPAGE_RANKINGS_SETRIP_FIELDS if key in set_rip}
     desirability = target.get("universalSetDesirability")
     if isinstance(desirability, dict):
         projected["universalSetDesirability"] = {
@@ -2189,6 +2185,71 @@ def get_pokemon_homepage_rankings_summary_payload(limit: Any = 60) -> Dict[str, 
     parameters at all and must never be called with resolved session state.
     """
     return get_pokemon_explore_rankings_lens_payload(lens="homepage", limit=limit)
+
+
+_HOMEPAGE_BENCHMARK_FIELDS = (
+    "entity_type,entity_id,metric_key,benchmark_score,rank,cohort_size,"
+    "benchmark_status,benchmark_reason,model_status,model_reason,source_market_date,source_model_version"
+)
+
+
+def get_pokemon_homepage_benchmark_summary_payload(client: Any, contract: Any, limit: Any = 60) -> Dict[str, Any]:
+    """Join the narrow Homepage identity/economics projection to current Set Benchmark Overall.
+
+    This is two bounded server-side reads, never a per-Set fanout: the existing
+    Homepage snapshot read plus one current-publication Overall-row read.
+    """
+    payload = get_pokemon_homepage_rankings_summary_payload(limit=limit)
+    source_meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    # Keep the Homepage contract useful for freshness display without leaking
+    # publication internals (model configs, fingerprints, or diagnostics).
+    public_meta = {
+        "snapshot": source_meta.get("snapshot") if isinstance(source_meta.get("snapshot"), dict) else {},
+        "comparisonSnapshots": source_meta.get("comparisonSnapshots")
+        if isinstance(source_meta.get("comparisonSnapshots"), dict) else {},
+    }
+    payload = {**payload, "meta": public_meta}
+    targets = [row for row in payload.get("targets", []) if isinstance(row, dict)]
+    ids = [str(row.get("target_id")) for row in targets if row.get("target_id")]
+    headers = list(client.table("pokemon_rip_benchmark_publications_v1")
+        .select("id,market_date,overall_model_version")
+        .eq("benchmark_key", contract.benchmark_key)
+        .eq("calibration_version", contract.calibration_version)
+        .eq("publication_status", "published")
+        .order("market_date", desc=True).limit(1).execute().data or [])
+    if not headers:
+        return {**payload, "targets": [], "benchmark": {"status": "unavailable", "reason": "no_published_benchmark"}}
+    header = headers[0]
+    rows = []
+    if ids:
+        rows = list(client.table("pokemon_rip_benchmark_rows_v1").select(_HOMEPAGE_BENCHMARK_FIELDS)
+            .eq("publication_id", header["id"]).eq("entity_type", "set").eq("metric_key", "overall")
+            .in_("entity_id", ids).limit(len(ids)).execute().data or [])
+    by_id = {str(row.get("entity_id")): row for row in rows}
+    enriched = []
+    for target in targets:
+        row = by_id.get(str(target.get("target_id")))
+        if not row:
+            continue
+        public_target = {key: value for key, value in target.items() if key != "setRipV1"}
+        enriched.append({**public_target, "benchmarkOverall": {
+            "score": row.get("benchmark_score"), "rank": row.get("rank"),
+            "cohortSize": row.get("cohort_size"), "status": row.get("benchmark_status"),
+            "reason": row.get("benchmark_reason"), "modelStatus": row.get("model_status"),
+            "modelReason": row.get("model_reason"), "sourceMarketDate": row.get("source_market_date"),
+            "modelVersion": row.get("source_model_version"),
+        }})
+    enriched.sort(key=lambda row: (
+        row["benchmarkOverall"].get("rank") is None,
+        row["benchmarkOverall"].get("rank") or 10**9,
+        str(row.get("name") or ""),
+    ))
+    return {**payload, "targets": enriched, "benchmark": {
+        "status": "available", "publicationId": header.get("id"),
+        "marketDate": str(header.get("market_date"))[:10],
+        "sourceMarketDate": min((str(row.get("source_market_date"))[:10] for row in rows if row.get("source_market_date")), default=None),
+        "activeModelVersion": header.get("overall_model_version"),
+    }}
 
 
 def _read_rankings_publication_identity(payload: Dict[str, Any]) -> Dict[str, Optional[str]]:

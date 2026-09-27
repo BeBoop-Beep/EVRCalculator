@@ -1,0 +1,461 @@
+{
+  "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+  "artifact_fingerprint": "96a09e86c93228d3db389721b8cc692cc8c5484976b7ff2ca0425c2148557953",
+  "era_count": 2,
+  "metrics": {
+    "chase": {
+      "dfb0dfa1-6a8e-4335-850f-e003867e19ee": {
+        "benchmark_score": "5.262529431818181818181818182",
+        "era_name": "Scarlet and Violet",
+        "era_rank": 1,
+        "global_set_reference": "47.66021818181818181818181818",
+        "member_count": 16,
+        "member_ids": [
+          "142d3869-9d39-48b6-a810-751af2aac748",
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "d001d563-988b-4f8e-904f-acb926748e22",
+          "de291399-ead5-41dc-bc12-e7c587684f85",
+          "f59f25a2-d3da-4100-a918-901271a99925",
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+        ],
+        "raw_value": "50.2855125",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "142d3869-9d39-48b6-a810-751af2aac748",
+            "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "d001d563-988b-4f8e-904f-acb926748e22",
+            "de291399-ead5-41dc-bc12-e7c587684f85",
+            "f59f25a2-d3da-4100-a918-901271a99925",
+            "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+          ],
+          "member_source_fingerprints": [
+            "575c841d05a38fd610e9f98746f1e8cf4be1242074db11212ed8cf482b9920c2",
+            "20bb811aac1cf3833740ee549062661919c49469037b06d1539acfe67ab84a05",
+            "4b6979d48893b03123eb28ad04ce98de8943b14de72b34a6fd852143b48d3075",
+            "c9c5e7bb95bfc156d3ac9dbb1fe3d83e40b3b685ef752b2264723996c53e88e2",
+            "5894b2c382247f4209a37d4ef85a8bfd77314b056f7ff6d9890c420e0c049aa7",
+            "3a30d7f8ff48dd0ba6c397f0d36892f72a3e5f6580310012aeedcfe706f949d1",
+            "4a3b7370f93da6abc026fff2b835124d6d295c5c6f1a91707e49b75cf1d8d227",
+            "c0eff187e72c831ce921bb8a2bc0e00b6d9faea6849d2a7049e256afec54c0fa",
+            "37873aaec6c208a36b8ccecc7b950488f1e13623217dba143b03ea624f0fdf8a",
+            "8c367c7d3dc26e244b5f2f9d69a1ff1e3d2d44cb5ef182b3a900c88cc5803a97",
+            "1c418fd105bf702637171ba9f05f82814b27a047d1a209e048e5c458bdf884bf",
+            "c822313aba9330f173151e694729f69b52b7b49d85e8bf0e8c09cf57fb72194f",
+            "2f8fa107e901137a19ba7afdde65645ea9cd87f83391e09b2af7897ba2359908",
+            "df65cfd2bd78e4a1772365558ff2d58320709e731f2dd61423ae46c5f131d221",
+            "11e19541995ec8db540fba8399a7abfdc6c51ef207c370766374b787be7662ce",
+            "b61caeb56fa7b6f1df05977531068db9c30f8363eb0830ad55a217fa84591c7c"
+          ],
+          "overall_rule": null
+        },
+        "unavailable_members": []
+      },
+      "fb22f860-ae41-4879-a41a-857ca11bf0da": {
+        "benchmark_score": "4.299921515151515151515151515",
+        "era_name": "Mega Evolution",
+        "era_rank": 2,
+        "global_set_reference": "47.66021818181818181818181818",
+        "member_count": 6,
+        "member_ids": [
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "472f851c-2e41-4c80-b6fc-8478d1d92730",
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+          "5e99f658-39f0-4845-9228-db8db3965f32",
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+        ],
+        "raw_value": "40.65943333333333333333333333",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "472f851c-2e41-4c80-b6fc-8478d1d92730",
+            "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "5e99f658-39f0-4845-9228-db8db3965f32",
+            "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+          ],
+          "member_source_fingerprints": [
+            "99b215a881d30212b3495b2cf7eb00b4bef7cc319111c48399fd39501dba11f0",
+            "44afb5fa3949d43b095ee197d790fe975fe322f547d428886e53cfbdbe86bfc6",
+            "0430f52e6dff1477e50899efec94075969e46992cd4830b1845314cf752ed1cf",
+            "ed22a6e92bf3eeeb66924cd9b6e6a143abc5f83e3e12d4bc8681dd422ac722dd",
+            "0237fbd77feee5fc2e4bd9c5ae39062be9da55fb576b28be72b995b05d197747",
+            "e9960093e0e5128e88b296a91408a5c478e1de8368bcd82d08918260498646c3"
+          ],
+          "overall_rule": null
+        },
+        "unavailable_members": []
+      },
+      "weighted_reconciliation": {
+        "exact": true,
+        "global_set_reference": "47.66021818181818181818181818",
+        "value": "47.66021818181818181818181818"
+      }
+    },
+    "collector": {
+      "dfb0dfa1-6a8e-4335-850f-e003867e19ee": {
+        "benchmark_score": "4.979270454545454545454545455",
+        "era_name": "Scarlet and Violet",
+        "era_rank": 2,
+        "global_set_reference": "79.72324545454545454545454545",
+        "member_count": 16,
+        "member_ids": [
+          "142d3869-9d39-48b6-a810-751af2aac748",
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "d001d563-988b-4f8e-904f-acb926748e22",
+          "de291399-ead5-41dc-bc12-e7c587684f85",
+          "f59f25a2-d3da-4100-a918-901271a99925",
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+        ],
+        "raw_value": "79.51595",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "142d3869-9d39-48b6-a810-751af2aac748",
+            "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "d001d563-988b-4f8e-904f-acb926748e22",
+            "de291399-ead5-41dc-bc12-e7c587684f85",
+            "f59f25a2-d3da-4100-a918-901271a99925",
+            "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+          ],
+          "member_source_fingerprints": [
+            "0be8917692d893b2e9ca510a5ea8bf9ac0cb7a8822d83499da2affad901e8849",
+            "3d592edcab8657b46c9d8986da6dd66123b23e9268cc762959ac938053769c27",
+            "d38ce3338aad3afd874db64450af74ee9fdebc74d73ef513357ec46dcabddb0d",
+            "430a0178ea89c1e1c5a26c4a39a68b21a2a7dbcfbff8031439b22cebdfaacc0e",
+            "6fe6c54daa298a8cd2598d8b3b73b8d06a355f11629f9aa2588fb6ddc5312961",
+            "4cb20bbe262410890a79046e63379b3a9fb194cdc01ef5d9dd828bee5e40be89",
+            "5e47c36aad9162ff96791276d04aa950de8e8f8d66c8dc8841f586a209fcc647",
+            "cee2c13ea7c7bed7735a16d44bd8be8274b5b2616dec12cb456e827186f1bf23",
+            "64e36dde0e88fa2b40c11d83d7b45fd8eb4a2627bdb6e093b541488b4dbc557b",
+            "69b35b27d0a1907854176030da31b888e4b1c116a5e4f9d928ad6be5a7c60d8a",
+            "6d13538dda10eb7b88d9bf42e38c2d93152760a718748d4d9b6f401a468bb729",
+            "38fb247df6c3d0d99d109cd2dac383502211cc638a6e9b80b4f79fbaa51f6a97",
+            "7eafbed570e928a6fae4666f4edf56f8aafda375faa04a0cd5b77689332581fc",
+            "82b2253c102ec99da47f3eeaa10df59da7cb3fa27994b0cc44c44909e14fd070",
+            "d9c6853b678b3e5bfb3720a7c04e04c0afa952f0ec11d224c821006a94f18fd3",
+            "2a5baee9c06102f2ec61f9304515203d7a3e403b41bd3f28f4461c9838458ea2"
+          ],
+          "overall_rule": null
+        },
+        "unavailable_members": []
+      },
+      "fb22f860-ae41-4879-a41a-857ca11bf0da": {
+        "benchmark_score": "5.055278787878787878787878788",
+        "era_name": "Mega Evolution",
+        "era_rank": 1,
+        "global_set_reference": "79.72324545454545454545454545",
+        "member_count": 6,
+        "member_ids": [
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "472f851c-2e41-4c80-b6fc-8478d1d92730",
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+          "5e99f658-39f0-4845-9228-db8db3965f32",
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+        ],
+        "raw_value": "80.27603333333333333333333333",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "472f851c-2e41-4c80-b6fc-8478d1d92730",
+            "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "5e99f658-39f0-4845-9228-db8db3965f32",
+            "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+          ],
+          "member_source_fingerprints": [
+            "bef28486070e44fca102f7123d1a707fa330439a361a6563b6d0c44cfc1867ab",
+            "a0508d0f77b91fb7077df004aca1fe4b7cd64148a810c2f76fa9f899267ff8aa",
+            "0d1c8814837ec21e3d24db7c6c64af82e3a63079ce6c3e35d396b20251a4385a",
+            "e16a7d0076ec127d457224202dc5eb1475ff959022c6b357032e9265305ea3ee",
+            "5d18afb560cfe0b0b49c011dae95ba3c24c28b3ff5b36e1689f4fdd0a5eaf591",
+            "73d03b7b70fb8b364f27da93283811197dc2b45c8486366df129f6686445d0a8"
+          ],
+          "overall_rule": null
+        },
+        "unavailable_members": []
+      },
+      "weighted_reconciliation": {
+        "exact": true,
+        "global_set_reference": "79.72324545454545454545454545",
+        "value": "79.72324545454545454545454545"
+      }
+    },
+    "financial": {
+      "dfb0dfa1-6a8e-4335-850f-e003867e19ee": {
+        "benchmark_score": "5.040790454545454545454545454",
+        "era_name": "Scarlet and Violet",
+        "era_rank": 1,
+        "global_set_reference": "31.94342272727272727272727273",
+        "member_count": 16,
+        "member_ids": [
+          "142d3869-9d39-48b6-a810-751af2aac748",
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "d001d563-988b-4f8e-904f-acb926748e22",
+          "de291399-ead5-41dc-bc12-e7c587684f85",
+          "f59f25a2-d3da-4100-a918-901271a99925",
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+        ],
+        "raw_value": "32.147375",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "142d3869-9d39-48b6-a810-751af2aac748",
+            "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "d001d563-988b-4f8e-904f-acb926748e22",
+            "de291399-ead5-41dc-bc12-e7c587684f85",
+            "f59f25a2-d3da-4100-a918-901271a99925",
+            "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+          ],
+          "member_source_fingerprints": [
+            "ac749cf6ddf5c53dcf07f65f22c91881a21ae97466df7647008793b4c1f62303",
+            "f8dac8da9a8162ed444422f6cdf572f776f2090a5b8cb544b4cd75301cd156dd",
+            "56d2926cef937bf489608ed8696f3c0c5f45d40be98a69c4b37b2b01fe68d1d2",
+            "d3103535a75a52b95404ad0500b88535f40eb87d550adbe1c067fe658c24e09c",
+            "d9b41b5b019cd5aa08542a1b3b060b98c41ef868c662e8dd29d012698b2c639c",
+            "f06ce42ea6ef869d9d446b2ecbacc0da4332590004a51c57b291e31bc860432d",
+            "465e62e0c70966c4af2446202188a328772ec3713f2f3ec58c933e38a32d0aea",
+            "73a30f77a64e91dfe719325dcdfc71ee92c6d41fce1a2280166872b7257d1e2e",
+            "370c2d731918d3733df00c024501dbed27e2aa3d207f18bf8b980abbf3979b58",
+            "7dd307f82ea017a28f4beb90f769adf25acc41875ff1512ac2f9d9ebb08fea8d",
+            "450690a7114359e08f562200baa56ea4fb1389e5b4c92017bf165e314ea493cb",
+            "45bcbdd3bff1de17db4561314159d03a6738579fccba20a1f6e00a11d5513149",
+            "978959d364bd9ba9ed6f6994808d549dee86fde7da12079306e91765187f084a",
+            "0a9b8a62db352fbf162341dd19131c0bfa6fa0e8b8c7cb6c25edcb056f387d65",
+            "9382e128285b50ea684d28df5c0f703be37df5125c44c9252708775d09e4fcc5",
+            "64a68a5ab1db90c6fd352d99fc068a6bde631699c6c036fb4b1acc6152b85e55"
+          ],
+          "overall_rule": null
+        },
+        "unavailable_members": []
+      },
+      "fb22f860-ae41-4879-a41a-857ca11bf0da": {
+        "benchmark_score": "4.891225454545454545454545454",
+        "era_name": "Mega Evolution",
+        "era_rank": 2,
+        "global_set_reference": "31.94342272727272727272727273",
+        "member_count": 6,
+        "member_ids": [
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "472f851c-2e41-4c80-b6fc-8478d1d92730",
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+          "5e99f658-39f0-4845-9228-db8db3965f32",
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+        ],
+        "raw_value": "31.39955",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "472f851c-2e41-4c80-b6fc-8478d1d92730",
+            "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "5e99f658-39f0-4845-9228-db8db3965f32",
+            "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+          ],
+          "member_source_fingerprints": [
+            "884f30795e0e9e7913dd8c7120d708e035934ea90e15b104b1a01ecc87924012",
+            "62eb7c7c6bff1cb991c6a2a347c7caf9a5664189b803a3a7287afab5b4c00bb3",
+            "742d1b753136f419d6d4a34f9b76d8dd96fc574c0d588bb3d43d32c8ce4cdd06",
+            "b4ac9b5f04df57dd077493032b410733002437ee9bf242f49857eca595568ad3",
+            "de65ba7a4f84a2334889d95b9870ea2090d203e7eeb373872d8e51e65d6de995",
+            "29da49405acf5b368ba46645f04927ad4bbfdaa2d19e38a26c133e224b50c070"
+          ],
+          "overall_rule": null
+        },
+        "unavailable_members": []
+      },
+      "weighted_reconciliation": {
+        "exact": true,
+        "global_set_reference": "31.94342272727272727272727273",
+        "value": "31.94342272727272727272727273"
+      }
+    },
+    "overall": {
+      "dfb0dfa1-6a8e-4335-850f-e003867e19ee": {
+        "benchmark_score": "5.051937386363636363636363636",
+        "era_name": "Scarlet and Violet",
+        "era_rank": 1,
+        "global_set_reference": "37.35008181818181818181818182",
+        "member_count": 16,
+        "member_ids": [
+          "142d3869-9d39-48b6-a810-751af2aac748",
+          "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "d001d563-988b-4f8e-904f-acb926748e22",
+          "de291399-ead5-41dc-bc12-e7c587684f85",
+          "f59f25a2-d3da-4100-a918-901271a99925",
+          "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+        ],
+        "raw_value": "37.60976875",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "142d3869-9d39-48b6-a810-751af2aac748",
+            "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "d001d563-988b-4f8e-904f-acb926748e22",
+            "de291399-ead5-41dc-bc12-e7c587684f85",
+            "f59f25a2-d3da-4100-a918-901271a99925",
+            "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+          ],
+          "member_source_fingerprints": [
+            "e4c29066f32133b7ce5b51122484d2b193adc5ccb7c09c31c037621d67d0e0d8",
+            "fdd7e24517ea65ebef44c70d2aa4e3666b89467262789971ac4ad590bd615d51",
+            "b1a740331ca3c67777df4d0d17eae6fd7ea12800e17b7cff3fa50afdcff843c9",
+            "40911cbfdc71ad043a98d6ae4c81149eddca970794331c53d3609b7140965ba0",
+            "ecd8698c48144b6caded68c06cd437bc530b6ed9ea39847e03dea4c143d0b5dc",
+            "69eea548852228a01110eba2e18bd11d8b861c95fd035ee25e2707efc7e089e6",
+            "14b8dc68b8741d3ae4f2007dc6cd18fe81732535ace6252f461226fab9719368",
+            "71ffe833489426f6d90f6d1c026ffcf6ee4832180370d2639ae7bad5d95bc563",
+            "79edc12d0d74d932132e7815e8317bde4bb36eb89ce7dac94fb3f5ddf2427e45",
+            "337fd7787481b96bfcaefa2ddf4f4c720bcb969c2c6cecea38a1bc8d7aa858df",
+            "e719c5ef5028da2446c76bff2413444983851321829664fb626cd608bda02f23",
+            "e5d983d64d51fc9f15e33d69c15522938f8bb336a19441d325002d606cd7c132",
+            "78e3012ab43d981f2f9938208fb6c6732f76c9f3fb474605ee9711e29458bb96",
+            "c0f3d75a395ff591e101db92c481878fa759d9f0944968a08b8ba77ffa5e515c",
+            "8380b6dba29e0e9b05766ef0ec0c8e409b936ef347e376c9bd5a8c675218e443",
+            "0182c1d20f9be31125e4fe9996d6a117122d546f66149ef332c96362a823e220"
+          ],
+          "overall_rule": "mean_of_canonical_set_overall_raw_scores"
+        },
+        "unavailable_members": []
+      },
+      "fb22f860-ae41-4879-a41a-857ca11bf0da": {
+        "benchmark_score": "4.861500303030303030303030302",
+        "era_name": "Mega Evolution",
+        "era_rank": 2,
+        "global_set_reference": "37.35008181818181818181818182",
+        "member_count": 6,
+        "member_ids": [
+          "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+          "472f851c-2e41-4c80-b6fc-8478d1d92730",
+          "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+          "5e99f658-39f0-4845-9228-db8db3965f32",
+          "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+          "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+        ],
+        "raw_value": "36.65758333333333333333333333",
+        "source_lineage": {
+          "aggregation": "equal_weight_mean_of_canonical_member_set_raw_scores",
+          "aggregation_version": "era_rip_aggregation_v1_equal_set_mean",
+          "member_set_ids": [
+            "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "472f851c-2e41-4c80-b6fc-8478d1d92730",
+            "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "5e99f658-39f0-4845-9228-db8db3965f32",
+            "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "b3c96740-a4a9-4c3d-a8f6-81ed4584549d"
+          ],
+          "member_source_fingerprints": [
+            "b6951491b29e1bdb23a78e5717dcf5760198a3b297620ae64c8081b79f4831fa",
+            "b26a93b5b2444fa105b9ff228326ad5d1b69d39abc3d98057b59e43a49f4360c",
+            "266d9e30cf66c9c5d123cc2043f5a1fbbbfd84f1ac3802f1c2e9d48c1f7fbdad",
+            "79040d9b3e3adc0e754222dc6ec81fb72eeced068d42d75ace93936ab1c9ec08",
+            "7f1c211057c5f94c179d4a5796493fa55ede8da806df08574a0b349804b08d5e",
+            "25b6fdcf3eb842759989e1091015e4b705876109734df1b45c25fc5c26070155"
+          ],
+          "overall_rule": "mean_of_canonical_set_overall_raw_scores"
+        },
+        "unavailable_members": []
+      },
+      "weighted_reconciliation": {
+        "exact": true,
+        "global_set_reference": "37.35008181818181818181818182",
+        "value": "37.35008181818181818181818182"
+      }
+    }
+  },
+  "set_count": 22,
+  "status": "certified"
+}

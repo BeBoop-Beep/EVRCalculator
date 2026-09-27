@@ -94,7 +94,8 @@ export function selectExploreRankingRows(entries, limit = 5) {
       rank: toFiniteNumber(entry.rank),
       score: toFiniteNumber(entry.score),
       scoreLabel: entry.scoreLabel,
-      tier: entry.tier || null,
+      benchmarkPosition: entry.benchmarkPosition || null,
+      benchmarkSourceMarketDate: entry.benchmarkSourceMarketDate || null,
       financialRipScore: toFiniteNumber(entry.financialRipScore),
       packCost: toFiniteNumber(entry.packCost),
       meanValue: toFiniteNumber(entry.meanValue),
@@ -355,7 +356,7 @@ export function selectMarketSignals({ entries = [], openingSpotlightSet = null, 
  * hardcoded set counts, no invented update cadence, no simulation scale we
  * cannot read.
  */
-export function selectMarketContext({ entries = [], meta = null } = {}) {
+export function selectMarketContext({ entries = [], meta = null, benchmark = null } = {}) {
   const list = toList(entries);
   const marketDate =
     meta?.comparisonSnapshots?.currentMarketDate ??
@@ -366,5 +367,8 @@ export function selectMarketContext({ entries = [], meta = null } = {}) {
     trackedSetCount: list.length > 0 ? list.length : null,
     rankedSetCount: list.filter((entry) => toFiniteNumber(entry?.rank) !== null).length || null,
     marketDate: typeof marketDate === "string" && marketDate.trim() ? marketDate.trim() : null,
+    benchmarkDate: typeof benchmark?.sourceMarketDate === "string" && benchmark.sourceMarketDate.trim()
+      ? benchmark.sourceMarketDate.trim()
+      : null,
   };
 }

@@ -98,6 +98,10 @@ class PublicationSummary:
     eligible_set_count: int = 0
     simulation_succeeded: int = 0
     simulation_failed: int = 0
+    sealed_market_authority_status: str = "not_attempted"
+    sealed_market_authority_report: Optional[Dict[str, Any]] = None
+    simulation_product_date_status: str = "not_attempted"
+    simulation_product_date_report: Optional[Dict[str, Any]] = None
     skipped: List[Dict[str, str]] = field(default_factory=list)
     latest_simulation_date_by_set: Dict[str, Optional[str]] = field(default_factory=dict)
     snapshot_publication_status: str = "not_attempted"
@@ -130,6 +134,7 @@ class PublicationSummary:
     # `_set_rankings_outcome` below) - never set independently.
     rankings_publication_outcome: Optional[Dict[str, Any]] = None
     rip_stats_publication_status: str = "not_attempted"
+    rip_benchmark_publication_status: str = "not_attempted"
     ev_representativeness_status: str = "not_attempted"
     rip_stats_audit_status: str = "not_attempted"
     rip_stats_market_date: Optional[str] = None
@@ -156,6 +161,8 @@ class PublicationSummary:
         out.append(f"{TAG} latest_simulation_date_by_set:")
         for set_key in sorted(self.latest_simulation_date_by_set):
             out.append(f"{TAG}   {set_key}={self.latest_simulation_date_by_set[set_key] or '-'}")
+        out.append(f"{TAG} sealed_market_authority_status={self.sealed_market_authority_status}")
+        out.append(f"{TAG} simulation_product_date_status={self.simulation_product_date_status}")
         out.append(
             f"{TAG} sealed_product_finalization_status={self.sealed_product_finalization_status}"
         )
@@ -192,6 +199,7 @@ class PublicationSummary:
         for failure in self.chase_audit_failures:
             out.append(f"{TAG}   chase_audit_failed={failure}")
         out.append(f"{TAG} rip_stats_publication_status={self.rip_stats_publication_status}")
+        out.append(f"{TAG} rip_benchmark_publication_status={self.rip_benchmark_publication_status}")
         out.append(f"{TAG} ev_representativeness_status={self.ev_representativeness_status}")
         out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
         out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
@@ -277,6 +285,37 @@ def run_simulations_for_sets(
             )
         )
     return outcomes
+
+
+def rebuild_sealed_market_snapshots(*, market_date: str, python_executable: Optional[str] = None,
+                                    dry_run: bool = False) -> int:
+    """Invoke the one canonical builder, bounded to the coordinated market date."""
+    command = [python_executable or sys.executable,
+               str(REPO_ROOT / "backend" / "scripts" / "build_pokemon_set_sealed_market_snapshots.py"),
+               "--opening-cohort", "--dry-run" if dry_run else "--commit", "--market-date", market_date]
+    return _run_command(command, dry_run=False)
+
+
+def publish_rip_benchmark(*, market_date: str, python_executable: Optional[str] = None,
+                          dry_run: bool = False) -> int:
+    command = [python_executable or sys.executable,
+               str(REPO_ROOT / "backend" / "scripts" / "run_rip_benchmark_publisher_v1.py"),
+               "--dry-run" if dry_run else "--publish", "--market-date", market_date]
+    return _run_command(command, dry_run=False)
+
+
+def _same_day_authority_capability_expected(client: Any) -> bool:
+    """Keep legacy unit fakes compatible; real clients always enforce the gate."""
+    tables = getattr(client, "_tables", None)
+    if tables is None:
+        tables = getattr(client, "tables", None)
+    return not isinstance(tables, dict) or "pokemon_set_sealed_market_snapshot_latest" in tables
+
+
+def _rip_benchmark_capability_expected(client: Any) -> bool:
+    tables = getattr(client, "_tables", None)
+    if tables is None: tables = getattr(client, "tables", None)
+    return not isinstance(tables, dict) or "pokemon_rip_benchmark_publications_v1" in tables
 
 
 def refresh_public_snapshots(
@@ -659,6 +698,44 @@ def orchestrate(
         ))
         return summary
 
+    # ---- Step 1c: rebuild and strictly certify sealed price authority ------
+    # Historical readers retain at-or-before clipping.  The coordinated
+    # current-day path does not: it rebuilds first, then requires every product
+    # selected by the authority manifest to be priced on this exact date.
+    if _same_day_authority_capability_expected(client):
+        rebuild_code = rebuild_sealed_market_snapshots(
+            market_date=resolved_market_date, python_executable=python_executable, dry_run=dry_run
+        )
+        if rebuild_code != 0:
+            summary.sealed_market_authority_status = f"rebuild_failed_exit_{rebuild_code}"
+            summary.error = "canonical sealed-market snapshot rebuild failed"
+            summary.exit_code = GATE_DEFERRED_EXIT_CODE
+            _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                classification=CLASSIFICATION_PIPELINE_FAILED_BEFORE_RANKINGS_DECISION,
+                reason_code="DEFERRED_SEALED_MARKET_AUTHORITY_INCOMPLETE", reason_detail=summary.error,
+            ))
+            return summary
+        from backend.db.services.sealed_market_authority import evaluate_same_day_sealed_market_authority
+        sealed_authority = evaluate_same_day_sealed_market_authority(
+            client, target_market_date=resolved_market_date
+        )
+        summary.sealed_market_authority_report = sealed_authority.to_dict()
+        summary.sealed_market_authority_status = "ready" if sealed_authority.ready else "deferred"
+        if not sealed_authority.ready:
+            summary.error = (
+                f"sealed market authority incomplete for {resolved_market_date}: "
+                f"missing={sealed_authority.missing_product_count} stale={sealed_authority.stale_product_count}"
+            )
+            summary.exit_code = GATE_DEFERRED_EXIT_CODE
+            _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+                reason_code=sealed_authority.reason_code, reason_detail=summary.error,
+                publication_required=True, publication_attempted=False,
+            ))
+            return summary
+    else:
+        summary.sealed_market_authority_status = "skipped_legacy_test_schema"
+
     # ---- Step 2: what still needs a simulation for that date ---------------
     before = evaluate_opening_simulation_freshness(
         client, market_date=resolved_market_date, unsupported_keys=unsupported_keys
@@ -744,6 +821,27 @@ def orchestrate(
     summary.verification_passed = after.ok
     for line in after.report_lines(entry_point="daily opening publication"):
         print(line)
+
+    # ---- Step 3a: persisted evidence must retain the exact same date -------
+    if after.ok and not summary.simulation_failed and _same_day_authority_capability_expected(client):
+        from backend.db.services.sealed_market_authority import verify_simulation_product_dates
+        result_dates = verify_simulation_product_dates(client, target_market_date=resolved_market_date)
+        summary.simulation_product_date_report = result_dates.to_dict()
+        summary.simulation_product_date_status = "ready" if result_dates.ready else "failed_closed"
+        if not result_dates.ready:
+            summary.error = (
+                f"persisted sealed-product evidence date mismatch for {resolved_market_date}: "
+                f"stale={result_dates.stale_product_count}"
+            )
+            summary.exit_code = GATE_DEFERRED_EXIT_CODE
+            _set_rankings_outcome(summary, RankingsPublicationOutcome(
+                classification=CLASSIFICATION_DEFERRED_WITH_ATTEMPT,
+                reason_code=result_dates.reason_code, reason_detail=summary.error,
+                publication_required=True, publication_attempted=False,
+            ))
+            return summary
+    elif after.ok and not summary.simulation_failed:
+        summary.simulation_product_date_status = "skipped_legacy_test_schema"
 
     # ---- Step 3a2: rebuild Chase Accessibility V1 from the CURRENT run ids ----
     # Must happen AFTER the current-day simulation cohort is verified (so the
@@ -1083,6 +1181,22 @@ def orchestrate(
             f"expected={resolved_market_date} rip_stats={summary.rip_stats_market_date} "
             f"explore_rankings={summary.rankings_market_date}"
         )
+        return summary
+
+    # Benchmark consumes the now-certified simulations, Rankings generation,
+    # and Opening Economics snapshot. Its RPC is independently atomic, so a
+    # failure retains the previous benchmark generation and stops here.
+    benchmark_code = (publish_rip_benchmark(
+        market_date=resolved_market_date, python_executable=python_executable, dry_run=dry_run
+    ) if _rip_benchmark_capability_expected(client) else 0)
+    summary.rip_benchmark_publication_status = (
+        "skipped_legacy_test_client" if not _rip_benchmark_capability_expected(client) else
+        "validated_dry_run" if dry_run and benchmark_code == 0 else
+        "published" if benchmark_code == 0 else f"failed_exit_{benchmark_code}"
+    )
+    if benchmark_code != 0:
+        summary.exit_code = EXIT_FAILED
+        summary.error = "RIP Benchmark publication failed; previous benchmark generation retained"
         return summary
 
     # Final step of the existing scheduler-owned chain: append/confirm today's

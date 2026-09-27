@@ -24,7 +24,7 @@
 // ONE PUBLIC SCORE SCALE
 // ----------------------
 // RIP Score, Financial RIP and Collector Appeal all show their canonical
-// `publicScore`: the backend cohort-relative 0-100 value, presented on `/10`, to one
+// published Benchmark score: the backend cohort-relative 0-100 value, presented on `/10`, to one
 // decimal. Their fixed-anchor model scores remain in the payload for
 // formula/audit use and are never substituted into a public headline. Rank,
 // tier and cohort remain backend-provided in every case.
@@ -42,16 +42,11 @@
 import React, { useMemo } from "react";
 
 import InfoPopover from "@/components/ui/InfoPopover";
-import {
-  PUBLIC_SCORE_SCALE_NOTE,
-  readCanonicalBlock,
-  resolveCanonicalRipV7,
-} from "./canonicalRipV7.mjs";
-import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
-import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
-import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
-
-const UNAVAILABLE_DASH = "—";
+import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
+import BenchmarkScoreBadge from "./BenchmarkScoreBadge";
+import { formatBenchmarkFreshness } from "./ripBenchmarkPresentation.mjs";
+import { setBenchmarkMetrics } from "./productBenchmarkPresentation.mjs";
+import useSetBenchmarkHeadlines from "@/hooks/pokemon/useSetBenchmarkHeadlines";
 
 // One neutral sentence each. Factual about WHAT is measured; silent on whether
 // the number is good.
@@ -61,45 +56,15 @@ export const RIP_SUMMARY_DESCRIPTIONS = {
   collector: "Roster desirability and how often the pack can deliver it.",
 };
 
-function toDisplayScore(value) {
-  return value === null || value === undefined || value === "" || Number.isNaN(Number(value))
-    ? null
-    : formatPublicRipScore(value);
-}
-
-/**
- * The rank / tier / cohort line, assembled from backend values only. Returns
- * null when the backend ranked nothing, so the row shows no empty metadata
- * strip rather than a lone separator.
- */
-function formatMeta({ tier, rank, cohortSize }) {
-  const parts = [];
-  if (tier) parts.push(`${tier} Tier`);
-  if (rank !== null && rank !== undefined) {
-    parts.push(cohortSize ? `Rank #${rank} of ${cohortSize}` : `Rank #${rank}`);
-  }
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
-
-function SummaryMetric({ id, label, score, meta, description, available }) {
+function SummaryMetric({ id, label, metric, description }) {
   return (
     <div data-rip-summary-metric={id} className="min-w-0 flex-1">
       <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
         {label}
       </p>
-      <p className="mt-1 inline-flex items-end gap-1 text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-        {/* An unavailable metric prints an em dash. It never falls back to a
-            legacy score, to the other metrics, or to zero. */}
-        <span data-rip-summary-score>{available ? score : UNAVAILABLE_DASH}</span>
-        {available ? (
-          <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/10</span>
-        ) : null}
-      </p>
-      {available && meta ? (
-        <p className="mt-1 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">{meta}</p>
-      ) : null}
+      <BenchmarkScoreBadge metric={metric} />
       <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-        {available ? description : "Not available for this set yet."}
+        {metric?.available ? description : "Not available for this set yet."}
       </p>
     </div>
   );
@@ -116,19 +81,9 @@ function SummaryMetric({ id, label, score, meta, description, available }) {
  * set page routes through handleSetDetailNavSelect (tab state + router.push +
  * scroll) — a plain link would bypass that and reload the whole page.
  */
-export default function OverviewRipSummary({ canonical, setRip = null, onViewAnalysis = null }) {
-  const overall = useMemo(
-    () => readCanonicalBlock(resolveCanonicalRipV7(canonical).overall),
-    [canonical]
-  );
-  const financial = useMemo(
-    () => selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)),
-    [canonical]
-  );
-  const collector = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);
-
-  const financialScore = toDisplayScore(financial.publicScore);
-  const collectorScore = toDisplayScore(collector.publicScore);
+export default function OverviewRipSummary({ setId, onViewAnalysis = null }) {
+  const benchmarkState = useSetBenchmarkHeadlines(setId);
+  const benchmark = useMemo(() => setBenchmarkMetrics(setId, benchmarkState.payload), [setId, benchmarkState.payload]);
 
   return (
     <section
@@ -166,23 +121,13 @@ export default function OverviewRipSummary({ canonical, setRip = null, onViewAna
           compact stack of rows below it — not three nested glass cards, which
           is what made the retired Decision Signals block dominate Overview. */}
       <div className="mt-3 flex min-w-0 flex-col gap-3 desk:flex-row desk:gap-6 desk:divide-x desk:divide-[var(--border-subtle)]">
-        <SummaryMetric
-          id="set-rip"
-          label="Set RIP"
-          score={toDisplayScore(setRip?.score)}
-          available={Boolean(setRip?.rankable) && toDisplayScore(setRip?.score) !== null}
-          meta={formatMeta({ rank: setRip?.rank, cohortSize: null, tier: null })}
-          description={`Set RIP measures how strong this set's available opening products are overall, relative to comparable products of the same type. ${setRip?.participatingFamilyCount ?? 0} product families participate. Multiple SKUs within the same product family are averaged before that family contributes to Set RIP.`}
-        />
         <div className="min-w-0 flex-1 desk:pl-6">
         <SummaryMetric
           id="overall"
           label="RIP Score"
           // THE canonical public value. The fixed-anchor 90/10 blend is never
           // promoted into this headline.
-          score={toDisplayScore(overall.publicScore)}
-          available={overall.available}
-          meta={formatMeta({ tier: overall.tier, rank: overall.rank, cohortSize: overall.cohortSize })}
+          metric={benchmark.overall}
           description={RIP_SUMMARY_DESCRIPTIONS.overall}
         />
         </div>
@@ -192,13 +137,7 @@ export default function OverviewRipSummary({ canonical, setRip = null, onViewAna
             label="Financial RIP"
             // Financial RIP uses the backend relative 0-100 score, matching
             // the public scoring language used by Overall RIP.
-            score={financialScore}
-            available={financial.publicAvailable && financialScore !== null}
-            meta={formatMeta({
-              tier: financial.tier && financial.tier !== UNAVAILABLE_DASH ? financial.tier : null,
-              rank: financial.rank,
-              cohortSize: financial.rankedSetCount,
-            })}
+            metric={benchmark.financial}
             description={RIP_SUMMARY_DESCRIPTIONS.financial}
           />
         </div>
@@ -207,17 +146,12 @@ export default function OverviewRipSummary({ canonical, setRip = null, onViewAna
             id="collector"
             label="Collector Appeal"
             // Collector Appeal follows the same relative public score policy.
-            score={collectorScore}
-            available={collector.publicAvailable && collectorScore !== null}
-            meta={formatMeta({
-              tier: collector.tier,
-              rank: collector.rank,
-              cohortSize: collector.rankedSetCount,
-            })}
+            metric={benchmark.collector}
             description={RIP_SUMMARY_DESCRIPTIONS.collector}
           />
         </div>
       </div>
+      {formatBenchmarkFreshness(benchmarkState.payload?.freshness) ? <p className="mt-3 text-[11px] text-[var(--text-secondary)]">{formatBenchmarkFreshness(benchmarkState.payload.freshness)}</p> : null}
     </section>
   );
 }

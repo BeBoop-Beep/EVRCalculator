@@ -124,6 +124,6 @@ export async function getLandingPageData() {
     // only) for the #1 set, adapted for RipDistributionChart. Truthfully
     // null when unavailable — never a fabricated/interpolated distribution.
     openingDistribution,
-    marketContext: selectMarketContext({ entries, meta: payload?.meta || null }),
+    marketContext: selectMarketContext({ entries, meta: payload?.meta || null, benchmark: payload?.benchmark || null }),
   };
 }

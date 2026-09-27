@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+/** Legacy rollback-only help for unreachable pre-Benchmark tables. */
 export function PublicRipTierInfo() {
   const thresholds = [["S", "≥ 9.6"], ["A", "≥ 9.0"], ["B", "≥ 8.0"], ["C", "≥ 6.5"], ["D", "≥ 5.0"], ["F", "< 5.0"]];
   return (

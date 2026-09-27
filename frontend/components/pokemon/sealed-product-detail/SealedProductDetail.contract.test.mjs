@@ -49,15 +49,13 @@ test("sealed market is public, has all approved windows, and no card mode toggle
   assert.match(market, /sealed market price/);
 });
 
-test("Product RIP uses Plus entitlement and only leader-normalized ranking fields", () => {
+test("Product RIP uses Plus entitlement and Product Benchmark fields", () => {
   assert.match(client, /hasIndexPlusAccess\(user\?\.index_plan\)/);
   assert.match(client, /detail\.rip && entitled \? <ProductRipSection/);
-  assert.match(rip, /rip\.overallRipLeaderScore/);
-  assert.match(rip, /rip\.financialRipLeaderScore/);
-  assert.match(rip, /rip\.publicTier/);
-  assert.match(rip, /rip\.familyRank/);
-  assert.match(rip, /rip\.familySize/);
-  assert.match(rip, /formatPublicRipScore/);
+  assert.match(client, /readCurrentProductBenchmark/);
+  assert.match(rip, /productBenchmarkMetrics/);
+  assert.match(rip, /BenchmarkScoreBadge/);
+  assert.doesNotMatch(rip, /overallRipLeaderScore|financialRipLeaderScore|publicTier/);
   assert.doesNotMatch(rip, /of 138|Overall Rank|overallRipAbsoluteScore/);
   assert.match(rip, /data-product-rip-score/);
   // The formula/explanation is no longer a hardcoded string here - it is the
@@ -68,14 +66,10 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   assert.doesNotMatch(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
   assert.match(rip, /data-three-pillar-summary/);
   assert.doesNotMatch(rip, /<MarketBasedOpeningQualityBreakdown/);
-  assert.match(rip, /publicLeaderScoreTier\(rip\.financialRipLeaderScore\)/);
-  assert.match(rip, /const collectorTier = rip\.collectorAppealTier/);
-  assert.doesNotMatch(
-    rip,
-    /publicLeaderScoreTier\(rip\.collectorAppealScore\)/,
-  );
+  assert.match(rip, /Financial rank is not separately published/);
+  assert.match(rip, /Collector Appeal · Parent Set/);
   assert.equal((rip.match(/Format Rank/g) || []).length, 1);
-  assert.match(rip, /RipScoreSurface/);
+  assert.match(rip, /BenchmarkScoreBadge/);
   assert.match(setRip, /RipScoreSurface/);
   assert.match(sharedScoreSurface, /getRipTierPresentation/);
   assert.match(sharedScoreSurface, /data-score-surface/);
@@ -180,7 +174,7 @@ test("Basic entitlement keeps Product RIP and opening outcomes behind the lock",
     client,
     /detail\.rip\?\.available \? entitled \? <><ProductRipSection/,
   );
-  assert.match(client, /detail\.rip && entitled \? <ProductRipSection detail=\{detail\} \/> : <ProductRipLock \/>/);
+  assert.match(client, /detail\.rip && entitled \? <ProductRipSection detail=\{detail\} benchmarkState=\{benchmarkState\} \/> : <ProductRipLock \/>/);
 });
 
 test("Set EV Realization is a Plus-gated parent-set module, not a public header sentence", () => {

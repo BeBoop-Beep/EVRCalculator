@@ -1,0 +1,7 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8");
+test("migrated Set and Era surfaces never render legacy tiers or leader scores", () => { for (const file of ["./SetRipScoreLeaderboard.jsx", "./SetMetricRankingsTable.jsx", "./EraRankings.jsx", "./RankingsOverviewHighlights.jsx"]) { const source = read(file); assert.ok(!source.includes("RipTierMark"), file); assert.ok(!source.includes("leaderNormalizedScore"), file); assert.ok(!source.includes("readPublicSetRip"), file); } });
+test("history chart uses return evidence, the global return reference, and truthful gaps", () => { const source = read("./FinancialReturnHistory.jsx"); assert.ok(source.includes("row.modeled_return_on_spend")); assert.ok(source.includes("modeled_return_on_spend")); assert.ok(!source.includes("benchmark_raw_value")); assert.ok(source.includes("connectNulls={false}")); assert.ok(source.includes('"sets", "eras"')); });
+test("desktop and mobile surfaces share the same normalized score contract", () => { for (const file of ["./SetRipScoreLeaderboard.jsx", "./SetMetricRankingsTable.jsx", "./EraRankings.jsx"]) { const source = read(file); assert.ok(source.includes("BenchmarkScoreBadge")); assert.ok(source.includes("hidden overflow-x-auto")); assert.match(source, /md:hidden|desk:hidden/); } });

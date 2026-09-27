@@ -10,8 +10,8 @@ const landscape = read("./setRipLandscapeSelector.mjs");
 
 test("Overview exposes exactly four Basic-safe highlights", () => {
   for (const label of ["Top Set", "Top Era", "Lowest Avg Cost / Pack", "Modeled Coverage"]) assert.ok(highlights.includes(label));
-  assert.ok(highlights.includes("readPublicSetRip(target).rank === 1"));
-  assert.ok(highlights.includes("era.rank === 1"));
+  assert.ok(highlights.includes('benchmarkMetric(setsState?.benchmark?.rows'));
+  assert.ok(highlights.includes("metric.rank === 1"));
   assert.ok(highlights.includes("averageCostPerPack"));
   for (const field of ["global.setCount", "global.productSkuCount", "global.productFamilyCount"]) assert.ok(highlights.includes(field));
   for (const paid of ["Financial RIP", "Collector Appeal", "Chase Accessibility", "familyScores", "overallRipV12", "Card Chase"]) assert.ok(!highlights.includes(paid));
@@ -25,13 +25,11 @@ test("Overview handoffs switch existing state and reuse cached Set/Era loaders",
   assert.equal((lazy.match(/fetch\("\/api\/explore\/rankings\/lens\?lens=eras"/g) || []).length, 1);
 });
 
-test("Overview replaces outcome distributions with the public Set RIP landscape", () => {
-  assert.ok(distribution.includes("How Sets Rank to Open"));
-  assert.ok(landscape.includes("readPublicSetRip"));
-  assert.ok(distribution.includes("data-set-rip-landscape"));
+test("Overview replaces the legacy Set RIP landscape with financial Benchmark history", () => {
+  assert.ok(distribution.includes("FinancialReturnHistory"));
   for (const removed of ["Opening outcome range", "normalizedReturnBuckets", "normalizedReturnPercentiles", "Sets represented"]) assert.ok(!distribution.includes(removed));
   for (const paid of ["financialRipV4", "Collector Appeal", "chaseAccessibility"]) assert.ok(!`${distribution}\n${landscape}`.includes(paid));
-  assert.ok(lazy.includes("<OpeningEconomicsOverall economics={openingEconomics} targets={setTargets} />"));
+  assert.ok(lazy.includes("benchmark={visibleSetsState.benchmark}"));
   assert.equal((lazy.match(/lens\?lens=sets/g) || []).length, 1);
 });
 

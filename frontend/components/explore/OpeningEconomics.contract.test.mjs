@@ -25,6 +25,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8").repl
 const client = read("./ProductFamilyRankingsClient.jsx");
 const overall = read("./OpeningEconomicsOverall.jsx");
 const distribution = read("./OpeningEconomicsDistribution.jsx");
+const financialHistory = read("./FinancialReturnHistory.jsx");
 const landscape = read("./setRipLandscapeSelector.mjs");
 const chartFrame = read("./ChartFrame.jsx");
 const chartTooltipShell = read("./ChartTooltipShell.jsx");
@@ -164,18 +165,17 @@ test("the distribution is not presented as a smooth or normal curve", () => {
   assert.ok(!/gaussian|normal curve|bell/i.test(overall));
 });
 
-test("Overview uses the cached public Set RIP landscape instead of recovery distribution geometry", () => {
+test("Overview uses Benchmark financial history instead of the legacy Set RIP scatter", () => {
   assert.equal(PUBLISHED.basis, "all_modeled_products_per_pack_equivalent");
-  assert.ok(landscape.includes("readPublicSetRip"));
-  assert.ok(distribution.includes("<ScatterChart"));
-  assert.ok(distribution.includes("isAnimationActive={false}"));
+  assert.ok(distribution.includes("<FinancialReturnHistory"));
+  assert.ok(financialHistory.includes("<LineChart"));
+  assert.ok(financialHistory.includes("connectNulls={false}"));
   assert.ok(!distribution.includes("normalizedReturnBuckets"));
   assert.ok(!distribution.includes("normalizedReturnPercentiles"));
 });
 
 test("the active distribution preserves all four global headline metrics", () => {
-  assert.ok(overall.includes("<OpeningEconomicsDistribution scope={scope} targets={targets} />"));
-  assert.ok(distribution.includes("data-opening-headline-metrics"));
+  assert.ok(overall.includes("<OpeningEconomicsDistribution scope={scope} targets={targets} eras={eras} benchmark={benchmark} />"));
   assert.ok(distribution.includes('scope.modeledReturnOnSpend'));
   assert.ok(distribution.includes('scope.typicalRetention'));
   assert.ok(distribution.includes('scope.chanceToRecoverCost'));
@@ -191,21 +191,17 @@ test("Overall adds the three-value snapshot and one active distribution", () => 
   for (const field of ["averageCostPerPack", "averageModelBreakEvenPerPack", "typicalOpeningPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
 });
 
-test("Overall reuses the inDex frame, shared visual system, points, and tooltip shell", () => {
-  assert.ok(distribution.includes("<ChartFrame"));
+test("Overall reuses the inDex frame for the financial history", () => {
+  assert.ok(financialHistory.includes("<ChartFrame"));
   assert.ok(chartFrame.includes("ResizeObserver"));
-  assert.ok(distribution.includes("chartVisualSystem.mjs"));
-  assert.ok(chartVisualSystem.includes("POSITIVE_VALUE_COLOR"));
-  assert.ok(distribution.includes("<ScatterChart"));
-  assert.ok(distribution.includes("<LandscapeTooltip"));
-  assert.ok(distribution.includes("<ChartTooltipShell"));
-  assert.ok(chartTooltipShell.includes("shadow-[0_14px_32px_rgba(0,0,0,0.38)]"));
-  assert.ok(!distribution.includes("contentStyle="));
+  assert.ok(financialHistory.includes("<LineChart"));
+  assert.ok(!financialHistory.includes("contentStyle="));
 });
 
-test("landscape tooltip exposes only canonical public Set RIP context", () => {
-  for (const value of ["point.name", "point.rank", "point.score", "point.tier"]) assert.ok(distribution.includes(value));
-  assert.ok(landscape.includes("left.rank - right.rank"));
+test("history tooltip exposes published return evidence and Benchmark score context", () => {
+  for (const value of ["Modeled Return", "Pokémon Average", "Difference", "Financial RIP", "Average Cost / Pack", "Expected Value / Pack"]) assert.ok(financialHistory.includes(value));
+  assert.ok(financialHistory.includes("modeled_return_on_spend"));
+  assert.ok(!financialHistory.includes("benchmark_raw_value"));
 });
 
 test("Overall removes era preview and every dead legacy presentation", () => {
@@ -397,9 +393,9 @@ test("percentiles are named as positions, never as probabilities", () => {
   }
 });
 
-test("the primary chart asks the plain-language Set RIP ranking question", () => {
-  assert.ok(distribution.includes("How Sets Rank to Open"));
-  assert.ok(distribution.includes("Every modeled set, ordered by Set RIP rank."));
+test("the primary chart asks the evidence-first financial return question", () => {
+  assert.ok(financialHistory.includes("Financial Return vs Pokémon Average"));
+  assert.ok(!distribution.includes("How Sets Rank to Open"));
 });
 
 test("Modeled Return and Typical Retention are never presented as the same thing", () => {
@@ -408,9 +404,6 @@ test("Modeled Return and Typical Retention are never presented as the same thing
   assert.equal(returnPct, "39.1%");
   assert.equal(retentionPct, "27.4%");
   assert.notEqual(returnPct, retentionPct);
-  // Their help text must distinguish median-of-outcomes from aggregate-of-spend.
-  assert.match(distribution, /Median of the weighted normalized-return distribution/);
-  assert.match(distribution, /Weighted aggregate EV divided by weighted aggregate cost/);
 });
 
 test("the recover-cost metric is never relabelled as profit", () => {
@@ -422,7 +415,6 @@ test("the recover-cost metric is never relabelled as profit", () => {
 
 test("entertainment cost language is descriptive, not moralizing", () => {
   assert.ok(!/wasted|bad decision|gambl|you lose/i.test(overall));
-  assert.match(distribution, /Modeled purchase cost not returned as gross card value/);
 });
 
 test("no accent other than teal is introduced", () => {

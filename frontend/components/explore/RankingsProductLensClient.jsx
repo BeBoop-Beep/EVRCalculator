@@ -1,447 +1,49 @@
 "use client";
-
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DarkSelect from "@/components/ui/DarkSelect";
 import InfoPopover from "@/components/ui/InfoPopover";
 import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
-import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
-import {
-  PremiumMetricLock,
-  RankedProductIdentity,
-} from "./RankedProductTablePrimitives.jsx";
+import BenchmarkScoreBadge from "./BenchmarkScoreBadge";
+import { PremiumMetricLock, RankedProductIdentity } from "./RankedProductTablePrimitives.jsx";
 import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
-import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
-import { getTierTone } from "@/lib/explore/interpretationTone";
+import { readCurrentProductBenchmark } from "@/lib/rankings/ripBenchmarkClient.mjs";
+import { formatBenchmarkFreshness } from "./ripBenchmarkPresentation.mjs";
+import { compactFamilyBenchmarkLabel, productId, withProductBenchmark } from "./productBenchmarkPresentation.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import styles from "./explore.module.css";
-import {
-  defaultProductSortDirection,
-  normalizeOverallProductResult,
-  sortProductRankingRows,
-  resolveProductSort,
-} from "./rankingsProductLensModel.mjs";
-import {
-  chaseAccessibilityDisplay,
-  CHASE_ACCESSIBILITY_HELP,
-  MARKET_BASED_HELP,
-} from "./chaseAccessibilityDisplay.mjs";
+import { defaultProductSortDirection, normalizeOverallProductResult, resolveProductSort, sortProductRankingRows } from "./rankingsProductLensModel.mjs";
 
-const FAMILY_ORDER = [
-  "loose_booster_pack",
-  "sleeved_booster_pack",
-  "booster_bundle",
-  "elite_trainer_box",
-  "half_booster_box",
-  "pokemon_center_elite_trainer_box",
-  "booster_box",
-  "enhanced_booster_box",
-];
-const SORTS = [
-  { value: "overallRipLeaderScore", label: "RIP Score" },
-  { value: "bestOpenPriceGapPercent", label: "Closest to #1", bestOpenOnly: true },
-  { value: "financialRipLeaderScore", label: "Financial RIP" },
-  { value: "chaseAccessibilityValue", label: "Chase Accessibility" },
-  { value: "collectorAppealScore", label: "Collector Appeal" },
-  { value: "marketPrice", label: "Market Price" },
-  { value: "expectedValue", label: "Expected Value" },
-  { value: "chanceToRecoverCost", label: "Chance to Recover Cost" },
-  { value: "alphabetical", label: "Alphabetical A–Z" },
-];
+const FAMILY_ORDER = ["loose_booster_pack", "sleeved_booster_pack", "booster_bundle", "elite_trainer_box", "half_booster_box", "pokemon_center_elite_trainer_box", "booster_box", "enhanced_booster_box"];
 const BEST_OPEN_HELP = "Best-Open Price is the highest price at which this product would rank #1 against the current published Full Market cohort. Whole units are compared within the fixed Full Market budget; this is not a single-unit ranking. Other products remain at their published prices.";
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
-
-function numeric(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function familyLabel(value) {
-  const singular = String(value || "Product");
-  if (singular === "Elite Trainer Box") return "Elite Trainer Boxes";
-  if (singular === "Pokémon Center Elite Trainer Box") return "Pokémon Center Elite Trainer Boxes";
-  if (singular === "Booster Box") return "Booster Boxes";
-  if (singular === "Enhanced Booster Box") return "Enhanced Booster Boxes";
-  return `${singular}s`;
-}
-
-function recovery(value) {
-  const n = numeric(value);
-  if (n === null) return "Unavailable";
-  const probability = n > 1 ? n / 100 : n;
-  return `${(probability * 100).toFixed(1)}%`;
-}
-
-function sourceDateLabel(value) {
-  if (!value) return null;
-  const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
-  }).format(parsed);
-}
-
-function bestOpenPresentation(row) {
-  const threshold = numeric(row?.bestOpenPrice);
-  const gap = numeric(row?.bestOpenPriceGapPercent);
-  if (threshold === null) return null;
-  if (row?.bestOpenPriceStatus === "current_number_one_with_headroom") {
-    return {
-      threshold: `Best-Open ${money.format(threshold)}`,
-      context: gap === null ? "Ranks #1 at this price" : `#1 at threshold · +${(Math.abs(gap) * 100).toFixed(1)}% headroom`,
-    };
-  }
-  if (row?.bestOpenPriceStatus === "resolved_at_market") {
-    return { threshold: `Best-Open ${money.format(threshold)}`, context: "At the #1 threshold now" };
-  }
-  return {
-    threshold: `Best-Open ${money.format(threshold)}`,
-    context: gap === null ? "Price needed to reach #1" : `↓ ${(gap * 100).toFixed(1)}% to #1`,
-  };
-}
-
-function FormatStrength({ row }) {
-  const rank = numeric(row?.familyRank);
-  const size = numeric(row?.familySize);
-  const tier = String(row?.publicTier || "").toUpperCase();
-  const heading = rank === 1
-    ? "Format leader"
-    : tier === "S"
-      ? "Elite in format"
-      : tier === "A"
-        ? "Strong in format"
-        : tier === "B"
-          ? "Competitive in format"
-          : "Ranks within format";
-  const tone = tier ? getTierTone(tier) : null;
-  return (
-    <div className="flex w-full items-start gap-2.5">
-      <span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border" style={{ borderColor: tone?.accentColor || "var(--accent)" }} />
-      <span className="min-w-0">
-        <strong className="block text-xs text-[var(--text-primary)]">{heading}</strong>
-        <span className="mt-1 block whitespace-normal break-words text-[10.5px] text-[var(--text-secondary)]">
-          {rank && size ? `#${rank} of ${size} ${familyLabel(row?.productFamilyLabel || "product")}` : "Format rank unavailable"}
-        </span>
-      </span>
-    </div>
-  );
-}
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+const numeric = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+function familyLabel(value) { const label = String(value || "Product"); if (label === "Elite Trainer Box") return "Elite Trainer Boxes"; if (label === "Pokémon Center Elite Trainer Box") return "Pokémon Center Elite Trainer Boxes"; if (/Box$/.test(label)) return `${label}es`; return `${label}s`; }
+const percent = (value) => numeric(value) === null ? "Unavailable" : `${(Number(value) * 100).toFixed(1)}%`;
+function sourceDateLabel(value) { if (!value) return null; const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00Z`); return Number.isNaN(parsed.getTime()) ? null : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(parsed); }
+function bestOpenPresentation(row) { const threshold = numeric(row?.bestOpenPrice), gap = numeric(row?.bestOpenPriceGapPercent); if (threshold === null) return null; if (row?.bestOpenPriceStatus === "current_number_one_with_headroom") return { threshold: `Best-Open ${money.format(threshold)}`, context: gap === null ? "Ranks #1 at this price" : `#1 at threshold · +${(Math.abs(gap) * 100).toFixed(1)}% headroom` }; if (row?.bestOpenPriceStatus === "resolved_at_market") return { threshold: `Best-Open ${money.format(threshold)}`, context: "At the #1 threshold now" }; return { threshold: `Best-Open ${money.format(threshold)}`, context: gap === null ? "Price needed to reach #1" : `↓ ${(gap * 100).toFixed(1)}% to #1` }; }
+function Evidence({ metric }) { const evidence = metric?.financialEvidence || {}; return <span className="mt-1 block text-[10px] font-normal text-[var(--text-secondary)]">Return {percent(evidence.modeledReturnOnSpend)} · Cost/Pack {evidence.costPerPack == null ? "Unavailable" : money.format(evidence.costPerPack)} · EV/Pack {evidence.expectedValuePerPack == null ? "Unavailable" : money.format(evidence.expectedValuePerPack)}</span>; }
 
 function ProductRows({ rows, overall, entitled, showBestOpenPrice }) {
-  if (!rows.length) {
-    return <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">No products match the current filters.</p>;
-  }
-  return (
-    <>
-      <div className="hidden overflow-x-auto md:block">
-        <table className={`${styles.table} ${styles.productsTable}`}>
-          <colgroup>
-            <col className={styles.colRank} />
-            <col className={styles.colProduct} />
-            <col className={styles.colOverall} />
-            <col className={styles.colTier} />
-            <col className={styles.colFinancial} />
-            <col className={styles.colChase} />
-            <col className={styles.colCollector} />
-            <col className={styles.colPrice} />
-            <col className={styles.colEv} />
-            <col className={styles.colRecover} />
-            <col className={styles.colFormat} />
-          </colgroup>
-          <thead className={styles.head}>
-            <tr>
-              <th scope="col">Rank</th><th scope="col">Product / Set</th><th scope="col">RIP Score</th><th scope="col">Tier</th>
-              {/*
-                Market-Based Opening Quality is an explanatory GROUPING
-                header only — it carries no score/rank/tier/sort of its own.
-                Financial RIP and Chase Accessibility remain two separate
-                numeric columns underneath it (mirrors
-                ProductFamilyRankingsClient.jsx / ExploreTableClient.jsx).
-                Collector Appeal stays a separate, ungrouped column.
-              */}
-              <th scope="col">Financial RIP</th>
-              <th scope="col" data-chase-accessibility-header title={CHASE_ACCESSIBILITY_HELP}>Chase Accessibility</th>
-              <th scope="col">Collector Appeal</th>
-              <th scope="col">
-                {showBestOpenPrice ? (
-                  <span className="inline-flex items-center gap-1">Price / Best-Open <InfoPopover text={BEST_OPEN_HELP} /></span>
-                ) : overall ? "Unit Price" : "Market Price"}
-              </th>
-              <th scope="col">Expected Value</th><th scope="col">Chance to Recover Cost</th><th scope="col">Format Strength</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const rank = overall ? row?.budgetRank : row?.familyRank;
-              const price = overall ? row?.unitPrice : row?.marketPrice;
-              const href = buildSealedProductHref(row) || "#";
-              const bestOpen = showBestOpenPrice ? bestOpenPresentation(row) : null;
-              return (
-                <tr key={row?.sealedProductId} className={styles.row}>
-                  <td className={styles.numeric}>{entitled ? `#${rank ?? "—"}` : <PremiumMetricLock />}</td>
-                  <td>
-                    <Link href={href} className={styles.rowLink}>
-                      <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} />
-                    </Link>
-                  </td>
-                  <td className={styles.numeric}>{entitled ? <RipScoreBadge score={row?.overallRipLeaderScore} tier={row?.publicTier} /> : <PremiumMetricLock />}</td>
-                  <td className="text-center">{entitled ? <RipTierMark tier={row?.publicTier} /> : <PremiumMetricLock />}</td>
-                  <td className={styles.numeric}>{entitled && numeric(row?.financialRipLeaderScore) !== null ? `${formatPublicRipScore(row.financialRipLeaderScore)} / 10` : entitled ? "Unavailable" : <PremiumMetricLock />}</td>
-                  <td className={styles.numeric} data-chase-accessibility-cell>
-                    {entitled ? (
-                      <span className="inline-flex flex-col items-end">
-                        <span>{numeric(row?.chaseAccessibility?.publicScore) === null ? "Unavailable" : `${formatPublicRipScore(row.chaseAccessibility.publicScore)} / 10`}</span>
-                        {row?.chaseAccessibility?.setRank && row?.chaseAccessibility?.setCohortSize ? <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">Set #{row.chaseAccessibility.setRank} of {row.chaseAccessibility.setCohortSize}</span> : null}
-                      </span>
-                    ) : <PremiumMetricLock />}
-                  </td>
-                  <td className={styles.numeric}>{entitled && numeric(row?.collectorAppealScore) !== null ? `${formatPublicRipScore(row.collectorAppealScore)} / 10` : entitled ? "Unavailable" : <PremiumMetricLock />}</td>
-                  <td className={styles.numeric}>
-                    <span className="block">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
-                    {bestOpen ? (
-                      <span data-best-open-price className="mt-1 block text-[10px] font-normal leading-4 text-[var(--text-secondary)]">
-                        <span className="block font-semibold text-[var(--text-primary)]">{bestOpen.threshold}</span>
-                        <span className="block">{bestOpen.context}</span>
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className={styles.numeric}>{entitled ? (numeric(row?.expectedValue) === null ? "Unavailable" : money.format(row.expectedValue)) : <PremiumMetricLock />}</td>
-                  <td className={styles.numeric}>{entitled ? recovery(row?.chanceToRecoverCost) : <PremiumMetricLock />}</td>
-                  <td>{entitled ? <FormatStrength row={row} /> : <PremiumMetricLock />}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="space-y-2 p-3 md:hidden">
-        {rows.map((row) => {
-          const rank = overall ? row?.budgetRank : row?.familyRank;
-          const price = overall ? row?.unitPrice : row?.marketPrice;
-          const href = buildSealedProductHref(row) || "#";
-          const chase = chaseAccessibilityDisplay(row?.chaseAccessibility);
-          const bestOpen = showBestOpenPrice ? bestOpenPresentation(row) : null;
-          return (
-            <Link key={row?.sealedProductId} href={href} className={`${styles.mobileRow} grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5`}>
-              <b className="text-right text-xs">{entitled ? `#${rank ?? "—"}` : "🔒"}</b>
-              <div className="min-w-0">
-                <RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} />
-                <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>
-                {bestOpen ? (
-                  <span data-best-open-price-mobile className="mt-1 block text-[10px] leading-4 text-[var(--text-secondary)]">
-                    <span className="font-semibold text-[var(--text-primary)]">{bestOpen.threshold}</span> · {bestOpen.context}
-                  </span>
-                ) : null}
-                {/*
-                  Peer supporting scores beneath RIP Score.
-                */}
-                {entitled ? (
-                  <span className="mt-1 block text-[10px] text-[var(--text-secondary)]">
-                    {numeric(row?.financialRipLeaderScore) !== null ? `${formatPublicRipScore(row.financialRipLeaderScore)} Financial` : "Financial Unavailable"} ·{" "}
-                    {numeric(row?.chaseAccessibility?.publicScore) !== null ? `${formatPublicRipScore(row.chaseAccessibility.publicScore)} Chase` : "Chase Unavailable"}
-                    {numeric(row?.collectorAppealScore) !== null ? ` · ${formatPublicRipScore(row.collectorAppealScore)} Collector` : ""}
-                  </span>
-                ) : null}
-              </div>
-              {entitled ? <RipScoreBadge score={row?.overallRipLeaderScore} tier={row?.publicTier} compact /> : <PremiumMetricLock />}
-            </Link>
-          );
-        })}
-      </div>
-    </>
-  );
+  if (!rows.length) return <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">No products match the current filters.</p>;
+  return <><div className="hidden overflow-x-auto md:block"><table className={`${styles.table} ${styles.productsTable}`}><caption className="sr-only">Product rankings with Full Market rank kept separate from family-relative Benchmark scores.</caption><thead className={styles.head}><tr><th>{overall ? "Full Market Rank" : "Family Rank"}</th><th>Product / Set</th><th>RIP Score</th><th>Financial RIP</th><th>Set Chase Accessibility</th><th>Collector Appeal · Parent Set</th><th>{showBestOpenPrice ? <span className="inline-flex items-center gap-1">Price / Best-Open <InfoPopover text={BEST_OPEN_HELP} /></span> : overall ? "Unit Price" : "Market Price"}</th><th>Expected Value / Pack</th><th>Chance to Recover Cost</th></tr></thead><tbody>{rows.map((row) => { const metrics = row.benchmarkMetrics; const rank = overall ? row?.budgetRank : metrics?.overall?.rank; const price = overall ? row?.unitPrice : row?.marketPrice; const family = compactFamilyBenchmarkLabel(row?.productFamilyLabel); const bestOpen = showBestOpenPrice ? bestOpenPresentation(row) : null; return <tr key={productId(row)} className={styles.row}><td className={styles.numeric}>{entitled ? (rank == null ? "Unavailable" : `#${rank}${overall ? " Full Market" : ` of ${metrics.overall.cohortSize} ${familyLabel(row?.productFamilyLabel)}`}`) : <PremiumMetricLock />}</td><td><Link href={buildSealedProductHref(row) || "#"} className={styles.rowLink}><RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} /></Link></td><td className={styles.numeric}>{entitled ? <BenchmarkScoreBadge metric={metrics.overall} benchmarkLabel={family} showRank={!overall} /> : <PremiumMetricLock />}</td><td className={styles.numeric}>{entitled ? <><BenchmarkScoreBadge metric={metrics.financial} benchmarkLabel={family} showRank={false} /><Evidence metric={metrics.financial} /></> : <PremiumMetricLock />}</td><td className={styles.numeric}>{entitled ? <><BenchmarkScoreBadge metric={metrics.chase} benchmarkLabel="parent Set" showRank={false} /><span className="block text-[10px] text-[var(--text-secondary)]">Inherited · no Product rank</span></> : <PremiumMetricLock />}</td><td className={styles.numeric}>{entitled ? <><BenchmarkScoreBadge metric={metrics.collector} benchmarkLabel="parent Set" showRank={false} /><span className="block text-[10px] text-[var(--text-secondary)]">Inherited · no Product rank</span></> : <PremiumMetricLock />}</td><td className={styles.numeric}><span className="block">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>{bestOpen ? <span data-best-open-price className="mt-1 block text-[10px] font-normal leading-4 text-[var(--text-secondary)]"><span className="block font-semibold text-[var(--text-primary)]">{bestOpen.threshold}</span><span className="block">{bestOpen.context}</span></span> : null}</td><td className={styles.numeric}>{entitled ? (metrics.financial.financialEvidence.expectedValuePerPack == null ? "Unavailable" : money.format(metrics.financial.financialEvidence.expectedValuePerPack)) : <PremiumMetricLock />}</td><td className={styles.numeric}>{entitled ? percent(metrics.financial.financialEvidence.chanceToRecoverCost) : <PremiumMetricLock />}</td></tr>; })}</tbody></table></div>
+    <div className="space-y-2 p-3 md:hidden">{rows.map((row) => { const metrics = row.benchmarkMetrics; const rank = overall ? row?.budgetRank : metrics?.overall?.rank; const price = overall ? row?.unitPrice : row?.marketPrice; const family = compactFamilyBenchmarkLabel(row?.productFamilyLabel); const bestOpen = showBestOpenPrice ? bestOpenPresentation(row) : null; return <Link key={productId(row)} href={buildSealedProductHref(row) || "#"} className={`${styles.mobileRow} block`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className="text-[10px] font-semibold uppercase text-[var(--text-secondary)]">{entitled ? overall ? `Full Market rank #${rank ?? "—"}` : `#${rank ?? "—"} of ${metrics.overall.cohortSize} ${familyLabel(row?.productFamilyLabel)}` : "Product Benchmark locked"}</span><RankedProductIdentity product={row} secondary={`${row?.setName || "Unknown set"} · ${row?.productFamilyLabel || "Product"}`} /><span className="mt-1 block text-xs text-[var(--text-secondary)]">{numeric(price) === null ? "Unavailable" : money.format(price)}</span>{bestOpen ? <span data-best-open-price-mobile className="mt-1 block text-[10px] text-[var(--text-secondary)]"><b>{bestOpen.threshold}</b> · {bestOpen.context}</span> : null}</div>{entitled ? <BenchmarkScoreBadge metric={metrics.overall} benchmarkLabel={family} showRank={false} compact /> : <PremiumMetricLock />}</div>{entitled ? <div className="mt-2 grid grid-cols-3 gap-2 border-t border-[var(--border-subtle)] pt-2 text-[10px]"><div><b>Financial</b><BenchmarkScoreBadge metric={metrics.financial} benchmarkLabel={family} showRank={false} compact /></div><div><b>Set Chase</b><BenchmarkScoreBadge metric={metrics.chase} benchmarkLabel="parent Set" showRank={false} compact /></div><div><b>Parent Set Collector</b><BenchmarkScoreBadge metric={metrics.collector} benchmarkLabel="parent Set" showRank={false} compact /></div></div> : null}</Link>; })}</div></>;
 }
-
-function LoadingPanel() {
-  return <section className={`${styles.surface} set-glass-surface`} aria-busy="true"><p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Loading product rankings…</p></section>;
-}
+function LoadingPanel() { return <section className={`${styles.surface} set-glass-surface`} aria-busy="true"><p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Loading product rankings…</p></section>; }
 
 export default function RankingsProductLensClient({ sessionCache }) {
-  const { canViewRankingsIntelligence, canViewBestOpenPrice, authStatus, requestKey } = useRankingsAccess();
-  const entitled = canViewRankingsIntelligence;
-  const [state, setState] = useState({ status: "idle", productFamilyRankings: null, overallProductRankings: null });
-  const [retryNonce, setRetryNonce] = useState(0);
-  const [view, setView] = useState("allProducts");
-  const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState(entitled ? "overallRipLeaderScore" : "alphabetical");
-  const [sortDirection, setSortDirection] = useState(entitled ? "desc" : "asc");
-  const [budgetKey, setBudgetKey] = useState("full_market");
-  const [overallResult, setOverallResult] = useState(null);
-  const budgetRequest = useRef(null);
-
-  useEffect(() => {
-    budgetRequest.current?.abort();
-    budgetRequest.current = null;
-    setBudgetKey("full_market");
-    return () => budgetRequest.current?.abort();
-  }, [requestKey]);
-
-  useEffect(() => {
-    if (authStatus !== "resolved") return undefined;
-    const cached = retryNonce === 0 && sessionCache?.peek("products:full_market");
-    if (cached) {
-      setState(cached.state);
-      setOverallResult(cached.overallResult);
-      return undefined;
-    }
-    setState({ status: "loading", productFamilyRankings: null, overallProductRankings: null });
-    setOverallResult(null);
-    markRankingsLens("products", "request-start");
-    let active = true;
-    const load = () => fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok && response.status !== 503) throw new Error(payload?.message || "Unable to load product rankings");
-        return payload;
-      })
-      .then((payload) => {
-        const nextState = {
-          status: payload?.status === "available" ? "ready" : "unavailable",
-          productFamilyRankings: payload?.productFamilyRankings || null,
-          overallProductRankings: payload?.overallProductRankings || null,
-        };
-        const nextOverall = normalizeOverallProductResult(payload?.overallProductRankings);
-        if (nextState.status !== "ready") throw new Error("Product rankings are unavailable");
-        return { state: nextState, overallResult: nextOverall };
-      });
-    (sessionCache ? sessionCache.request("products:full_market", load, { force: retryNonce > 0 }) : load())
-      .then((cachedResult) => {
-        if (!active) return;
-        markRankingsLens("products", "response-received");
-        setState(cachedResult.state);
-        setOverallResult(cachedResult.overallResult);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setState({ status: "error", error: error.message, productFamilyRankings: null, overallProductRankings: null });
-      });
-    return () => { active = false; };
-  }, [authStatus, requestKey, retryNonce, sessionCache]);
-
-  useEffect(() => {
-    if (state.status === "ready") requestAnimationFrame(() => markRankingsLens("products", "render-ready"));
-  }, [state.status]);
-
-  const families = useMemo(
-    () => state.productFamilyRankings?.families || {},
-    [state.productFamilyRankings],
-  );
-  const familyEntries = useMemo(() => {
-    const entries = Object.entries(families).filter(([, block]) => Number(block?.count) > 0);
-    return entries.sort(([a], [b]) => {
-      const ai = FAMILY_ORDER.indexOf(a), bi = FAMILY_ORDER.indexOf(b);
-      if (ai === -1 && bi === -1) return a.localeCompare(b);
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    });
-  }, [families]);
-
-  const selectView = (next) => {
-    setView(next);
-    setQuery("");
-    setSortKey(entitled ? "overallRipLeaderScore" : "alphabetical");
-    setSortDirection(entitled ? "desc" : "asc");
-  };
-
-  const selectBudget = (next, { force = false } = {}) => {
-    budgetRequest.current?.abort();
-    if (next !== "full_market" && sortKey === "bestOpenPriceGapPercent") {
-      setSortKey(entitled ? "overallRipLeaderScore" : "alphabetical");
-      setSortDirection(entitled ? "desc" : "asc");
-    }
-    setBudgetKey(next);
-    setOverallResult((current) => ({ ...(current || {}), status: "loading" }));
-    const controller = new AbortController();
-    budgetRequest.current = controller;
-    // The cache may share an in-flight request with the next selection.
-    // Do not cancel that shared fetch when abandoning only this subscriber.
-    const isCurrentRequest = () => budgetRequest.current === controller && !controller.signal.aborted;
-    const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", ...(sessionCache ? {} : { signal: controller.signal }) })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.message || "Unable to load this opening budget");
-        return normalizeOverallProductResult(payload);
-      });
-    (sessionCache ? sessionCache.request(`products:budget:${next}`, load, { force }) : load())
-      .then((nextResult) => {
-        if (isCurrentRequest()) setOverallResult(nextResult);
-      })
-      .catch((error) => {
-        if (error.name !== "AbortError" && isCurrentRequest()) setOverallResult(normalizeOverallProductResult(null));
-      });
-  };
-
-  if (state.status === "loading" || state.status === "idle") return <LoadingPanel />;
-  if (state.status === "error" || state.status === "unavailable") {
-    return <section className={`${styles.surface} set-glass-surface`}><p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Product rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setRetryNonce((value) => value + 1)}>Retry</button></p></section>;
-  }
-
-  const overall = view === "allProducts";
-  const selectedFamily = overall ? null : families[view];
-  const bestOpenAvailable = Boolean(
-    overall
-    && budgetKey === "full_market"
-    && entitled
-    && canViewBestOpenPrice
-    && overallResult?.status !== "loading"
-    && overallResult?.bestOpenPrice?.available === true
-  );
-  const sourceRows = overall ? (overallResult?.rows || []) : (selectedFamily?.products || []);
-  const effectiveSort = resolveProductSort(sortKey, sortDirection, bestOpenAvailable, entitled);
-  const rows = sortProductRankingRows(sourceRows, query, effectiveSort.key, effectiveSort.direction, overall);
-  const budgetOptions = (overallResult?.availableBudgets || []).map((entry) => ({
-    value: entry?.type === "full_market" ? "full_market" : String(entry?.value),
-    label: entry?.label,
-  }));
-  const sortOptions = SORTS
-    .filter((option) => !option.bestOpenOnly || bestOpenAvailable)
-    .map((option) => ({
-      ...option,
-      label: overall && option.value === "marketPrice" ? "Unit Price" : option.label,
-      disabled: !entitled && option.value !== "alphabetical",
-    }));
-  const bestOpenSourceDate = bestOpenAvailable
-    ? sourceDateLabel(overallResult?.bestOpenPrice?.sourceMarketDate)
-    : null;
-
-  return (
-    <>
-      <nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1">
-        <button type="button" onClick={() => selectView("allProducts")} aria-pressed={overall} className={`${styles.productFamilyTab} ${styles.productFamilyTabOverall} ${overall ? `${styles.productFamilyTabActive} ${styles.productFamilyTabOverallActive}` : ""}`}>◇ All Products</button>
-        {familyEntries.map(([id, block]) => (
-          <button key={id} type="button" onClick={() => selectView(id)} aria-pressed={view === id} className={`${styles.productFamilyTab} ${view === id ? styles.productFamilyTabActive : ""}`}>{familyLabel(block?.label)}</button>
-        ))}
-      </nav>
-      <section className={`${styles.surface} set-glass-surface`}>
-        <div className={`${styles.divider} grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_16rem_minmax(18rem,1fr)] md:items-center`}>
-          <div>
-            <h2 className="font-semibold text-[var(--text-primary)]">{overall ? "Best Products to Rip" : familyLabel(selectedFamily?.label)}</h2>
-            <p className="text-xs text-[var(--text-secondary)]">{overall ? `${overallResult?.cohortSize || rows.length} products ranked` : `${selectedFamily?.count || rows.length} products in this format`}</p>
-            {overall && budgetKey === "full_market" && canViewBestOpenPrice && !bestOpenAvailable && overallResult?.status !== "loading" ? <button type="button" onClick={() => selectBudget("full_market", { force: true })} className="mt-1 text-xs text-[var(--accent)] underline">Refresh Best-Open availability</button> : null}
-            {bestOpenSourceDate ? <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Best-Open uses published Full Market prices as of {bestOpenSourceDate}.</p> : null}
-          </div>
-          <TableSearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products or sets..." ariaLabel="Search products or sets" containerClassName="md:justify-self-center" />
-          <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row md:justify-self-end">
-            {overall && budgetOptions.length ? <DarkSelect ariaLabel="Opening Budget" value={budgetKey} onChange={selectBudget} options={budgetOptions} className="w-full md:min-w-[15rem]" triggerVariant="budget" eyebrow="Opening Budget" /> : null}
-            <SortMenuButton ariaLabel="Sort products" value={effectiveSort.key} onChange={(next) => {
-              if (!entitled && next !== "alphabetical") return;
-              setSortKey(next);
-              setSortDirection(next === effectiveSort.key
-                ? (effectiveSort.direction === "desc" ? "asc" : "desc")
-                : defaultProductSortDirection(next));
-            }} options={sortOptions} />
-          </div>
-        </div>
-        {overallResult?.status === "loading" && overall ? <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Loading this budget…</p> : <ProductRows rows={rows} overall={overall} entitled={entitled} showBestOpenPrice={bestOpenAvailable} />}
-      </section>
-    </>
-  );
+  const { canViewRankingsIntelligence, canViewBestOpenPrice, authStatus, requestKey } = useRankingsAccess(); const entitled = canViewRankingsIntelligence;
+  const [state, setState] = useState({ status: "idle", productFamilyRankings: null, benchmark: null }); const [retryNonce, setRetryNonce] = useState(0); const [view, setView] = useState("allProducts"); const [query, setQuery] = useState(""); const [sortKey, setSortKey] = useState(entitled ? "fullMarketRank" : "alphabetical"); const [sortDirection, setSortDirection] = useState("asc"); const [budgetKey, setBudgetKey] = useState("full_market"); const [overallResult, setOverallResult] = useState(null); const budgetRequest = useRef(null);
+  useEffect(() => { budgetRequest.current?.abort(); budgetRequest.current = null; setBudgetKey("full_market"); return () => budgetRequest.current?.abort(); }, [requestKey]);
+  useEffect(() => { if (authStatus !== "resolved") return; let active = true; setState((current) => ({ ...current, status: "loading" })); markRankingsLens("products", "request-start"); const baseLoad = async () => { const response = await fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store" }); const payload = await response.json(); if (!response.ok || payload?.status !== "available") throw new Error(payload?.message || "Product rankings are unavailable"); return { state: { status: "ready", productFamilyRankings: payload.productFamilyRankings || null }, overallResult: normalizeOverallProductResult(payload.overallProductRankings) }; }; const basePromise = sessionCache ? sessionCache.request("products:full_market", baseLoad, { force: retryNonce > 0 }) : baseLoad(); basePromise.then(async (base) => { let benchmark = null; if (entitled) { const familyProducts = Object.values(base.state.productFamilyRankings?.families || {}).flatMap((block) => block?.products || []); const entities = familyProducts.map((row) => ({ entity_type: "sealed_product", entity_id: productId(row) })).filter((entity) => entity.entity_id); benchmark = await readCurrentProductBenchmark(entities, { sessionCache, force: retryNonce > 0 }); } if (!active) return; setState({ ...base.state, benchmark }); setOverallResult(base.overallResult); markRankingsLens("products", "response-received"); }).catch((error) => { if (active) setState({ status: "error", error: error.message, productFamilyRankings: null, benchmark: null }); }); return () => { active = false; }; }, [authStatus, entitled, requestKey, retryNonce, sessionCache]);
+  useEffect(() => { if (state.status === "ready") requestAnimationFrame(() => markRankingsLens("products", "render-ready")); }, [state.status]);
+  const families = useMemo(() => state.productFamilyRankings?.families || {}, [state.productFamilyRankings]); const familyEntries = useMemo(() => Object.entries(families).filter(([, block]) => Number(block?.count) > 0).sort(([a], [b]) => { const ai = FAMILY_ORDER.indexOf(a), bi = FAMILY_ORDER.indexOf(b); return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || a.localeCompare(b); }), [families]);
+  const selectView = (next) => { setView(next); setQuery(""); setSortKey(entitled ? (next === "allProducts" ? "fullMarketRank" : "overallBenchmarkRank") : "alphabetical"); setSortDirection("asc"); };
+  const selectBudget = (next, { force = false } = {}) => { budgetRequest.current?.abort(); if (next !== "full_market" && sortKey === "bestOpenPriceGapPercent") { setSortKey(entitled ? "fullMarketRank" : "alphabetical"); setSortDirection("asc"); } setBudgetKey(next); setOverallResult((current) => ({ ...(current || {}), status: "loading" })); const controller = new AbortController(); budgetRequest.current = controller; const load = () => fetch(`/api/explore/product-rankings/overall?budget=${encodeURIComponent(next)}`, { cache: "no-store", ...(sessionCache ? {} : { signal: controller.signal }) }).then(async (response) => { const payload = await response.json(); if (!response.ok) throw new Error(payload?.message || "Unable to load this opening budget"); return normalizeOverallProductResult(payload); }); (sessionCache ? sessionCache.request(`products:budget:${next}`, load, { force }) : load()).then((result) => { if (budgetRequest.current === controller && !controller.signal.aborted) setOverallResult(result); }).catch(() => { if (budgetRequest.current === controller) setOverallResult(normalizeOverallProductResult(null)); }); };
+  if (state.status === "loading" || state.status === "idle") return <LoadingPanel />; if (state.status !== "ready") return <section className={`${styles.surface} set-glass-surface`}><p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Product rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => setRetryNonce((value) => value + 1)}>Retry</button></p></section>;
+  const overall = view === "allProducts", selectedFamily = overall ? null : families[view]; const bestOpenAvailable = Boolean(overall && budgetKey === "full_market" && entitled && canViewBestOpenPrice && overallResult?.status !== "loading" && overallResult?.bestOpenPrice?.available === true); const sourceRows = overall ? overallResult?.rows || [] : selectedFamily?.products || []; const rowsWithBenchmark = withProductBenchmark(sourceRows, state.benchmark); const effectiveSort = resolveProductSort(sortKey, sortDirection, bestOpenAvailable, entitled); const rows = sortProductRankingRows(rowsWithBenchmark, query, effectiveSort.key, effectiveSort.direction, overall); const budgetOptions = (overallResult?.availableBudgets || []).map((entry) => ({ value: entry?.type === "full_market" ? "full_market" : String(entry?.value), label: entry?.label }));
+  const allSorts = [{ value: "fullMarketRank", label: "Full Market Rank" }, { value: "bestOpenPriceGapPercent", label: "Closest to #1", bestOpenOnly: true }, { value: "marketPrice", label: overall ? "Unit Price" : "Market Price" }, { value: "alphabetical", label: "Alphabetical A–Z" }]; const familySorts = [{ value: "overallBenchmarkRank", label: "RIP Score Rank" }, { value: "financialBenchmarkScore", label: "Financial RIP" }, { value: "chaseBenchmarkScore", label: "Set Chase Accessibility" }, { value: "collectorBenchmarkScore", label: "Collector Appeal · Parent Set" }, { value: "marketPrice", label: "Market Price" }, { value: "alphabetical", label: "Alphabetical A–Z" }]; const sortOptions = (overall ? allSorts : familySorts).filter((option) => !option.bestOpenOnly || bestOpenAvailable).map((option) => ({ ...option, disabled: !entitled && option.value !== "alphabetical" })); const bestOpenSourceDate = bestOpenAvailable ? sourceDateLabel(overallResult?.bestOpenPrice?.sourceMarketDate) : null; const freshness = entitled ? formatBenchmarkFreshness(state.benchmark?.freshness) : null;
+  return <><nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1"><button type="button" onClick={() => selectView("allProducts")} aria-pressed={overall} className={`${styles.productFamilyTab} ${styles.productFamilyTabOverall} ${overall ? `${styles.productFamilyTabActive} ${styles.productFamilyTabOverallActive}` : ""}`}>◇ All Products</button>{familyEntries.map(([id, block]) => <button key={id} type="button" onClick={() => selectView(id)} aria-pressed={view === id} className={`${styles.productFamilyTab} ${view === id ? styles.productFamilyTabActive : ""}`}>{familyLabel(block?.label)}</button>)}</nav><section className={`${styles.surface} set-glass-surface`}><div className={`${styles.divider} grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_16rem_minmax(18rem,1fr)] md:items-center`}><div><h2 className="font-semibold">{overall ? "Best Products to Rip" : familyLabel(selectedFamily?.label)}</h2><p className="text-xs text-[var(--text-secondary)]">{overall ? `${overallResult?.cohortSize || rows.length} products · ranked by Full Market authority` : `${selectedFamily?.count || rows.length} products · Benchmark rank is within this family`}</p>{freshness ? <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Product Benchmark {freshness}</p> : null}{overall && budgetKey === "full_market" && canViewBestOpenPrice && !bestOpenAvailable && overallResult?.status !== "loading" ? <button type="button" onClick={() => selectBudget("full_market", { force: true })} className="mt-1 text-xs text-[var(--accent)] underline">Refresh Best-Open availability</button> : null}{bestOpenSourceDate ? <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Best-Open uses published Full Market prices as of {bestOpenSourceDate}.</p> : null}</div><TableSearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products or sets..." ariaLabel="Search products or sets" containerClassName="md:justify-self-center" /><div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row md:justify-self-end">{overall && budgetOptions.length ? <DarkSelect ariaLabel="Opening Budget" value={budgetKey} onChange={selectBudget} options={budgetOptions} className="w-full md:min-w-[15rem]" triggerVariant="budget" eyebrow="Opening Budget" /> : null}<SortMenuButton ariaLabel="Sort products" value={effectiveSort.key} onChange={(next) => { if (!entitled && next !== "alphabetical") return; setSortKey(next); setSortDirection(next === effectiveSort.key ? (effectiveSort.direction === "desc" ? "asc" : "desc") : defaultProductSortDirection(next)); }} options={sortOptions} /></div></div>{overallResult?.status === "loading" && overall ? <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">Loading this budget…</p> : <ProductRows rows={rows} overall={overall} entitled={entitled} showBestOpenPrice={bestOpenAvailable} />}</section></>;
 }

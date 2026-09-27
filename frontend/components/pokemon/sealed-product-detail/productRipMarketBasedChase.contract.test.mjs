@@ -15,8 +15,8 @@ test("product and parent-set ownership labels remain truthful", () => {
 test("Product Chase remains a separate Premium sibling", () => {
   assert.doesNotMatch(rip, /ProductChaseIntelligenceSection/); assert.match(detail, /<ProductRipSection detail=\{detail\}/); assert.match(detail, /<ProductChaseIntelligenceSection/);
 });
-test("Chase public score and set standing are used without a fabricated tier", () => {
-  assert.match(rip, /chase\.publicScore/); assert.match(rip, /chase\.rank/); assert.match(rip, /chase\.cohortSize/); assert.doesNotMatch(rip, /chase\.tier/);
+test("inherited Chase Benchmark has no Product rank or fabricated tier", () => {
+  assert.match(rip, /BenchmarkScoreBadge metric=\{chase\} showRank=\{false\}/); assert.match(rip, /Parent Set · no Product rank/); assert.doesNotMatch(rip, /chase\.tier|chase\.publicScore/);
 });
 test("raw and model values cannot fill a missing public score", () => {
   const selected = selectChaseAccessibilityPresentation({ chaseAccessibility: { value: 0.001, percent: 0.1, modelScore: 40, status: "ready" } });

@@ -4,53 +4,32 @@ import path from "node:path";
 import test from "node:test";
 
 const source = fs.readFileSync(path.resolve("components/explore/RipDecisionPage.jsx"), "utf8");
-const parent = fs.readFileSync(path.resolve("components/explore/RipStatisticsPageClient.jsx"), "utf8");
-const primitives = fs.readFileSync(path.resolve("components/explore/RankedProductTablePrimitives.jsx"), "utf8");
 const comparison = source.slice(source.indexOf('data-rip-section="compare-products"'), source.indexOf('data-rip-section="chase-summary"'));
 
-test("Set Product Comparison locks the approved nine-column Bucket 2 contract (RIP Score+Tier and Price+$/Pack combined, Average Return and Top 1% Value Share added)", () => {
+test("Set Product Comparison presents economics and omits retired Product RIP headlines", () => {
   const head = comparison.slice(comparison.indexOf("<thead"), comparison.indexOf("</thead>"));
   const compactHead = head.replace(/\s+/g, " ");
-  const labels = ["Product Rank", ">Product</th>", "RIP Score", "Price", "Average Return", "Typical Opening", "Covers Cost", "Top 1% Value Share", "Entertainment Cost"];
+  const labels = ["Product</th>", "Price", "Average Return", "Typical Opening", "Covers Cost", "Top 1% Value Share", "Entertainment Cost"];
   let previous = -1;
   for (const label of labels) { const current = compactHead.indexOf(label); assert.ok(current > previous, label); previous = current; }
-  assert.equal((head.match(/<th scope="col"/g) || []).length, 9);
-  assert.ok(!comparison.includes("Family Rank"));
-  assert.ok(!comparison.includes("Overall Rank"));
-  assert.ok(!comparison.includes("Opening Budget"));
-  assert.ok(!comparison.includes("comparisonFamilyRow"));
-  // Combined cells: RIP Score + Tier render together, Price + $/pack render together
-  // (both inside ComparisonTableRow, the desktop row renderer this table invokes).
-  assert.match(source, /RipScoreBadge[\s\S]{0,200}RipTierMark/);
-  assert.match(source, /money\(product\.marketPrice\)[\s\S]{0,150}pricePerPack/);
-});
-test("Average Return and Top 1% Value Share read the canonical Bucket 1 product-row fields", () => {
-  assert.match(source, /product\.modeledReturnPercent/);
-  assert.match(source, /product\.topOneOutcomeValueShare/);
-  assert.ok(!source.includes("product.top1EvShare"));
+  assert.equal((head.match(/<th scope="col"/g) || []).length, 7);
+  for (const retired of ["Product Rank", "RIP Score", "RipScoreBadge", "RipTierMark", "overallRipLeaderScore", "publicTier"])
+    assert.ok(!comparison.includes(retired), retired);
+  assert.match(comparison, /Product Benchmark headlines live on each Product detail page/);
 });
 
-test("Set Product Comparison reuses canonical Rankings presentation and access primitives", () => {
-  for (const token of ["RipScoreBadge", "RipTierMark", "PublicRipTierInfo", "PremiumMetricLock", "RankedProductIdentity", "RankedProductHeader"]) assert.ok(source.includes(token), token);
-  assert.ok(parent.includes("useRankingsAccess"));
-  assert.ok(parent.includes("canViewRankingsIntelligence: canViewProductRipIntelligence"));
-  assert.ok(source.includes("familyRankInfo?.overallRipLeaderScore"));
-  assert.ok(source.includes("familyRankInfo?.publicTier"));
-  assert.ok(source.includes("#${familyRankInfo.familyRank} / ${familyRankInfo.familySize}"));
-  assert.ok(primitives.includes('product?.productFamily === "loose_booster_pack"'));
+test("economics retain the canonical normalized product fields", () => {
+  for (const token of ["product.marketPrice", "product.packCount", "product.typicalOpening", "product.entertainmentCost.perPack", "product.chanceToRecoverCost", "product.modeledReturnPercent", "product.topOneOutcomeValueShare"])
+    assert.ok(source.includes(token), token);
 });
 
-test("Set economics remain sourced from the existing normalized product contract", () => {
-  for (const token of ["product.marketPrice", "product.packCount", "product.typicalOpening", "product.entertainmentCost.perPack", "product.chanceToRecoverCost", "product.modeledReturnPercent", "product.topOneOutcomeValueShare"]) assert.ok(source.includes(token), token);
-  assert.ok(comparison.includes("Price"));
-  assert.ok(comparison.includes("Average Return"));
-  assert.ok(comparison.includes("Typical Opening"));
-  assert.ok(comparison.includes("Entertainment Cost"));
-  assert.ok(comparison.includes("Covers Cost"));
-  assert.ok(comparison.includes("Top 1% Value Share"));
+test("comparison performs no Product Benchmark fanout", () => {
+  assert.ok(!comparison.includes("readCurrentProductBenchmark"));
+  assert.ok(!comparison.includes("useProductBenchmark"));
+  assert.ok(!comparison.includes("Promise.all"));
 });
 
-test("mobile keeps public identity and market price while locking all analytical rows", () => {
+test("mobile keeps product identity and price while locking analytical economics", () => {
   assert.ok(comparison.includes("data-set-product-comparison-mobile"));
   assert.ok(source.includes("min-w-0 w-full overflow-hidden p-3"));
   assert.ok(source.includes("<ProductIdentity"));
@@ -58,13 +37,10 @@ test("mobile keeps public identity and market price while locking all analytical
   assert.ok(source.includes("{money(product.marketPrice)}"));
 });
 
-test("hero and every product row share the canonical sealed-product resolver", async () => {
+test("hero and every product row share the sealed-product resolver", async () => {
   const { buildSealedProductHref } = await import("./setProductComparison.mjs");
-  for (const id of ["booster-pack", "bundle", "etb", "pc-etb", "booster-box"]) {
+  for (const id of ["booster-pack", "bundle", "etb", "pc-etb", "booster-box"])
     assert.equal(buildSealedProductHref(id), `/sealed-products/${id}`);
-  }
   assert.ok(source.includes("href={buildSealedProductHref(heroProduct.sealedProductId)}"));
   assert.ok(source.includes("const href = buildSealedProductHref(product.sealedProductId)"));
-  assert.ok(source.includes('event.key === "Enter"'));
-  assert.ok(source.includes('event.target.closest("a,button,[role=\'button\']")'));
 });

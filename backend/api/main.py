@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Request  # type: ignore[reportMissingImports]
@@ -41,6 +41,12 @@ from backend.db.services.collection_portfolio_service import (
     get_public_collection_data_by_username,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.benchmarking.preview_v1 import PrivateBenchmarkReader
+from backend.benchmarking.registry_v1 import (
+    BenchmarkContractUnavailable,
+    resolve_active_contract,
+)
+from backend.domain.pokemon.rip_benchmark_v1 import BenchmarkError
 from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
@@ -115,7 +121,7 @@ from backend.db.services.pokemon_set_market_service import (
 from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_explore_rankings_snapshot_payload,
     get_pokemon_explore_rankings_lens_payload,
-    get_pokemon_homepage_rankings_summary_payload,
+    get_pokemon_homepage_benchmark_summary_payload,
     get_pokemon_set_card_validation_snapshot_payload,
     get_pokemon_set_cards_page_snapshot_payload,
     get_pokemon_set_cards_snapshot_payload,
@@ -223,6 +229,224 @@ from backend.api.paid_abuse_control import (
 
 
 app = FastAPI(title="EVR Collection API")
+
+
+class BenchmarkEntityRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entity_type: Literal["set", "era", "sealed_product"]
+    entity_id: UUID
+
+
+class BenchmarkCurrentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entities: List[BenchmarkEntityRequest] = Field(min_length=1, max_length=10)
+
+
+class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
+    start_date: date
+    end_date: date
+    limit: int = Field(default=500, ge=1, le=1000)
+    after: Optional[Dict[str, Any]] = None
+
+
+class BenchmarkSetHeadlinesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    set_ids: List[UUID] = Field(min_length=1, max_length=10)
+
+
+def _benchmark_client():
+    from backend.db.clients.supabase_client import create_short_timeout_service_client
+    return create_short_timeout_service_client()
+
+
+def _benchmark_reader(client: Any) -> PrivateBenchmarkReader:
+    return PrivateBenchmarkReader(require_access=lambda: True,
+                                  client_factory=lambda _timeout: client,
+                                  timeout_seconds=10)
+
+
+def _benchmark_unavailable(exc: BenchmarkContractUnavailable) -> HTTPException:
+    return HTTPException(status_code=503, detail={
+        "code": "RIP_BENCHMARK_CONTRACT_UNAVAILABLE",
+        "message": str(exc),
+    })
+
+
+def _benchmark_runtime_error(exc: RuntimeError) -> HTTPException:
+    if "history publications changed; restart pagination" in str(exc):
+        return HTTPException(status_code=409, detail={
+            "code": "RIP_BENCHMARK_HISTORY_REVISION_CHANGED",
+            "message": "Benchmark history changed during pagination; restart from the first page.",
+        })
+    raise exc
+
+
+def _with_benchmark_freshness(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Expose certified dates explicitly; never infer freshness from updated_at."""
+    result = dict(payload)
+    if result.get("status") == "available":
+        market_date = result.get("market_date")
+        result["freshness"] = {
+            "benchmarkMarketDate": market_date,
+            "modelSourceDate": market_date,
+            "financialEvidenceDate": market_date,
+            "activeModelVersion": result.get("overall_model_version"),
+        }
+    return result
+
+
+_PUBLIC_SET_HEADLINE_ROW_FIELDS = {
+    "entity_type", "entity_id", "metric_key", "benchmark_score", "rank", "cohort_size",
+    "benchmark_status", "benchmark_reason", "model_status", "model_reason", "source_market_date",
+    "model_version",
+}
+
+
+def _public_set_headlines(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Narrow current-only replacement for the already-public Set score headlines."""
+    freshness = _with_benchmark_freshness(payload).get("freshness") or {}
+    rows = []
+    for source in payload.get("rows", []):
+        if source.get("entity_type") != "set" or source.get("metric_key") not in {"overall", "financial", "chase", "collector"}:
+            continue
+        rows.append({key: source.get(key) for key in _PUBLIC_SET_HEADLINE_ROW_FIELDS if key in source})
+    return {
+        "contract_version": "rip-benchmark-set-headlines-v1",
+        "status": payload.get("status", "unavailable"),
+        "publication_id": payload.get("publication_id"),
+        "market_date": payload.get("market_date"),
+        "rows": rows,
+        "freshness": {
+            "benchmarkMarketDate": freshness.get("benchmarkMarketDate"),
+            "modelSourceDate": freshness.get("modelSourceDate"),
+            "activeModelVersion": freshness.get("activeModelVersion"),
+        },
+    }
+
+
+def _with_benchmark_history_context(client: Any, payload: Dict[str, Any], contract: Any) -> Dict[str, Any]:
+    """Attach bounded public chart metadata; never expose source manifests."""
+    result = dict(payload)
+    base = lambda: client.table("pokemon_rip_benchmark_publications_v1").select("market_date") \
+        .eq("benchmark_key", contract.benchmark_key).eq("calibration_version", contract.calibration_version) \
+        .eq("publication_status", "published")
+    earliest = list(base().order("market_date").limit(1).execute().data or [])
+    latest = list(base().order("market_date", desc=True).limit(1).execute().data or [])
+    result["historyAvailableFrom"] = earliest[0]["market_date"] if earliest else None
+    result["historyAvailableThrough"] = latest[0]["market_date"] if latest else None
+    dates = sorted({str(row.get("market_date"))[:10] for row in result.get("rows", []) if row.get("market_date")})
+    publications = []
+    if dates:
+        publications = list(client.table("pokemon_rip_benchmark_publications_v1")
+            .select("market_date,opening_economics_snapshot_id")
+            .eq("benchmark_key", contract.benchmark_key).eq("calibration_version", contract.calibration_version)
+            .eq("publication_status", "published").in_("market_date", dates).limit(250).execute().data or [])
+    snapshot_ids = sorted({str(row["opening_economics_snapshot_id"]) for row in publications if row.get("opening_economics_snapshot_id")})
+    snapshots = []
+    if snapshot_ids:
+        snapshots = list(client.table("pokemon_rip_stats_snapshots").select("id,market_date,payload_json").in_("id", snapshot_ids).execute().data or [])
+    references = {}
+    for snapshot in snapshots:
+        economics = (snapshot.get("payload_json") or {}).get("openingEconomics") or {}
+        global_scope = economics.get("global") or {}
+        references[str(snapshot.get("market_date"))[:10]] = {
+            "market_date": str(snapshot.get("market_date"))[:10],
+            "modeled_return_on_spend": global_scope.get("modeledReturnOnSpend"),
+            "cost_per_pack": global_scope.get("averageCostPerPack"),
+            "expected_value_per_pack": global_scope.get("averageModelBreakEvenPerPack"),
+        }
+    result["opening_economics_references"] = references
+    return result
+
+
+def _with_current_opening_reference(client: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+    result = dict(payload)
+    publication_id = result.get("publication_id")
+    if not publication_id:
+        return result
+    headers = list(client.table("pokemon_rip_benchmark_publications_v1").select("opening_economics_snapshot_id")
+        .eq("id", publication_id).limit(1).execute().data or [])
+    snapshot_id = headers[0].get("opening_economics_snapshot_id") if headers else None
+    if not snapshot_id:
+        return result
+    snapshots = list(client.table("pokemon_rip_stats_snapshots").select("market_date,payload_json")
+        .eq("id", snapshot_id).limit(1).execute().data or [])
+    if snapshots:
+        economics = (snapshots[0].get("payload_json") or {}).get("openingEconomics") or {}
+        scope = economics.get("global") or {}
+        result["opening_economics_reference"] = {
+            "market_date": str(snapshots[0].get("market_date"))[:10],
+            "modeled_return_on_spend": scope.get("modeledReturnOnSpend"),
+            "cost_per_pack": scope.get("averageCostPerPack"),
+            "expected_value_per_pack": scope.get("averageModelBreakEvenPerPack"),
+        }
+    return result
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/current")
+def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
+                                  authorization: Optional[str] = Header(None),
+                                  token_cookie: Optional[str] = Cookie(None, alias="sb-access-token")):
+    _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+                           message="RIP Benchmark requires Index Plus.",
+                           authorization=authorization, token_cookie=token_cookie)
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        result = _benchmark_reader(client).current(
+            [item.model_dump(mode="json") for item in body.entities],
+            benchmark_key=contract.benchmark_key,
+            calibration_version=contract.calibration_version,
+        )
+        return _with_benchmark_freshness(_with_current_opening_reference(client, result))
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise _benchmark_runtime_error(exc) from exc
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/set-headlines")
+def pokemon_rip_benchmark_set_headlines(body: BenchmarkSetHeadlinesRequest):
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        result = _benchmark_reader(client).current(
+            [{"entity_type": "set", "entity_id": str(set_id)} for set_id in dict.fromkeys(body.set_ids)],
+            benchmark_key=contract.benchmark_key,
+            calibration_version=contract.calibration_version,
+        )
+        return _public_set_headlines(result)
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/history")
+def pokemon_rip_benchmark_history(body: BenchmarkHistoryRequest,
+                                  authorization: Optional[str] = Header(None),
+                                  token_cookie: Optional[str] = Cookie(None, alias="sb-access-token")):
+    _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+                           message="RIP Benchmark history requires Index Plus.",
+                           authorization=authorization, token_cookie=token_cookie)
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        result = _benchmark_reader(client).history_page(
+            [item.model_dump(mode="json") for item in body.entities],
+            start_date=body.start_date.isoformat(), end_date=body.end_date.isoformat(),
+            benchmark_key=contract.benchmark_key, calibration_version=contract.calibration_version,
+            limit=body.limit, after=body.after,
+        )
+        return _with_benchmark_history_context(client, result, contract)
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise _benchmark_runtime_error(exc) from exc
 
 logger = logging.getLogger(__name__)
 
@@ -1095,7 +1319,9 @@ def get_explore_rankings_homepage_summary(limit: Optional[str] = Query(default=N
     change either of those endpoints' contracts or behavior.
     """
     try:
-        payload = get_pokemon_homepage_rankings_summary_payload(limit=limit or 60)
+        client = _benchmark_client()
+        contract = resolve_active_contract(client)
+        payload = get_pokemon_homepage_benchmark_summary_payload(client, contract, limit=limit or 60)
         return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
     except ExploreRipStatisticsTargetsError as exc:
         headers = (

@@ -18,7 +18,7 @@ test("the locked homepage story renders in order", () => {
 });
 
 test("one payload drives the dynamic winner and includes rank one in the board", () => {
-  assert.match(server, /getRipStatisticsTargets/);
+  assert.match(server, /getHomepageRankingsSummary/);
   assert.match(server, /openingSpotlightSet = entries\[0\]/);
   assert.match(server, /selectExploreRankingRows\(entries/);
   assert.doesNotMatch(server, /slice\(1/);
@@ -26,8 +26,8 @@ test("one payload drives the dynamic winner and includes rank one in the board",
 });
 
 test("hero has exact answer, locked metrics, local pack image, and neutral fallback", () => {
-  for (const label of ["BEST SET TO RIP RIGHT NOW", "RIP Score", "Financial RIP", "Expected Value", "Typical Opening"]) assert.match(component, new RegExp(label));
-  assert.match(component, /boosterPackImage\.src/);
+  for (const label of ["BEST SET TO RIP RIGHT NOW", "RIP Score", "Expected Value", "Typical Opening", "benchmarkPosition"]) assert.match(component, new RegExp(label));
+  assert.match(component, /heroVisual\.asset\.src/);
   assert.match(component, /<SetMark set=\{set\} className=\{styles\.heroLogo\}/);
   assert.doesNotMatch(component, /Local pack image unavailable/);
   assert.doesNotMatch(component, /https?:\/\/.*booster/i);

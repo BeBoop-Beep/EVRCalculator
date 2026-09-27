@@ -1,15 +1,9 @@
 // Which set the landing hero's Live Set Intelligence panel shows, and the small
 // ranked strip beneath the hero.
 //
-// PUBLIC SET RIP (setRipV1) IS THE HOMEPAGE'S RANKING AUTHORITY. The homepage
-// is a public marketing surface: its #1/#2/#3 must be identical for anonymous,
-// Base, Plus and Premium visitors, so it cannot be gated on Overall RIP (which
-// is not published to anonymous/Base callers). setRipV1 IS published to every
-// plan tier (see backend index_plan_access._project_public_set_leaderboard_target),
-// so it is the only metric that can decide set-level homepage ranking without
-// login state changing the answer. A set with no rankable setRipV1 is skipped —
-// this file never substitutes Overall RIP, Financial RIP, or the legacy
-// `pack_rank` field to invent a ranking setRipV1 doesn't have.
+// Current public Set Benchmark Overall is the Homepage ranking authority.
+// Canonical rank determines order; rounded score never breaks rank ties and
+// legacy Set RIP fields are not accepted as fallbacks.
 //
 // Dependency-free (no score-reader import) so landingHeroSpotlight.test.mjs can
 // run it directly under `node --test` / `tsx --test`, which cannot resolve the
@@ -115,35 +109,35 @@ function toOptionalPositiveInt(value) {
 }
 
 /**
- * The public Set RIP V1 block: score, rank, tier, cohortSize. Read straight
- * through — never derived, never backfilled from Overall RIP. A set is
- * "rankable" only when the backend actually published a positive integer
- * rank; an unrankable/missing block returns nulls, and the caller drops the
- * entry rather than inventing a rank from another metric.
+ * The current public Set Benchmark Overall headline. Read straight through —
+ * never derived or backfilled from legacy Set RIP. A set is usable only when
+ * the backend publishes an available score and positive canonical rank.
  */
-function readSetRipV1(target) {
-  const block = target?.setRipV1;
+function readBenchmarkOverall(target) {
+  const block = target?.benchmarkOverall;
   if (!block || typeof block !== "object") {
-    return { available: false, score: null, rank: null, tier: null, cohortSize: null };
+    return { available: false, score: null, rank: null, cohortSize: null, position: null };
   }
   const rank = toOptionalPositiveInt(block.rank);
-  const rankable = block.rankable !== false && rank !== null;
+  const score = block.status === "available" ? toOptionalNumber(block.score) : null;
+  const rankable = rank !== null && score !== null;
   return {
     available: rankable,
-    score: toOptionalNumber(block.score),
+    score,
     rank,
-    tier: toOptionalString(block.tier),
     cohortSize: toOptionalNumber(block.cohortSize),
+    position: score > 5 ? "Above Pokémon benchmark" : score < 5 ? "Below Pokémon benchmark" : "At Pokémon benchmark",
+    sourceMarketDate: toOptionalString(block.sourceMarketDate),
   };
 }
 
 /**
- * A target -> spotlight entry, or null when the public Set RIP V1 rank is not
+ * A target -> spotlight entry, or null when current Benchmark Overall is not
  * available for it.
  */
 function toEntry(target) {
-  const setRip = readSetRipV1(target);
-  if (!setRip.available) {
+  const benchmark = readBenchmarkOverall(target);
+  if (!benchmark.available) {
     return null;
   }
 
@@ -161,13 +155,13 @@ function toEntry(target) {
     heroImageUrl: toOptionalString(target?.hero_image_url) ?? toOptionalString(target?.heroImageUrl),
     logoUrl: toOptionalString(target?.logo_image_url),
     symbolUrl: toOptionalString(target?.symbol_image_url),
-    // THE public Set RIP V1 score — the same set-level ranking authority the
-    // Rankings "sets" lens uses. Never Overall RIP, never a legacy pack_rank.
-    score: setRip.score,
-    scoreLabel: "Set RIP",
-    tier: setRip.tier,
-    rank: setRip.rank,
-    cohortSize: setRip.cohortSize,
+    // Current public Set Benchmark Overall. Never legacy Set RIP or pack_rank.
+    score: benchmark.score,
+    scoreLabel: "RIP Score",
+    benchmarkPosition: benchmark.position,
+    benchmarkSourceMarketDate: benchmark.sourceMarketDate,
+    rank: benchmark.rank,
+    cohortSize: benchmark.cohortSize,
     setValue: readSetValue(target),
     setValueAsOf:
       toOptionalString(target?.currentChecklistSetValueDate) ??
@@ -181,38 +175,30 @@ function toEntry(target) {
     medianValue: economics.medianValue,
     probProfit: economics.probProfit,
     expectedLossPerPack: economics.expectedLossPerPack,
-    // NO INTERPRETATION COPY, and no Financial RIP internals read here. This
-    // entry's only ranking authority is setRipV1 (see readSetRipV1 above) —
-    // `hasCanonicalOverallRipV7` and the old p05/p95/p99/max distribution
-    // fields (sourced from Financial RIP's paid internals) do not belong on
-    // the public homepage set leaderboard and are not read.
+    // No Financial RIP internals or legacy distribution fields belong on the
+    // public Homepage leaderboard; Benchmark Overall is its only authority.
     ...readDesirabilityFields(target),
     href: buildRipLink(target),
   };
 }
 
 /**
- * Best rank first; a missing rank sorts behind every ranked set. Score then
- * name break ties so the spotlight is stable between requests.
+ * Canonical rank first; name only stabilizes malformed duplicate-rank rows.
+ * Display score never participates in ordering.
  */
-function byRankThenScore(left, right) {
+function byCanonicalRank(left, right) {
   if (left.rank !== null && right.rank !== null && left.rank !== right.rank) {
     return left.rank - right.rank;
   }
   if (left.rank !== null && right.rank === null) return -1;
   if (left.rank === null && right.rank !== null) return 1;
 
-  const leftScore = left.score ?? -Infinity;
-  const rightScore = right.score ?? -Infinity;
-  if (leftScore !== rightScore) {
-    return rightScore - leftScore;
-  }
   return left.name.localeCompare(right.name);
 }
 
 export function selectLandingHeroEntries(targets) {
   const list = Array.isArray(targets) ? targets : [];
-  return list.map(toEntry).filter(Boolean).sort(byRankThenScore);
+  return list.map(toEntry).filter(Boolean).sort(byCanonicalRank);
 }
 
 /**
