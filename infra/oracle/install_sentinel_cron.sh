@@ -14,7 +14,9 @@ test -f "$REPO/backend/.env" || { echo "FAIL: backend/.env missing" >&2; exit 1;
   echo "FAIL: host timezone must be America/Phoenix" >&2; exit 1;
 }
 mkdir -p "$REPO/backend/logs"
-touch "$REPO/backend/logs/alert_dispatcher.log" "$REPO/backend/logs/market_freshness_watchdog.log"       "$REPO/backend/logs/sentinel_fast.log" "$REPO/backend/logs/sentinel_public.log"
+touch "$REPO/backend/logs/alert_dispatcher.log" "$REPO/backend/logs/market_freshness_watchdog.log" \
+      "$REPO/backend/logs/sentinel_fast.log" "$REPO/backend/logs/sentinel_public.log" \
+      "$REPO/backend/logs/sentinel_audit.log"
 
 current="$(crontab -l 2>/dev/null || true)"
 # Remove legacy unmanaged copies of these exact Sentinel-owned commands as well
@@ -27,6 +29,7 @@ cleaned="$(awk -v b="$BEGIN" -v e="$END" '
   /backend\.alerts\.market_freshness_watchdog/ {next}
   /backend\.sentinel\.operational --profile fast/ {next}
   /backend\.sentinel\.operational --profile public/ {next}
+  /backend\.sentinel\.operational --profile audit/ {next}
   {print}
 ' <<<"$current")"
 block="$(sed '/^CRON_TZ=/d' "$SRC")"
@@ -45,6 +48,7 @@ installed="$(crontab -l)"
 printf 'managed_blocks='; grep -cFx "$BEGIN" <<<"$installed"
 printf 'fast_entries='; grep -v '^[[:space:]]*#' <<<"$installed" | grep -c 'backend.sentinel.operational --profile fast'
 printf 'public_entries='; grep -v '^[[:space:]]*#' <<<"$installed" | grep -c 'backend.sentinel.operational --profile public'
+printf 'audit_entries='; grep -v '^[[:space:]]*#' <<<"$installed" | grep -c 'backend.sentinel.operational --profile audit'
 printf 'dispatcher_entries='; grep -v '^[[:space:]]*#' <<<"$installed" | grep -c 'backend.alerts.dispatcher'
 printf 'freshness_entries='; grep -v '^[[:space:]]*#' <<<"$installed" | grep -c 'backend.alerts.market_freshness_watchdog'
 echo "SENTINEL_CRON_INSTALLED=PASS"
