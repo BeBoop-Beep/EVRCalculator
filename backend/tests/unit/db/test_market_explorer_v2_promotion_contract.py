@@ -7,6 +7,7 @@ FINAL_GAPS = "20260927042229_market_explorer_promotion_final_gaps_v2.sql"
 LIVE_SYNC = "20260927043142_market_explorer_v2_live_contract_source_sync_v3.sql"
 SEALED_INDEX = "20260927043901_index_sealed_product_observation_snapshot_reads.sql"
 FINAL_AUTOMATION = "20260927044821_market_explorer_v2_final_cutover_automation.sql"
+RARITY_AUTO_CERT = "20260927235500_market_explorer_v2_auto_rarity_certification.sql"
 
 
 def _read(tree: str, name: str) -> str:
@@ -14,7 +15,7 @@ def _read(tree: str, name: str) -> str:
 
 
 def test_market_explorer_live_migrations_are_byte_identical_mirrors():
-    for name in (COHERENT, FINAL_GAPS, LIVE_SYNC, SEALED_INDEX, FINAL_AUTOMATION):
+    for name in (COHERENT, FINAL_GAPS, LIVE_SYNC, SEALED_INDEX, FINAL_AUTOMATION, RARITY_AUTO_CERT):
         assert _read("backend/db", name) == _read("supabase", name)
 
 
@@ -123,3 +124,19 @@ def test_final_automation_adds_current_publisher_and_screen_compatibility():
     assert "performance_screen_v2_not_serving" in sql
     assert "grant execute on function public.publish_pokemon_market_explorer_surface_current_v2()" in sql
     assert "to service_role" in sql
+
+
+def test_current_v2_publisher_auto_advances_daily_rarity_certification():
+    sql = _read("supabase", RARITY_AUTO_CERT).lower()
+    fn = sql.split(
+        "create or replace function public.publish_pokemon_market_explorer_surface_current_v2()", 1
+    )[1].split("$function$;", 1)[0]
+    refresh = "refresh_pokemon_market_explorer_rarity_daily_coverage_v1"
+    certify = "certify_pokemon_market_explorer_rarity_coverage_v1"
+    guard = "current_v2_rarity_not_certified"
+    assert refresh in fn
+    assert certify in fn
+    assert "v_target,v_target" in fn.replace(" ", "").replace("\n", "")
+    assert fn.index(refresh) < fn.index(certify) < fn.rindex(guard)
+    assert "pokemon_market_explorer_card_daily_states_v2_shadow" in fn[:fn.index(refresh)]
+    assert "pokemon_market_explorer_sealed_current_metadata_v1" in fn[:fn.index(refresh)]
