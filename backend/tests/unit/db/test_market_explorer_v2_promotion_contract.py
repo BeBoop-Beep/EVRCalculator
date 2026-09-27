@@ -2,17 +2,44 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
 
-FINAL_GAPS = "20260927043000_market_explorer_promotion_final_gaps.sql"
-LIVE_SYNC = "20260927044500_market_explorer_v2_live_contract_source_sync.sql"
+COHERENT = "20260927020409_market_explorer_coherent_generation_quicks_screens.sql"
+FINAL_GAPS = "20260927042229_market_explorer_promotion_final_gaps_v2.sql"
+LIVE_SYNC = "20260927043142_market_explorer_v2_live_contract_source_sync_v3.sql"
+SEALED_INDEX = "20260927043901_index_sealed_product_observation_snapshot_reads.sql"
+FINAL_AUTOMATION = "20260927044821_market_explorer_v2_final_cutover_automation.sql"
 
 
 def _read(tree: str, name: str) -> str:
     return (ROOT / tree / "migrations" / name).read_text(encoding="utf-8")
 
 
-def test_market_explorer_final_gap_migrations_are_mirrored():
-    for name in (FINAL_GAPS, LIVE_SYNC):
+def test_market_explorer_live_migrations_are_byte_identical_mirrors():
+    for name in (COHERENT, FINAL_GAPS, LIVE_SYNC, SEALED_INDEX, FINAL_AUTOMATION):
         assert _read("backend/db", name) == _read("supabase", name)
+
+
+def test_superseded_repo_only_migration_identities_are_retired():
+    for tree in ("backend/db", "supabase"):
+        root = ROOT / tree / "migrations"
+        for old_name in (
+            "20260927021000_market_explorer_coherent_generation_quicks_screens.sql",
+            "20260927043000_market_explorer_promotion_final_gaps.sql",
+            "20260927044500_market_explorer_v2_live_contract_source_sync.sql",
+        ):
+            assert not (root / old_name).exists()
+    assert not (
+        ROOT / "supabase/migrations/20260927023500_market_explorer_seed_from_retained_prepared_generation.sql"
+    ).exists()
+
+
+def test_coherent_migration_contains_seed_build_and_leaf_authorities():
+    sql = _read("supabase", COHERENT).lower()
+    for required in (
+        "seed_pokemon_market_explorer_surface_from_prepared_v1",
+        "build_pokemon_market_explorer_surface_candidate_v2",
+        "search_pokemon_market_explorer_leaves_v1",
+    ):
+        assert required in sql
 
 
 def test_bulk_parent_membership_is_product_aware():
@@ -81,3 +108,18 @@ def test_performance_screens_are_generation_pinned_and_capped():
     assert "p_limit>25" in fn
     assert "performance_screen_generation_mismatch" in fn
     assert "d.comparison_as_of" in fn
+
+
+def test_final_automation_adds_current_publisher_and_screen_compatibility():
+    sql = _read("supabase", FINAL_AUTOMATION).lower()
+    assert "publish_pokemon_market_explorer_surface_current_v2" in sql
+    assert "pg_try_advisory_xact_lock" in sql
+    assert "candidate_validation_failed" in sql
+    assert "assert_pokemon_market_explorer_surface_coherent_v2" in sql
+    assert "promote_pokemon_market_explorer_surface_v2" in sql
+    assert "get_pokemon_market_explorer_prepared_screen_v1" in sql
+    assert "get_pokemon_market_explorer_performance_screen_v1" in sql
+    assert "metric_7d_pct" in sql
+    assert "performance_screen_v2_not_serving" in sql
+    assert "grant execute on function public.publish_pokemon_market_explorer_surface_current_v2()" in sql
+    assert "to service_role" in sql
