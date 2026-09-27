@@ -142,7 +142,7 @@ def test_pricing_scheduler_contract_detects_missing_and_valid_managed_block():
 
 
 def test_recent_completed_scrape_without_ebay_run_is_continuity_gap():
-    now = datetime(2026, 9, 22, 16, 0, tzinfo=timezone.utc)  # 09:00 Phoenix
+    now = datetime(2026, 9, 28, 16, 0, tzinfo=timezone.utc)  # 09:00 Phoenix
     expected = now.astimezone(PP_PHOENIX).date().isoformat()
     prior = (now.astimezone(PP_PHOENIX).date() - timedelta(days=1)).isoformat()
     client = _client({
@@ -161,6 +161,31 @@ def test_recent_completed_scrape_without_ebay_run_is_continuity_gap():
     assert result.outcome == CheckOutcome.FAILURE
     assert result.severity == Severity.WARNING
     assert prior in result.observed["missing_ebay_dates"]
+
+
+def test_pre_enforcement_ebay_gaps_are_diagnostic_not_current_failure():
+    now = datetime(2026, 9, 27, 16, 0, tzinfo=timezone.utc)
+    expected = now.astimezone(PP_PHOENIX).date().isoformat()
+    client = _client({
+        "pokemon_scrape_batches": [
+            {"market_date": day, "status": "complete"}
+            for day in ("2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24",
+                        "2026-09-25", "2026-09-26", "2026-09-27")
+        ],
+        "ebay_pricing_runs_v1": [
+            {"market_date": day, "status": "COMPLETE", "finished_at": now.isoformat()}
+            for day in ("2026-09-21", "2026-09-25", "2026-09-27")
+        ],
+    })
+    registry = build_fast_registry(client=client)
+    result = registry.get("pricing.ebay.calendar_continuity").run(
+        CheckContext(now=now, runner_identity=CTX.runner_identity)
+    )
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert result.observed["missing_ebay_dates"] == []
+    assert result.observed["historical_pre_enforcement_gaps"] == [
+        "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-26"
+    ]
 
 
 def test_pricing_checks_registered_exactly_once_in_fast_profile():
