@@ -13,7 +13,7 @@ CRON_TZ=America/Phoenix
 # Repeated bounded drain. One cache per invocation; five-minute cadence gives
 # the daily maintained cohort time to converge without rebuilding everything
 # inside one memory-heavy process.
-0-55/5 * * * * /usr/bin/flock -n /tmp/market-explorer-prewarm-cron.lock -c '/home/ubuntu/repos/EVRCalculator/infra/oracle/run_market_explorer_prewarm_guarded.sh' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_prewarm.log 2>&1
+0-55/5 * * * * /usr/bin/flock -n /tmp/market-explorer-prewarm-cron.lock -c 'bash /home/ubuntu/repos/EVRCalculator/infra/oracle/run_market_explorer_prewarm_guarded.sh' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_prewarm.log 2>&1
 
 # Read-only health report, offset from the writer.
 2-59/15 * * * * /usr/bin/flock -n /tmp/market-explorer-health.lock -c 'cd /home/ubuntu/repos/EVRCalculator && /home/ubuntu/repos/EVRCalculator/.venv/bin/python -m backend.scripts.check_market_explorer_maintained_cache_health' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_health.log 2>&1
