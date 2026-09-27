@@ -29,7 +29,9 @@ SET statement_timeout = '5s'
 AS $function$
 WITH prepared AS MATERIALIZED (
   SELECT max(d.comparison_as_of) AS comparison_as_of
-  FROM public.pokemon_market_explorer_prepared_serving_directory_v1 d
+  FROM public.pokemon_market_explorer_prepared_directory_v1 d
+  JOIN public.pokemon_market_explorer_prepared_serving_v1 s
+    ON s.singleton AND s.generation_id=d.generation_id
 ),
 raw_rows AS MATERIALIZED (
   SELECT h.*
