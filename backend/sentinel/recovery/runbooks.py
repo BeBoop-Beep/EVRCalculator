@@ -83,8 +83,8 @@ def _default_pricing_runner(market_date: str) -> dict:
         command,
         cwd=str(repo_root),
         env=env,
-        capture_output=True,
-        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         timeout=60 * 60,
         check=False,
     )
