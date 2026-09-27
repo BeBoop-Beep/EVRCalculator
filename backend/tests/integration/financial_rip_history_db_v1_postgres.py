@@ -326,20 +326,29 @@ assert sql(
 ) == "published"
 ok("complete coherent 22-Set/2-Era candidate passes the final atomic cutover guard")
 
-entities = [{"entity_type": "set", "entity_id": item} for item in set_ids]
-entities += [{"entity_type": "era", "entity_id": item} for item in era_ids]
-history = decode(
+set_entities = [{"entity_type": "set", "entity_id": item} for item in set_ids]
+era_entities = [{"entity_type": "era", "entity_id": item} for item in era_ids]
+set_history = decode(
     sql(
         "SELECT get_pokemon_financial_rip_history_v1("
-        f"{val(entities)},'{DAY}','{DAY}','financial-history-fixture','{CALIBRATION}',10000,NULL);",
+        f"{val(set_entities)},'{DAY}','{DAY}','financial-history-fixture','{CALIBRATION}',10000,NULL);",
         role="service_role",
     )
 )
-assert len(history["rows"]) == 24 and history["has_more"] is False
-assert {row["absolute_financial_rip_score"] for row in history["rows"]} == {30}
-assert {row["overall_financial_rip_reference"] for row in history["rows"]} == {30}
-assert {row["absolute_delta_vs_overall"] for row in history["rows"]} == {0}
-ok("typed history RPC projects exact absolute score/reference/delta without source JSON")
+era_history = decode(
+    sql(
+        "SELECT get_pokemon_financial_rip_history_v1("
+        f"{val(era_entities)},'{DAY}','{DAY}','financial-history-fixture','{CALIBRATION}',10000,NULL);",
+        role="service_role",
+    )
+)
+history_rows = set_history["rows"] + era_history["rows"]
+assert len(set_history["rows"]) == 22 and set_history["has_more"] is False
+assert len(era_history["rows"]) == 2 and era_history["has_more"] is False
+assert {row["absolute_financial_rip_score"] for row in history_rows} == {30}
+assert {row["overall_financial_rip_reference"] for row in history_rows} == {30}
+assert {row["absolute_delta_vs_overall"] for row in history_rows} == {0}
+ok("typed Set/Era history RPC projects exact absolute score/reference/delta without source JSON")
 
 # V5/V14 (or any other family) cannot enter this V4/V12 authority.
 wrong_id = uid()
