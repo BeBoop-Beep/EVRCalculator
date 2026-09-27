@@ -77,6 +77,73 @@ def _post_publish_parity(client: Any, candidate: Mapping[str, Any], publication_
     }
 
 
+def publish_market_date(client: Any, market_date: str) -> dict[str, Any]:
+    """Publish one exact certified Benchmark date with a durable attempt receipt.
+
+    The existing DB RPC owns atomic replacement/idempotency. This wrapper adds
+    the candidate-source receipt plus post-publish Financial-history parity so
+    daily publication and repair/reconciliation paths share one implementation.
+    """
+    market_date = str(market_date or "")[:10]
+    if not market_date:
+        raise ValueError("market_date is required")
+    attempt_id = _start_attempt(client, market_date)
+    phase = "assembly"
+    try:
+        candidate = assemble_dry_run(client, market_date=market_date)
+        header = candidate["publish_rpc_request"]["arguments"]["p_header"]
+        manifest = header.get("source_manifest") or {}
+        _update_attempt(
+            client,
+            attempt_id,
+            candidate_publication_id=header.get("id"),
+            rankings_publication_id=manifest.get("rankings_publication_id"),
+            opening_economics_snapshot_id=header.get("opening_economics_snapshot_id"),
+            reason_code="READY_TO_PUBLISH",
+            diagnostics={
+                "phase": "validated",
+                "expected_entity_count": candidate["expected_entity_count"],
+                "expected_row_count": candidate["expected_row_count"],
+            },
+        )
+        phase = "publication"
+        publication = publish_candidate(client, candidate)
+        phase = "post_publication_parity"
+        parity = _post_publish_parity(client, candidate, publication["publication_id"])
+        _update_attempt(
+            client,
+            attempt_id,
+            status="published",
+            reason_code="PUBLISHED",
+            resulting_publication_id=publication["publication_id"],
+            completed_at=datetime.now(timezone.utc).isoformat(),
+            diagnostics={"phase": "complete", **parity},
+        )
+        return {
+            "attempt_id": attempt_id,
+            "candidate": candidate,
+            "publication": publication,
+            "parity": parity,
+        }
+    except Exception as exc:
+        try:
+            _update_attempt(
+                client,
+                attempt_id,
+                status="failed",
+                reason_code=f"{phase.upper()}_FAILED"[:120],
+                reason_detail=f"{type(exc).__name__}: {exc}"[:2000],
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                diagnostics={"phase": phase},
+            )
+        except Exception as receipt_exc:
+            print(
+                f"RIP Benchmark attempt receipt update failed: "
+                f"{type(receipt_exc).__name__}: {receipt_exc}"
+            )
+        raise
+
+
 def _fmt(value: Any) -> str:
     try:
         return f"{float(value):.6f}".rstrip("0").rstrip(".")
@@ -163,63 +230,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     from backend.db.clients.supabase_client import create_short_timeout_service_client
     client = create_short_timeout_service_client()
-    attempt_id = None
-    phase = "assembly"
     publication = None
-    try:
-        if args.publish:
-            if not args.market_date:
-                parser.error("--publish requires --market-date so the durable attempt receipt is date-scoped")
-            attempt_id = _start_attempt(client, args.market_date)
+    if args.publish:
+        if not args.market_date:
+            parser.error("--publish requires --market-date so the durable attempt receipt is date-scoped")
+        result = publish_market_date(client, args.market_date)
+        candidate = result["candidate"]
+        publication = result["publication"]
+    else:
         candidate = assemble_dry_run(client, market_date=args.market_date)
-        if attempt_id:
-            header = candidate["publish_rpc_request"]["arguments"]["p_header"]
-            manifest = header.get("source_manifest") or {}
-            _update_attempt(
-                client,
-                attempt_id,
-                candidate_publication_id=header.get("id"),
-                rankings_publication_id=manifest.get("rankings_publication_id"),
-                opening_economics_snapshot_id=header.get("opening_economics_snapshot_id"),
-                reason_code="READY_TO_PUBLISH",
-                diagnostics={
-                    "phase": "validated",
-                    "expected_entity_count": candidate["expected_entity_count"],
-                    "expected_row_count": candidate["expected_row_count"],
-                },
-            )
-        if args.publish:
-            phase = "publication"
-            publication = publish_candidate(client, candidate)
-            phase = "post_publication_parity"
-            parity = _post_publish_parity(client, candidate, publication["publication_id"])
-            _update_attempt(
-                client,
-                attempt_id,
-                status="published",
-                reason_code="PUBLISHED",
-                resulting_publication_id=publication["publication_id"],
-                completed_at=datetime.now(timezone.utc).isoformat(),
-                diagnostics={"phase": "complete", **parity},
-            )
-    except Exception as exc:
-        if attempt_id:
-            try:
-                _update_attempt(
-                    client,
-                    attempt_id,
-                    status="failed",
-                    reason_code=f"{phase.upper()}_FAILED"[:120],
-                    reason_detail=f"{type(exc).__name__}: {exc}"[:2000],
-                    completed_at=datetime.now(timezone.utc).isoformat(),
-                    diagnostics={"phase": phase},
-                )
-            except Exception as receipt_exc:
-                print(
-                    f"RIP Benchmark attempt receipt update failed: "
-                    f"{type(receipt_exc).__name__}: {receipt_exc}"
-                )
-        raise
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stem = f"publisher_dry_run_{candidate['market_date']}"
     json_path, report_path = args.output_dir / f"{stem}.json", args.output_dir / f"{stem}.md"
