@@ -104,6 +104,48 @@ def test_market_snapshot_healthy_contract():
     assert result.observed["set_count"] == 2
 
 
+def test_market_snapshot_accepts_truthful_unavailable_membership():
+    payload = {
+        "sets": [
+            {
+                "setId": "base",
+                "marketScope": "shadowless",
+                "currentSetValue": None,
+                "valueStatus": "unavailable",
+                "certificationStatus": "SCOPED_MARKET_INCOMPLETE",
+            },
+            {
+                "setId": "priced",
+                "currentSetValue": 125.0,
+                "valueStatus": "current",
+                "certificationStatus": "CERTIFIED_CURRENT",
+            },
+        ],
+        "meta": {"snapshot": {"marketDate": "2026-09-11"}},
+    }
+    getter = _getter({f"{BASE}/explore/set-value-market": _Response(payload=payload)})
+    result = check_market_public_snapshot(CTX, base_url=BASE, http_get=getter)
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert result.observed["unavailable_set_count"] == 1
+
+
+def test_market_snapshot_rejects_malformed_unavailable_membership():
+    payload = {
+        "sets": [
+            {
+                "setId": "bad",
+                "currentSetValue": None,
+                "valueStatus": "unavailable",
+                "certificationStatus": None,
+            }
+        ],
+        "meta": {"snapshot": {"marketDate": "2026-09-11"}},
+    }
+    getter = _getter({f"{BASE}/explore/set-value-market": _Response(payload=payload)})
+    result = check_market_public_snapshot(CTX, base_url=BASE, http_get=getter)
+    assert result.failure_code == "public_market_rows_invalid"
+
+
 def test_market_snapshot_zero_sets_fails_even_on_200():
     payload = {"sets": [], "meta": {"snapshot": {"marketDate": "2026-09-11"}}}
     getter = _getter({f"{BASE}/explore/set-value-market": _Response(payload=payload)})
