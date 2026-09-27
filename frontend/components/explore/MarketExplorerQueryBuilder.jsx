@@ -172,6 +172,7 @@ export default function MarketExplorerQueryBuilder({
         : prepared
           ? onAddPrepared?.(prepared.key)
           : await onAddQuery?.(spec, { exactItems: draft.exactItems });
+      if (outcome === "cancelled") { setMessage("Build cancelled."); setBuildStatus("idle"); return; }
       setMessage(
         outcome === "duplicate" ? "This market is already in the comparison." : outcome === "updated" ? "Market updated." : outcome === "unchanged" ? "No changes." : "Added to comparison.",
       );
@@ -295,7 +296,7 @@ export default function MarketExplorerQueryBuilder({
             allLabel={presentation.allSegmentsLabel}
             summaryNoun={presentation.segmentSummaryNoun}
             searchable={asset === QUERY_ASSET_CARDS}
-            searchPlaceholder={asset === QUERY_ASSET_CARDS ? "Search raritiesâ€¦" : undefined}
+            searchPlaceholder={asset === QUERY_ASSET_CARDS ? "Search rarities…" : undefined}
             emptyMessage={asset === QUERY_ASSET_CARDS ? "No filterable rarities." : "No published product families."}
           />
         </ExplorerDisclosure>

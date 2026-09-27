@@ -70,9 +70,35 @@ class _Client:
 
 
 def _client(*, sets_rows, history_rows, summary_rows, raises=None):
+    # Test fixtures keep the compact historical-row vocabulary used by the
+    # assertions below, but the production gate now reads calculation_runs
+    # directly to avoid expanding calculation_history_trend. Reconstruct the
+    # equivalent narrow parent rows here. The increasing timestamp preserves
+    # the canonical "latest rerun wins for the same business date" rule.
+    calculation_runs = []
+    for index, row in enumerate(history_rows):
+        calculation_runs.append(
+            {
+                "id": row.get("calculation_run_id"),
+                "target_type": "set",
+                "target_id": row.get("target_id"),
+                "valuation_method": "combined",
+                "market_date": row.get("snapshot_date"),
+                "created_at": f"{row.get('snapshot_date')}T00:00:{index:02d}+00:00",
+                "simulated_mean_pack_value_vs_pack_cost": row.get(
+                    "simulated_mean_pack_value_vs_pack_cost"
+                ),
+                "simulated_median_pack_value_vs_pack_cost": row.get(
+                    "simulated_median_pack_value_vs_pack_cost"
+                ),
+            }
+        )
     return _Client(
         {
             "sets": sets_rows,
+            "calculation_runs": calculation_runs,
+            # Retained deliberately: if production code regresses to the heavy
+            # view, tests can make that table fail independently.
             "calculation_history_trend": history_rows,
             "simulation_run_summary": summary_rows,
         },
@@ -251,11 +277,75 @@ def test_an_unreadable_authority_fails_closed():
         sets_rows=[_set_row("alpha", "id-a")],
         history_rows=[],
         summary_rows=[],
-        raises={"calculation_history_trend": RuntimeError("PGRST205 schema cache")},
+        raises={"calculation_runs": RuntimeError("PGRST205 schema cache")},
     )
     report = _evaluate(client, keys=("alpha",))
     assert report.ok is False
     assert "simulation history read failed" in report.error
+
+
+def test_modern_market_date_is_authority_even_when_execution_date_differs():
+    client = _Client(
+        {
+            "sets": [_set_row("alpha", "id-a")],
+            "calculation_runs": [
+                {
+                    "id": "run-a",
+                    "target_type": "set",
+                    "target_id": "id-a",
+                    "valuation_method": "combined",
+                    "market_date": MARKET_DATE,
+                    "created_at": "2026-08-02T07:15:00+00:00",
+                    "simulated_mean_pack_value_vs_pack_cost": 1.2,
+                    "simulated_median_pack_value_vs_pack_cost": 0.8,
+                }
+            ],
+            "calculation_history_trend": [],
+            "simulation_run_summary": [{"calculation_run_id": "run-a"}],
+        }
+    )
+    report = _evaluate(client, keys=("alpha",))
+    assert report.ok is True
+    assert report.statuses[0].simulation_snapshot_date == MARKET_DATE
+    assert report.statuses[0].calculation_run_id == "run-a"
+
+
+def test_same_market_date_rerun_selects_newest_parent_run():
+    client = _Client(
+        {
+            "sets": [_set_row("alpha", "id-a")],
+            "calculation_runs": [
+                {
+                    "id": "run-old",
+                    "target_type": "set",
+                    "target_id": "id-a",
+                    "valuation_method": "combined",
+                    "market_date": MARKET_DATE,
+                    "created_at": "2026-08-01T15:00:00+00:00",
+                    "simulated_mean_pack_value_vs_pack_cost": 1.1,
+                    "simulated_median_pack_value_vs_pack_cost": 0.7,
+                },
+                {
+                    "id": "run-new",
+                    "target_type": "set",
+                    "target_id": "id-a",
+                    "valuation_method": "combined",
+                    "market_date": MARKET_DATE,
+                    "created_at": "2026-08-02T01:00:00+00:00",
+                    "simulated_mean_pack_value_vs_pack_cost": 1.2,
+                    "simulated_median_pack_value_vs_pack_cost": 0.8,
+                },
+            ],
+            "calculation_history_trend": [],
+            "simulation_run_summary": [
+                {"calculation_run_id": "run-old"},
+                {"calculation_run_id": "run-new"},
+            ],
+        }
+    )
+    report = _evaluate(client, keys=("alpha",))
+    assert report.ok is True
+    assert report.statuses[0].calculation_run_id == "run-new"
 
 
 def test_a_missing_market_date_refuses_to_evaluate():

@@ -68,7 +68,8 @@ function definitionChips(entry) {
 }
 
 const constituentCount = (entry) => entry?.reconciliation?.actualConstituentCount
-  ?? entry?.currentConstituents?.constituentCount ?? entry?.productCount ?? entry?.constituentCount ?? null;
+  ?? entry?.currentConstituents?.constituentCount ?? entry?.productCount ?? entry?.constituentCount
+  ?? entry?.metadata?.constituentCount ?? null;
 
 export default function MarketExplorerDetails({ series = [], activeSeriesId = null, onInspect, timeframe = "7D" }) {
   const active = series.filter((entry) => entry.available !== false);

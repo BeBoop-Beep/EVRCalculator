@@ -1,0 +1,72 @@
+{
+  "market_date": "2026-09-20",
+  "pipeline_run_id": "93968519-7020-41d6-aaf2-6c8abeb3eb5a",
+  "pipeline_version": "multi_source_daily_pipeline_p6_v1",
+  "policy_version": "pokemon_multi_source_card_price_v1",
+  "policy_fingerprint": "caf6acbf7e4b4e43b4491ef2b018122bb4cfcb8b254621f8b32c8bb8a70abdb6",
+  "target_count": 21,
+  "tier_counts": {
+    "MISSING_PRICE_GAP": 7,
+    "ECONOMICALLY_IMPORTANT": 6,
+    "SOURCE_DISAGREEMENT_REFRESH": 0,
+    "STALE_OR_AGING_HIGH_IMPACT": 2,
+    "MOVER": 0,
+    "ROTATION": 6
+  },
+  "target_fingerprint": "56cd4ed3e35acf5584025077f0037d3237acbaa951e52352395fce2d239a6032",
+  "ebay_pricing_run_id": "3141bfb8-f300-5416-b0c2-516aeab67c3c",
+  "requests_attempted": 150,
+  "requests_failed": 0,
+  "retries": 0,
+  "request_cap": 164,
+  "remaining_budget_today": 14,
+  "collection": {
+    "targets_total": 21,
+    "targets_completed": 21,
+    "targets_resumed_from_checkpoint": 0,
+    "budget_exhausted": false,
+    "requests_attempted": 150,
+    "requests_failed": 0,
+    "retries": 0
+  },
+  "evidence": {
+    "listing_rows": 59,
+    "cards_summarized": 21,
+    "decision_states": {
+      "CONDITION_EXCLUDED": 54,
+      "LANGUAGE_UNRESOLVED": 14,
+      "ENGLISH_PRICE_ELIGIBLE": 59
+    },
+    "raw_listings": 1538,
+    "identity_qualified": 127
+  },
+  "estimates": {
+    "depth_counts": {
+      "SUFFICIENT": 9,
+      "THIN": 1,
+      "INSUFFICIENT": 11
+    },
+    "rows_inserted": 9,
+    "rows_skipped": 0
+  },
+  "multi_source": {
+    "decision_counts": {
+      "TCGPLAYER_PRIMARY": 6,
+      "TCGPLAYER_PRIMARY_EBAY_CORROBORATED": 2,
+      "TCGPLAYER_PRIMARY_EBAY_MODERATE_DISAGREEMENT": 1,
+      "TCGPLAYER_PRIMARY_SOURCE_DISAGREEMENT": 3,
+      "TCGPLAYER_AGING_RETAINED": 0,
+      "TCGPLAYER_STALE_RETAINED": 2,
+      "EBAY_ACTIVE_ASK_FALLBACK": 3,
+      "UNPRICED": 4
+    },
+    "rows_inserted": 21,
+    "rows_skipped": 0,
+    "rows": 21
+  },
+  "gap_fills": 3,
+  "runtime_seconds": 129.9,
+  "last_successful_stage": "VALIDATED",
+  "completed_at": "2026-09-21T00:12:41.425959+00:00",
+  "receipt_fingerprint": "20d4be2a802671ccaa8dc798aa8eb141f2d473d693fd17ab49aaf1b8420bd069"
+}

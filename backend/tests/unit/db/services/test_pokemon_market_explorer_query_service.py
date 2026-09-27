@@ -9,7 +9,9 @@ loudly under exactly one wrong construction.
 
 from __future__ import annotations
 
+import httpx
 import pytest
+from postgrest.exceptions import APIError
 
 from backend.db.services import pokemon_market_explorer_query_service as svc
 from backend.db.services.market_explorer_query_planner import resolve_canonical_through
@@ -802,6 +804,173 @@ def test_narrow_interval_fallback_scope_is_not_batched():
     )
     assert len(calls) == 1
     assert calls[0]["p_set_ids"] == ["set-0", "set-1", "set-2", "set-3", "set-4"]
+
+
+def _interval_error(code):
+    return APIError({"message": "upstream request timeout", "code": code,
+                     "hint": None, "details": None})
+
+
+@pytest.mark.parametrize("failure", [
+    _interval_error("57014"), _interval_error("504"),
+    httpx.ReadTimeout("The read operation timed out"),
+    RuntimeError("The read operation timed out"),
+    httpx.HTTPStatusError("gateway", request=httpx.Request("POST", "https://example.test/rpc"),
+                          response=httpx.Response(504)),
+])
+def test_interval_timeout_subdivides_only_failed_batch(failure):
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            sets = tuple(payload["p_set_ids"])
+            calls.append((name, sets))
+            if len(sets) == 5:
+                raise failure
+            return _RpcResult([{
+                "market_date": "2026-09-06", "constituent_count": len(sets),
+                "eligible_universe_count": len(sets) * 2,
+                "basket_value": len(sets) * 3, "common_count": len(sets) * 4,
+                "common_current_value": len(sets) * 5,
+                "common_previous_value": len(sets) * 6,
+                "current_constituents": [{
+                    "card_variant_id": set_id, "canonical_card_id": set_id,
+                    "set_id": set_id, "market_price": 10,
+                    "rank": index + 1, "marker": set_id,
+                } for index, set_id in enumerate(sets)],
+            }])
+
+    cohorts, basket = svc.load_filtered_daily_cohort_rows(
+        Client(), [f"set-{i}" for i in range(5)],
+        start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+        rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+    )
+    assert [sets for _, sets in calls] == [
+        tuple(f"set-{i}" for i in range(5)), ("set-0", "set-1"),
+        ("set-2", "set-3", "set-4"),
+    ]
+    assert cohorts == [{"marketDate": "2026-09-06", "constituentCount": 5,
+                        "eligibleUniverseCount": 10, "basketValue": 15.0,
+                        "commonCount": 20, "commonCurrentValue": 25.0,
+                        "commonPreviousValue": 30.0}]
+    assert [row["cardVariantId"] for row in basket] == [f"set-{i}" for i in range(5)]
+    assert [row["rank"] for row in basket] == [1, 2, 3, 4, 5]
+
+
+def test_interval_timeout_recurses_and_single_set_timeout_propagates():
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            sets = tuple(payload["p_set_ids"])
+            calls.append(sets)
+            if len(sets) > 1:
+                raise _interval_error("57014")
+            return _RpcResult([])
+
+    svc.load_filtered_daily_cohort_rows(
+        Client(), [f"set-{i}" for i in range(5)],
+        start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+        rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+    )
+    assert calls == [tuple(f"set-{i}" for i in range(5)),
+                     ("set-0", "set-1"), ("set-0",), ("set-1",),
+                     ("set-2", "set-3", "set-4"), ("set-2",),
+                     ("set-3", "set-4"), ("set-3",), ("set-4",)]
+
+    calls.clear()
+
+    class FailingClient:
+        def rpc(self, name, payload):
+            calls.append(tuple(payload["p_set_ids"]))
+            raise _interval_error("57014")
+
+    with pytest.raises(APIError):
+        svc.load_filtered_daily_cohort_rows(
+            FailingClient(), ["set-0"], start_date="2026-09-06",
+            end_date="2026-09-06", card_ids=None,
+            rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+        )
+    assert calls == [("set-0",)]
+
+
+@pytest.mark.parametrize("failure", [_interval_error("401"), _interval_error("500"),
+                                          ValueError("malformed response")])
+def test_unranked_interval_non_timeout_propagates_without_subdivision(failure):
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append(tuple(payload["p_set_ids"]))
+            raise failure
+
+    with pytest.raises(type(failure)):
+        svc.load_filtered_daily_cohort_rows(
+            Client(), [f"set-{i}" for i in range(5)],
+            start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+            rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+        )
+    assert calls == [tuple(f"set-{i}" for i in range(5))]
+
+
+def test_interval_subdivision_preserves_date_overlap_and_latest_global_rank():
+    calls = []
+    prices = {"set-0": 100, "set-1": 60, "set-2": 90,
+              "set-3": 70, "set-4": 90}
+
+    class Client:
+        def rpc(self, name, payload):
+            sets = tuple(payload["p_set_ids"])
+            calls.append((sets, payload["p_start_date"], payload["p_end_date"]))
+            if len(sets) == 5:
+                raise _interval_error("57014")
+            days = ["2026-09-06", "2026-09-07", "2026-09-08"]
+            return _RpcResult([{
+                "market_date": day, "constituent_count": len(sets),
+                "eligible_universe_count": len(sets), "basket_value": sum(prices[s] for s in sets),
+                "common_count": len(sets), "common_current_value": 1,
+                "common_previous_value": 2,
+                "current_constituents": [{
+                    "card_variant_id": set_id, "canonical_card_id": set_id,
+                    "set_id": set_id, "market_price": prices[set_id],
+                    "rank": i + 1,
+                } for i, set_id in enumerate(sets)] if day == "2026-09-08" else [],
+            } for day in days if payload["p_start_date"] <= day <= payload["p_end_date"]])
+
+    cohorts, basket = svc.load_filtered_daily_cohort_rows(
+        Client(), list(prices), start_date="2026-09-06", end_date="2026-09-08",
+        chunk_days=2, card_ids=None, rpc_name=svc.V2_INTERVAL_FALLBACK_RPC,
+    )
+    assert [row["marketDate"] for row in cohorts] == [
+        "2026-09-06", "2026-09-07", "2026-09-08"]
+    assert [row["constituentCount"] for row in cohorts] == [5, 5, 5]
+    assert [row["cardVariantId"] for row in basket] == [
+        "set-0", "set-2", "set-4", "set-3", "set-1"]
+    assert [row["rank"] for row in basket] == [1, 2, 3, 4, 5]
+    assert [start for sets, start, _ in calls if len(sets) == 5] == [
+        "2026-09-06", "2026-09-07"]
+
+
+@pytest.mark.parametrize("rpc_name,top_n", [
+    (svc.V2_INTERVAL_FALLBACK_RPC, 10), (svc.DAILY_PROJECTION_RPC, None),
+])
+@pytest.mark.parametrize("failure", [_interval_error("403"), ValueError("malformed"),
+                                          _interval_error("500"), _interval_error("57014")])
+def test_interval_subdivision_is_limited_to_unranked_timeout(rpc_name, top_n, failure):
+    calls = []
+
+    class Client:
+        def rpc(self, name, payload):
+            calls.append((name, tuple(payload["p_set_ids"])))
+            raise failure
+
+    with pytest.raises(type(failure)):
+        svc.load_filtered_daily_cohort_rows(
+            Client(), [f"set-{i}" for i in range(5)],
+            start_date="2026-09-06", end_date="2026-09-06", card_ids=None,
+            rpc_name=rpc_name, top_n=top_n,
+        )
+    assert len(calls) == 1
 
 
 def test_ranked_daily_projection_keeps_complete_scope_in_one_statement():

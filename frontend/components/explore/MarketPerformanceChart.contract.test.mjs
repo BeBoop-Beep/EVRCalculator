@@ -21,3 +21,10 @@ test("labels zero percent and preserves raw Market Index in the tooltip", () => 
   assert.match(source, /referenceVisible \? <line/);
   assert.match(source, /referenceVisible \? <span/);
 });
+
+
+test("right-side scale labels use the readable Explorer hierarchy", () => {
+  assert.match(source, /right-1 text-\[11px\] font-semibold tabular-nums text-\[var\(--text-primary\)\] opacity-80/);
+  assert.match(source, /data-market-performance-reference-label[\s\S]*text-\[11px\] font-semibold/);
+  assert.doesNotMatch(source, /right-1 text-\[9px\]/);
+});

@@ -1,0 +1,70 @@
+name: Publication Live Inspect
+
+on:
+  push:
+    branches: [ops/incident-status-20260921]
+    paths:
+      - '.github/workflows/publication-live-inspect.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: self-hosted
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/incident-status-20260921
+          fetch-depth: 1
+      - name: Capture live publisher state
+        shell: bash
+        run: |
+          set -uo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY="$LIVE/.venv/bin/python"
+          REPORT="$RUNNER_TEMP/publication-live-inspect.txt"
+          : > "$REPORT"
+          exec > >(tee -a "$REPORT") 2>&1
+          cd "$LIVE" || exit 1
+          echo "utc=$(date -u +%FT%TZ)"
+          echo "phoenix=$(TZ=America/Phoenix date +%FT%T%z)"
+          echo "live_head=$(git rev-parse HEAD)"
+          git fetch origin main --quiet
+          echo "origin_main=$(git rev-parse origin/main)"
+          echo "publication_lock=$(/usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true && echo free || echo held)"
+          echo "watchdog_lock=$(/usr/bin/flock -n /tmp/post-scrape-publication-watchdog.lock -c true && echo free || echo held)"
+          echo "processes_begin"
+          ps -eo pid=,ppid=,etimes=,args= | grep -E 'post_scrape_publication_watchdog|rebuild_snapshots_after_scrape|refresh_stale_public_snapshots' | grep -v grep || true
+          echo "processes_end"
+          if [ -f publication.log ]; then
+            echo "publication_log_age_seconds=$(( $(date +%s) - $(stat -c %Y publication.log) ))"
+          else
+            echo "publication_log_age_seconds=missing"
+          fi
+          echo "publication_log_tail_begin"
+          tail -n 180 publication.log 2>/dev/null || true
+          echo "publication_log_tail_end"
+          set -a
+          . backend/.env
+          set +a
+          echo "watchdog_health_begin"
+          "$PY" -m backend.alerts.post_scrape_publication_watchdog --health
+          echo "watchdog_health_rc=$?"
+          echo "watchdog_health_end"
+          BODY="$RUNNER_TEMP/market.json"
+          CODE="$(curl --silent --show-error --max-time 45 -o "$BODY" -w '%{http_code}' https://evrcalculator.onrender.com/explore/set-value-market || true)"
+          DATE="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); m=p.get("meta") or {}; s=m.get("snapshot") or {}; print(str(p.get("marketDate") or m.get("marketDate") or s.get("marketDate") or p.get("market_date") or ""))' "$BODY" 2>/dev/null || true)"
+          COUNT="$("$PY" -c 'import json,sys; p=json.load(open(sys.argv[1])); x=p.get("sets"); print(len(x) if isinstance(x,list) else -1)' "$BODY" 2>/dev/null || true)"
+          echo "public_market_http=$CODE"
+          echo "public_market_date=$DATE"
+          echo "public_market_set_count=$COUNT"
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p ops/assistant
+          cp "$REPORT" ops/assistant/publication-live-inspect.txt
+          git config user.name "inDex incident inspect"
+          git config user.email "actions@users.noreply.github.com"
+          git add ops/assistant/publication-live-inspect.txt
+          git commit -m "ops: capture live publication state" || true
+          git push origin HEAD:ops/incident-status-20260921

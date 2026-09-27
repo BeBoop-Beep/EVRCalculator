@@ -18,16 +18,17 @@ simulation for the promoted market date?* This module is that question.
 
 Contract
 --------
-``calculation_history_trend`` is a view over ``calculation_history_daily_latest``,
-whose ``snapshot_date`` is ``calculation_runs.created_at::date`` — the day the
-simulation actually ran. Two consequences shape this gate:
+``calculation_history_trend`` is a view over ``calculation_history_daily_latest``.
+For modern runs its ``snapshot_date`` is the explicit promoted
+``calculation_runs.market_date``; legacy rows with no market date fall back to
+``calculation_runs.created_at::date``. Two consequences shape this gate:
 
-* A simulation's date cannot be back-dated. Aligning the simulation date with
-  the promoted market date means running the batch on that day, after promotion.
-* The view already collapses each (target_type, target_id, snapshot_date) to the
-  latest run (``row_number() ... = 1``), so re-running a set on a day it already
-  covered replaces its point instead of duplicating it. Reruns are therefore
-  idempotent by construction; this module never needs to delete or dedupe rows.
+* A failed promoted-day cohort CAN be repaired after midnight because the
+  simulation runner persists the requested promoted market date explicitly.
+  Execution time and simulation-source market date are separate authorities.
+* The view collapses each (target_type, target_id, snapshot_date) to the latest
+  run (``row_number() ... = 1``), so re-running a set for the same market date
+  replaces its authoritative daily point without deleting history.
 
 The view LEFT JOINs ``simulation_run_summary``, so a run whose summary row is
 missing surfaces as NULL ratios rather than as a missing row. A NULL required
@@ -40,6 +41,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+from backend.db.services.public_read_retry import run_batch_read_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -255,9 +258,98 @@ _PAGE_SIZE = 1000
 def _load_simulation_rows(
     client: Any,
     set_ids: Sequence[str],
+    *,
+    market_date: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Load the freshness cohort without scanning the full history view.
+
+    Current promoted-date checks read calculation_runs directly. Since migration
+    076 every new simulation carries the explicit promoted market_date and the
+    canonical daily history view uses that value as its business-date identity.
+    Reading the entire calculation_history_trend view just to locate one date
+    forces Postgres to rank/expand years of history and can exceed the API-role
+    statement timeout.
+
+    The direct path selects only runs for the requested market date, keeps the
+    newest same-date retry per set, and performs a tiny per-set lookup only for
+    targets missing that date so diagnostics still report their latest date.
+    Callers without an explicit market date retain the historical paged-view
+    path. An explicit promoted-date lookup fails closed if its narrow authority
+    read is unavailable; it never falls back to the expensive all-history view.
+    """
     if not set_ids:
         return [], None
+
+    if market_date:
+        columns = "id,target_id,market_date,created_at," + ",".join(REQUIRED_OPVC_FIELDS)
+        try:
+            result = (
+                client.table("calculation_runs")
+                .select(columns)
+                .eq("target_type", "set")
+                .in_("target_id", list(set_ids))
+                .eq("market_date", market_date)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            # Do not rely on PostgREST/order semantics for correctness.  The
+            # production relation is ordered DESC, but lightweight clients/fakes
+            # may not preserve that ordering, and same-market-date retries are a
+            # real production case. Resolve the newest parent deterministically
+            # from created_at before projecting the cohort row.
+            newest_raw_by_set: Dict[str, Dict[str, Any]] = {}
+            for raw in list((result.data if result else []) or []):
+                target_id = _to_text(raw.get("target_id"))
+                run_id = _to_text(raw.get("id"))
+                if not target_id or not run_id:
+                    continue
+                prior = newest_raw_by_set.get(target_id)
+                if prior is None or str(raw.get("created_at") or "") > str(prior.get("created_at") or ""):
+                    newest_raw_by_set[target_id] = raw
+
+            current_by_set: Dict[str, Dict[str, Any]] = {}
+            for target_id, raw in newest_raw_by_set.items():
+                current_by_set[target_id] = {
+                    "snapshot_date": _date_key(raw.get("market_date")) or market_date,
+                    "target_id": target_id,
+                    "calculation_run_id": _to_text(raw.get("id")),
+                    **{field: raw.get(field) for field in REQUIRED_OPVC_FIELDS},
+                }
+
+            rows = list(current_by_set.values())
+            missing_ids = [str(set_id) for set_id in set_ids if str(set_id) not in current_by_set]
+            for target_id in missing_ids:
+                latest = (
+                    client.table("calculation_runs")
+                    .select("id,target_id,market_date,created_at")
+                    .eq("target_type", "set")
+                    .eq("target_id", target_id)
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                latest_rows = list((latest.data if latest else []) or [])
+                if not latest_rows:
+                    continue
+                raw = latest_rows[0]
+                run_id = _to_text(raw.get("id"))
+                snapshot_date = _date_key(raw.get("market_date")) or _date_key(raw.get("created_at"))
+                if not run_id or not snapshot_date:
+                    continue
+                rows.append({
+                    "snapshot_date": snapshot_date,
+                    "target_id": target_id,
+                    "calculation_run_id": run_id,
+                    **{field: None for field in REQUIRED_OPVC_FIELDS},
+                })
+            return rows, None
+        except Exception as exc:
+            # Modern publication has an explicit market-date authority. If that
+            # narrow authority read is unavailable, fail closed rather than
+            # silently falling back to the expensive all-history view that
+            # caused the Sep-21 scheduler outage.
+            logger.warning("%s direct promoted-date run lookup failed", _GATE_TAG, exc_info=True)
+            return [], f"simulation history read failed ({exc})"
 
     columns = "snapshot_date,target_id,calculation_run_id," + ",".join(REQUIRED_OPVC_FIELDS)
     rows: List[Dict[str, Any]] = []
@@ -270,11 +362,9 @@ def _load_simulation_rows(
                 .eq("target_type", "set")
                 .in_("target_id", list(set_ids))
             )
-            # A stable sort is what makes the pages disjoint.
             query = query.order("snapshot_date", desc=False)
             page_query = getattr(query, "range", None)
             if page_query is None:
-                # Client stub without range() support (unit fakes): one read.
                 result = query.execute()
                 return list((result.data if result else []) or []), None
             result = query.range(offset, offset + _PAGE_SIZE - 1).execute()
@@ -286,7 +376,6 @@ def _load_simulation_rows(
     except Exception as exc:
         logger.warning("%s simulation history read failed", _GATE_TAG, exc_info=True)
         return [], f"simulation history read failed ({exc})"
-
 
 def _load_summary_run_ids(client: Any, run_ids: Sequence[str]) -> Tuple[set, Optional[str]]:
     if not run_ids:
@@ -377,7 +466,9 @@ def evaluate_opening_simulation_freshness(
     }
 
     set_ids = [text for row in set_rows if (text := _to_text(row.get("id")))]
-    simulation_rows, history_error = _load_simulation_rows(client, set_ids)
+    simulation_rows, history_error = _load_simulation_rows(
+        client, set_ids, market_date=resolved_market_date
+    )
     if history_error:
         return OpeningSimulationFreshnessReport(market_date=resolved_market_date, error=history_error)
 

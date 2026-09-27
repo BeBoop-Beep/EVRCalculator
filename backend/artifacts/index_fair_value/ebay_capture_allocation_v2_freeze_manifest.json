@@ -1,0 +1,65 @@
+{
+  "version": "ebay_capture_allocation_v2",
+  "rows_per_card": 8,
+  "cohort_name": "d1_70",
+  "coverage_universe": 70,
+  "request_budget": {
+    "max_requests_per_run": 1000,
+    "max_pages_per_search": 3,
+    "max_listings_per_target": 200
+  },
+  "query_generation_source": "index_fair_value_ebay_evidence_collector.generate_queries",
+  "query_generation_fingerprint": "738da5e4be1905a1a16e36978bea94269abe280e03ed65c32e6fc80f7b1bf23f",
+  "sampling_method": "capture_ebay_d3_v4_fresh_blind.stratified_sample (deterministic per-card SHA-256 ordering of eligible listings)",
+  "sampling_source_fingerprint": "d85ab03fce53ada91aaf82daa347880192eb8e799af30ae41b25c89e37dd47ef",
+  "historical_exclusion_files": [
+    "ebay_manual_gold_labels.csv",
+    "ebay_gold_development.csv",
+    "ebay_gold_validation.csv",
+    "ebay_gold_final_blind.csv",
+    "ebay_d3_blind_review_queue.csv",
+    "ebay_d3_coverage_blind.csv",
+    "ebay_d3_fresh_observations.csv",
+    "ebay_d3_precision_blind.csv",
+    "ebay_d3_v3_coverage_certification_rows.csv",
+    "ebay_d3_v3_high_false_positive_forensics.csv",
+    "ebay_d3_v3_precision_certification_rows.csv",
+    "ebay_d3_v4_fresh_blind_queue.csv",
+    "ebay_d3_v5_fresh_blind_queue.csv",
+    "ebay_d2m_second_review_queue.csv",
+    "ebay_e2_9b_fresh_blind_queue.csv"
+  ],
+  "historical_exclusion_source_fingerprint": "f2c7d3bd7b8a97619100a99c8dd9bfbef42cb73882742402d05470d531c331a0",
+  "excludes_evidence_used_in": [
+    "D2",
+    "D3",
+    "V4",
+    "V5",
+    "E2.6",
+    "E2.7",
+    "E2.8",
+    "E2.9",
+    "E2.9A",
+    "E2.9B",
+    "E2.9C",
+    "E2.10",
+    "E2.11"
+  ],
+  "availability_classes": {
+    "EXHAUSTED": "0 surviving unique candidates after historical/relist exclusion",
+    "LOW_AVAILABILITY": "1-19 surviving unique candidates",
+    "MEDIUM_AVAILABILITY": "20-49 surviving unique candidates",
+    "HIGH_AVAILABILITY": ">=50 surviving unique candidates"
+  },
+  "exhausted_card_policy": "an EXHAUSTED card is sampled at 0 rows, never padded or substituted; coverage denominator remains 70 regardless.",
+  "independent_of": [
+    "D3-v5 output",
+    "IMAGE-v2 output",
+    "COMBINED-IDENTITY-v1/v2 output",
+    "any human label"
+  ],
+  "production_authority": false,
+  "certifies_nothing_by_itself": true,
+  "frozen_at": "2026-09-16T02:25:21.019862+00:00",
+  "allocation_fingerprint": "84ef679c8faad00ec4ebc0c6f30737db7f0bb13a10cb024b9d7a8cc6e65010f8"
+}

@@ -27,6 +27,9 @@ export function adaptCriticalInsightsToExplorePayload(critical) {
     // Additive V10/V4 transport. Carried verbatim, never derived from V3/V9.
     // V10 stays for historical/rollback lineage.
     financialRipV4: critical?.financialRipV4 || null,
+    financialRipV5: critical?.financialRipV5 || null,
+    overallRipV14: critical?.overallRipV14 || null,
+    overallRipV14Composition: critical?.overallRipV14Composition || null,
     overallRipV10: critical?.overallRipV10 || null,
     publicRipContractV10: critical?.publicRipContractV10 || null,
     // CURRENT canonical Overall RIP model + public contract. Carried verbatim,

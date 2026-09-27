@@ -474,7 +474,7 @@ def test_published_constituents_carry_their_own_movement():
     assert rows_out, "the SIR segment must publish a roster"
     for row in rows_out:
         assert "changes" in row, "every published constituent needs the movement contract"
-        assert set(row["changes"]) == {"1D", "7D", "30D", "3M"}
+        assert set(row["changes"]) == {"1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"}
 
 
 def test_movement_is_the_constituents_own_price_change_not_the_index_return():
@@ -517,7 +517,7 @@ def test_movement_adds_no_history_array_and_no_per_row_date_duplication():
     # snapshot carrying a price history per constituent — and without repeating
     # the market's boundary dates on every row, which is where the size went.
     summary = _sir_summary()
-    assert set(summary["movementWindows"]) == {"1D", "7D", "30D", "3M"}
+    assert set(summary["movementWindows"]) == {"1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"}
     for row in _sir_constituents():
         for value in row["changes"].values():
             assert value is None or isinstance(value, float)

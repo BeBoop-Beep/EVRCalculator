@@ -116,7 +116,7 @@ static_variants as materialized (
         or public.market_explorer_rarity_segment(m.rarity) = any(p_segment_ids)
     )
       and (
-        p_pokemon_ids is noull or cardinality(p_pokemon_ids) = 0
+        p_pokemon_ids is null or cardinality(p_pokemon_ids) = 0
         or exists (
             select 1
             from public.pokemon_card_desirability_links l

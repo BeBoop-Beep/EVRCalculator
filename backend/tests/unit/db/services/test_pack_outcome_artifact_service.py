@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from postgrest.exceptions import APIError
 
 from backend.db.services.pack_outcome_artifact_service import (
     BYTE_ORDER, COMPRESSION_FORMAT, FORMAT_VERSION, NUMERIC_DTYPE,
-    PackOutcomeArtifactCorrupt, decode_pack_outcomes, encode_pack_outcomes,
-    persist_pack_outcomes,
+    LoadedPackOutcomeArtifact, PackOutcomeArtifactCorrupt,
+    PackOutcomeArtifactUnavailable, decode_pack_outcomes, encode_pack_outcomes,
+    load_pack_outcome_artifact, persist_pack_outcomes,
 )
 
 
@@ -89,3 +91,133 @@ def test_persistence_is_idempotent_for_the_same_run_and_vector():
     assert first["status"] == "created"
     assert second["status"] == "matched"
     assert client.insert_count == 1
+
+
+def _statement_timeout_error():
+    return APIError(
+        {
+            "message": "canceling statement due to statement timeout",
+            "code": "57014",
+            "hint": None,
+            "details": None,
+        }
+    )
+
+
+def _permanent_error():
+    return APIError(
+        {
+            "message": "column \"bogus\" does not exist",
+            "code": "42703",
+            "hint": None,
+            "details": None,
+        }
+    )
+
+
+class _FlakyQuery:
+    def __init__(self, client): self.client = client
+    def select(self, *_args): return self
+    def eq(self, *_args): return self
+    def limit(self, *_args): return self
+
+    def execute(self):
+        self.client.attempts += 1
+        if self.client.failures:
+            failure = self.client.failures.pop(0)
+            raise failure
+        return _Response(self.client.rows)
+
+
+class _FlakyClient:
+    def __init__(self, rows, failures):
+        self.rows = rows
+        self.failures = list(failures)
+        self.attempts = 0
+
+    def table(self, _name):
+        return _FlakyQuery(self)
+
+
+def _artifact_row(values, calculation_run_id="run-1"):
+    row = _row(values)
+    row["calculation_run_id"] = calculation_run_id
+    row["created_at"] = "2026-09-22T00:00:00Z"
+    return row
+
+
+def test_load_artifact_succeeds_on_first_attempt_with_unchanged_semantics():
+    client = _FlakyClient([_artifact_row([1.0, 2.0, 3.0])], failures=[])
+
+    loaded = load_pack_outcome_artifact(client, "run-1")
+
+    assert isinstance(loaded, LoadedPackOutcomeArtifact)
+    assert np.array_equal(loaded.outcomes, np.array([1.0, 2.0, 3.0]))
+    assert loaded.metadata["calculation_run_id"] == "run-1"
+    assert client.attempts == 1
+
+
+def test_load_artifact_retries_once_on_statement_timeout_then_succeeds(monkeypatch):
+    # `run_batch_read_with_retry` binds `sleep=time.sleep` as a default
+    # argument at import time, so patching the module's `time` attribute
+    # after the fact does not intercept it; patch the function's own default
+    # instead so the retry sleep is observed without a real delay.
+    import backend.db.services.public_read_retry as retry_module
+
+    sleeps = []
+    monkeypatch.setitem(retry_module.run_batch_read_with_retry.__kwdefaults__, "sleep", sleeps.append)
+    monkeypatch.setitem(
+        retry_module.run_batch_read_with_retry.__kwdefaults__, "jitter", lambda _a, _b: 0.0
+    )
+
+    client = _FlakyClient(
+        [_artifact_row([4.0, 5.0])],
+        failures=[_statement_timeout_error()],
+    )
+
+    loaded = load_pack_outcome_artifact(client, "run-2")
+
+    assert np.array_equal(loaded.outcomes, np.array([4.0, 5.0]))
+    assert client.attempts == 2
+    assert len(sleeps) == 1
+
+
+def test_load_artifact_exhausts_retry_budget_on_repeated_statement_timeout(monkeypatch):
+    import backend.db.services.public_read_retry as retry_module
+
+    monkeypatch.setitem(retry_module.run_batch_read_with_retry.__kwdefaults__, "sleep", lambda _s: None)
+    monkeypatch.setitem(
+        retry_module.run_batch_read_with_retry.__kwdefaults__, "jitter", lambda _a, _b: 0.0
+    )
+
+    client = _FlakyClient(
+        [_artifact_row([1.0])],
+        failures=[_statement_timeout_error() for _ in range(4)],
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        load_pack_outcome_artifact(client, "run-3")
+
+    message = str(excinfo.value)
+    assert "run-3" in message
+    assert "57014" in message or "statement timeout" in message.lower()
+    assert "4" in message  # attempt count is reported
+    assert client.attempts == 4  # bounded, not infinite
+
+
+def test_load_artifact_does_not_retry_non_transient_error():
+    client = _FlakyClient([_artifact_row([1.0])], failures=[_permanent_error()])
+
+    with pytest.raises(APIError):
+        load_pack_outcome_artifact(client, "run-4")
+
+    assert client.attempts == 1  # no retry for a non-transient error
+
+
+def test_load_artifact_missing_row_raises_unavailable_unchanged():
+    client = _FlakyClient([], failures=[])
+
+    with pytest.raises(PackOutcomeArtifactUnavailable):
+        load_pack_outcome_artifact(client, "run-5")
+
+    assert client.attempts == 1

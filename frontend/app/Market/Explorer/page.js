@@ -66,8 +66,12 @@ export default async function MarketExplorerPage({ searchParams }) {
   );
   const requestedPreparedKey = typeof resolvedSearchParams?.prepared === "string"
     ? resolvedSearchParams.prepared.trim() : "";
-  const initialPreparedKey = preparedDirectory.some((market) => market.market_key === requestedPreparedKey)
-    ? requestedPreparedKey : null;
+  // A legacy prepared key resolves to its canonical market from the alias list the
+  // backend publishes on the directory row; React holds no alias table.
+  const requestedPreparedRow = requestedPreparedKey
+    ? preparedDirectory.find((market) => market.market_key === requestedPreparedKey || (market.legacy_aliases || []).includes(requestedPreparedKey))
+    : null;
+  const initialPreparedKey = requestedPreparedRow ? requestedPreparedRow.market_key : null;
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
@@ -77,7 +81,7 @@ export default async function MarketExplorerPage({ searchParams }) {
     // 1728px that shell left roughly 500px of unused viewport on either side.
     // 118rem is close to full width with real gutters, and the class is on THIS
     // page's wrapper — /Market and every other route are untouched.
-    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[118rem] px-4 pb-20 pt-3 desk:px-6 desk:pt-5 sm:px-6 lg:px-8 2xl:px-10`}>
+    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[124rem] px-3 pb-20 pt-3 sm:px-4 desk:px-4 desk:pt-4 lg:px-4 2xl:px-5`}>
       <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-market-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" />
 
       {/* The entitlement boundary. Market Explorer ITSELF is open to everyone —

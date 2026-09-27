@@ -26,6 +26,11 @@ export function projectSetRankingsLensTargets(targets, access = null) {
     // second copy after normalization.
     delete projected.chaseAccessibility;
     delete projected.overallRipV12Composition;
+    delete projected.overallRipV14Composition;
+    if (projected.overallRipV14) {
+      projected.overallRipV14 = { ...projected.overallRipV14 };
+      delete projected.overallRipV14.components;
+    }
     if (projected.overallRipV12) {
       projected.overallRipV12 = { ...projected.overallRipV12 };
       delete projected.overallRipV12.components;

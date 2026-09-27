@@ -1,0 +1,294 @@
+{
+ "readOnly": true,
+ "targets": 22,
+ "v5Ready": 22,
+ "v14Ready": 1,
+ "ranksContiguous": true,
+ "runMatchesAuthority": true,
+ "snapshotReleaseProblems": [],
+ "unavailable": [
+  {
+   "set": "Phantasmal Flames",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='5591e78c-dd40-412e-ab7a-0156bbb965d4'; this row's run is 'dd0f2f3e-1ef7-4321-9110-6a6ffa762ba3'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Journey Together",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='a4bd4def-812a-41e5-a5c4-c81ca2cb4e66'; this row's run is '7d62e3a8-9b85-4b6a-b906-149bfe49033e'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Paldea Evolved",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='4c45ee18-1858-414f-97ed-5a81688967b9'; this row's run is '9f5eda28-89d4-4992-b52e-bce1496e0648'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Shrouded Fable",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='d1a691bb-a075-4aba-bf6e-faf20a23ca95'; this row's run is 'f1f1106d-71c7-4f29-ac5f-acb8dc23be06'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Scarlet and Violet Base Set",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='242cfd8d-b335-45f7-8668-652411709c9e'; this row's run is 'f2031b66-ae76-4911-96ca-d26cf14d5622'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Black Bolt",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='53aea8b6-d1e9-42c1-a071-c24adcf01482'; this row's run is 'e3f524b0-ca4a-4386-8e8d-b78c9150b4e4'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Pitch Black",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='eacfd852-ce7b-4b45-ad37-9902e2b5ee94'; this row's run is '61620e0d-8fcd-40cd-9122-04395a3e37e9'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Chaos Rising",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='2f658d8d-b12a-4d03-8daa-7c665f31356b'; this row's run is '3d644515-0725-4b08-bdad-a559016d9473'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Paradox Rift",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='4035d0db-6fab-41ae-affd-43cce46fd691'; this row's run is '4c5227d8-fcf9-492a-bd5b-358ddbf63756'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Perfect Order",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='d78f080c-2a9f-4388-ab5e-c60db5d302ce'; this row's run is '90171ac3-ac65-481e-a87d-c8e7d1149c3e'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Ascended Heroes",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='4b33b5ab-64f6-4d7f-9fef-d3a713efa16b'; this row's run is 'dfd825c6-4186-405f-86d7-14337ca746f7'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Prismatic Evolutions",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='41298602-0e3a-47dd-a6d4-8f843ca3d5d1'; this row's run is '139ffb20-daa5-4011-88dc-5f5601fc12b8'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Temporal Forces",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='7cd2078c-c56f-4a4f-8af8-1158bf738f3d'; this row's run is 'b404db2f-bc1f-407a-9b61-0d00cfa45181'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Mega Evolution",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='d1aea8c2-19c9-47a8-999b-d69079aff76a'; this row's run is 'b6131e0d-abe2-4e89-9d47-82739487c20f'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Obsidian Flames",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='15aee147-77f0-4751-8a64-c26bcd87a78c'; this row's run is '241633d0-e620-41c6-9447-0c636718e430'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "White Flare",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='e322871d-08e8-42ed-8f39-ff08ff81214d'; this row's run is '5892f3b8-ac5c-4935-94e5-78640e75bde2'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Twilight Masquerade",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='d093c8ce-73ea-44a2-8476-c73569a5f51d'; this row's run is '52108fd1-dc2c-4f37-aef0-03ab4aca2b5e'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Scarlet and Violet 151",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='286c381d-caae-48e2-9e89-a00a7dc4e592'; this row's run is '6c3e3714-550d-44a3-a0b8-aa99b574e6ff'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Destined Rivals",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='3541e22a-1829-4b19-bef1-9740237b7419'; this row's run is 'd2690eed-dba3-416c-b55d-d0e865bd7204'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Surging Sparks",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='00f3f4ca-7abb-4dd6-9d2e-95b9c978cf0c'; this row's run is '1b3c053a-19d3-45c7-ac50-ac367e52a31b'. Refused rather than accepted as the latest available row."
+  },
+  {
+   "set": "Paldean Fates",
+   "v5": null,
+   "v14": "Chase Accessibility row belongs to calculation_run_id='882f257e-ed6c-442b-92b3-af5d73fc0fd3'; this row's run is '48ca5bf8-04a9-4b0f-8752-7dae4351527e'. Refused rather than accepted as the latest available row."
+  }
+ ],
+ "rows": [
+  {
+   "set": "Phantasmal Flames",
+   "run": "dd0f2f3e-1ef7-4321-9110-6a6ffa762ba3",
+   "v5": 19.5064,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Journey Together",
+   "run": "7d62e3a8-9b85-4b6a-b906-149bfe49033e",
+   "v5": 34.4805,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Paldea Evolved",
+   "run": "9f5eda28-89d4-4992-b52e-bce1496e0648",
+   "v5": 31.2832,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Shrouded Fable",
+   "run": "f1f1106d-71c7-4f29-ac5f-acb8dc23be06",
+   "v5": 38.9844,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Scarlet and Violet Base Set",
+   "run": "f2031b66-ae76-4911-96ca-d26cf14d5622",
+   "v5": 38.8322,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Black Bolt",
+   "run": "e3f524b0-ca4a-4386-8e8d-b78c9150b4e4",
+   "v5": 31.4252,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Pitch Black",
+   "run": "61620e0d-8fcd-40cd-9122-04395a3e37e9",
+   "v5": 37.342,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Stellar Crown",
+   "run": "f6f059dc-b20b-4e03-b42a-d2a172f15911",
+   "v5": 30.4385,
+   "v14": 36.3646,
+   "rank": 1,
+   "tier": "S"
+  },
+  {
+   "set": "Chaos Rising",
+   "run": "3d644515-0725-4b08-bdad-a559016d9473",
+   "v5": 34.9414,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Paradox Rift",
+   "run": "4c5227d8-fcf9-492a-bd5b-358ddbf63756",
+   "v5": 41.8964,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Perfect Order",
+   "run": "90171ac3-ac65-481e-a87d-c8e7d1149c3e",
+   "v5": 34.1983,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Ascended Heroes",
+   "run": "dfd825c6-4186-405f-86d7-14337ca746f7",
+   "v5": 32.9523,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Prismatic Evolutions",
+   "run": "139ffb20-daa5-4011-88dc-5f5601fc12b8",
+   "v5": 22.9558,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Temporal Forces",
+   "run": "b404db2f-bc1f-407a-9b61-0d00cfa45181",
+   "v5": 46.3741,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Mega Evolution",
+   "run": "b6131e0d-abe2-4e89-9d47-82739487c20f",
+   "v5": 30.9662,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Obsidian Flames",
+   "run": "241633d0-e620-41c6-9447-0c636718e430",
+   "v5": 29.5428,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "White Flare",
+   "run": "5892f3b8-ac5c-4935-94e5-78640e75bde2",
+   "v5": 33.0211,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Twilight Masquerade",
+   "run": "52108fd1-dc2c-4f37-aef0-03ab4aca2b5e",
+   "v5": 39.827,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Scarlet and Violet 151",
+   "run": "6c3e3714-550d-44a3-a0b8-aa99b574e6ff",
+   "v5": 38.8425,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Destined Rivals",
+   "run": "d2690eed-dba3-416c-b55d-d0e865bd7204",
+   "v5": 34.6372,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Surging Sparks",
+   "run": "1b3c053a-19d3-45c7-ac50-ac367e52a31b",
+   "v5": 32.0976,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  },
+  {
+   "set": "Paldean Fates",
+   "run": "48ca5bf8-04a9-4b0f-8752-7dae4351527e",
+   "v5": 18.3941,
+   "v14": null,
+   "rank": null,
+   "tier": null
+  }
+ ]
+}

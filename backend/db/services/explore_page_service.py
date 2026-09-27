@@ -276,35 +276,24 @@ def _load_history_trend_rows(
 ) -> tuple[List[Dict[str, Any]], str]:
     """Load history trend rows while tolerating partial/legacy view schemas."""
 
+    # The production calculation_history_trend contract is the ratio view over
+    # calculation_history_daily_latest. It does not expose pack_cost, mean_value,
+    # median_value, or the convenience mean/median ratio aliases. Older fallback
+    # code intentionally probed those nonexistent columns first, generating
+    # multiple 42703 errors per process/request family before reaching this
+    # actual schema. Query the authoritative shape first and keep only the one
+    # compatibility fallback that matters if P95 is absent.
     select_attempts = [
-        (
-            "snapshot_date,mean_value_to_cost_ratio,median_value_to_cost_ratio,"
-            "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
-            "pack_cost,mean_value,median_value,run_created_at,calculation_run_id,p95_value_to_cost_ratio",
-            "OK_CANONICAL",
-        ),
-        (
-            "snapshot_date,mean_value_to_cost_ratio,median_value_to_cost_ratio,"
-            "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
-            "pack_cost,mean_value,median_value,run_created_at,calculation_run_id",
-            "OK_CANONICAL_NO_P95",
-        ),
-        (
-            "snapshot_date,mean_value_to_cost_ratio,median_value_to_cost_ratio,"
-            "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
-            "run_created_at,calculation_run_id",
-            "OK_CANONICAL_CORE",
-        ),
         (
             "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
             "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id,"
             "p95_value_to_cost_ratio",
-            "OK_LEGACY_P95",
+            "OK_CANONICAL_P95",
         ),
         (
             "snapshot_date,simulated_mean_pack_value_vs_pack_cost,"
             "simulated_median_pack_value_vs_pack_cost,run_created_at,calculation_run_id",
-            "OK_LEGACY",
+            "OK_CANONICAL_CORE",
         ),
     ]
 

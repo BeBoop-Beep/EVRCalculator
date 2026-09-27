@@ -7,18 +7,22 @@ export const MARKET_INDEX_SHORT_WINDOW_MINIMUM_PERCENT_SPAN = 0.0075;
 export const MARKET_INDEX_SHORT_WINDOWS = new Set(["1D", "7D", "30D", "3M"]);
 
 export function buildMarketPerformanceDomain(points, timeframe = "All") {
+  // INDEX VIEW ALWAYS CONTAINS 100. The canonical Market Index is anchored at
+  // 100, so the reference line is the reader's fixed frame at every timeframe.
+  // Short windows keep their tighter padding/minimum span, but the reference is
+  // folded in BEFORE the domain is computed, so a window whose values all sit
+  // above (or below) 100 still shows the line. Display domain only: no index
+  // value is changed or rebased.
   const visible = Array.isArray(points) ? points : [];
+  const withReference = [...visible, { value: MARKET_INDEX_REFERENCE_VALUE }];
   if (MARKET_INDEX_SHORT_WINDOWS.has(timeframe)) {
-    return buildMarketSparklineDomain(visible, {
+    return buildMarketSparklineDomain(withReference, {
       valueKey: "value",
       minimumPercentSpan: MARKET_INDEX_SHORT_WINDOW_MINIMUM_PERCENT_SPAN,
       paddingRatio: 0.12,
     });
   }
-  return buildMarketSparklineDomain(
-    [...visible, { value: MARKET_INDEX_REFERENCE_VALUE }],
-    { valueKey: "value" }
-  );
+  return buildMarketSparklineDomain(withReference, { valueKey: "value" });
 }
 
 export function toSelectedWindowPerformance(values = []) {

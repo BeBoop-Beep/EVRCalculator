@@ -5,19 +5,18 @@ import fs from "node:fs";
 const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const client = read("./MarketExplorerClient.jsx");
 const chart = read("./MarketExplorerChart.jsx");
-const signal = read("./MarketExplorerSeriesCard.jsx");
 const styles = read("./explore.module.css");
 
 test("desktop is one rail plus a right chart-first research canvas", () => {
-  assert.match(styles, /grid-template-areas:[\s\S]*?"rail signals"[\s\S]*?"rail active"[\s\S]*?"rail chart"/);
-  assert.match(styles, /grid-template-columns: 18rem minmax\(0, 1fr\)/);
-  assert.match(styles, /position: sticky/);
+  assert.match(client, /desk:grid-cols-\[minmax\(18rem,20rem\)_minmax\(0,1fr\)\]/);
+  assert.match(client, /data-market-explorer-sidebar/);
+  assert.match(client, /data-market-explorer-graph/);
+  assert.ok(client.indexOf("data-market-explorer-sidebar") < client.indexOf("data-market-explorer-graph"));
 });
 
-test("signals are informational and include the honest Graded placeholder", () => {
-  assert.doesNotMatch(signal, /aria-pressed|onToggle|<button/);
-  assert.match(signal, /Coming soon/);
-  assert.match(client, /data-market-explorer-signals/);
+test("the redundant Market Overview signal cards are removed from the Explorer canvas", () => {
+  assert.doesNotMatch(client, /data-market-explorer-signals|<MarketExplorerSeriesCard/);
+  assert.doesNotMatch(client, /Market overview/);
 });
 
 test("there is one active strip above the chart and no chart visibility legend", () => {
@@ -28,7 +27,10 @@ test("there is one active strip above the chart and no chart visibility legend",
 });
 
 test("the main plot is materially larger and transparent enough for page artwork", () => {
-  assert.match(chart, /desk:h-\[38rem\].*2xl:h-\[42rem\]/);
+  // Accepted Bucket 1 contract: viewport-aware sizing; the fixed 40rem/46rem heights must not return.
+  assert.match(chart, /desk:h-\[clamp\(19rem,calc\(100dvh-24rem\),42rem\)\]/);
+  assert.doesNotMatch(chart, /desk:h-\[40rem\]|2xl:h-\[46rem\]/);
+  assert.match(chart, /minimal=\{openCanvas\}/);
   assert.doesNotMatch(client, /marketExplorerAnalysis} set-glass-surface/);
 });
 

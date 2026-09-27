@@ -1,0 +1,41 @@
+{
+  "row_id": "E13-0127",
+  "listing_item_id": "v1|407215142815|0",
+  "image_url": "https://i.ebayimg.com/images/g/hN8AAeSweP9qp4Ee/s-l225.jpg",
+  "image_fetch_status": 200,
+  "image_sha256": "80a4c5067fad10300076a5eda83aaf1f443e63b3c8e179be9a6ee17c150b2b08",
+  "fetch_timestamp": "2026-09-19T18:34:00.138098+00:00",
+  "ocr_v3_state": "UNVERIFIED",
+  "reason_code": "weak_weak_no_conflict",
+  "evidence": {
+    "row_id": "E13-0127",
+    "ocr_ok": true,
+    "error": null,
+    "num_regions": 1,
+    "total_recognized_text": 3,
+    "japanese_kana_count": 3,
+    "cjk_shared_count": 0,
+    "latin_char_count": 0,
+    "distinct_regions_with_kana": 1,
+    "high_conf_kana_count": 0,
+    "max_region_conf": 0.27139049768447876,
+    "mean_region_conf": 0.27139049768447876,
+    "korean_hangul_count": 1,
+    "ko_num_regions": 1,
+    "ko_ocr_ok": true,
+    "ko_error": null,
+    "ko_regions_with_hangul": 1,
+    "ko_high_conf_hangul_count": 0,
+    "ko_max_hangul_region_conf": 0.11431985190811148,
+    "ko_mean_hangul_region_conf": 0.11431985190811148,
+    "ko_max_hangul_run_length": 1,
+    "ko_distinct_high_conf_hangul_regions": 0,
+    "raw_ko_regions_sample": [
+      [
+        "너3",
+        0.1143,
+        1
+      ]
+    ]
+  }
+}

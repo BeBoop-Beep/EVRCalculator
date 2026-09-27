@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { boundedFetch } from "@/lib/explore/marketExplorerBoundedRequest.mjs";
 import { buildQueryKey, queryResultToSeries, resolveBenchmarkSpec } from "@/lib/explore/marketExplorerQuery.mjs";
 import { attachMarketInstance, replaceMarketInstance, specsAreEquivalent } from "@/lib/explore/marketExplorerInstances.mjs";
 
@@ -32,8 +33,8 @@ export class MarketExplorerQueryApiError extends Error {
   }
 }
 
-async function executeQuery(spec) {
-  const response = await fetch("/api/market/explorer/query", {
+async function executeQuery(spec, { signal } = {}) {
+  const { response, payload } = await boundedFetch("/api/market/explorer/query", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -44,8 +45,7 @@ async function executeQuery(spec) {
     // time, only when and if the Constituents section actually inspects this
     // market — see useMarketExplorerConstituentPage.
     body: JSON.stringify({ ...spec, responseMode: "summary" }),
-  });
-  const payload = await response.json().catch(() => null);
+  }, { signal, read: (res) => res.json().catch(() => null) });
   if (!response.ok) {
     // FastAPI answers with `detail`, the app's own routes with `message`.
     // Reading only one of them turned an auth answer into a generic failure.
@@ -78,14 +78,34 @@ function exactItemsForResult(result, fallback) {
 export default function useMarketExplorerQueries() {
   const [querySeries, setQuerySeries] = useState([]);
   const pendingKeys = useRef(new Set());
+  // Bounded lifecycle: every in-flight build shares one epoch + controller set.
+  // clearAll / unmount aborts them, and a result that finishes after its epoch
+  // was invalidated is DISCARDED, never re-added.
+  const epoch = useRef(0);
+  const controllers = useRef(new Set());
+  const cancelPending = useCallback(() => {
+    epoch.current += 1;
+    controllers.current.forEach((c) => c.abort());
+    controllers.current.clear();
+    pendingKeys.current.clear();
+  }, []);
+  useEffect(() => () => { epoch.current += 1; controllers.current.forEach((c) => c.abort()); }, []);
+  const run = useCallback(async (spec) => {
+    const controller = new AbortController();
+    controllers.current.add(controller);
+    try { return await executeQuery(spec, { signal: controller.signal }); }
+    finally { controllers.current.delete(controller); }
+  }, []);
   const addQuery = useCallback(async (spec, { exactItems = [] } = {}) => {
     const requestedKey = buildQueryKey(spec);
     if (querySeries.some((entry) => entry.spec && buildQueryKey(entry.spec) === requestedKey) || pendingKeys.current.has(requestedKey)) return "duplicate";
     pendingKeys.current.add(requestedKey);
+    const startedEpoch = epoch.current;
     try {
-      const result = await executeQuery(spec);
+      const result = await run(spec);
       const benchmarkSpec = resolveBenchmarkSpec(spec);
-      const benchmark = benchmarkSpec ? await executeQuery(benchmarkSpec) : null;
+      const benchmark = benchmarkSpec ? await run(benchmarkSpec) : null;
+      if (startedEpoch !== epoch.current) return "cancelled";
       let outcome = "added";
       setQuerySeries((current) => {
         if (current.some((entry) => entry.queryFingerprint === result.queryFingerprint)) { outcome = "duplicate"; return current; }
@@ -106,10 +126,12 @@ export default function useMarketExplorerQueries() {
     if (pendingKeys.current.has(requestedKey)) return "pending";
     if (querySeries.some((entry) => entry.instanceId !== instanceId && specsAreEquivalent(entry.spec, spec))) return "duplicate";
     pendingKeys.current.add(requestedKey);
+    const startedEpoch = epoch.current;
     try {
-      const result = await executeQuery(spec);
+      const result = await run(spec);
       const benchmarkSpec = resolveBenchmarkSpec(spec);
-      const benchmark = benchmarkSpec ? await executeQuery(benchmarkSpec) : null;
+      const benchmark = benchmarkSpec ? await run(benchmarkSpec) : null;
+      if (startedEpoch !== epoch.current) return "cancelled";
       setQuerySeries((entries) => {
         let foundBenchmark = false;
         const updated = entries.flatMap((entry) => {
@@ -132,6 +154,6 @@ export default function useMarketExplorerQueries() {
   const removeQuery = useCallback((key) => setQuerySeries((current) => current.filter((entry) => entry.key !== key)), []);
   // Clear Graph's bulk action. A distinct entry point from `removeQuery` so a
   // graph-wide clear is one state update, not N re-renders of one filter each.
-  const clearAll = useCallback(() => setQuerySeries([]), []);
-  return { querySeries, addQuery, updateQuery, removeQuery, clearAll };
+  const clearAll = useCallback(() => { cancelPending(); setQuerySeries([]); }, [cancelPending]);
+  return { querySeries, addQuery, updateQuery, removeQuery, clearAll, cancelPending };
 }

@@ -1,0 +1,76 @@
+{
+  "version": "ebay_e2_16b_japanese_language_development_cohort_v1",
+  "development_only": true,
+  "production_authority": false,
+  "modifies_frozen_language_v1": false,
+  "modifies_frozen_combined_v3": false,
+  "generated_at": "2026-09-16T19:28:24.499002+00:00",
+  "corpus_fingerprint": "38636c3ff0a6b907d464430f57c16520fa5f28c00150389a0cf4f9962591ab9b",
+  "row_count": 150,
+  "candidate_pool_size_before_selection": 320,
+  "strata_counts_selected": {
+    "JAPANESE_ASPECT_PRIMARY": 92,
+    "ENGLISH_ASPECT_CONTROL": 30,
+    "JAPANESE_QUERY_HARD_CASE": 25,
+    "OTHER_UNCLASSIFIED": 3
+  },
+  "strata_counts_candidate_pool": {
+    "ENGLISH_ASPECT_CONTROL": 192,
+    "JAPANESE_ASPECT_PRIMARY": 92,
+    "JAPANESE_QUERY_HARD_CASE": 25,
+    "OTHER_UNCLASSIFIED": 11
+  },
+  "target_row_range": [
+    120,
+    180
+  ],
+  "target_row_preferred": 150,
+  "getitem_request_count": 320,
+  "search_request_count": 140,
+  "search_errors": 0,
+  "getitem_errors": 0,
+  "language_aspect_present_count": 123,
+  "historical_exclusion": {
+    "counts_per_file": {
+      "ebay_manual_gold_labels.csv": 1050,
+      "ebay_gold_development.csv": 450,
+      "ebay_gold_validation.csv": 250,
+      "ebay_gold_final_blind.csv": 350,
+      "ebay_d3_blind_review_queue.csv": 704,
+      "ebay_d3_coverage_blind.csv": 420,
+      "ebay_d3_fresh_observations.csv": 9591,
+      "ebay_d3_precision_blind.csv": 300,
+      "ebay_d3_v3_coverage_certification_rows.csv": 420,
+      "ebay_d3_v3_high_false_positive_forensics.csv": 5,
+      "ebay_d3_v3_precision_certification_rows.csv": 300,
+      "ebay_d3_v4_fresh_blind_queue.csv": 420,
+      "ebay_d3_v5_fresh_blind_queue.csv": 417,
+      "ebay_e2_9b_fresh_blind_queue.csv": 414,
+      "ebay_e2_13_fresh_blind_queue.csv": 553,
+      "ebay_e2_14_fresh_blind_predictions.json": 553,
+      "ebay_e2_15_item_detail_language_study.json": 38,
+      "ebay_e2_16_language_development_queue.csv": 200
+    },
+    "total_excluded_ids": 12131,
+    "sources_covered": [
+      "D2 (ebay_manual_gold_labels/ebay_gold_*)",
+      "D3 v3/v4/v5 (ebay_d3_*_blind_queue/coverage/precision/forensics)",
+      "V4 (ebay_gold_development/validation/final_blind)",
+      "V5 (ebay_d3_v5_fresh_blind_queue)",
+      "E2.9B (ebay_e2_9b_fresh_blind_queue)",
+      "E2.13/E2.14 (ebay_e2_13_fresh_blind_queue + ebay_e2_14_fresh_blind_predictions.json, includes catastrophic row E13-0127 / v1|407215142815|0)",
+      "E2.15 (ebay_e2_15_item_detail_language_study.json)",
+      "E2.16/E2.16A (ebay_e2_16_language_development_queue.csv, includes false-positive row e2_16_dev_0153 / v1|317094720076|0)"
+    ]
+  },
+  "review_session_id": "e2_16b_dev_session_1a4b33245f3f",
+  "reviewed_count": 0,
+  "queue_path": "backend\\artifacts\\index_fair_value\\ebay_e2_16b_japanese_language_development_queue.csv",
+  "internal_raw_path": "backend\\artifacts\\index_fair_value\\ebay_e2_16b_japanese_language_development_raw_internal.jsonl",
+  "review_session_started_at": "2026-09-16T19:36:37.680200+00:00",
+  "labels_frozen": true,
+  "reviewer_protocol": "SINGLE_REVIEWER_BLIND_DEVELOPMENT_E2_16B",
+  "reviewer_id": "donny",
+  "freeze_timestamp": "2026-09-16T20:14:04.589935+00:00",
+  "label_fingerprint": "06d68834b284e12ff97bf1461573a18f71c6acac372015eca84eda9a7c3f2e30"
+}

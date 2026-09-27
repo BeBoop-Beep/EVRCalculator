@@ -389,3 +389,52 @@ test("an empty or failed snapshot says so instead of rendering an empty shell", 
   assert.match(textOf(render({ targets: [], loadError: false }).toJSON()), /Sets appear once the current Market snapshot is available\./);
   assert.match(textOf(render({ targets: [], loadError: true }).toJSON()), /Set Market is temporarily unavailable\./);
 });
+
+
+test("edition-scoped rows sharing one Set id remain distinct selectable markets", () => {
+  const scopedTargets = [
+    {
+      setId: "jungle-id", marketKey: "set:jungle-id:unlimited", marketScope: "unlimited",
+      canonicalKey: "jungle", name: "Jungle - Unlimited", baseSetName: "Jungle", era: "Base",
+      currentSetValue: 1097.63, trend, recentDailyTrend: trend,
+      windows: { "7D": movement(5, 0.5) },
+      marketIndex: { currentValue: 118.24, movements: { "7D": movement(5, 0.5) } },
+    },
+    {
+      setId: "jungle-id", marketKey: "set:jungle-id:first_edition", marketScope: "first_edition",
+      canonicalKey: "jungle", name: "Jungle - 1st Edition", baseSetName: "Jungle", era: "Base",
+      currentSetValue: 3107.25, trend, recentDailyTrend: trend,
+      windows: { "7D": movement(7, 0.3) },
+      marketIndex: { currentValue: 121.08, movements: { "7D": movement(7, 0.3) } },
+    },
+  ];
+  const renderer = render({ targets: scopedTargets });
+  assert.deepEqual(
+    rows(renderer).map((node) => node.props["data-set-market-row"]),
+    ["set:jungle-id:first_edition", "set:jungle-id:unlimited"],
+  );
+  const unlimited = rows(renderer).find(
+    (node) => node.props["data-set-market-row"] === "set:jungle-id:unlimited"
+  );
+  TestRenderer.act(() => { unlimited.props.onClick({ detail: 1 }); });
+  assert.match(detailName(renderer), /Jungle - Unlimited/);
+  const selected = rows(renderer).filter((node) => node.props["aria-current"] === "true");
+  assert.deepEqual(
+    selected.map((node) => node.props["data-set-market-row"]),
+    ["set:jungle-id:unlimited"],
+  );
+});
+
+test("edition-scoped markets do not display the generic set-id mover publication", () => {
+  const renderer = render({
+    targets: [{
+      setId: "base-id", marketKey: "set:base-id:shadowless", marketScope: "shadowless",
+      canonicalKey: "base", name: "Base - Shadowless", baseSetName: "Base", era: "Base",
+      currentSetValue: 1000, trend, recentDailyTrend: trend,
+      windows: { "7D": movement(0, 0) },
+      marketIndex: { currentValue: 100, movements: { "7D": movement(0, 0) } },
+    }],
+  });
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-set-market-movers"] !== undefined).length, 0);
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-set-market-scoped-movers-note"] !== undefined).length, 1);
+});

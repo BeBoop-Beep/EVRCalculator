@@ -1,0 +1,2009 @@
+{
+  "audited_at": "2026-09-21T16:31:43.814747+00:00",
+  "calls": {
+    "token": 2,
+    "analytics": 5,
+    "browse": 2,
+    "insights": 1
+  },
+  "credentials": {
+    "source": "frontend/.env.local",
+    "environment": "PRODUCTION",
+    "client_id_length": 40,
+    "presence_by_source": {
+      "process-environment": "false",
+      "backend/.env": "false",
+      "frontend/.env.local": "true"
+    }
+  },
+  "oauth": {
+    "grant_type": "client_credentials (application token)",
+    "base_scope": {
+      "scope": "https://api.ebay.com/oauth/api_scope",
+      "http_status": 200,
+      "granted": true,
+      "token_type": "Application Access Token",
+      "expires_in": 7200
+    },
+    "insights_scope": {
+      "scope": "https://api.ebay.com/oauth/api_scope/buy.marketplace.insights",
+      "http_status": 400,
+      "granted": false,
+      "error": "invalid_scope",
+      "error_description": "The requested scope is invalid, unknown, malformed, or exceeds the scope granted to the client"
+    }
+  },
+  "provider_usage": {
+    "all_apis": {
+      "http_status": 200,
+      "state": "PROVIDER_USAGE_OK",
+      "limits": [
+        {
+          "api_context": "Buy",
+          "api_name": "Feed",
+          "api_version": "v1",
+          "resource": "buy.feed",
+          "limit": 10000,
+          "count": 0,
+          "remaining": 10000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "Sell ",
+          "api_name": "ProductResearch",
+          "api_version": "V1",
+          "resource": "sell.research.product_insight",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "Sell",
+          "api_name": "Marketing",
+          "api_version": "v1",
+          "resource": "sell.marketing.ads.campaign",
+          "limit": 100000,
+          "count": 0,
+          "remaining": 100000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddSecondChanceItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddMemberMessageAAQToPartner",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "VeROReportItems",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetFeedback",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetItemShipping",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddOrder",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetItemTransactions",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddItem",
+          "limit": 100000,
+          "count": 0,
+          "remaining": 100000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "EndItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "RespondToBestOffer",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "FetchToken",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "VerifyAddFixedPriceItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetTokenStatus",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "RelistItem",
+          "limit": 50000,
+          "count": 0,
+          "remaining": 50000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetMessagePreferences",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SetTaxTable",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "CompleteSale",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "ExtendSiteHostedPictures",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetUser",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetMyMessages",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetTaxTable",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "RevokeToken",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SetShippingDiscountProfiles",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SetMessagePreferences",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "VerifyAddSecondChanceItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetCategoryFeatures",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetDescriptionTemplates",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetMemberMessages",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetCategoryMappings",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetUserContactDetails",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "PlaceOffer",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "EndItems",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "RelistFixedPriceItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SetUserPreferences",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetAllBidders",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetBidderList",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetMyeBayBuying",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SetUserNotes",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddItems",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetNotificationsUsage",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetStore",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "DeleteMyMessages",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetSellerTransactions",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "RespondToFeedback",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddToItemDescription",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetAdFormatLeads",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetSellerList",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "LeaveFeedback",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetOrders",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddFixedPriceItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "VerifyRelistItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetCategories",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "RemoveFromWatchList",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SetNotificationPreferences",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetMyeBaySelling",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "ReviseInventoryStatus",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddMemberMessageRTQ",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "ReviseMyMessages",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GeteBayDetails",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetStoreCategoryUpdateStatus",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetBestOffers",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "DisableUnpaidItemAssistance",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "UploadSiteHostedPictures",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetAccount",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetContextualKeywords",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetVeROReportStatus",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "ReviseItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetSessionID",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetItemsAwaitingFeedback",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetShippingDiscountProfiles",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddToWatchList",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "ConfirmIdentity",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetVeROReasonCodeDetails",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SendInvoice",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "SetStoreCategories",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "EndFixedPriceItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "AddMemberMessagesAAQToBidder",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetUserPreferences",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "ReviseMyMessagesFolders",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetNotificationPreferences",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "VerifyAddItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "ReviseFixedPriceItem",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "TradingAPI",
+          "api_name": "TradingAPI",
+          "api_version": "v1",
+          "resource": "GetSellerEvents",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "account",
+          "api_name": "Sell",
+          "api_version": "v2",
+          "resource": "sell.account.userpreferences",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Browse",
+          "api_version": "v1",
+          "resource": "buy.browse",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Browse",
+          "api_version": "v1",
+          "resource": "buy.browse.item.bulk",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Feed",
+          "api_version": "v1",
+          "resource": "buy.feed.v1",
+          "limit": 75000,
+          "count": 0,
+          "remaining": 75000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Feed",
+          "api_version": "v1_beta",
+          "resource": "buy.feed.snapshot",
+          "limit": 75000,
+          "count": 0,
+          "remaining": 75000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Marketing",
+          "api_version": "v1",
+          "resource": "buy.marketing.similar_items",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Marketing",
+          "api_version": "v1",
+          "resource": "buy.marketing.most_watched_items",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Order",
+          "api_version": "v1",
+          "resource": "buy.order",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "marketplace insights",
+          "api_version": "v1",
+          "resource": "buy.marketplaceinsight",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "offer",
+          "api_version": "v1_beta",
+          "resource": "buy.offer.bidding",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "Catalog",
+          "api_version": "v1_beta",
+          "resource": "commerce.catalog",
+          "limit": 10000,
+          "count": 0,
+          "remaining": 10000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "Feedback",
+          "api_version": "v1",
+          "resource": "commerce.feedback",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "Media",
+          "api_version": "v1_beta",
+          "resource": "commerce.media.post_order.document",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "Message",
+          "api_version": "v1",
+          "resource": "commerce.message",
+          "limit": 500000,
+          "count": 0,
+          "remaining": 500000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "Taxonomy",
+          "api_version": "v1",
+          "resource": "commerce.taxonomy",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "Taxonomy",
+          "api_version": "v1",
+          "resource": "commerce.taxonomy.bulk",
+          "limit": 100,
+          "count": 0,
+          "remaining": 100,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "VeRO",
+          "api_version": "v1",
+          "resource": "commerce.vero",
+          "limit": 10000,
+          "count": 0,
+          "remaining": 10000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "charity",
+          "api_version": "v1",
+          "resource": "commerce.charity.charity_org",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "document",
+          "api_version": "v1_beta",
+          "resource": "commerce.media.document",
+          "limit": 1000000,
+          "count": 0,
+          "remaining": 1000000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "media",
+          "api_version": "v1_beta",
+          "resource": "commerce.media.video",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "notification",
+          "api_version": "v1",
+          "resource": "commerce.notification",
+          "limit": 10000,
+          "count": 0,
+          "remaining": 10000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "commerce",
+          "api_name": "translation",
+          "api_version": "v1_beta",
+          "resource": "commerce.translation.translate",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "developer",
+          "api_name": "Analytics",
+          "api_version": "v1_beta",
+          "resource": "developer.analytics.app_rate_limit",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "developer",
+          "api_name": "Registration",
+          "api_version": "v1",
+          "resource": "developer.registration.v1",
+          "limit": 3000,
+          "count": 0,
+          "remaining": 3000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "finances",
+          "api_name": "sell",
+          "api_version": "v1",
+          "resource": "payoutapi.sell.finances",
+          "limit": 15000,
+          "count": 0,
+          "remaining": 15000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "post-order",
+          "api_name": "Cancellation",
+          "api_version": "v2",
+          "resource": "post-order.cancellation",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "post-order",
+          "api_name": "Casemanagement",
+          "api_version": "v2",
+          "resource": "post-order.casemanagement",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "post-order",
+          "api_name": "Inquiry",
+          "api_version": "v2",
+          "resource": "post-order.inquiry",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "post-order",
+          "api_name": "Return",
+          "api_version": "v2",
+          "resource": "post-order.return",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell.analytics",
+          "api_name": "sell.analytics",
+          "api_version": "v1",
+          "resource": "sell.analytics.traffic_report",
+          "limit": 100,
+          "count": 0,
+          "remaining": 100,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell.analytics",
+          "api_name": "sell.analytics",
+          "api_version": "v1",
+          "resource": "sell.analytics.customer_service_metric",
+          "limit": 400,
+          "count": 0,
+          "remaining": 400,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell.analytics",
+          "api_name": "sell.analytics",
+          "api_version": "v1",
+          "resource": "sell.analytics.seller_standards_profile",
+          "limit": 100,
+          "count": 0,
+          "remaining": 100,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell.fulfillment",
+          "api_name": "sell.fulfillment",
+          "api_version": "v1",
+          "resource": "sell.fulfillment",
+          "limit": 100000,
+          "count": 0,
+          "remaining": 100000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell.metadata",
+          "api_name": "compatibilities",
+          "api_version": "v1",
+          "resource": "sell.metadata.compatibilities",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Account",
+          "api_version": "v1",
+          "resource": "sell.account",
+          "limit": 25000,
+          "count": 0,
+          "remaining": 25000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Compliance",
+          "api_version": "v1",
+          "resource": "sell.compliance.violation_summary",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Compliance",
+          "api_version": "v1",
+          "resource": "sell.compliance.violation",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Feed",
+          "api_version": "v1",
+          "resource": "sell.feed",
+          "limit": 100000,
+          "count": 0,
+          "remaining": 100000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Inventory ",
+          "api_version": "v1",
+          "resource": "sell.inventory",
+          "limit": 2000000,
+          "count": 0,
+          "remaining": 2000000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Marketing",
+          "api_version": "v1",
+          "resource": "sell.marketing",
+          "limit": 10000,
+          "count": 0,
+          "remaining": 10000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Metadata",
+          "api_version": "v1",
+          "resource": "sell.metadata",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Recommendation",
+          "api_version": "v1",
+          "resource": "sell.recommendation",
+          "limit": 5400,
+          "count": 0,
+          "remaining": 5400,
+          "reset": "2026-09-21T16:32:00.000Z",
+          "time_window_seconds": 60,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Recommendation",
+          "api_version": "v1",
+          "resource": "sell.recommendation",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "Reputation",
+          "api_version": "v1",
+          "resource": "sell.reputation",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "fulfillment",
+          "api_version": "V1",
+          "resource": "sell.fulfillment.refund",
+          "limit": 100000,
+          "count": 0,
+          "remaining": 100000,
+          "reset": "2026-09-22T01:20:15.000Z",
+          "time_window_seconds": 86399,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "fulfillment",
+          "api_version": "v1",
+          "resource": "sell.fulfillment.payment_dispute_detail",
+          "limit": 250000,
+          "count": 0,
+          "remaining": 250000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "fulfillment",
+          "api_version": "v1",
+          "resource": "sell.fulfillment.payment_dispute_detail",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-21T16:35:00.000Z",
+          "time_window_seconds": 300,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "fulfillment",
+          "api_version": "v1",
+          "resource": "sell.fulfillment.payment_dispute_summary",
+          "limit": 250000,
+          "count": 0,
+          "remaining": 250000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "fulfillment",
+          "api_version": "v1",
+          "resource": "sell.fulfillment.payment_dispute_summary",
+          "limit": 1000,
+          "count": 0,
+          "remaining": 1000,
+          "reset": "2026-09-21T16:35:00.000Z",
+          "time_window_seconds": 300,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "fulfillment",
+          "api_version": "v1",
+          "resource": "sell.fulfillment.payment_dispute",
+          "limit": 250000,
+          "count": 0,
+          "remaining": 250000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "fulfillment",
+          "api_version": "v1",
+          "resource": "sell.fulfillment.payment_dispute",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-21T16:35:00.000Z",
+          "time_window_seconds": 300,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "logistics",
+          "api_version": "v1_beta",
+          "resource": "sell.logistics",
+          "limit": 2500000,
+          "count": 0,
+          "remaining": 2500000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "sell",
+          "api_name": "marketing.promotions",
+          "api_version": "v1",
+          "resource": "sell.marketing.promotions",
+          "limit": 10000,
+          "count": 0,
+          "remaining": 10000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        }
+      ]
+    },
+    "buy_browse": {
+      "http_status": 200,
+      "state": "PROVIDER_USAGE_OK",
+      "limits": [
+        {
+          "api_context": "buy",
+          "api_name": "Browse",
+          "api_version": "v1",
+          "resource": "buy.browse",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        },
+        {
+          "api_context": "buy",
+          "api_name": "Browse",
+          "api_version": "v1",
+          "resource": "buy.browse.item.bulk",
+          "limit": 5000,
+          "count": 0,
+          "remaining": 5000,
+          "reset": "2026-09-22T07:00:00.000Z",
+          "time_window_seconds": 86400,
+          "time_unit": null
+        }
+      ]
+    }
+  },
+  "browse_bucket_mapping": {
+    "method": "usage snapshot before/after one search and one getItem",
+    "steps": [
+      {
+        "step": "before",
+        "http_status": 200,
+        "state": "PROVIDER_USAGE_OK",
+        "limits": [
+          {
+            "api_context": "buy",
+            "api_name": "Browse",
+            "api_version": "v1",
+            "resource": "buy.browse",
+            "limit": 5000,
+            "count": 0,
+            "remaining": 5000,
+            "reset": "2026-09-22T07:00:00.000Z",
+            "time_window_seconds": 86400,
+            "time_unit": null
+          },
+          {
+            "api_context": "buy",
+            "api_name": "Browse",
+            "api_version": "v1",
+            "resource": "buy.browse.item.bulk",
+            "limit": 5000,
+            "count": 0,
+            "remaining": 5000,
+            "reset": "2026-09-22T07:00:00.000Z",
+            "time_window_seconds": 86400,
+            "time_unit": null
+          }
+        ]
+      },
+      {
+        "step": "after_search",
+        "http_status_of_call": 200,
+        "http_status": 200,
+        "state": "PROVIDER_USAGE_OK",
+        "limits": [
+          {
+            "api_context": "buy",
+            "api_name": "Browse",
+            "api_version": "v1",
+            "resource": "buy.browse",
+            "limit": 5000,
+            "count": 1,
+            "remaining": 4999,
+            "reset": "2026-09-22T07:00:00.000Z",
+            "time_window_seconds": 86400,
+            "time_unit": null
+          },
+          {
+            "api_context": "buy",
+            "api_name": "Browse",
+            "api_version": "v1",
+            "resource": "buy.browse.item.bulk",
+            "limit": 5000,
+            "count": 0,
+            "remaining": 5000,
+            "reset": "2026-09-22T07:00:00.000Z",
+            "time_window_seconds": 86400,
+            "time_unit": null
+          }
+        ]
+      },
+      {
+        "step": "after_getItem",
+        "http_status_of_call": 200,
+        "http_status": 200,
+        "state": "PROVIDER_USAGE_OK",
+        "limits": [
+          {
+            "api_context": "buy",
+            "api_name": "Browse",
+            "api_version": "v1",
+            "resource": "buy.browse",
+            "limit": 5000,
+            "count": 1,
+            "remaining": 4999,
+            "reset": "2026-09-22T07:00:00.000Z",
+            "time_window_seconds": 86400,
+            "time_unit": null
+          },
+          {
+            "api_context": "buy",
+            "api_name": "Browse",
+            "api_version": "v1",
+            "resource": "buy.browse.item.bulk",
+            "limit": 5000,
+            "count": 0,
+            "remaining": 5000,
+            "reset": "2026-09-22T07:00:00.000Z",
+            "time_window_seconds": 86400,
+            "time_unit": null
+          }
+        ]
+      }
+    ],
+    "settle_seconds": 20,
+    "observed_count_deltas": {
+      "search": [
+        {
+          "resource": "buy.browse",
+          "count_delta": 1
+        }
+      ],
+      "getItem": []
+    }
+  },
+  "marketplace_insights": {
+    "endpoint": "GET /buy/marketplace_insights/v1_beta/item_sales/search",
+    "attempts": [
+      {
+        "token": "base_scope_token",
+        "http_status": 403,
+        "errors": [
+          {
+            "errorId": 1100,
+            "domain": "ACCESS",
+            "category": "REQUEST",
+            "message": "Access denied",
+            "longMessage": "Insufficient permissions to fulfill the request."
+          }
+        ],
+        "returned_item_sales": false,
+        "top_level_fields": null
+      }
+    ]
+  },
+  "getitem_bucket_probe": {
+    "before": {
+      "buy.browse": 1,
+      "buy.browse.item.bulk": 0
+    },
+    "calls": {
+      "search": 1,
+      "getItem": 5
+    },
+    "item_statuses": [
+      200,
+      200,
+      200,
+      200,
+      200
+    ],
+    "after_60s": {
+      "buy.browse": 1,
+      "buy.browse.item.bulk": 0
+    },
+    "after_90s": {
+      "buy.browse": 1,
+      "buy.browse.item.bulk": 0
+    }
+  },
+  "provider_usage_reporting": {
+    "getRateLimits_http": 200,
+    "http_204_observed": false,
+    "handling": "204 or empty body => PROVIDER_USAGE_UNRESOLVED_NO_CONTENT (never zero, never unlimited)",
+    "lag_observation": "buy.browse count moved 0->1 within 20s of the first search, then stayed 1 for 10+ minutes across 8 total Browse calls (2 searches, 6 getItem). Provider usage is not real-time and must not be used for per-request accounting.",
+    "reset_at_utc": "2026-09-22T07:00:00.000Z (midnight Pacific daylight time; equals Phoenix midnight only while Pacific is on DST)"
+  },
+  "observed_quotas": {
+    "buy.browse": {
+      "limit": 5000,
+      "window_seconds": 86400
+    },
+    "buy.browse.item.bulk": {
+      "limit": 5000,
+      "window_seconds": 86400
+    },
+    "buy.marketplaceinsight": {
+      "limit": 5000,
+      "window_seconds": 86400,
+      "note": "bucket is listed for every app; presence is NOT entitlement"
+    },
+    "sell.research.product_insight": {
+      "limit": 5000,
+      "window_seconds": 86400,
+      "note": "listed; not probed (out of scope)"
+    },
+    "developer.analytics.app_rate_limit": {
+      "limit": 5000,
+      "window_seconds": 86400
+    },
+    "v1_local_cap": 1000
+  },
+  "browse_bucket_mapping_conclusion": {
+    "search (/item_summary/search)": "buy.browse - OBSERVED (+1 within 20s)",
+    "getItem (/item/{id}, used by detail hydration)": "documented as the general Browse pool (buy.browse); NOT observed debiting it, but 6 calls left buy.browse.item.bulk at 0 (getItems pool untouched). Attribution INCONCLUSIVE from provider data; plan conservatively as buy.browse.",
+    "getItems (bulk)": "buy.browse.item.bulk - not used by our pipeline"
+  },
+  "marketplace_insights_conclusion": {
+    "outcome": "EBAY_SOLD_ACCESS_DENIED",
+    "evidence": [
+      "OAuth client_credentials with scope buy.marketplace.insights -> HTTP 400 invalid_scope",
+      "GET /buy/marketplace_insights/v1_beta/item_sales/search (limit=1) with the base-scope app token -> HTTP 403 errorId 1100 ACCESS \"Access denied\""
+    ],
+    "fields_horizon_pagination_filters": "not observable without entitlement; nothing inferred",
+    "required_access_path": "eBay restricted-API approval (Limited Release) via the developer program / Application Growth Check; not requested"
+  },
+  "credential_authority": {
+    "module": "backend/pricing_pipeline/ebay_credentials.py",
+    "order": [
+      "process-environment",
+      "backend/.env",
+      "frontend/.env.local (dev fallback; disabled by --no-frontend-env-fallback or EVR_DISABLE_FRONTEND_ENV=1)"
+    ],
+    "this_machine": {
+      "process-environment": false,
+      "backend/.env": false,
+      "frontend/.env.local": true
+    },
+    "vm_status": "not inspected in this task (no VM access); needs EBAY_CLIENT_ID/EBAY_CLIENT_SECRET in backend/.env or the service environment"
+  },
+  "budget_ledger_v2_contract": {
+    "table": "ebay_api_budget_ledger_v2",
+    "key": [
+      "keyset_id (environment + sha256(client_id))",
+      "api_name",
+      "resource_bucket",
+      "window_start"
+    ],
+    "columns": [
+      "window_end (= provider reset_at)",
+      "verified_limit",
+      "safety_reserve",
+      "usable_limit",
+      "requests_reserved",
+      "last_provider_usage_check_at",
+      "provider_reported_used",
+      "provider_reported_remaining",
+      "provider_usage_state",
+      "verified_at"
+    ],
+    "reserve_rpc": "reserve_ebay_api_request_v2(keyset_id, api_name, bucket, n) - atomic, SECURITY DEFINER, raises when requests_reserved + n > usable_limit or verification is stale/missing",
+    "rules": [
+      "usable_limit = verified_limit - max(100, 10% of verified_limit)",
+      "provider analytics verify the ceiling and identity only; the local ledger does per-request accounting",
+      "analytics unavailable/204 -> continue under last verified ceiling for <=36h, else fail closed",
+      "keyset identity change -> fail closed",
+      "window follows provider reset_at, not a fixed local day"
+    ],
+    "policy_module": "backend/pricing_pipeline/ebay_quota_policy.py (implemented and tested; schema not yet applied)"
+  },
+  "growth_request_preparation": {
+    "submitted": false,
+    "purpose": "Pokemon trading-card market pricing and index analytics",
+    "data_use": "derive per-card active-ask and (if approved) sold-price evidence for pricing indexes; no resale of raw listings; no seller usernames stored (SHA-256 seller keys only)",
+    "retention": "normalized evidence rows kept; raw provider responses kept on the VM only",
+    "expected_volume": "V1 ~150 targets/day at ~7 Browse calls each (about 1,000/day); V2 sold+active targets sized to the approved quota",
+    "efficiency": "search shallow (limit small, category-filtered) then selective getItem; one representative ask per seller; stop at 5 eligible sellers; persistent DB ledger prevents overspend",
+    "privacy_security": "application token only (no user data); secrets in environment/backend/.env; RLS on all tables; anon/authenticated denied"
+  },
+  "verdict": "EBAY_SOLD_ACCESS_DENIED_QUOTA_V2_READY"
+}

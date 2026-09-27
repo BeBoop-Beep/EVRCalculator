@@ -155,7 +155,7 @@ def test_top_chase_window_observations_paginate_past_postgrest_cap_and_keep_newe
         for query in queries
     )
     assert all(query.order_fields == [("captured_at", False), ("id", False)] for query in queries)
-    assert all(query.eq_filters == [("condition_id", "condition-nm")] for query in queries)
+    assert all(query.eq_filters == [("source", "TCGPlayer"), ("condition_id", "condition-nm")] for query in queries)
     assert all(query.gt_filters == [("market_price", 0)] for query in queries)
     assert all(query.gte_filters == [("captured_at", "2026-06-28")] for query in queries)
     assert all(query.lt_filters == [("captured_at", "2026-07-28")] for query in queries)

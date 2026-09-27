@@ -79,6 +79,7 @@ def require_env() -> None:
     missing = [
         name
         for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
+        for name in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
         if not os.getenv(name)
     ]
     if missing:
@@ -89,6 +90,7 @@ def require_env() -> None:
 
 def build_headers() -> Dict[str, str]:
     headers = {
+    headers = {
         "Accept": "application/json",
         "User-Agent": "EVRCalculator/1.0",
     }
@@ -96,6 +98,15 @@ def build_headers() -> Dict[str, str]:
     if api_key:
         headers["X-Api-Key"] = api_key
     return headers
+
+
+def request_delay_seconds() -> float:
+    """Respect the provider's lower unauthenticated request ceiling."""
+    return (
+        REQUEST_DELAY_SECONDS
+        if str(os.getenv("POKEMON_TCG_API_KEY") or "").strip()
+        else max(2.1, REQUEST_DELAY_SECONDS)
+    )
 
 
 def request_json(path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -117,8 +128,8 @@ def request_json(path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str
                 f"Pokemon TCG API request failed after {API_MAX_RETRIES} attempts: {exc}"
             ) from exc
 
-        if response.status_code >= 500 and attempt < API_MAX_RETRIES:
-            time.sleep(API_BACKOFF_SECONDS * attempt)
+        if response.status_code in {408, 425, 429, 500, 502, 503, 504} and attempt < API_MAX_RETRIES:
+            time.sleep(max(request_delay_seconds(), API_BACKOFF_SECONDS * attempt))
             continue
         break
     else:
@@ -128,7 +139,7 @@ def request_json(path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str
 
     if response.status_code in {401, 403}:
         raise PokemonCanonicalIngestionError(
-            "Pokemon TCG API rejected the request. Verify POKEMON_TCG_API_KEY."
+            "Pokemon TCG API rejected the request. Verify provider authentication or keyless access."
         )
     if response.status_code == 429:
         retry_after = response.headers.get("Retry-After")
@@ -211,8 +222,9 @@ def _fetch_legacy_cards_for_api_set(api_set_id: str) -> List[Dict[str, Any]]:
             break
 
         page += 1
-        if REQUEST_DELAY_SECONDS > 0:
-            time.sleep(REQUEST_DELAY_SECONDS)
+        delay = request_delay_seconds()
+        if delay > 0:
+            time.sleep(delay)
 
     if page > max_pages:
         raise PokemonCanonicalIngestionError(

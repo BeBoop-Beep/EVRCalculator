@@ -1,0 +1,109 @@
+{
+  "row_id": "E13-0127",
+  "listing_item_id": "v1|407215142815|0",
+  "localizedAspects": [
+    {
+      "type": "STRING",
+      "name": "Card Size",
+      "value": "Standard"
+    },
+    {
+      "type": "STRING",
+      "name": "Set",
+      "value": "SV2a Pokémon Card 151"
+    },
+    {
+      "type": "STRING",
+      "name": "Speciality",
+      "value": "EX"
+    },
+    {
+      "type": "STRING",
+      "name": "Character",
+      "value": "Pikachu"
+    },
+    {
+      "type": "STRING",
+      "name": "Creature/Monster Type",
+      "value": "Mouse"
+    },
+    {
+      "type": "STRING",
+      "name": "HP",
+      "value": "200"
+    },
+    {
+      "type": "STRING",
+      "name": "Material",
+      "value": "Card Stock"
+    },
+    {
+      "type": "STRING",
+      "name": "Year Manufactured",
+      "value": "2025"
+    },
+    {
+      "type": "STRING",
+      "name": "Attack/Power",
+      "value": "300"
+    },
+    {
+      "type": "STRING",
+      "name": "Rarity",
+      "value": "SAR"
+    },
+    {
+      "type": "STRING",
+      "name": "Game",
+      "value": "Pokémon TCG"
+    },
+    {
+      "type": "STRING",
+      "name": "Language",
+      "value": "Japanese"
+    },
+    {
+      "type": "STRING",
+      "name": "Illustrator",
+      "value": "James Turner"
+    },
+    {
+      "type": "STRING",
+      "name": "Card Name",
+      "value": "Pikachu ex"
+    },
+    {
+      "type": "STRING",
+      "name": "Manufacturer",
+      "value": "Nintendo"
+    },
+    {
+      "type": "STRING",
+      "name": "Stage",
+      "value": "Basic"
+    },
+    {
+      "type": "STRING",
+      "name": "Features",
+      "value": "Full Art"
+    },
+    {
+      "type": "STRING",
+      "name": "Card Number",
+      "value": "234/193"
+    },
+    {
+      "type": "STRING",
+      "name": "Card Type",
+      "value": "Pokémon"
+    },
+    {
+      "type": "STRING",
+      "name": "Finish",
+      "value": "Holo"
+    }
+  ],
+  "raw_language_value": "Japanese",
+  "fetch_timestamp": "2026-09-19T18:33:46.228992+00:00",
+  "fetch_status": 200
+}

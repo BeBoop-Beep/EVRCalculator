@@ -1,0 +1,17 @@
+{
+  "decision": "FINANCIAL_RIP_V5_SHORTFALL_DEPTH_PRODUCTION_PROMOTION_APPROVED",
+  "candidate": "FINANCIAL_RIP_V5_CANDIDATE",
+  "componentKey": "shortfall_resilience",
+  "weights": {"true_win_frequency": 0.25, "typical_retention": 0.20, "shortfall_resilience": 0.15, "realistic_upside": 0.25, "jackpot_upside": 0.10, "base_economic_efficiency": 0.05},
+  "authorityCommit": "4860b43775bde71aa74a8e5e128e2073dd03529b",
+  "highWinInterpretation": "A",
+  "highWinBenefitObservedOnRealData": false,
+  "redundancy": {
+    "srTypicalPearsonCurrent": 0.9789,
+    "srTypicalPearsonBestOpenPooled": 0.9915,
+    "oldLossResilienceTypicalPearson": {"2026-09-14": 0.9208, "2026-08-22": 0.9241},
+    "residualSdOnTypical": {"loss_resilience": 5.4, "shortfall_resilience": 2.4},
+    "note": "old LR redundancy computed in this adjudication from Prompt 2 JSON rows; read-only"
+  },
+  "implementation": "Prompt 5, separate task; not started"
+}

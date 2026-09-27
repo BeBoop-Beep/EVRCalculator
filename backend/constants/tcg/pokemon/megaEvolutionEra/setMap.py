@@ -53,6 +53,9 @@ SET_ALIAS_MAP = {
     "me06 delta reign": "me06DeltaReign",
     "me06deltareign": "me06DeltaReign",
     "24837": "me30thCelebrationClassicCollection",
+    "me55c": "me30thCelebrationClassicCollection",
+    "30th celebration classic collection": "me30thCelebrationClassicCollection",
+    "30th celebration: classic collection": "me30thCelebrationClassicCollection",
     "me 30th celebration classic collection": "me30thCelebrationClassicCollection",
     "me30thcelebrationclassiccollection": "me30thCelebrationClassicCollection",
 }

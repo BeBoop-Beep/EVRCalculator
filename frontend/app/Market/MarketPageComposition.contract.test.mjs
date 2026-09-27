@@ -156,7 +156,7 @@ test("the set list scales to a large catalogue: bounded scroll, no per-row chart
   assert.match(css, /\.setListScroll \{[\s\S]*?max-height: var\(--ex-set-market-scroll/);
   assert.equal((setMarket.match(/<MarketSparkline/g) || []).length, 1);
   // Rows are real buttons, so the list is keyboard navigable by construction.
-  assert.match(setMarket, /data-set-market-row=\{row\.setId\}/);
+  assert.match(setMarket, /data-set-market-row=\{row\.marketKey\}/);
   assert.match(setMarket, /aria-current=\{isActive \? "true" : undefined\}/);
 });
 
@@ -164,7 +164,7 @@ test("selecting a set updates the pane in place and lazily loads only its full d
   assert.match(setMarket, /onClick=\{\(event\) => activateSetRow\(event, row, isActive\)\}/);
   assert.match(setMarket, /resolveSetMarketRowAction/);
   assert.doesNotMatch(setMarket, /setTimeout|doubleClickTimer/i);
-  assert.match(setMarket, /setSelectedSetId/);
+  assert.match(setMarket, /setSelectedMarketKey/);
   // Rankings and movements stay on the compact publication; only the one
   // selected detail history uses the existing value-history client.
   assert.doesNotMatch(setMarket, /fetch\(/);
@@ -234,7 +234,7 @@ test("selected-set Top Movers reuses the existing per-set movers data and select
   assert.match(topMovers, /const LIMIT = 10/);
   // Lazy and per-selection: nothing is fetched until a set is selected.
   assert.match(topMovers, /if \(!setId\)/);
-  assert.match(setMarket, /<SetMarketTopMovers[\s\S]*key=\{selected\.setId\}[\s\S]*initialPayload=/);
+  assert.match(setMarket, /<SetMarketTopMovers[\s\S]*key=\{selected\.marketKey\}[\s\S]*initialPayload=/);
   // It does NOT reach into the approved page-level ticker component.
   assert.doesNotMatch(codeOf(topMovers), /SevenDayMarketMoversTicker/);
 });

@@ -1,0 +1,60 @@
+name: RIP Recovery Diagnostic 2026-09-22
+# retrigger: scheduler evidence 2026-09-22
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/rip-recovery-diagnostic-20260922.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+
+      - name: Probe production opening freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE=/home/ubuntu/repos/EVRCalculator
+          PY=$LIVE/.venv/bin/python
+          cd "$GITHUB_WORKSPACE"
+          set -a
+          . "$LIVE/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          echo "checkout_head=$(git rev-parse HEAD)"
+          "$PY" - <<'PY'
+          import json, time
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.opening_simulation_gate import evaluate_opening_simulation_freshness
+
+          c = create_service_role_client()
+          for day in ("2026-09-18","2026-09-21"):
+              t=time.perf_counter()
+              report=evaluate_opening_simulation_freshness(c, market_date=day)
+              elapsed=time.perf_counter()-t
+              print(json.dumps({
+                  "market_date":day,
+                  "elapsed_seconds":round(elapsed,3),
+                  "ok":report.ok,
+                  "error":report.error,
+                  "eligible":report.eligible_count,
+                  "current":report.current_count,
+                  "failed":report.failed_count,
+                  "failures":[{
+                      "key":x.canonical_key,
+                      "status":x.status,
+                      "run_id":x.calculation_run_id,
+                      "reason":x.reason,
+                  } for x in report.failures],
+              }, sort_keys=True))
+          PY

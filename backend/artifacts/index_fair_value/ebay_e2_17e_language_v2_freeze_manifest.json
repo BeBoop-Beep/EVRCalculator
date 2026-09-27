@@ -1,0 +1,16 @@
+{
+  "version": "ebay_language_policy_v2",
+  "source_sha256": "cf57b37d3c663ce741a573eef00fc741d9a6fb02f65228c283390bb33f0ff2a6",
+  "supported_provider_vocabulary": [
+    "ENGLISH",
+    "JAPANESE",
+    "KOREAN",
+    "CHINESE"
+  ],
+  "ocr_v3_freeze_fingerprint": "79bed607ff3a34bf701030d5f2947048f176427010fbc34273c91588a0059756",
+  "holdout_corpus_fingerprint": "f032b201ae2b85c16b7cb4296f5bb08c29a90d5d8a19e02a8c9e8716d770fd7d",
+  "holdout_label_fingerprint": "b3f2f23d11db6d77ed93c9ff997de6c769775a30175ce69e62a2c78299813e22",
+  "holdout_evaluation_fingerprint": "9fdb7e6216096675bb94774b0f26e8a0c6882e150d111f3541da60e0d4cbbcb8",
+  "production_authority": false,
+  "freeze_fingerprint_sha256": "a858449b281de3523bd9ac2be64bbead216bb1c8da1388f93cdad38c9793d6bd"
+}

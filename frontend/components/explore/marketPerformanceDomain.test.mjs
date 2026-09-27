@@ -12,19 +12,35 @@ import {
 
 const domain = (values, timeframe) => buildMarketPerformanceDomain(values.map((value) => ({ value })), timeframe);
 
-test("7D and 30D scale to visible data instead of blindly forcing 100", () => {
-  for (const timeframe of ["7D", "30D"]) {
+const ALL_TIMEFRAMES = ["1D", "7D", "30D", "3M", "6M", "1Y", "All"];
+
+test("Index domain contains 100 when every value is above 100 (every timeframe)", () => {
+  for (const timeframe of ALL_TIMEFRAMES) {
     const [minimum, maximum] = domain([102.2, 102.8], timeframe);
-    assert.ok(minimum > 100);
-    assert.ok(minimum < 102.2 && maximum > 102.8);
-    assert.ok(maximum - minimum < 2);
+    assert.ok(minimum <= 100 && maximum >= 100, `${timeframe}: [${minimum}, ${maximum}]`);
+    assert.ok(maximum > 102.8, `${timeframe} still contains the data`);
+    assert.equal(isMarketIndexReferenceVisible([minimum, maximum]), true);
   }
 });
 
-test("flat short-window data retains a restrained minimum-span guard", () => {
+test("Index domain contains 100 when every value is below 100 (every timeframe)", () => {
+  for (const timeframe of ALL_TIMEFRAMES) {
+    const [minimum, maximum] = domain([94.1, 96.3], timeframe);
+    assert.ok(minimum <= 100 && maximum >= 100, `${timeframe}: [${minimum}, ${maximum}]`);
+    assert.ok(minimum < 94.1, `${timeframe} still contains the data`);
+  }
+});
+
+test("1D flat data keeps 100 in frame and a restrained span", () => {
   const [minimum, maximum] = domain([102.45, 102.5], "1D");
+  assert.ok(minimum <= 100 && maximum >= 100);
   assert.ok(maximum - minimum >= 0.75);
-  assert.ok(maximum - minimum < 1.5);
+});
+
+test("Performance domain remains 0-based and never references 100", () => {
+  const [minimum, maximum] = buildRelativePerformanceDomain([{ value: 1.2 }, { value: 3.4 }]);
+  assert.ok(minimum <= 0 && maximum >= 3.4);
+  assert.ok(maximum < 20, "a 100 reference must not leak into the percentage domain");
 });
 
 test("all visible series contribute to the shared domain", () => {

@@ -31,6 +31,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from backend.db.services.public_read_retry import run_bounded_page_read_with_retry
+
 #: Canonical model versions this ranking is an application layer over. Any
 #: drift means the cohort is no longer the validated one (see the drift
 #: guards in the builder) — the ranking is NOT authorised to reinterpret a
@@ -82,6 +84,11 @@ def _rows(response: Any) -> List[Dict[str, Any]]:
 #: the base read here silently never reached the current rows.
 _PAGE_SIZE = 1000
 
+#: Bounded retry budget for a single page's read. Only the failed page is
+#: retried (see :func:`run_bounded_page_read_with_retry`); pages already
+#: accumulated by the caller's loop are never re-fetched.
+_FETCH_MAX_ATTEMPTS = 4
+
 
 def _fetch_all_ready_rows(client: Any) -> List[Dict[str, Any]]:
     """Read every V4-ready sealed-product row, paginating past the PostgREST cap.
@@ -89,6 +96,14 @@ def _fetch_all_ready_rows(client: Any) -> List[Dict[str, Any]]:
     Ordered by ``sealed_product_id`` so pages are disjoint and stable across
     calls; without an explicit order, pagination over a concurrently-written
     table is not guaranteed to be complete or non-overlapping.
+
+    ``simulation_sealed_product_results`` is read in full here (not scoped to
+    one ``price_as_of``), so a page can land on a Postgres statement timeout
+    (57014) as the OFFSET pagination walks deeper into the table -- this is
+    the read Best-Open Price V2's Bucket 4 run observed repeatedly hitting
+    57014. Each page's ``.execute()`` is retried in isolation through
+    :func:`run_bounded_page_read_with_retry`; already-accumulated pages are
+    never re-fetched, and a non-transient error is not retried.
     """
     columns = (
         "sealed_product_id,set_id,product_family,product_name,pack_count,random_pack_count,"
@@ -113,16 +128,28 @@ def _fetch_all_ready_rows(client: Any) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     offset = 0
     while True:
-        query = (
-            client.table("simulation_sealed_product_results")
-            .select(columns)
-            .eq("financial_rip_v4_status", "ready")
-            .order("sealed_product_id")
-            .order("calculation_run_id")
-            .order("price_as_of")
-            .range(offset, offset + _PAGE_SIZE - 1)
+        end = offset + _PAGE_SIZE - 1
+
+        def _fetch_page(offset: int = offset, end: int = end) -> Any:
+            query = (
+                client.table("simulation_sealed_product_results")
+                .select(columns)
+                .eq("financial_rip_v4_status", "ready")
+                .order("sealed_product_id")
+                .order("calculation_run_id")
+                .order("price_as_of")
+                .range(offset, end)
+            )
+            return query.execute()
+
+        response = run_bounded_page_read_with_retry(
+            _fetch_page,
+            operation_name="simulation_sealed_product_results.fetch_all_ready_rows",
+            page_offset=offset,
+            page_end=end,
+            max_attempts=_FETCH_MAX_ATTEMPTS,
         )
-        page = _rows(query.execute())
+        page = _rows(response)
         rows.extend(page)
         if len(page) < _PAGE_SIZE:
             return rows

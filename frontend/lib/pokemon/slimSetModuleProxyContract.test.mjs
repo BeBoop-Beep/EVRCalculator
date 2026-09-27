@@ -163,3 +163,9 @@ test("failed responses are never cached and successful ones keep the public poli
   assert.equal(FAILED_ANALYTICS_CACHE_CONTROL, "no-store");
   assert.equal(PUBLIC_ANALYTICS_CACHE_CONTROL, "public, s-maxage=300, stale-while-revalidate=3600");
 });
+
+test("value-history forwards explicit edition scopes verbatim to the backend sanitizer", () => {
+  for (const scope of ["unlimited", "first_edition", "shadowless"]) {
+    assert.equal(forwarded("value-history", { scope }).value_scope, scope);
+  }
+});

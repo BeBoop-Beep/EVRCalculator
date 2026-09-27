@@ -82,6 +82,27 @@ const rowIds = (renderer) =>
 const findByTestAttr = (renderer, attr) =>
   renderer.root.findAll((node) => node.props?.[attr] !== undefined)[0];
 
+test("prepared 151 preview and expanded view share a generation-pinned page", async () => {
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(new URL(url, "http://localhost"));
+    return { ok: true, json: async () => ({ availability: "available", generationId: "generation-a",
+      rows: rowsFor(1, 6), nextCursor: null, totalCount: 6, priceAsOf: "2026-09-18" }) };
+  };
+  const series = { key: "set:151", label: "Scarlet and Violet 151", group: "card",
+    marketType: "set", generationId: "generation-a", available: true };
+  const renderer = await mount({ selectedSeries: [series], activeSeriesId: series.key, mode: "preview" });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].searchParams.get("marketKey"), series.key);
+  assert.equal(calls[0].searchParams.get("generationId"), series.generationId);
+  assert.equal(rowIds(renderer).length, 5);
+  await flush(renderer, () => renderer.update(
+    <MarketExplorerConstituents selectedSeries={[series]} activeSeriesId={series.key} mode="expanded" />
+  ));
+  assert.equal(calls.length, 1);
+  assert.equal(rowIds(renderer).length, 6);
+});
+
 test("a query-built market never renders from its (empty, summary-mode) embedded array — it pages", async () => {
   const calls = [];
   globalThis.fetch = async (url, init) => {
@@ -180,4 +201,54 @@ test("switching the inspected market re-fetches for the new spec and drops the s
 
   // The stale first-market page must never appear once the target moved on.
   assert.equal(rowIds(renderer).length, 2);
+});
+
+test("preview and expanded modes share one query page and retain appended rows", async () => {
+  let calls = 0;
+  globalThis.fetch = async (_url, init) => {
+    calls += 1;
+    const afterRank = JSON.parse(init.body).afterRank;
+    return afterRank === 0
+      ? pageResponse({ items: rowsFor(1, 100), nextCursor: 100, total: 250 })
+      : pageResponse({ items: rowsFor(101, 100), nextCursor: 200, total: 250 });
+  };
+  const series = globalAllRawQuery();
+  const props = { selectedSeries: [series], activeSeriesId: series.key };
+  const renderer = await mount({ ...props, mode: "preview" });
+  assert.equal(calls, 1);
+  assert.equal(rowIds(renderer).length, 5);
+  assert.match(JSON.stringify(renderer.toJSON()), /250/);
+  assert.equal(findByTestAttr(renderer, "data-market-constituents-load-more"), undefined);
+
+  await flush(renderer, () => renderer.update(<MarketExplorerConstituents {...props} mode="expanded" />));
+  assert.equal(calls, 1);
+  assert.equal(rowIds(renderer).length, 100);
+  await flush(renderer, () => findByTestAttr(renderer, "data-market-constituents-load-more").props.onClick());
+  assert.equal(calls, 2);
+  assert.equal(rowIds(renderer).length, 200);
+  await flush(renderer, () => renderer.update(<MarketExplorerConstituents {...props} mode="preview" />));
+  assert.equal(rowIds(renderer).length, 5);
+  await flush(renderer, () => renderer.update(<MarketExplorerConstituents {...props} mode="expanded" />));
+  assert.equal(calls, 2);
+  assert.equal(rowIds(renderer).length, 200);
+});
+
+test("a failed Load more keeps prior rows and retries the same cursor", async () => {
+  const cursors = [];
+  globalThis.fetch = async (_url, init) => {
+    const cursor = JSON.parse(init.body).afterRank;
+    cursors.push(cursor);
+    if (cursor === 0) return pageResponse({ items: rowsFor(1, 100), nextCursor: 100, total: 150 });
+    if (cursors.length === 2) return { ok: false, status: 500, json: async () => ({ message: "Temporary page failure" }) };
+    return pageResponse({ items: rowsFor(101, 50), nextCursor: null, total: 150 });
+  };
+  const renderer = await mount({ selectedSeries: [globalAllRawQuery()], activeSeriesId: "query:global-all-raw-fp" });
+  await flush(renderer, () => findByTestAttr(renderer, "data-market-constituents-load-more").props.onClick());
+  assert.equal(rowIds(renderer).length, 100);
+  assert.ok(findByTestAttr(renderer, "data-market-constituents-page-error"));
+  assert.ok(!findByTestAttr(renderer, "data-market-constituents-page-complete"));
+  await flush(renderer, () => findByTestAttr(renderer, "data-market-constituents-page-retry").props.onClick());
+  assert.deepEqual(cursors, [0, 100, 100]);
+  assert.equal(rowIds(renderer).length, 150);
+  assert.ok(findByTestAttr(renderer, "data-market-constituents-page-complete"));
 });

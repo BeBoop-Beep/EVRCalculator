@@ -24,11 +24,14 @@ def load_backend_env() -> None:
     print("ENV PATH:", env_path)
     print(
         "PROVIDER AUTH:",
-        {
-            "pokemon_tcg_api_key": bool(os.getenv("POKEMON_TCG_API_KEY")),
-            "scrydex_api_key": bool(os.getenv("SCRYDEX_API_KEY")),
-            "scrydex_team_id": bool(os.getenv("SCRYDEX_TEAM_ID")),
-        },
+        json.dumps(
+            {
+                "pokemon_tcg_api_key": bool(os.getenv("POKEMON_TCG_API_KEY")),
+                "scrydex_api_key": bool(os.getenv("SCRYDEX_API_KEY")),
+                "scrydex_team_id": bool(os.getenv("SCRYDEX_TEAM_ID")),
+            },
+            sort_keys=True,
+        ),
     )
 
 
@@ -42,7 +45,7 @@ def validate_required_env() -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Sync Pokemon TCG image URLs into card_variants")
+    parser = argparse.ArgumentParser(description="Sync Pokemon card image URLs from available metadata providers")
     parser.add_argument(
         "--sets",
         nargs="+",

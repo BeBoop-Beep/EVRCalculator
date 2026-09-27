@@ -343,3 +343,65 @@ def test_concurrent_old_row_mismatch_aborts_repair(monkeypatch):
     with pytest.raises(RuntimeError, match="concurrent economic repair mismatch"):
         svc.execute_historical_root_backfill(client, ["root"], "2026-09-11", "2026-09-11", commit=True,
             normalize_provenance=True, repair_conflicting_generic=True)
+
+
+# ---- frozen Set Value leaf roster ----
+from backend.domain.pokemon.market_index import MARKET_INDEX_METHODOLOGY_VERSION as _MIV
+
+
+class _RpcRecorder(Client):
+    def __init__(self, *a, fail=False):
+        super().__init__(*a); self.rpc_calls = []; self.fail = fail
+    def rpc(self, name, args):
+        if name == "replace_pokemon_market_set_value_constituents_v1":
+            self.rpc_calls.append(args)
+            if self.fail:
+                raise RuntimeError("SET_VALUE_CONSTITUENT_VALUE_MISMATCH")
+            return SimpleNamespace(execute=lambda: SimpleNamespace(data={"status": "READY"}))
+        return super().rpc(name, args)
+
+
+def _recorder(**kw):
+    base = fixture_client()
+    return _RpcRecorder(base.tables, base.prices, **kw)
+
+
+def test_freeze_passes_exact_in_memory_rows_and_canonical_version():
+    client = _recorder()
+    plan = svc.execute_historical_root_backfill(client, ["root"], "2026-09-10", "2026-09-10",
+                                                commit=True, freeze_constituents=True)
+    assert len(client.rpc_calls) == 1
+    call = client.rpc_calls[0]
+    std = [r for r in plan if r["value_scope"] == "standard"][0]
+    assert call["p_root_set_id"] == "root" and call["p_market_date"] == "2026-09-10"
+    assert call["p_methodology_version"] == _MIV
+    assert call["p_expected_card_count"] == len(call["p_items"]) == std["included_card_count"] == 12
+    assert sum(float(i["marketPrice"]) for i in call["p_items"]) == float(std["set_value"]) == float(call["p_expected_set_value"])
+    assert {i["setId"] for i in call["p_items"]} == {"root", "child"}
+    assert all(i["cardVariantId"] == "v" + i["canonicalCardId"] for i in call["p_items"])
+
+
+def test_dry_run_and_default_do_zero_freeze_calls():
+    client = _recorder()
+    svc.execute_historical_root_backfill(client, ["root"], "2026-09-10", "2026-09-10", freeze_constituents=True)
+    svc.execute_historical_root_backfill(client, ["root"], "2026-09-10", "2026-09-10", commit=True)
+    assert client.rpc_calls == []
+
+
+def test_freeze_rpc_failure_propagates_without_retry():
+    from backend.db.services.pokemon_set_value_constituent_freeze import SetValueConstituentFreezeError
+    client = _recorder(fail=True)
+    with pytest.raises(SetValueConstituentFreezeError, match="VALUE_MISMATCH"):
+        svc.execute_historical_root_backfill(client, ["root"], "2026-09-10", "2026-09-10",
+                                             commit=True, freeze_constituents=True)
+    assert len(client.rpc_calls) == 1
+
+
+def test_freeze_does_not_repair_inconsistent_roster():
+    from backend.db.services import pokemon_set_value_constituent_freeze as f
+    client = _recorder()
+    items = [{"canonicalCardId": "a", "cardVariantId": "va", "setId": "s", "marketPrice": "1.00"}]
+    with pytest.raises(f.SetValueConstituentFreezeError, match="SUM_MISMATCH"):
+        f.freeze_set_value_constituents(client, root_set_id="root", market_date="2026-09-10",
+                                        set_value="2.00", items=items, commit=True)
+    assert client.rpc_calls == []

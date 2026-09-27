@@ -111,6 +111,47 @@ def run_batch_read_with_retry(
     raise AssertionError("unreachable")
 
 
+def run_bounded_page_read_with_retry(
+    operation: Callable[[], T],
+    *,
+    operation_name: str,
+    page_offset: int,
+    page_end: int,
+    max_attempts: int = 4,
+    sleep: Callable[[float], None] = time.sleep,
+    jitter: Callable[[float, float], float] = random.uniform,
+) -> T:
+    """:func:`run_batch_read_with_retry`, with page context on exhausted failures.
+
+    Used by bounded/paginated Supabase source loaders (e.g. Best-Open Price's
+    cohort and ready-rows readers) where a single page can hit a transient
+    Postgres statement timeout (57014) on a large or offset-heavy table. Only
+    the failed page is retried -- pages already accumulated by the caller's
+    loop are never re-fetched. When the retry budget is exhausted on a
+    TRANSIENT failure, the raised error names the page range and attempt
+    count so operators can tell a stuck page from a permanent failure at a
+    glance; a non-transient (deterministic) error is never retried and
+    propagates unchanged, matching :func:`run_batch_read_with_retry`.
+    """
+    try:
+        return run_batch_read_with_retry(
+            operation,
+            operation_name=operation_name,
+            max_attempts=max_attempts,
+            sleep=sleep,
+            jitter=jitter,
+        )
+    except Exception as exc:
+        failure = classify_data_service_error(exc)
+        if failure.transient:
+            raise RuntimeError(
+                f"{operation_name} exhausted {max_attempts} attempt(s) fetching page "
+                f"[{page_offset}, {page_end}]: {failure.error_type} "
+                f"code={failure.code} status={failure.status_code}"
+            ) from exc
+        raise
+
+
 def run_public_read_with_retry(
     operation: Callable[[Any], T],
     *,

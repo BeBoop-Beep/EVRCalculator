@@ -1,0 +1,26 @@
+{
+  "task": "EBAY_E2_9A_EXACT_CARD_COVERAGE_CLOSURE",
+  "final_result": "EBAY_COMBINED_IDENTITY_V2_ALL_HISTORICAL_GATES_PASS_NEW_BLIND_CAPTURE_JUSTIFIED",
+  "combined_identity_v2_modified": false,
+  "combined_identity_v2_policy_source_sha256": "59e32c0a8a0310bf9a27417a78d566942f303cb543c4e3165f1ead39954abf07",
+  "combined_identity_v2_policy_fingerprint": "7105b731d40b121d5e74089a92c065bfc8b86795281262d275192bf6049c1018",
+  "scoped_rows": {"V4": 216, "V5": 222, "total": 438},
+  "reproduction_check_all_reproduced": true,
+  "exact_card_coverage": {
+    "V4": {"tier_a_covered": 48, "tier_b_incremental": 8, "total_covered": 56, "total_target_cards": 70, "exact_coverage": 0.8},
+    "V5": {"tier_a_covered": 44, "tier_b_incremental": 12, "total_covered": 56, "total_target_cards": 70, "exact_coverage": 0.8}
+  },
+  "four_gates": {
+    "V4": {"accepted_precision_ge_0_99": true, "wilson_lower_ge_0_98": true, "card_coverage_ge_0_80": true, "catastrophic_false_accepts_eq_0": true, "all_pass": true},
+    "V5": {"accepted_precision_ge_0_99": true, "wilson_lower_ge_0_98": true, "card_coverage_ge_0_80": true, "catastrophic_false_accepts_eq_0": true, "all_pass": true},
+    "both_cohorts_pass": true
+  },
+  "new_blind_cohort_captured": false,
+  "source_artifacts": {
+    "closure_report": "backend/artifacts/index_fair_value/EBAY_E2_9A_EXACT_CARD_COVERAGE_CLOSURE.md",
+    "per_row_results": "backend/artifacts/index_fair_value/ebay_e2_9a_exact_card_coverage_per_row.json",
+    "measurement_summary": "backend/artifacts/index_fair_value/ebay_e2_9a_exact_card_coverage_summary.json",
+    "runner_script": "backend/scripts/run_ebay_e2_9a_exact_card_coverage.py",
+    "tests": "backend/tests/unit/scripts/test_ebay_e2_9a_exact_card_coverage.py"
+  }
+}

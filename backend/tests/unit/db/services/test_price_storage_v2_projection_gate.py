@@ -308,3 +308,68 @@ def test_staged_interval_rpc_uses_start_date_contract(monkeypatch):
     assert report["status"] == "complete"
     assert state["index"] == 4
     assert finished == [("complete", None)]
+
+
+
+def test_projection_gate_retry_recovers_authority_with_fresh_client(monkeypatch):
+    unavailable = gate.PriceProjectionDecision(
+        ready=False,
+        market_date="2026-09-20",
+        reason_code=gate.REASON_AUTHORITY_UNAVAILABLE,
+        error="APIError: 522",
+    )
+    ready = gate.PriceProjectionDecision(
+        ready=True,
+        market_date="2026-09-20",
+        reason_code=gate.REASON_READY,
+        expected_set_count=1,
+        complete_set_count=1,
+    )
+    decisions = iter([unavailable, unavailable, ready])
+    seen_clients = []
+
+    def evaluate(client, _market_date):
+        seen_clients.append(client)
+        return next(decisions)
+
+    fresh = iter(["fresh-1", "fresh-2"])
+    delays = []
+    monkeypatch.setattr(gate, "evaluate_price_projection_gate", evaluate)
+
+    result = gate._evaluate_projection_with_retry(
+        "initial",
+        "2026-09-20",
+        client_factory=lambda: next(fresh),
+        max_attempts=3,
+        sleep=delays.append,
+    )
+
+    assert result.ready is True
+    assert seen_clients == ["initial", "fresh-1", "fresh-2"]
+    assert delays == [5.0, 10.0]
+
+
+def test_projection_gate_retry_does_not_retry_semantic_not_ready(monkeypatch):
+    not_ready = gate.PriceProjectionDecision(
+        ready=False,
+        market_date="2026-09-20",
+        reason_code=gate.REASON_NOT_READY,
+        expected_set_count=1,
+        pending_set_ids=["set-a"],
+    )
+    calls = []
+    monkeypatch.setattr(
+        gate,
+        "evaluate_price_projection_gate",
+        lambda client, _market_date: calls.append(client) or not_ready,
+    )
+
+    result = gate._evaluate_projection_with_retry(
+        "initial",
+        "2026-09-20",
+        client_factory=lambda: (_ for _ in ()).throw(AssertionError("fresh client must not be used")),
+        sleep=lambda _seconds: (_ for _ in ()).throw(AssertionError("sleep must not run")),
+    )
+
+    assert result.reason_code == gate.REASON_NOT_READY
+    assert calls == ["initial"]

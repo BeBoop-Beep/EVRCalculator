@@ -22,6 +22,7 @@ from backend.scripts.index_fair_value_ebay_evidence_collector import (
     BrowseHTTP,
     Collector,
     CollectorConfig,
+    DailyBrowseLedger,
     RunState,
     TokenProvider,
     cohort_fingerprint,
@@ -69,6 +70,17 @@ def _config_from_args(args: argparse.Namespace) -> CollectorConfig:
 def main(argv: list[str] | None = None) -> dict:
     args = build_arg_parser().parse_args(argv)
     cards = select_cohort(name=args.cohort, target_file=args.target_file)
+    pricing_manifest = None
+    if args.target_file:
+        payload = json.loads(Path(args.target_file).read_text(encoding="utf-8"))
+        if isinstance(payload, dict) and payload.get("selector_version", "").startswith("ebay_daily_pricing_selector_"):
+            pricing_manifest = payload
+            cards = payload["cards"]  # priority order is part of the frozen daily plan
+            if args.max_pages_per_search != payload["max_pages_per_search"]:
+                raise ValueError("collector pagination must match pricing manifest")
+            if args.max_requests > 1000:
+                raise ValueError("daily application budget is 1000")
+            args.max_requests = min(args.max_requests, pricing_manifest["planning_ceiling"])
     if args.live_smoke:
         cards = cards[:2]
 
@@ -84,7 +96,7 @@ def main(argv: list[str] | None = None) -> dict:
             "ebay_calls_made": 0,
         }
         if args.json:
-            print(json.dumps(plan, indent=2, ensure_ascii=False))
+            print(json.dumps(plan, indent=2, ensure_ascii=True))
         return plan
 
     config = _config_from_args(args)
@@ -97,7 +109,7 @@ def main(argv: list[str] | None = None) -> dict:
 
     env = load_ebay_env()
     tokens = TokenProvider(env)
-    http = BrowseHTTP(tokens, config)
+    http = BrowseHTTP(tokens, config, daily_ledger=DailyBrowseLedger(ARTIFACTS_DIR.parent / "pricing/ebay_browse_daily_usage.sqlite3"))
     collector = Collector(http, config)
     state = collector.run(state, cards)
     state.save()
@@ -115,8 +127,19 @@ def main(argv: list[str] | None = None) -> dict:
         "raw_evidence_path": str(state.raw_evidence_path()),
         "match_results_path": str(state.match_results_path()),
     }
+    if pricing_manifest:
+        rows = [json.loads(line) for line in state.match_results_path().read_text(encoding="utf-8").splitlines() if line.strip()]
+        raw_count = sum(1 for line in state.raw_evidence_path().read_text(encoding="utf-8").splitlines() if line.strip())
+        summary["pricing_evidence_counts"] = {
+            "raw_listings_captured": raw_count,
+            "identity_qualified_listings": sum(bool(row.get("identity_qualified")) for row in rows),
+            "english_eligible_listings": sum(row.get("eligibility_status") == "ENGLISH_ELIGIBLE" for row in rows),
+            "language_unresolved_listings": sum(row.get("eligibility_status") == "LANGUAGE_UNRESOLVED" for row in rows),
+            "rejected_listings": sum(row.get("eligibility_status") in {"IDENTITY_REJECTED", "NON_ENGLISH_EXCLUDED"} for row in rows),
+        }
+        summary["selector_fingerprint"] = pricing_manifest["selector_fingerprint"]
     if args.json:
-        print(json.dumps(summary, indent=2, ensure_ascii=False))
+        print(json.dumps(summary, indent=2, ensure_ascii=True))
     return summary
 
 

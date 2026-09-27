@@ -1,0 +1,74 @@
+{
+  "market_date": "2026-09-21",
+  "pipeline_run_id": "4e223246-7e9b-4709-9869-2f9b530b74ea",
+  "pipeline_version": "multi_source_daily_pipeline_p6_v2",
+  "policy_version": "pokemon_multi_source_card_price_v1",
+  "policy_fingerprint": "caf6acbf7e4b4e43b4491ef2b018122bb4cfcb8b254621f8b32c8bb8a70abdb6",
+  "target_count": 16,
+  "tier_counts": {
+    "MOVER": 0,
+    "ROTATION": 5,
+    "MISSING_PRICE_GAP": 5,
+    "ECONOMICALLY_IMPORTANT": 4,
+    "STALE_OR_AGING_HIGH_IMPACT": 1,
+    "SOURCE_DISAGREEMENT_REFRESH": 1
+  },
+  "target_fingerprint": "741be05c19f92906934a102071395de82f24a0dcc39f08c3fbaea38ab0e791d2",
+  "ebay_pricing_run_id": "09718739-4b61-5d96-900a-da3498c37ab6",
+  "requests_attempted": 228,
+  "requests_failed": 0,
+  "retries": 0,
+  "request_cap": 400,
+  "remaining_budget_today": 4263,
+  "collection": {
+    "retries": 0,
+    "targets_total": 16,
+    "requests_failed": 0,
+    "budget_exhausted": false,
+    "targets_completed": 16,
+    "requests_attempted": 228,
+    "targets_resumed_from_checkpoint": 5
+  },
+  "evidence": {
+    "listing_rows": 56,
+    "raw_listings": 1402,
+    "decision_states": {
+      "CONDITION_EXCLUDED": 21,
+      "LANGUAGE_UNRESOLVED": 10,
+      "BUYING_FORMAT_EXCLUDED": 6,
+      "ENGLISH_PRICE_ELIGIBLE": 56
+    },
+    "cards_summarized": 16,
+    "identity_qualified": 93
+  },
+  "estimates": {
+    "depth_counts": {
+      "THIN": 1,
+      "SUFFICIENT": 9,
+      "INSUFFICIENT": 6
+    },
+    "rows_skipped": 0,
+    "rows_inserted": 9
+  },
+  "multi_source": {
+    "rows": 16,
+    "rows_skipped": 0,
+    "rows_inserted": 16,
+    "decision_counts": {
+      "UNPRICED": 1,
+      "TCGPLAYER_PRIMARY": 5,
+      "EBAY_ACTIVE_ASK_FALLBACK": 4,
+      "TCGPLAYER_AGING_RETAINED": 0,
+      "TCGPLAYER_STALE_RETAINED": 1,
+      "TCGPLAYER_PRIMARY_EBAY_CORROBORATED": 3,
+      "TCGPLAYER_PRIMARY_SOURCE_DISAGREEMENT": 2,
+      "TCGPLAYER_PRIMARY_EBAY_MODERATE_DISAGREEMENT": 0
+    }
+  },
+  "source_guard": "UNVERIFIED_TRANSIENT_TIMEOUT",
+  "gap_fills": 4,
+  "runtime_seconds": 55.7,
+  "last_successful_stage": "VALIDATED",
+  "completed_at": "2026-09-21T18:29:53.482489+00:00",
+  "receipt_fingerprint": "87d576449ec654f6ce816b426c6c13e059b61f2fb1362479c2e0773b3710ce02"
+}

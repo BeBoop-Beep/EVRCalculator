@@ -2071,7 +2071,7 @@ def get_pokemon_explore_rankings_lens_payload(lens: str, limit: Any = DEFAULT_RA
 
     meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
     identity_payload = {"meta": meta}
-    if _rankings_publication_identity_mismatches(identity_payload):
+    if _identity_mismatches_for_active_release(identity_payload):
         raise ExploreRipStatisticsTargetsError(
             503, "Rankings are being republished", "RANKINGS_LENS_PUBLICATION_SUPERSEDED", retry_after_seconds=60
         )
@@ -2212,7 +2212,24 @@ def _read_rankings_publication_identity(payload: Dict[str, Any]) -> Dict[str, Op
     }
 
 
-def _rankings_publication_identity_mismatches(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _active_release_or_none() -> Any:
+    """The active serving release for a currentness check, or None (static canonical identity) if unreadable."""
+    try:
+        from backend.db.services import rip_release
+        release = rip_release.resolve_release_or_marked_fallback(service_read_client)
+        return release if release.requires_v5_schema else None      # V12 == the static canonical identity
+    except Exception:
+        return None
+
+
+def _identity_mismatches_for_active_release(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    release = _active_release_or_none()
+    if release is None:
+        return _rankings_publication_identity_mismatches(payload)
+    return _rankings_publication_identity_mismatches(payload, release)
+
+
+def _rankings_publication_identity_mismatches(payload: Dict[str, Any], release: Any = None) -> List[Dict[str, Any]]:
     """Every identifier on which this payload is not the current publication.
 
     THE PUBLISHER ALREADY ASKS THIS QUESTION; THE READER DID NOT. The publisher
@@ -2238,6 +2255,12 @@ def _rankings_publication_identity_mismatches(payload: Dict[str, Any]) -> List[D
     reruns, and rediscovers the rest one publication at a time.
     """
     expected = canonical_publication_identity()
+    if release is not None and getattr(release, "overall_version", None) is not None:
+        # Currentness is judged against the ACTIVE release's identity, not the static constant: after a
+        # pointer flip a snapshot built under the other model is stale, and vice versa on rollback.
+        from backend.db.services.public_rip_publication_contract import candidate_publication_identity
+        if release.requires_v5_schema:
+            expected = candidate_publication_identity()
     observed = _read_rankings_publication_identity(payload)
     return [
         {"identifier": key, "observed": observed.get(key), "expected": expected[key]}
@@ -2349,7 +2372,7 @@ def _build_compact_rankings_targets_response(
         return None
 
     updated_at = _to_optional_str(row.get("updated_at"))
-    mismatches = _rankings_publication_identity_mismatches({"meta": meta_source})
+    mismatches = _identity_mismatches_for_active_release({"meta": meta_source})
     if mismatches:
         logger.error(
             "[pokemon-snapshot] persisted rankings snapshot (compact path) is not the canonical "
@@ -2491,7 +2514,7 @@ def _get_pokemon_explore_rankings_snapshot_payload_full(clamped_limit: int) -> D
         # canonical model is still the current canonical ranking and is served
         # normally; a snapshot built under a superseded model is not the current
         # ranking at all and must never be presented as one.
-        mismatches = _rankings_publication_identity_mismatches(payload)
+        mismatches = _identity_mismatches_for_active_release(payload)
         if mismatches:
             logger.error(
                 "[pokemon-snapshot] persisted rankings snapshot is not the canonical publication; "
@@ -4069,6 +4092,7 @@ def _load_top_chase_observation_histories(
             latest_result = (
                 service_read_client.table("card_variant_price_observations")
                 .select("captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4114,6 +4138,7 @@ def _load_top_chase_observation_histories(
             latest_result = (
                 service_read_client.table("card_variant_price_observations")
                 .select("captured_at")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", canonical_variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4131,6 +4156,7 @@ def _load_top_chase_observation_histories(
             history_result = (
                 service_read_client.table("card_variant_price_observations")
                 .select("card_variant_id,captured_at,market_price")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", canonical_variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
                 .gt("market_price", 0)
@@ -4159,6 +4185,7 @@ def _load_top_chase_observation_histories(
         history_result = (
             service_read_client.table("card_variant_price_observations")
             .select("card_variant_id,captured_at,market_price")
+            .eq("source", "TCGPlayer")
             .in_("card_variant_id", variant_ids)
             .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
             .gt("market_price", 0)

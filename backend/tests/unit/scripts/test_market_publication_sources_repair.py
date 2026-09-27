@@ -46,11 +46,12 @@ class Query:
 
 
 class Client:
-    def __init__(self, rows=(), composite=False, receipt=None, error=None):
+    def __init__(self, rows=(), composite=False, receipt=None, error=None, freeze_receipt=None):
         self.rows = list(rows)
         self.composite = composite
         self.receipt = receipt
         self.error = error
+        self.freeze_receipt = freeze_receipt
         self.reads = []
         self.rpcs = []
 
@@ -62,6 +63,11 @@ class Client:
         def execute():
             if self.error:
                 raise self.error
+            if name == sources.LEGACY_FREEZE_RPC:
+                data = self.freeze_receipt
+                if data is None:
+                    data = {"status": "frozen", "setId": "root", "marketDate": DAY}
+                return SimpleNamespace(data=data)
             return SimpleNamespace(data=self.receipt)
         return SimpleNamespace(execute=execute)
 
@@ -109,10 +115,31 @@ def test_composite_root_uses_canonical_rpc(status, n):
     assert client.rpcs == [(sources.COMPOSITE_REPAIR_RPC, {"p_root_set_id": "root", "p_market_date": DAY})]
 
 
-def test_ordinary_root_keeps_single_day_legacy_rpc():
+def test_ordinary_root_repairs_then_freezes_exact_legacy_roster():
     client = Client(receipt=2)
     assert sources.refresh_market_root_day(client, "root", DAY).data == 2
-    assert client.rpcs == [(sources.LEGACY_REPAIR_RPC, {"p_set_id": "root", "p_start_date": DAY, "p_end_date": DAY})]
+    assert client.rpcs == [
+        (sources.LEGACY_REPAIR_RPC, {"p_set_id": "root", "p_start_date": DAY, "p_end_date": DAY}),
+        (sources.LEGACY_FREEZE_RPC, {"p_root_set_id": "root", "p_market_date": DAY}),
+    ]
+
+
+@pytest.mark.parametrize("freeze_receipt", [
+    None,
+    {},
+    {"status": "failed", "setId": "root", "marketDate": DAY},
+    {"status": "frozen", "setId": "other", "marketDate": DAY},
+])
+def test_legacy_repair_fails_closed_when_roster_freeze_is_not_accepted(freeze_receipt):
+    client = Client(receipt=2, freeze_receipt=freeze_receipt)
+    if freeze_receipt is None:
+        client.freeze_receipt = {}
+    with pytest.raises(RuntimeError):
+        sources.refresh_market_root_day(client, "root", DAY)
+    assert [name for name, _ in client.rpcs] == [
+        sources.LEGACY_REPAIR_RPC,
+        sources.LEGACY_FREEZE_RPC,
+    ]
 
 
 @pytest.mark.parametrize("receipt", [None, 0, {}, {"status": "failed"}, {"status": "repaired", "setId": "other", "marketDate": DAY}])
@@ -170,3 +197,50 @@ def test_migration_mirrors_and_safety_contract():
                      "replace_pokemon_market_set_value_constituents_v1", "v_invalid<>0",
                      "FROM PUBLIC,anon,authenticated", "TO service_role"]:
         assert required in sql
+
+
+def test_legacy_roster_freezer_migration_mirrors_and_is_bounded():
+    root = Path(__file__).resolve().parents[4]
+    name = "20260925234500_freeze_legacy_set_value_rosters_for_market_explorer_v2.sql"
+    sql = (root / "supabase/migrations" / name).read_text()
+    assert sql == (root / "backend/db/migrations" / name).read_text()
+    for required in [
+        "SECURITY INVOKER",
+        "statement_timeout = '20s'",
+        "statement_timeout = '90s'",
+        "lock_timeout = '2s'",
+        "pg_try_advisory_xact_lock",
+        "LEGACY_SET_VALUE_ROSTER_RECONCILIATION_FAILED",
+        "count(DISTINCT card_variant_id)",
+        "replace_pokemon_market_set_value_constituents_v1",
+        "p_limit>10",
+        "FROM PUBLIC,anon,authenticated",
+        "TO service_role",
+    ]:
+        assert required in sql
+
+
+def test_snapshot_first_legacy_roster_freezer_migration_mirrors_and_fails_closed():
+    root = Path(__file__).resolve().parents[4]
+    name = "20260925235900_prefer_set_snapshot_for_legacy_roster_freeze.sql"
+    sql = (root / "supabase/migrations" / name).read_text()
+    assert sql == (root / "backend/db/migrations" / name).read_text()
+    for required in [
+        "pokemon_set_cards_snapshot_latest",
+        "jsonb_array_elements(v_snapshot)",
+        "count(DISTINCT card_variant_id)",
+        "count(DISTINCT canonical_card_id)",
+        "legacy_set_snapshot_frozen_v1",
+        "legacy_canonical_checklist_frozen_v1",
+        "LEGACY_SET_VALUE_ROSTER_RECONCILIATION_FAILED",
+        "replace_pokemon_market_set_value_constituents_v1",
+        "SECURITY INVOKER",
+        "statement_timeout = '20s'",
+        "lock_timeout = '2s'",
+        "FROM PUBLIC,anon,authenticated",
+        "TO service_role",
+    ]:
+        assert required in sql
+    snapshot_pos = sql.index("pokemon_set_cards_snapshot_latest")
+    fallback_pos = sql.index("-- Fallback: reproduce the original canonical-checklist price selection.")
+    assert snapshot_pos < fallback_pos

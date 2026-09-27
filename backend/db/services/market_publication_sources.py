@@ -10,6 +10,7 @@ from typing import Any
 
 COMPOSITE_REPAIR_RPC = "repair_pokemon_market_composite_root_set_value_day_v1"
 LEGACY_REPAIR_RPC = "refresh_pokemon_set_value_daily_history"
+LEGACY_FREEZE_RPC = "freeze_pokemon_market_legacy_set_value_roster_v1"
 INDEX_READ_CHUNK = 20
 INDEX_SUMMARY_FIELDS = (
     "set_id,window_key,latest_market_date,"
@@ -75,6 +76,17 @@ def refresh_market_root_day(client: Any, set_id: str, market_date: str) -> Any:
         if receipt.get("setId") != set_id or receipt.get("marketDate") != market_date:
             raise RuntimeError("canonical composite root repair returned mismatched authority")
         return response
-    return client.rpc(LEGACY_REPAIR_RPC, {
+    response = client.rpc(LEGACY_REPAIR_RPC, {
         "p_set_id": set_id, "p_start_date": market_date, "p_end_date": market_date,
     }).execute()
+    freeze = client.rpc(LEGACY_FREEZE_RPC, {
+        "p_root_set_id": set_id, "p_market_date": market_date,
+    }).execute()
+    receipt = freeze.data
+    if not isinstance(receipt, Mapping) or receipt.get("status") not in {
+        "frozen", "already_frozen"
+    }:
+        raise RuntimeError("legacy Set Value repair did not freeze an accepted roster")
+    if receipt.get("setId") != set_id or receipt.get("marketDate") != market_date:
+        raise RuntimeError("legacy frozen roster returned mismatched authority")
+    return response

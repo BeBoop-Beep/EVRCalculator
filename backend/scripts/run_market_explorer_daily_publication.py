@@ -43,6 +43,12 @@ CURRENT_METADATA_REFRESH_RPC = "refresh_pokemon_market_explorer_card_current_met
 COVERAGE_TABLE = V2_COVERAGE_TABLE
 CARDS_ASSET_TABLE = "pokemon_market_explorer_cache_state"
 INVALIDATE_CACHE_SCOPED_RPC = "invalidate_pokemon_market_explorer_query_cache_scoped"
+CURRENT_METADATA_SET_BATCH = 40
+
+
+def _set_batches(set_ids: Sequence[str], batch_size: int = CURRENT_METADATA_SET_BATCH) -> list[list[str]]:
+    ids = sorted({str(value) for value in set_ids if str(value)})
+    return [ids[offset:offset + batch_size] for offset in range(0, len(ids), batch_size)]
 
 
 # --- Market date resolution --------------------------------------------------
@@ -93,7 +99,11 @@ def load_current_authority_rows(client: Any, set_ids: Sequence[str]) -> list[dic
     if not set_ids:
         return []
     retired = load_retired_predecessor_ids_global(client)
-    rows = _paged(lambda: client.rpc(AUTHORITY_RPC, {"p_set_ids": list(set_ids)}))
+    rows: list[dict[str, Any]] = []
+    for batch in _set_batches(set_ids):
+        rows.extend(_paged(
+            lambda batch=batch: client.rpc(AUTHORITY_RPC, {"p_set_ids": batch})
+        ))
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in rows:
@@ -116,7 +126,8 @@ def refresh_current_metadata(client: Any, *, commit: bool) -> MetadataRefreshRep
     rows_before = _paged(lambda: client.table(CURRENT_METADATA_TABLE).select("card_variant_id"))
     ids_before = {str(row["card_variant_id"]) for row in rows_before if row.get("card_variant_id")}
 
-    client.rpc(CURRENT_METADATA_REFRESH_RPC, {"p_set_ids": list(tracked_set_ids)}).execute()
+    for batch in _set_batches(tracked_set_ids):
+        client.rpc(CURRENT_METADATA_REFRESH_RPC, {"p_set_ids": batch}).execute()
 
     rows_after = _paged(lambda: client.table(CURRENT_METADATA_TABLE).select("card_variant_id"))
     ids_after = {str(row["card_variant_id"]) for row in rows_after if row.get("card_variant_id")}

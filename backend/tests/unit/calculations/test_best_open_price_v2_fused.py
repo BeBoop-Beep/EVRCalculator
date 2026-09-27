@@ -10,6 +10,7 @@ from backend.calculations.evr.best_open_price import (
     COMPARISON_AUTHORITY_FINANCIAL_V4,
     COMPARISON_AUTHORITY_OVERALL_V12,
     ExactBestOpenPriceSearch,
+    quantity_price_interval_cents,
 )
 from backend.calculations.evr.best_open_price_v2_fused import DualBestOpenPriceSearch
 
@@ -238,3 +239,68 @@ def test_fused_search_fails_closed_on_source_authority_fingerprint_mismatch():
             source_authority_fingerprint="wrong",
             expected_source_authority_fingerprint="expected",
         )
+
+
+def test_explicit_authorities_share_one_price_stream_and_one_quantity_build():
+    calls = []
+    batches = []
+
+    class Candidate(_FakeCandidate):
+        def compare(self, score_record, benchmark, *, authority):
+            assert authority in {"overall_financial_v5_shadow", "financial_v5_candidate"}
+            return super().compare(score_record, benchmark, authority=authority)
+
+    def batch(quantities):
+        batches.append(tuple(quantities))
+        return {q: Candidate("candidate", q, calls) for q in quantities}
+
+    result = DualBestOpenPriceSearch(
+        product_id="candidate", budget_cents=1000, current_price_cents=500,
+        current_quantity=2, rip_current_rank=2,
+        rip_benchmark={"sealedProductId": "overall", "thresholdCents": 105},
+        financial_current_rank=2,
+        financial_benchmark={"sealedProductId": "financial", "thresholdCents": 100},
+        prepare_quantity=lambda q: Candidate("candidate", q, calls),
+        prepare_quantities=batch, source_authority_fingerprint="fp",
+        expected_source_authority_fingerprint="fp", max_quantity_to_construct=20,
+        rip_comparison_authority="overall_financial_v5_shadow",
+        financial_comparison_authority="financial_v5_candidate",
+        enable_quantity_prefetch=True, quantity_batch_size=3,
+    ).search()
+    assert result["ripResult"]["threshold"]["priceCents"] == 105
+    assert result["financialResult"]["threshold"]["priceCents"] == 100
+    assert result["ripResult"]["threshold"]["comparisonAuthority"] == "overall_financial_v5_shadow"
+    assert result["financialResult"]["threshold"]["comparisonAuthority"] == "financial_v5_candidate"
+    assert result["diagnostics"]["uniqueCandidatePricesScored"] == len(calls)
+    assert len(calls) == len(set(calls))
+    assert any(len(q) > 1 for q in batches)
+    assert max(map(len, batches)) <= 3
+    assert result["diagnostics"]["maximumPendingBatchCandidates"] <= 3
+
+
+def test_prefetch_excludes_quantities_with_no_reachable_cent():
+    batches = []
+
+    def batch(quantities):
+        batches.append(tuple(quantities))
+        return {q: _FakeCandidate("candidate", q, []) for q in quantities}
+
+    result = DualBestOpenPriceSearch(
+        product_id="candidate", budget_cents=1000, current_price_cents=500,
+        current_quantity=2, rip_current_rank=2,
+        rip_benchmark={"sealedProductId": "r", "thresholdCents": 18},
+        financial_current_rank=2,
+        financial_benchmark={"sealedProductId": "f", "thresholdCents": 18},
+        prepare_quantity=lambda q: _FakeCandidate("candidate", q, []),
+        prepare_quantities=batch, source_authority_fingerprint="fp",
+        expected_source_authority_fingerprint="fp", max_quantity_to_construct=60,
+        enable_quantity_prefetch=True, quantity_batch_size=8,
+    ).search()
+    assert result["ripResult"]["threshold"]["priceCents"] == 18
+    assert any(any(q > 40 for q in block) for block in batches)
+    for block in batches:
+        if block == (2,):  # current market singleton precedes the low domain
+            continue
+        for q in block:
+            low, high = quantity_price_interval_cents(1000, q)
+            assert low <= high < 500

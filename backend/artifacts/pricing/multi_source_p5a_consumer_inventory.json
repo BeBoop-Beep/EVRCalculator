@@ -1,0 +1,326 @@
+{
+  "captured_utc": "2026-09-19",
+  "scope": "live public SQL functions; candidate classification requires semantic review",
+  "consumers": [
+    {
+      "consumer": "get_card_variant_price_observed_history_v2",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness_raw_card_shadow",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_nightly_snapshot_pricing_freshness_v2_shadow",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_canonical_card_market_prices_latest_for_set_legacy_",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_canonical_card_market_prices_latest_for_set_v2_shad",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_lateral",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_resolved_universe",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_v2_shadow",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_v3_shadow",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_cards_daily_constituents_v4_shadow",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_market_root_set_card_prices_latest_v1_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_market_root_set_card_prices_latest_v1_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_market_root_set_standard_daily_history_v2_fast_shad",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": true,
+      "classification": "A"
+    },
+    {
+      "consumer": "get_pokemon_set_value_canonical_prices_as_of_raw_oracle",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_set_value_canonical_prices_as_of_v2_shadow",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "get_pokemon_set_value_daily_rows_v2_hybrid_shadow",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "merge_pokemon_card_variant_price_observations",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "pokemon_scrape_missing_sets",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "preflight_price_storage_v2_member_publication",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "process_price_storage_v2_backfill_sets",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "prune_old_card_variant_price_observations",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "rebuild_card_variant_price_events_v2_from_raw_scope",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "rebuild_card_variant_price_monthly_rollups_v2_shadow_for_set",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "rebuild_card_variant_price_observation_ranges_v2_from_raw_scope",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "rebuild_pokemon_card_variant_price_monthly_rollups",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "rebuild_pokemon_market_price_intervals_v2_shadow_for_sets",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": true,
+      "classification": "A"
+    },
+    {
+      "consumer": "refresh_card_market_top_hits_by_edition_latest",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "refresh_card_market_top_hits_latest",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "refresh_card_variant_market_metrics_latest",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "refresh_pokemon_set_value_daily_history",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "retire_pokemon_card_variant_predecessor",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "rollup_card_variant_price_observations_monthly",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "rollup_card_variant_price_observations_previous_month",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "sync_pokemon_market_price_intervals_v2_shadow_set_from_date",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": true,
+      "classification": "A"
+    },
+    {
+      "consumer": "sync_price_observation_ranges_v2_set_date",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "sync_price_storage_v2_set_date",
+      "relation": "card_variant_price_events_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    }
+  ],
+  "views": [
+    {
+      "consumer": "card_market_usd_latest",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "card_market_usd_latest_by_condition",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "card_market_usd_latest_by_condition_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "card_market_usd_latest_by_condition_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "card_market_usd_latest_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "card_market_usd_latest_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "graded_card_market_latest",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "pokemon_canonical_card_market_price_missing_cards",
+      "relation": "pokemon_canonical_card_market_prices_latest",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "pokemon_canonical_card_market_price_set_diagnostics",
+      "relation": "pokemon_canonical_card_market_prices_latest",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "pokemon_set_combined_market_value_latest",
+      "relation": "pokemon_canonical_card_market_prices_latest",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "price_storage_v2_history_scope_inventory",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "simulation_input_cards_with_near_mint_price",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "simulation_input_cards_with_near_mint_price_legacy_shadow",
+      "relation": "card_variant_price_observations",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "simulation_input_cards_with_near_mint_price_v2_shadow",
+      "relation": "card_variant_price_current_v2",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    },
+    {
+      "consumer": "user_card_holdings_with_market",
+      "relation": "card_market_usd_latest_by_condition",
+      "explicit_tcgplayer": false,
+      "classification": "REVIEW_C_OR_D"
+    }
+  ]
+}

@@ -279,9 +279,28 @@ function expandGroup(renderer, id) {
  * to open it first — exactly as the user does. `renderCollapsed` is the
  * first-load state; `render` is the state after the user opened the groups.
  */
+/**
+ * The lower research lane (Comparison Detail / Constituents) is ALSO
+ * collapsed by design behind "View Constituents & Comparison"
+ * (`data-market-explorer-view-details`) — the current component renders it
+ * as a peek strip, not a permanently-mounted panel. A test asserting on
+ * `MarketExplorerDetails` content (detail headings, submarket rows, section
+ * order) has to open that strip first, exactly as the user does, or the
+ * panel simply never mounts and every such assertion sees an empty tree.
+ */
+function openDetails(renderer) {
+  const toggle = renderer.root.findAll(
+    (entry) => entry.props?.["data-market-explorer-view-details"] !== undefined, { deep: true }
+  )[0];
+  if (!toggle || toggle.props["aria-expanded"] === true || toggle.props["aria-expanded"] === "true") return false;
+  TestRenderer.act(() => { toggle.props.onClick?.(); });
+  return true;
+}
+
 function render(...args) {
   const renderer = renderCollapsed(...args);
   for (const id of RAIL_GROUPS) expandGroup(renderer, id);
+  openDetails(renderer);
   return renderer;
 }
 
@@ -504,13 +523,14 @@ test("All selects each series' own tracking window; a window the snapshot lacks 
 
 test("the reported return follows the selected timeframe, not a neighbouring window", () => {
   const renderer = render(overview, { market: "raw" });
-  const cell = () => renderer.root.findAll((node) => node.props?.["data-market-explorer-card-change"] !== undefined, { deep: true })[0];
-  assert.equal(cell().props["data-market-explorer-card-change"], "7D");
+  // The per-market card retired with the chart-first workspace; the Details table marks the active window.
+  const cell = () => renderer.root.findAll((node) => node.props?.["data-active-timeframe"] === "true", { deep: true })[0];
+  assert.equal(cell().props["data-market-explorer-detail-heading"], "7D");
 
   TestRenderer.act(() => {
-    renderer.root.findAll((node) => node.props?.["data-market-window-value"] === "1D", { deep: true })[0].props.onClick();
+    renderer.root.findAll((node) => node.props?.["data-market-window-value"] === "30D", { deep: true })[0].props.onClick();
   });
-  assert.equal(cell().props["data-market-explorer-card-change"], "1D");
+  assert.equal(cell().props["data-market-explorer-detail-heading"], "30D");
 });
 
 // --- values ---------------------------------------------------------------
@@ -1061,7 +1081,7 @@ test("Clear Graph does not reset the Builder draft", () => {
   if (eraToggle) TestRenderer.act(() => { eraToggle.props.onClick?.(); });
   const draftBefore = findAll(renderer, "data-market-builder-preview")[0]?.props?.["data-market-builder-preview"];
 
-  click(renderer, "data-market-explorer-clear-graph", undefined);
+  click(renderer, "data-market-explorer-active-clear-all", undefined);
 
   const draftAfter = findAll(renderer, "data-market-builder-preview")[0]?.props?.["data-market-builder-preview"];
   assert.equal(draftAfter, draftBefore);

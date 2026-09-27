@@ -15,6 +15,7 @@ class SetMe30thCelebrationClassicCollectionConfig(BaseSetConfig):
     # subset of 30th Celebration. Match the established Celebrations/Classic
     # Collection contract: scrape it independently, but roll its cards into the
     # parent set-value/opening universe rather than exposing it as a root set.
+    # Verified direct subset identity in the live Pokemon TCG API catalog.
     SET_ID = 'me55c'
     RELEASE_DATE = '2026-09-16'
     PRINTED_TOTAL = 30

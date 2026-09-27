@@ -1147,6 +1147,12 @@
   border-radius: 0.9rem;
 }
 
+/* The Browse list is a popover inside this zone; clipping the zone hides its
+   lower rows and keyboard target at laptop and tablet heights. */
+.explorerZoneBrowse {
+  overflow: visible;
+}
+
 .explorerZonePrimary {
   border-color: rgba(45, 212, 191, 0.24);
   box-shadow: 0 16px 48px rgba(2, 6, 23, 0.18), inset 0 1px rgba(153, 246, 228, 0.05);

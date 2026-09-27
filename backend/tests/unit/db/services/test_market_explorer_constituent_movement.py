@@ -76,12 +76,15 @@ def test_page_movement_uses_bounded_v2_daily_rows_when_baselines_exist():
 
     enriched = movement.enrich_card_constituent_page(client, page)
 
-    assert enriched["items"][0]["changes"] == pytest.approx(
-        {"1D": 20, "7D": 50, "30D": 140, "3M": 200}
-    )
+    assert enriched["items"][0]["changes"] == pytest.approx({
+        "1D": 20, "7D": 50, "30D": 140, "3M": 200,
+        "6M": None, "1Y": None, "SinceTracking": 200,
+    })
     assert enriched["items"][1]["changes"]["1D"] == pytest.approx(20)
     assert client.executions.count(movement.V2_DAILY_TABLE) == 1
-    assert client.executions.count(movement.V2_INTERVAL_TABLE) == 0
+    # Long-window baselines may be outside daily retention and therefore use
+    # the existing interval authority without inventing another history path.
+    assert client.executions.count(movement.V2_INTERVAL_TABLE) == 1
 
 
 def test_missing_v2_daily_baselines_fall_back_to_v2_intervals_not_v1():
@@ -106,7 +109,9 @@ def test_missing_v2_daily_baselines_fall_back_to_v2_intervals_not_v1():
         "items": [{"cardVariantId": "exact", "marketPrice": 10}],
     })
 
-    assert set(enriched["items"][0]["changes"]) == {"1D", "7D", "30D", "3M"}
+    assert set(enriched["items"][0]["changes"]) == {
+        "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking",
+    }
     assert client.executions.count(movement.V2_DAILY_TABLE) == 1
     assert client.executions.count(movement.V2_INTERVAL_TABLE) == 1
 

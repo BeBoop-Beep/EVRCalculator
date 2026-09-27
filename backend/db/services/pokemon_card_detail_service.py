@@ -141,6 +141,7 @@ def _load_card_market_history(client: Any, variant_id: Optional[str], condition_
     rows = _rows(
         client.table("card_variant_price_observations")
         .select("card_variant_id,condition_id,market_price,source,captured_at")
+        .eq("source", "TCGPlayer")
         .eq("card_variant_id", variant_id)
         .eq("condition_id", condition_id)
     )
@@ -300,7 +301,7 @@ def _latest_variant_market_rows(client: Any, variant_ids: List[str], condition_i
         return {}
     query = client.table("card_variant_price_observations").select(
         "card_variant_id,condition_id,market_price,source,captured_at"
-    ).in_("card_variant_id", variant_ids)
+    ).eq("source", "TCGPlayer").in_("card_variant_id", variant_ids)
     if condition_id:
         query = query.eq("condition_id", condition_id)
     latest: Dict[str, Dict[str, Any]] = {}

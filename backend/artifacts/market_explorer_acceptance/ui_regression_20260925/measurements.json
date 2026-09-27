@@ -1,0 +1,47 @@
+{
+  "center-offset-px-1440x900": {
+    "viewVsChartPane": 0.01,
+    "hideVsDetailsPane": 0,
+    "hideVsChartPane": 0
+  },
+  "center-offset-px-1366x768": {
+    "viewVsChartPane": 0.01,
+    "hideVsDetailsPane": 0,
+    "hideVsChartPane": 0
+  },
+  "center-offset-px-1920x1080": {
+    "viewVsChartPane": 0.01,
+    "hideVsDetailsPane": 0,
+    "hideVsChartPane": 0
+  },
+  "center-offset-px-mobile-390": {
+    "viewVsChartPane": 0.01,
+    "hideVsDetailsPane": 0
+  },
+  "switcher": {
+    "fossilPage1RequestsAfterReturn": 2,
+    "fossilPage1RequestsBeforeSwitching": 2
+  },
+  "focus": {
+    "focused": {
+      "key": "set:set-fossil",
+      "focus": "focused",
+      "stroke": "hsl(340 70% 62%)",
+      "opacity": "1"
+    },
+    "dimmed": [
+      {
+        "key": "raw",
+        "focus": "dimmed",
+        "stroke": "rgb(148,163,184)",
+        "opacity": "0.5"
+      },
+      {
+        "key": "sealedMarket",
+        "focus": "dimmed",
+        "stroke": "rgb(148,163,184)",
+        "opacity": "0.5"
+      }
+    ]
+  }
+}

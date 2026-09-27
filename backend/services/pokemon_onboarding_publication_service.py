@@ -59,6 +59,7 @@ def evaluate_onboarding_publication_readiness(
         for start in range(0, len(variant_ids), 250):
             observations.extend(
                 client.table("card_variant_price_observations").select("captured_at,market_price")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_ids[start:start + 250]).gt("market_price", 0)
                 .gte("captured_at", f"{market_date}T00:00:00-07:00")
                 .lt("captured_at", f"{market_date}T23:59:59.999999-07:00").limit(1).execute().data or []

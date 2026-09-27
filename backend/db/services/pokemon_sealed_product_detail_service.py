@@ -9,6 +9,7 @@ from backend.calculations.evr.best_open_price import (
     BEST_OPEN_PRICE_METHOD_VERSION, BEST_OPEN_PRICE_V2_METHOD_VERSION,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services import rip_release
 from backend.db.services.budget_product_best_open_price_service import load_best_open_price_product
 from backend.db.services.pokemon_public_snapshot_service import (
     DEFAULT_RANKINGS_SCOPE,
@@ -73,6 +74,14 @@ def _product_href(product_id: Any) -> Optional[str]:
     return f"/sealed-products/{quote(value, safe='')}" if value else None
 
 
+def _identity_mismatches(payload: Mapping[str, Any], client: Any):
+    """V12 keeps the historical one-argument identity check; only a V14 release supplies its own identity."""
+    release = rip_release.resolve_release_or_marked_fallback(client)
+    if release.requires_v5_schema:
+        return _rankings_publication_identity_mismatches(payload, release)
+    return _rankings_publication_identity_mismatches(payload)
+
+
 def _published_rankings(client: Any) -> Dict[str, Any]:
     rows = _rows(
         client.table("pokemon_explore_rankings_snapshot_latest")
@@ -98,7 +107,7 @@ def _published_rankings(client: Any) -> Dict[str, Any]:
     return {
         "payload": payload,
         "updatedAt": rows[0].get("updated_at"),
-        "current": not _rankings_publication_identity_mismatches(payload),
+        "current": not _identity_mismatches(payload, client),
     }
 
 
@@ -158,7 +167,7 @@ def _prepared_markets(snapshot: Optional[Mapping[str, Any]]) -> Dict[str, Dict[s
     return indexed
 
 
-def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, Any]:
+def _best_open_price_contract(client: Any, sealed_product_id: str, release: Any = None) -> Dict[str, Any]:
     """Presentation-safe Best-Open contract for one Product Detail page.
 
     The persisted threshold is deliberately kept separate from the page's
@@ -173,14 +182,16 @@ def _best_open_price_contract(client: Any, sealed_product_id: str) -> Dict[str, 
     # independently passes the exact same currentness/completeness rule
     # `load_best_open_price_product` enforces for either method version. A
     # stale V1 publication must never mask a valid current V2 one.
+    # The active release names the only readable method versions: V12 = V2 then V1; V14 = V3 alone (no
+    # older-model Best-Open under current labels).
+    versions = (release.best_open_method_versions if release is not None
+                else (BEST_OPEN_PRICE_V2_METHOD_VERSION, BEST_OPEN_PRICE_METHOD_VERSION))
     try:
-        prepared = load_best_open_price_product(
-            client, sealed_product_id, best_open_price_method_version=BEST_OPEN_PRICE_V2_METHOD_VERSION,
-        )
-        if not prepared.get("available"):
-            prepared = load_best_open_price_product(
-                client, sealed_product_id, best_open_price_method_version=BEST_OPEN_PRICE_METHOD_VERSION,
-            )
+        prepared = {"available": False}
+        for version in versions:
+            prepared = load_best_open_price_product(client, sealed_product_id, best_open_price_method_version=version)
+            if prepared.get("available"):
+                break
     except Exception:
         return {"available": False, "reason": "prepared_read_failed"}
     if not prepared.get("available"):
@@ -587,12 +598,18 @@ def get_pokemon_sealed_product_detail_payload(product_id: str, client: Any = Non
             .limit(1)
         )
         detail = details[0] if details else None
+    release = rip_release.resolve_release_or_marked_fallback(active)      # once per request
     rip = _rip_contract(ranking, detail, family, set_id=set_id, client=active)
+    rip["releaseModelVersion"] = release.overall_version
+    if release.requires_v5_schema:
+        # The V11 shadow block is built from `overallRipV12` storage; under a V14 release it would be an
+        # older-model claim presented on a current page, so it is withheld rather than relabelled.
+        rip["publicRipContractV11"] = None
     # Best-Open is cross-format Full Market intelligence, not the within-format
     # Product RIP rank. It rides inside the already Plus-gated RIP envelope so
     # Basic responses cannot receive it, while the frontend renders it as its
     # own separate card rather than pretending it is a same-format metric.
-    rip["bestOpenPrice"] = _best_open_price_contract(active, canonical_product_id)
+    rip["bestOpenPrice"] = _best_open_price_contract(active, canonical_product_id, release)
     if not publication["current"] and family in COMPARABLE_FAMILIES:
         rip["reason"] = "current_rankings_publication_unavailable"
 

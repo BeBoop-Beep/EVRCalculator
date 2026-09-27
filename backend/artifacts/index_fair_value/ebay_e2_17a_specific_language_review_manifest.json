@@ -1,0 +1,18 @@
+{
+  "corpus_fingerprint": "4a5607b94dbdfb7c5123316c2855a181903f0089b5bf66015491febc3e9e4333",
+  "review_session_id": "e2_17a_dev_session_8889bd6b19e0",
+  "review_session_started_at": "2026-09-17T03:37:10.769536+00:00",
+  "labels_frozen": true,
+  "reviewer_protocol": "SINGLE_REVIEWER_BLIND_DEVELOPMENT_E2_17A",
+  "reviewer_id": "donny",
+  "freeze_timestamp": "2026-09-17T04:01:16.851361+00:00",
+  "specific_language_label_fingerprint": "3dc900663abc939c64564383fe79234aea01b7abd7d252e5f1c3ce562ba0dda9",
+  "row_count": 25,
+  "specific_language_label_counts": {
+    "CHINESE": 5,
+    "JAPANESE": 16,
+    "KOREAN": 4
+  },
+  "development_only": true,
+  "production_authority": false
+}

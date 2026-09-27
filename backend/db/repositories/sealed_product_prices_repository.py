@@ -6,6 +6,8 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 import time
 
+from backend.db.services.supabase_persistence_retry import run_supabase_with_transient_retry
+
 
 def _parse_captured_at(value: Any) -> datetime:
     if isinstance(value, datetime):
@@ -59,6 +61,8 @@ def _prices_match(incoming: Dict[str, Any], existing: Dict[str, Any]) -> bool:
 
 def _fetch_existing_same_day_observations(
     normalized_rows: List[Dict[str, Any]],
+    *,
+    client=None,
 ) -> Tuple[Dict[str, Dict[str, Any]], int]:
     """
     Fetch existing same-day rows keyed by identity_key.
@@ -85,10 +89,10 @@ def _fetch_existing_same_day_observations(
         if not sealed_product_ids:
             continue
 
-        fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        query_client = client or create_client(SUPABASE_URL, SUPABASE_KEY)
         query_count += 1
         res = (
-            fresh_client.table("sealed_product_price_observations")
+            query_client.table("sealed_product_price_observations")
             .select("id, sealed_product_id, source, captured_at, market_price, low_price")
             .in_("sealed_product_id", sealed_product_ids)
             .in_("source", sources)
@@ -239,7 +243,14 @@ def insert_sealed_product_prices_batch_with_stats(price_rows: List[Dict[str, Any
         }
 
     normalized_rows = [_normalize_price_row(row) for row in price_rows]
-    existing_by_identity, dedupe_query_ops = _fetch_existing_same_day_observations(normalized_rows)
+
+    def _read_existing(client, _attempt):
+        return _fetch_existing_same_day_observations(normalized_rows, client=client)
+
+    existing_by_identity, dedupe_query_ops = run_supabase_with_transient_retry(
+        _read_existing,
+        operation_name="sealed_product_price_observations.same_day_dedupe_read",
+    )
 
     rows_to_insert: List[Dict[str, Any]] = []
     rows_to_update: List[Tuple[int, Dict[str, Any]]] = []  # (existing_id, price_fields_dict)
@@ -277,40 +288,61 @@ def insert_sealed_product_prices_batch_with_stats(price_rows: List[Dict[str, Any
     inserted_ids: List[int] = []
     updated_count = 0
 
-    # Batch INSERT new rows
+    # Batch INSERT new rows. A transport/database timeout may surface after
+    # Postgres committed, so every retry first reconciles the deterministic
+    # entity+source+market-day identity and inserts only rows that are still
+    # absent. This makes the existing transient retry layer safe for writes.
     if rows_to_insert:
-        last_insert_error = None
-        for attempt in range(3):
-            try:
-                fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-                res = fresh_client.table("sealed_product_price_observations").insert(rows_to_insert).execute()
+        def _insert_with_reconciliation(client, attempt):
+            pending_rows = rows_to_insert
+            reconciled_ids: List[int] = []
+            reconcile_query_ops = 0
 
+            if attempt > 1:
+                landed, reconcile_query_ops = _fetch_existing_same_day_observations(
+                    rows_to_insert,
+                    client=client,
+                )
+                pending_rows = []
+                for row in rows_to_insert:
+                    existing = landed.get(_identity_key(row))
+                    if existing is not None:
+                        if existing.get("id") is not None:
+                            reconciled_ids.append(existing["id"])
+                    else:
+                        pending_rows.append(row)
+
+            inserted_now: List[int] = []
+            insert_ops = 0
+            if pending_rows:
+                res = (
+                    client.table("sealed_product_price_observations")
+                    .insert(pending_rows)
+                    .execute()
+                )
                 if res is None:
-                    raise RuntimeError("Batch insert sealed product prices returned no response object")
-
+                    raise RuntimeError(
+                        "Batch insert sealed product prices returned no response object"
+                    )
                 inserted = res.data
                 if inserted is None:
                     raise RuntimeError("Batch insert returned no data")
+                inserted_now = [item["id"] for item in inserted]
+                insert_ops = 1
 
-                inserted_ids = [item["id"] for item in inserted]
-                db_ops += 1
-                break
-            except APIError as e:
-                last_insert_error = str(e)
-                if "schema cache" in last_insert_error.lower():
-                    print(f"[WARN]  Schema cache error on batch insert attempt {attempt + 1}/3, retrying...")
-                    if attempt < 2:
-                        time.sleep(1)
-                        continue
-                raise RuntimeError(f"Failed to batch insert sealed product prices: {last_insert_error}")
-            except RuntimeError as e:
-                last_insert_error = str(e)
-                if "schema cache" in last_insert_error.lower() and attempt < 2:
-                    time.sleep(1)
-                    continue
-                raise
-        else:
-            raise RuntimeError(f"Failed to batch insert sealed product prices after 3 retries: {last_insert_error}")
+            return {
+                "persisted_ids": reconciled_ids + inserted_now,
+                "reconcile_query_ops": reconcile_query_ops,
+                "insert_ops": insert_ops,
+            }
+
+        insert_result = run_supabase_with_transient_retry(
+            _insert_with_reconciliation,
+            operation_name="sealed_product_price_observations.batch_insert",
+        )
+        inserted_ids = list(insert_result.get("persisted_ids") or [])
+        db_ops += int(insert_result.get("reconcile_query_ops") or 0)
+        db_ops += int(insert_result.get("insert_ops") or 0)
 
     # UPDATE changed same-day rows individually (price drift within a day is rare)
     if rows_to_update:

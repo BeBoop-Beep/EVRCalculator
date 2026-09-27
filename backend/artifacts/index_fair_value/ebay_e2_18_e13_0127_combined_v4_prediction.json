@@ -1,0 +1,22 @@
+{
+  "classification": "HISTORICAL_POST_HOC_NON_CERTIFYING",
+  "scope": "E13-0127 decisive gate only",
+  "row": {
+    "row_id": "E13-0127",
+    "listing_item_id": "v1|407215142815|0",
+    "provider_language_raw": "Japanese",
+    "provider_language_normalized": "JAPANESE",
+    "provider_fetch_status": 200,
+    "ocr_v3_state": "UNVERIFIED",
+    "ocr_v3_reason": "weak_weak_no_conflict",
+    "image_fetch_status": 200,
+    "text_state": "HIGH_CONFIDENCE",
+    "image_state": "UNVERIFIED",
+    "language_v2_state": "LANGUAGE_UNVERIFIED",
+    "combined_v4_state": "TIER_B_TEXT_VERIFIED_IMAGE_UNVERIFIED",
+    "eligible": true
+  },
+  "prediction_fingerprint_sha256": "dc4212e606a572907ce4e236f9bf34ad0f905987b871041c29c387eedcb4179d",
+  "provider_artifact_sha256": "21627fae50a531e955911db4ef5bbb528d83ae3b46c6a5f5beaeba055575bbee",
+  "ocr_artifact_sha256": "fed998d19cd7f43799b01c82a0229db5f03b1c940c2cbf449dc0d993b50752c0"
+}

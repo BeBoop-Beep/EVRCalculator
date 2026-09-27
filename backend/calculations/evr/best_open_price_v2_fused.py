@@ -6,11 +6,10 @@ comparators, but scores a candidate price once and immediately compares that
 same score against every still-active V2 authority (Overall RIP V12 and
 Financial RIP V4).
 
-The implementation is intentionally streaming: only one prepared physical
-quantity is resident at a time.  This avoids both failure modes observed in the
-Sep. 14 Phase-10 cohort run: a small score LRU caused the sequential Financial
-pass to rescore millions of cents, while an unbounded quantity memo retained up
-to 186 prepared distributions for one product.
+The default implementation streams one prepared physical quantity at a time.
+Research callers may opt into a bounded pending block built with the exact
+independent-SINGLE-q parity factory.  Both modes avoid the prior sequential
+score-cache failure and unbounded quantity retention.
 """
 from __future__ import annotations
 
@@ -65,8 +64,8 @@ class DualBestOpenPriceSearch:
       ``max_quantity_to_construct``.  Again, the first win is globally maximal.
 
     At each inspected price the expensive candidate score is calculated once,
-    then the unchanged ``PreparedCanonicalCandidate.compare`` authority logic
-    is invoked for every active axis.  No cross-pass score cache is necessary.
+    then the candidate's authority comparator is invoked for every active axis.
+    No cross-pass score cache is necessary.
     """
 
     product_id: str
@@ -85,11 +84,15 @@ class DualBestOpenPriceSearch:
     ] = None
     max_quantity_to_construct: int = 4096
 
-    # Retained as constructor-compatibility knobs for the prior V2 wrapper.
-    # The fused implementation intentionally does not keep either cache.
+    # Cache knobs remain constructor-compatible with the prior V2 wrapper.
+    # Prefetch uses only quantity_batch_size and requires explicit opt-in.
     max_cached_quantities: int = 4
     quantity_batch_size: int = 8
     max_score_cache_entries: int = 4096
+    rip_comparison_authority: str = COMPARISON_AUTHORITY_OVERALL_V12
+    financial_comparison_authority: str = COMPARISON_AUTHORITY_FINANCIAL_V4
+    enable_quantity_prefetch: bool = False
+    rng_outcome_count: int = 0
 
     _resident_quantity: Optional[int] = field(default=None, init=False)
     _resident_candidate: Optional[PreparedCanonicalCandidate] = field(default=None, init=False)
@@ -97,9 +100,16 @@ class DualBestOpenPriceSearch:
     _quantity_construction_count: int = field(default=0, init=False)
     _max_resident_quantities: int = field(default=0, init=False)
     _batch_build_count: int = field(default=0, init=False)
+    _batch_quantity_count: int = field(default=0, init=False)
     _batch_fallback_count: int = field(default=0, init=False)
     _score_count: int = field(default=0, init=False)
     _score_seconds: float = field(default=0.0, init=False)
+    _pending: Dict[int, PreparedCanonicalCandidate] = field(default_factory=dict, init=False)
+    _prefetch_active: bool = field(default=False, init=False)
+    _max_pending: int = field(default=0, init=False)
+    _effective_draws: int = field(default=0, init=False)
+    _legacy_draws: int = field(default=0, init=False)
+    _construction_seconds: float = field(default=0.0, init=False)
 
     def __post_init__(self) -> None:
         if self.source_authority_fingerprint != self.expected_source_authority_fingerprint:
@@ -118,13 +128,14 @@ class DualBestOpenPriceSearch:
             raise BestOpenPriceSearchError("quantity candidate identity mismatch")
 
     def _build_candidate(self, quantity: int) -> PreparedCanonicalCandidate:
-        """Build exactly one physical quantity, preferring the batch fast path.
+        """Build one physical quantity, preferring the batch fast path.
 
         ``prepare_quantities([q])`` preserves the optimized independent-q
         construction used by the cohort runner without retaining the result
         after the scan moves to another quantity.  Any batch failure falls back
         to the correctness-first single-q factory, mirroring V1 behavior.
         """
+        started = time.perf_counter()
         candidate: Optional[PreparedCanonicalCandidate] = None
         if self.prepare_quantities is not None:
             try:
@@ -136,6 +147,7 @@ class DualBestOpenPriceSearch:
                 candidate = built[quantity]
                 self._validate_candidate(quantity, candidate)
                 self._batch_build_count += 1
+                self._batch_quantity_count += 1
             except Exception:
                 self._batch_fallback_count += 1
                 candidate = None
@@ -145,16 +157,53 @@ class DualBestOpenPriceSearch:
 
         self._constructed_quantities.add(quantity)
         self._quantity_construction_count += 1
+        self._effective_draws += quantity if quantity > 1 else 0
+        self._legacy_draws += quantity if quantity > 1 else 0
+        self._construction_seconds += time.perf_counter() - started
         return candidate
 
     def _candidate(self, quantity: int) -> PreparedCanonicalCandidate:
         if self._resident_quantity == quantity and self._resident_candidate is not None:
             return self._resident_candidate
-        self._resident_candidate = self._build_candidate(quantity)
+        if quantity in self._pending:
+            candidate = self._pending.pop(quantity)
+        elif self._prefetch_active and self.enable_quantity_prefetch and self.prepare_quantities is not None:
+            build_started = time.perf_counter()
+            stop = min(self.max_quantity_to_construct, self.budget_cents,
+                       quantity + self.quantity_batch_size - 1)
+            minimum_price = self.budget_cents // (
+                min(self.budget_cents, self.max_quantity_to_construct) + 1) + 1
+            quantities = []
+            for q in range(quantity, stop + 1):
+                low, high = quantity_price_interval_cents(self.budget_cents, q)
+                if max(low, minimum_price) <= min(high, self.current_price_cents - 1):
+                    quantities.append(q)
+            try:
+                built = dict(self.prepare_quantities(quantities))
+                if set(built) != set(quantities):
+                    raise BestOpenPriceSearchError("quantity batch returned the wrong quantity set")
+                for q, item in built.items():
+                    self._validate_candidate(q, item)
+                self._pending = built
+                self._max_pending = max(self._max_pending, len(built))
+                self._batch_build_count += 1
+                self._batch_quantity_count += len(quantities)
+                self._effective_draws += max((q for q in quantities if q > 1), default=0)
+                self._legacy_draws += sum(q for q in quantities if q > 1)
+                self._constructed_quantities.update(quantities)
+                self._quantity_construction_count += len(quantities)
+                candidate = self._pending.pop(quantity)
+                self._construction_seconds += time.perf_counter() - build_started
+            except Exception:
+                self._pending.clear()
+                self._batch_fallback_count += 1
+                candidate = self._build_candidate(quantity)
+        else:
+            candidate = self._build_candidate(quantity)
+        self._resident_candidate = candidate
         self._resident_quantity = quantity
-        # The old candidate reference is replaced before this returns.  The
-        # shared V2 layer therefore owns at most one prepared quantity.
-        self._max_resident_quantities = max(self._max_resident_quantities, 1)
+        # The prior resident reference is replaced before this returns.
+        self._max_resident_quantities = max(self._max_resident_quantities, 1 + len(self._pending))
         return self._resident_candidate
 
     def _score(self, price_cents: int) -> tuple[PreparedCanonicalCandidate, Dict[str, Any]]:
@@ -227,9 +276,9 @@ class DualBestOpenPriceSearch:
                 "comparatorSeconds": axis.comparator_seconds,
                 "exactnessVerificationSeconds": 0.0,
                 "quantityBatchBuilds": self._batch_build_count,
-                "quantityBatchQuantities": self._batch_build_count,
+                "quantityBatchQuantities": self._batch_quantity_count,
                 "quantityBatchFallbacks": self._batch_fallback_count,
-                "maximumPendingBatchCandidates": 1 if self._batch_build_count else 0,
+                "maximumPendingBatchCandidates": self._max_pending or (1 if self._batch_build_count else 0),
                 "wallSeconds": time.perf_counter() - started,
             }
 
@@ -283,9 +332,9 @@ class DualBestOpenPriceSearch:
             "comparatorSeconds": axis.comparator_seconds,
             "exactnessVerificationSeconds": 0.0,
             "quantityBatchBuilds": self._batch_build_count,
-            "quantityBatchQuantities": self._batch_build_count,
+            "quantityBatchQuantities": self._batch_quantity_count,
             "quantityBatchFallbacks": self._batch_fallback_count,
-            "maximumPendingBatchCandidates": 1 if self._batch_build_count else 0,
+            "maximumPendingBatchCandidates": self._max_pending or (1 if self._batch_build_count else 0),
             "wallSeconds": time.perf_counter() - started,
             "exactness": exactness,
         }
@@ -294,13 +343,13 @@ class DualBestOpenPriceSearch:
         started = time.perf_counter()
         rip = _AxisState(
             "rip",
-            COMPARISON_AUTHORITY_OVERALL_V12,
+            self.rip_comparison_authority,
             self.rip_current_rank,
             self.rip_benchmark,
         )
         financial = _AxisState(
             "financial",
-            COMPARISON_AUTHORITY_FINANCIAL_V4,
+            self.financial_comparison_authority,
             self.financial_current_rank,
             self.financial_benchmark,
         )
@@ -354,6 +403,7 @@ class DualBestOpenPriceSearch:
         max_q = min(self.budget_cents, self.max_quantity_to_construct)
         minimum_price_cents = self.budget_cents // (max_q + 1) + 1
         low_active = [axis for axis in axes if not axis.is_leader and axis.result is None]
+        self._prefetch_active = True
         for price_cents in range(self.current_price_cents - 1, minimum_price_cents - 1, -1):
             unresolved = [axis for axis in low_active if axis.result is None]
             if not unresolved:
@@ -366,6 +416,7 @@ class DualBestOpenPriceSearch:
 
         rip_result = self._axis_payload(rip, started=started)
         financial_result = self._axis_payload(financial, started=started)
+        self._pending.clear()
         return {
             "ripResult": rip_result,
             "financialResult": financial_result,
@@ -393,7 +444,15 @@ class DualBestOpenPriceSearch:
             "naiveScoreCount": naive_score_count,
             "scoreReuseSavings": reuse_savings,
             "sharedCandidateScoringSeconds": self._score_seconds,
+            "quantityConstructionSeconds": self._construction_seconds,
+            "priceScoringSeconds": self._score_seconds,
+            "comparatorSeconds": rip.comparator_seconds + financial.comparator_seconds,
             "quantityBatchBuilds": self._batch_build_count,
             "quantityBatchFallbacks": self._batch_fallback_count,
+            "quantityBatchQuantities": self._batch_quantity_count,
+            "requestedQuantityBatchWidth": self.quantity_batch_size,
+            "maximumPendingBatchCandidates": self._max_pending,
+            "effectiveRngDraws": self._effective_draws * self.rng_outcome_count,
+            "legacyEquivalentRngDraws": self._legacy_draws * self.rng_outcome_count,
             "fusedStreaming": True,
         }

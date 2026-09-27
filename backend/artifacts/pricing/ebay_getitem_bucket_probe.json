@@ -1,0 +1,25 @@
+{
+ "before": {
+  "buy.browse": 1,
+  "buy.browse.item.bulk": 0
+ },
+ "calls": {
+  "search": 1,
+  "getItem": 5
+ },
+ "item_statuses": [
+  200,
+  200,
+  200,
+  200,
+  200
+ ],
+ "after_60s": {
+  "buy.browse": 1,
+  "buy.browse.item.bulk": 0
+ },
+ "after_90s": {
+  "buy.browse": 1,
+  "buy.browse.item.bulk": 0
+ }
+}

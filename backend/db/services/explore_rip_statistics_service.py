@@ -78,6 +78,12 @@ from backend.desirability.public_rip_contract_v11 import (
     PUBLIC_RIP_CONTRACT_V11_KEY,
     build_public_rip_contract_v11,
 )
+from backend.db.services import rip_release, set_rankings_v14
+from backend.desirability.public_rip_contract_v12 import build_public_rip_contract_v12
+from backend.desirability.scoring_config import (
+    OVERALL_RIP_V14_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V14_WEIGHTS,
+)
 from backend.desirability.public_rip_contract_v7 import (
     PUBLIC_RIP_CONTRACT_V7_KEY,
     build_public_rip_contract_v7,
@@ -921,6 +927,24 @@ def _rank_overall_rip_v10(row: Mapping[str, Any]) -> Optional[float]:
     return _to_optional_float((row.get("overallRipV10") or {}).get("score"))
 
 
+def _rank_financial_rip_v5(row: Mapping[str, Any]) -> Optional[float]:
+    """Release V14: rank by the ABSOLUTE Financial RIP V5 score (never a cohort transformation of it)."""
+    return _to_optional_float((row.get("financialRipV5") or {}).get("score"))
+
+
+def _rank_overall_rip_v14(row: Mapping[str, Any]) -> Optional[float]:
+    """Release V14: rank by the ABSOLUTE Overall RIP V14 score."""
+    return _to_optional_float((row.get("overallRipV14") or {}).get("score"))
+
+
+# Additional ranked metrics of the V14 release. Added ONLY when the selected release is V14; the V12 list
+# (``PUBLIC_RANKED_METRICS``) is untouched.
+V14_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
+    ("_rank_financial_rip_v5", "financialRipV5"),
+    ("_rank_overall_rip_v14", "overallRipV14"),
+)
+
+
 def _rank_overall_rip_v12(row: Mapping[str, Any]) -> Optional[float]:
     """CANONICAL Overall rank accessor: the ABSOLUTE Overall RIP V12 score.
 
@@ -1125,6 +1149,8 @@ def _attach_public_rip_contract(
     *,
     sources: Dict[str, str],
     warnings: List[str],
+    release: Any = None,
+    v14_context: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Fix the public cohort, then compute every public score, rank and tier in it.
 
@@ -1280,6 +1306,15 @@ def _attach_public_rip_contract(
             target_run_id=target_run_id,
         )
         target["overallRipV12"] = overall_v12
+        if release is not None and release.requires_v5_schema:
+            # Release V14: the set-level Financial V5 / Overall V14 blocks, under their OWN keys. V4/V12 above are
+            # untouched (historical/rollback lineage) and V14 values are never written into them.
+            ctx = v14_context or {}
+            target.update(set_rankings_v14.build_v14_target_blocks(
+                target, authority_row=(ctx.get("rows_by_run") or {}).get(target_run_id), client=ctx.get("client"),
+                collector_score=collector_appeal_score,
+                collector_version=(collector.get("collectorAppeal") or {}).get("version"),
+                accessibility_row=accessibility_row, artifact_loader=ctx.get("artifact_loader")))
         # PUBLIC RAW block (additive) - the same projection shape the set page
         # already publishes, so `public_rip_contract_v11` has a real source
         # rather than re-deriving it. Distinct in scale from `overallRipV12`'s
@@ -1314,7 +1349,7 @@ def _attach_public_rip_contract(
 
     # 4. Ranks - only now, and only within the cohort.
     cohort_rows = [target for target in targets if str(target.get("target_id")) in cohort_ids]
-    _rank_within_cohort(cohort_rows, cohort_size=len(cohort_ids))
+    _rank_within_cohort(cohort_rows, cohort_size=len(cohort_ids), release=release)
 
     # 5. Overall-ranked cohort audit, against the CANONICAL Overall RIP - now
     #    V12 (0.86 Financial RIP V4 + 0.04 Chase Accessibility Score(k=0.002) +
@@ -1340,8 +1375,9 @@ def _attach_public_rip_contract(
     #    could hold a V9 score off an older Financial/Appeal pairing while
     #    having no canonical V12 score at all, and the denominator would count
     #    it anyway.
+    overall_key = release.overall_target_key if release is not None else "overallRipV12"
     overall_available = {
-        str(target.get("target_id")): (target.get("overallRipV12") or {}).get("score") is not None
+        str(target.get("target_id")): (target.get(overall_key) or {}).get("score") is not None
         for target in cohort_rows
     }
     # The version OF THE NUMBER that fed the canonical blend, read from the
@@ -1354,7 +1390,7 @@ def _attach_public_rip_contract(
             (target.get("openingExperience") or {}).get("collectorAppeal") or {}
         ).get("version")
         for target in cohort_rows
-        if (target.get("overallRipV12") or {}).get("score") is not None
+        if (target.get(overall_key) or {}).get("score") is not None
     }
     overall_audit = audit_overall_ranked_cohort(
         cohort.get("eligibleSetIds") or [], overall_available, appeal_version_by_set
@@ -1373,7 +1409,9 @@ def _attach_public_rip_contract(
     # CANONICAL_OVERALL_RIP_VERSION is the actual canonical-authority constant
     # (currently V12) - never another stale version literal - so this audit
     # metadata always names the model actually ranked.
-    overall_audit["expectedOverallRipVersion"] = CANONICAL_OVERALL_RIP_VERSION
+    overall_audit["expectedOverallRipVersion"] = (
+        release.overall_version if release is not None else CANONICAL_OVERALL_RIP_VERSION
+    )
     overall_audit["appealVersionMatchesCanonical"] = (
         overall_audit["appealVersion"] == COLLECTOR_APPEAL_V5_VERSION
     )
@@ -1407,9 +1445,10 @@ def _attach_public_rip_contract(
     return cohort
 
 
-def _rank_within_cohort(cohort_rows: List[Dict[str, Any]], *, cohort_size: int) -> None:
+def _rank_within_cohort(cohort_rows: List[Dict[str, Any]], *, cohort_size: int, release: Any = None) -> None:
     """Rank and tier every publicly-exposed metric across the fixed cohort."""
-    for extractor_name, contract_key in PUBLIC_RANKED_METRICS:
+    v14 = release is not None and release.requires_v5_schema
+    for extractor_name, contract_key in PUBLIC_RANKED_METRICS + (V14_RANKED_METRICS if v14 else ()):
         extractor = globals()[extractor_name]
         scratch = [
             {"target_id": row.get("target_id"), "_score": extractor(row)}
@@ -1419,7 +1458,7 @@ def _rank_within_cohort(cohort_rows: List[Dict[str, Any]], *, cohort_size: int) 
         for row in cohort_rows:
             entry = ranked.get(str(row.get("target_id"))) or {}
             _apply_rank(row, contract_key, entry, cohort_size=cohort_size)
-    _attach_relative_scores(cohort_rows)
+    _attach_relative_scores(cohort_rows, release=release)
     _attach_cohort_fingerprint(cohort_rows)
 
 
@@ -1453,7 +1492,7 @@ def _attach_cohort_fingerprint(cohort_rows: List[Dict[str, Any]]) -> None:
             row["chaseAccessibility"]["cohortId"] = fingerprint["fingerprint"]
 
 
-def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
+def _attach_relative_scores(cohort_rows: List[Dict[str, Any]], release: Any = None) -> None:
     """Cohort-relative 0-100 scores for Overall RIP, Financial RIP and pillars.
 
     The ABSOLUTE score is the direct formula result (``rip.score`` /
@@ -1507,6 +1546,9 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
         # treatment V10 received before it - the promotion invariant is that
         # V12's standing contract is never weaker than the model it replaces.
         (_rank_overall_rip_v12, "overallRipV12"),
+    ) + (
+        ((_rank_financial_rip_v5, "financialRipV5"), (_rank_overall_rip_v14, "overallRipV14"))
+        if release is not None and release.requires_v5_schema else ()
     ):
         scratch = [
             {"target_id": row.get("target_id"), "_score": extractor(row)}
@@ -1520,7 +1562,7 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
                 continue
             relative = relatives.get(str(row.get("target_id")))
             obj["relativeScore"] = round(relative, 2) if relative is not None else None
-            if obj_key in {"overallRipV10", "overallRipV12", "financialRipV4"}:
+            if obj_key in {"overallRipV10", "overallRipV12", "financialRipV4", "overallRipV14", "financialRipV5"}:
                 leader = leaders.get(str(row.get("target_id")))
                 obj["leaderNormalizedScore"] = round(leader, 2) if leader is not None else None
                 obj["tier"] = public_leader_rip_tier(leader)
@@ -1644,7 +1686,7 @@ def _apply_rank(
     if contract_key in (
         "rip", "ripCore", "financialRipV3",
         "overallRipV5", "overallRipV6", "overallRipV7", "overallRipV8", "overallRipV9",
-        "financialRipV4", "overallRipV10", "overallRipV12",
+        "financialRipV4", "overallRipV10", "overallRipV12", "financialRipV5", "overallRipV14",
     ):
         target = row.get(contract_key) or {}
         target["rank"] = entry.get("rank")
@@ -1912,13 +1954,77 @@ def _load_rankings_top_chase_lookup(
     return lookup
 
 
+def _assert_expected_simulation_run_authority(
+    rows: Iterable[Mapping[str, Any]],
+    expected_run_by_set: Mapping[str, str],
+) -> None:
+    """Fail closed when the live/latest view drifts from a verified cohort.
+
+    The freshness gate owns which exact calculation run is authoritative for
+    each simulation-supported set. The live RIP view is still useful as the
+    materialized calculation source, but "latest per set" is not publication
+    authority: partial reruns can otherwise mix generations. Extra rows are
+    allowed because the view may carry non-opening targets; every expected set
+    must be present on exactly the verified run.
+    """
+    expected = {
+        str(set_id): str(run_id)
+        for set_id, run_id in dict(expected_run_by_set or {}).items()
+        if set_id and run_id
+    }
+    if not expected:
+        return
+
+    actual = {
+        str(row.get("set_id")): str(row.get("calculation_run_id"))
+        for row in rows
+        if row.get("set_id") and row.get("calculation_run_id")
+    }
+    missing = sorted(set(expected) - set(actual))
+    mismatched = sorted(
+        set_id for set_id, run_id in expected.items()
+        if actual.get(set_id) is not None and actual.get(set_id) != run_id
+    )
+    if missing or mismatched:
+        details = []
+        if missing:
+            details.append("missing=" + ",".join(missing))
+        if mismatched:
+            details.append(
+                "mismatched="
+                + ",".join(
+                    f"{set_id}:{actual.get(set_id)}!={expected[set_id]}"
+                    for set_id in mismatched
+                )
+            )
+        raise ExploreRipStatisticsTargetsError(
+            status_code=503,
+            message=(
+                "RIP Statistics live view does not match the verified simulation cohort; "
+                + "; ".join(details)
+            ),
+            code="SIMULATION_COHORT_AUTHORITY_MISMATCH",
+        )
+
+
 def get_rip_statistics_targets_payload(
     limit: Any = DEFAULT_TARGETS_LIMIT,
     *,
     include_rankings_top_chase: bool = True,
     rankings_top_chase_snapshot_rows: Optional[Iterable[Mapping[str, Any]]] = None,
+    release: Any = None,
+    set_authority_rows_fn: Optional[Any] = None,
+    artifact_loader: Optional[Any] = None,
+    expected_run_by_set: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
-    """Return available RIP targets and the best default target from persisted data."""
+    """Return available RIP targets and the best default target from persisted data.
+
+    ``release`` (a ``rip_release.RipReleaseBundle``) selects the generation being built. ``None`` is the
+    static canonical V12 bundle, so every existing caller keeps its exact behaviour; an explicit V14 bundle
+    builds the Financial V5 / Overall V14 / Public Contract V12 candidate. The active pointer is never read here:
+    the caller resolves the release once and passes it.
+    """
+    release = release if release is not None else rip_release.static_canonical_bundle()
     total_started = time.perf_counter()
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_TARGETS_LIMIT, max_value=MAX_TARGETS_LIMIT)
 
@@ -1961,6 +2067,8 @@ def get_rip_statistics_targets_payload(
             message="No RIP Statistics targets found",
             code="TARGETS_NOT_FOUND",
         )
+
+    _assert_expected_simulation_run_authority(raw_rows, expected_run_by_set or {})
 
     ranked_rows = sorted(raw_rows, key=_build_rank_sort_key)
 
@@ -2497,7 +2605,15 @@ def get_rip_statistics_targets_payload(
         }
         target["simulationCoverage"] = assess_simulation_coverage(target)
 
-    cohort = _attach_public_rip_contract(targets, sources=sources, warnings=warnings)
+    v14_context = None
+    if release.requires_v5_schema:
+        rows_fn = set_authority_rows_fn or set_rankings_v14.read_set_authority_rows
+        v14_context = {
+            "client": service_read_client, "artifact_loader": artifact_loader,
+            "rows_by_run": rows_fn(service_read_client, [t.get("calculation_run_id") for t in targets]),
+        }
+    cohort = _attach_public_rip_contract(targets, sources=sources, warnings=warnings, release=release,
+                                         v14_context=v14_context)
 
     # Compact public v4 projection: ONE object both Explore and the set page read,
     # lifted verbatim from the canonical rip/ripCore/universalSetDesirability/
@@ -2538,6 +2654,9 @@ def get_rip_statistics_targets_payload(
         # historical/rollback lineage. This is the contract current
         # Set/Explore consumers read for the canonical Overall RIP.
         target[PUBLIC_RIP_CONTRACT_V11_KEY] = build_public_rip_contract_v11(target)
+        if release.requires_v5_schema:
+            # Release V14 candidate only: Public Contract V12 (Overall V14 + Financial V5), beside V11.
+            target["publicRipContractV12"] = build_public_rip_contract_v12(target)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
@@ -2574,12 +2693,13 @@ def get_rip_statistics_targets_payload(
             # `scoring_config`, so a future cutover cannot leave this behind.
             "ripWeightsConfig": {
                 "financialRip": {
-                    "version": CANONICAL_FINANCIAL_RIP_VERSION,
+                    "version": release.financial_version,
                 },
                 "overallRip": {
-                    "weights": dict(OVERALL_RIP_V9_WEIGHTS),
-                    "effectiveWeights": dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
-                    "version": CANONICAL_OVERALL_RIP_VERSION,
+                    "weights": dict(OVERALL_RIP_V14_WEIGHTS if release.requires_v5_schema else OVERALL_RIP_V9_WEIGHTS),
+                    "effectiveWeights": dict(
+                        OVERALL_RIP_V14_EFFECTIVE_WEIGHTS if release.requires_v5_schema else OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
+                    "version": release.overall_version,
                 },
                 "collectorAppeal": {
                     # Version only. Collector Appeal's internal weights are not
@@ -2588,7 +2708,7 @@ def get_rip_statistics_targets_payload(
                     "weightsDisclosed": False,
                 },
                 "publicContract": {
-                    "version": canonical_public_rip_contract_version(),
+                    "version": release.public_contract_version,
                 },
                 # Superseded models, under an explicitly legacy namespace so
                 # nothing selects one by fallback and the comparison surfaces

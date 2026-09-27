@@ -1,0 +1,574 @@
+{
+  "captured_utc": "2026-09-19 23:16:35 UTC",
+  "view": "card_market_usd_latest_by_condition",
+  "rows": [
+    {
+      "variant_id": "09c602d4-6c85-4f6d-b1b3-a12e5155f5de",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "53.92",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:08:16.269568+00"
+    },
+    {
+      "variant_id": "09c602d4-6c85-4f6d-b1b3-a12e5155f5de",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "199.0",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-19",
+      "created_at": "2026-06-19 10:32:20.23673+00"
+    },
+    {
+      "variant_id": "09c602d4-6c85-4f6d-b1b3-a12e5155f5de",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "118.71",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:08:16.269568+00"
+    },
+    {
+      "variant_id": "09c602d4-6c85-4f6d-b1b3-a12e5155f5de",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "167.12",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:08:16.269568+00"
+    },
+    {
+      "variant_id": "09c602d4-6c85-4f6d-b1b3-a12e5155f5de",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "63.02",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:08:16.269568+00"
+    },
+    {
+      "variant_id": "2e825dec-1a8a-46dd-9e47-4cb7d55ee42a",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "76.99",
+      "source": "TCGPlayer",
+      "captured_at": "2026-05-08",
+      "created_at": "2026-05-08 10:36:13.689044+00"
+    },
+    {
+      "variant_id": "2e825dec-1a8a-46dd-9e47-4cb7d55ee42a",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "99.99",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:45:10.932648+00"
+    },
+    {
+      "variant_id": "2e825dec-1a8a-46dd-9e47-4cb7d55ee42a",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "100.0",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:45:10.932648+00"
+    },
+    {
+      "variant_id": "33aae8ca-8e63-406e-a672-c067a8dd27ca",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "1.15",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:36:20.245909+00"
+    },
+    {
+      "variant_id": "33aae8ca-8e63-406e-a672-c067a8dd27ca",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "3.63",
+      "source": "TCGPlayer",
+      "captured_at": "2026-09-18",
+      "created_at": "2026-09-18 16:49:59.71581+00"
+    },
+    {
+      "variant_id": "33aae8ca-8e63-406e-a672-c067a8dd27ca",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "2.0",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:36:20.245909+00"
+    },
+    {
+      "variant_id": "33aae8ca-8e63-406e-a672-c067a8dd27ca",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "2.5",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:36:20.245909+00"
+    },
+    {
+      "variant_id": "33aae8ca-8e63-406e-a672-c067a8dd27ca",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "0.96",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:36:20.245909+00"
+    },
+    {
+      "variant_id": "3dd0f4fa-16ac-4263-b9bc-817b48a3074c",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "20.44",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "3dd0f4fa-16ac-4263-b9bc-817b48a3074c",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "51.17",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "3dd0f4fa-16ac-4263-b9bc-817b48a3074c",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "32.14",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "3dd0f4fa-16ac-4263-b9bc-817b48a3074c",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "42.8",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "3dd0f4fa-16ac-4263-b9bc-817b48a3074c",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "19.79",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "5a9d23cc-e13a-4c29-a761-d602f87ca950",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "142.82",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:12:21.757823+00"
+    },
+    {
+      "variant_id": "5a9d23cc-e13a-4c29-a761-d602f87ca950",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "164.98",
+      "source": "TCGPlayer",
+      "captured_at": "2026-05-09",
+      "created_at": "2026-05-09 10:21:20.054331+00"
+    },
+    {
+      "variant_id": "5a9d23cc-e13a-4c29-a761-d602f87ca950",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "136.17",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:12:21.757823+00"
+    },
+    {
+      "variant_id": "5a9d23cc-e13a-4c29-a761-d602f87ca950",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "166.83",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:12:21.757823+00"
+    },
+    {
+      "variant_id": "5a9d23cc-e13a-4c29-a761-d602f87ca950",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "138.33",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:12:21.757823+00"
+    },
+    {
+      "variant_id": "5c4c7dc2-9636-4544-8f24-b20c5df54127",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "2.03",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-30",
+      "created_at": "2026-06-30 02:04:26.691047+00"
+    },
+    {
+      "variant_id": "5c4c7dc2-9636-4544-8f24-b20c5df54127",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "1.39",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-30",
+      "created_at": "2026-06-30 02:04:26.691047+00"
+    },
+    {
+      "variant_id": "5c4c7dc2-9636-4544-8f24-b20c5df54127",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "2.09",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-30",
+      "created_at": "2026-06-30 02:04:26.691047+00"
+    },
+    {
+      "variant_id": "5c4c7dc2-9636-4544-8f24-b20c5df54127",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "2.0",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-24",
+      "created_at": "2026-06-24 12:25:27.884498+00"
+    },
+    {
+      "variant_id": "5ed848c2-fc64-4528-aff0-279b89c46b8c",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "121.0",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:12:25.636258+00"
+    },
+    {
+      "variant_id": "5ed848c2-fc64-4528-aff0-279b89c46b8c",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "207.95",
+      "source": "TCGPlayer",
+      "captured_at": "2026-07-09",
+      "created_at": "2026-07-09 00:20:26.832438+00"
+    },
+    {
+      "variant_id": "5ed848c2-fc64-4528-aff0-279b89c46b8c",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "183.32",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:12:25.636258+00"
+    },
+    {
+      "variant_id": "5ed848c2-fc64-4528-aff0-279b89c46b8c",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "89.0",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:12:25.636258+00"
+    },
+    {
+      "variant_id": "63191dd8-35a2-411d-89c9-af8e1de3e181",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "0.25",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:06:19.667766+00"
+    },
+    {
+      "variant_id": "63191dd8-35a2-411d-89c9-af8e1de3e181",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "0.25",
+      "source": "TCGPlayer",
+      "captured_at": "2026-09-19",
+      "created_at": "2026-09-19 22:16:37.116292+00"
+    },
+    {
+      "variant_id": "63191dd8-35a2-411d-89c9-af8e1de3e181",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "0.15",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:06:19.667766+00"
+    },
+    {
+      "variant_id": "63191dd8-35a2-411d-89c9-af8e1de3e181",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "0.27",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:06:19.667766+00"
+    },
+    {
+      "variant_id": "63191dd8-35a2-411d-89c9-af8e1de3e181",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "0.09",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 10:06:19.667766+00"
+    },
+    {
+      "variant_id": "7b646415-6c67-4910-8ae4-18a65c88f514",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "32.17",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:20.087148+00"
+    },
+    {
+      "variant_id": "7b646415-6c67-4910-8ae4-18a65c88f514",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "69.99",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-12",
+      "created_at": "2026-06-12 10:52:18.893307+00"
+    },
+    {
+      "variant_id": "7b646415-6c67-4910-8ae4-18a65c88f514",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "42.27",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:20.087148+00"
+    },
+    {
+      "variant_id": "7b646415-6c67-4910-8ae4-18a65c88f514",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "63.96",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:20.087148+00"
+    },
+    {
+      "variant_id": "7b646415-6c67-4910-8ae4-18a65c88f514",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "19.09",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:20.087148+00"
+    },
+    {
+      "variant_id": "8a4b2acc-eee4-45bb-96b2-1130d9c3ad8b",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "29.81",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "8a4b2acc-eee4-45bb-96b2-1130d9c3ad8b",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "78.35",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "8a4b2acc-eee4-45bb-96b2-1130d9c3ad8b",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "35.55",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "8a4b2acc-eee4-45bb-96b2-1130d9c3ad8b",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "53.77",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "8a4b2acc-eee4-45bb-96b2-1130d9c3ad8b",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "26.2",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:56:17.161391+00"
+    },
+    {
+      "variant_id": "9543c2f9-1ffe-4d2f-b1c5-beed15f1ed15",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "5.53",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:32:25.342825+00"
+    },
+    {
+      "variant_id": "9543c2f9-1ffe-4d2f-b1c5-beed15f1ed15",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "18.38",
+      "source": "TCGPlayer",
+      "captured_at": "2026-09-19",
+      "created_at": "2026-09-19 22:02:00.803265+00"
+    },
+    {
+      "variant_id": "9543c2f9-1ffe-4d2f-b1c5-beed15f1ed15",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "8.12",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:32:25.342825+00"
+    },
+    {
+      "variant_id": "9543c2f9-1ffe-4d2f-b1c5-beed15f1ed15",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "11.38",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:32:25.342825+00"
+    },
+    {
+      "variant_id": "9543c2f9-1ffe-4d2f-b1c5-beed15f1ed15",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "4.27",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:32:25.342825+00"
+    },
+    {
+      "variant_id": "96a68097-9308-481e-b57d-acd23f5c6bef",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "74.99",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:14:21.65349+00"
+    },
+    {
+      "variant_id": "96a68097-9308-481e-b57d-acd23f5c6bef",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "239.99",
+      "source": "TCGPlayer",
+      "captured_at": "2026-07-07",
+      "created_at": "2026-07-07 00:30:24.466647+00"
+    },
+    {
+      "variant_id": "96a68097-9308-481e-b57d-acd23f5c6bef",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "110.61",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:14:21.65349+00"
+    },
+    {
+      "variant_id": "96a68097-9308-481e-b57d-acd23f5c6bef",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "199.99",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:14:21.65349+00"
+    },
+    {
+      "variant_id": "96a68097-9308-481e-b57d-acd23f5c6bef",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "55.55",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:14:21.65349+00"
+    },
+    {
+      "variant_id": "b432b3a4-19b0-4598-94c8-9bc2f206ee82",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "67.19",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:42:17.565443+00"
+    },
+    {
+      "variant_id": "b432b3a4-19b0-4598-94c8-9bc2f206ee82",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "113.04",
+      "source": "TCGPlayer",
+      "captured_at": "2026-05-22",
+      "created_at": "2026-05-22 10:55:18.637683+00"
+    },
+    {
+      "variant_id": "b432b3a4-19b0-4598-94c8-9bc2f206ee82",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "71.83",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:42:17.565443+00"
+    },
+    {
+      "variant_id": "b432b3a4-19b0-4598-94c8-9bc2f206ee82",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "120.38",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:42:17.565443+00"
+    },
+    {
+      "variant_id": "b432b3a4-19b0-4598-94c8-9bc2f206ee82",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "45.28",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 09:42:17.565443+00"
+    },
+    {
+      "variant_id": "b46702d4-a9db-44fa-8bfc-1c46839581f3",
+      "condition_id": "16659f8f-7672-4838-85bb-b101890b5e0b",
+      "market_price": "31.74",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:16.506547+00"
+    },
+    {
+      "variant_id": "b46702d4-a9db-44fa-8bfc-1c46839581f3",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "70.0",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-25",
+      "created_at": "2026-08-25 08:14:57.485665+00"
+    },
+    {
+      "variant_id": "b46702d4-a9db-44fa-8bfc-1c46839581f3",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "43.2",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:16.506547+00"
+    },
+    {
+      "variant_id": "b46702d4-a9db-44fa-8bfc-1c46839581f3",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "56.98",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:16.506547+00"
+    },
+    {
+      "variant_id": "b46702d4-a9db-44fa-8bfc-1c46839581f3",
+      "condition_id": "d5cc626e-f5e6-423e-8fad-789f252828f1",
+      "market_price": "23.86",
+      "source": "TCGPlayer",
+      "captured_at": "2026-08-17",
+      "created_at": "2026-08-17 08:24:16.506547+00"
+    },
+    {
+      "variant_id": "b6e430da-2e44-40e3-9263-d3a9a037d0c3",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "0.17",
+      "source": "TCGPlayer",
+      "captured_at": "2026-07-21",
+      "created_at": "2026-07-21 02:45:20.04802+00"
+    },
+    {
+      "variant_id": "b6e430da-2e44-40e3-9263-d3a9a037d0c3",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "0.19",
+      "source": "TCGPlayer",
+      "captured_at": "2026-07-21",
+      "created_at": "2026-07-21 02:45:20.04802+00"
+    },
+    {
+      "variant_id": "f68cb094-0a0d-423f-8a76-b013ac5b86a6",
+      "condition_id": "4f8d1181-670e-4aea-937c-4d98d2e531a6",
+      "market_price": "0.2",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-30",
+      "created_at": "2026-06-30 02:06:38.307329+00"
+    },
+    {
+      "variant_id": "f68cb094-0a0d-423f-8a76-b013ac5b86a6",
+      "condition_id": "512f4636-b76c-4eaa-b3f6-d9ad2a0a27fe",
+      "market_price": "0.03",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-05",
+      "created_at": "2026-06-05 12:26:31.26866+00"
+    },
+    {
+      "variant_id": "f68cb094-0a0d-423f-8a76-b013ac5b86a6",
+      "condition_id": "c10223ad-ca63-471f-8f07-be91d4fc7bce",
+      "market_price": "0.15",
+      "source": "TCGPlayer",
+      "captured_at": "2026-06-30",
+      "created_at": "2026-06-30 02:06:38.307329+00"
+    }
+  ]
+}

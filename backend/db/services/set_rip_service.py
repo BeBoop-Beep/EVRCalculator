@@ -39,7 +39,7 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
-def _ranked_targets(targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+def _ranked_targets(targets: Sequence[Mapping[str, Any]], release: Any = None) -> list[Mapping[str, Any]]:
     """The Set RIP owning-target cohort, ranked by the CANONICAL rank authority.
 
     Precedence: bare `overallRipV12` -> `publicRipContractV11.overallRip`
@@ -49,8 +49,25 @@ def _ranked_targets(targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, A
     both V12 and V10 ranks is decided by V12 - V10 must never win when a
     canonical V12 rank is present.
     """
+    from backend.db.services.public_rip_publication_contract import (
+        canonical_overall_rip_target_key, canonical_public_rip_contract_target_key,
+    )
+
+    # The CANONICAL selection decides first (V12 today -> exactly the two V12/V11 checks below; V14 after an
+    # authorized cutover -> overallRipV14 / publicRipContractV12). The historical chain then follows unchanged,
+    # so a candidate-only target can never displace the canonical authority.
+    if release is not None:  # the active serving release (DB pointer) decides, not a static constant
+        canonical_key, contract_key = release.overall_target_key, release.public_contract_key
+    else:
+        canonical_key, contract_key = canonical_overall_rip_target_key(), canonical_public_rip_contract_target_key()
     ranked = []
     for candidate in targets:
+        if (candidate.get(canonical_key) or {}).get("rank") is not None:
+            ranked.append(candidate)
+            continue
+        if (((candidate.get(contract_key) or {}).get("overallRip") or {}).get("rank")) is not None:
+            ranked.append(candidate)
+            continue
         if (candidate.get("overallRipV12") or {}).get("rank") is not None:
             ranked.append(candidate)
             continue
@@ -66,10 +83,13 @@ def _ranked_targets(targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, A
 
 
 def build_set_rip(product_family_rankings: Mapping[str, Any], *,
-                  set_targets: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
-    """Build the frozen Set RIP contract without a research dependency."""
+                  set_targets: Sequence[Mapping[str, Any]], release: Any = None) -> Dict[str, Any]:
+    """Build the frozen Set RIP contract without a research dependency.
+
+    ``release`` (the active serving release, resolved once by the caller) selects the target keys and the
+    expected score versions; without it the static canonical selection applies exactly as before."""
     targets = list(set_targets)
-    ranked_targets = _ranked_targets(targets)
+    ranked_targets = _ranked_targets(targets, release)
     target_by_id = {_text(target.get("set_id") or target.get("target_id")): target for target in targets}
     if not ranked_targets:
         raise ValueError("Set RIP requires ranked set targets")
@@ -101,7 +121,9 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
             if not _text(target.get("calculation_run_id")) or _text(product.get("calculationRunId")) != _text(target.get("calculation_run_id")):
                 raise ValueError(f"Set RIP run authority mismatch for set_id={set_id}")
             versions = (product.get("financialRipVersion"), product.get("collectorAppealVersion"), product.get("overallRipVersion"))
-            canonical = (CANONICAL_FINANCIAL_RIP_VERSION, canonical_collector_appeal_version(), CANONICAL_OVERALL_RIP_VERSION)
+            canonical = ((release.financial_version, canonical_collector_appeal_version(), release.overall_version)
+                         if release is not None else
+                         (CANONICAL_FINANCIAL_RIP_VERSION, canonical_collector_appeal_version(), CANONICAL_OVERALL_RIP_VERSION))
             if versions != canonical:
                 raise ValueError(f"Set RIP canonical score version mismatch for set_id={set_id}, family={family}")
             if set_id not in chase_accessibility_by_set and product.get("chaseAccessibility"):

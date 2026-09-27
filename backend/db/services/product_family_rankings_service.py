@@ -25,6 +25,10 @@ from backend.domain.pokemon.sealed_product_comparison_scope import (
     sealed_product_comparison_scope_contract,
 )
 
+from backend.db.services.rip_release import (  # noqa: E402
+    RipReleaseBundle, SOURCE_GENERIC_LEDGER, resolve_release_or_marked_fallback,
+)
+
 RESULT_FIELDS = (
     "calculation_run_id,sealed_product_id,set_id,product_family,product_name,pack_count,"
     "random_pack_count,guaranteed_component_count,product_market_cost,price_as_of,"
@@ -62,29 +66,67 @@ _OVERALL_RIP_FIELD_TRIPLES: Dict[str, tuple] = {
 _DEFAULT_OVERALL_RIP_FIELD_TRIPLE = ("overall_rip_v10_score", "overall_rip_v10_version", "overall_rip_v10_rankable")
 
 
-def _canonical_overall_rip_fields() -> tuple:
+def _canonical_overall_rip_fields(release: Optional[RipReleaseBundle] = None) -> tuple:
+    """Overall score/version/rankable fields. ``release`` (the active serving release) wins; without one the
+    static canonical selection is used, exactly as before."""
+    if release is not None:
+        return (release.overall_score_field, release.overall_version_field, release.overall_rankable_field)
     return _OVERALL_RIP_FIELD_TRIPLES.get(CANONICAL_OVERALL_RIP_VERSION, _DEFAULT_OVERALL_RIP_FIELD_TRIPLE)
 
 
-def _rank_key(row: Mapping[str, Any]) -> tuple:
+def _financial_fields(release: Optional[RipReleaseBundle] = None) -> tuple:
+    """(score_field, version_field, canonical_financial_version) for the serving release."""
+    if release is not None:
+        return (release.financial_score_field, release.financial_version_field, release.financial_version)
+    return ("financial_rip_v4_score", "financial_rip_v4_version", CANONICAL_FINANCIAL_RIP_VERSION)
+
+
+def _result_fields(release: Optional[RipReleaseBundle] = None) -> str:
+    """The sealed-result SELECT. The V12 release selects exactly the historical V12/V4-compatible list and
+    never names an unlanded V5 column; only the V14 release adds the V5 columns (its schema precondition)."""
+    if release is None or not release.requires_v5_schema:
+        return RESULT_FIELDS
+    extra = (release.financial_score_field, release.financial_version_field) + tuple(release.financial_extra_fields)
+    return RESULT_FIELDS + "," + ",".join(extra)
+
+
+def _overlay_generic_ledger_overall(rows: Sequence[Dict[str, Any]], release: RipReleaseBundle, client: Any) -> None:
+    """Release sources its Overall from the generic ledger (V14): copy score/version/rankable onto the rows
+    under the release's field names. Read once for the whole cohort; a product absent from the ledger stays
+    unrankable rather than borrowing another model's number."""
+    from backend.db.services.overall_versioned_publication_service import active_overall_public_index
+
+    index = active_overall_public_index(client)
+    for row in rows:
+        entry = index.get(str(row.get("sealed_product_id")))
+        ok = bool(entry) and entry.get("eligibility") == "ready" and entry.get("version") == release.overall_version
+        row[release.overall_score_field] = entry.get("score") if ok else None
+        row[release.overall_version_field] = entry.get("version") if ok else None
+        row[release.overall_rankable_field] = bool(ok and entry.get("score") is not None)
+
+
+def _rank_key(row: Mapping[str, Any], release: Optional[RipReleaseBundle] = None) -> tuple:
     """One-family canonical order. This comparator must never receive mixed families."""
-    score_field, _, _ = _canonical_overall_rip_fields()
+    score_field, _, _ = _canonical_overall_rip_fields(release)
+    fin_score, _, _ = _financial_fields(release)
     return (
         -_number(row.get(score_field), float("-inf")),
-        -_number(row.get("financial_rip_v4_score"), float("-inf")),
+        -_number(row.get(fin_score), float("-inf")),
         -_number(row.get("chance_to_recover_cost"), float("-inf")),
         _number(row.get("product_market_cost"), float("inf")),
         str(row.get("sealed_product_id") or ""),
     )
 
 
-def _canonical(row: Mapping[str, Any]) -> bool:
-    score_field, version_field, rankable_field = _canonical_overall_rip_fields()
+def _canonical(row: Mapping[str, Any], release: Optional[RipReleaseBundle] = None) -> bool:
+    score_field, version_field, rankable_field = _canonical_overall_rip_fields(release)
+    _, fin_version_field, fin_version = _financial_fields(release)
+    overall_version = release.overall_version if release is not None else CANONICAL_OVERALL_RIP_VERSION
     return bool(row.get(rankable_field)) and all(
         (
-            row.get("financial_rip_v4_version") == CANONICAL_FINANCIAL_RIP_VERSION,
+            row.get(fin_version_field) == fin_version,
             row.get("collector_appeal_version") == canonical_collector_appeal_version(),
-            row.get(version_field) == CANONICAL_OVERALL_RIP_VERSION,
+            row.get(version_field) == overall_version,
         )
     )
 
@@ -177,12 +219,14 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
              overall_relative: Any = None, financial_relative: Any = None,
              overall_leader: Any = None, financial_leader: Any = None,
              product_image_url: Any = None,
-             chase_accessibility: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+             chase_accessibility: Optional[Dict[str, Any]] = None,
+             release: Optional[RipReleaseBundle] = None) -> Dict[str, Any]:
     market = _number(row.get("product_market_cost"), 0.0)
     expected = _number(row.get("expected_value"), 0.0)
     ratio = expected / market if market > 0 else None
     family = str(row.get("product_family"))
-    overall_score_field, overall_version_field, _ = _canonical_overall_rip_fields()
+    overall_score_field, overall_version_field, _ = _canonical_overall_rip_fields(release)
+    fin_score_field, fin_version_field, _ = _financial_fields(release)
     return {
         "sealedProductId": row.get("sealed_product_id"),
         "productName": row.get("product_name"),
@@ -210,11 +254,11 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "overallRipRelativeScore": overall_relative,
         "overallRipLeaderScore": overall_leader,
         "overallRipVersion": row.get(overall_version_field),
-        "financialRipScore": row.get("financial_rip_v4_score"),
-        "financialRipAbsoluteScore": row.get("financial_rip_v4_score"),
+        "financialRipScore": row.get(fin_score_field),
+        "financialRipAbsoluteScore": row.get(fin_score_field),
         "financialRipRelativeScore": financial_relative,
         "financialRipLeaderScore": financial_leader,
-        "financialRipVersion": row.get("financial_rip_v4_version"),
+        "financialRipVersion": row.get(fin_version_field),
         "collectorAppealScore": row.get("collector_appeal_score"),
         "collectorAppealTier": (
             assign_composite_tier(_number(row.get("collector_appeal_score"), 0.0))
@@ -265,10 +309,16 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
 
 
 def build_product_family_rankings(
-    client: Any = None, *, set_targets: Sequence[Mapping[str, Any]]
+    client: Any = None, *, set_targets: Sequence[Mapping[str, Any]], release: Optional[RipReleaseBundle] = None
 ) -> Dict[str, Any]:
-    """Build rankings only from each public target's exact calculation run."""
+    """Build rankings only from each public target's exact calculation run.
+
+    ``release`` is the active serving release, resolved ONCE by the caller and passed down (one pointer read
+    per build). When omitted it is resolved here once from the DB pointer (marked static fallback if the
+    pointer is unreadable). Under the V12 release this is the historical behavior, unchanged.
+    """
     client = client or service_read_client
+    release = release or resolve_release_or_marked_fallback(client)
     run_id_by_set_id, identities = _target_run_authority(set_targets)
     if not identities:
         return {
@@ -282,11 +332,13 @@ def build_product_family_rankings(
     if current_run_ids:
         rows = list(
             client.table("simulation_sealed_product_results")
-            .select(RESULT_FIELDS)
+            .select(_result_fields(release))
             .in_("calculation_run_id", current_run_ids)
             .execute().data or []
         )
 
+    if release.overall_source == SOURCE_GENERIC_LEDGER:
+        _overlay_generic_ledger_overall(rows, release, client)
     scored_by_family: Dict[str, int] = {}
     rankable_by_family: Dict[str, list] = {}
     for row in rows:
@@ -297,7 +349,7 @@ def build_product_family_rankings(
         if family not in COMPARABLE_FAMILIES:
             continue
         scored_by_family[family] = scored_by_family.get(family, 0) + 1
-        if _canonical(row):
+        if _canonical(row, release):
             rankable_by_family.setdefault(family, []).append(row)
 
     # Chase Accessibility set-level authority: ONE batch read + ONE rank pass
@@ -334,16 +386,17 @@ def build_product_family_rankings(
 
     families: Dict[str, Any] = {}
     for family in sorted(rankable_by_family):
-        ordered = sorted(rankable_by_family[family], key=_rank_key)
+        ordered = sorted(rankable_by_family[family], key=lambda r: _rank_key(r, release))
         size = len(ordered)
-        overall_score_field, _, _ = _canonical_overall_rip_fields()
+        overall_score_field, _, _ = _canonical_overall_rip_fields(release)
+        fin_score_field, _, _ = _financial_fields(release)
         overall_relative = compute_public_relative_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
             score_getter=lambda row, field=overall_score_field: row.get(field),
         )
         financial_relative = compute_public_relative_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
-            score_getter=lambda row: row.get("financial_rip_v4_score"),
+            score_getter=lambda row, field=fin_score_field: row.get(field),
         )
         overall_leader = compute_leader_normalized_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
@@ -351,7 +404,7 @@ def build_product_family_rankings(
         )
         financial_leader = compute_leader_normalized_scores(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
-            score_getter=lambda row: row.get("financial_rip_v4_score"),
+            score_getter=lambda row, field=fin_score_field: row.get(field),
         )
         products = [
             _project(row, identities.get(str(row.get("set_id")), {}), index, size,
@@ -365,7 +418,8 @@ def build_product_family_rankings(
                          rows_by_set_id=chase_authority["rowsBySetId"],
                          rank_by_set_id=chase_authority["rankBySetId"],
                          presentation_by_set_id=chase_authority["presentationBySetId"],
-                     ))
+                     ),
+                     release=release)
             for index, row in enumerate(ordered, 1)
         ]
         families[family] = {

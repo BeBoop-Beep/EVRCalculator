@@ -587,6 +587,7 @@ def _load_run_near_mint_prices(client: Any, *, run_id: str) -> List[Dict[str, An
             observations = (
                 client.table("card_variant_price_observations")
                 .select("card_variant_id,condition_id,market_price,captured_at,source,created_at,id,currency")
+                .eq("source", "TCGPlayer")
                 .in_("card_variant_id", variant_ids[start:start + 500])
                 .order("captured_at", desc=True)
                 .order("created_at", desc=True)

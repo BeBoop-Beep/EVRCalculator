@@ -1,0 +1,83 @@
+name: P6 VM Activation
+
+# Fixed, allowlisted operations for activating the daily eBay pricing schedule on the production VM.
+# Runs on the already-registered self-hosted VM runner (the authenticated out-of-band path).
+# The ONLY input is the commit message, matched by EXACT string; there is no parameter and no user-supplied shell text.
+# Output is limited to public host-key fingerprints, credential PRESENCE (never values) and non-secret operational text.
+on:
+  push:
+    branches:
+      - ops/p6-vm-activation-20260921
+
+permissions:
+  contents: read
+
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+
+jobs:
+  p6-vm:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 20
+    env:
+      VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+    steps:
+      - name: Run one fixed operation
+        shell: bash
+        run: |
+          set -uo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          STATE=/home/ubuntu/state/multi_source_pricing
+          OP="$(printf '%s' "$VM_REQUEST_MESSAGE" | head -n1)"
+          case "$OP" in
+            "p6-vm: hostkeys")
+              hostname; hostname -f 2>/dev/null || true
+              for t in ed25519 rsa ecdsa; do
+                f="/etc/ssh/ssh_host_${t}_key.pub"
+                if [ -f "$f" ]; then ssh-keygen -lf "$f" | sed "s|^|$t: |"; else echo "$t: not present"; fi
+              done
+              ;;
+            "p6-vm: deploy")
+              cd "$REPO" || exit 2
+              echo "before: branch=$(git branch --show-current) head=$(git rev-parse --short HEAD)"
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]; then echo "tracked modifications present; refusing (no stash, no reset)"; git status --short | head -20; exit 3; fi
+              git fetch origin || exit 4
+              git switch develop || exit 5
+              git pull --ff-only origin develop || exit 6
+              echo "after: branch=$(git branch --show-current) head=$(git rev-parse HEAD)"
+              test "$(git rev-parse HEAD)" = "$(git rev-parse origin/develop)" && echo "VM HEAD == origin/develop"
+              ;;
+            "p6-vm: creds")
+              cd "$REPO" || exit 2
+              "$PY" -c "
+          from backend.pricing_pipeline.ebay_credentials import credential_presence
+          for k, v in credential_presence().items(): print(k, 'EBAY_CLIENT_ID+EBAY_CLIENT_SECRET present =', v)
+          "
+              ;;
+            "p6-vm: installer-verify")
+              cd "$REPO" || exit 2
+              bash infra/oracle/install_multi_source_pricing_cron.sh
+              ;;
+            "p6-vm: installer-apply")
+              cd "$REPO" || exit 2
+              bash infra/oracle/install_multi_source_pricing_cron.sh --apply
+              echo "== verify after apply"
+              bash infra/oracle/install_multi_source_pricing_cron.sh
+              echo "multi-source blocks installed: $(crontab -l | grep -c '^# BEGIN multi-source-pricing')"
+              ;;
+            "p6-vm: replay")
+              cd "$REPO" || exit 2
+              EVR_PRICING_STATE_DIR="$STATE" "$PY" -m backend.scripts.run_daily_multi_source_card_pricing --json --market-date 2026-09-20 --no-frontend-env-fallback
+              echo "exit=$?"
+              ;;
+            "p6-vm: health")
+              cd "$REPO" || exit 2
+              "$PY" -m backend.scripts.check_multi_source_pricing_health
+              ;;
+            *)
+              echo "unrecognized request; nothing executed"
+              exit 2
+              ;;
+          esac

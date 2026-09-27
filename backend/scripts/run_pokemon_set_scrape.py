@@ -1329,6 +1329,54 @@ def run_scraper(
                 failed += 1
                 break
 
+            # Initial/manual exact-target scrapes are the right boundary for
+            # card-identity enrichment.  Queue-driven daily refreshes intentionally
+            # skip this: established sets should not pay Pokemon TCG API work on
+            # every price cycle.
+            if (
+                result.get("status") == "success"
+                and manual_set_id
+                and enable_db_ingestion
+                and int(result.get("cards_scraped") or 0) > 0
+            ):
+                try:
+                    from backend.db.services.pokemon_post_scrape_card_enrichment import (
+                        enrich_scraped_set_card_metadata,
+                    )
+
+                    enrichment = enrich_scraped_set_card_metadata(
+                        set_id=manual_set_id,
+                        set_name=str(target.get("name") or getattr(config_cls, "SET_NAME", canonical_key)),
+                        canonical_key=canonical_key,
+                        cards_scraped=int(result.get("cards_scraped") or 0),
+                        expected_api_set_id=getattr(config_cls, "SET_ID", None),
+                    )
+                    result["card_metadata_enrichment"] = enrichment
+                    logger.info(
+                        "%s post-scrape card enrichment set=%s status=%s api_set=%s",
+                        RUNNER_TAG,
+                        canonical_key,
+                        enrichment.get("status"),
+                        enrichment.get("pokemon_api_set_id"),
+                    )
+                except Exception as exc:
+                    # Price ingestion already passed all scrape postconditions.
+                    # Provider metadata is additive and retryable; never turn a
+                    # valid TCGplayer price refresh into a failed scrape because
+                    # the secondary Pokemon card API is unavailable.
+                    logger.warning(
+                        "%s post-scrape card enrichment failed set=%s error=%s",
+                        RUNNER_TAG,
+                        canonical_key,
+                        exc,
+                        exc_info=True,
+                    )
+                    result["card_metadata_enrichment"] = {
+                        "status": "failed_nonfatal",
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    }
+
             results.append(result)
 
             if result["status"] == "success":

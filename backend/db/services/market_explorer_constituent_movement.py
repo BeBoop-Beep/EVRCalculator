@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from typing import Any, Callable, Mapping
 
-from backend.domain.pokemon.constituent_movement import build_constituent_movements
+from backend.domain.pokemon.constituent_movement import (
+    CONSTITUENT_MOVEMENT_WINDOWS,
+    build_constituent_movements,
+)
 from backend.domain.pokemon.market_index import resolve_window_baselines
 
 V2_DAILY_TABLE = "pokemon_market_explorer_card_daily_states_v2_shadow"
 V2_INTERVAL_TABLE = "pokemon_market_price_intervals_v2_shadow"
 QUALITY_TABLE = "pokemon_market_date_quality"
-WINDOWS = ("1D", "7D", "30D", "3M")
+WINDOWS = CONSTITUENT_MOVEMENT_WINDOWS
 
 
 def _execute_rows(query: Any) -> list[dict[str, Any]]:
@@ -31,11 +34,10 @@ def _paged(query_factory: Callable[[], Any], *, page_size: int = 1000) -> list[d
 
 def _published_dates(client: Any, as_of: str) -> list[str]:
     end = date.fromisoformat(str(as_of)[:10])
-    start = end - timedelta(days=100)
     rows = _execute_rows(
         client.table(QUALITY_TABLE).select("market_date")
         .eq("tcg", "pokemon").in_("status", ["READY", "LEGACY_VERIFIED"])
-        .gte("market_date", start.isoformat()).lte("market_date", end.isoformat())
+        .lte("market_date", end.isoformat())
         .order("market_date")
     )
     return [str(row.get("market_date"))[:10] for row in rows if row.get("market_date")]
