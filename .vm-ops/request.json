@@ -1,4 +1,4 @@
 {
-  "operation": "wait-sync-main-after-publication",
-  "request_id": "sentinel-sync-main-after-sep27-publication"
+  "operation": "publication-live-debug",
+  "request_id": "sentinel-sep27-publication-debug-after-main-sync"
 }
