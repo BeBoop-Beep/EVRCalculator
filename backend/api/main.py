@@ -289,6 +289,65 @@ def _with_benchmark_freshness(payload: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def _with_benchmark_history_context(client: Any, payload: Dict[str, Any], contract: Any) -> Dict[str, Any]:
+    """Attach bounded public chart metadata; never expose source manifests."""
+    result = dict(payload)
+    base = lambda: client.table("pokemon_rip_benchmark_publications_v1").select("market_date") \
+        .eq("benchmark_key", contract.benchmark_key).eq("calibration_version", contract.calibration_version) \
+        .eq("publication_status", "published")
+    earliest = list(base().order("market_date").limit(1).execute().data or [])
+    latest = list(base().order("market_date", desc=True).limit(1).execute().data or [])
+    result["historyAvailableFrom"] = earliest[0]["market_date"] if earliest else None
+    result["historyAvailableThrough"] = latest[0]["market_date"] if latest else None
+    dates = sorted({str(row.get("market_date"))[:10] for row in result.get("rows", []) if row.get("market_date")})
+    publications = []
+    if dates:
+        publications = list(client.table("pokemon_rip_benchmark_publications_v1")
+            .select("market_date,opening_economics_snapshot_id")
+            .eq("benchmark_key", contract.benchmark_key).eq("calibration_version", contract.calibration_version)
+            .eq("publication_status", "published").in_("market_date", dates).limit(250).execute().data or [])
+    snapshot_ids = sorted({str(row["opening_economics_snapshot_id"]) for row in publications if row.get("opening_economics_snapshot_id")})
+    snapshots = []
+    if snapshot_ids:
+        snapshots = list(client.table("pokemon_rip_stats_snapshots").select("id,market_date,payload_json").in_("id", snapshot_ids).execute().data or [])
+    references = {}
+    for snapshot in snapshots:
+        economics = (snapshot.get("payload_json") or {}).get("openingEconomics") or {}
+        global_scope = economics.get("global") or {}
+        references[str(snapshot.get("market_date"))[:10]] = {
+            "market_date": str(snapshot.get("market_date"))[:10],
+            "modeled_return_on_spend": global_scope.get("modeledReturnOnSpend"),
+            "cost_per_pack": global_scope.get("averageCostPerPack"),
+            "expected_value_per_pack": global_scope.get("averageModelBreakEvenPerPack"),
+        }
+    result["opening_economics_references"] = references
+    return result
+
+
+def _with_current_opening_reference(client: Any, payload: Dict[str, Any]) -> Dict[str, Any]:
+    result = dict(payload)
+    publication_id = result.get("publication_id")
+    if not publication_id:
+        return result
+    headers = list(client.table("pokemon_rip_benchmark_publications_v1").select("opening_economics_snapshot_id")
+        .eq("id", publication_id).limit(1).execute().data or [])
+    snapshot_id = headers[0].get("opening_economics_snapshot_id") if headers else None
+    if not snapshot_id:
+        return result
+    snapshots = list(client.table("pokemon_rip_stats_snapshots").select("market_date,payload_json")
+        .eq("id", snapshot_id).limit(1).execute().data or [])
+    if snapshots:
+        economics = (snapshots[0].get("payload_json") or {}).get("openingEconomics") or {}
+        scope = economics.get("global") or {}
+        result["opening_economics_reference"] = {
+            "market_date": str(snapshots[0].get("market_date"))[:10],
+            "modeled_return_on_spend": scope.get("modeledReturnOnSpend"),
+            "cost_per_pack": scope.get("averageCostPerPack"),
+            "expected_value_per_pack": scope.get("averageModelBreakEvenPerPack"),
+        }
+    return result
+
+
 @app.post("/tcgs/pokemon/rip-benchmark/current")
 def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
                                   authorization: Optional[str] = Header(None),
@@ -304,7 +363,7 @@ def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
             benchmark_key=contract.benchmark_key,
             calibration_version=contract.calibration_version,
         )
-        return _with_benchmark_freshness(result)
+        return _with_benchmark_freshness(_with_current_opening_reference(client, result))
     except BenchmarkContractUnavailable as exc:
         raise _benchmark_unavailable(exc) from exc
     except BenchmarkError as exc:
@@ -323,12 +382,13 @@ def pokemon_rip_benchmark_history(body: BenchmarkHistoryRequest,
     client = _benchmark_client()
     try:
         contract = resolve_active_contract(client)
-        return _benchmark_reader(client).history_page(
+        result = _benchmark_reader(client).history_page(
             [item.model_dump(mode="json") for item in body.entities],
             start_date=body.start_date.isoformat(), end_date=body.end_date.isoformat(),
             benchmark_key=contract.benchmark_key, calibration_version=contract.calibration_version,
             limit=body.limit, after=body.after,
         )
+        return _with_benchmark_history_context(client, result, contract)
     except BenchmarkContractUnavailable as exc:
         raise _benchmark_unavailable(exc) from exc
     except BenchmarkError as exc:

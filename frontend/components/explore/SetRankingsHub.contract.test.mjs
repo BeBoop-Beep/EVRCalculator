@@ -10,7 +10,7 @@ const page = read("../../app/Explore/page.js");
 
 test("Rankings and Era navigation use the Bucket 1 information architecture", () => {
   for (const label of ["Overview", "Eras", "Sets", "Products", "Cards"]) assert.ok(lazy.includes(`label: "${label}"`));
-  assert.ok(lazy.includes('{ value: "rankings", label: "Set Strength" }'));
+  assert.ok(lazy.includes('{ value: "rankings", label: "Era RIP Score" }'));
   assert.ok(lazy.includes('{ value: "economics", label: "Pack Economics" }'));
   assert.ok(page.includes("Pokémon Rankings"));
   assert.ok(!page.includes("Pokémon RIP Rankings"));
@@ -20,12 +20,13 @@ test("Set hub defaults to RIP Score and exposes the six Bucket 2 tabs", () => {
   assert.ok(hub.includes('initialView = "ripScore"'));
   assert.ok(hub.includes("useState(initialView)"));
   const registry = read("./setRankingViews.mjs");
-  for (const label of ["RIP Score", "Financial RIP", "Collector Appeal", "Chase Accessibility", "Pack Economics", "Compare Metrics"]) assert.ok(registry.includes(`label: "${label}"`));
+  for (const label of ["RIP Score", "Financial", "Collector", "Chase", "Pack Economics", "Compare Metrics"]) assert.ok(registry.includes(`label: "${label}"`));
 });
 
-test("public leaderboard is lean and reads only canonical Set RIP presentation", () => {
-  for (const heading of ["Rank", "Set", "Era", "Set RIP Score", "RIP Tier"]) assert.ok(leaderboard.includes(heading));
-  assert.ok(leaderboard.includes("readPublicSetRip(target)"));
+test("public leaderboard reads only canonical Benchmark presentation", () => {
+  for (const heading of ["Rank", "Set", "Era", "RIP Score"]) assert.ok(leaderboard.includes(heading));
+  assert.ok(leaderboard.includes("benchmarkMetric(benchmark?.rows"));
+  assert.ok(!leaderboard.includes("RipTierMark"));
   assert.ok(!leaderboard.includes("overallRipV12"));
   for (const paid of ["Financial RIP", "Chase Accessibility", "Collector Appeal", "Format Strength", "RankingsFamilyCells"]) assert.ok(!leaderboard.includes(paid));
 });
