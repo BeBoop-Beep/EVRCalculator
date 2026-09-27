@@ -1,4 +1,4 @@
 {
-  "operation": "wait-sync-main-after-publication",
-  "request_id": "sentinel-pr405-production-sync"
+  "operation": "sentinel-status",
+  "request_id": "sentinel-post-pr405-status"
 }
