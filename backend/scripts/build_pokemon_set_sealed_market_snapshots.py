@@ -6,8 +6,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -40,7 +41,14 @@ def resolve_sets(selector: str | None, all_sets: bool) -> List[Dict[str, Any]]:
     return [resolve_set_row(service_read_client, str(selector))]
 
 
-def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
+def _observation_day(row: Dict[str, Any]) -> Optional[str]:
+    try:
+        return datetime.fromisoformat(str(row.get("captured_at") or "").replace("Z", "+00:00")).date().isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def build_one(set_row: Dict[str, Any], commit: bool, market_date: Optional[str] = None) -> Dict[str, Any]:
     products = _rows(
         service_read_client.table("sealed_products").select("id,set_id,name,product_type").eq("set_id", set_row["id"])
     )
@@ -52,6 +60,8 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
         .order("captured_at")
         .order("id")
     ) if product_ids else []
+    if market_date is not None:
+        observations = [row for row in observations if _observation_day(row) and _observation_day(row) <= market_date]
     row = build_snapshot(set_row, products, observations)
     existing = _rows(
         service_read_client.table("pokemon_set_sealed_market_snapshot_latest")
@@ -112,12 +122,19 @@ def main() -> int:
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--set-id")
     target.add_argument("--all", action="store_true")
+    target.add_argument("--opening-cohort", action="store_true")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--commit", action="store_true")
+    parser.add_argument("--market-date", help="Bound the canonical authority to this target date")
     args = parser.parse_args()
-    for set_row in resolve_sets(args.set_id, args.all):
-        print(json.dumps(build_one(set_row, args.commit), indent=2, sort_keys=True))
+    if args.opening_cohort:
+        from backend.db.services.opening_simulation_gate import supported_opening_set_keys
+        set_rows = [resolve_set_row(service_read_client, key) for key in supported_opening_set_keys()]
+    else:
+        set_rows = resolve_sets(args.set_id, args.all)
+    for set_row in set_rows:
+        print(json.dumps(build_one(set_row, args.commit, args.market_date), indent=2, sort_keys=True))
     return 0
 
 

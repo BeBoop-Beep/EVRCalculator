@@ -543,7 +543,49 @@ def patched(monkeypatch):
     monkeypatch.setattr(
         orchestrator, "refresh_chase_accessibility_snapshots", fake_accessibility_refresh
     )
+    # These legacy orchestration fixtures predate the strict snapshot payload
+    # authority manifest. Dedicated tests below exercise the new gate.
+    monkeypatch.setattr(orchestrator, "_same_day_authority_capability_expected", lambda _client: False)
     return calls
+
+
+def test_incomplete_sealed_authority_defers_before_any_simulation(monkeypatch, patched):
+    from types import SimpleNamespace
+    import backend.db.services.sealed_market_authority as authority_service
+
+    simulated = []
+    monkeypatch.setattr(orchestrator, "_same_day_authority_capability_expected", lambda _client: True)
+    monkeypatch.setattr(orchestrator, "rebuild_sealed_market_snapshots", lambda **_kwargs: 0)
+    monkeypatch.setattr(authority_service, "evaluate_same_day_sealed_market_authority", lambda *_a, **_k:
+                        SimpleNamespace(ready=False, missing_product_count=1, stale_product_count=0,
+                                        reason_code="DEFERRED_SEALED_MARKET_AUTHORITY_INCOMPLETE",
+                                        to_dict=lambda: {"ready": False}))
+    monkeypatch.setattr(orchestrator, "run_simulations_for_sets",
+                        lambda *args, **kwargs: simulated.append((args, kwargs)) or [])
+
+    summary = _orchestrate(_client([_history(STALE_DATE), _history(MARKET_DATE)]))
+
+    assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
+    assert summary.sealed_market_authority_status == "deferred"
+    assert simulated == [], "no simulation subprocess (and therefore no parent run) may start"
+
+
+def test_same_day_authority_retry_can_advance_to_simulation(monkeypatch, patched):
+    from types import SimpleNamespace
+    import backend.db.services.sealed_market_authority as authority_service
+
+    monkeypatch.setattr(orchestrator, "_same_day_authority_capability_expected", lambda _client: True)
+    monkeypatch.setattr(orchestrator, "rebuild_sealed_market_snapshots", lambda **_kwargs: 0)
+    ready = SimpleNamespace(ready=True, missing_product_count=0, stale_product_count=0,
+                            reason_code="READY", to_dict=lambda: {"ready": True})
+    monkeypatch.setattr(authority_service, "evaluate_same_day_sealed_market_authority", lambda *_a, **_k: ready)
+    monkeypatch.setattr(authority_service, "verify_simulation_product_dates", lambda *_a, **_k: ready)
+
+    summary = _orchestrate(_client([_history(STALE_DATE), _history(MARKET_DATE)]))
+
+    assert summary.sealed_market_authority_status == "ready"
+    assert summary.simulation_product_date_status == "ready"
+    assert any(call[0] == "simulate" for call in patched)
 
 
 def _client(history_pages, **kwargs):
