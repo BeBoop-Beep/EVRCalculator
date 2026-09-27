@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "canonical-sep27-publication-20260927"
+  "operation": "publication-live-debug",
+  "request_id": "inspect-sep27-duplicate-publisher-20260927"
 }
