@@ -8,6 +8,7 @@ MIGRATIONS = (
     "20260925170628_market_explorer_catalog_search_v1.sql",
     "20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql",
     "20260925170643_market_explorer_rarity_daily_coverage_v1.sql",
+    "20260927005000_market_explorer_coherent_generation_search_quick_screens.sql",
 )
 
 
@@ -246,3 +247,98 @@ def test_rarity_daily_coverage_is_private_incremental_and_indexed():
     assert "to service_role" in sql
     assert "filter_rarity_key,card_variant_id,set_id" in sql
     assert "security definer" not in sql
+
+
+def test_coherent_generation_watermark_and_promotion_fail_closed():
+    sql = read(MIGRATIONS[5]).lower()
+    assert "comparison_as_of date" in sql
+    assert "get_pokemon_market_explorer_promotable_date_v1" in sql
+    assert "pokemon_market_set_value_constituent_publications_v1" in sql
+    assert "explorer_target_not_promotable" in sql
+    assert "surface_generation_stale_at_promotion" in sql
+    assert "surface_directory_watermark_mismatch" in sql
+    assert "comparison_watermark_mismatch" in sql
+
+
+def test_leaf_search_uses_asset_authority_dates_and_returns_prices():
+    sql = read(MIGRATIONS[5]).lower()
+    search = sql.split(
+        "create or replace function public.search_pokemon_market_explorer_instruments_v2(", 1
+    )[1].split("$function$;", 1)[0]
+    assert "pokemon_market_date_quality" not in search
+    assert "max(d.market_date)" in search
+    assert "max(m.latest_market_date)" in search
+    assert "pokemon_market_explorer_card_daily_states_v2_shadow" in search
+    assert "pokemon_market_explorer_sealed_current_metadata_v1" in search
+    assert "search_pokemon_market_explorer_leaf_instruments_v3" in sql
+    assert "market_price numeric" in sql
+    assert "market_date date" in sql
+    assert "canonical_card_id uuid" in sql
+    assert "is_bulk_container boolean" in sql
+    assert "contiguous_phrase" in sql
+
+
+def test_six_approved_sealed_quick_definitions_are_exact_and_non_bulk():
+    sql = read(MIGRATIONS[5])
+    for key in (
+        "'obtainable','Obtainable','APPROVED'",
+        "'intermediate','Intermediate','APPROVED'",
+        "'premium','Premium','APPROVED'",
+        "'new-releases','New Releases','APPROVED'",
+        "'established','Established','APPROVED'",
+        "'global-top10','Global Top 10','APPROVED'",
+    ):
+        assert key in sql
+    compact = sql.replace(" ", "").replace("\n", "")
+    assert "d.market_price<100" in compact
+    assert "d.market_price>=100ANDd.market_price<500" in compact
+    assert "d.market_price>=500" in compact
+    assert "d.age_daysBETWEEN0AND180" in compact
+    assert "d.age_daysBETWEEN731AND1825" in compact
+    assert "r.price_rank<=10" in compact
+    assert "NOTcoalesce(m.is_bulk_container,false)" in compact
+    assert "'sealed-quick:'||q.quick_key" in sql
+
+
+def test_sealed_global_top10_is_date_specific_filter_first():
+    sql = read(MIGRATIONS[5]).lower()
+    stage = sql.split(
+        "create or replace function public.stage_pokemon_market_explorer_sealed_quick_markets_v1(", 1
+    )[1].split("$function$;", 1)[0]
+    assert "partition by d.market_date" in stage
+    assert "order by d.market_price desc,d.sealed_product_id" in stage
+    assert "membershipdatespecific" in stage.replace("_", "")
+    assert "bulkcontainersexcluded" in stage.replace("_", "")
+    assert "row_number()" in stage
+
+
+def test_surface_screens_add_top_and_worst_without_repurposing_existing():
+    sql = read(MIGRATIONS[5]).lower()
+    screen = sql.split(
+        "create or replace function public.get_pokemon_market_explorer_surface_screen_v2(", 1
+    )[1].split("$function$;", 1)[0]
+    for key in (
+        "top-performers",
+        "worst-performers",
+        "rarity-leaders",
+        "sealed-format-leaders",
+        "momentum-leaders",
+        "largest-drawdowns",
+    ):
+        assert key in screen
+    assert "p_limit>25" in screen.replace(" ", "")
+    assert "top-performers','worst-performers" in screen
+    assert "d.return_7d_pct" in screen
+    assert "d.return_30d_pct" in screen
+    assert "d.current_drawdown_pct" in screen
+    assert "surface_generation_mismatch" in screen
+    assert "surface_screen_watermark_mismatch" in screen
+
+
+def test_currentness_correction_is_private_and_security_invoker():
+    sql = read(MIGRATIONS[5]).lower()
+    assert "security definer" not in sql
+    assert "security invoker" in sql
+    assert "from public,anon,authenticated" in sql
+    assert "to service_role" in sql
+    assert "set statement_timeout = '1s'" in sql
