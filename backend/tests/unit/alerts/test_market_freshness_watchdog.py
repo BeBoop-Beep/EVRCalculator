@@ -175,6 +175,24 @@ def test_stale_public_date_and_snapshot_divergence_are_independent(monkeypatch):
     }
 
 
+def test_explorer_v2_has_bounded_convergence_grace_then_becomes_required(monkeypatch):
+    monkeypatch.setenv("MARKET_EXPLORER_CONVERGENCE_DEADLINE_AZ", "10:30")
+    dates = dict(FRESH_DATES, explorer_v2="2026-08-29")
+    # NOW is 08:00 Phoenix: core publication is due, but bounded maintained-cache
+    # convergence is still inside its explicit grace window.
+    assert watchdog.evaluate_watchdog_state(_state({"status": "complete"}, dates), now=NOW) == []
+
+    after_deadline = datetime(2026, 8, 30, 18, 0, tzinfo=timezone.utc)  # 11:00 Phoenix
+    failures = watchdog.evaluate_watchdog_state(
+        _state({"status": "complete"}, dates), now=after_deadline
+    )
+    divergence = next(
+        row for row in failures if row["alert_type"] == "market_snapshot_date_divergence"
+    )
+    assert divergence["failure_class"] == "authority_date_mismatch"
+    assert divergence["actual_dates"]["explorer_v2"] == "2026-08-29"
+
+
 def test_missing_required_authority_date_fails_closed_after_publication_deadline():
     dates = dict(FRESH_DATES, sealed_snapshot=None)
     failures = watchdog.evaluate_watchdog_state(_state({"status": "complete"}, dates), now=NOW)
