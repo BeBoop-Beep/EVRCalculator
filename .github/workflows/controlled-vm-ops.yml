@@ -1900,7 +1900,9 @@ jobs:
               df -h /
               echo "== db workload guard memory policy =="
               if [ -f /home/ubuntu/state/db-safety/db_workload_guard.py ]; then
-                grep -nE 'Mem(Free|Available)|available_memory|memory|25|0\.25' /home/ubuntu/state/db-safety/db_workload_guard.py | head -120 || true
+                grep -nE 'Mem(Free|Available)|available_memory|memory|25|0\.25|metrics|prometheus|node_exporter|localhost|127\.0\.0\.1' /home/ubuntu/state/db-safety/db_workload_guard.py | head -160 || true
+                echo "-- memory policy implementation --"
+                sed -n '45,110p' /home/ubuntu/state/db-safety/db_workload_guard.py || true
               else
                 echo "db_workload_guard.py missing"
               fi
