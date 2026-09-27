@@ -1,0 +1,39 @@
+name: Sealed Market Date Integrity Guard
+
+on:
+  pull_request:
+    paths:
+      - 'backend/scripts/build_pokemon_set_sealed_market_snapshots.py'
+      - 'backend/db/services/pokemon_global_sealed_market_service.py'
+      - 'backend/tests/unit/scripts/test_build_pokemon_set_sealed_market_snapshots.py'
+      - 'backend/tests/unit/db/services/test_pokemon_global_sealed_market_service.py'
+      - 'backend/db/migrations/20260927043901_index_sealed_product_observation_snapshot_reads.sql'
+      - 'supabase/migrations/20260927043901_index_sealed_product_observation_snapshot_reads.sql'
+      - '.github/workflows/sealed-market-date-integrity-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+      SUPABASE_ANON_KEY: dummy-anon-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install focused dependencies
+        run: python -m pip install -q pytest supabase==2.28.3 python-dotenv==1.2.2
+      - name: Compile changed runtime
+        run: python -m py_compile backend/scripts/build_pokemon_set_sealed_market_snapshots.py backend/db/services/pokemon_global_sealed_market_service.py
+      - name: Run focused regression tests
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_build_pokemon_set_sealed_market_snapshots.py \
+            backend/tests/unit/db/services/test_pokemon_set_sealed_market_snapshot_service.py \
+            backend/tests/unit/db/services/test_pokemon_global_sealed_market_service.py
