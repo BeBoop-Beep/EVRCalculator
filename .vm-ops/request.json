@@ -1,4 +1,4 @@
 {
-  "operation": "pricing-status",
-  "request_id": "sentinel-pricing-status-20260927"
+  "operation": "code-red-db-load-restore-audit",
+  "request_id": "sentinel-primary-runtime-restore-audit-20260927"
 }
