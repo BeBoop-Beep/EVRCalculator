@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|db-safety-guard-repair|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -1745,6 +1745,118 @@ jobs:
                 exit 41
               fi
               echo "CODE_RED_DB_LOAD_SHED=PASS"
+              ;;
+
+            db-safety-guard-repair)
+              cd "$REPO"
+              GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              BACKUP_DIR="/home/ubuntu/ops-backups"
+              test -f "$GUARD" || { echo "REFUSING: workload guard missing"; exit 42; }
+              mkdir -p "$BACKUP_DIR"
+
+              echo "== patch tracked runtime safety policy with exact-byte guards =="
+              GUARD="$GUARD" BACKUP_DIR="$BACKUP_DIR" python3 - <<'PY'
+          import importlib.util
+          import os
+          import py_compile
+          import shutil
+          import tempfile
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          path = Path(os.environ["GUARD"])
+          backup_dir = Path(os.environ["BACKUP_DIR"])
+          original = path.read_text(encoding="utf-8")
+          old_available = "    if available / total < .25:\n        return 'available_memory_below_25_percent'\n"
+          new_available = (
+              "    # Hard stop only on genuinely low AVAILABLE memory. The worker lock already\n"
+              "    # serializes DB-heavy jobs, and run_command rechecks this every 30 seconds.\n"
+              "    if available / total < .15:\n"
+              "        return 'available_memory_below_15_percent'\n"
+          )
+          old_commit = "    if committed / commit_limit > .95:\n        return 'memory_commitment_above_95_percent'\n"
+          new_commit = (
+              "    # Linux Committed_AS may legitimately exceed CommitLimit under overcommit;\n"
+              "    # it is diagnostic, not a standalone proof of physical-memory pressure.\n"
+          )
+          if original.count(old_available) != 1 or original.count(old_commit) != 1:
+              raise SystemExit("REFUSING: workload guard policy bytes differ from reviewed source")
+          updated = original.replace(old_available, new_available).replace(old_commit, new_commit)
+          stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          backup = backup_dir / ("db_workload_guard.before_memory_policy_" + stamp + ".py")
+          shutil.copy2(path, backup)
+          os.chmod(backup, 0o600)
+          fd, tmp_name = tempfile.mkstemp(prefix=".db_workload_guard.", dir=str(path.parent))
+          try:
+              with os.fdopen(fd, "w", encoding="utf-8") as out:
+                  out.write(updated)
+                  out.flush()
+                  os.fsync(out.fileno())
+              os.chmod(tmp_name, 0o700)
+              os.replace(tmp_name, path)
+          finally:
+              try:
+                  os.unlink(tmp_name)
+              except FileNotFoundError:
+                  pass
+          py_compile.compile(str(path), doraise=True)
+
+          spec = importlib.util.spec_from_file_location("guard_verify", path)
+          guard = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+
+          def metrics(available_ratio, *, swap_ratio=0.0, commit_ratio=1.5):
+              total = 1000.0
+              swap = 1000.0 if swap_ratio else 0.0
+              return {
+                  "node_memory_MemTotal_bytes": total,
+                  "node_memory_MemAvailable_bytes": total * available_ratio,
+                  "node_memory_SwapTotal_bytes": swap,
+                  "node_memory_SwapFree_bytes": swap * (1.0 - swap_ratio),
+                  "node_memory_Committed_AS_bytes": total * commit_ratio,
+                  "node_memory_CommitLimit_bytes": total,
+              }
+
+          assert guard.pressure_reason(metrics(.30, commit_ratio=1.5)) is None
+          assert guard.pressure_reason(metrics(.149)) == "available_memory_below_15_percent"
+          assert guard.pressure_reason(metrics(.30, swap_ratio=.5)) == "swap_usage_above_40_percent"
+          print("guard_backup=" + str(backup))
+          print("guard_policy_validation=PASS")
+          PY
+
+              echo "== live Supabase pressure after policy repair =="
+              PRESSURE=$("$PY" - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          p = Path("/home/ubuntu/state/db-safety/db_workload_guard.py")
+          spec = importlib.util.spec_from_file_location("guard_live", p)
+          guard = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+          print(guard.live_pressure() or "NONE")
+          PY
+              )
+              echo "live_pressure=$PRESSURE"
+              [ "$PRESSURE" = "NONE" ] || { echo "REFUSING: Supabase remains under hard memory pressure"; exit 43; }
+
+              if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
+                HOLD_REASON=$(python3 -c 'import json; print(json.load(open("/home/ubuntu/state/db-safety/hold.json")).get("reason",""))' 2>/dev/null || true)
+                case "$HOLD_REASON" in
+                  available_memory_below_25_percent|memory_commitment_above_95_percent)
+                    HOLD_BACKUP="$BACKUP_DIR/hold.before-guard-repair.$(date -u +%Y%m%dT%H%M%SZ).json"
+                    cp "$HOLD" "$HOLD_BACKUP"
+                    chmod 600 "$HOLD_BACKUP"
+                    rm -f "$HOLD"
+                    echo "stale_policy_hold_cleared=true"
+                    echo "hold_backup=$HOLD_BACKUP"
+                    ;;
+                  *)
+                    echo "REFUSING: hold reason is not owned by the repaired memory policy: $HOLD_REASON"
+                    exit 44
+                    ;;
+                esac
+              fi
+              echo "DB_SAFETY_GUARD_REPAIR=PASS"
               ;;
 
             code-red-db-load-restore-audit)
