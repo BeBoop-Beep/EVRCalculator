@@ -182,6 +182,13 @@ def test_skip_fingerprint_does_not_alter_discovered_or_already_current_counts():
 _NOW = datetime(2026, 9, 6, 18, 0, 0, tzinfo=timezone.utc)
 
 
+def test_main_does_not_reference_removed_rollback_cli_flag():
+    import inspect
+    source = inspect.getsource(worker.main)
+    assert "verify_prepared_refresh_rollback" not in source
+    assert "rollback_only" not in source
+
+
 def test_max_caches_one_is_the_default():
     import inspect
     assert inspect.signature(worker.run_prewarm).parameters["max_caches"].default == 1
