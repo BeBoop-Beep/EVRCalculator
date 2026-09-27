@@ -152,7 +152,19 @@ def _default_all_publication_processes() -> list[dict[str, Any]]:
         tokens = args.split()
         if wrapper_token in tokens:
             index = tokens.index(wrapper_token)
-            if index + 1 < len(tokens) and date_pattern.match(tokens[index + 1]):
+            # The DB workload guard launches the canonical wrapper through
+            # `/bin/sh -c "bash <wrapper> <date>"`, which leaves both the
+            # shell command carrier and the actual bash wrapper visible in ps.
+            # Only the executable bash process owns wrapper identity; counting
+            # the carrier as a second publisher makes safe recovery fail closed
+            # on a healthy guarded publication.
+            executable = Path(tokens[0]).name if tokens else ""
+            if (
+                executable == "bash"
+                and index == 1
+                and index + 1 < len(tokens)
+                and date_pattern.match(tokens[index + 1])
+            ):
                 kind = "wrapper"
                 market_date = tokens[index + 1]
         elif REFRESH_SCRIPT_TOKEN in args:
