@@ -1780,9 +1780,26 @@ jobs:
               "    # Linux Committed_AS may legitimately exceed CommitLimit under overcommit;\n"
               "    # it is diagnostic, not a standalone proof of physical-memory pressure.\n"
           )
-          if original.count(old_available) != 1 or original.count(old_commit) != 1:
-              raise SystemExit("REFUSING: workload guard policy bytes differ from reviewed source")
-          updated = original.replace(old_available, new_available).replace(old_commit, new_commit)
+          old_swap = "    if swap > 0 and (swap - swap_free) / swap > .40:\n        return 'swap_usage_above_40_percent'\n"
+          new_swap = (
+              "    # Swap occupancy persists after a pressure event; treat it as corroborating\n"
+              "    # evidence only when AVAILABLE memory is also constrained.\n"
+              "    if swap > 0 and (swap - swap_free) / swap > .40 and available / total < .20:\n"
+              "        return 'swap_usage_above_40_percent_with_low_available_memory'\n"
+          )
+          updated = original
+          if old_available in updated:
+              updated = updated.replace(old_available, new_available)
+          elif new_available not in updated:
+              raise SystemExit("REFUSING: available-memory policy bytes differ from reviewed source")
+          if old_commit in updated:
+              updated = updated.replace(old_commit, new_commit)
+          elif new_commit not in updated:
+              raise SystemExit("REFUSING: commit-memory policy bytes differ from reviewed source")
+          if old_swap in updated:
+              updated = updated.replace(old_swap, new_swap)
+          elif new_swap not in updated:
+              raise SystemExit("REFUSING: swap policy bytes differ from reviewed source")
           stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = backup_dir / ("db_workload_guard.before_memory_policy_" + stamp + ".py")
           shutil.copy2(path, backup)
@@ -1820,7 +1837,8 @@ jobs:
 
           assert guard.pressure_reason(metrics(.30, commit_ratio=1.5)) is None
           assert guard.pressure_reason(metrics(.149)) == "available_memory_below_15_percent"
-          assert guard.pressure_reason(metrics(.30, swap_ratio=.5)) == "swap_usage_above_40_percent"
+          assert guard.pressure_reason(metrics(.30, swap_ratio=.5)) is None
+          assert guard.pressure_reason(metrics(.19, swap_ratio=.5)) == "swap_usage_above_40_percent_with_low_available_memory"
           print("guard_backup=" + str(backup))
           print("guard_policy_validation=PASS")
           PY
