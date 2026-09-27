@@ -13,6 +13,9 @@ test -f "$SRC" || { echo "FAIL: schedule source missing" >&2; exit 1; }
 test -f "$REPO/backend/scripts/run_market_explorer_maintained_cache_prewarm.py" || {
   echo "FAIL: maintained-cache worker missing" >&2; exit 1;
 }
+test -f "$REPO/backend/scripts/run_market_explorer_convergence.py" || {
+  echo "FAIL: bounded convergence coordinator missing" >&2; exit 1;
+}
 test -f "$REPO/backend/scripts/check_market_explorer_maintained_cache_health.py" || {
   echo "FAIL: maintained-cache health checker missing" >&2; exit 1;
 }
@@ -39,8 +42,8 @@ if missing:
 PY
 )
 
-echo "== bounded dry run (no writes) =="
-(cd "$REPO" && timeout 300 "$REPO/.venv/bin/python" -m   backend.scripts.run_market_explorer_maintained_cache_prewarm   --dry-run --max-caches 1 >/tmp/market-explorer-prewarm-install-dry-run.json)
+echo "== bounded convergence dry run (no writes) =="
+(cd "$REPO" && timeout 300 "$REPO/.venv/bin/python" -m backend.scripts.run_market_explorer_convergence --dry-run >/tmp/market-explorer-prewarm-install-dry-run.json)
 echo "dry_run_exit=0"
 
 current="$(crontab -l 2>/dev/null || true)"
