@@ -1,0 +1,206 @@
+{
+  "as_of_market_date": "2026-09-27",
+  "authority_rpc": "list_pokemon_market_edition_gaps_v1",
+  "purpose": "Exact edition-market gaps discovered during V3 First Edition / Unlimited / Shadowless closure. Price gaps are variant-specific eBay active-ask backfill candidates. Identity gaps must remain fail-closed until an exact variant identity is reviewed.",
+  "rules": {
+    "price_gap_condition": "Near Mint",
+    "do_not_substitute_printing": true,
+    "do_not_fallback_to_canonical_default_variant": true,
+    "identity_gaps_are_not_automatic_price_targets": true,
+    "requested_evidence": "English, ungraded, exact printing/edition; preserve card_variant_id on evidence and estimates."
+  },
+  "source_refresh_jobs": [
+    {
+      "job_id": 151778,
+      "set_name": "Deck Exclusives",
+      "market_date": "2026-09-27",
+      "status_at_handoff": "pending"
+    },
+    {
+      "job_id": 151779,
+      "set_name": "Base Set (Shadowless)",
+      "market_date": "2026-09-27",
+      "status_at_handoff": "pending"
+    }
+  ],
+  "price_gaps": [
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Alakazam",
+      "card_number": "1",
+      "canonical_card_id": "f720f907-0b68-4c81-b503-e0d6d9396209",
+      "card_variant_id": "c24e6490-1485-4f19-8dbb-8701ad4ec8f3",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Nidoking",
+      "card_number": "11",
+      "canonical_card_id": "ccc773e9-5a7b-4607-8e60-7fefac7a3e67",
+      "card_variant_id": "2034736d-06b9-4c57-84e0-26a5acbfc775",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Venusaur",
+      "card_number": "15",
+      "canonical_card_id": "fb496590-6035-4ded-a836-599bceda513e",
+      "card_variant_id": "3ea97266-ac2d-4098-a94f-8a24308c3bb3",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Blastoise",
+      "card_number": "2",
+      "canonical_card_id": "8d4c21b9-d5f3-4e37-bdda-f0eb5f54c4dd",
+      "card_variant_id": "f63b37dc-06fe-4325-96dc-5235b148dd49",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Charizard",
+      "card_number": "4",
+      "canonical_card_id": "ef4363f7-9928-4914-a8b2-cc51a37c5c46",
+      "card_variant_id": "7d6a2862-0953-491a-bb05-5fe4e0be5c63",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Clefairy",
+      "card_number": "5",
+      "canonical_card_id": "3aa96a31-4ffe-491b-ab3b-8f0842f0ac6b",
+      "card_variant_id": "60b7e80c-82bd-4abe-afc8-643ec1705afe",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Gyarados",
+      "card_number": "6",
+      "canonical_card_id": "bafe8703-0587-480d-95a3-0c79e0051f53",
+      "card_variant_id": "da727d72-2d9d-43f8-88ea-bf01f7288dad",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Hitmonchan",
+      "card_number": "7",
+      "canonical_card_id": "e4d912ad-7db3-44e4-a079-951d0ea07e50",
+      "card_variant_id": "c9d03045-6e1f-4822-a024-cb2f7ecc2b44",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Super Energy Removal",
+      "card_number": "79",
+      "canonical_card_id": "0aa50c93-5a78-40f9-807f-032ccaf56948",
+      "card_variant_id": "aab85b10-be32-46bb-ac76-d8c2ecdd04f7",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "first_edition",
+      "card_name": "Magneton",
+      "card_number": "9",
+      "canonical_card_id": "87606329-7736-4843-b468-67c3f2f3d024",
+      "card_variant_id": "db2f7c51-ef99-42fa-8288-2bac082e5c0b",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "1st-edition",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "shadowless",
+      "card_name": "Raichu",
+      "card_number": "14",
+      "canonical_card_id": "c2d83172-e7c4-40b0-a705-7d1efded29f9",
+      "card_variant_id": "8a28e947-a9c8-4857-a2be-7cc8bd928176",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "unlimited",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Base",
+      "market_scope": "shadowless",
+      "card_name": "Chansey",
+      "card_number": "3",
+      "canonical_card_id": "4703df3a-f3c1-42cb-afd4-6d7003cce84a",
+      "card_variant_id": "81cef3b9-ef54-41a5-99a0-7e91be012ac9",
+      "source_set_name": "Base Set (Shadowless)",
+      "source_edition": "unlimited",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    },
+    {
+      "root_set_name": "Neo Revelation",
+      "market_scope": "unlimited",
+      "card_name": "Shining Gyarados",
+      "card_number": "65",
+      "canonical_card_id": "621b038b-e832-47a2-8bdd-1160945d6d44",
+      "card_variant_id": "cd756357-1e52-44f9-985d-4ee4b936bc35",
+      "source_set_name": "Neo Revelation",
+      "source_edition": "unlimited",
+      "gap_type": "MISSING_NEAR_MINT_PRICE",
+      "action": "EBAY_ACTIVE_ASK_BACKFILL"
+    }
+  ],
+  "identity_gaps": [
+    {
+      "root_set_name": "Neo Destiny",
+      "market_scope": "first_edition",
+      "card_name": "Shining Noctowl",
+      "card_number": "110",
+      "canonical_card_id": "51507921-0671-4c4d-bdde-84304378ea4a",
+      "gap_type": "MISSING_VARIANT_IDENTITY",
+      "action": "IDENTITY_REVIEW_BEFORE_PRICING",
+      "known_state": "Unlimited variant exists; no accepted explicit First Edition variant is present in current identity metadata."
+    },
+    {
+      "root_set_name": "Neo Revelation",
+      "market_scope": "first_edition",
+      "card_name": "Shining Gyarados",
+      "card_number": "65",
+      "canonical_card_id": "621b038b-e832-47a2-8bdd-1160945d6d44",
+      "gap_type": "MISSING_VARIANT_IDENTITY",
+      "action": "IDENTITY_REVIEW_BEFORE_PRICING",
+      "known_state": "Unlimited variant exists; no accepted explicit First Edition variant is present in current identity metadata."
+    }
+  ]
+}
