@@ -1,4 +1,4 @@
 {
-  "operation": "db-safety-guard-repair",
-  "request_id": "make-db-pressure-auto-retry-20260927"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "canonical-sep27-publication-retry-20260927"
 }
