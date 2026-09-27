@@ -573,9 +573,14 @@ BEGIN
     RAISE EXCEPTION 'SURFACE_CANDIDATE_ARGUMENTS_REQUIRED';
   END IF;
 
-  SELECT g.comparison_as_of INTO v_base_date
-  FROM public.pokemon_market_explorer_prepared_generations_v1 g
-  WHERE g.generation_id=p_base_generation_id AND g.status='complete';
+  SELECT CASE
+    WHEN count(*)>0 AND count(distinct d.comparison_as_of)=1
+      THEN max(d.comparison_as_of)
+    ELSE null
+  END
+  INTO v_base_date
+  FROM public.pokemon_market_explorer_prepared_directory_v1 d
+  WHERE d.generation_id=p_base_generation_id;
 
   IF v_base_date IS DISTINCT FROM p_market_date THEN
     RAISE EXCEPTION 'SURFACE_BASE_PREPARED_GENERATION_STALE: base % target %',
@@ -703,9 +708,14 @@ BEGIN
     RAISE EXCEPTION 'SURFACE_GENERATION_WATERMARK_INVALID';
   END IF;
 
-  SELECT comparison_as_of INTO v_base_date
-  FROM public.pokemon_market_explorer_prepared_generations_v1
-  WHERE generation_id=g.base_prepared_generation_id;
+  SELECT CASE
+    WHEN count(*)>0 AND count(distinct d.comparison_as_of)=1
+      THEN max(d.comparison_as_of)
+    ELSE null
+  END
+  INTO v_base_date
+  FROM public.pokemon_market_explorer_prepared_directory_v1 d
+  WHERE d.generation_id=g.base_prepared_generation_id;
   IF v_base_date IS DISTINCT FROM g.comparison_as_of THEN
     RAISE EXCEPTION 'SURFACE_BASE_PREPARED_WATERMARK_MISMATCH';
   END IF;
