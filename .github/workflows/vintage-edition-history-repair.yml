@@ -36,8 +36,10 @@ jobs:
           python-version: '3.11'
       - name: Install focused test dependencies
         run: python -m pip install -q pytest supabase==2.28.3 python-dotenv==1.2.2 pandas 'psycopg[binary]'
-      - name: Prepare exact-source integration and migration mirror
-        run: python .vm-ops/prepare_vintage_history_fix.py
+      - name: Align applied migration and prepare integration
+        run: |
+          python .vm-ops/align_edition_migration_version.py
+          python .vm-ops/prepare_vintage_history_fix.py
       - name: Test complete reads and existing vintage behavior
         run: |
           python -m pytest -q \
@@ -54,9 +56,9 @@ jobs:
           set -euo pipefail
           git diff --check
           python -m py_compile backend/db/services/pokemon_edition_history.py backend/scripts/build_pokemon_explore_set_value_snapshot.py
-          git add backend/scripts/build_pokemon_explore_set_value_snapshot.py backend/tests/unit/scripts/test_market_vintage_scope_override.py backend/db/migrations/20260927014000_add_dated_edition_history_refresh.sql
+          git add -A -- backend/scripts/build_pokemon_explore_set_value_snapshot.py backend/tests/unit/scripts/test_market_vintage_scope_override.py backend/db/migrations supabase/migrations backend/tests/integration/test_edition_history_dated_repair.py .vm-ops/prepare_vintage_history_fix.py
           if ! git diff --cached --quiet; then
-            git -c user.name=index-repair-ci -c user.email=repair-ci@index.invalid commit -m 'fix(market): integrate tested dated edition materialization and complete history paging'
+            git -c user.name=index-repair-ci -c user.email=repair-ci@index.invalid commit -m 'fix(market): retain tested edition recovery with applied migration identity'
             git push origin HEAD:fix/vintage-edition-history-recovery-20260926
           fi
           echo "TESTED_CANDIDATE_SHA=$(git rev-parse HEAD)"
