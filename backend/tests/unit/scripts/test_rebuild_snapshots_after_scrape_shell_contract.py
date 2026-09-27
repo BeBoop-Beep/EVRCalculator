@@ -22,7 +22,7 @@ SCRIPT = REPO_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
 
 REFRESH = "backend/scripts/refresh_stale_public_snapshots.py"
 AUDIT = "backend/scripts/audit_pokemon_market_publication.py"
-MARKET_EXPLORER = "backend.scripts.run_market_explorer_daily_publication"
+MARKET_EXPLORER = "backend.scripts.run_market_explorer_convergence"
 
 
 @pytest.fixture(scope="module")
