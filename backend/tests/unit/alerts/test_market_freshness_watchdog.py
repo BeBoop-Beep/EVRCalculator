@@ -6,10 +6,15 @@ import backend.alerts.market_freshness_watchdog as watchdog
 NOW = datetime(2026, 8, 30, 15, 0, tzinfo=timezone.utc)  # 08:00 America/Phoenix
 FRESH_DATES = {
     "accepted_market_quality": "2026-08-30",
+    "canonical_card_prices": "2026-08-30",
+    "sealed_product_prices": "2026-08-30",
     "set_value": "2026-08-30",
+    "explore_set_value": "2026-08-30",
     "set_market_dashboard": "2026-08-30",
     "sealed_snapshot": "2026-08-30",
     "global_market_index": "2026-08-30",
+    "card_movers": "2026-08-30",
+    "market_explorer_v2": "2026-08-30",
 }
 
 
@@ -78,10 +83,16 @@ class _ContractClient:
             "id", "market_date", "status", "created_at", "started_at", "updated_at", "completed_at",
         },
         "pokemon_market_date_quality": {"market_date", "status"},
+        "card_variant_price_current_v2": {"last_observed_date"},
+        "sealed_product_market_usd_latest": {"captured_at"},
         "pokemon_set_value_daily_history": {"snapshot_date", "value_scope"},
+        "pokemon_explore_set_value_snapshot_latest": {"market_date", "tcg", "scope"},
         "pokemon_set_market_dashboard_snapshot_latest": {"latest_market_date"},
         "pokemon_set_sealed_market_snapshot_latest": {"market_date"},
         "pokemon_market_index_daily_history": {"market_date", "tcg"},
+        "pokemon_explore_card_movers_snapshot_latest": {"market_date", "tcg", "scope", "window_key"},
+        "pokemon_market_explorer_surface_serving_v2": {"singleton", "generation_id"},
+        "pokemon_market_explorer_surface_generations_v2": {"generation_id", "market_date"},
     }
 
     def __init__(self):
@@ -101,9 +112,21 @@ class _ContractClient:
                 {"market_date": None, "status": "READY"},
                 {"market_date": "2026-08-30", "status": "READY"},
             ],
+            "card_variant_price_current_v2": [
+                {"last_observed_date": None},
+                {"last_observed_date": "2026-08-30"},
+            ],
+            "sealed_product_market_usd_latest": [
+                {"captured_at": None},
+                {"captured_at": "2026-08-30"},
+            ],
             "pokemon_set_value_daily_history": [
                 {"snapshot_date": None, "value_scope": "standard"},
                 {"snapshot_date": "2026-08-30", "value_scope": "standard"},
+            ],
+            "pokemon_explore_set_value_snapshot_latest": [
+                {"market_date": None, "tcg": "pokemon", "scope": "market"},
+                {"market_date": "2026-08-30", "tcg": "pokemon", "scope": "market"},
             ],
             "pokemon_set_market_dashboard_snapshot_latest": [
                 {"latest_market_date": None},
@@ -116,6 +139,16 @@ class _ContractClient:
             "pokemon_market_index_daily_history": [
                 {"market_date": None, "tcg": "pokemon"},
                 {"market_date": "2026-08-30", "tcg": "pokemon"},
+            ],
+            "pokemon_explore_card_movers_snapshot_latest": [
+                {"market_date": None, "tcg": "pokemon", "scope": "explore", "window_key": "7D"},
+                {"market_date": "2026-08-30", "tcg": "pokemon", "scope": "explore", "window_key": "7D"},
+            ],
+            "pokemon_market_explorer_surface_serving_v2": [
+                {"singleton": 1, "generation_id": "gen-current"},
+            ],
+            "pokemon_market_explorer_surface_generations_v2": [
+                {"generation_id": "gen-current", "market_date": "2026-08-30"},
             ],
         }
 
@@ -174,10 +207,14 @@ def test_loader_uses_canonical_columns_and_ignores_null_authority_dates():
     assert client.selections["pokemon_set_market_dashboard_snapshot_latest"] == [("latest_market_date",)]
     assert set(client.not_null_filters) == {
         ("pokemon_market_date_quality", "market_date"),
+        ("card_variant_price_current_v2", "last_observed_date"),
+        ("sealed_product_market_usd_latest", "captured_at"),
         ("pokemon_set_value_daily_history", "snapshot_date"),
+        ("pokemon_explore_set_value_snapshot_latest", "market_date"),
         ("pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
         ("pokemon_set_sealed_market_snapshot_latest", "market_date"),
         ("pokemon_market_index_daily_history", "market_date"),
+        ("pokemon_explore_card_movers_snapshot_latest", "market_date"),
     }
 
 
