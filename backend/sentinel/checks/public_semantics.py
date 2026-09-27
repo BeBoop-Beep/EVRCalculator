@@ -240,13 +240,30 @@ def check_market_public_snapshot(
         )
     market_date = (((payload.get("meta") or {}).get("snapshot") or {}).get("marketDate"))
     invalid = []
+    unavailable_count = 0
     for row in sets:
+        if not isinstance(row, dict) or not row.get("setId"):
+            invalid.append((row or {}).get("setId") if isinstance(row, dict) else None)
+            continue
+
+        status = str(row.get("valueStatus") or "").strip().lower()
+        value = row.get("currentSetValue")
+        if status == "unavailable":
+            unavailable_count += 1
+            # Unavailable membership is an intentional public state: vintage
+            # edition scopes and identity-gap roots remain visible rather than
+            # disappearing from the Market universe. It is valid only when the
+            # value is genuinely absent and the row explains why.
+            if value is not None or not row.get("certificationStatus"):
+                invalid.append(row.get("setId"))
+            continue
+
         try:
-            valid_value = float((row or {}).get("currentSetValue")) > 0
+            valid_value = float(value) > 0
         except (TypeError, ValueError):
             valid_value = False
-        if not isinstance(row, dict) or not row.get("setId") or not valid_value:
-            invalid.append((row or {}).get("setId") if isinstance(row, dict) else None)
+        if not valid_value:
+            invalid.append(row.get("setId"))
     if not market_date:
         code = "public_market_date_missing"
     elif invalid:
@@ -261,6 +278,7 @@ def check_market_public_snapshot(
                 "set_count": len(sets),
                 "market_date": market_date,
                 "sample_set_ids": [row.get("setId") for row in sets[:_SAMPLE_LIMIT] if isinstance(row, dict)],
+                "unavailable_set_count": unavailable_count,
                 "elapsed_ms": probe["elapsed_ms"],
             },
             checked_at=context.now,
