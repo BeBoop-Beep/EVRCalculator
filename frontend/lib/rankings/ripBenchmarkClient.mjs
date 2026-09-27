@@ -1,5 +1,6 @@
 const CURRENT_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/current";
 const HISTORY_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/history";
+const PRODUCT_CURRENT_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/current-batch";
 const DAY = 86_400_000;
 const key = (entity) => `${entity.entity_type}:${entity.entity_id}`;
 export function dedupeBenchmarkEntities(entities) { return [...new Map((entities || []).filter((e) => e?.entity_type && e?.entity_id).map((e) => [key(e), { entity_type: e.entity_type, entity_id: e.entity_id }])).values()]; }
@@ -16,6 +17,12 @@ export async function readCurrentBenchmark(entities, { fetchImpl = fetch, sessio
     return { ...payloads[0], rows: payloads.flatMap((payload) => Array.isArray(payload.rows) ? payload.rows : []) };
   };
   return sessionCache ? sessionCache.request(cacheKey, load) : load();
+}
+export async function readCurrentProductBenchmark(entities, { fetchImpl = fetch, sessionCache = null, force = false } = {}) {
+  const unique = dedupeBenchmarkEntities(entities); if (!unique.length) return { status: "unavailable", rows: [] };
+  const cacheKey = `benchmark:products:${unique.map(key).sort().join(",")}`;
+  const load = () => fetchImpl(PRODUCT_CURRENT_ENDPOINT, { method: "POST", credentials: "include", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entities: unique }) }).then(json);
+  return sessionCache ? sessionCache.request(cacheKey, load, { force }) : load();
 }
 export function boundedHistoryWindows(startDate, endDate) {
   let cursor = new Date(`${startDate}T00:00:00Z`); const end = new Date(`${endDate}T00:00:00Z`); const result = [];

@@ -6,13 +6,13 @@ export function formatBenchmarkScore(value) {
   return score === null ? "Unavailable" : `${displayedScore(score).toFixed(1)} / 10`;
 }
 
-export function benchmarkPosition(value) {
+export function benchmarkPosition(value, benchmarkLabel = "Pokémon") {
   const score = numeric(value);
   if (score === null) return "Unavailable";
   const displayed = displayedScore(score);
-  if (displayed > 5) return "Above Pokémon benchmark";
-  if (displayed < 5) return "Below Pokémon benchmark";
-  return "At Pokémon benchmark";
+  if (displayed > 5) return `Above ${benchmarkLabel} benchmark`;
+  if (displayed < 5) return `Below ${benchmarkLabel} benchmark`;
+  return `At ${benchmarkLabel} benchmark`;
 }
 
 export function normalizeBenchmarkMetric(row, context = {}) {
