@@ -3,34 +3,6 @@
 set local lock_timeout = '2s';
 set local statement_timeout = '30s';
 
-alter table public.pokemon_rip_benchmark_publications_v1
-  add column if not exists rankings_publication_id uuid generated always as
-    (nullif(source_manifest->>'rankings_publication_id','')::uuid) stored,
-  add column if not exists rankings_model_source_date date generated always as
-    (nullif(source_manifest->>'model_source_date','')::date) stored,
-  add column if not exists rankings_snapshot_updated_at timestamptz generated always as
-    (nullif(source_manifest->>'rankings_updated_at','')::timestamptz) stored;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid = 'public.pokemon_rip_benchmark_publications_v1'::regclass
-      and conname = 'rip_benchmark_rankings_lineage_v1'
-  ) then
-    alter table public.pokemon_rip_benchmark_publications_v1
-      add constraint rip_benchmark_rankings_lineage_v1 check (
-        publication_status <> 'published'
-        or (
-          rankings_publication_id is not null
-          and rankings_model_source_date is not null
-          and rankings_model_source_date = market_date
-          and rankings_snapshot_updated_at is not null
-        )
-      );
-  end if;
-end $$;
-
 create index if not exists rip_benchmark_financial_history_v1
   on public.pokemon_rip_benchmark_rows_v1
     (entity_type, entity_id, market_date, publication_id)
