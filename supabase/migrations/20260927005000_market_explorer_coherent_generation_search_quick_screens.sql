@@ -271,9 +271,9 @@ enriched AS (
            LIKE (SELECT q FROM norm)||'%'
         THEN 'name_prefix'
       WHEN b.asset='sealed'
-       AND pg_catalog.position(
+       AND pg_catalog.strpos(
+             ' '||public.normalize_pokemon_market_explorer_search_text_v2(b.name)||' ',
              ' '||(SELECT q FROM norm)||' '
-             IN ' '||public.normalize_pokemon_market_explorer_search_text_v2(b.name)||' '
            )>0
         THEN 'contiguous_phrase'
       ELSE b.match_kind
@@ -287,9 +287,9 @@ enriched AS (
            LIKE (SELECT q FROM norm)||'%'
         THEN 110000
       WHEN b.asset='sealed'
-       AND pg_catalog.position(
+       AND pg_catalog.strpos(
+             ' '||public.normalize_pokemon_market_explorer_search_text_v2(b.name)||' ',
              ' '||(SELECT q FROM norm)||' '
-             IN ' '||public.normalize_pokemon_market_explorer_search_text_v2(b.name)||' '
            )>0
         THEN 105000
       ELSE b.relevance_score
