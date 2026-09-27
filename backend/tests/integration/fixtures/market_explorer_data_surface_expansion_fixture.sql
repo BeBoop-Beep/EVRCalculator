@@ -179,10 +179,10 @@ returns table(
   card_number text,rarity text,edition text,printing_type text,special_type text,
   product_family text,variant_label text,match_kind text,relevance_score integer,name_similarity real
 )
-language sql stable set search_path='' as $
+language sql stable set search_path='' as $function$
   select *
   from public.search_pokemon_market_explorer_instruments_v2(p_query,p_asset,p_limit);
-$;
+$function$;
 
 create table public.pokemon_market_index_daily_history(
   id uuid primary key default gen_random_uuid(),
