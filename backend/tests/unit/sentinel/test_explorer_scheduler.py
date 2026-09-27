@@ -26,7 +26,7 @@ def test_missing_explorer_schedule_is_critical():
 
 def test_exact_managed_explorer_schedule_is_healthy():
     text = """# BEGIN market-explorer-prewarm (managed by install_market_explorer_prewarm_cron.sh)
-0-55/5 * * * * /usr/bin/flock -n /tmp/market-explorer-prewarm-cron.lock -c 'bash /repo/infra/oracle/run_market_explorer_prewarm_guarded.sh'
+* * * * * /usr/bin/flock -n /tmp/market-explorer-prewarm-cron.lock -c 'bash /repo/infra/oracle/run_market_explorer_prewarm_guarded.sh'
 2-59/15 * * * * /usr/bin/flock -n /tmp/market-explorer-health.lock -c 'python -m backend.scripts.check_market_explorer_maintained_cache_health'
 # END market-explorer-prewarm
 """
@@ -38,6 +38,7 @@ def test_exact_managed_explorer_schedule_is_healthy():
         "prewarm_entries": 1,
         "health_entries": 1,
         "bounded_prewarm_entries": 1,
+        "minute_cadence_entries": 1,
     }
 
 
