@@ -5,7 +5,7 @@ from uuid import UUID
 import pytest
 
 from backend.benchmarking.shadow_v1 import (
-    BENCHMARK_KEY, calibration_analysis, certify_set_cohort,
+    BENCHMARK_KEY, calibration_analysis, certify_product_rows, certify_set_cohort,
     inherited_product_source, unavailable_era_rows,
 )
 from backend.domain.pokemon.rip_benchmark_v1 import BenchmarkError, metric_row
@@ -102,3 +102,28 @@ def test_era_models_are_unavailable_not_averaged():
     assert len(rows) == 4
     assert {row["model_reason"] for row in rows} == {"unavailable_era_model_contract"}
     assert all(row["raw_model_value"] is None for row in rows)
+
+
+def test_product_native_scores_use_exact_result_run_and_inherited_pillars_have_no_rank():
+    sets = certify_set_cohort(fixture(), VERSIONS).rows
+    sid, pid, run, result_id = uid(1), uid(700), uid(101), uid(701)
+    product = {"sealedProductId": pid, "setId": sid, "calculationRunId": run,
+        "financialRipAbsoluteScore": "44.5", "familyRank": 2, "familySize": 8,
+        "overallRipV12": {"score": "48.25", "status": "ready", "version": "overall-v12"}}
+    result = {"id": result_id, "sealed_product_id": pid, "set_id": sid,
+        "calculation_run_id": run, "financial_rip_v4_score": "44.5",
+        "financial_rip_v4_version": "financial-v4"}
+    rows = certify_product_rows([product], [result], run_by_set={sid: run}, set_rows=sets,
+        market_date="2026-09-15", financial_version="financial-v4",
+        overall_version="overall-v12", publication_id=uid(500))
+    assert len(rows) == 4
+    by_metric = {row["metric_key"]: row for row in rows}
+    assert by_metric["financial"]["source_result_id"] == result_id
+    assert by_metric["overall"]["rank"] == 2
+    assert by_metric["chase"]["rank"] is None and by_metric["collector"]["rank"] is None
+
+    wrong = deepcopy(result); wrong["calculation_run_id"] = uid(999)
+    with pytest.raises(BenchmarkError, match="exact product result"):
+        certify_product_rows([product], [wrong], run_by_set={sid: run}, set_rows=sets,
+            market_date="2026-09-15", financial_version="financial-v4",
+            overall_version="overall-v12", publication_id=uid(500))

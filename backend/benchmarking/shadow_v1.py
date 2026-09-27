@@ -13,6 +13,7 @@ from backend.domain.pokemon.rip_benchmark_v1 import (
     BenchmarkError, Calibration, day, fingerprint, identifier, metric_row,
     number, preview_score, wire,
 )
+from backend.benchmarking.evidence_v1 import select_exact_product_results
 
 SET_COHORT_SIZE = 22
 BENCHMARK_KEY = "pokemon_equal_weight_eligible_sets_v1"
@@ -161,6 +162,63 @@ def inherited_product_source(set_row: Mapping[str, Any], *, product_id: str,
         "lineage": {**dict(set_row.get("source_lineage") or {}),
                     "inheritance": "parent_set", "sealed_product_id": identifier(product_id)},
     }
+
+
+def certify_product_rows(published_products: Sequence[Mapping[str, Any]],
+                         result_rows: Sequence[Mapping[str, Any]], *,
+                         run_by_set: Mapping[str, str], set_rows: Sequence[Mapping[str, Any]],
+                         market_date: str, financial_version: str,
+                         overall_version: str, publication_id: str) -> list[dict[str, Any]]:
+    """Certify native product Financial/Overall and inherited Set pillars.
+
+    Financial is read from the exact stored result selected by the publication's
+    ``(product, run)`` pair. Overall is read from that same serving-generation
+    product record. No generic-ledger duplicate is averaged.
+    """
+    exact = select_exact_product_results(published_products, result_rows, run_by_set=run_by_set)
+    by_pair = {(identifier(r["sealed_product_id"]), identifier(r["calculation_run_id"])): r for r in exact}
+    parents = {(r["entity_id"], r["metric_key"]): r for r in set_rows}
+    output: list[dict[str, Any]] = []
+    for product in published_products:
+        pid, sid = identifier(product.get("sealedProductId")), identifier(product.get("setId"))
+        run = identifier(product.get("calculationRunId"))
+        result = by_pair[(pid, run)]
+        result_id = identifier(result.get("id"))
+        financial_raw = number(result.get("financial_rip_v4_score"))
+        if (result.get("financial_rip_v4_version") != financial_version
+                or financial_raw != number(product.get("financialRipAbsoluteScore"))):
+            raise BenchmarkError("exact product Financial result disagrees with published product")
+        overall = product.get("overallRipV12") or {}
+        if overall.get("version") != overall_version or overall.get("status") != "ready":
+            raise BenchmarkError("product Overall is not from selected serving generation")
+        lineage = {"product_rankings_publication_id": identifier(publication_id),
+                   "calculation_run_id": run, "source_result_id": result_id,
+                   "authority": "exact_published_product_result_run"}
+        native = {
+            "entity_type": "sealed_product", "entity_id": pid, "market_date": day(market_date).isoformat(),
+            "reconstruction_status": "persisted_exact", "calculation_run_id": run,
+            "source_result_id": result_id, "source_publication_id": identifier(publication_id),
+            "lineage": lineage,
+        }
+        output.append(metric_row(entity_type="sealed_product", entity_id=pid, parent_set_id=sid,
+            metric_key="financial", market_date=market_date,
+            source={**native, "model_version": financial_version, "raw_model_value": financial_raw,
+                    "rank": None, "cohort_size": None}))
+        rank, size = product.get("familyRank"), product.get("familySize")
+        if type(rank) is not int or type(size) is not int or not 1 <= rank <= size:
+            raise BenchmarkError("published product Overall family rank is invalid")
+        output.append(metric_row(entity_type="sealed_product", entity_id=pid, parent_set_id=sid,
+            metric_key="overall", market_date=market_date,
+            source={**native, "model_version": overall_version,
+                    "raw_model_value": number(overall.get("score")), "rank": rank, "cohort_size": size}))
+        for metric in ("chase", "collector"):
+            parent = parents.get((sid, metric))
+            if parent is None:
+                raise BenchmarkError(f"missing certified parent Set {metric} source")
+            source = inherited_product_source(parent, product_id=pid, parent_set_id=sid)
+            output.append(metric_row(entity_type="sealed_product", entity_id=pid, parent_set_id=sid,
+                metric_key=metric, market_date=market_date, source=source))
+    return sorted(output, key=lambda r: (r["entity_id"], r["metric_key"]))
 
 
 def _quantile(values: Sequence[Decimal], p: Decimal) -> Decimal:
