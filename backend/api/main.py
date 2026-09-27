@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Request  # type: ignore[reportMissingImports]
@@ -42,6 +42,11 @@ from backend.db.services.collection_portfolio_service import (
 )
 from backend.db.clients.supabase_client import service_read_client
 from backend.benchmarking.preview_v1 import PrivateBenchmarkReader
+from backend.benchmarking.registry_v1 import (
+    BenchmarkContractUnavailable,
+    resolve_active_contract,
+)
+from backend.domain.pokemon.rip_benchmark_v1 import BenchmarkError
 from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
@@ -226,14 +231,14 @@ app = FastAPI(title="EVR Collection API")
 
 
 class BenchmarkEntityRequest(BaseModel):
-    entity_type: str
+    model_config = ConfigDict(extra="forbid")
+    entity_type: Literal["set", "era", "sealed_product"]
     entity_id: UUID
 
 
 class BenchmarkCurrentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     entities: List[BenchmarkEntityRequest] = Field(min_length=1, max_length=10)
-    benchmark_key: str = Field(min_length=1, max_length=100)
-    calibration_version: str = Field(min_length=1, max_length=160)
 
 
 class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
@@ -243,11 +248,45 @@ class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
     after: Optional[Dict[str, Any]] = None
 
 
-def _benchmark_reader() -> PrivateBenchmarkReader:
+def _benchmark_client():
     from backend.db.clients.supabase_client import create_short_timeout_service_client
+    return create_short_timeout_service_client()
+
+
+def _benchmark_reader(client: Any) -> PrivateBenchmarkReader:
     return PrivateBenchmarkReader(require_access=lambda: True,
-                                  client_factory=lambda _timeout: create_short_timeout_service_client(),
+                                  client_factory=lambda _timeout: client,
                                   timeout_seconds=10)
+
+
+def _benchmark_unavailable(exc: BenchmarkContractUnavailable) -> HTTPException:
+    return HTTPException(status_code=503, detail={
+        "code": "RIP_BENCHMARK_CONTRACT_UNAVAILABLE",
+        "message": str(exc),
+    })
+
+
+def _benchmark_runtime_error(exc: RuntimeError) -> HTTPException:
+    if "history publications changed; restart pagination" in str(exc):
+        return HTTPException(status_code=409, detail={
+            "code": "RIP_BENCHMARK_HISTORY_REVISION_CHANGED",
+            "message": "Benchmark history changed during pagination; restart from the first page.",
+        })
+    raise exc
+
+
+def _with_benchmark_freshness(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Expose certified dates explicitly; never infer freshness from updated_at."""
+    result = dict(payload)
+    if result.get("status") == "available":
+        market_date = result.get("market_date")
+        result["freshness"] = {
+            "benchmarkMarketDate": market_date,
+            "modelSourceDate": market_date,
+            "financialEvidenceDate": market_date,
+            "activeModelVersion": result.get("overall_model_version"),
+        }
+    return result
 
 
 @app.post("/tcgs/pokemon/rip-benchmark/current")
@@ -257,9 +296,21 @@ def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
     _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
                            message="RIP Benchmark requires Index Plus.",
                            authorization=authorization, token_cookie=token_cookie)
-    return _benchmark_reader().current([item.model_dump(mode="json") for item in body.entities],
-                                       benchmark_key=body.benchmark_key,
-                                       calibration_version=body.calibration_version)
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        result = _benchmark_reader(client).current(
+            [item.model_dump(mode="json") for item in body.entities],
+            benchmark_key=contract.benchmark_key,
+            calibration_version=contract.calibration_version,
+        )
+        return _with_benchmark_freshness(result)
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise _benchmark_runtime_error(exc) from exc
 
 
 @app.post("/tcgs/pokemon/rip-benchmark/history")
@@ -269,10 +320,21 @@ def pokemon_rip_benchmark_history(body: BenchmarkHistoryRequest,
     _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
                            message="RIP Benchmark history requires Index Plus.",
                            authorization=authorization, token_cookie=token_cookie)
-    return _benchmark_reader().history_page([item.model_dump(mode="json") for item in body.entities],
-        start_date=body.start_date.isoformat(), end_date=body.end_date.isoformat(),
-        benchmark_key=body.benchmark_key, calibration_version=body.calibration_version,
-        limit=body.limit, after=body.after)
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        return _benchmark_reader(client).history_page(
+            [item.model_dump(mode="json") for item in body.entities],
+            start_date=body.start_date.isoformat(), end_date=body.end_date.isoformat(),
+            benchmark_key=contract.benchmark_key, calibration_version=contract.calibration_version,
+            limit=body.limit, after=body.after,
+        )
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise _benchmark_runtime_error(exc) from exc
 
 logger = logging.getLogger(__name__)
 

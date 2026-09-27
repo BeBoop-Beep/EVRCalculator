@@ -149,7 +149,12 @@ def product_evidence(result: Mapping[str, Any], *, market_date: str,
     if result.get("price_as_of") != day(market_date).isoformat():
         raise BenchmarkError("product cost is not observed for evidence date")
     n = number(result.get("pack_count"))
-    random = number(result.get("random_pack_count"))
+    # Stage-1 rows predate the explicit composition columns and represent
+    # random-pack-only products with ``random_pack_count = NULL``.  The rest of
+    # the production pipeline uses pack_count as that legacy fallback.  Keep
+    # explicit zero/partial counts fail-closed; only NULL receives the fallback.
+    random_value = result.get("random_pack_count")
+    random = n if random_value is None else number(random_value)
     if n <= 0 or n != n.to_integral_value() or random != n:
         raise BenchmarkError("verified integral random pack count required")
     if result.get("accessory_value_included") is not False:

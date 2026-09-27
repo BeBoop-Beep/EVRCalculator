@@ -235,7 +235,13 @@ def test_product_normalization_counts_guaranteed_value_once():
     assert 'p10_value_per_pack' not in e
 
 
-@pytest.mark.parametrize('field,value',[('pack_count',0),('pack_count',2.5),('random_pack_count',None),('random_pack_count',9),('accessory_value_included',True),('price_as_of','2026-09-24')])
+def test_legacy_null_random_pack_count_uses_integral_pack_count():
+    p=product();p['random_pack_count']=None
+    evidence=product_evidence(p,market_date=DAY,expected_run_id=uid(20),expected_result_id=uid(100))
+    assert evidence['cost_per_pack']==10 and evidence['expected_value_per_pack']==5
+
+
+@pytest.mark.parametrize('field,value',[('pack_count',0),('pack_count',2.5),('random_pack_count',0),('random_pack_count',9),('accessory_value_included',True),('price_as_of','2026-09-24')])
 def test_invalid_product_evidence(field,value):
     p=product();p[field]=value
     with pytest.raises(BenchmarkError): product_evidence(p,market_date=DAY,expected_run_id=uid(20),expected_result_id=uid(100))
