@@ -1,4 +1,4 @@
 {
-  "operation": "scrape-cycle-status",
-  "request_id": "sentinel-post-sync-cron-status-20260927"
+  "operation": "sentinel-status",
+  "request_id": "sentinel-runtime-status-after-pr411"
 }
