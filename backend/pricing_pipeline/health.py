@@ -17,6 +17,8 @@ OK, DEGRADED, CRITICAL = "ok", "degraded_multi_source_coverage", "critical"
 # Scheduled 04:10 Phoenix; a run is considered overdue only after this local time.
 RUN_DEADLINE_PHOENIX = time(8, 0)
 MAX_EVIDENCE_AGE_HOURS = 36
+EBAY_CONTINUITY_LOOKBACK_DAYS = 7
+EBAY_PIPELINE_ACTIVATION_DATE = date(2026, 9, 21)
 
 
 def expected_market_date(now: datetime) -> date:
@@ -50,6 +52,41 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
         "resource_bucket,provider_window_start,provider_window_end,usable_limit,requests_reserved,verified_at,provider_usage_state").order(
         "provider_window_end", desc=True).limit(4).execute().data or []
     policies = client.table("pokemon_multi_source_card_prices_v1").select("policy_version").order("market_date", desc=True).limit(50).execute().data or []
+
+    expected_day = expected_market_date(now)
+    continuity_start = max(
+        EBAY_PIPELINE_ACTIVATION_DATE,
+        expected_day - timedelta(days=EBAY_CONTINUITY_LOOKBACK_DAYS - 1),
+    )
+    batch_rows = (
+        client.table("pokemon_scrape_batches")
+        .select("market_date,status")
+        .eq("status", "complete")
+        .order("market_date", desc=True)
+        .limit(14)
+        .execute().data or []
+    )
+    ebay_rows = (
+        client.table("ebay_pricing_runs_v1")
+        .select("market_date,status")
+        .eq("status", "COMPLETE")
+        .order("market_date", desc=True)
+        .limit(14)
+        .execute().data or []
+    )
+
+    def continuity_dates(rows):
+        out = set()
+        for row in rows:
+            raw = str(row.get("market_date") or "")[:10]
+            try:
+                parsed = date.fromisoformat(raw)
+            except ValueError:
+                continue
+            if continuity_start <= parsed <= expected_day:
+                out.add(raw)
+        return sorted(out)
+
     return {
         "now": now,
         "run": one("pokemon_multi_source_pricing_runs_v1", "market_date,status,stage,failure_code,updated_at,finished_at,requests_attempted,target_fingerprint", "market_date"),
@@ -58,6 +95,8 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
         "shadow": one("pokemon_multi_source_card_prices_v1", "market_date,policy_version", "market_date"),
         "ledger": ledger[0] if ledger else None, "budget_v2": v2,
         "shadow_policies": sorted({p["policy_version"] for p in policies}),
+        "expected_ebay_dates": continuity_dates(batch_rows),
+        "completed_ebay_dates": continuity_dates(ebay_rows),
         "non_tcg_current": _guard(client, "card_variant_price_current_v2"),
         "non_tcg_canonical": _guard(client, "pokemon_canonical_card_market_prices_latest"),
     }
@@ -71,9 +110,15 @@ def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
     now = snapshot["now"]
     expected = expected_market_date(now).isoformat()
     run, evidence, estimate, shadow, ledger = (snapshot.get(k) for k in ("run", "evidence", "estimate", "shadow", "ledger"))
+    expected_ebay_dates = list(snapshot.get("expected_ebay_dates") or [])
+    completed_ebay_dates = set(snapshot.get("completed_ebay_dates") or [])
+    missing_ebay_dates = [day for day in expected_ebay_dates if day not in completed_ebay_dates]
     results = [
         _check("pricing.multi_source.run_freshness", bool(run and run["market_date"] >= expected and run["status"] == "COMPLETE"),
                "DAILY_RUN_STALE_OR_INCOMPLETE", {"expected_market_date": expected, "latest_run": run and {k: run[k] for k in ("market_date", "status", "stage", "failure_code")}}),
+        _check("pricing.ebay.calendar_continuity", not missing_ebay_dates,
+               "EBAY_DAILY_COVERAGE_GAP", {"expected_market_date": expected, "expected_completed_batch_dates": expected_ebay_dates,
+                                          "completed_ebay_dates": sorted(completed_ebay_dates), "missing_ebay_dates": missing_ebay_dates}),
         _check("pricing.multi_source.target_freshness", bool(run and run["market_date"] >= expected and run.get("target_fingerprint")),
                "TARGET_MANIFEST_MISSING_FOR_EXPECTED_DATE", {"expected_market_date": expected, "latest_target_market_date": run and run["market_date"]}),
     ]
@@ -129,10 +174,19 @@ def sentinel_results(snapshot: Mapping[str, Any]):
     from backend.sentinel.models import CheckResult, Severity
 
     out = []
+    expected_authority = expected_market_date(snapshot["now"]).isoformat()
     for r in assess(snapshot):
+        authority_identity = expected_authority if r["check"] in {
+            "pricing.multi_source.run_freshness",
+            "pricing.multi_source.target_freshness",
+            "pricing.multi_source.shadow_freshness",
+            "pricing.ebay.calendar_continuity",
+        } else None
         if r["status"] == OK:
-            out.append(CheckResult.healthy(r["check"], observed=r["observed"], checked_at=snapshot["now"]))
+            out.append(CheckResult.healthy(r["check"], observed=r["observed"], authority_identity=authority_identity,
+                                           checked_at=snapshot["now"]))
         else:
             out.append(CheckResult.failure(r["check"], failure_code=r["code"], severity=Severity.CRITICAL if r["status"] == CRITICAL else Severity.WARNING,
-                                           observed=r["observed"], checked_at=snapshot["now"]))
+                                           observed=r["observed"], authority_identity=authority_identity,
+                                           checked_at=snapshot["now"]))
     return out
