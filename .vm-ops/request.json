@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-status",
-  "request_id": "rip-benchmark-prod-post-sync"
+  "operation": "sentinel-reliability-tests",
+  "request_id": "sentinel-consolidated-reliability-tests-20260927"
 }
