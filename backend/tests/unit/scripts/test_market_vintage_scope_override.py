@@ -50,6 +50,20 @@ class _TableQuery:
         return SimpleNamespace(data=rows)
 
 
+class _HistoryRPCQuery:
+    def __init__(self, rows):
+        self.rows = sorted(rows, key=lambda r: (r["set_id"], r["market_scope"], r["market_date"]))
+        self.bounds = None
+    def order(self, *_args):
+        return self
+    def range(self, start, end):
+        self.bounds = (start, end)
+        return self
+    def execute(self):
+        rows = self.rows if self.bounds is None else self.rows[self.bounds[0]:self.bounds[1]+1]
+        return SimpleNamespace(data=rows, count=len(self.rows))
+
+
 class _Client:
     def __init__(self, *, contract=None, certification=None, standard_history=None, scoped_history=None):
         self.contract = list(contract or [])
@@ -68,7 +82,7 @@ class _Client:
             return _TableQuery(self.standard_history)
         raise AssertionError(name)
 
-    def rpc(self, name, params):
+    def rpc(self, name, params, **kwargs):
         assert name == builder.CANONICAL_HISTORY_RPC
         ids = {str(value) for value in params["p_root_set_ids"]}
         end = str(params["p_end_date"])
@@ -76,7 +90,7 @@ class _Client:
             row for row in self.scoped_history
             if str(row.get("set_id")) in ids and str(row.get("market_date")) <= end
         ]
-        return SimpleNamespace(execute=lambda: SimpleNamespace(data=rows))
+        return _HistoryRPCQuery(rows)
 
 
 def _roots(*ids_names):
