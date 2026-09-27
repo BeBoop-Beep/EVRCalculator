@@ -80,17 +80,24 @@ def test_zero_overlap_starts_new_segment_and_since_tracking_is_current_segment_o
     assert sealed["changes"]["SinceTracking"]["percent"] == pytest.approx(10)
 
 
-def test_insufficient_history_and_promoted_date_forward_fill_safely():
+def test_insufficient_history_and_global_publication_requires_observed_promoted_date():
     one = build_global_sealed_market(
         [snapshot(product("a", [("2026-01-01", 100)]))], market_date="2026-01-01"
     )
     assert one["changes"]["1D"]["available"] is False
     assert one["changes"]["7D"]["available"] is False
-    filled = build_global_sealed_market(
-        [snapshot(product("a", [("2026-01-01", 100)]))], market_date="2026-01-02"
-    )
-    assert filled["basketValue"] == pytest.approx(100)
-    assert filled["metadata"]["historyPointCount"] == 1
+
+    # Set-level tracked value may forward-fill internally, but the GLOBAL
+    # publication must not stamp Jan 2 current while its observed index still
+    # ends Jan 1. That is the exact stale-Sealed failure this guard prevents.
+    with pytest.raises(
+        GlobalSealedMarketUnavailable,
+        match="observed index does not reach the promoted market date",
+    ):
+        build_global_sealed_market(
+            [snapshot(product("a", [("2026-01-01", 100)]))],
+            market_date="2026-01-02",
+        )
 
 
 def test_global_sealed_windows_use_true_elapsed_day_baselines():
