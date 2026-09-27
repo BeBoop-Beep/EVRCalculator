@@ -206,10 +206,6 @@ row_cols = decode(
         "AND attnum>0 AND NOT attisdropped AND attgenerated='';"
     )
 )
-source_row = sql(
-    "SELECT id::text FROM pokemon_rip_benchmark_rows_v1 "
-    f"WHERE publication_id='{source_pub}' AND entity_type='set' AND metric_key='financial' LIMIT 1;"
-)
 # The row table may not expose an id column; fall back to a direct source predicate.
 source_predicate = (
     f"r.publication_id='{source_pub}' AND r.entity_type='set' AND r.metric_key='financial'"
@@ -239,7 +235,7 @@ set_expr.update(
     source_market_date=f"'{DAY}'::date",
     source_entity_type="'set'",
     source_entity_id="x.entity_id",
-    source_publication_id=f"'{RANKINGS_ID}'::uuid",
+    source_publication_id="NULL",
     calculation_run_id="md5('financial-history-run-'||x.rank)::uuid",
     source_result_id="NULL",
     collector_run_id="NULL",
@@ -285,7 +281,7 @@ for era_rank, era_id in enumerate(era_ids, 1):
         source_market_date=f"'{DAY}'::date",
         source_entity_type="'era'",
         source_entity_id=f"'{era_id}'::uuid",
-        source_publication_id=f"'{RANKINGS_ID}'::uuid",
+        source_publication_id="NULL",
         calculation_run_id="NULL",
         source_result_id="NULL",
         collector_run_id="NULL",
