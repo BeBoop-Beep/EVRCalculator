@@ -16,6 +16,12 @@ on:
       - 'backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py'
       - '.github/workflows/sentinel-runtime-backstop.yml'
       - '.github/workflows/sentinel-reliability-guardrails.yml'
+      - 'infra/oracle/run_market_explorer_prewarm_guarded.sh'
+      - 'infra/oracle/market-explorer-prewarm.crontab'
+      - 'infra/oracle/install_market_explorer_prewarm_cron.sh'
+      - 'infra/oracle/run_market_explorer_prewarm_guarded.sh'
+      - 'infra/oracle/market-explorer-prewarm.crontab'
+      - 'infra/oracle/install_market_explorer_prewarm_cron.sh'
   pull_request:
     branches: [develop, main]
     paths:
