@@ -1,15 +1,24 @@
 """Initial allowlisted recovery runbooks for inDex Sentinel P6.
 
-Only two exact failure signatures are eligible:
+The allowlist contains only bounded, idempotent repairs that invoke existing
+canonical entrypoints:
 1. market.freshness / market_publication_stale
-2. scrape.queue_leases / scrape_job_lease_expired
+2. market.freshness / market_snapshot_date_divergence
+3. scrape.queue_leases / scrape_job_lease_expired
+4. pricing.multi_source.run_freshness / DAILY_RUN_STALE_OR_INCOMPLETE
+5. pricing.ebay.scheduler / EBAY_DAILY_SCHEDULE_MISSING
 
-All other incidents remain observation/escalation only.
+Historical eBay continuity gaps remain observation-only because current active
+listings cannot truthfully reconstruct a missed past market date.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import os
+from pathlib import Path
+import subprocess
+import sys
 from typing import Any, Callable, Optional
 
 from backend.sentinel.checks.authorities import (
@@ -17,6 +26,10 @@ from backend.sentinel.checks.authorities import (
     check_scrape_queue_leases,
 )
 from backend.sentinel.models import CheckOutcome, IncidentRecord
+from backend.sentinel.checks.pricing import (
+    PRICING_SCHEDULER_CHECK_KEY,
+    check_pricing_scheduler,
+)
 from backend.sentinel.recovery.engine import (
     RecoveryContext,
     RecoveryDecision,
@@ -30,7 +43,15 @@ from backend.sentinel.registry import CheckContext
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 
 PUBLICATION_RUNBOOK = "publish_post_scrape_if_needed_v1"
+PUBLICATION_DIVERGENCE_RUNBOOK = "publish_divergent_market_surfaces_v1"
 LEASE_RUNBOOK = "reconcile_stale_scrape_leases_v1"
+PRICING_RUNBOOK = "run_daily_multi_source_pricing_v1"
+PRICING_SCHEDULER_RUNBOOK = "install_multi_source_pricing_cron_v1"
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PRICING_LOCK_PATH = "/tmp/multi-source-pricing.lock"
+PRICING_STATE_DIR = "/home/ubuntu/state/multi_source_pricing"
+PRICING_CRON_INSTALLER = REPO_ROOT / "infra" / "oracle" / "install_multi_source_pricing_cron.sh"
 
 
 def _default_client() -> Any:
@@ -62,6 +83,10 @@ def build_safe_recovery_registry(
     market_freshness_checker: Optional[Callable[..., Any]] = None,
     lease_reconciler: Optional[Callable[[], int]] = None,
     lease_checker: Optional[Callable[..., Any]] = None,
+    pricing_run_fn: Optional[Callable[[str], dict]] = None,
+    pricing_health_checker: Optional[Callable[..., Any]] = None,
+    pricing_scheduler_checker: Optional[Callable[..., Any]] = None,
+    pricing_cron_installer: Optional[Callable[[], dict]] = None,
 ) -> RecoveryRegistry:
     """Build the P6 exact-match recovery allowlist.
 
@@ -87,10 +112,81 @@ def build_safe_recovery_registry(
     if lease_checker is None:
         lease_checker = check_scrape_queue_leases
 
+    if pricing_health_checker is None:
+        from backend.pricing_pipeline import health as pricing_health
+
+        def pricing_health_checker(context: CheckContext, *, client: Any, check_key: str):
+            snapshot = pricing_health.gather(client, context.now)
+            results = {
+                result.check_key: result
+                for result in pricing_health.sentinel_results(snapshot)
+            }
+            return results[check_key]
+
+    if pricing_scheduler_checker is None:
+        pricing_scheduler_checker = check_pricing_scheduler
+
+    if pricing_run_fn is None:
+        def pricing_run_fn(market_date: str) -> dict:
+            env = os.environ.copy()
+            env["EVR_PRICING_STATE_DIR"] = env.get(
+                "EVR_PRICING_STATE_DIR", PRICING_STATE_DIR
+            )
+            args = [
+                "/usr/bin/flock",
+                "-n",
+                "--conflict-exit-code",
+                "99",
+                PRICING_LOCK_PATH,
+                sys.executable,
+                "-m",
+                "backend.scripts.run_daily_multi_source_card_pricing",
+                "--json",
+                "--resume",
+                "--no-frontend-env-fallback",
+                "--market-date",
+                market_date,
+            ]
+            result = subprocess.run(
+                args,
+                cwd=str(REPO_ROOT),
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60 * 60,
+            )
+            status = (
+                "complete" if result.returncode == 0
+                else "already_running" if result.returncode in {3, 99}
+                else "waiting_for_batch" if result.returncode == 75
+                else "failed"
+            )
+            return {"status": status, "exit_code": int(result.returncode)}
+
+    if pricing_cron_installer is None:
+        def pricing_cron_installer() -> dict:
+            result = subprocess.run(
+                ["bash", str(PRICING_CRON_INSTALLER), "--apply"],
+                cwd=str(REPO_ROOT),
+                env=os.environ.copy(),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15 * 60,
+            )
+            return {
+                "status": "installed" if result.returncode == 0 else "failed",
+                "exit_code": int(result.returncode),
+            }
+
     registry = RecoveryRegistry()
 
-    def publication_precondition(
-        incident: IncidentRecord, context: RecoveryContext
+    def _publication_precondition(
+        incident: IncidentRecord,
+        context: RecoveryContext,
+        *,
+        expected_failure_code: str,
     ) -> RecoveryDecision:
         market_date = _valid_market_date(incident.authority_identity)
         if market_date is None:
@@ -107,7 +203,7 @@ def build_safe_recovery_registry(
                 "publication_failure_already_cleared", market_date=market_date
             )
         if (
-            live.failure_code != "market_publication_stale"
+            live.failure_code != expected_failure_code
             or live.authority_identity != incident.authority_identity
         ):
             return RecoveryDecision.block(
@@ -137,6 +233,24 @@ def build_safe_recovery_registry(
             market_date=market_date,
             gate_reason_code=reason_code,
             batch_id=getattr(decision, "batch_id", None),
+        )
+
+    def publication_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        return _publication_precondition(
+            incident,
+            context,
+            expected_failure_code="market_publication_stale",
+        )
+
+    def publication_divergence_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        return _publication_precondition(
+            incident,
+            context,
+            expected_failure_code="market_snapshot_date_divergence",
         )
 
     def publication_execute(
@@ -185,6 +299,20 @@ def build_safe_recovery_registry(
             check_key="market.freshness",
             failure_code="market_publication_stale",
             precondition=publication_precondition,
+            execute=publication_execute,
+            verify=publication_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
+        )
+    )
+
+    registry.register(
+        RecoveryRunbook(
+            key=PUBLICATION_DIVERGENCE_RUNBOOK,
+            version="1",
+            check_key="market.freshness",
+            failure_code="market_snapshot_date_divergence",
+            precondition=publication_divergence_precondition,
             execute=publication_execute,
             verify=publication_verify,
             max_attempts=1,
@@ -247,6 +375,140 @@ def build_safe_recovery_registry(
             precondition=lease_precondition,
             execute=lease_execute,
             verify=lease_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
+        )
+    )
+
+    def pricing_run_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        market_date = _valid_market_date(incident.authority_identity)
+        if market_date is None:
+            return RecoveryDecision.block(
+                "pricing_recovery_market_date_invalid",
+                authority_identity=incident.authority_identity,
+            )
+        live = pricing_health_checker(
+            _check_context(context),
+            client=resolved_client,
+            check_key="pricing.multi_source.run_freshness",
+        )
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block(
+                "pricing_failure_already_cleared", market_date=market_date
+            )
+        if (
+            live.failure_code != "DAILY_RUN_STALE_OR_INCOMPLETE"
+            or live.authority_identity != incident.authority_identity
+        ):
+            return RecoveryDecision.block(
+                "pricing_failure_signature_changed",
+                incident_failure=incident.failure_code,
+                live_failure=live.failure_code,
+                incident_authority=incident.authority_identity,
+                live_authority=live.authority_identity,
+            )
+
+        batches = list(
+            resolved_client.table("pokemon_scrape_batches")
+            .select("id,status,promoted_at,missing_set_count")
+            .eq("market_date", market_date)
+            .order("id", desc=True)
+            .limit(1)
+            .execute().data or []
+        )
+        batch = batches[0] if batches else None
+        if (
+            not batch
+            or str(batch.get("status") or "") != "complete"
+            or not batch.get("promoted_at")
+            or int(batch.get("missing_set_count") or 0) != 0
+        ):
+            return RecoveryDecision.block(
+                "pricing_source_batch_not_complete",
+                market_date=market_date,
+                batch_id=(batch or {}).get("id"),
+                batch_status=(batch or {}).get("status"),
+                missing_set_count=(batch or {}).get("missing_set_count"),
+            )
+        return RecoveryDecision.allow(
+            market_date=market_date,
+            batch_id=batch.get("id"),
+        )
+
+    def pricing_run_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del context
+        market_date = _valid_market_date(incident.authority_identity)
+        if market_date is None:
+            return RecoveryExecution.blocked(result={"status": "invalid_market_date"})
+        result = dict(pricing_run_fn(market_date) or {})
+        status = str(result.get("status") or "")
+        if status == "complete":
+            return RecoveryExecution.succeeded(result=result, mutation_performed=True)
+        if status in {"already_running", "waiting_for_batch"}:
+            return RecoveryExecution.blocked(result=result)
+        return RecoveryExecution.failed(result=result)
+
+    def pricing_run_verify(incident: IncidentRecord, context: RecoveryContext):
+        del incident
+        return pricing_health_checker(
+            _check_context(context),
+            client=resolved_client,
+            check_key="pricing.multi_source.run_freshness",
+        )
+
+    registry.register(
+        RecoveryRunbook(
+            key=PRICING_RUNBOOK,
+            version="1",
+            check_key="pricing.multi_source.run_freshness",
+            failure_code="DAILY_RUN_STALE_OR_INCOMPLETE",
+            precondition=pricing_run_precondition,
+            execute=pricing_run_execute,
+            verify=pricing_run_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
+        )
+    )
+
+    def pricing_scheduler_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        live = pricing_scheduler_checker(_check_context(context))
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block("pricing_scheduler_already_healthy")
+        if live.failure_code != "EBAY_DAILY_SCHEDULE_MISSING":
+            return RecoveryDecision.block(
+                "pricing_scheduler_failure_signature_changed",
+                live_failure=live.failure_code,
+            )
+        return RecoveryDecision.allow(observed=dict(live.observed))
+
+    def pricing_scheduler_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del incident, context
+        result = dict(pricing_cron_installer() or {})
+        if str(result.get("status") or "") == "installed":
+            return RecoveryExecution.succeeded(result=result, mutation_performed=True)
+        return RecoveryExecution.failed(result=result)
+
+    def pricing_scheduler_verify(incident: IncidentRecord, context: RecoveryContext):
+        del incident
+        return pricing_scheduler_checker(_check_context(context))
+
+    registry.register(
+        RecoveryRunbook(
+            key=PRICING_SCHEDULER_RUNBOOK,
+            version="1",
+            check_key=PRICING_SCHEDULER_CHECK_KEY,
+            failure_code="EBAY_DAILY_SCHEDULE_MISSING",
+            precondition=pricing_scheduler_precondition,
+            execute=pricing_scheduler_execute,
+            verify=pricing_scheduler_verify,
             max_attempts=1,
             cooldown_seconds=60 * 60,
         )
