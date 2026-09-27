@@ -63,7 +63,9 @@ def _post_publish_parity(client: Any, candidate: Mapping[str, Any], publication_
         )
     if any(
         str(row.get("source_market_date")) != str(candidate["market_date"])
-        or str(row.get("source_model_version")) != str(candidate["model_versions"]["financial"])
+        or str(row.get("source_model_version")) != str(
+            candidate["publish_rpc_request"]["arguments"]["p_header"]["financial_model_version"]
+        )
         for row in rows
     ):
         raise RuntimeError("post-publication Financial history lineage parity failed")
