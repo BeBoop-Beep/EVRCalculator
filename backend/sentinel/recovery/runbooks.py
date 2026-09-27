@@ -7,6 +7,7 @@ canonical entrypoints:
 3. scrape.queue_leases / scrape_job_lease_expired
 4. pricing.multi_source.run_freshness / DAILY_RUN_STALE_OR_INCOMPLETE
 5. pricing.ebay.scheduler / EBAY_DAILY_SCHEDULE_MISSING
+6. market_explorer.maintenance_scheduler / MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING
 
 Historical eBay continuity gaps remain observation-only because current active
 listings cannot truthfully reconstruct a missed past market date.
@@ -30,6 +31,10 @@ from backend.sentinel.checks.pricing import (
     PRICING_SCHEDULER_CHECK_KEY,
     check_pricing_scheduler,
 )
+from backend.sentinel.checks.explorer import (
+    MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+    check_market_explorer_scheduler,
+)
 from backend.sentinel.recovery.engine import (
     RecoveryContext,
     RecoveryDecision,
@@ -47,11 +52,15 @@ PUBLICATION_DIVERGENCE_RUNBOOK = "publish_divergent_market_surfaces_v1"
 LEASE_RUNBOOK = "reconcile_stale_scrape_leases_v1"
 PRICING_RUNBOOK = "run_daily_multi_source_pricing_v1"
 PRICING_SCHEDULER_RUNBOOK = "install_multi_source_pricing_cron_v1"
+MARKET_EXPLORER_SCHEDULER_RUNBOOK = "install_market_explorer_prewarm_cron_v1"
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PRICING_LOCK_PATH = "/tmp/multi-source-pricing.lock"
 PRICING_STATE_DIR = "/home/ubuntu/state/multi_source_pricing"
 PRICING_CRON_INSTALLER = REPO_ROOT / "infra" / "oracle" / "install_multi_source_pricing_cron.sh"
+MARKET_EXPLORER_CRON_INSTALLER = (
+    REPO_ROOT / "infra" / "oracle" / "install_market_explorer_prewarm_cron.sh"
+)
 
 
 def _default_client() -> Any:
@@ -87,6 +96,8 @@ def build_safe_recovery_registry(
     pricing_health_checker: Optional[Callable[..., Any]] = None,
     pricing_scheduler_checker: Optional[Callable[..., Any]] = None,
     pricing_cron_installer: Optional[Callable[[], dict]] = None,
+    market_explorer_scheduler_checker: Optional[Callable[..., Any]] = None,
+    market_explorer_cron_installer: Optional[Callable[[], dict]] = None,
 ) -> RecoveryRegistry:
     """Build the P6 exact-match recovery allowlist.
 
@@ -180,6 +191,25 @@ def build_safe_recovery_registry(
                 "exit_code": int(result.returncode),
             }
 
+    if market_explorer_scheduler_checker is None:
+        market_explorer_scheduler_checker = check_market_explorer_scheduler
+
+    if market_explorer_cron_installer is None:
+        def market_explorer_cron_installer() -> dict:
+            result = subprocess.run(
+                ["bash", str(MARKET_EXPLORER_CRON_INSTALLER), "--apply"],
+                cwd=str(REPO_ROOT),
+                env=os.environ.copy(),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15 * 60,
+            )
+            return {
+                "status": "installed" if result.returncode == 0 else "failed",
+                "exit_code": int(result.returncode),
+            }
+
     registry = RecoveryRegistry()
 
     def _publication_precondition(
@@ -213,6 +243,21 @@ def build_safe_recovery_registry(
                 incident_authority=incident.authority_identity,
                 live_authority=live.authority_identity,
             )
+
+        if expected_failure_code == "market_snapshot_date_divergence":
+            dates = dict(live.observed.get("authority_dates") or {})
+            lagging = sorted(
+                key for key, value in dates.items()
+                if value and str(value)[:10] != market_date
+            )
+            missing = sorted(key for key, value in dates.items() if not value)
+            divergent = sorted(set(lagging + missing))
+            if divergent and set(divergent).issubset({"explorer_v2"}):
+                return RecoveryDecision.block(
+                    "explorer_convergence_owned_by_maintained_worker",
+                    market_date=market_date,
+                    divergent_authorities=divergent,
+                )
 
         decision = gate_evaluator(
             resolved_client, market_date=market_date, override=False
@@ -509,6 +554,48 @@ def build_safe_recovery_registry(
             precondition=pricing_scheduler_precondition,
             execute=pricing_scheduler_execute,
             verify=pricing_scheduler_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
+        )
+    )
+
+    def market_explorer_scheduler_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        live = market_explorer_scheduler_checker(_check_context(context))
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block("market_explorer_scheduler_already_healthy")
+        if live.failure_code != "MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING":
+            return RecoveryDecision.block(
+                "market_explorer_scheduler_failure_signature_changed",
+                live_failure=live.failure_code,
+            )
+        return RecoveryDecision.allow(observed=dict(live.observed))
+
+    def market_explorer_scheduler_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del incident, context
+        result = dict(market_explorer_cron_installer() or {})
+        if str(result.get("status") or "") == "installed":
+            return RecoveryExecution.succeeded(result=result, mutation_performed=True)
+        return RecoveryExecution.failed(result=result)
+
+    def market_explorer_scheduler_verify(
+        incident: IncidentRecord, context: RecoveryContext
+    ):
+        del incident
+        return market_explorer_scheduler_checker(_check_context(context))
+
+    registry.register(
+        RecoveryRunbook(
+            key=MARKET_EXPLORER_SCHEDULER_RUNBOOK,
+            version="1",
+            check_key=MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+            failure_code="MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING",
+            precondition=market_explorer_scheduler_precondition,
+            execute=market_explorer_scheduler_execute,
+            verify=market_explorer_scheduler_verify,
             max_attempts=1,
             cooldown_seconds=60 * 60,
         )
