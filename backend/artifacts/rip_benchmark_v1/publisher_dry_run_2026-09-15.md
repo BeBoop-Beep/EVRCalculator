@@ -25,5 +25,7 @@ This financial-return reference is separate from every model-score `benchmark_ra
 
 - Inherited product Chase: 138
 - Inherited product Collector: 138
-- Explicit unavailable Era metric rows: 8
+- Explicit unavailable Era metric rows: 0
+- Product family policy: certified
+- Product Financial/Overall calibration: shadow candidates only; not approved
 - Production header/row counts: 0 / 0

@@ -65,13 +65,32 @@ def test_reviewed_22_set_references_ranges_and_db_candidate_contract():
 def test_product_inheritance_era_unavailability_and_global_reference_separation():
     artifact = json.loads(ARTIFACT.read_text(encoding="utf-8"))
     assert artifact["product_inheritance_counts"] == {"chase": 138, "collector": 138}
-    assert artifact["era_unavailable_count"] == 8
-    assert artifact["unavailable_counts"] == {"unavailable_era_model_contract": 8}
+    assert artifact["era_unavailable_count"] == 0
+    assert artifact["unavailable_counts"] == {}
+    assert artifact["benchmark_unavailable_counts"] == {"product_calibration_not_approved": 276}
     global_return = str(artifact["opening_economics_reference"]["modeled_return_on_spend"])
     assert global_return not in set(artifact["references"].values())
     inherited = [row for row in artifact["publish_rpc_request"]["arguments"]["p_rows"]
                  if row["entity_type"] == "sealed_product" and row["metric_key"] in ("chase", "collector")]
     assert len(inherited) == 276 and all(row["rank"] is None for row in inherited)
+    assert {k: v["member_count"] for k, v in artifact["product_family_policy"]["families"].items()} == {
+        "booster_box": 15, "booster_bundle": 23, "elite_trainer_box": 27,
+        "enhanced_booster_box": 2, "half_booster_box": 8, "loose_booster_pack": 22,
+        "pokemon_center_elite_trainer_box": 26, "sleeved_booster_pack": 15}
+    product_financial = [row for row in artifact["publish_rpc_request"]["arguments"]["p_rows"]
+                         if row["entity_type"] == "sealed_product" and row["metric_key"] == "financial"]
+    assert len(product_financial) == 138 and all(row["rank"] is None for row in product_financial)
+    assert {c["scale"] for c in artifact["product_calibration_study"]["metrics"]["financial"]["candidates"]} >= {"5"}
+
+
+def test_sep15_sep14_evidence_condition_is_reproduced_and_not_guessed():
+    artifact = json.loads(ARTIFACT.read_text(encoding="utf-8"))
+    forensic = artifact["product_financial_evidence_date_forensics"]
+    assert forensic["model_market_dates"] == ["2026-09-15"]
+    assert forensic["product_price_as_of_dates"] == ["2026-09-14"]
+    assert forensic["affected_product_count"] == forensic["same_day_observation_product_count"] == 138
+    assert forensic["classification"] == "stale_snapshot_publication_sequencing"
+    assert forensic["db_follow_up_required"] is False
 
 
 def test_source_pointer_or_opening_change_fails_closed():

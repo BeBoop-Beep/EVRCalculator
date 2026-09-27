@@ -7,13 +7,16 @@ from __future__ import annotations
 
 from collections import Counter
 from copy import deepcopy
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Callable, Mapping, Sequence
 from uuid import NAMESPACE_URL, uuid5
 
 from backend.benchmarking.evidence_v1 import (
     attach_evidence, evidence_from_scope, map_era_identities, product_evidence,
+)
+from backend.benchmarking.authority_v1 import (
+    aggregate_era_rows, certify_product_family_policy, product_calibration_study,
 )
 from backend.benchmarking.preview_v1 import candidate_request
 from backend.benchmarking.shadow_v1 import (
@@ -118,6 +121,38 @@ def _result_rows(client: Any, products: Sequence[Mapping[str, Any]]) -> list[dic
     return [dict(row) for row in rows]
 
 
+def _price_date_forensics(client: Any, products: Sequence[Mapping[str, Any]],
+                          result_rows: Sequence[Mapping[str, Any]], market_date: str) -> dict[str, Any]:
+    ids = sorted({str(p["sealedProductId"]) for p in products})
+    runs = sorted({str(p["calculationRunId"]) for p in products})
+    next_day = (day(market_date) + timedelta(days=1)).isoformat()
+    observations = list(client.table("sealed_product_price_observations")
+        .select("sealed_product_id,captured_at,created_at,source").in_("sealed_product_id", ids)
+        .gte("captured_at", f"{market_date}T00:00:00Z").lt("captured_at", f"{next_day}T00:00:00Z")
+        .execute().data or [])
+    run_rows = list(client.table("calculation_runs").select("id,market_date,created_at")
+                    .in_("id", runs).execute().data or [])
+    observed_ids = {str(r["sealed_product_id"]) for r in observations}
+    result_dates = {str(r.get("price_as_of")) for r in result_rows}
+    run_dates = {str(r.get("market_date")) for r in run_rows}
+    observation_created = sorted(str(r.get("created_at")) for r in observations if r.get("created_at"))
+    run_created = sorted(str(r.get("created_at")) for r in run_rows if r.get("created_at"))
+    stale_before_run = (result_dates == {(day(market_date)-timedelta(days=1)).isoformat()}
+        and run_dates == {market_date} and len(observed_ids) == len(ids)
+        and observation_created and run_created and observation_created[-1] < run_created[0])
+    return {"classification": "stale_snapshot_publication_sequencing" if stale_before_run else "undetermined_fail_closed",
+        "model_market_dates": sorted(run_dates), "product_price_as_of_dates": sorted(result_dates),
+        "affected_product_count": sum(str(r.get("price_as_of")) != market_date for r in result_rows),
+        "product_count": len(ids), "same_day_observation_product_count": len(observed_ids),
+        "same_day_observation_created_min": observation_created[0] if observation_created else None,
+        "same_day_observation_created_max": observation_created[-1] if observation_created else None,
+        "calculation_run_created_min": run_created[0] if run_created else None,
+        "calculation_run_created_max": run_created[-1] if run_created else None,
+        "db_follow_up_required": False if stale_before_run else None,
+        "required_action": "rebuild_and_gate_same_day_sealed_snapshot_before_simulation" if stale_before_run
+                           else "do_not_guess_temporal_contract"}
+
+
 def _attach_financial_evidence(rows: list[dict[str, Any]], opening: Mapping[str, Any],
                                result_rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     economics = (opening.get("payload_json") or {}).get("openingEconomics") or {}
@@ -214,14 +249,23 @@ def assemble_dry_run(client: Any, *, market_date: str | None = None,
     run_by_set = {str(t["set_id"]): str(t["calculation_run_id"])
                   for t in payload.get("targets") or [] if t.get("set_id") and t.get("calculation_run_id")}
     result_rows = _result_rows(client, products)
+    price_forensics = _price_date_forensics(client, products, result_rows, target_day)
     product_rows = certify_product_rows(products, result_rows, run_by_set=run_by_set,
         set_rows=set_rows, market_date=target_day, financial_version=model_versions["financial"],
         overall_version=model_versions["overall"], publication_id=certified.publication_id)
-    # Only inherited Set pillars use the reviewed Set references. Product-native
-    # Financial/Overall need their own future certified reference policy.
+    product_policy = certify_product_family_policy(products, product_rows)
+    product_study = product_calibration_study(products, product_rows, product_policy)
+    family_by_product = {str(p["sealedProductId"]): str(p["productFamily"]) for p in products}
+    # Inherited Set pillars use reviewed Set references. Product-native family
+    # references are certified, but their calibration remains shadow-only.
     product_rows = [_score_row(r, references[r["metric_key"]], calibrations[r["metric_key"]])
                     if r["metric_key"] in ("chase", "collector") else
-                    {**r, "benchmark_reason": "product_reference_policy_not_certified"}
+                    {**r, "benchmark_reason": "product_calibration_not_approved",
+                     "benchmark_raw_value": product_policy["references"][(family_by_product[r["entity_id"]], r["metric_key"])].raw_value,
+                     "benchmark_source_fingerprint": product_policy["references"][(family_by_product[r["entity_id"]], r["metric_key"])].source_fingerprint,
+                     "source_lineage": {**dict(r.get("source_lineage") or {}),
+                         "product_benchmark_policy": {"benchmark_key": product_policy["benchmark_key"],
+                             "family": family_by_product[r["entity_id"]], "weighting": "equal_product_v1"}}}
                     for r in product_rows]
 
     opening = _opening_snapshot(client, target_day)
@@ -230,8 +274,8 @@ def assemble_dry_run(client: Any, *, market_date: str | None = None,
             or economics.get("basis") != V3_BASIS or economics.get("marketDate") != target_day):
         raise BenchmarkError("same-day global Opening Economics contract is incompatible")
     era_ids = map_era_identities(economics.get("sets") or [], economics.get("eras") or [])
-    era_rows = [row for eid in sorted(era_ids.values())
-                for row in unavailable_era_rows(era_id=eid, market_date=target_day)]
+    era_rows, era_study = aggregate_era_rows(set_rows, economics.get("sets") or [],
+        market_date=target_day, references=references, calibrations=calibrations)
     rows = _attach_financial_evidence(set_rows + product_rows + era_rows, opening, result_rows)
     rows = sorted(rows, key=lambda r: (r["entity_type"], r["entity_id"], r["metric_key"]))
 
@@ -293,6 +337,9 @@ def assemble_dry_run(client: Any, *, market_date: str | None = None,
             r["metric_key"] == m and r["model_status"] == "inherited" for r in rows)
             for m in ("chase", "collector")},
         "era_unavailable_count": sum(r["entity_type"] == "era" and r["model_status"] == "unavailable" for r in rows),
+        "product_family_policy": {k: v for k, v in product_policy.items() if k != "references"},
+        "product_calibration_study": product_study, "era_aggregation_study": era_study,
+        "product_financial_evidence_date_forensics": price_forensics,
         "opening_economics_reference": {"snapshot_id": opening["id"], "market_date": opening["market_date"],
             "contract_version": V3_CONTRACT, "basis": V3_BASIS,
             "cost_per_pack": evidence_global.get("averageCostPerPack"),

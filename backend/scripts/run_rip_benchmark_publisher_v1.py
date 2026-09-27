@@ -41,7 +41,46 @@ def report(candidate: Mapping[str, Any]) -> str:
         f"- Inherited product Chase: {candidate['product_inheritance_counts']['chase']}",
         f"- Inherited product Collector: {candidate['product_inheritance_counts']['collector']}",
         f"- Explicit unavailable Era metric rows: {candidate['era_unavailable_count']}",
+        f"- Product family policy: {candidate['product_family_policy']['status']}",
+        "- Product Financial/Overall calibration: shadow candidates only; not approved",
         f"- Production header/row counts: {candidate['production_counts_after']['headers']} / {candidate['production_counts_after']['rows']}", ""]
+    return "\n".join(lines)
+
+
+def product_report(study: Mapping[str, Any]) -> str:
+    lines = ["# Product Benchmark V1 shadow calibration", "",
+        "**No Product Financial or Product Overall scale is approved or selected.**", "",
+        f"Certified products: {study['product_count']} across {len(study['family_cardinalities'])} exact serving families.", "",
+        "| Metric | Scale | Score range | Clip 0 / 10 | Distinct 0.1 | Rank status | Clipping families | Compression families |",
+        "|---|---:|---:|---:|---:|---|---|---|"]
+    for metric in ("financial", "overall"):
+        for c in study["metrics"][metric]["candidates"]:
+            lines.append(f"| {metric.title()} | {_fmt(c['scale'])} | {_fmt(c['score_min'])}–{_fmt(c['score_max'])} | "
+                f"{c['clipped_at_0']} / {c['clipped_at_10']} | {c['distinct_displayed_one_decimal_scores']} | "
+                f"{c['canonical_rank_status']} | {', '.join(c['families_dominated_by_clipping']) or 'none'} | "
+                f"{', '.join(c['families_dominated_by_compression']) or 'none'} |")
+    lines += ["", "The existing family rank is certified for Overall only. The serving contract exposes no canonical Financial family rank, so none is fabricated.", "",
+        "Every family mean scores exactly 5.0 for every candidate. Family-level percentiles and ±1%/±2%/±5% sensitivity are in the JSON artifact.", ""]
+    return "\n".join(lines)
+
+
+def era_report(study: Mapping[str, Any]) -> str:
+    lines = ["# Era Benchmark Aggregation V1 shadow certification", "",
+        f"Status: **{study['status']}**", "",
+        f"Aggregation: `{study['aggregation_version']}` over {study['set_count']} Sets partitioned into {study['era_count']} Eras.", "",
+        "Era Overall is the equal-weight mean of canonical member-Set Overall raw scores. It is not recomputed from aggregated pillars.", ""]
+    for metric in ("financial", "chase", "collector", "overall"):
+        lines += [f"## {metric.title()}", "",
+            "| Era | Sets | Raw value | Global Set reference | Score | Era rank |",
+            "|---|---:|---:|---:|---:|---:|"]
+        entries = study["metrics"][metric]
+        for era_id, item in entries.items():
+            if era_id == "weighted_reconciliation":
+                continue
+            lines.append(f"| {item['era_name']} | {item['member_count']} | {_fmt(item['raw_value'])} | "
+                f"{_fmt(item['global_set_reference'])} | {_fmt(item['benchmark_score'])} | {item['era_rank']} |")
+        reconciliation = entries["weighted_reconciliation"]
+        lines += ["", f"Set-count-weighted reconciliation: `{_fmt(reconciliation['value'])}` = global `{_fmt(reconciliation['global_set_reference'])}` (exact).", ""]
     return "\n".join(lines)
 
 
@@ -57,13 +96,23 @@ def main(argv: list[str] | None = None) -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stem = f"publisher_dry_run_{candidate['market_date']}"
     json_path, report_path = args.output_dir / f"{stem}.json", args.output_dir / f"{stem}.md"
+    product_json = args.output_dir / f"product_shadow_calibration_{candidate['market_date']}.json"
+    product_md = args.output_dir / f"product_shadow_calibration_{candidate['market_date']}.md"
+    era_json = args.output_dir / f"era_shadow_aggregation_{candidate['market_date']}.json"
+    era_md = args.output_dir / f"era_shadow_aggregation_{candidate['market_date']}.md"
     json_path.write_text(json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report_path.write_text(report(candidate), encoding="utf-8")
+    product_json.write_text(json.dumps(candidate["product_calibration_study"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    product_md.write_text(product_report(candidate["product_calibration_study"]), encoding="utf-8")
+    era_json.write_text(json.dumps(candidate["era_aggregation_study"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    era_md.write_text(era_report(candidate["era_aggregation_study"]), encoding="utf-8")
     if args.json:
         print(json.dumps(candidate, indent=2, sort_keys=True))
     else:
         print(json.dumps({"status": candidate["status"], "json": str(json_path),
-            "report": str(report_path), "production_publish_enabled": False}, indent=2))
+            "report": str(report_path), "product_calibration_json": str(product_json),
+            "product_calibration_report": str(product_md), "era_aggregation_json": str(era_json),
+            "era_aggregation_report": str(era_md), "production_publish_enabled": False}, indent=2))
     return 0
 
 
