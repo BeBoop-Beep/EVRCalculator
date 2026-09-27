@@ -14,12 +14,19 @@ from backend.db.clients.supabase_client import supabase
 
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 TERMINAL_BATCH_STATES = {"complete", "failed", "incomplete"}
+EXPLORER_CONVERGENCE_AUTHORITY_KEYS = ("explorer_v2",)
+
 REQUIRED_AUTHORITY_DATE_KEYS = (
     "accepted_market_quality",
     "set_value",
     "set_market_dashboard",
     "sealed_snapshot",
     "global_market_index",
+    "explore_set_value",
+    "explore_card_movers",
+    "explorer_v2",
+    "card_market_current",
+    "sealed_product_current",
 )
 
 
@@ -61,17 +68,27 @@ def evaluate_watchdog_state(state: Mapping[str, Any], *, now: datetime) -> List[
             failures.append({"alert_type": "market_publication_stale", "failure_class": "accepted_date_stale",
                              "message": f"Latest accepted market date is {public_date or 'missing'}; expected {market_date}."})
 
-        missing_authorities = [key for key in REQUIRED_AUTHORITY_DATE_KEYS if not dates.get(key)]
+        explorer_deadline = _clock(
+            os.getenv("MARKET_EXPLORER_CONVERGENCE_DEADLINE_AZ", "10:30")
+        )
+        required_keys = tuple(
+            key for key in REQUIRED_AUTHORITY_DATE_KEYS
+            if (
+                local_now.time() >= explorer_deadline
+                or key not in EXPLORER_CONVERGENCE_AUTHORITY_KEYS
+            )
+        )
+        missing_authorities = [key for key in required_keys if not dates.get(key)]
         if missing_authorities:
             failures.append({
                 "alert_type": "market_snapshot_date_divergence",
                 "failure_class": "authority_date_missing",
                 "message": f"Public market authorities are missing dates: {', '.join(missing_authorities)}.",
-                "actual_dates": {key: dates.get(key) for key in REQUIRED_AUTHORITY_DATE_KEYS},
+                "actual_dates": {key: dates.get(key) for key in required_keys},
                 "missing_authorities": missing_authorities,
             })
 
-        present = {key: value for key, value in dates.items() if value}
+        present = {key: dates.get(key) for key in required_keys if dates.get(key)}
         if present and len(set(present.values())) > 1:
             failures.append({"alert_type": "market_snapshot_date_divergence", "failure_class": "authority_date_mismatch",
                              "message": f"Public market authorities disagree: {present}.", "actual_dates": present})
@@ -93,6 +110,28 @@ def _latest_date(client: Any, table: str, column: str, **filters: Any) -> Option
     return str(rows[0].get(column))[:10] if rows and rows[0].get(column) else None
 
 
+def _explorer_v2_serving_date(client: Any) -> Optional[str]:
+    serving = list(
+        client.table("pokemon_market_explorer_surface_serving_v2")
+        .select("generation_id")
+        .eq("singleton", 1)
+        .limit(1)
+        .execute().data or []
+    )
+    generation_id = str((serving[0] if serving else {}).get("generation_id") or "")
+    if not generation_id:
+        return None
+    rows = list(
+        client.table("pokemon_market_explorer_surface_generations_v2")
+        .select("market_date,state")
+        .eq("generation_id", generation_id)
+        .limit(1)
+        .execute().data or []
+    )
+    value = (rows[0] if rows else {}).get("market_date")
+    return str(value)[:10] if value else None
+
+
 def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
     batches = list((client.table("pokemon_scrape_batches")
                     .select("id,market_date,status,created_at,started_at,updated_at,completed_at")
@@ -105,6 +144,17 @@ def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
             "set_market_dashboard": _latest_date(client, "pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
             "sealed_snapshot": _latest_date(client, "pokemon_set_sealed_market_snapshot_latest", "market_date"),
             "global_market_index": _latest_date(client, "pokemon_market_index_daily_history", "market_date", tcg="pokemon"),
+            "explore_set_value": _latest_date(
+                client, "pokemon_explore_set_value_snapshot_latest", "market_date",
+                tcg="pokemon", scope="market",
+            ),
+            "explore_card_movers": _latest_date(
+                client, "pokemon_explore_card_movers_snapshot_latest", "market_date",
+                tcg="pokemon", scope="explore", window_key="7D",
+            ),
+            "explorer_v2": _explorer_v2_serving_date(client),
+            "card_market_current": _latest_date(client, "card_market_usd_latest", "captured_at"),
+            "sealed_product_current": _latest_date(client, "sealed_product_market_usd_latest", "captured_at"),
         },
     }
 

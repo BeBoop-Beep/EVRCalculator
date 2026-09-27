@@ -313,6 +313,28 @@ class RecoveryRunner:
             }
         }
 
+        if execution.status is RecoveryAttemptStatus.BLOCKED:
+            attempt.status = RecoveryAttemptStatus.BLOCKED
+            attempt.completed_at = now
+            attempt.result_json = result_json
+            attempt.cooldown_until = now + timedelta(seconds=runbook.cooldown_seconds)
+            self.store.save_recovery_attempt(attempt)
+            # A blocked execution proves no mutation ran (for example another
+            # canonical publisher owns the lock). Keep the incident open and
+            # let the normal observer re-evaluate it after the cooldown instead
+            # of falsely escalating an operation that deliberately did nothing.
+            incident.status = IncidentStatus.OPEN
+            incident.last_seen_at = now
+            self.store.upsert_incident(incident)
+            return {
+                "action": "blocked",
+                "reason_code": "recovery_execution_blocked",
+                "incident_id": incident.id,
+                "runbook": runbook.key,
+                "attempt_number": attempt_number,
+                "execution_status": execution.status.value,
+            }
+
         if execution.status is not RecoveryAttemptStatus.SUCCEEDED:
             attempt.status = execution.status
             attempt.completed_at = now

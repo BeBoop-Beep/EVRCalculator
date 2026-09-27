@@ -27,6 +27,10 @@ from backend.sentinel.recovery.engine import (
 )
 from backend.sentinel.recovery.runbooks import (
     LEASE_RUNBOOK,
+    MARKET_EXPLORER_SCHEDULER_RUNBOOK,
+    PRICING_RUNBOOK,
+    PRICING_SCHEDULER_RUNBOOK,
+    PUBLICATION_DIVERGENCE_RUNBOOK,
     PUBLICATION_RUNBOOK,
     build_safe_recovery_registry,
 )
@@ -254,7 +258,7 @@ def test_precondition_block_does_not_consume_recovery_attempt():
     assert store.get_latest_recovery_attempt(incident.id, runbook.key) is None
 
 
-def test_p6_allowlist_contains_only_publication_stale_and_expired_lease():
+def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
     noop_failure = lambda *a, **k: CheckResult.failure(
         "market.freshness",
         failure_code="market_publication_stale",
@@ -278,6 +282,10 @@ def test_p6_allowlist_contains_only_publication_stale_and_expired_lease():
     )
     assert registry.matches() == (
         ("market.freshness", "market_publication_stale"),
+        ("market.freshness", "market_snapshot_date_divergence"),
+        ("market_explorer.maintenance_scheduler", "MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING"),
+        ("pricing.ebay.scheduler", "EBAY_DAILY_SCHEDULE_MISSING"),
+        ("pricing.multi_source.run_freshness", "DAILY_RUN_STALE_OR_INCOMPLETE"),
         ("scrape.queue_leases", "scrape_job_lease_expired"),
     )
 
@@ -355,6 +363,266 @@ def test_publication_recovery_uses_canonical_wrapper_then_requires_healthy_verif
     assert report["action"] == "recovered"
     assert publish_calls[0][0] == "2026-09-11"
     assert store.get_incident(incident.id).status is IncidentStatus.RESOLVED
+
+
+def test_snapshot_divergence_reuses_canonical_publication_wrapper():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="market.freshness",
+        code="market_snapshot_date_divergence",
+    )
+    live_results = iter([
+        CheckResult.failure(
+            "market.freshness",
+            failure_code="market_snapshot_date_divergence",
+            authority_identity="2026-09-11",
+            checked_at=NOW,
+        ),
+        CheckResult.healthy(
+            "market.freshness",
+            authority_identity="2026-09-11",
+            checked_at=NOW,
+        ),
+    ])
+    calls = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        publish_if_needed_fn=lambda market_date, **kwargs: (
+            calls.append(market_date),
+            {"market_date": market_date, "status": "published"},
+        )[1],
+        gate_evaluator=lambda *a, **k: SimpleNamespace(
+            allowed=True, reason_code="allowed_complete", batch_id=48
+        ),
+        market_freshness_checker=lambda *a, **k: next(live_results),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_health_checker=lambda *a, **k: CheckResult.healthy(
+            k["check_key"], authority_identity="2026-09-11", checked_at=NOW
+        ),
+        pricing_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "pricing.ebay.scheduler", checked_at=NOW
+        ),
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert calls == ["2026-09-11"]
+    assert PUBLICATION_DIVERGENCE_RUNBOOK != PUBLICATION_RUNBOOK
+
+
+def test_pricing_daily_recovery_requires_complete_promoted_source_batch():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="pricing.multi_source.run_freshness",
+        code="DAILY_RUN_STALE_OR_INCOMPLETE",
+    )
+
+    class Query:
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def order(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def execute(self): return SimpleNamespace(data=[{
+            "id": 65, "status": "running", "promoted_at": None, "missing_set_count": 4
+        }])
+
+    client = SimpleNamespace(table=lambda name: Query())
+    calls = []
+    recovery = build_safe_recovery_registry(
+        client=client,
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy(
+            "market.freshness", checked_at=NOW
+        ),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_health_checker=lambda *a, **k: CheckResult.failure(
+            "pricing.multi_source.run_freshness",
+            failure_code="DAILY_RUN_STALE_OR_INCOMPLETE",
+            severity=Severity.WARNING,
+            authority_identity="2026-09-11",
+            checked_at=NOW,
+        ),
+        pricing_run_fn=lambda day: calls.append(day) or {"status": "complete", "exit_code": 0},
+        pricing_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "pricing.ebay.scheduler", checked_at=NOW
+        ),
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["reason_code"] == "pricing_source_batch_not_complete"
+    assert calls == []
+
+
+def test_explorer_only_divergence_defers_to_bounded_maintenance_worker():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="market.freshness",
+        code="market_snapshot_date_divergence",
+    )
+    publish_calls = []
+    live = CheckResult.failure(
+        "market.freshness",
+        failure_code="market_snapshot_date_divergence",
+        severity=Severity.CRITICAL,
+        authority_identity="2026-09-11",
+        observed={
+            "authority_dates": {
+                "accepted_market_quality": "2026-09-11",
+                "set_value": "2026-09-11",
+                "set_market_dashboard": "2026-09-11",
+                "sealed_snapshot": "2026-09-11",
+                "global_market_index": "2026-09-11",
+                "explore_set_value": "2026-09-11",
+                "explore_card_movers": "2026-09-11",
+                "card_market_current": "2026-09-11",
+                "sealed_product_current": "2026-09-11",
+                "explorer_v2": "2026-09-10",
+            }
+        },
+        checked_at=NOW,
+    )
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        publish_if_needed_fn=lambda *a, **k: publish_calls.append(True),
+        gate_evaluator=lambda *a, **k: SimpleNamespace(
+            allowed=True, reason_code="allowed_complete", batch_id=48
+        ),
+        market_freshness_checker=lambda *a, **k: live,
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_health_checker=lambda *a, **k: CheckResult.healthy(
+            k["check_key"], authority_identity="2026-09-11", checked_at=NOW
+        ),
+        pricing_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "pricing.ebay.scheduler",
+            authority_identity="multi-source-pricing-cron-v1",
+            checked_at=NOW,
+        ),
+        market_explorer_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "market_explorer.maintenance_scheduler",
+            authority_identity="market-explorer-prewarm-cron-v1",
+            checked_at=NOW,
+        ),
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["reason_code"] == "explorer_convergence_owned_by_maintained_worker"
+    assert publish_calls == []
+    assert store.get_incident(incident.id).recovery_attempt_count == 0
+
+
+def test_market_explorer_scheduler_recovery_uses_canonical_installer_then_verifies():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="market_explorer.maintenance_scheduler",
+        code="MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING",
+        authority="market-explorer-prewarm-cron-v1",
+    )
+    states = iter([
+        CheckResult.failure(
+            "market_explorer.maintenance_scheduler",
+            failure_code="MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING",
+            severity=Severity.CRITICAL,
+            authority_identity="market-explorer-prewarm-cron-v1",
+            checked_at=NOW,
+        ),
+        CheckResult.healthy(
+            "market_explorer.maintenance_scheduler",
+            authority_identity="market-explorer-prewarm-cron-v1",
+            checked_at=NOW,
+        ),
+    ])
+    installs = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy(
+            "market.freshness", checked_at=NOW
+        ),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_health_checker=lambda *a, **k: CheckResult.healthy(
+            k["check_key"], authority_identity="2026-09-11", checked_at=NOW
+        ),
+        pricing_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "pricing.ebay.scheduler",
+            authority_identity="multi-source-pricing-cron-v1",
+            checked_at=NOW,
+        ),
+        market_explorer_scheduler_checker=lambda *a, **k: next(states),
+        market_explorer_cron_installer=lambda: installs.append(True) or {
+            "status": "installed", "exit_code": 0
+        },
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert installs == [True]
+    assert MARKET_EXPLORER_SCHEDULER_RUNBOOK
+
+
+def test_pricing_scheduler_recovery_uses_canonical_installer_then_verifies():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="pricing.ebay.scheduler",
+        code="EBAY_DAILY_SCHEDULE_MISSING",
+        authority="multi-source-pricing-cron-v1",
+    )
+    states = iter([
+        CheckResult.failure(
+            "pricing.ebay.scheduler",
+            failure_code="EBAY_DAILY_SCHEDULE_MISSING",
+            severity=Severity.WARNING,
+            authority_identity="multi-source-pricing-cron-v1",
+            checked_at=NOW,
+        ),
+        CheckResult.healthy(
+            "pricing.ebay.scheduler",
+            authority_identity="multi-source-pricing-cron-v1",
+            checked_at=NOW,
+        ),
+    ])
+    installs = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy(
+            "market.freshness", checked_at=NOW
+        ),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_health_checker=lambda *a, **k: CheckResult.healthy(
+            k["check_key"], authority_identity="2026-09-11", checked_at=NOW
+        ),
+        pricing_scheduler_checker=lambda *a, **k: next(states),
+        pricing_cron_installer=lambda: installs.append(True) or {
+            "status": "installed", "exit_code": 0
+        },
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert installs == [True]
+    assert PRICING_SCHEDULER_RUNBOOK
 
 
 def test_lease_recovery_uses_narrow_reconciler_and_verifies_queue_clear():

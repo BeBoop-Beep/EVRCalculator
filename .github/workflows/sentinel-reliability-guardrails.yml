@@ -1,0 +1,80 @@
+name: Sentinel Reliability Guardrails
+
+on:
+  push:
+    branches:
+      - fix/sentinel-autonomous-reliability-20260927
+      - develop
+      - main
+    paths:
+      - 'backend/sentinel/**'
+      - 'backend/pricing_pipeline/health.py'
+      - 'backend/alerts/market_freshness_watchdog.py'
+      - 'backend/scripts/run_market_explorer_maintained_cache_prewarm.py'
+      - 'backend/tests/unit/sentinel/**'
+      - 'backend/tests/unit/alerts/test_market_freshness_watchdog.py'
+      - 'backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py'
+      - '.github/workflows/sentinel-runtime-backstop.yml'
+      - '.github/workflows/sentinel-reliability-guardrails.yml'
+      - 'infra/oracle/run_market_explorer_prewarm_guarded.sh'
+      - 'infra/oracle/market-explorer-prewarm.crontab'
+      - 'infra/oracle/install_market_explorer_prewarm_cron.sh'
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'backend/sentinel/**'
+      - 'backend/pricing_pipeline/health.py'
+      - 'backend/alerts/market_freshness_watchdog.py'
+      - 'backend/scripts/run_market_explorer_maintained_cache_prewarm.py'
+      - 'backend/tests/unit/sentinel/**'
+      - 'backend/tests/unit/alerts/test_market_freshness_watchdog.py'
+      - 'backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py'
+      - '.github/workflows/sentinel-runtime-backstop.yml'
+      - '.github/workflows/sentinel-reliability-guardrails.yml'
+      - 'infra/oracle/run_market_explorer_prewarm_guarded.sh'
+      - 'infra/oracle/market-explorer-prewarm.crontab'
+      - 'infra/oracle/install_market_explorer_prewarm_cron.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test runtime
+        run: python -m pip install -q pytest supabase==2.28.3 python-dotenv==1.2.2 requests 'psycopg[binary]==3.3.6'
+      - name: Sentinel reliability regressions
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/sentinel/test_pricing_registration.py \
+            backend/tests/unit/sentinel/test_safe_recovery.py \
+            backend/tests/unit/sentinel/test_authority_adapters.py \
+            backend/tests/unit/sentinel/test_explorer_scheduler.py \
+            backend/tests/unit/alerts/test_market_freshness_watchdog.py \
+            backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py
+          python -m py_compile \
+            backend/pricing_pipeline/health.py \
+            backend/alerts/market_freshness_watchdog.py \
+            backend/sentinel/checks/pricing.py \
+            backend/sentinel/checks/explorer.py \
+            backend/sentinel/checks/registry.py \
+            backend/sentinel/recovery/runbooks.py \
+            backend/sentinel/operational.py \
+            backend/scripts/run_market_explorer_maintained_cache_prewarm.py
+          bash -n infra/oracle/run_market_explorer_prewarm_guarded.sh
+          bash -n infra/oracle/install_market_explorer_prewarm_cron.sh
+          grep -q -- '--max-caches 1' infra/oracle/run_market_explorer_prewarm_guarded.sh
+          grep -q 'run_market_explorer_prewarm_guarded.sh' infra/oracle/market-explorer-prewarm.crontab
+          git diff --check

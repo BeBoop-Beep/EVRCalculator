@@ -13,11 +13,20 @@ from backend.sentinel.checks.authorities import (
     check_set_page_generation,
 )
 from backend.sentinel.checks.deployment import check_release_identity
+from backend.sentinel.checks.explorer import (
+    MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+    check_market_explorer_scheduler,
+)
 from backend.sentinel.checks.independent import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     check_component_heartbeat,
 )
-from backend.sentinel.checks.pricing import PRICING_CHECK_KEYS, PricingHealthSnapshot
+from backend.sentinel.checks.pricing import (
+    PRICING_CHECK_KEYS,
+    PRICING_SCHEDULER_CHECK_KEY,
+    PricingHealthSnapshot,
+    check_pricing_scheduler,
+)
 from backend.sentinel.checks.public_semantics import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     check_backend_health,
@@ -42,6 +51,8 @@ FAST_CHECK_KEYS = (
     "scrape.queue_leases",
     "setpage.generation",
     *PRICING_CHECK_KEYS,
+    PRICING_SCHEDULER_CHECK_KEY,
+    MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
 )
 PUBLIC_CHECK_KEYS = (
     "public.backend_health",
@@ -99,6 +110,7 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
     pricing_snapshot = PricingHealthSnapshot(client=client)
     _PRICING_DESCRIPTIONS = {
         "pricing.multi_source.run_freshness": "Daily multi-source pricing run is present/complete for the expected market date",
+        "pricing.ebay.calendar_continuity": "Completed scrape dates in the recent continuity window each have a completed eBay pricing run",
         "pricing.multi_source.target_freshness": "Daily pricing run's target manifest fingerprint is present for the expected market date",
         "pricing.ebay.budget_health": "eBay Browse request ledger is within the daily request budget",
         "pricing.ebay.quota_authority_v2": "eBay Browse provider-verified quota window is current and within its usable limit",
@@ -116,6 +128,20 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
             confirm_after=1,
             exception_severity=Severity.CRITICAL,
         )
+    registry.register(
+        PRICING_SCHEDULER_CHECK_KEY,
+        lambda ctx: check_pricing_scheduler(ctx),
+        description="Managed eBay daily pricing cron block is installed exactly once",
+        confirm_after=1,
+        exception_severity=Severity.WARNING,
+    )
+    registry.register(
+        MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+        lambda ctx: check_market_explorer_scheduler(ctx),
+        description="Bounded Market Explorer maintained-cache convergence schedule is installed",
+        confirm_after=1,
+        exception_severity=Severity.CRITICAL,
+    )
     return registry
 
 
