@@ -208,8 +208,10 @@ BEGIN
   WHERE m.latest_market_price>0;
 
   v_alt:=CASE
-    WHEN v_q ~ '(^| )three( |$)' THEN regexp_replace(v_q,'(^| )three( |$)','\\13\\2','g')
-    WHEN v_q ~ '(^| )3( |$)' THEN regexp_replace(v_q,'(^| )3( |$)','\\1three\\2','g')
+    WHEN (' '||v_q||' ') like '% three %'
+      THEN pg_catalog.btrim(pg_catalog.replace(' '||v_q||' ',' three ',' 3 '))
+    WHEN (' '||v_q||' ') like '% 3 %'
+      THEN pg_catalog.btrim(pg_catalog.replace(' '||v_q||' ',' 3 ',' three '))
     ELSE v_q
   END;
 
