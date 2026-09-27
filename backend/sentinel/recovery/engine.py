@@ -313,6 +313,29 @@ class RecoveryRunner:
             }
         }
 
+        if execution.status is RecoveryAttemptStatus.BLOCKED:
+            # The mutation callback re-read a safety precondition and found that
+            # recovery should not execute (for example, the canonical publisher
+            # is already running). Nothing mutated, so this is not an escalation.
+            # Persist the bounded attempt, return the incident to OPEN, and let
+            # the normal observation loop verify/resolve it on a later pass.
+            attempt.status = RecoveryAttemptStatus.BLOCKED
+            attempt.completed_at = now
+            attempt.result_json = result_json
+            attempt.cooldown_until = now + timedelta(seconds=runbook.cooldown_seconds)
+            self.store.save_recovery_attempt(attempt)
+            incident.status = IncidentStatus.OPEN
+            incident.last_seen_at = now
+            self.store.upsert_incident(incident)
+            return {
+                "action": "blocked",
+                "reason_code": "recovery_execution_blocked",
+                "incident_id": incident.id,
+                "runbook": runbook.key,
+                "attempt_number": attempt_number,
+                "execution_status": execution.status.value,
+            }
+
         if execution.status is not RecoveryAttemptStatus.SUCCEEDED:
             attempt.status = execution.status
             attempt.completed_at = now
