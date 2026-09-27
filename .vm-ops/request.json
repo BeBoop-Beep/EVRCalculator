@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-reliability-tests",
-  "request_id": "sentinel-convergence-reliability-tests-20260927"
+  "operation": "sentinel-explorer-convergence-dry-run",
+  "request_id": "sentinel-live-explorer-plan-20260927"
 }
