@@ -1,4 +1,4 @@
 {
-  "operation": "publication-live-debug",
-  "request_id": "sentinel-explorer-v2-root-cause-20260927"
+  "operation": "status",
+  "request_id": "sentinel-live-db-pressure-20260927"
 }
