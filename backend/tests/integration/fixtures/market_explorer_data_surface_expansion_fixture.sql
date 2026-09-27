@@ -131,6 +131,11 @@ create table public.pokemon_market_explorer_prepared_directory_v1(
   generation_id uuid not null,
   generated_at timestamptz not null
 );
+create table public.pokemon_market_explorer_prepared_serving_v1(
+  singleton boolean primary key default true check(singleton),
+  generation_id uuid not null
+);
+
 create table public.pokemon_market_explorer_prepared_history_v1(
   market_key text not null references public.pokemon_market_explorer_prepared_directory_v1(market_key) on delete cascade,
   market_date date not null,
