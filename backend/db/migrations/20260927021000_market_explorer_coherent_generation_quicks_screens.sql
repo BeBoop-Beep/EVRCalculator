@@ -595,13 +595,6 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1 FROM public.pokemon_market_explorer_sealed_daily_v1 d
-    WHERE d.market_date=p_market_date AND d.market_price>0
-  ) THEN
-    RAISE EXCEPTION 'SURFACE_SEALED_DAILY_NOT_CURRENT';
-  END IF;
-
-  IF NOT EXISTS (
     SELECT 1 FROM public.pokemon_market_explorer_rarity_coverage_certification_v1 c
     WHERE c.singleton AND c.certified_through>=p_market_date
   ) THEN
@@ -638,6 +631,14 @@ BEGIN
 
   PERFORM public.refresh_pokemon_market_explorer_sealed_current_metadata_v1();
   PERFORM public.refresh_pokemon_market_explorer_sealed_type_registry_v1();
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.pokemon_market_explorer_sealed_daily_v1 d
+    WHERE d.market_date=p_market_date AND d.market_price>0
+  ) THEN
+    RAISE EXCEPTION 'SURFACE_SEALED_DAILY_NOT_CURRENT';
+  END IF;
+
   PERFORM public.refresh_pokemon_market_explorer_rarity_registry_v1(p_market_date);
 
   v_raw:=public.stage_pokemon_market_explorer_raw_surface_v2(
