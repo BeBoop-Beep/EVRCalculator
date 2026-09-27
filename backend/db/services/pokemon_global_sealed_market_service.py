@@ -114,6 +114,10 @@ def build_global_sealed_market(
         point for point in full_history
         if point.get("chainSegmentId") == current_segment_id
     ]
+    if not current_history or str(current_history[-1].get("date") or "")[:10] != market_date:
+        raise GlobalSealedMarketUnavailable(
+            "global Sealed Market observed index does not reach the promoted market date"
+        )
     target_date = (date.fromisoformat(market_date) - timedelta(days=1)).isoformat()
     one_day_comparison = resolve_one_day_comparison_close(
         current_history, target_date=target_date, market_date=market_date

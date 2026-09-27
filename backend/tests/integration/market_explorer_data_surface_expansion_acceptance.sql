@@ -304,10 +304,45 @@ begin
   where availability='INSUFFICIENT_AUTHORITY';
   if n<>1 then raise exception 'graded fail-closed state missing'; end if;
 
+  select count(*) into n
+  from public.pokemon_market_explorer_sealed_quick_registry_v1
+  where status='APPROVED'
+    and quick_key in (
+      'sealed-quick:obtainable','sealed-quick:intermediate','sealed-quick:premium',
+      'sealed-quick:new-releases','sealed-quick:established','sealed-quick:global-top10'
+    );
+  if n<>6 then raise exception 'approved sealed quick contract incomplete: %',n; end if;
+
+  select count(*) into n
+  from public.pokemon_market_explorer_surface_directory_v2
+  where generation_id=g and asset='sealed' and scope_kind='quick'
+    and comparison_as_of='2026-09-24';
+  if n<>6 then raise exception 'sealed quick surface incomplete: %',n; end if;
+
   if exists (
-    select 1 from public.pokemon_market_explorer_sealed_quick_registry_v1
-    where status='APPROVED'
-  ) then raise exception 'unapproved sealed quick market was published'; end if;
+    select 1 from public.pokemon_market_explorer_surface_constituents_v2
+    where generation_id=g and market_key like 'sealed-quick:%'
+      and coalesce((item->>'isBulkContainer')::boolean,false)
+  ) then raise exception 'bulk container leaked into Sealed Quick'; end if;
+
+  if exists (
+    select 1 from public.pokemon_market_explorer_surface_directory_v2
+    where generation_id=g and comparison_as_of is distinct from '2026-09-24'::date
+  ) then raise exception 'coherent comparison watermark failed'; end if;
+
+  select count(*) into n
+  from public.search_pokemon_market_explorer_leaves_v1('cards','GX Fixture Card',20);
+  if n<1 then raise exception 'leaf-only card search missing'; end if;
+
+  select count(*) into n
+  from public.search_pokemon_market_explorer_leaves_v1('sealed','3 pack',20);
+  if n<1 then raise exception 'leaf-only sealed phrase search missing'; end if;
+
+  select count(*) into n
+  from public.get_pokemon_market_explorer_performance_screen_v1(
+    'top-performers','all',g,25
+  );
+  if n>25 then raise exception 'top performer screen exceeded cap'; end if;
 
   if (select status from public.pokemon_market_explorer_focus_readiness_v1 where feature_key='demandPressure')
        <>'DEMAND_PRESSURE_NOT_READY'

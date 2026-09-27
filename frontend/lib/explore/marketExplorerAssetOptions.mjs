@@ -103,7 +103,7 @@ export function approvedSealedQuickMarkets(payload) {
   const rows = Array.isArray(payload?.quickMarkets) ? payload.quickMarkets : [];
   return rows.filter((row) => String(row?.status || "").toUpperCase() === "APPROVED" && usable(row?.key));
 }
-export const NO_APPROVED_SEALED_QUICK_COPY = "No approved Sealed Quick Markets yet.";
+export const NO_APPROVED_SEALED_QUICK_COPY = "Sealed Quick Markets are awaiting publication.";
 
 export const ASSET_OPTIONS_ENDPOINT = "/api/market/explorer/asset-options";
 

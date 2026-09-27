@@ -1,25 +1,23 @@
 "use client";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { groupPreparedDirectory, listPreparedSealedMarkets } from "@/lib/explore/marketExplorerPrepared.mjs";
+import { groupPreparedDirectory } from "@/lib/explore/marketExplorerPrepared.mjs";
 import { NO_APPROVED_SEALED_QUICK_COPY } from "@/lib/explore/marketExplorerAssetOptions.mjs";
 import MarketExplorerContextualSearch from "./MarketExplorerContextualSearch";
-import MarketExplorerSealedTypes from "./MarketExplorerSealedTypes";
 
 const CARD_CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Markets"]];
 // Sealed IA: Sets, Eras, Quick Markets (Sealed Types + Screens render in the Analyze
 // section; the Build trigger is shared). "Sealed Markets" stays as the flat
 // list of every published sealed market.
-// V2 Sealed IA (approved): Sets, Eras, Quick Markets, Sealed Types -- one navigation layer.
-// Screens is the existing Analyze control; Build is the shared Build Your Market action.
-const SEALED_V2_CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Markets"], ["types", "Sealed Types"]];
-// V1 compatibility ONLY: the flat list of published sealed markets. Never shown together with V2 categories.
-// The V1-only flat "Sealed Markets" list is retired: V1 sealed-format rows are exposed
-// INSIDE Sealed Types so the designed IA is identical whichever generation serves.
+// V2 Sealed Browse IA: Sets, Eras, Quick Markets. Sealed Types and Screens live
+// beside one another under Analyze; Build is the shared exact-market action.
+const SEALED_V2_CATEGORIES = [["sets", "Sets"], ["eras", "Eras"], ["quick", "Quick Markets"]];
+// V1 compatibility keeps the same final IA; missing Set/Era/Quick rows render the
+// explicit awaiting-publication states instead of reviving "Sealed Markets".
 const SEALED_V1_CATEGORIES = SEALED_V2_CATEGORIES;
-const CATEGORIES = [...CARD_CATEGORIES, ["types", "Sealed Types"]];
+const CATEGORIES = CARD_CATEGORIES;
 const AWAITING_COPY = Object.freeze({
-  sets: "Sealed Set markets are awaiting the next prepared market generation.",
-  eras: "Sealed Era markets are awaiting the next prepared market generation.",
+  sets: "Sealed Set markets are awaiting the current prepared generation.",
+  eras: "Sealed Era markets are awaiting the current prepared generation.",
 });
 const GRADED_FALLBACK_REASON = "Graded markets are not available yet: there is not enough graded price coverage to publish one.";
 // Directory ASSET LAYER. Browsing state only: switching it changes which browse
@@ -36,11 +34,14 @@ const QUICK_COPY = {
   "Global Top 10": ["Global Top 10 Cards", "The ten highest-ranked cards in the global card market."],
 };
 const displayMarket = (market) => {
+  // Card Quick copy predates the sealed V2 publication. Sealed Quick labels and
+  // definitions are DB authority and must not be relabelled as card markets.
+  if (market?.asset === "sealed") return { label: market.label, description: null };
   const copy = market?.market_type === "curated" ? QUICK_COPY[market.label] : null;
   return { label: copy?.[0] || market.label, description: copy?.[1] || null };
 };
 
-export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, enableContextualSearch = true, sealedTypesPanel = null }) {
+export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, enableContextualSearch = true, resetKey = 0 }) {
   const [open, setOpen] = useState(null);
   const [search, setSearch] = useState("");
   // activeBrowseAsset: what the directory/search/builder default LIST. It never
@@ -62,8 +63,6 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
   const SEALED_CATEGORIES = v2Mode ? SEALED_V2_CATEGORIES : SEALED_V1_CATEGORIES;
   const layerRows = useMemo(() => directory.filter((row) => (assetLayer === "sealed" ? row?.asset === "sealed" : row?.asset !== "sealed")), [directory, assetLayer]);
   const grouped = useMemo(() => groupPreparedDirectory(layerRows, search), [layerRows, search]);
-  const sealedRows = useMemo(() => listPreparedSealedMarkets(directory, search), [directory, search]);
-  const sealedFormatRows = useMemo(() => sealedRows.filter((row) => row.market_type !== "set" && row.market_type !== "era" && row.market_type !== "parent"), [sealedRows]);
   const parentGroup = grouped.parents.length ? [{ era: { label: "Whole market", market_key: "parents" }, rows: grouped.parents }] : [];
   const rows = open === "eras" ? grouped.eras : open === "quick" ? grouped.quick : [...grouped.parents, ...grouped.sets.flatMap((group) => group.rows)];
   const groups = open === "sets" ? [...parentGroup, ...grouped.sets] : null;
@@ -105,18 +104,19 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
     <div role="group" aria-label="Browse context" data-market-directory-asset-layer className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-[var(--border-subtle)] p-0.5">
       {ASSET_LAYERS.map(([id, label]) => <button key={id} type="button" data-market-directory-asset={id} aria-pressed={assetLayer === id} onClick={() => { setAssetLayer(id); setOpen(null); setSearch(""); setHighlightedIndex(NO_HIGHLIGHT); }} className={`min-h-8 rounded-md px-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 ${assetLayer === id ? "bg-sky-400/15 text-sky-200" : "text-[var(--text-primary)] hover:bg-white/[.05]"}`}>{label}</button>)}
     </div>
-    {enableContextualSearch ? <MarketExplorerContextualSearch asset={assetLayer} activeKeys={activeKeys} pendingKeys={pendingKeys} failedKeys={failedKeys} onActivateMarket={onSelect} onAddToBasket={onAddToBasket} /> : null}
+    {enableContextualSearch ? <MarketExplorerContextualSearch asset={assetLayer} onAddToBasket={onAddToBasket}
+      disclosureOpen={open === "search"} onDisclosureChange={(next) => setOpen(next ? "search" : null)} resetKey={resetKey} /> : null}
     {assetLayer === "graded"
       ? <div role="status" data-market-directory-state="graded-unavailable" className="rounded-md border border-[var(--border-subtle)] px-3 py-3 text-xs text-[var(--text-secondary)]"><strong className="block text-[var(--text-primary)]">Graded markets are unavailable</strong><span data-graded-reason>{gradedReason || GRADED_FALLBACK_REASON}</span></div>
-      : <div className="grid grid-cols-2 gap-2">
+      : <div className="relative z-[60] grid grid-cols-2 gap-2">
       {(assetLayer === "sealed" ? SEALED_CATEGORIES : CARD_CATEGORIES).map(([id, label]) => <button key={id} data-market-directory-category={id} ref={(node) => { if (node) triggerRefs.current.set(id, node); else triggerRefs.current.delete(id); }} type="button" aria-haspopup="listbox" aria-expanded={open === id} aria-controls={open === id ? listboxId : undefined} onClick={() => { setOpen((value) => value === id ? null : id); setSearch(""); setHighlightedIndex(NO_HIGHLIGHT); }} className={`min-h-10 rounded-md border px-2 text-xs font-semibold ${open === id ? "border-sky-400 bg-sky-400/10 text-sky-200" : "border-slate-500/50 bg-slate-400/[.06] text-[var(--text-primary)] hover:border-sky-400/60"}`}>{label} <span aria-hidden="true">▾</span></button>)}
       <button type="button" data-market-explorer-build-trigger onClick={onBuild} className="min-h-10 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,.16)] px-2 text-xs font-bold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(45,212,191)]"><span aria-hidden="true">＋</span> Build Your Market</button>
     </div>}
-    {open ? <div data-market-directory-popover className="absolute left-3 right-3 z-40 mt-2 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-2xl">
-      {open === "types" ? <div data-market-directory-sealed-types data-sealed-types-mode={v2Mode ? "v2" : "v1"} className="max-h-[min(28rem,60vh)] overflow-y-auto p-3">{typeof sealedTypesPanel === "function" ? sealedTypesPanel({ v2Mode, formatMarkets: sealedFormatRows }) : sealedTypesPanel || <MarketExplorerSealedTypes v2Mode={v2Mode} formatMarkets={sealedFormatRows} activeKeys={activeKeys} pendingKeys={pendingKeys} onSelect={choose} />}</div> : <>
+    {open && open !== "search" ? <div data-market-directory-popover className="absolute left-3 right-3 z-40 mt-2 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-2xl">
+      <>
       <input ref={searchRef} role="combobox" aria-expanded="true" aria-controls={listboxId} aria-activedescendant={highlightedIndex >= 0 && highlightedIndex < rows.length ? `${listboxId}-${highlightedIndex}` : undefined} data-market-browser-search value={search} onChange={(event) => { setSearch(event.target.value); setHighlightedIndex(NO_HIGHLIGHT); }} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); setHighlightedIndex((i) => (rows.length ? (i < 0 ? 0 : Math.min(i + 1, rows.length - 1)) : NO_HIGHLIGHT)); } if (event.key === "ArrowUp") { event.preventDefault(); setHighlightedIndex((i) => (rows.length ? (i < 0 ? rows.length - 1 : Math.max(i - 1, 0)) : NO_HIGHLIGHT)); } if (event.key === "Enter") { const target = highlightedIndex >= 0 && highlightedIndex < rows.length ? rows[highlightedIndex] : (search.trim() && rows.length === 1 ? rows[0] : null); if (target) { event.preventDefault(); choose(target.market_key); } } if (event.key === "Escape") { event.preventDefault(); close(true); } }} placeholder={`Search ${categoryLabel}…`} aria-label={`Search ${categoryLabel}`} className="w-full border-b border-[var(--border-subtle)] bg-transparent px-3 py-3 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400/70" />
       <div id={listboxId} role="listbox" aria-label={`${categoryLabel} prepared markets`} className="max-h-[min(25rem,55vh)] overflow-y-auto p-2">{directoryStatus === "unavailable" ? <div role="alert" data-market-directory-state="unavailable" className="p-3 text-xs text-[var(--text-secondary)]"><p>Market directory is temporarily unavailable.</p><button type="button" onClick={() => globalThis.location?.reload()} className="mt-2 rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold text-[var(--text-primary)]">Retry</button></div> : !rows.length ? <p data-market-directory-state={search ? "no-match" : "empty"} className="p-3 text-xs text-[var(--text-secondary)]">{search ? `No matching ${categoryLabel}.` : open === "quick" && assetLayer === "sealed" ? <span data-sealed-quick-empty className="block"><strong className="block text-[var(--text-primary)]">Quick Markets</strong>{NO_APPROVED_SEALED_QUICK_COPY}</span> : assetLayer === "sealed" && AWAITING_COPY[open] ? <span data-sealed-awaiting={open} className="block">{AWAITING_COPY[open]}</span> : `No canonical ${categoryLabel} are currently published.`}</p> : groups && groups.length ? groups.map((group) => <div key={group.era?.market_key || group.rows[0]?.parent_era_id}><h4 className="sticky top-0 bg-[var(--surface-page)] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">{group.era?.label || "Unknown Era"}</h4><ul>{group.rows.map((market) => row(market, rowIndex++))}</ul></div>) : <ul>{rows.map(row)}</ul>}</div>{!canCompare && open !== "types" ? <p data-compare-upsell className="border-t border-[var(--border-subtle)] px-3 py-2 text-[10px] text-[var(--text-secondary)]">Selecting a market switches the chart to it. Comparing several markets side by side is included with Index+.</p> : null}
-      </>}
+      </>
     </div> : null}
   </section>;
 }

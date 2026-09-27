@@ -42,7 +42,7 @@ test("Rarity Markets uses every prepared rarity dynamically with search and comp
 test("Screens are independently gated prepared discovery with local result state", async () => {
   const client = await read("./MarketExplorerClient.jsx");
   const screens = await read("./MarketExplorerScreens.jsx");
-  assert.match(screens, /MARKET_EXPLORER_SCREENS\.map/);
+  assert.match(screens, /MARKET_EXPLORER_SCREENS[\s\S]*\.map/);
   assert.match(screens, /aria-disabled=\{!canUse\}/);
   assert.match(screens, /aria-pressed=\{active\}/);
   assert.match(screens, /new Map\(\)/);

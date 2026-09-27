@@ -28,6 +28,12 @@ def _parse_ts(value: Any) -> Optional[datetime]:
     text = str(value or "").strip()
     if not text:
         return None
+    # PostgreSQL omits trailing fractional zeros. Python 3.10 accepts only
+    # three or six fractional digits; normalize precision without changing the
+    # represented instant before parsing (e.g. .13337 -> .133370).
+    import re
+    text = re.sub(r"\.(\d{1,6})(?=Z$|[+-]\d{2}:\d{2}$|$)",
+                  lambda match: "." + match.group(1).ljust(6, "0"), text)
     try:
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:

@@ -8,6 +8,7 @@ MIGRATIONS = (
     "20260925170628_market_explorer_catalog_search_v1.sql",
     "20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql",
     "20260925170643_market_explorer_rarity_daily_coverage_v1.sql",
+    "20260927021000_market_explorer_coherent_generation_quicks_screens.sql",
 )
 
 
@@ -246,3 +247,39 @@ def test_rarity_daily_coverage_is_private_incremental_and_indexed():
     assert "to service_role" in sql
     assert "filter_rarity_key,card_variant_id,set_id" in sql
     assert "security definer" not in sql
+
+
+def test_coherent_generation_quicks_search_and_screens_contract():
+    sql = read(MIGRATIONS[5])
+    for key in (
+        "sealed-quick:obtainable",
+        "sealed-quick:intermediate",
+        "sealed-quick:premium",
+        "sealed-quick:new-releases",
+        "sealed-quick:established",
+        "sealed-quick:global-top10",
+    ):
+        assert key in sql
+    assert "comparison_as_of" in sql
+    assert "SURFACE_RAW_FROZEN_ROSTER_INCOMPLETE" in sql
+    assert "SURFACE_BASE_PREPARED_GENERATION_STALE" in sql
+    assert "SURFACE_DIRECTORY_WATERMARK_MISMATCH" in sql
+    assert "SURFACE_SEALED_QUICK_CONTAINS_BULK" in sql
+    assert "search_pokemon_market_explorer_leaves_v1" in sql
+    assert "get_pokemon_market_explorer_performance_screen_v1" in sql
+    assert "p_limit>25" in sql
+    assert "market_date-d.release_date>730" in sql
+    assert "market_date-d.release_date<=1825" in sql
+    assert "d.market_price<100" in sql
+    assert "d.market_price>=100 AND d.market_price<500" in sql
+    assert "d.market_price>=500" in sql
+
+
+def test_coherent_generation_migration_is_private_and_bounded():
+    sql = read(MIGRATIONS[5]).lower()
+    assert "security definer" not in sql
+    assert "to service_role" in sql
+    assert "from public,anon,authenticated" in sql
+    assert "set statement_timeout='1s'" in sql
+    assert "set statement_timeout='120s'" in sql
+    assert "pg_advisory_xact_lock" in sql

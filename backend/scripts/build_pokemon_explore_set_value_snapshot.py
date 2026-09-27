@@ -37,6 +37,11 @@ from backend.db.services.pokemon_market_rollout_cohort import (
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
+from backend.db.services.pokemon_edition_history import (
+    read_edition_history_batch,
+    refresh_edition_history_for_markets,
+)
+
 MARKET_READY_VIEW = "pokemon_market_set_value_publication_cohort_v1"
 CANONICAL_HISTORY_RPC = "get_pokemon_market_root_set_value_daily_history_bulk_v1"
 CANONICAL_HISTORY_START = "1999-01-01"
@@ -306,15 +311,10 @@ def _load_scoped_certified_histories(client, market_rows, *, through_date):
     set_ids = sorted(scope_by_set)
     for offset in range(0, len(set_ids), CANONICAL_HISTORY_SET_BATCH):
         batch = set_ids[offset:offset + CANONICAL_HISTORY_SET_BATCH]
-        response = client.rpc(
-            CANONICAL_HISTORY_RPC,
-            {
-                "p_root_set_ids": batch,
-                "p_start_date": CANONICAL_HISTORY_START,
-                "p_end_date": limit_date,
-            },
-        ).execute()
-        for row in list(response.data or []):
+        rows = read_edition_history_batch(
+            client, batch, start_date=CANONICAL_HISTORY_START, end_date=limit_date,
+        )
+        for row in rows:
             set_id = str(row.get("set_id") or "")
             scope = str(row.get("market_scope") or "")
             if scope not in scope_by_set.get(set_id, set()):
@@ -499,11 +499,28 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
                 .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
             dashboards.extend(result.data or [])
 
+    # Never depend on the separately paused legacy maintenance cron to make
+    # edition aggregate histories current. One root/date per transaction, under
+    # the canonical publication admission lock. Dry runs remain read-only.
+    edition_receipts = []
+    if commit and str(market_date)[:10] >= "2026-09-25":
+        edition_receipts = refresh_edition_history_for_markets(
+            client, sets, market_date=str(market_date)[:10],
+        )
+
     histories = _load_canonical_histories(
         client,
         sets,
         through_date=market_date,
     )
+    if commit and str(market_date)[:10] >= "2026-09-25":
+        for market in sets:
+            if (market.get("market_scope") in ("first_edition", "unlimited", "shadowless")
+                    and market.get("market_current_certification_status") == "CERTIFIED"):
+                points = histories.get(market["market_key"]) or []
+                if not points or str(points[-1].get("snapshot_date"))[:10] != str(market_date)[:10]:
+                    raise RuntimeError("edition_history_not_current:" + market["market_key"])
+
 
     overview = market_overview
     if overview is None:
@@ -528,6 +545,14 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         market_overview=overview,
         publisher_build_sha=publisher_build_sha(),
     )
+    if edition_receipts:
+        row["payload_json"].setdefault("meta", {}).setdefault("publicationDiagnostics", {})["editionHistory"] = {
+            "targetDate": str(market_date)[:10],
+            "verifiedRoots": len(edition_receipts),
+            "rawV2Parity": all(r["raw_v2_equal"] for r in edition_receipts),
+            "perMarketDateValidated": True,
+        }
+        row["payload_size_bytes"] = len(json.dumps(row["payload_json"], separators=(",", ":")).encode())
     _attach_initial_selected_set_movers(client, row)
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)

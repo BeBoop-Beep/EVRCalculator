@@ -71,7 +71,7 @@ export default function MarketExplorerChart({
   const focusedSeries = focusedSeriesKey ? selectedSeries.find((entry) => entry.key === focusedSeriesKey) || null : null;
 
   return (
-    <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
+    <section data-market-explorer-chart-pane className="relative flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
       <div className="px-2 pb-1 pt-2 sm:px-3">
         <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
         <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4">
@@ -104,7 +104,8 @@ export default function MarketExplorerChart({
           data-market-explorer-focus-strip
           role="group"
           aria-label="Focus mode"
-          className="mx-2 mb-1 flex flex-wrap items-center gap-2 rounded-md border border-sky-400/40 bg-sky-400/[.08] px-2.5 py-1.5 text-[11px] sm:mx-3"
+          data-market-explorer-workspace-overlay="focus"
+          className="absolute left-3 top-[5.25rem] z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-md border border-sky-400/40 bg-[rgba(2,6,23,.94)] px-2.5 py-1.5 text-[11px] shadow-xl"
         >
           <span data-market-explorer-focus-label className="min-w-0 truncate font-semibold text-sky-100">
             Focused: {focusedSeries.label}

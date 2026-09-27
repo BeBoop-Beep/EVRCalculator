@@ -237,7 +237,7 @@ test("Sealed V2: Cards-like IA; every type lands in Sealed Types once; Cases/Dis
   const eraKeys = await keysIn("eras");
   expect(eraKeys.every((k) => k.startsWith("sealed-era:"))).toBe(true);
   await chooseCategory(page, "quick");
-  await expect(page.locator("[data-sealed-quick-empty]")).toContainText("No approved Sealed Quick Markets yet.");
+  await expect(page.locator("[data-sealed-quick-empty]")).toContainText("Sealed Quick Markets are awaiting publication.");
   await chooseCategory(page, "types");
   const wanted = ["booster_box", "elite_trainer_box", "case", "display", "three_pack_blister", "collection_product"];
   for (const type of wanted) await expect(page.locator(`[data-sealed-type='${type}']`)).toHaveCount(1);
@@ -270,7 +270,7 @@ test("Sealed V1 fallback keeps the SAME designed IA with truthful awaiting state
   await chooseCategory(page, "eras");
   await expect(page.locator("[data-sealed-awaiting='eras']")).toContainText("Sealed Era markets are awaiting the next prepared market generation.");
   await chooseCategory(page, "quick");
-  await expect(page.locator("[data-sealed-quick-empty]")).toContainText("No approved Sealed Quick Markets yet.");
+  await expect(page.locator("[data-sealed-quick-empty]")).toContainText("Sealed Quick Markets are awaiting publication.");
   await chooseCategory(page, "types");
   await expect(page.locator("[data-sealed-v1-formats] [data-prepared-market]")).toHaveCount(2);
   await expect(page.locator("[data-sealed-types-awaiting-more]")).toBeVisible();
