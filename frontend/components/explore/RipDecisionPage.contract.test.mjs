@@ -15,8 +15,8 @@ test("approved hierarchy places Overall above three peer pillar cards", () => {
   const peers = source.indexOf("styles.pillarCardRow");
   const peerSource = source.slice(peers, source.indexOf("styles.compactScoreTakeaway", peers));
   assert.ok(overall >= 0 && overall < peers);
-  assert.ok(peerSource.indexOf("metrics.financial") < peerSource.indexOf("model.chaseAccessibility"));
-  assert.ok(peerSource.indexOf("model.chaseAccessibility") < peerSource.indexOf("metrics.collector"));
+  assert.ok(peerSource.indexOf("metrics.financial") < peerSource.indexOf("benchmark.chase"));
+  assert.ok(peerSource.indexOf("benchmark.chase") < peerSource.indexOf("metrics.collector"));
   assert.match(source, /styles\.pillarCardRow/);
   assert.match(css, /grid-template-columns:\s*repeat\(3/);
 });
@@ -28,10 +28,11 @@ test("Financial, Chase, and Collector have separate breakdown destinations", () 
   assert.match(source, /CollectorAppealBreakdown/);
 });
 
-test("Chase uses only backend publicScore for headline and retains raw as detail", () => {
-  assert.match(source, /chase\.publicScore/);
+test("Chase uses only the published Benchmark for its headline and retains raw as detail", () => {
+  assert.match(source, /ChaseAccessibilitySnapshotCard chase=\{benchmark\.chase\}/);
+  assert.match(source, /BenchmarkScoreBadge metric=\{chase\}/);
   assert.match(source, /displayAccessibility\.toFixed/);
-  assert.doesNotMatch(source, /publicScore\s*\?\?\s*(?:modelScore|rawAccessibility|displayAccessibility)/);
+  assert.doesNotMatch(source, /benchmark\.chase[^\n]*\?\?\s*(?:modelScore|rawAccessibility|displayAccessibility)/);
 });
 
 test("decision model preserves distinct Chase fields and cohort identity", () => {

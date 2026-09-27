@@ -16,11 +16,10 @@ test("Set Analysis preserves the old deep link only as a Financial alias", () =>
   assert.doesNotMatch(source, /value: "market-based"/);
 });
 
-test("Set Analysis renders Chase public score, rank, and cohort without fallback", () => {
-  assert.match(source, /chaseAccessibility\.publicScore/);
-  assert.match(source, /chaseAccessibility\.rank/);
-  assert.match(source, /chaseAccessibility\.cohortSize/);
-  assert.doesNotMatch(source, /publicScore\s*\?\?\s*(?:modelScore|rawAccessibility|displayAccessibility)/);
+test("Set Analysis renders Chase Benchmark without a raw/model fallback", () => {
+  assert.match(source, /BenchmarkScoreBadge metric=\{benchmark\.chase\}/);
+  assert.match(source, /useSetBenchmarkHeadlines\(setId\)/);
+  assert.doesNotMatch(source, /benchmark\.chase[^\n]*\?\?\s*(?:modelScore|rawAccessibility|displayAccessibility)/);
 });
 
 test("Analysis route remains an actual component-backed consumer", () => {

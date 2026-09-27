@@ -24,13 +24,13 @@ test("Set Value and Opening Profit vs Cost use the requested user-facing copy", 
 // The RIP Score / RIP Core mode control test stood here. There is one canonical
 // headline now: RIP Core is Financial RIP V2 and is not a current alternative to
 // the RIP Score, so there is nothing to switch between.
-test("the hero labels its one canonical score and offers no mode switch", () => {
+test("the hero labels its Set Benchmark score and offers no mode switch", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   assert.ok(!source.includes("function RipScoreModeToggle"));
   assert.ok(!source.includes("<RipScoreModeToggle"));
   assert.ok(!source.includes('ariaLabel="RIP score mode"'));
-  assert.ok(source.includes("{heroScoreSelection.label}"), "the selector owns the name");
-  assert.ok(source.includes("InfoPopover text={heroScoreSelection.helper}"));
+  assert.ok(source.includes("setBenchmark.overall.score"), "the public Benchmark owns the value");
+  assert.ok(source.includes("Compared with the published Pokémon Set benchmark"));
 });
 
 test('no surface labels the canonical RIP Score as "Opening RIP"', () => {
@@ -38,15 +38,15 @@ test('no surface labels the canonical RIP Score as "Opening RIP"', () => {
 
   // The title card used to carry a second user-facing name for the same
   // score, so the persistent header and the Insights breakdown read as two
-  // different metrics. Both now render the selector's own canonical label.
-  assert.ok(source.includes("const setContextRipLabel = heroScoreSelection.label;"));
+  // different metrics. Both now use the published Benchmark vocabulary.
+  assert.ok(source.includes("Benchmark Rank"));
   assert.ok(
     !/["'>]Opening RIP["'<]/.test(source),
     '"Opening RIP" must not survive as a rendered label'
   );
 });
 
-test("score metadata is a tier bubble and a plain rank, and nothing else", () => {
+test("Benchmark headline metadata renders rank without a legacy tier", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const pillSource = source.slice(source.indexOf("function HeroScoreBadges"), source.indexOf("function formatLensScore"));
 
@@ -93,9 +93,9 @@ test("score metadata is a tier bubble and a plain rank, and nothing else", () =>
     2,
     "the hero and the breakdown must share one metadata component"
   );
-  assert.ok(source.includes("cohortSize={heroScoreSelection.cohortSize}"), "the cohort still reaches the tooltip");
-  // The selector no longer exposes an interpretation, so no surface can read one.
-  assert.ok(!source.includes("heroScoreSelection.interpretation"));
+  assert.ok(source.includes("cohortSize={setBenchmark.overall.cohortSize}"), "the Benchmark cohort still reaches the tooltip");
+  assert.ok(source.includes("tier={null}"), "legacy tier is not passed to Benchmark headlines");
+  assert.ok(!source.includes("heroScoreSelection"));
 });
 
 test("every RIP tier bubble comes from the one shared tier palette", () => {

@@ -14,6 +14,7 @@ import ProductChaseIntelligenceSection, { ProductChaseIntelligenceLock } from ".
 import { buildProductParentSetHref, finite, selectSetEvRealizationHeadline } from "./productDetailModel.mjs";
 import EvRealizationCard from "../../explore/EvRealizationCard.jsx";
 import { resolveLooseBoosterPackArtwork } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
+import { readCurrentProductBenchmark } from "@/lib/rankings/ripBenchmarkClient.mjs";
 
 const dateLabel = (value) => value ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(value).slice(0, 10)}T00:00:00Z`)) : "Unavailable";
 
@@ -38,6 +39,16 @@ export default function SealedProductDetailClient({ initialDetail }) {
   const atmosphere = optimizedImageUrl(detail.set.heroImageUrl || detail.set.logoImageUrl || detail.set.symbolImageUrl, SET_LOGO_WIDTH);
   const packCount = finite(detail.rip?.composition?.packCount);
   const setEvRealization = entitled ? selectSetEvRealizationHeadline(detail.rip) : null;
+  const [benchmarkState, setBenchmarkState] = useState({ status: "idle", payload: null, error: null });
+  useEffect(() => {
+    let current = true;
+    setBenchmarkState({ status: entitled ? "loading" : "idle", payload: null, error: null });
+    if (!entitled || !detail.product.id) return () => { current = false; };
+    readCurrentProductBenchmark([{ entity_type: "sealed_product", entity_id: detail.product.id }])
+      .then((payload) => { if (current) setBenchmarkState({ status: "ready", payload, error: null }); })
+      .catch((error) => { if (current) setBenchmarkState({ status: "error", payload: null, error: error.message }); });
+    return () => { current = false; };
+  }, [detail.product.id, entitled]);
   return (
     <main className="card-detail-environment index-environment set-detail-glass-scope relative isolate min-h-screen px-4 pb-10 pt-5 text-[var(--text-primary)] sm:px-6 lg:px-8">
       <PageArtworkAtmosphere src={atmosphere} dataAttribute="data-product-set-ambient-artwork" visibilityClassName="hidden sm:block" />
@@ -52,7 +63,7 @@ export default function SealedProductDetailClient({ initialDetail }) {
         </section>
         {bestOpenEntitled && detail.rip?.bestOpenPrice ? <BestOpenPriceCard bestOpen={detail.rip.bestOpenPrice} market={detail.market} /> : null}
         <EvRealizationCard horizon={setEvRealization} entitled={entitled} context="product" />
-        {detail.rip?.available ? entitled ? <><ProductRipSection detail={detail} /><ProductOpeningProfile rip={detail.rip} currentPrice={detail.market.currentPrice} /></> : <ProductRipLock /> : detail.rip && entitled ? <ProductRipSection detail={detail} /> : <ProductRipLock />}
+        {detail.rip?.available ? entitled ? <><ProductRipSection detail={detail} benchmarkState={benchmarkState} /><ProductOpeningProfile rip={detail.rip} currentPrice={detail.market.currentPrice} /></> : <ProductRipLock /> : detail.rip && entitled ? <ProductRipSection detail={detail} benchmarkState={benchmarkState} /> : <ProductRipLock />}
         {premiumEntitled ? (
           <ProductChaseIntelligenceSection sealedProductId={detail.product.id} setId={detail.set.id} />
         ) : (

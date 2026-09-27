@@ -248,6 +248,11 @@ class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
     after: Optional[Dict[str, Any]] = None
 
 
+class BenchmarkSetHeadlinesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    set_ids: List[UUID] = Field(min_length=1, max_length=10)
+
+
 def _benchmark_client():
     from backend.db.clients.supabase_client import create_short_timeout_service_client
     return create_short_timeout_service_client()
@@ -287,6 +292,35 @@ def _with_benchmark_freshness(payload: Dict[str, Any]) -> Dict[str, Any]:
             "activeModelVersion": result.get("overall_model_version"),
         }
     return result
+
+
+_PUBLIC_SET_HEADLINE_ROW_FIELDS = {
+    "entity_type", "entity_id", "metric_key", "benchmark_score", "rank", "cohort_size",
+    "benchmark_status", "benchmark_reason", "model_status", "model_reason", "source_market_date",
+    "model_version",
+}
+
+
+def _public_set_headlines(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Narrow current-only replacement for the already-public Set score headlines."""
+    freshness = _with_benchmark_freshness(payload).get("freshness") or {}
+    rows = []
+    for source in payload.get("rows", []):
+        if source.get("entity_type") != "set" or source.get("metric_key") not in {"overall", "financial", "chase", "collector"}:
+            continue
+        rows.append({key: source.get(key) for key in _PUBLIC_SET_HEADLINE_ROW_FIELDS if key in source})
+    return {
+        "contract_version": "rip-benchmark-set-headlines-v1",
+        "status": payload.get("status", "unavailable"),
+        "publication_id": payload.get("publication_id"),
+        "market_date": payload.get("market_date"),
+        "rows": rows,
+        "freshness": {
+            "benchmarkMarketDate": freshness.get("benchmarkMarketDate"),
+            "modelSourceDate": freshness.get("modelSourceDate"),
+            "activeModelVersion": freshness.get("activeModelVersion"),
+        },
+    }
 
 
 def _with_benchmark_history_context(client: Any, payload: Dict[str, Any], contract: Any) -> Dict[str, Any]:
@@ -370,6 +404,23 @@ def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
         raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
     except RuntimeError as exc:
         raise _benchmark_runtime_error(exc) from exc
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/set-headlines")
+def pokemon_rip_benchmark_set_headlines(body: BenchmarkSetHeadlinesRequest):
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        result = _benchmark_reader(client).current(
+            [{"entity_type": "set", "entity_id": str(set_id)} for set_id in dict.fromkeys(body.set_ids)],
+            benchmark_key=contract.benchmark_key,
+            calibration_version=contract.calibration_version,
+        )
+        return _public_set_headlines(result)
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
 
 
 @app.post("/tcgs/pokemon/rip-benchmark/history")

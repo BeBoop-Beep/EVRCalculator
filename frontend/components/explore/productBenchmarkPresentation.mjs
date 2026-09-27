@@ -13,3 +13,4 @@ export function productBenchmarkMetrics(row, benchmark) {
   return { overall: benchmarkMetric(benchmark?.rows, "sealed_product", id, "overall", context), financial: benchmarkMetric(benchmark?.rows, "sealed_product", id, "financial", context), chase: benchmarkMetric(benchmark?.rows, "sealed_product", id, "chase", context), collector: benchmarkMetric(benchmark?.rows, "sealed_product", id, "collector", context) };
 }
 export function withProductBenchmark(rows, benchmark) { return (rows || []).map((row) => ({ ...row, benchmarkMetrics: productBenchmarkMetrics(row, benchmark) })); }
+export function setBenchmarkMetrics(setId, benchmark) { return { overall: benchmarkMetric(benchmark?.rows, "set", setId, "overall"), financial: benchmarkMetric(benchmark?.rows, "set", setId, "financial"), chase: benchmarkMetric(benchmark?.rows, "set", setId, "chase"), collector: benchmarkMetric(benchmark?.rows, "set", setId, "collector") }; }

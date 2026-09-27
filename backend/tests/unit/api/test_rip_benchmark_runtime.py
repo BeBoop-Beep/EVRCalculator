@@ -20,7 +20,7 @@ ENTITY_ID = "00000000-0000-0000-0000-000000000001"
 
 
 def _install_auth(monkeypatch):
-    plans = {"basic": None, "plus": "plus"}
+    plans = {"basic": None, "plus": "plus", "premium": "premium"}
     monkeypatch.setattr(
         main,
         "decode_token",
@@ -94,6 +94,59 @@ def test_authentication_and_plus_gate_precede_client_construction(monkeypatch):
     assert constructions == []
     assert client.post("/tcgs/pokemon/rip-benchmark/current", json=body, headers=_headers("plus")).status_code == 200
     assert constructions == ["constructed"]
+
+
+def test_public_set_headlines_preserve_public_access_and_project_only_safe_fields(monkeypatch):
+    _install_auth(monkeypatch)
+    private_row = {
+        "entity_type": "set", "entity_id": ENTITY_ID, "metric_key": "overall",
+        "benchmark_score": 6.3, "rank": 4, "cohort_size": 22,
+        "benchmark_status": "available", "model_status": "available",
+        "raw_model_value": 99, "benchmark_raw_value": 88, "raw_delta": 11,
+        "source_fingerprint": "private",
+        "expected_value_per_pack": 3.25,
+    }
+    fake = _Client({"contract_version": "rip-benchmark-read-v1", "status": "available",
+                    "publication_id": None, "market_date": "2026-09-25",
+                    "overall_model_version": OVERALL_RIP_V12_VERSION,
+                    "rows": [private_row] + [
+                        {"entity_type": "set", "entity_id": ENTITY_ID, "metric_key": metric,
+                         "benchmark_score": None if metric == "financial" else 5.0,
+                         "rank": None if metric == "financial" else rank, "cohort_size": 22,
+                         "benchmark_status": "unavailable" if metric == "financial" else "available",
+                         "model_status": "available"}
+                        for rank, metric in enumerate(("financial", "chase", "collector"), 5)
+                    ]})
+    client, _ = _client(monkeypatch, fake)
+    bodies = [({}, 200), ({"authorization": "Bearer basic"}, 200),
+              ({"authorization": "Bearer plus"}, 200), ({"authorization": "Bearer premium"}, 200)]
+    payloads = []
+    for headers, status in bodies:
+        response = client.post("/tcgs/pokemon/rip-benchmark/set-headlines", json={"set_ids": [ENTITY_ID]}, headers=headers)
+        assert response.status_code == status
+        payloads.append(response.json())
+    assert payloads.count(payloads[0]) == 4
+    row = payloads[0]["rows"][0]
+    assert row["benchmark_score"] == 6.3 and row["rank"] == 4
+    assert not ({"raw_model_value", "benchmark_raw_value", "raw_delta", "source_lineage", "source_fingerprint", "expected_value_per_pack"} & row.keys())
+    assert payloads[0]["freshness"]["benchmarkMarketDate"] == "2026-09-25"
+    assert {row["metric_key"] for row in payloads[0]["rows"]} == {"overall", "financial", "chase", "collector"}
+    financial = next(row for row in payloads[0]["rows"] if row["metric_key"] == "financial")
+    assert financial["benchmark_score"] is None and financial["rank"] is None
+    full = client.post("/tcgs/pokemon/rip-benchmark/current", json={"entities": [_entity()]}, headers=_headers("plus")).json()
+    assert [(r["benchmark_score"], r["rank"]) for r in payloads[0]["rows"]] == [(r["benchmark_score"], r["rank"]) for r in full["rows"]]
+
+
+def test_public_set_headlines_is_set_only_bounded_and_model_authority_is_server_owned(monkeypatch):
+    _install_auth(monkeypatch)
+    fake = _Client()
+    client, _ = _client(monkeypatch, fake)
+    route = "/tcgs/pokemon/rip-benchmark/set-headlines"
+    assert client.post(route, json={"set_ids": []}).status_code == 422
+    assert client.post(route, json={"set_ids": [str(UUID(int=i)) for i in range(1, 12)]}).status_code == 422
+    assert client.post(route, json={"entities": [_entity(entity_type="sealed_product")]}).status_code == 422
+    assert client.post(route, json={"entities": [_entity(entity_type="era")]}).status_code == 422
+    assert client.post(route, json={"set_ids": [ENTITY_ID], "benchmark_key": BENCHMARK_KEY}).status_code == 422
 
 
 def test_public_shape_omits_versions_and_server_selects_registered_contract(monkeypatch):

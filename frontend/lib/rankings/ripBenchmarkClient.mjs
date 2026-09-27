@@ -1,6 +1,7 @@
 const CURRENT_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/current";
 const HISTORY_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/history";
 const PRODUCT_CURRENT_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/current-batch";
+const SET_HEADLINES_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/set-headlines";
 const DAY = 86_400_000;
 const key = (entity) => `${entity.entity_type}:${entity.entity_id}`;
 export function dedupeBenchmarkEntities(entities) { return [...new Map((entities || []).filter((e) => e?.entity_type && e?.entity_id).map((e) => [key(e), { entity_type: e.entity_type, entity_id: e.entity_id }])).values()]; }
@@ -22,6 +23,14 @@ export async function readCurrentProductBenchmark(entities, { fetchImpl = fetch,
   const unique = dedupeBenchmarkEntities(entities); if (!unique.length) return { status: "unavailable", rows: [] };
   const cacheKey = `benchmark:products:${unique.map(key).sort().join(",")}`;
   const load = () => fetchImpl(PRODUCT_CURRENT_ENDPOINT, { method: "POST", credentials: "include", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entities: unique }) }).then(json);
+  return sessionCache ? sessionCache.request(cacheKey, load, { force }) : load();
+}
+export async function readCurrentSetHeadlines(setIds, { fetchImpl = fetch, sessionCache = null, force = false } = {}) {
+  const ids = [...new Set((setIds || []).filter(Boolean).map(String))];
+  if (!ids.length) return { status: "unavailable", rows: [] };
+  if (ids.length > 10) throw new Error("Set headline requests are limited to 10 Sets.");
+  const cacheKey = `benchmark:set-headlines:${ids.slice().sort().join(",")}`;
+  const load = () => fetchImpl(SET_HEADLINES_ENDPOINT, { method: "POST", credentials: "include", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ set_ids: ids }) }).then(json);
   return sessionCache ? sessionCache.request(cacheKey, load, { force }) : load();
 }
 export function boundedHistoryWindows(startDate, endDate) {

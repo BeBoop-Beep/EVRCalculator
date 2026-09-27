@@ -13,8 +13,10 @@ import {
 } from "@/components/explore/canonicalRipV7.mjs";
 import { getRipPageIconPresentation } from "@/components/explore/ripPageIconPresentation.mjs";
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
-import RankBadge from "@/components/ui/RankBadge";
-import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
+import BenchmarkScoreBadge from "@/components/explore/BenchmarkScoreBadge";
+import { formatBenchmarkFreshness } from "@/components/explore/ripBenchmarkPresentation.mjs";
+import { setBenchmarkMetrics } from "@/components/explore/productBenchmarkPresentation.mjs";
+import useSetBenchmarkHeadlines from "@/hooks/pokemon/useSetBenchmarkHeadlines";
 import { getPokemonSetInsightsCritical } from "@/lib/pokemon/pokemonSetInsightsCriticalClient";
 import { getPokemonSetInsightsSecondary } from "@/lib/pokemon/pokemonSetInsightsSecondaryClient";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
@@ -87,14 +89,8 @@ function SectionHeading({ eyebrow, icon, title, description, id }) {
   );
 }
 
-function ScoreCard({ label, icon, role, block, primary = false }) {
-  const metric = readCanonicalBlock(block);
-  const presentation = getRipPageIconPresentation(role, metric.tier);
-  const score = number(metric.publicScore);
-  const rank =
-    metric.rank === null
-      ? "Rank unavailable"
-      : `#${Math.round(metric.rank)}${metric.cohortSize === null ? "" : ` of ${Math.round(metric.cohortSize)}`}`;
+function ScoreCard({ label, icon, role, metric, primary = false }) {
+  const presentation = getRipPageIconPresentation(role);
   return (
     <div
       data-analysis-score={role}
@@ -109,44 +105,7 @@ function ScoreCard({ label, icon, role, block, primary = false }) {
           />
           {label}
         </span>
-        {metric.tier ? (
-          <RankBadge rank={metric.tier} format="tier" size="compact" subtle />
-        ) : null}
-      </div>
-      <div className="mt-5 flex items-baseline gap-1">
-        <span
-          className={`${primary ? "text-[2rem]" : "text-3xl"} font-semibold leading-none tabular-nums text-[var(--text-primary)]`}
-        >
-          {score === null ? "—" : formatPublicRipScore(score)}
-        </span>
-        {score === null ? null : (
-          <span className="text-xs font-medium text-[var(--text-secondary)]">
-            /10
-          </span>
-        )}
-      </div>
-      <p className="mt-3 text-xs tabular-nums text-[var(--text-secondary)]">
-        {rank}
-      </p>
-      <div className="mt-4 flex items-center gap-2">
-        <span
-          className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--border-subtle)]"
-          role="progressbar"
-          aria-label={`${label} score`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={score ?? undefined}
-        >
-          {score === null ? null : (
-            <span
-              className="block h-full rounded-full"
-              style={{
-                width: `${Math.max(0, Math.min(100, score))}%`,
-                backgroundColor: presentation.style.color,
-              }}
-            />
-          )}
-        </span>
+        <BenchmarkScoreBadge metric={metric} />
       </div>
     </div>
   );
@@ -200,6 +159,8 @@ export default function PokemonSetAnalysisClient({
   const setId = selectedTarget?.target_id;
   const setName = selectedTarget?.name || "this set";
   const setHref = buildTcgSetHrefFromTarget(selectedTarget);
+  const benchmarkState = useSetBenchmarkHeadlines(setId);
+  const benchmark = useMemo(() => setBenchmarkMetrics(setId, benchmarkState.payload), [setId, benchmarkState.payload]);
   useEffect(() => {
     let current = true;
     setCritical(null);
@@ -350,7 +311,7 @@ export default function PokemonSetAnalysisClient({
                           label="RIP Score"
                           icon="gauge"
                           role="overall"
-                          block={canonical.overall}
+                          metric={benchmark.overall}
                           primary
                         />
                       </div>
@@ -374,7 +335,7 @@ export default function PokemonSetAnalysisClient({
                             label="Financial RIP"
                             icon="shield"
                             role="financial"
-                            block={canonical.financialRip}
+                            metric={benchmark.financial}
                           />
                         </div>
                       </div>
@@ -385,16 +346,15 @@ export default function PokemonSetAnalysisClient({
                             <p className="text-xs font-semibold uppercase tracking-[0.07em] text-[var(--text-primary)]">
                               {chaseAccessibility.label}
                             </p>
-                                {chaseAccessibility.available ? (
+                                {benchmark.chase.available ? (
                                   <div className="mt-2">
                                     <p className="text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
-                                      {chaseAccessibility.publicScore === null ? "—" : <>{formatPublicRipScore(chaseAccessibility.publicScore)} <span className="text-xs text-[var(--text-secondary)]">/10</span></>}
+                                      <BenchmarkScoreBadge metric={benchmark.chase} />
                                     </p>
-                                    {chaseAccessibility.rank !== null && chaseAccessibility.cohortSize !== null ? <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Set #{Math.round(chaseAccessibility.rank)} of {Math.round(chaseAccessibility.cohortSize)}</p> : null}
                                   </div>
                             ) : (
                               <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                                {chaseAccessibility.statusReason ||
+                                {benchmark.chase.benchmarkReason ||
                                   "Chase Accessibility is not currently available for this set."}
                               </p>
                             )}
@@ -403,9 +363,10 @@ export default function PokemonSetAnalysisClient({
                         label="Collector Appeal"
                         icon="star"
                         role="collector"
-                        block={canonical.collectorAppeal}
+                        metric={benchmark.collector}
                       />
                     </div>
+                    {formatBenchmarkFreshness(benchmarkState.payload?.freshness) ? <p className="mt-3 text-xs text-[var(--text-secondary)]">{formatBenchmarkFreshness(benchmarkState.payload.freshness)}</p> : null}
                   </article>
                   <article className="set-glass-surface rounded-2xl border p-4 sm:p-5">
                     <SectionHeading
@@ -567,7 +528,7 @@ export default function PokemonSetAnalysisClient({
               {activeSection === "chase-accessibility" ? (
                 <section aria-labelledby="analysis-chase-title" className="set-glass-surface rounded-2xl border p-4 sm:p-5">
                   <SectionHeading eyebrow="Set reachability" icon="trend" id="analysis-chase-title" title="Chase Accessibility Breakdown" description={chaseAccessibility.publicQuestion} />
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-[var(--border-subtle)] p-4"><p className="text-xs text-[var(--text-secondary)]">Public score</p><p className="mt-2 text-3xl font-semibold">{chaseAccessibility.publicScore === null ? "—" : `${formatPublicRipScore(chaseAccessibility.publicScore)} /10`}</p>{chaseAccessibility.rank !== null && chaseAccessibility.cohortSize !== null ? <p className="mt-1 text-xs text-[var(--text-secondary)]">Set #{Math.round(chaseAccessibility.rank)} of {Math.round(chaseAccessibility.cohortSize)}</p> : null}</div>{chaseAccessibility.displayAccessibility !== null ? <div className="rounded-xl border border-[var(--border-subtle)] p-4"><p className="text-xs text-[var(--text-secondary)]">Raw Accessibility</p><p className="mt-2 text-3xl font-semibold">{chaseAccessibility.displayAccessibility.toFixed(2)}%</p></div> : null}</div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-[var(--border-subtle)] p-4"><p className="text-xs text-[var(--text-secondary)]">Chase Accessibility Benchmark</p><BenchmarkScoreBadge metric={benchmark.chase} /></div>{chaseAccessibility.displayAccessibility !== null ? <div className="rounded-xl border border-[var(--border-subtle)] p-4"><p className="text-xs text-[var(--text-secondary)]">Raw Accessibility</p><p className="mt-2 text-3xl font-semibold">{chaseAccessibility.displayAccessibility.toFixed(2)}%</p></div> : null}</div>
                       <Link href="/Articles/how-chase-accessibility-works" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--accent)]">Read the Chase Accessibility methodology →</Link>
                 </section>
               ) : null}
