@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-enable-recovery)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -2142,6 +2142,165 @@ jobs:
 
               rm -f "$CURRENT" "$RESTORED"
               echo "CODE_RED_DB_LOAD_RESTORE=PASS"
+              ;;
+
+            sentinel-status)
+              cd "$REPO"
+              echo "== Sentinel runtime status =="
+              echo "branch=$(git branch --show-current)"
+              echo "head=$(git rev-parse HEAD)"
+              echo "origin_main=$(git rev-parse origin/main 2>/dev/null || true)"
+              echo "safety_hold=$([ -e /home/ubuntu/state/db-safety/hold.json ] || [ -L /home/ubuntu/state/db-safety/hold.json ] && echo active || echo clear)"
+              for key in SENTINEL_STATE_WRITES_ENABLED SENTINEL_PERSISTENCE_SCHEMA_READY SENTINEL_RECOVERY_ENABLED SENTINEL_RECOVERY_EXECUTION_READY SENTINEL_COMPONENT SENTINEL_WATCH_HOST; do
+                value=$(grep "^$key=" backend/.env 2>/dev/null | tail -1 | cut -d= -f2- || true)
+                if [ -z "$value" ]; then echo "$key=absent"; else echo "$key=$value"; fi
+              done
+              if grep -q '^SENTINEL_BACKEND_BASE_URL=.' backend/.env 2>/dev/null; then echo "SENTINEL_BACKEND_BASE_URL=present"; else echo "SENTINEL_BACKEND_BASE_URL=absent"; fi
+              echo "== registered fast checks =="
+              "$PY" -m backend.sentinel.operational --profile fast --list-checks
+              echo "== persisted heartbeat =="
+              "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          hb = c.table("sentinel_component_heartbeats").select(
+              "component,host,build_sha,heartbeat_at,metadata"
+          ).order("heartbeat_at", desc=True).limit(3).execute().data or []
+          print(json.dumps(hb, default=str, sort_keys=True))
+          PY
+              echo "== schedule probes =="
+              crontab -l 2>/dev/null | grep -E 'backend.sentinel.operational|BEGIN multi-source-pricing|BEGIN market-explorer-prewarm' || true
+              ;;
+
+            sentinel-enable-recovery)
+              cd "$REPO"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production checkout is not main"; exit 20; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold is active"; exit 21; }
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "REFUSING: production HEAD is not canonical origin/main"; exit 23; }
+
+              echo "== Sentinel schema + runtime gates =="
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          required = (
+              "sentinel_check_state",
+              "sentinel_incidents",
+              "sentinel_recovery_attempts",
+              "sentinel_component_heartbeats",
+          )
+          for table in required:
+              c.table(table).select("*").limit(1).execute()
+          print("sentinel_schema_readable=true")
+          PY
+              "$PY" -m backend.sentinel.operational --profile fast --list-checks >/tmp/sentinel-fast-checks.json
+              grep -q '"pricing.ebay.scheduler"' /tmp/sentinel-fast-checks.json || { echo "REFUSING: new pricing scheduler check missing"; exit 24; }
+              grep -q '"market_explorer.maintenance_scheduler"' /tmp/sentinel-fast-checks.json || { echo "REFUSING: new Explorer scheduler check missing"; exit 24; }
+
+              echo "== atomically enable recovery gates =="
+              "$PY" - <<'PY'
+          import os
+          import pwd
+          import re
+          import tempfile
+
+          path = "/home/ubuntu/repos/EVRCalculator/backend/.env"
+          keys = {
+              "SENTINEL_STATE_WRITES_ENABLED": "true",
+              "SENTINEL_PERSISTENCE_SCHEMA_READY": "true",
+              "SENTINEL_RECOVERY_ENABLED": "true",
+              "SENTINEL_RECOVERY_EXECUTION_READY": "true",
+              "SENTINEL_COMPONENT": "sentinel_vm",
+              "SENTINEL_WATCH_HOST": "tcgplayer-scraper-pokemon-v2",
+              "SENTINEL_BACKEND_BASE_URL": "https://evrcalculator.onrender.com",
+          }
+          with open(path, "rb") as handle:
+              original = handle.read()
+          st = os.stat(path)
+          owner = pwd.getpwuid(st.st_uid).pw_name
+          if owner != "ubuntu":
+              raise SystemExit("REFUSING: backend/.env owner is not ubuntu")
+          text = original.decode("utf-8")
+          for key, value in keys.items():
+              pattern = re.compile(rf"(?m)^\s*(?:export\s+)?{re.escape(key)}=.*$")
+              replacement = f"{key}={value}"
+              if pattern.search(text):
+                  text = pattern.sub(replacement, text)
+              else:
+                  if text and not text.endswith("\n"):
+                      text += "\n"
+                  text += replacement + "\n"
+          fd, tmp = tempfile.mkstemp(prefix=".env.sentinel.", dir=os.path.dirname(path))
+          try:
+              with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                  handle.write(text)
+                  handle.flush()
+                  os.fsync(handle.fileno())
+              os.chmod(tmp, st.st_mode & 0o7777)
+              if os.stat(tmp).st_uid != st.st_uid or os.stat(tmp).st_gid != st.st_gid:
+                  os.chown(tmp, st.st_uid, st.st_gid)
+              os.replace(tmp, path)
+          finally:
+              try:
+                  os.unlink(tmp)
+              except FileNotFoundError:
+                  pass
+          print("sentinel_recovery_gates_written=true")
+          PY
+
+              echo "== execute Fast profile twice (confirmation then recovery) =="
+              set -a
+              . backend/.env
+              set +a
+              set +e
+              SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" "$PY" -m backend.sentinel.operational --profile fast >/tmp/sentinel-fast-1.json
+              RC1=$?
+              SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" "$PY" -m backend.sentinel.operational --profile fast >/tmp/sentinel-fast-2.json
+              RC2=$?
+              set -e
+              echo "fast_run_1_exit=$RC1"
+              echo "fast_run_2_exit=$RC2"
+              "$PY" - <<'PY'
+          import json
+          for path in ("/tmp/sentinel-fast-1.json", "/tmp/sentinel-fast-2.json"):
+              with open(path, encoding="utf-8") as handle:
+                  payload = json.load(handle)
+              print(json.dumps({
+                  "status": payload.get("status"),
+                  "healthy": payload.get("healthy"),
+                  "recovery": payload.get("recovery"),
+                  "failedChecks": [
+                      r.get("check", {}).get("check_key")
+                      for r in payload.get("results", [])
+                      if r.get("check", {}).get("outcome") != "healthy"
+                  ],
+              }, sort_keys=True))
+          PY
+
+              echo "== prove recovery is enabled in persisted heartbeat =="
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          rows = c.table("sentinel_component_heartbeats").select(
+              "component,host,build_sha,heartbeat_at,metadata"
+          ).eq("component","sentinel_vm").eq("host","tcgplayer-scraper-pokemon-v2").order(
+              "heartbeat_at", desc=True
+          ).limit(1).execute().data or []
+          if not rows:
+              raise SystemExit("Sentinel heartbeat missing after activation")
+          row = rows[0]
+          metadata = row.get("metadata") or {}
+          print({
+              "heartbeat_at": row.get("heartbeat_at"),
+              "build_sha": row.get("build_sha"),
+              "recovery_enabled": metadata.get("recovery_enabled"),
+              "check_count": metadata.get("check_count"),
+          })
+          if metadata.get("recovery_enabled") is not True:
+              raise SystemExit("Sentinel heartbeat does not prove recovery_enabled=true")
+          PY
+              echo "SENTINEL_RECOVERY_ENABLE=PASS"
               ;;
 
             status)
