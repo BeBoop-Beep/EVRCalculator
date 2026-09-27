@@ -2,12 +2,77 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+from decimal import Decimal
 import json
 from pathlib import Path
 from typing import Any, Mapping
+from uuid import uuid4
 
 from backend.benchmarking.publication_v1 import assemble_dry_run
 from backend.benchmarking.publisher_v1 import publish_candidate
+from backend.domain.pokemon.rip_benchmark_v1 import (
+    APPROVED_BENCHMARK_KEY,
+    APPROVED_CALIBRATION_VERSION,
+)
+
+
+_ATTEMPT_TABLE = "pokemon_rip_benchmark_publication_attempts_v1"
+
+
+def _start_attempt(client: Any, market_date: str) -> str:
+    attempt_id = str(uuid4())
+    client.table(_ATTEMPT_TABLE).insert({
+        "id": attempt_id,
+        "market_date": market_date,
+        "benchmark_key": APPROVED_BENCHMARK_KEY,
+        "calibration_version": APPROVED_CALIBRATION_VERSION,
+        "status": "evaluating",
+        "reason_code": "ASSEMBLING",
+        "diagnostics": {"phase": "assembly"},
+    }).execute()
+    return attempt_id
+
+
+def _update_attempt(client: Any, attempt_id: str, **fields: Any) -> None:
+    client.table(_ATTEMPT_TABLE).update(fields).eq("id", attempt_id).execute()
+
+
+def _post_publish_parity(client: Any, candidate: Mapping[str, Any], publication_id: str) -> dict[str, Any]:
+    rows = list(
+        client.table("pokemon_rip_benchmark_rows_v1")
+        .select(
+            "entity_type,metric_key,raw_model_value,benchmark_raw_value,"
+            "source_model_version,source_market_date,rank,cohort_size"
+        )
+        .eq("publication_id", publication_id)
+        .eq("metric_key", "financial")
+        .in_("entity_type", ["set", "era"])
+        .execute()
+        .data
+        or []
+    )
+    sets = [row for row in rows if row.get("entity_type") == "set"]
+    eras = [row for row in rows if row.get("entity_type") == "era"]
+    expected_reference = Decimal(str(candidate["references"]["financial"]))
+    references = {Decimal(str(row["benchmark_raw_value"])) for row in rows}
+    if len(sets) != 22 or len(eras) != 2 or references != {expected_reference}:
+        raise RuntimeError(
+            "post-publication Financial history parity failed: "
+            f"sets={len(sets)} eras={len(eras)} references={sorted(map(str, references))}"
+        )
+    if any(
+        str(row.get("source_market_date")) != str(candidate["market_date"])
+        or str(row.get("source_model_version")) != str(candidate["model_versions"]["financial"])
+        for row in rows
+    ):
+        raise RuntimeError("post-publication Financial history lineage parity failed")
+    return {
+        "financial_row_count": len(rows),
+        "set_financial_row_count": len(sets),
+        "era_financial_row_count": len(eras),
+        "overall_financial_rip_reference": str(expected_reference),
+    }
 
 
 def _fmt(value: Any) -> str:
@@ -95,10 +160,64 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, default=Path("backend/artifacts/rip_benchmark_v1"))
     args = parser.parse_args(argv)
     from backend.db.clients.supabase_client import create_short_timeout_service_client
-    candidate = assemble_dry_run(create_short_timeout_service_client(), market_date=args.market_date)
+    client = create_short_timeout_service_client()
+    attempt_id = None
+    phase = "assembly"
     publication = None
-    if args.publish:
-        publication = publish_candidate(create_short_timeout_service_client(), candidate)
+    try:
+        if args.publish:
+            if not args.market_date:
+                parser.error("--publish requires --market-date so the durable attempt receipt is date-scoped")
+            attempt_id = _start_attempt(client, args.market_date)
+        candidate = assemble_dry_run(client, market_date=args.market_date)
+        if attempt_id:
+            header = candidate["publish_rpc_request"]["arguments"]["p_header"]
+            manifest = header.get("source_manifest") or {}
+            _update_attempt(
+                client,
+                attempt_id,
+                candidate_publication_id=header.get("id"),
+                rankings_publication_id=manifest.get("rankings_publication_id"),
+                opening_economics_snapshot_id=header.get("opening_economics_snapshot_id"),
+                reason_code="READY_TO_PUBLISH",
+                diagnostics={
+                    "phase": "validated",
+                    "expected_entity_count": candidate["expected_entity_count"],
+                    "expected_row_count": candidate["expected_row_count"],
+                },
+            )
+        if args.publish:
+            phase = "publication"
+            publication = publish_candidate(client, candidate)
+            phase = "post_publication_parity"
+            parity = _post_publish_parity(client, candidate, publication["publication_id"])
+            _update_attempt(
+                client,
+                attempt_id,
+                status="published",
+                reason_code="PUBLISHED",
+                resulting_publication_id=publication["publication_id"],
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                diagnostics={"phase": "complete", **parity},
+            )
+    except Exception as exc:
+        if attempt_id:
+            try:
+                _update_attempt(
+                    client,
+                    attempt_id,
+                    status="failed",
+                    reason_code=f"{phase.upper()}_FAILED"[:120],
+                    reason_detail=f"{type(exc).__name__}: {exc}"[:2000],
+                    completed_at=datetime.now(timezone.utc).isoformat(),
+                    diagnostics={"phase": phase},
+                )
+            except Exception as receipt_exc:
+                print(
+                    f"RIP Benchmark attempt receipt update failed: "
+                    f"{type(receipt_exc).__name__}: {receipt_exc}"
+                )
+        raise
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stem = f"publisher_dry_run_{candidate['market_date']}"
     json_path, report_path = args.output_dir / f"{stem}.json", args.output_dir / f"{stem}.md"
