@@ -64,6 +64,9 @@ def test_normal_day_has_one_projection_phase_and_it_is_v2(monkeypatch):
         return projection
 
     monkeypatch.setattr(orch, "run_publish", fake_publish)
+    import backend.scripts.run_market_explorer_maintained_cache_prewarm as prewarm
+    monkeypatch.setattr(prewarm, "_run_guarded_prepared_db", lambda target, *, commit: {"status": "refreshed"})
+    monkeypatch.setattr(prewarm, "_run_current_v2_surface_db", lambda: {"status": "promoted", "marketDate": "2026-09-10"})
     with patch.object(orch, "advance_v2_daily_shadow") as obsolete_second_phase:
         result = orch.run_daily_publication(object(), commit=True)
 
