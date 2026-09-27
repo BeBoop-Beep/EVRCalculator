@@ -34,6 +34,8 @@ SET_ID = "id-a"
 SET_KEY = "alpha"
 RUN_ID = "run-a"
 
+_REAL_TIER_A_BUILDER = orchestrator._build_ev_representativeness_tier_a
+
 
 # ===========================================================================
 # The query fake.
@@ -67,7 +69,8 @@ TABLE_COLUMNS = {
         "id", "name", "canonical_key", "catalog_only", "supports_opening_simulation",
         # era_id backs the public-analytics eligibility rule the market
         # publication audit uses to derive the global Set Value cohort.
-        "era_id", "has_sealed_details_url", "ready_for_daily_scrape",
+        "era_id", "release_date", "logo_image_url", "symbol_image_url",
+        "parent_opening_set_id", "has_sealed_details_url", "ready_for_daily_scrape",
     },
     "calculation_runs": {
         "id", "target_type", "target_id", "valuation_method", "market_date",
@@ -104,7 +107,7 @@ TABLE_COLUMNS = {
         "tcg", "scope", "ranking_payload_json", "updated_at",
     },
     "pokemon_explore_set_value_snapshot_latest": {
-        "tcg", "scope", "payload_json", "market_date", "set_count",
+        "tcg", "scope", "payload_json", "market_date", "set_count", "market_count",
         "payload_size_bytes", "updated_at",
     },
     "pokemon_public_rip_leaderboard_snapshots": {
@@ -174,7 +177,8 @@ class _Query:
         if columns and columns != "*":
             requested = [c.strip() for c in str(columns).split(",") if c.strip()]
             for column in requested:
-                self._require_column(column)
+                source = column.split(":", 1)[-1].split("->", 1)[0]
+                self._require_column(source)
             self._columns = requested
         return self
 
@@ -226,7 +230,22 @@ class _Query:
         if self._limit is not None:
             rows = rows[: self._limit]
         if self._columns is not None:
-            rows = [{c: row.get(c) for c in self._columns} for row in rows]
+            projected = []
+            for row in rows:
+                result = {}
+                for expression in self._columns:
+                    alias, source = (
+                        expression.split(":", 1)
+                        if ":" in expression
+                        else (expression, expression)
+                    )
+                    path = source.replace("->>", "->").split("->")
+                    value = row.get(path[0])
+                    for key in path[1:]:
+                        value = value.get(key) if isinstance(value, dict) else None
+                    result[alias] = value
+                projected.append(result)
+            rows = projected
         else:
             rows = [dict(row) for row in rows]
         self._ops.append(("execute", self._table, len(rows)))
@@ -245,6 +264,10 @@ SET_ROW = {
     "canonical_key": SET_KEY,
     "catalog_only": False,
     "supports_opening_simulation": True,
+    "release_date": "2026-01-01",
+    "logo_image_url": None,
+    "symbol_image_url": None,
+    "parent_opening_set_id": None,
     "has_sealed_details_url": True,
     "ready_for_daily_scrape": True,
 }
@@ -384,6 +407,7 @@ def _market_fixtures(market_date=MARKET_DATE):
                 },
                 "market_date": market_date,
                 "set_count": 1,
+                "market_count": 1,
                 "payload_size_bytes": 512,
                 "updated_at": f"{market_date}T12:00:00+00:00",
             }
@@ -494,8 +518,16 @@ class _Client:
 
 @pytest.fixture
 def patched(monkeypatch):
-    """Record the ordered sequence of orchestration steps."""
+    """Isolate legacy orchestration tests from unrelated downstream systems.
+
+    Tests that own one of these seams override its replacement explicitly.
+    Keeping the legacy fixture narrow prevents historical-date unit cases from
+    consulting process-global Supabase clients as new publication stages are
+    appended to the production orchestrator.
+    """
     calls = []
+    real_market_audit = orchestrator._run_market_publication_audit
+    real_rip_audit = orchestrator._run_rip_contract_audit
 
     def fake_resolve(_client, explicit):
         return (explicit or MARKET_DATE), None
@@ -543,10 +575,58 @@ def patched(monkeypatch):
     monkeypatch.setattr(
         orchestrator, "refresh_chase_accessibility_snapshots", fake_accessibility_refresh
     )
+    def isolated_market_audit(client, summary, *, resolved_market_date, dry_run, skip_snapshots):
+        import backend.scripts.audit_pokemon_market_publication_resilient as resilient_audit
+
+        real_client_factory = resilient_audit.RetryingServiceRoleClient
+        resilient_audit.RetryingServiceRoleClient = lambda: client
+        try:
+            return real_market_audit(
+                client,
+                summary,
+                resolved_market_date=resolved_market_date,
+                dry_run=dry_run,
+                skip_snapshots=skip_snapshots,
+            )
+        finally:
+            resilient_audit.RetryingServiceRoleClient = real_client_factory
+
+    def declared_relations(client):
+        return set(getattr(client, "_tables", {}) or {}) | set(getattr(client, "_raise_on", {}) or {})
+
+    rip_relations = {"pokemon_public_rip_leaderboard_snapshots", "explore_rip_statistics_latest"}
+
+    def isolated_rip_audit(client, *args, **kwargs):
+        if not (declared_relations(client) & rip_relations):
+            return "passed"
+        return real_rip_audit(client, *args, **kwargs)
+
+    monkeypatch.setattr(orchestrator, "_finalize_sealed_products", lambda *_a, **_k: "ok")
+    monkeypatch.setattr(
+        orchestrator,
+        "_build_ev_representativeness_tier_a",
+        lambda *_a, **_k: "research_complete eligible=1 existing=1 built=0 failed=0",
+    )
+    monkeypatch.setattr(orchestrator, "_run_market_publication_audit", isolated_market_audit)
+    monkeypatch.setattr(orchestrator, "_run_rip_contract_audit", isolated_rip_audit)
     # These legacy orchestration fixtures predate the strict snapshot payload
     # authority manifest. Dedicated tests below exercise the new gate.
     monkeypatch.setattr(orchestrator, "_same_day_authority_capability_expected", lambda _client: False)
+    import httpx
+
+    def reject_external_http(*_args, **_kwargs):
+        pytest.fail("legacy orchestration unit attempted external HTTP")
+
+    monkeypatch.setattr(httpx.Client, "send", reject_external_http)
     return calls
+
+
+@pytest.fixture
+def legacy_orchestration_fixture(monkeypatch, patched):
+    """Keep historical gate tests focused on the state transition they own."""
+    monkeypatch.setattr(orchestrator, "_run_market_publication_audit", lambda *_a, **_k: "passed")
+    monkeypatch.setattr(orchestrator, "_run_rip_contract_audit", lambda *_a, **_k: "passed")
+    return patched
 
 
 def test_incomplete_sealed_authority_defers_before_any_simulation(monkeypatch, patched):
@@ -630,7 +710,7 @@ def test_simulations_run_before_snapshots_are_built(patched):
     assert summary.snapshot_publication_status == "published"
 
 
-def test_previous_day_rollover_repairs_with_explicit_market_date(patched):
+def test_previous_day_rollover_repairs_with_explicit_market_date(legacy_orchestration_fixture):
     # Modern calculation runs persist the promoted market_date explicitly, so
     # execution on the following Phoenix day is a valid repair, not a reason to
     # defer. The fake history advances after the simulated repair just like the
@@ -639,14 +719,14 @@ def test_previous_day_rollover_repairs_with_explicit_market_date(patched):
 
     summary = _orchestrate(client, simulation_execution_date="2026-08-02")
 
-    assert ("simulate", ["alpha"]) in patched
+    assert ("simulate", ["alpha"]) in legacy_orchestration_fixture
     assert summary.simulation_execution_date == "2026-08-02"
     assert summary.verification_passed is True
     assert summary.exit_code == EXIT_OK
     assert summary.rankings_readiness_reason_code != "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
 
-def test_rollover_repair_refuses_superseded_price_authority(monkeypatch, patched):
+def test_rollover_repair_refuses_superseded_price_authority(monkeypatch, legacy_orchestration_fixture):
     import backend.scripts.audit_opening_analytics_publication as audit_module
 
     def resolve_with_newer_authority(_client, explicit):
@@ -668,7 +748,7 @@ def test_rollover_repair_refuses_superseded_price_authority(monkeypatch, patched
         simulation_execution_date="2026-08-02",
     )
 
-    assert not [call for call in patched if call[0] == "simulate"]
+    assert not [call for call in legacy_orchestration_fixture if call[0] == "simulate"]
     assert summary.exit_code == GATE_DEFERRED_EXIT_CODE
     assert summary.rankings_readiness_reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
     assert "latest=2026-08-02" in summary.error
@@ -676,7 +756,7 @@ def test_rollover_repair_refuses_superseded_price_authority(monkeypatch, patched
     assert persisted and persisted[0].reason_code == "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
 
-def test_rollover_dry_run_does_not_persist_a_deferral(monkeypatch, patched):
+def test_rollover_dry_run_does_not_persist_a_deferral(monkeypatch, legacy_orchestration_fixture):
     monkeypatch.setattr(
         orchestrator,
         "_persist_rankings_deferral",
@@ -687,7 +767,7 @@ def test_rollover_dry_run_does_not_persist_a_deferral(monkeypatch, patched):
         simulation_execution_date="2026-08-02",
         dry_run=True,
     )
-    assert ("simulate", ["alpha"]) in patched
+    assert ("simulate", ["alpha"]) in legacy_orchestration_fixture
     assert summary.verification_passed is True
     assert summary.rankings_readiness_reason_code != "DEFERRED_SIMULATION_DATE_ROLLOVER"
 
@@ -810,7 +890,7 @@ def test_one_tier_a_failure_is_recorded_but_does_not_block_other_sets(monkeypatc
         OpeningSetSimulationStatus("good", "set-good", "Good", "current", calculation_run_id="run-good"),
         OpeningSetSimulationStatus("bad", "set-bad", "Bad", "current", calculation_run_id="run-bad"),
     ])
-    status = orchestrator._build_ev_representativeness_tier_a(object(), freshness, dry_run=False)
+    status = _REAL_TIER_A_BUILDER(object(), freshness, dry_run=False)
     assert attempts == ["run-good", "run-bad"]
     assert status == "research_partial eligible=2 existing=0 built=1 failed=1"
     assert project_opening_outcome_profile_v1(
@@ -1047,6 +1127,7 @@ def test_dual_rankings_page_clocks_must_both_match_promoted_date(monkeypatch, pa
     monkeypatch.setattr(orchestrator, "_rip_stats_capability_expected", lambda _client: True)
     def publish_stats(_client, summary, *, market_date, dry_run):
         summary.rip_stats_market_date = market_date
+        summary.rankings_market_date = market_date
         return "published"
     monkeypatch.setattr(orchestrator, "_publish_rip_stats", publish_stats)
     monkeypatch.setattr(orchestrator, "_audit_rip_stats", lambda *_a, **_k: "passed")
@@ -1405,14 +1486,14 @@ def test_state_published_outcome_survives_to_the_final_summary(monkeypatch, patc
     assert outcome["publication_attempted"] is True
 
 
-def test_state_deferred_with_attempt_outcome_from_incomplete_cohort(monkeypatch, patched):
+def test_state_deferred_with_attempt_outcome_from_incomplete_cohort(monkeypatch, legacy_orchestration_fixture):
     """(2) DEFERRED_WITH_ATTEMPT — a genuinely incomplete cohort remains fail-closed."""
     monkeypatch.setattr(
         orchestrator, "_persist_rankings_deferral", lambda _client, _report: "attempt-incomplete"
     )
 
     def failing_sims(set_keys, **_kwargs):
-        patched.append(("simulate", list(set_keys)))
+        legacy_orchestration_fixture.append(("simulate", list(set_keys)))
         return [
             orchestrator.SimulationOutcome(canonical_key=key, succeeded=False, reason="boom")
             for key in set_keys
