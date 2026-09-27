@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-reviewed",
-  "request_id": "sentinel-explorer-convergence-sync-20260927"
+  "operation": "scrape-cycle-status",
+  "request_id": "sentinel-post-sync-cron-status-20260927"
 }
