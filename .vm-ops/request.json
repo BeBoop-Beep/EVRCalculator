@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-enable-recovery",
-  "request_id": "rip-benchmark-prod-enable-recovery"
+  "operation": "market-explorer-cron-observe",
+  "request_id": "rip-benchmark-prod-explorer-post-recovery"
 }
