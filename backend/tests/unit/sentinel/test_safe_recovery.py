@@ -27,6 +27,7 @@ from backend.sentinel.recovery.engine import (
 )
 from backend.sentinel.recovery.runbooks import (
     LEASE_RUNBOOK,
+    PUBLICATION_DIVERGENCE_RUNBOOK,
     PUBLICATION_RUNBOOK,
     build_safe_recovery_registry,
 )
@@ -254,7 +255,7 @@ def test_precondition_block_does_not_consume_recovery_attempt():
     assert store.get_latest_recovery_attempt(incident.id, runbook.key) is None
 
 
-def test_p6_allowlist_contains_only_publication_stale_and_expired_lease():
+def test_p6_allowlist_contains_publication_stale_divergence_and_expired_lease():
     noop_failure = lambda *a, **k: CheckResult.failure(
         "market.freshness",
         failure_code="market_publication_stale",
@@ -278,6 +279,7 @@ def test_p6_allowlist_contains_only_publication_stale_and_expired_lease():
     )
     assert registry.matches() == (
         ("market.freshness", "market_publication_stale"),
+        ("market.freshness", "market_snapshot_date_divergence"),
         ("scrape.queue_leases", "scrape_job_lease_expired"),
     )
 
@@ -313,6 +315,56 @@ def test_publication_recovery_refuses_incomplete_batch_before_publish():
     )
     assert report["reason_code"] == "publication_batch_gate_not_complete"
     assert publish_calls == []
+
+
+def test_snapshot_divergence_recovery_uses_same_canonical_publication_wrapper():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        code="market_snapshot_date_divergence",
+    )
+    live_results = iter(
+        [
+            CheckResult.failure(
+                "market.freshness",
+                failure_code="market_snapshot_date_divergence",
+                authority_identity="2026-09-11",
+                observed={"authority_dates": {"card_movers": "2026-09-10"}},
+                checked_at=NOW,
+            ),
+            CheckResult.healthy(
+                "market.freshness",
+                authority_identity="2026-09-11",
+                checked_at=NOW,
+            ),
+        ]
+    )
+    publish_calls = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        publish_if_needed_fn=lambda market_date, **kwargs: (
+            publish_calls.append((market_date, kwargs)),
+            {"market_date": market_date, "status": "published"},
+        )[1],
+        gate_evaluator=lambda *a, **k: SimpleNamespace(
+            allowed=True, reason_code="allowed_complete", batch_id=48
+        ),
+        market_freshness_checker=lambda *a, **k: next(live_results),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert publish_calls[0][0] == "2026-09-11"
+    attempt = store.get_latest_recovery_attempt(
+        incident.id, PUBLICATION_DIVERGENCE_RUNBOOK
+    )
+    assert attempt is not None
+    assert attempt.status is RecoveryAttemptStatus.SUCCEEDED
 
 
 def test_publication_recovery_uses_canonical_wrapper_then_requires_healthy_verification():
