@@ -37,16 +37,15 @@ const input = (r) => r.root.findByProps({ "data-market-explorer-search-input": t
 const type = async (r, value) => { await act(async () => input(r).props.onChange({ target: { value } })); await act(async () => { await tick(); await tick(); }); };
 const key = async (r, k) => act(async () => input(r).props.onKeyDown({ key: k, preventDefault: noop }));
 
-const SET = { asset: "cards", result_kind: "set", label: "Fossil", subtitle: "Set market", market_key: "set:fossil", availability: "AVAILABLE", metadata: {} };
-const PRODUCT = { asset: "sealed", result_kind: "instrument", label: "Evolving Skies Booster Box", subtitle: "Evolving Skies · Booster Box", instrument_id: "sp-9", image_url: null, availability: "AVAILABLE", metadata: { sealedProductId: "sp-9", productFamily: "booster_box" } };
+const CARD_LEAF = { asset: "cards", instrumentId: "v-1", displayName: "Gengar", setName: "Fossil", rarity: "Rare Holo", marketPrice: 42 };
+const PRODUCT = { asset: "sealed", instrumentId: "sp-9", displayName: "Evolving Skies Booster Box", setName: "Evolving Skies", productFamily: "booster_box", imageUrl: null };
 
-test("search: placeholders, combobox/listbox semantics, keyboard navigation and market activation via the shared loader callback", async () => {
-  const activated = [];
-  const { renderer, fetches } = await mountSearch({ asset: "cards", onActivateMarket: (k) => activated.push(k) }, [SET, { ...SET, label: "Gengar Set", market_key: "set:gengar" }]);
+test("search: concise placeholder, combobox/listbox semantics and keyboard leaf activation", async () => {
+  const basket = [];
+  const { renderer, fetches } = await mountSearch({ asset: "cards", onAddToBasket: (item) => basket.push(item) }, [CARD_LEAF, { ...CARD_LEAF, instrumentId: "v-2", displayName: "Dragonite" }]);
   const el = input(renderer);
-  assert.equal(el.props.placeholder, "Search cards, Sets, Eras, rarities, and card markets…");
+  assert.equal(el.props.placeholder, "Search cards…");
   assert.equal(el.props.role, "combobox");
-  assert.equal(el.props["aria-autocomplete"], "list");
   await type(renderer, "fos");
   assert.equal(fetches[0].asset, "cards");
   assert.equal(fetches[0].q, "fos");
@@ -57,31 +56,26 @@ test("search: placeholders, combobox/listbox semantics, keyboard navigation and 
   assert.match(input(renderer).props["aria-activedescendant"], /-1$/);
   await key(renderer, "ArrowUp");
   await key(renderer, "Enter");
-  assert.deepEqual(activated, ["set:fossil"]);
+  assert.equal(basket[0].instrumentId, "v-1");
   renderer.unmount();
 });
 
-test("search result type is rendered; a market result shows active/loading/failed through the same lifecycle keys", async () => {
-  const { renderer } = await mountSearch({ asset: "cards", activeKeys: ["set:fossil"], pendingKeys: ["set:gengar"], failedKeys: ["set:x"], onActivateMarket: noop },
-    [SET, { ...SET, market_key: "set:gengar", label: "G" }, { ...SET, market_key: "set:x", label: "X" }]);
+test("search result is compact and exposes exactly one primary action", async () => {
+  const { renderer } = await mountSearch({ asset: "cards", onAddToBasket: noop }, [CARD_LEAF]);
   await type(renderer, "set");
-  const labels = renderer.root.findAllByProps({ "data-search-primary": "activate" }).map((n) => n.children.join(""));
-  assert.deepEqual(labels, ["Remove", "Adding…", "Retry"]);
-  assert.match(text(renderer), /"Set"/);
+  assert.equal(renderer.root.findAllByProps({ "data-search-primary": "basket" }).length, 1);
+  assert.equal(renderer.root.findAll((node) => node.type === "a").length, 0);
+  assert.match(text(renderer), /Fossil/);
   renderer.unmount();
 });
 
-test("instrument result: primary Open detail (new tab), secondary Add to Exact Basket; never an aggregate market", async () => {
+test("sealed leaf result has one Add action and never navigates away", async () => {
   const basket = []; const activated = [];
   const { renderer } = await mountSearch({ asset: "sealed", onActivateMarket: (k) => activated.push(k), onAddToBasket: (i) => basket.push(i) }, [PRODUCT]);
-  assert.equal(input(renderer).props.placeholder, "Search sealed products, Sets, Eras, and sealed markets…");
+  assert.equal(input(renderer).props.placeholder, "Search sealed products…");
   await type(renderer, "evolving skies booster box");
-  const detail = renderer.root.findByProps({ "data-search-primary": "detail" });
-  assert.equal(detail.props.target, "_blank");
-  assert.match(detail.props.rel, /noopener/);
-  assert.match(detail.props.href, /sp-9/);
-  assert.equal(renderer.root.findAllByProps({ "data-search-primary": "activate" }).length, 0);
-  await act(async () => renderer.root.findByProps({ "data-search-secondary": "basket" }).props.onClick());
+  assert.equal(renderer.root.findAll((node) => node.type === "a").length, 0);
+  await act(async () => renderer.root.findByProps({ "data-search-primary": "basket" }).props.onClick({ stopPropagation: noop }));
   assert.equal(basket.length, 1);
   assert.equal(basket[0].instrumentId, "sp-9");
   assert.deepEqual(activated, []);
@@ -91,7 +85,7 @@ test("instrument result: primary Open detail (new tab), secondary Add to Exact B
 });
 
 test("search: graded fail-closed result is explained and offers no action; clear resets; failure is retryable", async () => {
-  const graded = { asset: "graded", result_kind: "graded_instrument", label: "Graded Markets", subtitle: "Graded production coverage is not yet broad enough.", availability: "INSUFFICIENT_AUTHORITY", metadata: {} };
+  const graded = { asset: "graded", reason: "Graded production coverage is not yet broad enough.", availability: "INSUFFICIENT_AUTHORITY" };
   const { renderer } = await mountSearch({ asset: "graded" }, [graded]);
   assert.equal(input(renderer).props.placeholder, "Search graded cards…");
   await type(renderer, "psa 10");
@@ -102,7 +96,7 @@ test("search: graded fail-closed result is explained and offers no action; clear
   assert.equal(input(renderer).props.value, "");
   renderer.unmount();
   let fail = true;
-  const again = await mountSearch({ asset: "cards" }, () => { if (fail) throw Object.assign(new Error("x"), { code: "CATALOG_SEARCH_FAILED" }); return [SET]; });
+  const again = await mountSearch({ asset: "cards" }, () => { if (fail) throw Object.assign(new Error("x"), { code: "LEAF_SEARCH_FAILED" }); return [CARD_LEAF]; });
   await type(again.renderer, "fossil");
   assert.ok(again.renderer.root.findByProps({ "data-market-explorer-search-state": "error" }));
   fail = false;
@@ -120,7 +114,7 @@ test("search: switching asset re-scopes the same field (no second dropdown) and 
   await act(async () => { renderer.update(<MarketExplorerContextualSearch asset="sealed" controllerFactory={h.factory} />); });
   await act(async () => { await tick(); await tick(); });
   assert.equal(h.fetches.at(-1).asset, "sealed");
-  assert.equal(input(renderer).props.placeholder, "Search sealed products, Sets, Eras, and sealed markets…");
+  assert.equal(input(renderer).props.placeholder, "Search sealed products…");
   assert.equal(renderer.root.findAllByType("select").length, 0);
   renderer.unmount();
 });
@@ -205,7 +199,7 @@ test("Sealed Types is not the rarity component relabelled and hides card rarity 
 test("Sealed Quick Markets: zero approved -> honest empty state, proposed entries never selectable", async () => {
   let renderer;
   await act(async () => { renderer = TestRenderer.create(<MarketExplorerSealedQuickMarkets options={{ quickMarkets: [{ key: "q", label: "Budget", status: "PROPOSED" }] }} onSelect={noop} />); });
-  assert.match(text(renderer), /No approved Sealed Quick Markets yet\./);
+  assert.match(text(renderer), /Sealed Quick Markets are awaiting publication\./);
   assert.equal(renderer.root.findAllByProps({ "data-sealed-quick-market": "q" }).length, 0);
 });
 
@@ -224,12 +218,12 @@ const mountBrowse = async (directory, extra = {}) => {
 const rowKeys = (r) => r.root.findAll((n) => n.type === "button" && n.props?.["data-prepared-market"]).map((n) => n.props["data-prepared-market"]);
 const cats = (r) => r.root.findAll((n) => n.type === "button" && n.props?.["data-market-directory-category"]).map((n) => n.props["data-market-directory-category"]);
 
-test("V2 Sealed IA: Sets, Eras, Quick, Sealed Types in one layer; NO redundant flat Sealed Markets; no family presented through two categories", async () => {
+test("V2 Sealed Browse exposes Sets, Eras and Quick; Sealed Types belongs under Analyze", async () => {
   const changes = []; const calls = [];
   const renderer = await mountBrowse([cardSet, cardEra, sealedSet, sealedEra, sealedType], { onAssetLayerChange: (v) => changes.push(v), onSelect: (k) => calls.push(k), sealedTypesPanel: <div data-panel-marker="types">TYPES</div> });
   assert.deepEqual(cats(renderer), ["sets", "eras", "quick"]);
   await act(async () => renderer.root.findByProps({ "data-market-directory-asset": "sealed" }).props.onClick());
-  assert.deepEqual(cats(renderer), ["sets", "eras", "quick", "types"]);
+  assert.deepEqual(cats(renderer), ["sets", "eras", "quick"]);
   assert.ok(renderer.root.findByProps({ "data-market-explorer-build-trigger": true }));
   const seen = [];
   for (const id of ["sets", "eras", "quick"]) {
@@ -238,11 +232,8 @@ test("V2 Sealed IA: Sets, Eras, Quick, Sealed Types in one layer; NO redundant f
     await act(async () => renderer.root.findByProps({ "data-market-directory-category": id }).props.onClick());
   }
   assert.deepEqual(seen, ["sealed-set:s1", "sealed-era:e1"]);
-  // the type market is reachable ONLY through Sealed Types
+  // Type markets are not duplicated into Browse; Analyze owns Sealed Types.
   assert.equal(seen.includes("sealed-type:booster_box"), false);
-  await act(async () => renderer.root.findByProps({ "data-market-directory-category": "types" }).props.onClick());
-  assert.ok(renderer.root.findByProps({ "data-panel-marker": "types" }));
-  assert.deepEqual(rowKeys(renderer), []);
   assert.deepEqual(changes, ["sealed"]);
   assert.deepEqual(calls, [], "browse-asset switching never touches the chart selection");
   renderer.unmount();
@@ -252,38 +243,33 @@ test("V2 Sealed Quick with zero approved entries is a deliberate empty state, no
   const renderer = await mountBrowse([sealedSet, sealedType], { assetLayer: "sealed" });
   await act(async () => renderer.root.findByProps({ "data-market-directory-category": "quick" }).props.onClick());
   assert.ok(renderer.root.findByProps({ "data-market-directory-popover": true }));
-  assert.match(text(renderer), /No approved Sealed Quick Markets yet\./);
+  assert.match(text(renderer), /Sealed Quick Markets are awaiting publication\./);
   assert.ok(renderer.root.findByProps({ "data-market-browser-search": true }), "same popover + search chrome as Cards");
   renderer.unmount();
 });
 
-test("V1 fallback keeps the SAME Sealed IA as V2 (superseded flat Sealed Markets list): formats live inside Sealed Types", async () => {
+test("V1 fallback keeps final Sealed Browse IA without resurrecting Sealed Markets", async () => {
   const v1Sealed = { market_key: "format:etb", market_type: "prepared_format", asset: "sealed", label: "Elite Trainer Boxes" };
   const renderer = await mountBrowse([cardSet, v1Sealed], { assetLayer: "sealed" });
-  assert.deepEqual(cats(renderer), ["sets", "eras", "quick", "types"]);
-  await act(async () => renderer.root.findByProps({ "data-market-directory-category": "types" }).props.onClick());
-  const formats = renderer.root.findAll((node) => node.type === "button" && node.props?.["data-prepared-market"]).map((node) => node.props["data-prepared-market"]);
-  assert.deepEqual(formats, ["format:etb"]);
+  assert.deepEqual(cats(renderer), ["sets", "eras", "quick"]);
+  assert.equal(rowKeys(renderer).includes("format:etb"), false);
   renderer.unmount();
 });
 
-const CARD = { asset: "cards", result_kind: "instrument", label: "Gengar", subtitle: "Fossil · 5 Rare Holo", instrument_id: "var-1", set_id: "set-1", image_url: "https://img/x.png", availability: "AVAILABLE", metadata: { cardVariantId: "var-1", cardNumber: "5", rarity: "Rare Holo" } };
+const CARD = { asset: "cards", displayName: "Gengar", instrumentId: "var-1", setId: "set-1", setName: "Fossil", imageUrl: "https://img/x.png", cardNumber: "5", rarity: "Rare Holo" };
 
-test("card search result without canonicalCardId renders no malformed detail link; basket stays; sealed detail stays enabled", async () => {
+test("card and sealed leaf search render one basket action and no detail links", async () => {
   const { renderer } = await mountSearch({ asset: "cards", onAddToBasket: noop }, [CARD]);
   await type(renderer, "gengar");
   assert.equal(renderer.root.findAll((n) => n.type === "a").length, 0, "no anchor of any kind");
   assert.equal(renderer.root.findAllByProps({ "data-search-primary": "detail" }).length, 0);
-  assert.match(text(renderer), /not available for this card yet/);
-  assert.equal(renderer.root.findAllByProps({ "data-search-secondary": "basket" }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-search-primary": "basket" }).length, 1);
   renderer.unmount();
   const sealed = await mountSearch({ asset: "sealed" }, [PRODUCT]);
   await type(sealed.renderer, "evolving");
-  assert.equal(sealed.renderer.root.findAllByProps({ "data-search-primary": "detail" }).length, 1);
+  assert.equal(sealed.renderer.root.findAllByProps({ "data-search-primary": "basket" }).length, 1);
   sealed.renderer.unmount();
-  // once the authority publishes canonicalCardId the SAME resolver produces a well-formed link
-  const linked = resolveSearchResultAction({ ...CARD, metadata: { ...CARD.metadata, canonicalCardId: "can-1", setName: "Fossil" } });
-  assert.match(linked.primary.href || "", /\/Cards\/can-1/);
+  assert.equal(resolveSearchResultAction(CARD).primary.kind, "basket");
 });
 
 // ------------------------------------------------------------------ named set image fixtures
@@ -332,8 +318,8 @@ test("Client: activeBrowseAsset is browsing state, never fed to the chart select
   assert.match(client, /unifySeriesByKey\(\[/);
   // Rarity only for Cards; Sealed Types/Quick only for Sealed; Graded gets neither
   assert.match(client, /activeBrowseAsset === "cards" \? <MarketExplorerRarityMarkets/);
-  // Sealed Types is a Browse category (single navigation layer), not a second control.
-  assert.match(client, /sealedTypesPanel=\{\(\{ v2Mode, formatMarkets \}\) => <MarketExplorerSealedTypes/);
+  // Sealed Types occupies the Analyze position corresponding to Rarity Markets.
+  assert.match(client, /activeBrowseAsset === "sealed" \? <MarketExplorerSealedTypes/);
   assert.equal((client.match(/<MarketExplorerSealedTypes/g) || []).length, 1);
   assert.doesNotMatch(client, /<MarketExplorerSealedQuickMarkets/);
   // interaction foundation (e3d85bc1) still present

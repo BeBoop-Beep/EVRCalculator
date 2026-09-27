@@ -194,6 +194,17 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
           prepared("ultraRare", "Ultra Rare"), prepared("specialIllustrationRare", "Special Illustration Rare"),
         ] });
       }
+      if (route === "/market/explorer/leaves/search") {
+        const q = String(url.searchParams.get("q") || "").toLowerCase();
+        const asset = url.searchParams.get("asset");
+        if (asset === "graded") return reply(200, { query: q, asset, items: [], availability: "INSUFFICIENT_AUTHORITY", reason: "Graded production coverage is not yet broad enough." });
+        const item = asset === "sealed"
+          ? { asset, instrumentId: "sealed-prod-1", displayName: "Fixture Booster Box", setName: "Fossil", productFamily: "Booster Box", variantLabel: "Unlimited", marketPrice: 249.99, imageUrl: null }
+          : { asset: "cards", instrumentId: "var-gengar", displayName: "Fixture Gengar", setName: "Fossil", cardNumber: "5", rarity: "Rare Holo", variantLabel: "Unlimited Holofoil", marketPrice: 38.25, imageUrl: null };
+        const matches = q.includes("gengar") || q.includes("fixture") || (asset === "sealed" && (q.includes("product") || q.includes("booster")));
+        if (q.startsWith("slow")) return setTimeout(() => reply(200, { query: q, asset, items: [{ ...item, instrumentId: "stale-marker", displayName: "STALE RESULT" }] }), 1500);
+        return reply(200, { query: q, asset, items: matches ? [item] : [], availability: "AVAILABLE" });
+      }
       if (route === "/market/explorer/catalog/search") {
         const q = String(url.searchParams.get("q") || "").toLowerCase();
         const asset = url.searchParams.get("asset");

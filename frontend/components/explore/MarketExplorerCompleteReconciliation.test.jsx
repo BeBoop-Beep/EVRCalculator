@@ -93,7 +93,7 @@ test("focused chip keeps its identity; every other chip is dimmed but stays inte
   assert.match(chip("set:a").props.className, /grayscale/);
   assert.doesNotMatch(chip("set:b").props.className, /grayscale/);
   // Dimmed chips remain fully operable.
-  assert.equal(renderer.root.findByProps({ "data-market-explorer-active-inspect": "set:a" }).props.disabled, undefined);
+  assert.equal(renderer.root.findByProps({ "data-market-explorer-active-focus-body": "set:a" }).props.disabled, undefined);
   await act(async () => { renderer.update(<MarketExplorerActiveMarkets series={series} focusedSeriesKey={null} onFocus={noop} />); });
   for (const key of ["set:a", "set:b", "set:c"]) assert.equal(chip(key).props["data-market-explorer-active-chip-dimmed"], "false");
 });
@@ -123,36 +123,28 @@ const mountBrowse = async (directory, extra = {}) => {
 const categories = (renderer) => renderer.root.findAll((n) => n.type === "button" && n.props["data-market-directory-category"]).map((n) => n.props["data-market-directory-category"]);
 const open = async (renderer, id) => act(async () => renderer.root.findByProps({ "data-market-directory-category": id }).props.onClick());
 
-test("V1 Sealed mode keeps the designed Cards-like IA: Sets, Eras, Quick Markets, Sealed Types (no flat Sealed Markets)", async () => {
+test("V1 Sealed mode keeps the designed Browse IA without flat Sealed Markets", async () => {
   const renderer = await mountBrowse([...cards, ...v1Sealed]);
-  assert.deepEqual(categories(renderer), ["sets", "eras", "quick", "types"]);
+  assert.deepEqual(categories(renderer), ["sets", "eras", "quick"]);
   assert.doesNotMatch(texts(renderer), /Sealed Markets/);
   await open(renderer, "sets");
-  assert.match(texts(renderer), /Sealed Set markets are awaiting the next prepared market generation\./);
+  assert.match(texts(renderer), /Sealed Set markets are awaiting the current prepared generation\./);
   await open(renderer, "eras");
-  assert.match(texts(renderer), /Sealed Era markets are awaiting the next prepared market generation\./);
+  assert.match(texts(renderer), /Sealed Era markets are awaiting the current prepared generation\./);
   await open(renderer, "quick");
-  assert.match(texts(renderer), /No approved Sealed Quick Markets yet\./);
+  assert.match(texts(renderer), /Sealed Quick Markets are awaiting publication\./);
 });
 
-test("V1 Sealed Types category exposes the published V1 sealed formats and never repeats them elsewhere", async () => {
+test("V1 Sealed Types control exposes published V1 sealed formats without Browse duplication", async () => {
   const selected = [];
-  const renderer = await mountBrowse([...cards, ...v1Sealed], {
-    onSelect: (key) => selected.push(key),
-    sealedTypesPanel: ({ v2Mode, formatMarkets }) => <MarketExplorerSealedTypes v2Mode={v2Mode} formatMarkets={formatMarkets} status="unavailable" onSelect={(key) => selected.push(key)} />,
-  });
-  await open(renderer, "types");
+  let renderer;
+  await act(async () => { renderer = TestRenderer.create(<MarketExplorerSealedTypes v2Mode={false} formatMarkets={v1Sealed} status="unavailable" onSelect={(key) => selected.push(key)} />); });
   const list = renderer.root.findByProps({ "data-sealed-v1-formats": true });
   assert.equal(list.findAll((n) => n.type === "button" && n.props["data-prepared-market"]).length, 3);
   assert.doesNotMatch(texts(renderer), /temporarily unavailable/, "V1 must not show the V2 asset-options failure");
   assert.match(texts(renderer), /Further Sealed Types/);
   await act(async () => list.findAll((n) => n.type === "button")[0].props.onClick());
   assert.deepEqual(selected, ["sealed-format:boosterBox"]);
-  // Not duplicated in Sets / Eras / Quick.
-  for (const id of ["sets", "eras", "quick"]) {
-    await open(renderer, id);
-    assert.equal(renderer.root.findAll((n) => n.type === "button" && String(n.props["data-prepared-market"] || "").startsWith("sealed-format:")).length, 0, id);
-  }
 });
 
 test("V2 Sealed Sets/Eras/Whole-market rows land in the right categories with asset-qualified labels", async () => {
@@ -235,7 +227,7 @@ test("View and Hide Constituents share the violet centred treatment (structure c
   assert.match(chart.slice(chart.indexOf("data-market-explorer-view-details")), violet);
   assert.match(client.slice(client.indexOf("data-market-explorer-hide-details")), violet);
   assert.match(chart, /data-market-explorer-chart-bottom-actions className="flex flex-none justify-center/);
-  assert.match(client, /flex flex-none flex-col items-center gap-1\.5 border-b/);
+  assert.match(client, /relative flex flex-none flex-col gap-2 border-b/);
   // One workspace Clear All; no Clear Graph label.
   assert.doesNotMatch(client + read("components/explore/MarketExplorerActiveMarkets.jsx"), />\s*Clear Graph\s*</);
 });

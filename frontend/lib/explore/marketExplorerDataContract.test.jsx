@@ -86,7 +86,7 @@ test("Cases are bulk containers: a note explains they are separate from Total Se
 test("Sealed Quick Markets: proposed definitions are never selectable; zero approved shows the honest empty copy", () => {
   const payload = { quickMarkets: [{ key: "q1", label: "Budget", status: "PROPOSED" }] };
   assert.equal(approvedSealedQuickMarkets(payload).length, 0);
-  assert.equal(NO_APPROVED_SEALED_QUICK_COPY, "No approved Sealed Quick Markets yet.");
+  assert.equal(NO_APPROVED_SEALED_QUICK_COPY, "Sealed Quick Markets are awaiting publication.");
   assert.equal(approvedSealedQuickMarkets({ quickMarkets: [{ key: "q2", label: "X", status: "APPROVED" }] }).length, 1);
 });
 
@@ -135,28 +135,19 @@ test("V2 directory row maps into the prepared series (identity = marketKey; alia
 });
 
 // ---------------------------------------------------------------- search
-test("search actions: market activates via prepared loader; instrument opens detail + Exact Basket; graded is explicit", () => {
-  const market = resolveSearchResultAction({ asset: "cards", result_kind: "set", label: "Fossil", market_key: "set:fossil", availability: "AVAILABLE" });
-  assert.deepEqual(market, { primary: { kind: "activate", marketKey: "set:fossil" }, secondary: null });
-  const sealed = resolveSearchResultAction({ asset: "sealed", result_kind: "instrument", label: "Evolving Skies Booster Box", instrument_id: "sp-1", availability: "AVAILABLE", metadata: { sealedProductId: "sp-1", productFamily: "booster_box" } });
-  assert.equal(sealed.primary.kind, "detail");
-  assert.match(sealed.primary.href, /sp-1/);
-  assert.equal(sealed.secondary.kind, "basket");
-  assert.equal(sealed.secondary.item.asset, "sealed");
-  assert.equal(sealed.secondary.item.instrumentId, "sp-1");
-  const card = resolveSearchResultAction({ asset: "cards", result_kind: "instrument", label: "Gengar", instrument_id: "v1", set_id: "s1", availability: "AVAILABLE", metadata: { cardVariantId: "v1" } });
-  // The DB card-instrument row carries no canonicalCardId, so the existing detail resolver cannot link it: explicit, never a fake link.
-  assert.equal(card.primary.kind, "none");
-  assert.equal(card.secondary.kind, "basket");
-  const graded = resolveSearchResultAction({ asset: "graded", result_kind: "graded_instrument", label: "Graded Markets", subtitle: "Graded production coverage is not yet broad enough.", availability: "INSUFFICIENT_AUTHORITY" });
-  assert.equal(graded.primary.kind, "unavailable");
-  assert.equal(graded.secondary, null);
-  assert.equal(resolveSearchResultAction({ asset: "cards", result_kind: "set", market_key: "set:x", availability: "UNAVAILABLE" }).primary.kind, "unavailable");
+test("leaf search exposes one exact-market action and never activates aggregate markets", () => {
+  assert.equal(resolveSearchResultAction({ asset: "cards", market_key: "set:fossil" }).primary.kind, "none");
+  const sealed = resolveSearchResultAction({ asset: "sealed", displayName: "Evolving Skies Booster Box", instrumentId: "sp-1", productFamily: "booster_box" });
+  assert.equal(sealed.primary.kind, "basket");
+  assert.equal(sealed.primary.item.asset, "sealed");
+  assert.equal(sealed.primary.item.instrumentId, "sp-1");
+  assert.equal(resolveSearchResultAction({ asset: "cards", displayName: "Gengar", instrumentId: "v1" }).primary.kind, "basket");
+  assert.equal(resolveSearchResultAction({ asset: "graded", reason: "Not enough coverage.", availability: "INSUFFICIENT_AUTHORITY" }).primary.kind, "unavailable");
 });
 
 test("placeholders match the contract per asset", () => {
-  assert.equal(SEARCH_PLACEHOLDER.cards, "Search cards, Sets, Eras, rarities, and card markets…");
-  assert.equal(SEARCH_PLACEHOLDER.sealed, "Search sealed products, Sets, Eras, and sealed markets…");
+  assert.equal(SEARCH_PLACEHOLDER.cards, "Search cards…");
+  assert.equal(SEARCH_PLACEHOLDER.sealed, "Search sealed products…");
   assert.equal(SEARCH_PLACEHOLDER.graded, "Search graded cards…");
 });
 

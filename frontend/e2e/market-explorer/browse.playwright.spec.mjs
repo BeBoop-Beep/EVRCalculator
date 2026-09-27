@@ -51,7 +51,7 @@ test("Sealed V2 fixture: Search, Sets, Eras, Quick Markets, Sealed Types, Screen
   await shot(page, "v2-fixture-sealed-ia");
 
   await chooseCategory(page, "quick");
-  await expect(page.locator("[data-sealed-quick-empty]")).toContainText("No approved Sealed Quick Markets yet.");
+  await expect(page.locator("[data-sealed-quick-empty]")).toContainText("Sealed Quick Markets are awaiting publication.");
   await shot(page, "v2-fixture-sealed-quick-empty");
 
   await pickRow(page, "sets", "Fossil");

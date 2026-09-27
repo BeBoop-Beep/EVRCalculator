@@ -69,7 +69,7 @@ export default function MarketExplorerActiveMarkets({
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Active Markets</h2>
           <p className="min-w-0 text-[10px] text-[var(--text-secondary)]">
-            Select one to inspect its constituents. The eye toggles whether it is drawn on the chart.
+            Select one to focus it on the chart. Constituent targets live inside Constituents &amp; Comparison.
           </p>
         </div>
         <div
@@ -136,7 +136,7 @@ export default function MarketExplorerActiveMarkets({
                 className={[
                   "group flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
                   isFocused ? "ring-2 ring-sky-400/80 font-semibold" : "",
-                  isDimmed ? "opacity-60 grayscale hover:opacity-90 focus-within:opacity-90" : "",
+                  isDimmed ? "opacity-45 grayscale hover:opacity-75 focus-within:opacity-75" : "",
                   isHidden ? "opacity-50" : "",
                   isActive
                     ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.15)]"
@@ -172,12 +172,12 @@ export default function MarketExplorerActiveMarkets({
                 </button>
                 <button
                   type="button"
-                  data-market-explorer-active-inspect={entry.key}
-                  aria-pressed={isActive}
-                  onClick={() => onInspect?.(entry.key)}
+                  data-market-explorer-active-focus-body={entry.key}
+                  aria-pressed={isFocused}
+                  onClick={() => onFocus?.(entry.key)}
                   className={[
                     "min-w-0 truncate text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
-                    isActive ? "font-semibold text-[rgb(45,212,191)]" : "text-[var(--text-primary)]",
+                    isFocused ? "font-semibold text-sky-200" : "text-[var(--text-primary)]",
                   ].join(" ")}
                 >
                   {entry.shortLabel || entry.label}
