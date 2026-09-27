@@ -193,3 +193,4 @@ def test_database_contract_contains_atomic_cutover_and_bounded_history_guards():
     assert "to service_role" in sql
     assert "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5" in sql
     assert "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5" in sql
+    assert "chase_accessibility_v1_hc_value_squared_modeled_probability" in sql
