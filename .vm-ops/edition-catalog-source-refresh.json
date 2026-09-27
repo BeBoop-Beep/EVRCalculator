@@ -1,0 +1,10 @@
+{
+  "operation": "edition-catalog-source-refresh",
+  "market_date": "2026-09-27",
+  "catalog_sets": [
+    "baseSetShadowless",
+    "deckExclusives"
+  ],
+  "preserve_daily_cohort": true,
+  "request_id": "20260927-base-edition-source-refresh"
+}
