@@ -11,7 +11,7 @@ import subprocess
 from typing import Any, Callable, Dict, Optional
 
 from backend.pricing_pipeline import health as pricing_health
-from backend.sentinel.models import CheckResult
+from backend.sentinel.models import CheckResult, Severity
 from backend.sentinel.registry import CheckContext
 
 PRICING_CHECK_KEYS = (
@@ -98,7 +98,7 @@ def check_pricing_scheduler(
         return CheckResult.failure(
             PRICING_SCHEDULER_CHECK_KEY,
             failure_code="EBAY_DAILY_SCHEDULE_MISSING",
-            severity=pricing_health.Severity.WARNING if hasattr(pricing_health, "Severity") else __import__("backend.sentinel.models", fromlist=["Severity"]).Severity.WARNING,
+            severity=Severity.WARNING,
             authority_identity=context.now.date().isoformat(),
             observed=observed,
             checked_at=context.now,
