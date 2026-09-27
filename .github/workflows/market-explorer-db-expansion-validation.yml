@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/market-explorer-db-currentness-20260926
     paths:
       - "supabase/migrations/20260925170623_market_explorer_data_surface_authorities_v1.sql"
       - "supabase/migrations/20260925170626_market_explorer_generation_surface_v2.sql"
@@ -11,6 +12,7 @@ on:
       - "supabase/migrations/20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql"
       - "supabase/migrations/20260925170643_market_explorer_rarity_daily_coverage_v1.sql"
       - "supabase/migrations/20260925171308_freeze_daily_set_value_rosters_for_market_explorer_v2.sql"
+      - "supabase/migrations/20260927005000_market_explorer_coherent_generation_search_quick_screens.sql"
       - "supabase/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
       - "backend/db/migrations/20260925170623_market_explorer_data_surface_authorities_v1.sql"
       - "backend/db/migrations/20260925170626_market_explorer_generation_surface_v2.sql"
@@ -18,6 +20,7 @@ on:
       - "backend/db/migrations/20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql"
       - "backend/db/migrations/20260925170643_market_explorer_rarity_daily_coverage_v1.sql"
       - "backend/db/migrations/20260925171308_freeze_daily_set_value_rosters_for_market_explorer_v2.sql"
+      - "backend/db/migrations/20260927005000_market_explorer_coherent_generation_search_quick_screens.sql"
       - "backend/db/migrations/20260925053152_bound_market_explorer_background_db_load.sql"
       - "backend/tests/unit/db/test_market_explorer_data_surface_expansion_migrations.py"
       - "backend/tests/unit/db/test_market_explorer_background_db_load_hardening.py"
@@ -77,6 +80,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925170640_market_explorer_raw_frozen_set_value_constituents_v1.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925170643_market_explorer_rarity_daily_coverage_v1.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260925171308_freeze_daily_set_value_rosters_for_market_explorer_v2.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260927005000_market_explorer_coherent_generation_search_quick_screens.sql
 
       - name: Run end-to-end candidate acceptance
         run: |
