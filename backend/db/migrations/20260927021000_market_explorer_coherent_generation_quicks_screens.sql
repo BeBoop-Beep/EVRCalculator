@@ -72,81 +72,6 @@ FROM PUBLIC,anon,authenticated;
 -- Cards resolve against card-daily authority; Sealed resolves against compact
 -- normalized sealed current metadata. No global Market Date can outrun an asset.
 -- --------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.search_pokemon_market_explorer_instruments_v2(
-  p_query text,
-  p_asset text DEFAULT 'all',
-  p_limit integer DEFAULT 20
-)
-RETURNS TABLE(
-  asset text,instrument_id uuid,name text,set_id uuid,set_name text,image_url text,
-  card_number text,rarity text,edition text,printing_type text,special_type text,
-  product_family text,variant_label text,match_kind text,relevance_score integer,
-  name_similarity real
-)
-LANGUAGE sql
-STABLE
-SECURITY INVOKER
-SET search_path=''
-SET statement_timeout='1s'
-SET work_mem='16MB'
-AS $function$
-WITH authority AS MATERIALIZED (
-  SELECT
-    (SELECT max(d.market_date)
-     FROM public.pokemon_market_explorer_card_daily_states_v2_shadow d
-     WHERE d.market_price>0) AS card_date,
-    (SELECT max(m.latest_market_date)
-     FROM public.pokemon_market_explorer_sealed_current_metadata_v1 m
-     WHERE m.latest_market_price>0) AS sealed_date
-),
-base AS MATERIALIZED (
-  SELECT *
-  FROM public.search_pokemon_market_explorer_instruments_v2_unfiltered_phase2(
-    p_query,p_asset,50
-  )
-),
-eligible AS (
-  SELECT b.*
-  FROM base b CROSS JOIN authority a
-  WHERE (
-    b.asset='cards'
-    AND EXISTS (
-      SELECT 1
-      FROM public.pokemon_market_explorer_card_daily_states_v2_shadow d
-      WHERE d.card_variant_id=b.instrument_id
-        AND d.market_date=a.card_date
-        AND d.market_price>0
-    )
-  ) OR (
-    b.asset='sealed'
-    AND EXISTS (
-      SELECT 1
-      FROM public.pokemon_market_explorer_sealed_current_metadata_v1 m
-      WHERE m.sealed_product_id=b.instrument_id::text
-        AND m.latest_market_date=a.sealed_date
-        AND m.latest_market_price>0
-    )
-  )
-)
-SELECT
-  e.asset,e.instrument_id,e.name,e.set_id,e.set_name,e.image_url,
-  e.card_number,e.rarity,e.edition,e.printing_type,e.special_type,
-  e.product_family,e.variant_label,e.match_kind,e.relevance_score,e.name_similarity
-FROM eligible e
-ORDER BY
-  e.relevance_score DESC,
-  CASE WHEN e.match_kind='fuzzy_name' THEN e.name_similarity ELSE 0::real END DESC,
-  pg_catalog.lower(e.name),
-  pg_catalog.lower(coalesce(e.set_name,'')),
-  e.asset,e.instrument_id
-LIMIT least(greatest(coalesce(p_limit,20),1),50);
-$function$;
-
-REVOKE ALL ON FUNCTION public.search_pokemon_market_explorer_instruments_v2(text,text,integer)
-FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.search_pokemon_market_explorer_instruments_v2(text,text,integer)
-TO service_role;
-
 CREATE OR REPLACE FUNCTION public.search_pokemon_market_explorer_leaves_v1(
   p_asset text,
   p_query text,
@@ -207,38 +132,73 @@ BEGIN
     WHERE d.market_price>0;
 
     RETURN QUERY
+    WITH candidates AS MATERIALIZED (
+      SELECT
+        m.*,
+        s.name AS resolved_set_name,
+        d.market_price,
+        d.market_date,
+        public.normalize_pokemon_market_explorer_search_text_v2(m.card_name) AS nname,
+        extensions.similarity(
+          public.normalize_pokemon_market_explorer_search_text_v2(m.card_name),v_q
+        ) AS sim
+      FROM public.pokemon_market_explorer_card_current_metadata m
+      JOIN public.pokemon_market_explorer_card_daily_states_v2_shadow d
+        ON d.card_variant_id=m.card_variant_id
+       AND d.market_date=v_date
+       AND d.market_price>0
+      LEFT JOIN public.sets s ON s.id=m.set_id
+      WHERE
+        public.normalize_pokemon_market_explorer_search_text_v2(m.card_name)=v_q
+        OR public.normalize_pokemon_market_explorer_search_text_v2(m.card_name) LIKE v_q||'%'
+        OR public.normalize_pokemon_market_explorer_search_text_v2(m.card_name) LIKE '%'||v_q||'%'
+        OR pg_catalog.to_tsvector(
+          'simple',
+          public.normalize_pokemon_market_explorer_search_text_v2(
+            coalesce(m.card_name,'')||' '||coalesce(m.rarity,'')||' '||
+            coalesce(m.edition,'')||' '||coalesce(m.printing_type,'')||' '||
+            coalesce(m.special_type,'')
+          )
+        ) @@ pg_catalog.plainto_tsquery('simple',v_q)
+        OR extensions.similarity(
+          public.normalize_pokemon_market_explorer_search_text_v2(m.card_name),v_q
+        )>=0.20
+    ),
+    ranked AS (
+      SELECT c.*,
+        CASE
+          WHEN c.nname=v_q THEN 1000
+          WHEN c.nname LIKE v_q||'%' THEN 950
+          WHEN c.nname LIKE '%'||v_q||'%' THEN 900
+          WHEN pg_catalog.to_tsvector('simple',c.nname) @@ pg_catalog.plainto_tsquery('simple',v_q)
+            THEN 850
+          ELSE 700+least(99,(c.sim*100)::integer)
+        END AS score
+      FROM candidates c
+    )
     SELECT
       'cards'::text,
-      s.instrument_id::text,
-      s.name,
-      s.set_id,
-      s.set_name,
-      s.image_url,
-      d.market_price,
-      d.market_date,
-      s.instrument_id,
-      m.canonical_card_id,
-      s.card_number,
-      s.rarity,
-      s.edition,
-      s.printing_type,
-      s.special_type,
+      r.card_variant_id::text,
+      r.card_name,
+      r.set_id,
+      r.resolved_set_name,
+      r.image_url,
+      r.market_price,
+      r.market_date,
+      r.card_variant_id,
+      r.canonical_card_id,
+      r.card_number,
+      r.rarity,
+      r.edition,
+      r.printing_type,
+      r.special_type,
       null::text,
       null::text,
       null::text,
       false,
-      s.relevance_score
-    FROM public.search_pokemon_market_explorer_instruments_v2(
-      p_query,'cards',least(50,greatest(p_limit,20))
-    ) s
-    JOIN public.pokemon_market_explorer_card_daily_states_v2_shadow d
-      ON d.card_variant_id=s.instrument_id
-     AND d.market_date=v_date
-     AND d.market_price>0
-    JOIN public.pokemon_market_explorer_card_current_metadata m
-      ON m.card_variant_id=s.instrument_id
-    WHERE s.asset='cards'
-    ORDER BY s.relevance_score DESC,lower(s.name),s.instrument_id
+      r.score
+    FROM ranked r
+    ORDER BY r.score DESC,r.sim DESC,lower(r.card_name),r.card_variant_id
     LIMIT p_limit;
     RETURN;
   END IF;
