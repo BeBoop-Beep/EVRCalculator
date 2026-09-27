@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from backend.pricing_pipeline.contracts import DAILY_REQUEST_LIMIT
+from backend.pricing_pipeline.contracts import DAILY_REQUEST_LIMIT, digest
 from backend.pricing_pipeline.contracts import PHOENIX as PP_PHOENIX
 from backend.scripts.freeze_ebay_active_ask_v1 import VERSION as ESTIMATOR_VERSION
 from backend.scripts.pokemon_multi_source_card_price_v1 import POLICY_VERSION
@@ -29,8 +29,11 @@ class _Query:
     def __init__(self, rows, *, err=None):
         self.rows = [dict(row) for row in rows]
         self._err = err
+        self._count_exact = False
+        self._exact_count = None
 
     def select(self, *args, **kwargs):
+        self._count_exact = kwargs.get("count") == "exact"
         return self
 
     def eq(self, key, value):
@@ -48,16 +51,22 @@ class _Query:
         return self
 
     def limit(self, n):
+        if self._count_exact:
+            self._exact_count = len(self.rows)
         self.rows = self.rows[:n]
         return self
 
     def execute(self):
-        return _Result(self.rows)
+        count = self._exact_count
+        if self._count_exact and count is None:
+            count = len(self.rows)
+        return _Result(self.rows, count=count)
 
 
 class _Result:
-    def __init__(self, data):
+    def __init__(self, data, *, count=None):
         self.data = data
+        self.count = count
 
 
 class _CountingClient:
@@ -76,11 +85,17 @@ class _CountingClient:
 
 def _healthy_tables():
     market_date = EXPECTED_MARKET_DATE
+    run_id = "11111111-1111-1111-1111-111111111111"
+    manifest = {
+        "target_count": 1,
+        "cards": [{"canonical_card_id": "card-1"}],
+    }
+    manifest["selector_fingerprint"] = digest(manifest)
     return {
         "pokemon_multi_source_pricing_runs_v1": [
-            {"market_date": market_date, "status": "COMPLETE", "stage": "done", "failure_code": None,
+            {"run_id": run_id, "market_date": market_date, "status": "COMPLETE", "stage": "done", "failure_code": None,
              "updated_at": NOW.isoformat(), "finished_at": NOW.isoformat(), "requests_attempted": 10,
-             "target_fingerprint": "abc123"},
+             "target_count": 1, "target_fingerprint": manifest["selector_fingerprint"], "manifest": manifest},
         ],
         "pokemon_scrape_batches": [
             {"market_date": market_date, "status": "complete"},
@@ -89,7 +104,8 @@ def _healthy_tables():
             {"market_date": market_date, "status": "COMPLETE", "finished_at": NOW.isoformat()},
         ],
         "ebay_active_ask_price_estimates_v1": [
-            {"market_date": market_date, "estimator_version": ESTIMATOR_VERSION},
+            {"id": "estimate-1", "pricing_run_id": run_id, "market_date": market_date,
+             "estimator_version": ESTIMATOR_VERSION},
         ],
         "pokemon_multi_source_card_prices_v1": [
             {"market_date": market_date, "policy_version": POLICY_VERSION},
@@ -289,15 +305,31 @@ def test_missing_ebay_evidence_is_warning_not_failure_of_canonical_pricing():
     assert results["pricing.canonical.source_guard"].outcome == CheckOutcome.HEALTHY
 
 
-def test_zero_eligible_ebay_estimates_in_successful_run_is_not_reported_unhealthy():
-    # No rows in the estimates table simply means the estimator freshness check fails
-    # (stale/missing), which is WARNING-level multi-source degradation, not a reported
-    # "zero eligible estimates" failure of the run itself. There is no separate
-    # "eligible estimate count" signal in health.py to report as unhealthy here.
+def test_zero_eligible_ebay_estimates_in_successful_run_has_explicit_warning():
     results = _run_all(_client({"ebay_active_ask_price_estimates_v1": []}))
-    assert results["pricing.ebay.estimator_freshness"].severity in (Severity.WARNING,)
+    coverage = results["pricing.ebay.estimate_coverage"]
+    assert coverage.outcome == CheckOutcome.FAILURE
+    assert coverage.severity == Severity.WARNING
+    assert coverage.failure_code == "EBAY_ZERO_ELIGIBLE_ESTIMATES"
+    assert coverage.observed["target_count"] == 1
+    assert coverage.observed["eligible_estimate_count"] == 0
     assert results["pricing.canonical.source_guard"].outcome == CheckOutcome.HEALTHY
     assert results["pricing.multi_source.run_freshness"].outcome == CheckOutcome.HEALTHY
+
+
+def test_target_manifest_content_tamper_is_detected_even_when_stored_fingerprint_is_present():
+    tables = _healthy_tables()
+    run = dict(tables["pokemon_multi_source_pricing_runs_v1"][0])
+    manifest = dict(run["manifest"])
+    manifest["cards"] = [{"canonical_card_id": "tampered-card"}]
+    run["manifest"] = manifest
+    tables["pokemon_multi_source_pricing_runs_v1"] = [run]
+    results = _run_all(_CountingClient(tables))
+    integrity = results["pricing.multi_source.target_manifest_integrity"]
+    assert integrity.outcome == CheckOutcome.FAILURE
+    assert integrity.severity == Severity.WARNING
+    assert integrity.failure_code == "TARGET_MANIFEST_CONTENT_INVALID"
+    assert results["pricing.multi_source.target_freshness"].outcome == CheckOutcome.HEALTHY
 
 
 def test_estimator_and_policy_version_drift_detected_and_reported():
