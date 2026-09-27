@@ -339,8 +339,9 @@ def test_latest_complete_batch_does_not_retry_deterministic_authority_failure():
 
 
 def test_process_scan_ignores_db_guard_shell_carrier(monkeypatch):
-    ps_output = """478999 478993 478993 60 /bin/sh -c bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-27
-479000 478999 478993 60 bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-27
+    wrapper = watchdog.REPO_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
+    ps_output = f"""478999 478993 478993 60 /bin/sh -c bash {wrapper} 2026-09-27
+479000 478999 478993 60 bash {wrapper} 2026-09-27
 479046 479000 478993 55 /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-27
 """
     monkeypatch.setattr(
