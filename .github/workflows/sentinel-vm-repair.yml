@@ -93,13 +93,39 @@ jobs:
           echo "live_head=$LIVE_HEAD"
           echo "tracked_after=$(git status --porcelain --untracked-files=no)"
 
-          echo "=== install canonical crontab ==="
+          echo "=== install canonical base crontab + managed pricing block ==="
           crontab infra/oracle/tcgplayer-scraper-pokemon.crontab || exit 9
+          bash infra/oracle/install_multi_source_pricing_cron.sh --apply || exit 10
+
           crontab -l > /tmp/sentinel-repair-v4-current.cron
-          diff -u /tmp/sentinel-repair-v4-current.cron infra/oracle/tcgplayer-scraper-pokemon.crontab
+          python3 - <<'PY'
+          from pathlib import Path
+
+          current = Path("/tmp/sentinel-repair-v4-current.cron").read_text(encoding="utf-8").splitlines()
+          canonical = Path("infra/oracle/tcgplayer-scraper-pokemon.crontab").read_text(encoding="utf-8").splitlines()
+          begin = "# BEGIN multi-source-pricing (managed by install_multi_source_pricing_cron.sh)"
+          end = "# END multi-source-pricing"
+          outside = []
+          inside = False
+          for line in current:
+              if line == begin:
+                  inside = True
+                  continue
+              if line == end:
+                  inside = False
+                  continue
+              if not inside:
+                  outside.append(line)
+          while outside and not outside[-1].strip():
+              outside.pop()
+          while canonical and not canonical[-1].strip():
+              canonical.pop()
+          if outside != canonical:
+              raise SystemExit("canonical base crontab differs outside managed pricing block")
+          PY
           CRON_DIFF_RC=$?
-          echo "cron_diff_rc=$CRON_DIFF_RC"
-          if [ "$CRON_DIFF_RC" -ne 0 ]; then exit 10; fi
+          echo "cron_contract_rc=$CRON_DIFF_RC"
+          if [ "$CRON_DIFF_RC" -ne 0 ]; then exit 11; fi
 
           echo "=== focused validation ==="
           set -a
