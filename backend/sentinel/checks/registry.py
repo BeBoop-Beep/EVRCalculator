@@ -100,6 +100,7 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
     _PRICING_DESCRIPTIONS = {
         "pricing.multi_source.run_freshness": "Daily multi-source pricing run is present/complete for the expected market date",
         "pricing.multi_source.target_freshness": "Daily pricing run's target manifest fingerprint is present for the expected market date",
+        "pricing.ebay.daily_coverage": "Every recent completed TCGplayer batch has a completed eBay/multi-source pricing run",
         "pricing.ebay.budget_health": "eBay Browse request ledger is within the daily request budget",
         "pricing.ebay.quota_authority_v2": "eBay Browse provider-verified quota window is current and within its usable limit",
         "pricing.ebay.evidence_freshness": "Latest completed eBay pricing evidence run is not stale",
