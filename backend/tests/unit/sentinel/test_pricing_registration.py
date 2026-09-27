@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from backend.pricing_pipeline.contracts import DAILY_REQUEST_LIMIT
+import backend.sentinel.checks.pricing as sentinel_pricing
 from backend.pricing_pipeline.contracts import PHOENIX as PP_PHOENIX
 from backend.scripts.freeze_ebay_active_ask_v1 import VERSION as ESTIMATOR_VERSION
 from backend.scripts.pokemon_multi_source_card_price_v1 import POLICY_VERSION
@@ -76,6 +77,9 @@ class _CountingClient:
 def _healthy_tables():
     market_date = EXPECTED_MARKET_DATE
     return {
+        "pokemon_scrape_batches": [
+            {"market_date": market_date, "status": "complete"},
+        ],
         "pokemon_multi_source_pricing_runs_v1": [
             {"market_date": market_date, "status": "COMPLETE", "stage": "done", "failure_code": None,
              "updated_at": NOW.isoformat(), "finished_at": NOW.isoformat(), "requests_attempted": 10,
@@ -167,6 +171,14 @@ def test_fresh_registry_instance_gathers_again():
     assert client.table_calls > first  # not a cross-run global cache
 
 
+def test_pricing_snapshot_resolves_default_client_when_registry_client_is_none(monkeypatch):
+    client = _client()
+    monkeypatch.setattr(sentinel_pricing, "_default_client", lambda: client)
+    result = build_fast_registry(client=None).get("pricing.multi_source.run_freshness").run(CTX)
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert client.table_calls > 0
+
+
 # --------------------------------------------------------------------------------- healthy state
 
 
@@ -198,6 +210,26 @@ def test_missing_daily_run_is_warning_not_critical():
     result = results["pricing.multi_source.run_freshness"]
     assert result.outcome == CheckOutcome.FAILURE
     assert result.severity == Severity.WARNING
+
+
+def test_missed_prior_completed_batch_is_reported_as_daily_coverage_gap():
+    yesterday = (NOW.astimezone(PP_PHOENIX).date() - timedelta(days=1)).isoformat()
+    results = _run_all(_client({
+        "pokemon_scrape_batches": [
+            {"market_date": EXPECTED_MARKET_DATE, "status": "complete"},
+            {"market_date": yesterday, "status": "complete"},
+        ],
+        "pokemon_multi_source_pricing_runs_v1": [
+            {"market_date": EXPECTED_MARKET_DATE, "status": "COMPLETE", "stage": "COMPLETE",
+             "failure_code": None, "updated_at": NOW.isoformat(), "finished_at": NOW.isoformat(),
+             "requests_attempted": 10, "target_fingerprint": "abc123"},
+        ],
+    }))
+    result = results["pricing.ebay.daily_coverage"]
+    assert result.outcome == CheckOutcome.FAILURE
+    assert result.severity == Severity.WARNING
+    assert result.failure_code == "EBAY_DAILY_COVERAGE_GAP"
+    assert result.observed["missing_run_dates"] == [yesterday]
 
 
 def test_stale_ebay_evidence_is_warning():
