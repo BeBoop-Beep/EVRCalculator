@@ -1,0 +1,119 @@
+name: Deploy Projection Timestamp Fix
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/deploy-projection-timestamp-fix.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 20
+    steps:
+      - name: Test, deploy exact parser fix, and preserve incident safeguards
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/home/ubuntu/repos/EVRCalculator
+          PY="$APP/.venv/bin/python"
+          TMP=$(mktemp -d)
+          trap 'rm -rf "$TMP"' EXIT
+          git -C "$APP" fetch --quiet origin main vm-ops-control
+          for FILE in market_publication_recovery.py test_market_publication_recovery.py test_market_timestamp_compat.py; do
+            git -C "$APP" show "$SOURCE_SHA:.vm-ops/$FILE" > "$TMP/$FILE"
+          done
+          (cd "$TMP" && "$PY" -m unittest -v test_market_publication_recovery test_market_timestamp_compat)
+          "$PY" - "$TMP/market_publication_recovery.py" <<'PY'
+          import ast,fcntl,importlib.util,json,subprocess,sys,time
+          from pathlib import Path
+          app=Path('/home/ubuntu/repos/EVRCalculator');state=Path('/home/ubuntu/state/db-safety');lane=state/'market-publication'
+          tested='975f7276c69750fcd1af8e22c0e70eee5282e8e5'
+          path='backend/db/services/price_storage_v2_projection_gate.py'
+          def mod(name,p):
+              spec=importlib.util.spec_from_file_location(name,p);result=importlib.util.module_from_spec(spec);spec.loader.exec_module(result);return result
+          guard=mod('guard',state/'db_workload_guard.py');policy=mod('resources',state/'collection_recovery.py');policy.LANE=lane
+          subprocess.run(['git','-C',str(app),'merge-base','--is-ancestor',tested,'origin/main'],check=True)
+          expected=subprocess.check_output(['git','-C',str(app),'show',tested+':'+path])
+          expected_blob=subprocess.check_output(['git','-C',str(app),'rev-parse',tested+':'+path],text=True).strip()
+          with (state/'worker.lock').open('a') as lock:
+              deadline=time.monotonic()+180
+              while True:
+                  try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);break
+                  except BlockingIOError:
+                      if time.monotonic()>deadline:raise RuntimeError('worker busy; no deployment')
+                      time.sleep(.5)
+              config=guard.load(lane/'authorization.json')
+              if not config.get('enabled') or not policy.expected_hold(config,state/'hold.json'):raise RuntimeError('authorization changed')
+              if (lane/'hold.json').exists():raise RuntimeError('resource hold remains; do not auto-clear')
+              if policy.make_pressure(guard,config)():raise RuntimeError('resource preflight refused')
+              current_blob=subprocess.check_output(['git','-C',str(app),'hash-object',str(app/path)],text=True).strip()
+              if current_blob not in ('06c1183ce90e3b5a63756133d412d48ac8a5f83b',expected_blob):raise RuntimeError('parser changed; refusing overwrite')
+              subprocess.run(['git','-C',str(app),'diff','--quiet','--',path],check=True)
+              subprocess.run(['git','-C',str(app),'diff','--cached','--quiet'],check=True)
+              # Validate the actual candidate parser on this VM before deploy.
+              from datetime import datetime,timezone
+              from typing import Any,Optional
+              tree=ast.parse(expected.decode());fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_parse_ts')
+              namespace={'datetime':datetime,'Any':Any,'Optional':Optional}
+              exec(compile(ast.Module(body=[fn],type_ignores=[]),'<candidate_parser>','exec'),namespace)
+              assert namespace['_parse_ts']('2026-09-26T22:40:37.13337+00:00')==datetime(2026,9,26,22,40,37,133370,tzinfo=timezone.utc)
+              stamp=str(time.time_ns())
+              guard.atomic_write(lane/('parser.before.'+stamp),(app/path).read_text())
+              guard.atomic_write(lane/('worker.before.'+stamp),(state/'market_publication_recovery.py').read_text())
+              subprocess.run(['git','-C',str(app),'checkout',tested,'--',path],check=True)
+              if subprocess.run(['git','-C',str(app),'diff','--cached','--quiet']).returncode:
+                  subprocess.run(['git','-C',str(app),'-c','user.name=index-vm-ops','-c','user.email=vm-ops@index.invalid','commit','-m','fix(db): deploy validated PostgreSQL timestamp precision repair','--',path],check=True)
+              if (app/path).read_bytes()!=expected:raise RuntimeError('parser deployment verification failed')
+              guard.atomic_write(state/'market_publication_recovery.py',Path(sys.argv[1]).read_text())
+              # Permit one new attempt only for the known pre-write parser error.
+              # No resource hold, source evidence, or other lane state is cleared.
+              error=guard.load(lane/'last_error.json')
+              archived=0
+              if error.get('error_type')=='ValueError' and error.get('message','').startswith('Invalid isoformat string:'):
+                  for receipt in lane.glob('job.*.json'):
+                      data=guard.load(receipt)
+                      if data.get('exit_code')==1:
+                          receipt.rename(receipt.with_name(receipt.name+'.timestamp-fixed.'+stamp));archived+=1
+                  (lane/'last_error.json').rename(lane/('timestamp_error.before.'+stamp+'.json'))
+              print(json.dumps({'status':'timestamp_fix_deployed','tested_source':tested,'app_sha':subprocess.check_output(['git','-C',str(app),'rev-parse','HEAD'],text=True).strip(),'known_parser_cooldowns_archived':archived,'global_hold_preserved':(state/'hold.json').exists(),'python':sys.version.split()[0]}),flush=True)
+          PY
+      - name: Verify complete source cohort and run guarded Market publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/home/ubuntu/repos/EVRCalculator
+          STATE=/home/ubuntu/state/db-safety
+          cd "$APP"
+          .venv/bin/python - <<'PY'
+          import json
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          from dotenv import load_dotenv
+          load_dotenv('backend/.env',override=False)
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.price_storage_v2_projection_gate import evaluate_price_projection_gate
+          d=evaluate_price_projection_gate(create_service_role_client(),datetime.now(ZoneInfo('America/Phoenix')).date().isoformat())
+          print(json.dumps({'live_projection_gate':{'expected':d.expected_set_count,'complete':d.complete_set_count,'ready':d.ready,'reason':d.reason_code,'error':bool(d.error)}}),flush=True)
+          PY
+          set +e
+          .venv/bin/python "$STATE/market_publication_recovery.py" --tick > "$STATE/market-publication/timestamp-fixed-tick.log" 2>&1
+          RC=$?
+          set -e
+          .venv/bin/python - "$RC" <<'PY'
+          import json,re,sys
+          from pathlib import Path
+          lane=Path('/home/ubuntu/state/db-safety/market-publication')
+          print(json.dumps({'guarded_market_tick_exit':int(sys.argv[1])}))
+          for p in sorted(lane.glob('*.progress.json'))+sorted(lane.glob('*.complete.json'))+[lane/'last_error.json',lane/'latest_resources.json',lane/'hold.json']:
+              if p.exists():print(json.dumps({'file':p.name,'state':json.loads(p.read_text())}),flush=True)
+          p=lane/'timestamp-fixed-tick.log'
+          with p.open('rb') as f:
+              f.seek(max(0,p.stat().st_size-16000));lines=f.read().decode(errors='replace').splitlines()
+          for line in lines[-22:]:print(re.sub(r'eyJ[A-Za-z0-9_.-]+','<REDACTED>',line[:1800]))
+          PY
+          test "$RC" = 0 -o "$RC" = 3 -o "$RC" = 75
