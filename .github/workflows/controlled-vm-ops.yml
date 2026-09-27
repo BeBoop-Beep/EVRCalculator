@@ -2047,7 +2047,13 @@ jobs:
           print("supabase_mem_total_gib=%.3f" % (total / 1024**3))
           print("supabase_mem_available_gib=%.3f" % (available / 1024**3))
           print("supabase_mem_available_pct=%.2f" % (100 * available / total))
+          swap_total = metrics["node_memory_SwapTotal_bytes"]
+          swap_free = metrics["node_memory_SwapFree_bytes"]
+          swap_used = max(0.0, swap_total - swap_free)
           print("supabase_commit_pct=%.2f" % (100 * committed / commit_limit))
+          print("supabase_swap_total_gib=%.3f" % (swap_total / 1024**3))
+          print("supabase_swap_used_gib=%.3f" % (swap_used / 1024**3))
+          print("supabase_swap_used_pct=%.2f" % (100 * swap_used / swap_total if swap_total else 0.0))
           PY
               else
                 echo "db_workload_guard.py missing"
