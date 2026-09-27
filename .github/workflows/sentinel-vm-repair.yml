@@ -93,9 +93,10 @@ jobs:
           echo "live_head=$LIVE_HEAD"
           echo "tracked_after=$(git status --porcelain --untracked-files=no)"
 
-          echo "=== install canonical base crontab + managed pricing block ==="
+          echo "=== install canonical base crontab + managed pricing/Explorer blocks ==="
           crontab infra/oracle/tcgplayer-scraper-pokemon.crontab || exit 9
           bash infra/oracle/install_multi_source_pricing_cron.sh --apply || exit 10
+          bash infra/oracle/install_market_explorer_prewarm_cron.sh --apply || exit 10
 
           crontab -l > /tmp/sentinel-repair-v4-current.cron
           python3 - <<'PY'
@@ -103,25 +104,36 @@ jobs:
 
           current = Path("/tmp/sentinel-repair-v4-current.cron").read_text(encoding="utf-8").splitlines()
           canonical = Path("infra/oracle/tcgplayer-scraper-pokemon.crontab").read_text(encoding="utf-8").splitlines()
-          begin = "# BEGIN multi-source-pricing (managed by install_multi_source_pricing_cron.sh)"
-          end = "# END multi-source-pricing"
+          managed_blocks = (
+              (
+                  "# BEGIN multi-source-pricing (managed by install_multi_source_pricing_cron.sh)",
+                  "# END multi-source-pricing",
+              ),
+              (
+                  "# BEGIN market-explorer-prewarm (managed by install_market_explorer_prewarm_cron.sh)",
+                  "# END market-explorer-prewarm",
+              ),
+          )
           outside = []
-          inside = False
+          active_end = None
           for line in current:
-              if line == begin:
-                  inside = True
+              if active_end is not None:
+                  if line == active_end:
+                      active_end = None
                   continue
-              if line == end:
-                  inside = False
+              matched = next((end for begin, end in managed_blocks if line == begin), None)
+              if matched is not None:
+                  active_end = matched
                   continue
-              if not inside:
-                  outside.append(line)
+              outside.append(line)
+          if active_end is not None:
+              raise SystemExit("unterminated managed crontab block")
           while outside and not outside[-1].strip():
               outside.pop()
           while canonical and not canonical[-1].strip():
               canonical.pop()
           if outside != canonical:
-              raise SystemExit("canonical base crontab differs outside managed pricing block")
+              raise SystemExit("canonical base crontab differs outside managed pricing/Explorer blocks")
           PY
           CRON_DIFF_RC=$?
           echo "cron_contract_rc=$CRON_DIFF_RC"
