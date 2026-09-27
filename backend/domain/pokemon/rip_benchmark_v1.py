@@ -17,8 +17,17 @@ from uuid import UUID
 METRICS = ("financial", "chase", "collector", "overall")
 ENTITY_TYPES = ("set", "era", "sealed_product")
 TRANSFORM_VERSION = "centered_linear_clipped_shadow_v1"
-# This is a research candidate, NOT a selected production slope or transform.
-APPROVED_CALIBRATION_VERSIONS: frozenset[str] = frozenset()
+APPROVED_CALIBRATION_VERSION = "rip_benchmark_v1_fin5_chase10_collector10_overall5"
+APPROVED_BENCHMARK_KEY = "pokemon_equal_weight_eligible_sets_v1"
+APPROVED_MODEL_VERSIONS = {
+    "financial": "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+    "chase": "chase_accessibility_v1_hc_value_squared_modeled_probability",
+    "collector": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+    "overall": "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+}
+APPROVED_SCALES = {"financial": Decimal("5"), "chase": Decimal("10"),
+                   "collector": Decimal("10"), "overall": Decimal("5")}
+APPROVED_CALIBRATION_VERSIONS: frozenset[str] = frozenset({APPROVED_CALIBRATION_VERSION})
 
 
 class BenchmarkError(ValueError):
@@ -95,6 +104,15 @@ class Calibration:
         object.__setattr__(self, "scale", number(self.scale))
         if self.scale <= 0:
             raise BenchmarkError("positive fixed calibration scale required")
+
+
+def approved_calibrations(model_versions: Mapping[str, str]) -> dict[str, Calibration]:
+    """Return the reviewed calibration only for its exact V12/V4 model family."""
+    if dict(model_versions) != APPROVED_MODEL_VERSIONS:
+        raise BenchmarkError("approved calibration does not match exact certified model family")
+    return {metric: Calibration(APPROVED_CALIBRATION_VERSION, metric, version,
+                                APPROVED_BENCHMARK_KEY, APPROVED_SCALES[metric])
+            for metric, version in APPROVED_MODEL_VERSIONS.items()}
 
 
 def preview_score(raw: Any, reference: Any, calibration: Calibration) -> Decimal:

@@ -86,8 +86,8 @@ def test_bad_scale(scale):
     with pytest.raises(BenchmarkError): replace(CAL, scale=scale)
 
 
-def test_no_approved_production_calibration():
-    assert not APPROVED_CALIBRATION_VERSIONS
+def test_missing_calibration_preserves_canonical_source():
+    assert APPROVED_CALIBRATION_VERSIONS
     r = row(reference=ref())
     assert r['raw_model_value'] == 50 and r['rank'] == 2
     assert r['benchmark_score'] is None and r['benchmark_reason'] == 'calibration_unapproved'
