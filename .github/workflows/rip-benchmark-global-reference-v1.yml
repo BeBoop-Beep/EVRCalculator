@@ -4,7 +4,6 @@ on:
     branches: [feat/rip-benchmark-global-reference-v1-20260926]
   pull_request:
     paths:
-      - 'backend/db/benchmarks/rip_benchmark_global_reference_v1.sql'
       - 'backend/db/migrations/*_rip_benchmark_global_reference_v1.sql'
       - 'supabase/migrations/*_rip_benchmark_global_reference_v1.sql'
       - 'backend/tests/integration/rip_benchmark_global_reference_v1_postgres.py'
@@ -37,23 +36,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Generate or verify additive migration
+      - name: Verify additive migration mirrors
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p benchmark-test-output
           mapfile -t migrations < <(find supabase/migrations -maxdepth 1 -name '*_rip_benchmark_global_reference_v1.sql')
-          if [ "${#migrations[@]}" -eq 0 ]; then
-            npx --yes supabase@2.118.0 --version
-            npx --yes supabase@2.118.0 migration new --help
-            npx --yes supabase@2.118.0 migration new rip_benchmark_global_reference_v1
-            migration=$(find supabase/migrations -maxdepth 1 -name '*_rip_benchmark_global_reference_v1.sql')
-            cp backend/db/benchmarks/rip_benchmark_global_reference_v1.sql "$migration"
-            cp "$migration" "backend/db/migrations/$(basename "$migration")"
-          else
-            test "${#migrations[@]}" -eq 1
-            migration="${migrations[0]}"
-          fi
+          test "${#migrations[@]}" -eq 1
+          migration="${migrations[0]}"
           cmp "$migration" "backend/db/migrations/$(basename "$migration")"
           printf '%s\n' "$(basename "$migration")" | tee benchmark-test-output/reference-migration-name.txt
           echo "RIP_REFERENCE_MIGRATION=$migration" >> "$GITHUB_ENV"
@@ -70,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python backend/tests/integration/rip_benchmark_global_reference_v1_postgres.py 2>&1 | tee benchmark-test-output/global-reference-tests.log
+          python -m backend.tests.integration.rip_benchmark_global_reference_v1_postgres 2>&1 | tee benchmark-test-output/global-reference-tests.log
       - name: Retain exact tested SQL and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
