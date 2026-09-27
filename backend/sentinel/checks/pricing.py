@@ -29,6 +29,7 @@ PRICING_CHECK_KEYS = (
 
 
 PRICING_SCHEDULER_CHECK_KEY = "pricing.ebay.scheduler"
+PRICING_SCHEDULER_AUTHORITY = "multi-source-pricing-cron-v1"
 
 
 def _default_client() -> Any:
@@ -99,13 +100,13 @@ def check_pricing_scheduler(
             PRICING_SCHEDULER_CHECK_KEY,
             failure_code="EBAY_DAILY_SCHEDULE_MISSING",
             severity=Severity.WARNING,
-            authority_identity=context.now.date().isoformat(),
+            authority_identity=PRICING_SCHEDULER_AUTHORITY,
             observed=observed,
             checked_at=context.now,
         )
     return CheckResult.healthy(
         PRICING_SCHEDULER_CHECK_KEY,
-        authority_identity=context.now.date().isoformat(),
+        authority_identity=PRICING_SCHEDULER_AUTHORITY,
         observed=observed,
         checked_at=context.now,
     )
