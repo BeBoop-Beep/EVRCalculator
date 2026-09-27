@@ -1,4 +1,4 @@
 {
-  "operation": "code-red-db-load-restore-audit",
-  "request_id": "verify-restored-runtime-20260927"
+  "operation": "status",
+  "request_id": "inspect-vm-memory-after-restore-20260927"
 }
