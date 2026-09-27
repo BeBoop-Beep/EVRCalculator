@@ -417,6 +417,8 @@ def prepared_surfaces_current(client: Any, target_market_date: str) -> bool:
     rediscover an already-current V1/V2 publication.
     """
     target = str(target_market_date)[:10]
+    if not hasattr(client, "table"):
+        return False
     prepared_serving = list(
         client.table("pokemon_market_explorer_prepared_serving_v1")
         .select("generation_id")
