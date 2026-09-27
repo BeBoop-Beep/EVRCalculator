@@ -649,17 +649,6 @@ def main() -> int:
     from backend.db.clients.supabase_client import create_service_role_client
     client = create_service_role_client()
 
-    if args.verify_prepared_refresh_rollback:
-        target = args.market_date or resolve_latest_approved_market_date(client)
-        if not target:
-            print(json.dumps({"status": "failed", "error": "no_approved_market_date"}, sort_keys=True))
-            return 1
-        report = refresh_prepared_if_current(
-            client, target_market_date=target, commit=True, rollback_only=True
-        )
-        print(json.dumps(report, indent=2, sort_keys=True, default=str))
-        return 1 if report.get("status") == "failed" else 0
-
     def guard() -> HostGuardResult:
         return evaluate_host_guard(
             min_available_memory_mb=args.min_available_memory_mb,
