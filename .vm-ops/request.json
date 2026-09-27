@@ -1,1 +1,4 @@
-{"operation":"sealed-market-snapshots-all","request_id":"explorer-db-correction-20260926-sealed-snapshots"}
+{
+  "operation": "pricing-status",
+  "request_id": "pricing-status-20260926-2236"
+}
