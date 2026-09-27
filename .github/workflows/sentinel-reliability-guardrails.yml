@@ -58,6 +58,7 @@ jobs:
       - name: Sentinel reliability regressions
         run: |
           python -m pytest -q \
+            backend/tests/unit/sentinel/test_runtime_backstop_workflow.py \
             backend/tests/unit/sentinel/test_pricing_registration.py \
             backend/tests/unit/sentinel/test_safe_recovery.py \
             backend/tests/unit/sentinel/test_authority_adapters.py \

@@ -14,11 +14,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  backstop:
+  independent-observer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SENTINEL_COMPONENT: sentinel_github_backstop
+      SENTINEL_RUNNER_HOST: github-hosted-sentinel-backstop
+      SENTINEL_WATCH_COMPONENT: sentinel_vm
+      SENTINEL_WATCH_HOST: tcgplayer-scraper-pokemon-v2
+      SENTINEL_STATE_WRITES_ENABLED: 'false'
+      SENTINEL_PERSISTENCE_SCHEMA_READY: 'false'
+      SENTINEL_RECOVERY_ENABLED: 'false'
+      SENTINEL_RECOVERY_EXECUTION_READY: 'false'
+      SENTINEL_AI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install independent observer runtime
+        run: python -m pip install -q supabase==2.28.3 python-dotenv==1.2.2 requests
+      - name: Observe production VM heartbeat
+        run: python -m backend.sentinel.operational --profile independent
+
+  fast-recovery-backstop:
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
     timeout-minutes: 20
     steps:
-      - name: Verify heartbeat and run bounded Fast backstop
+      - name: Run bounded Fast recovery backstop
         shell: bash
         run: |
           set -euo pipefail
@@ -37,37 +66,11 @@ jobs:
           cd "$REPO"
           export PYTHONPATH="$REPO"
 
-          echo "== pre-backstop independent heartbeat =="
-          set +e
-          (
-            set -a
-            . backend/.env
-            set +a
-            SENTINEL_WATCH_HOST="${SENTINEL_WATCH_HOST:-tcgplayer-scraper-pokemon-v2}" \
-            SENTINEL_RECOVERY_ENABLED=false \
-            SENTINEL_RECOVERY_EXECUTION_READY=false \
-              "$PY" -m backend.sentinel.operational --profile independent
-          )
-          PRE_RC=$?
-          set -e
-          echo "pre_independent_rc=$PRE_RC"
-
-          echo "== bounded Fast profile backstop =="
           set +e
           /usr/bin/flock -n /tmp/index-sentinel-fast.lock -c \
             "cd '$REPO' && set -a && . backend/.env && set +a && SENTINEL_RUNNER_BUILD_SHA=\$(git rev-parse HEAD) '$PY' -m backend.sentinel.operational --profile fast"
           FAST_RC=$?
           set -e
           echo "fast_backstop_rc=$FAST_RC"
-
-          echo "== post-backstop independent heartbeat =="
-          (
-            set -a
-            . backend/.env
-            set +a
-            SENTINEL_WATCH_HOST="${SENTINEL_WATCH_HOST:-tcgplayer-scraper-pokemon-v2}" \
-            SENTINEL_RECOVERY_ENABLED=false \
-            SENTINEL_RECOVERY_EXECUTION_READY=false \
-              "$PY" -m backend.sentinel.operational --profile independent
-          )
+          test "$FAST_RC" -eq 0
           echo "SENTINEL_RUNTIME_BACKSTOP=PASS"
