@@ -115,6 +115,8 @@ def check_market_explorer_progress(
     *,
     client: Any = None,
     max_progress_age_seconds: int = DEFAULT_PROGRESS_MAX_AGE_SECONDS,
+    health_checker: Optional[Callable[[Any], dict[str, Any]]] = None,
+    cache_rows_loader: Optional[Callable[[Any], list[dict[str, Any]]]] = None,
 ) -> CheckResult:
     """Require Explorer's normal bounded worker to be converged or actively advancing.
 
@@ -126,21 +128,27 @@ def check_market_explorer_progress(
         from backend.db.clients.supabase_client import create_service_role_client
         client = create_service_role_client()
 
-    from backend.scripts.check_market_explorer_maintained_cache_health import (
-        check_maintained_cache_health,
-    )
+    if health_checker is None:
+        from backend.scripts.check_market_explorer_maintained_cache_health import (
+            check_maintained_cache_health,
+        )
+        health_checker = check_maintained_cache_health
 
-    report = check_maintained_cache_health(client)
+    report = health_checker(client)
     target = str(report.get("latest_approved_market_date") or "")[:10] or None
     v2 = dict(report.get("v2") or {})
     alerts = list(report.get("alerts") or [])
 
-    rows = list(
-        client.table("pokemon_market_explorer_query_cache")
-        .select("status,computed_through,updated_at")
-        .eq("cache_kind", "maintained")
-        .execute().data or []
-    )
+    if cache_rows_loader is None:
+        def cache_rows_loader(resolved_client: Any) -> list[dict[str, Any]]:
+            return list(
+                resolved_client.table("pokemon_market_explorer_query_cache")
+                .select("status,computed_through,updated_at")
+                .eq("cache_kind", "maintained")
+                .execute().data or []
+            )
+
+    rows = cache_rows_loader(client)
     stale = [
         row for row in rows
         if target and (
