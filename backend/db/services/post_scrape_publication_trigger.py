@@ -140,7 +140,11 @@ def evaluate_post_scrape_publication_currency(
     *,
     audit_runner: Optional[Callable[..., Any]] = None,
 ) -> PublicationCurrencyStatus:
-    """Canonical post-scrape audit plus Market Explorer V2 define CURRENT.
+    """Canonical post-scrape Market audit defines core publication CURRENT.
+
+    Market Explorer V2 is intentionally a separate liveness domain owned by the
+    bounded convergence worker. Once core publication is current, Explorer lag
+    must never cause the expensive 212-set post-scrape publisher to replay.
 
     A cheap global-Market date probe is allowed to prove only one thing:
     definite staleness. When that authority is absent or behind the requested
@@ -149,8 +153,8 @@ def evaluate_post_scrape_publication_currency(
     case return STALE immediately and let the canonical wrapper perform its own
     publication gates and post-build audit.
 
-    A current/future scalar date never proves the whole publication current;
-    the existing full audit + Explorer V2 coverage checks still run.
+    A current/future scalar date never proves the core publication current;
+    the existing compact post-scrape audit still runs.
     """
     if maintenance_hold_active():
         return PublicationCurrencyStatus.UNKNOWN
@@ -194,8 +198,6 @@ def evaluate_post_scrape_publication_currency(
             report = audit_runner(client, market_date=market_date, phase=PHASE_POST_SCRAPE)
         if report.market_date != market_date or not report.passed:
             return PublicationCurrencyStatus.STALE
-        if not _market_explorer_v2_current(client, market_date):
-            return PublicationCurrencyStatus.STALE
         return PublicationCurrencyStatus.CURRENT
     except Exception:
         logger.exception(
@@ -206,7 +208,7 @@ def evaluate_post_scrape_publication_currency(
 
 
 def _default_publication_current(market_date: str) -> PublicationCurrencyStatus:
-    """Durable currency check for canonical post-scrape plus Market Explorer V2."""
+    """Durable currency check for canonical core post-scrape publication."""
     from backend.db.clients.supabase_client import supabase
     return evaluate_post_scrape_publication_currency(supabase, market_date)
 
