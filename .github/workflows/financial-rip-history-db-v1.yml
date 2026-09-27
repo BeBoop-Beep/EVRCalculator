@@ -1,0 +1,99 @@
+name: Financial RIP history DB V1
+
+on:
+  push:
+    branches: [feat/financial-rip-history-db-v1-20260927]
+    paths:
+      - 'supabase/migrations/*_financial_rip_history_db_v1.sql'
+      - 'backend/db/migrations/*_financial_rip_history_db_v1.sql'
+      - 'backend/scripts/run_rip_benchmark_publisher_v1.py'
+      - 'backend/tests/benchmark_v1/**'
+      - 'backend/tests/integration/financial_rip_history_db_v1_postgres.py'
+      - '.github/workflows/financial-rip-history-db-v1.yml'
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'supabase/migrations/*_financial_rip_history_db_v1.sql'
+      - 'backend/db/migrations/*_financial_rip_history_db_v1.sql'
+      - 'backend/scripts/run_rip_benchmark_publisher_v1.py'
+      - 'backend/tests/benchmark_v1/**'
+      - 'backend/tests/integration/financial_rip_history_db_v1_postgres.py'
+      - '.github/workflows/financial-rip-history-db-v1.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: financial-rip-history-db-v1-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Benchmark publisher/history regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install pytest==8.3.5
+          python -m pytest -q --confcutdir=backend/tests/benchmark_v1 \
+            backend/tests/benchmark_v1/test_financial_history_db_v1.py \
+            backend/tests/benchmark_v1/test_publisher.py \
+            backend/tests/benchmark_v1/test_publication.py \
+            backend/tests/benchmark_v1/test_shadow.py
+
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
+        env:
+          POSTGRES_PASSWORD: isolated-financial-history-test-only
+          POSTGRES_DB: benchmark_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d benchmark_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: isolated-financial-history-test-only
+      PGDATABASE: benchmark_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify exact migration mirrors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-test-output
+          mapfile -t migrations < <(find supabase/migrations -maxdepth 1 -name '*_financial_rip_history_db_v1.sql')
+          test "${#migrations[@]}" -eq 1
+          migration="${migrations[0]}"
+          cmp "$migration" "backend/db/migrations/$(basename "$migration")"
+          echo "RIP_FINANCIAL_HISTORY_MIGRATION=$migration" >> "$GITHUB_ENV"
+          sha256sum "$migration" | tee benchmark-test-output/financial-history-migration-sha256.txt
+      - name: Foundation atomicity plus Financial history integration/scale
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m backend.tests.integration.financial_rip_history_db_v1_postgres \
+            2>&1 | tee benchmark-test-output/financial-history-test.log
+      - name: Retain SQL, test and plan evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: financial-rip-history-db-v1-evidence
+          path: benchmark-test-output/
