@@ -5,8 +5,7 @@ on:
   pull_request:
     paths:
       - 'backend/domain/pokemon/rip_benchmark_v1.py'
-      - 'backend/db/services/rip_benchmark_evidence_v1.py'
-      - 'backend/db/services/rip_benchmark_preview_v1.py'
+      - 'backend/benchmarking/**'
       - 'backend/scripts/run_rip_benchmark_v1.py'
       - 'backend/tests/benchmark_v1/**'
       - '.github/workflows/rip-benchmark-backend-v1.yml'
@@ -18,6 +17,7 @@ concurrency:
 jobs:
   unit:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}

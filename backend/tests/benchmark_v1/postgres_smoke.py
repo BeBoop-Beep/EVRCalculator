@@ -7,8 +7,8 @@ import subprocess
 from decimal import Decimal
 
 from backend.domain.pokemon.rip_benchmark_v1 import wire
-from backend.db.services.rip_benchmark_preview_v1 import candidate_request
-from backend.db.services.rip_benchmark_evidence_v1 import attach_evidence, evidence_from_scope
+from backend.benchmarking.preview_v1 import candidate_request
+from backend.benchmarking.evidence_v1 import attach_evidence, evidence_from_scope
 from backend.tests.benchmark_v1.test_core import DAY, CAL, header, ref, row, scope, source, uid
 
 if os.environ.get('PGHOST') not in ('127.0.0.1','localhost') or os.environ.get('PGDATABASE') != 'benchmark_backend_test':

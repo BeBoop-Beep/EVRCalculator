@@ -9,11 +9,11 @@ from backend.domain.pokemon.rip_benchmark_v1 import (
     APPROVED_CALIBRATION_VERSIONS, BenchmarkError, Calibration, Reference,
     equal_weight_reference, fingerprint, history_windows, metric_row, number, preview_score, wire,
 )
-from backend.db.services.rip_benchmark_evidence_v1 import (
+from backend.benchmarking.evidence_v1 import (
     V3_CONTRACT, V3_METHOD, V3_WEIGHT, V3_BASIS, attach_evidence, compatible_v3,
     evidence_from_scope, map_era_identities, product_evidence, select_exact_product_results,
 )
-from backend.db.services.rip_benchmark_preview_v1 import (
+from backend.benchmarking.preview_v1 import (
     CURRENT_RPC, HISTORY_RPC, PrivateBenchmarkReader, candidate_request,
 )
 

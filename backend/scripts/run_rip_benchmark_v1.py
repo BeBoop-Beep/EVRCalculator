@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from backend.domain.pokemon.rip_benchmark_v1 import BenchmarkError, fingerprint, wire
-from backend.db.services.rip_benchmark_preview_v1 import candidate_request
+from backend.benchmarking.preview_v1 import candidate_request
 
 
 def _one(query: Any, name: str) -> dict[str, Any]:
