@@ -656,8 +656,7 @@ BEGIN
     'markets',v_markets,'historyRows',v_history,'constituentRows',v_constituents
   );
 END;
-$function$
-
+$function$;
 
 revoke all on function public.search_pokemon_market_explorer_leaves_v1(text,text,integer) from public,anon,authenticated;
 grant execute on function public.search_pokemon_market_explorer_leaves_v1(text,text,integer) to service_role;
