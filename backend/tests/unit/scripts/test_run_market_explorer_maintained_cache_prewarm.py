@@ -632,7 +632,7 @@ class _PreparedCursor:
 
     def execute(self, query, params=None):
         self.queries.append((query, params))
-        if self.error and worker.PREPARED_REFRESH_RPC in query:
+        if self.error and (worker.PREPARED_REFRESH_RPC in query or worker.V2_CURRENT_PUBLISH_RPC in query):
             raise self.error
 
     def fetchone(self):
@@ -691,15 +691,20 @@ def test_direct_db_commit_uses_local_timeout_and_guarded_function():
     assert any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
 
 
-def test_already_current_generation_skips_needless_refresh():
-    cursor = _PreparedCursor(existing="generation-a")
+def test_guarded_publisher_passes_through_already_current_receipt():
+    payload = {"status": "already_current", "generationId": "generation-a"}
+    cursor = _PreparedCursor(result=payload)
     conn = _PreparedConnection(cursor)
     with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
          patch("psycopg.connect", return_value=conn):
         result = worker._run_guarded_prepared_db("2026-09-19", commit=True)
-    assert result == {"status": "already_current", "generationId": "generation-a"}
-    assert conn.commits == 0 and conn.rollbacks == 1
-    assert not any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
+    assert result == {
+        "status": "already_current",
+        "generationId": "generation-a",
+        "result": payload,
+    }
+    assert conn.commits == 1 and conn.rollbacks == 0
+    assert any(worker.PREPARED_REFRESH_RPC in query for query, _ in cursor.queries)
 
 
 def test_direct_db_error_rolls_back_and_never_logs_connection_secret():
@@ -733,3 +738,67 @@ def test_explicit_verify_dry_run_holds_existing_lock_and_calls_direct_guard():
     refresh.assert_called_once_with(client,
                                     target_market_date="2026-09-19", commit=False, verify=True)
     assert result["preparedRefresh"]["status"] == "verified_rollback_only"
+
+
+
+# --- V2 surface publication handoff ------------------------------------------
+
+def test_committed_v1_refresh_triggers_v2_publication():
+    with patch.object(worker, "_run_guarded_prepared_db",
+                      return_value={"status": "refreshed", "result": {"ok": True}}), \
+         patch.object(worker, "_run_current_v2_surface_db",
+                      return_value={"status": "already_current", "generationId": "v2-a"}) as publish_v2:
+        result = worker.refresh_prepared_if_current(
+            Client(), target_market_date="2026-09-26", commit=True
+        )
+    publish_v2.assert_called_once_with()
+    assert result["status"] == "refreshed"
+    assert result["v2Surface"]["status"] == "already_current"
+
+
+def test_committed_v1_already_current_still_checks_v2_publication():
+    with patch.object(worker, "_run_guarded_prepared_db",
+                      return_value={"status": "already_current", "generationId": "v1-a"}), \
+         patch.object(worker, "_run_current_v2_surface_db",
+                      return_value={"status": "promoted", "generationId": "v2-b"}) as publish_v2:
+        result = worker.refresh_prepared_if_current(
+            Client(), target_market_date="2026-09-26", commit=True
+        )
+    publish_v2.assert_called_once_with()
+    assert result["status"] == "already_current"
+    assert result["v2Surface"]["status"] == "promoted"
+
+
+def test_v2_failure_is_blocked_without_reclassifying_successful_v1():
+    with patch.object(worker, "_run_guarded_prepared_db",
+                      return_value={"status": "refreshed", "result": {"ok": True}}), \
+         patch.object(worker, "_run_current_v2_surface_db",
+                      side_effect=RuntimeError("do not leak this")):
+        result = worker.refresh_prepared_if_current(
+            Client(), target_market_date="2026-09-26", commit=True
+        )
+    assert result["status"] == "refreshed"
+    assert result["v2Surface"]["status"] == "blocked"
+    assert result["v2Surface"]["error"] == "direct_db_RuntimeError"
+    assert "do not leak this" not in str(result)
+
+
+def test_dry_run_never_invokes_v2_publication():
+    with patch.object(worker, "_run_current_v2_surface_db") as publish_v2:
+        result = worker.refresh_prepared_if_current(
+            Client(), target_market_date="2026-09-26", commit=False
+        )
+    publish_v2.assert_not_called()
+    assert result == {"status": "skipped", "reason": "dry_run"}
+
+
+def test_v2_publication_uses_separate_connection_and_own_transaction():
+    cursor = _PreparedCursor(result={"status": "already_current", "generationId": "v2-a"})
+    conn = _PreparedConnection(cursor)
+    with patch.dict(os.environ, {"DATABASE_URL": "postgresql://redacted"}), \
+         patch("psycopg.connect", return_value=conn) as connect:
+        result = worker._run_current_v2_surface_db()
+    assert result["status"] == "already_current"
+    assert conn.commits == 1 and conn.rollbacks == 0
+    assert connect.call_args.kwargs["application_name"] == "market_explorer_v2_surface_publisher"
+    assert any(worker.V2_CURRENT_PUBLISH_RPC in query for query, _ in cursor.queries)
