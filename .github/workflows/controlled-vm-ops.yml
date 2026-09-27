@@ -1757,6 +1757,9 @@ jobs:
               rm -rf "$WT"
               git worktree add --detach "$WT" "$REF"
               trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT"' EXIT
+              set -a
+              . "$REPO/backend/.env"
+              set +a
               cd "$WT"
               "$PY" -m py_compile \
                 backend/sentinel/checks/pricing.py \
