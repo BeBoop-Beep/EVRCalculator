@@ -101,10 +101,11 @@ def _prepared_db_error(exc: Exception) -> str:
 
 def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[str, Any]:
     """Run the least-privilege guarded publisher in one bounded DB transaction."""
+    dsn = _prepared_db_dsn()
     import psycopg
 
     with psycopg.connect(
-        _prepared_db_dsn(), connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
+        dsn, connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
         application_name="market_explorer_prepared_prewarm",
     ) as conn:
         try:
@@ -136,10 +137,11 @@ def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[s
 
 def _run_current_v2_surface_db() -> dict[str, Any]:
     """Publish V2 in a separate transaction after the V1 commit is durable."""
+    dsn = _prepared_db_dsn()
     import psycopg
 
     with psycopg.connect(
-        _prepared_db_dsn(), connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
+        dsn, connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
         application_name="market_explorer_v2_surface_publisher",
     ) as conn:
         try:
