@@ -134,7 +134,7 @@ BEGIN
     'status','COHERENT'
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_pokemon_market_explorer_performance_screen_v1(p_screen_key text, p_asset text, p_generation_id uuid, p_limit integer DEFAULT 25)
  RETURNS TABLE(rank integer, screen_key text, market_key text, label text, asset text, market_type text, metric_7d_pct numeric, comparison_as_of date, relative_7d_vs_era_pct numeric, current_drawdown_pct numeric, constituent_count integer)
@@ -200,7 +200,7 @@ BEGIN
     d.market_key
   LIMIT p_limit;
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.promote_pokemon_market_explorer_surface_v2(p_generation_id uuid)
  RETURNS jsonb
@@ -242,7 +242,7 @@ BEGIN
     'previousGenerationId',v_old,'promoted',true
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.rollback_pokemon_market_explorer_surface_v2()
  RETURNS jsonb
@@ -269,7 +269,7 @@ begin
   where singleton=1;
   return jsonb_build_object('generationId',v_prev,'previousGenerationId',v_cur);
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.search_pokemon_market_explorer_leaves_v1(p_asset text, p_query text, p_limit integer DEFAULT 20)
  RETURNS TABLE(asset text, instrument_id text, name text, set_id uuid, set_name text, image_url text, market_price numeric, market_date date, card_variant_id uuid, canonical_card_id uuid, card_number text, rarity text, edition text, printing_type text, special_type text, sealed_product_id text, product_family text, variant_label text, is_bulk_container boolean, relevance_score integer)
@@ -435,7 +435,7 @@ begin
   order by r.score desc,r.sim desc,lower(r.name),r.sealed_product_id
   limit p_limit;
 end;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.stage_pokemon_market_explorer_sealed_quick_markets_v2(p_generation_id uuid, p_market_date date)
  RETURNS jsonb
