@@ -44,6 +44,7 @@ create table public.sets(
   id uuid primary key,
   name text not null,
   era_id uuid references public.eras(id),
+  release_date date,
   parent_opening_set_id uuid,
   counts_toward_parent_set_value boolean default false,
   catalog_only boolean default false
