@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/sentinel-autonomous-reliability-20260927
+      - fix/sentinel-explorer-convergence-backstop-20260927
       - develop
       - main
     paths:

@@ -3,7 +3,7 @@ name: Sentinel Runtime Backstop
 on:
   workflow_dispatch:
   schedule:
-    # Independent scheduler/failure domain for the VM crontab. Runs every 15 minutes.
+    # Independent failure domain: GitHub-hosted, not the production VM.
     - cron: '7,22,37,52 * * * *'
 
 permissions:
@@ -14,60 +14,71 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  backstop:
-    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
-    timeout-minutes: 20
+  heartbeat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SENTINEL_WATCH_HOST: tcgplayer-scraper-pokemon-v2
+      SENTINEL_HEARTBEAT_MAX_AGE_SECONDS: '900'
     steps:
-      - name: Verify heartbeat and run bounded Fast backstop
+      - name: Verify production Sentinel heartbeat independently
         shell: bash
         run: |
           set -euo pipefail
-          REPO=/home/ubuntu/repos/EVRCalculator
-          PY="$REPO/.venv/bin/python"
-          HOLD=/home/ubuntu/state/db-safety/hold.json
-          test -d "$REPO/.git"
-          test -x "$PY"
+          test -n "${SUPABASE_URL:-}" || { echo "SUPABASE_URL secret missing"; exit 2; }
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "SUPABASE_SERVICE_ROLE_KEY secret missing"; exit 2; }
 
-          if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
-            echo "database_safety_hold_active=true"
-            echo "Sentinel backstop intentionally defers while the production DB safety hold is active."
-            exit 0
-          fi
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
 
-          cd "$REPO"
-          export PYTHONPATH="$REPO"
+          base = os.environ["SUPABASE_URL"].rstrip("/")
+          key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+          host = os.environ["SENTINEL_WATCH_HOST"]
+          max_age = int(os.environ["SENTINEL_HEARTBEAT_MAX_AGE_SECONDS"])
 
-          echo "== pre-backstop independent heartbeat =="
-          set +e
-          (
-            set -a
-            . backend/.env
-            set +a
-            SENTINEL_WATCH_HOST="${SENTINEL_WATCH_HOST:-tcgplayer-scraper-pokemon-v2}" \
-            SENTINEL_RECOVERY_ENABLED=false \
-            SENTINEL_RECOVERY_EXECUTION_READY=false \
-              "$PY" -m backend.sentinel.operational --profile independent
+          params = urllib.parse.urlencode({
+              "select": "component,host,build_sha,heartbeat_at",
+              "component": "eq.sentinel_vm",
+              "host": f"eq.{host}",
+              "order": "heartbeat_at.desc",
+              "limit": "1",
+          })
+          request = urllib.request.Request(
+              f"{base}/rest/v1/sentinel_component_heartbeats?{params}",
+              headers={
+                  "apikey": key,
+                  "Authorization": "Bearer " + key,
+                  "Accept": "application/json",
+              },
           )
-          PRE_RC=$?
-          set -e
-          echo "pre_independent_rc=$PRE_RC"
+          with urllib.request.urlopen(request, timeout=20) as response:
+              rows = json.loads(response.read().decode("utf-8"))
 
-          echo "== bounded Fast profile backstop =="
-          set +e
-          /usr/bin/flock -n /tmp/index-sentinel-fast.lock -c \
-            "cd '$REPO' && set -a && . backend/.env && set +a && SENTINEL_RUNNER_BUILD_SHA=\$(git rev-parse HEAD) '$PY' -m backend.sentinel.operational --profile fast"
-          FAST_RC=$?
-          set -e
-          echo "fast_backstop_rc=$FAST_RC"
+          if not rows:
+              raise SystemExit("production Sentinel heartbeat is missing")
 
-          echo "== post-backstop independent heartbeat =="
-          (
-            set -a
-            . backend/.env
-            set +a
-            SENTINEL_WATCH_HOST="${SENTINEL_WATCH_HOST:-tcgplayer-scraper-pokemon-v2}" \
-            SENTINEL_RECOVERY_ENABLED=false \
-            SENTINEL_RECOVERY_EXECUTION_READY=false \
-              "$PY" -m backend.sentinel.operational --profile independent
-          )
-          echo "SENTINEL_RUNTIME_BACKSTOP=PASS"
+          row = rows[0]
+          heartbeat = datetime.fromisoformat(
+              str(row["heartbeat_at"]).replace("Z", "+00:00")
+          ).astimezone(timezone.utc)
+          age = max(0.0, (datetime.now(timezone.utc) - heartbeat).total_seconds())
+          print(json.dumps({
+              "component": row.get("component"),
+              "host": row.get("host"),
+              "build_sha": row.get("build_sha"),
+              "heartbeat_at": heartbeat.isoformat(),
+              "age_seconds": round(age, 1),
+              "max_age_seconds": max_age,
+          }, sort_keys=True))
+          if age > max_age:
+              raise SystemExit(
+                  f"production Sentinel heartbeat stale: {age:.1f}s > {max_age}s"
+              )
+          print("SENTINEL_INDEPENDENT_HEARTBEAT=PASS")
+          PY

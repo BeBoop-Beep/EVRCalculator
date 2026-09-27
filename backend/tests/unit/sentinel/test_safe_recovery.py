@@ -27,6 +27,7 @@ from backend.sentinel.recovery.engine import (
 )
 from backend.sentinel.recovery.runbooks import (
     LEASE_RUNBOOK,
+    MARKET_EXPLORER_PROGRESS_RUNBOOK,
     MARKET_EXPLORER_SCHEDULER_RUNBOOK,
     PRICING_RUNBOOK,
     PRICING_SCHEDULER_RUNBOOK,
@@ -283,6 +284,7 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
     assert registry.matches() == (
         ("market.freshness", "market_publication_stale"),
         ("market.freshness", "market_snapshot_date_divergence"),
+        ("market_explorer.maintenance_progress", "MARKET_EXPLORER_CONVERGENCE_STALLED"),
         ("market_explorer.maintenance_scheduler", "MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING"),
         ("pricing.ebay.scheduler", "EBAY_DAILY_SCHEDULE_MISSING"),
         ("pricing.multi_source.run_freshness", "DAILY_RUN_STALE_OR_INCOMPLETE"),
@@ -522,6 +524,62 @@ def test_explorer_only_divergence_defers_to_bounded_maintenance_worker():
     assert report["reason_code"] == "explorer_convergence_owned_by_maintained_worker"
     assert publish_calls == []
     assert store.get_incident(incident.id).recovery_attempt_count == 0
+
+
+def test_market_explorer_progress_recovery_runs_one_guarded_worker_tick():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="market_explorer.maintenance_progress",
+        code="MARKET_EXPLORER_CONVERGENCE_STALLED",
+        authority="2026-09-11",
+    )
+    states = iter([
+        CheckResult.failure(
+            "market_explorer.maintenance_progress",
+            failure_code="MARKET_EXPLORER_CONVERGENCE_STALLED",
+            severity=Severity.CRITICAL,
+            authority_identity="2026-09-11",
+            observed={"state": "stalled", "stale_maintained_count": 3},
+            checked_at=NOW,
+        ),
+        CheckResult.healthy(
+            "market_explorer.maintenance_progress",
+            authority_identity="2026-09-11",
+            observed={"state": "converging", "stale_maintained_count": 2},
+            checked_at=NOW,
+        ),
+    ])
+    worker_calls = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy(
+            "market.freshness", checked_at=NOW
+        ),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_health_checker=lambda *a, **k: CheckResult.healthy(
+            k["check_key"], authority_identity="2026-09-11", checked_at=NOW
+        ),
+        pricing_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "pricing.ebay.scheduler", checked_at=NOW
+        ),
+        market_explorer_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "market_explorer.maintenance_scheduler", checked_at=NOW
+        ),
+        market_explorer_progress_checker=lambda *a, **k: next(states),
+        market_explorer_worker=lambda: worker_calls.append(True) or {
+            "status": "advanced", "exit_code": 0
+        },
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert worker_calls == [True]
+    assert MARKET_EXPLORER_PROGRESS_RUNBOOK
 
 
 def test_market_explorer_scheduler_recovery_uses_canonical_installer_then_verifies():
