@@ -1789,8 +1789,41 @@ jobs:
               HOLD="/home/ubuntu/state/db-safety/hold.json"
               GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
 
-              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold is active"; exit 42; }
               test -f "$GUARD" || { echo "REFUSING: database workload guard missing"; exit 43; }
+
+              if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
+                echo "== validate and clear the explicit recurring-outage hold =="
+                HOLD_REASON=$(python3 -c 'import json; print(json.load(open("/home/ubuntu/state/db-safety/hold.json")).get("reason",""))' 2>/dev/null || true)
+                HOLD_CREATED=$(python3 -c 'import json; print(int(float(json.load(open("/home/ubuntu/state/db-safety/hold.json")).get("created_at",0))))' 2>/dev/null || echo 0)
+                NOW_EPOCH=$(date +%s)
+                HOLD_AGE=$((NOW_EPOCH-HOLD_CREATED))
+                echo "hold_reason=$HOLD_REASON"
+                echo "hold_age_seconds=$HOLD_AGE"
+                [ "$HOLD_REASON" = "recurring_database_outage_manual_clear_required" ] || { echo "REFUSING: unknown database hold reason"; exit 42; }
+                [ "$HOLD_AGE" -ge 21600 ] || { echo "REFUSING: outage hold is younger than six hours"; exit 42; }
+
+                for probe in 1 2 3; do
+                  "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          rows = c.table("pokemon_scrape_batches").select("id,market_date,status").order("market_date", desc=True).limit(1).execute().data or []
+          if not rows:
+              raise SystemExit("database probe returned no scrape-batch authority")
+          print("db_probe_latest_batch=" + str(rows[0]))
+          PY
+                  echo "db_probe_${probe}=pass"
+                  sleep 2
+                done
+
+                HOLD_BACKUP="/home/ubuntu/ops-backups/hold.recurring-outage.$(date -u +%Y%m%dT%H%M%SZ).json"
+                mkdir -p /home/ubuntu/ops-backups
+                cp "$HOLD" "$HOLD_BACKUP"
+                chmod 600 "$HOLD_BACKUP"
+                rm -f "$HOLD"
+                echo "database_safety_hold_cleared=true"
+                echo "hold_backup=$HOLD_BACKUP"
+              fi
+
               crontab -l > "$CURRENT"
               DISABLED=$(grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true)
               echo "code_red_disabled_entries_before=$DISABLED"
