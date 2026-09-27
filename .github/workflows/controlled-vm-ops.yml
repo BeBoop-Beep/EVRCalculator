@@ -1751,6 +1751,24 @@ jobs:
               cd "$REPO"
               CURRENT="/tmp/index-code-red-restore-audit.cron"
               crontab -l > "$CURRENT"
+              echo "== database safety hold =="
+              if [ -e /home/ubuntu/state/db-safety/hold.json ] || [ -L /home/ubuntu/state/db-safety/hold.json ]; then
+                stat -c 'hold_path=%n owner=%U mode=%a bytes=%s mtime=%y' /home/ubuntu/state/db-safety/hold.json || true
+                python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("/home/ubuntu/state/db-safety/hold.json")
+          try:
+              obj = json.loads(p.read_text(encoding="utf-8"))
+          except Exception as exc:
+              print({"hold_read_error": type(exc).__name__})
+          else:
+              safe = {k: obj.get(k) for k in ("reason", "created_at", "updated_at", "source", "status", "incident", "detail") if k in obj}
+              print({"hold": safe})
+          PY
+              else
+                echo "database_safety_hold=absent"
+              fi
               echo "== current code-red state =="
               printf 'disabled_evr_entries='; grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true
               printf 'bounded_collection_markers='; grep -c '^# INDEX_BOUNDED_COLLECTION_V1$' "$CURRENT" || true
