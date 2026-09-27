@@ -91,6 +91,32 @@ def test_invalid_precondition_contract_blocks_before_attempt_or_mutation():
     assert store.get_incident(incident.id).recovery_attempt_count == 0
 
 
+def test_execution_block_is_persisted_without_escalating_incident():
+    store = MemoryStateStore()
+    registered, incident = _open_market_incident(store)
+    runner = _runner(
+        store,
+        precondition=lambda incident, ctx: RecoveryDecision.allow(),
+        execute=lambda incident, ctx: RecoveryExecution.blocked(
+            result={"status": "already_running"}
+        ),
+        verify=lambda incident, ctx: CheckResult.healthy(
+            incident.check_key,
+            authority_identity=incident.authority_identity,
+            checked_at=ctx.now,
+        ),
+    )
+
+    report = runner.attempt(incident, registered, identity=IDENTITY, now=NOW)
+
+    assert report["action"] == "blocked"
+    assert report["reason_code"] == "recovery_execution_blocked"
+    attempt = store.get_latest_recovery_attempt(incident.id, "contract-test-v1")
+    assert attempt.status is RecoveryAttemptStatus.BLOCKED
+    assert attempt.result_json["execution"]["mutation_performed"] is False
+    assert store.get_incident(incident.id).status is IncidentStatus.OPEN
+
+
 def test_invalid_execution_contract_escalates_and_records_possible_mutation():
     store = MemoryStateStore()
     registered, incident = _open_market_incident(store)
