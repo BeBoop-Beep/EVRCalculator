@@ -466,15 +466,21 @@ def test_pricing_scheduler_recovery_uses_canonical_installer_then_verifies():
         store,
         key="pricing.ebay.scheduler",
         code="EBAY_DAILY_SCHEDULE_MISSING",
+        authority="multi-source-pricing-cron-v1",
     )
     states = iter([
         CheckResult.failure(
             "pricing.ebay.scheduler",
             failure_code="EBAY_DAILY_SCHEDULE_MISSING",
             severity=Severity.WARNING,
+            authority_identity="multi-source-pricing-cron-v1",
             checked_at=NOW,
         ),
-        CheckResult.healthy("pricing.ebay.scheduler", checked_at=NOW),
+        CheckResult.healthy(
+            "pricing.ebay.scheduler",
+            authority_identity="multi-source-pricing-cron-v1",
+            checked_at=NOW,
+        ),
     ])
     installs = []
     recovery = build_safe_recovery_registry(
