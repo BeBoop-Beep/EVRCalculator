@@ -13,6 +13,10 @@ from backend.sentinel.checks.authorities import (
     check_set_page_generation,
 )
 from backend.sentinel.checks.deployment import check_release_identity
+from backend.sentinel.checks.explorer import (
+    MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+    check_market_explorer_scheduler,
+)
 from backend.sentinel.checks.independent import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     check_component_heartbeat,
@@ -48,6 +52,7 @@ FAST_CHECK_KEYS = (
     "setpage.generation",
     *PRICING_CHECK_KEYS,
     PRICING_SCHEDULER_CHECK_KEY,
+    MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
 )
 PUBLIC_CHECK_KEYS = (
     "public.backend_health",
@@ -129,6 +134,13 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
         description="Managed eBay daily pricing cron block is installed exactly once",
         confirm_after=1,
         exception_severity=Severity.WARNING,
+    )
+    registry.register(
+        MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+        lambda ctx: check_market_explorer_scheduler(ctx),
+        description="Bounded Market Explorer maintained-cache convergence schedule is installed",
+        confirm_after=1,
+        exception_severity=Severity.CRITICAL,
     )
     return registry
 
