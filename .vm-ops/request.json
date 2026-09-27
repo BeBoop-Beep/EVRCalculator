@@ -1,4 +1,4 @@
 {
-  "operation": "publication-live-debug",
-  "request_id": "sentinel-sep27-relaunch-progress-20260927"
+  "operation": "sentinel-enable-recovery",
+  "request_id": "rip-benchmark-prod-enable-recovery"
 }
