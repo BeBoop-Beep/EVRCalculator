@@ -142,17 +142,22 @@ def test_pricing_scheduler_contract_detects_missing_and_valid_managed_block():
 
 
 def test_recent_completed_scrape_without_ebay_run_is_continuity_gap():
-    prior = (NOW.astimezone(PP_PHOENIX).date() - timedelta(days=1)).isoformat()
-    results = _run_all(_client({
+    now = datetime(2026, 9, 22, 16, 0, tzinfo=timezone.utc)  # 09:00 Phoenix
+    expected = now.astimezone(PP_PHOENIX).date().isoformat()
+    prior = (now.astimezone(PP_PHOENIX).date() - timedelta(days=1)).isoformat()
+    client = _client({
         "pokemon_scrape_batches": [
-            {"market_date": EXPECTED_MARKET_DATE, "status": "complete"},
+            {"market_date": expected, "status": "complete"},
             {"market_date": prior, "status": "complete"},
         ],
         "ebay_pricing_runs_v1": [
-            {"market_date": EXPECTED_MARKET_DATE, "status": "COMPLETE", "finished_at": NOW.isoformat()},
+            {"market_date": expected, "status": "COMPLETE", "finished_at": now.isoformat()},
         ],
-    }))
-    result = results["pricing.ebay.calendar_continuity"]
+    })
+    registry = build_fast_registry(client=client)
+    result = registry.get("pricing.ebay.calendar_continuity").run(
+        CheckContext(now=now, runner_identity=CTX.runner_identity)
+    )
     assert result.outcome == CheckOutcome.FAILURE
     assert result.severity == Severity.WARNING
     assert prior in result.observed["missing_ebay_dates"]
