@@ -26,7 +26,8 @@ test("the RIP methodology article is a standalone shared-layout article", () => 
   assert.ok(!article.includes("redirect("));
 });
 test("the article documents the current canonical methodology without protected weights", () => {
-  for (const phrase of ["Overall RIP V12", "Financial RIP V4", "Chase Accessibility", "Collector Appeal V5", "0–10 RIP score", "displayed 10.0", "True Win Frequency", "Typical Retention", "Loss Resilience", "Strong Upside Quality", "Base Economic Efficiency", "Desirable Outcome Frequency", "Dual-Path Depth", "P50", "P95", "P99", "one million", "unsupported", "seller fees"]) assert.ok(article.includes(phrase), phrase);
+  for (const phrase of ["Overall RIP V12", "Financial RIP V4", "Chase Accessibility", "Collector Appeal V5", "shown from 0 to 10", "5.0 is the current Pokémon benchmark", "rank #1", "True Win Frequency", "Typical Retention", "Loss Resilience", "Strong Upside Quality", "Base Economic Efficiency", "Desirable Outcome Frequency", "Dual-Path Depth", "P50", "P95", "P99", "one million", "unsupported", "seller fees"]) assert.ok(article.includes(phrase), phrase);
+  assert.ok(!article.includes("10.0 means the strongest current relative comparison"));
   assert.ok(!article.includes("current canonical score is Overall RIP V8"));
   assert.ok(!article.includes("combines Financial RIP V3"));
   assert.ok(!article.includes("Collector Appeal V4 uses"));
@@ -99,7 +100,7 @@ test("the Chase Efficiency methodology article is public without exposing Premiu
 });
 test("Chase Accessibility is registered as a distinct set-level methodology", () => {
   assert.ok(articleData.includes('chaseAccessibility: "/Articles/how-chase-accessibility-works"'));
-  for (const phrase of ["Raw Accessibility", "Public score", "Set rank", "Chase Depth", "mapped HC mass", "Top Chase odds", "Product Chase", "Chase Efficiency", "Chase Access at $X"]) assert.ok(chaseAccessibility.includes(phrase), phrase);
+  for (const phrase of ["Raw Accessibility", "Public Benchmark score", "Set rank", "5.0 is the Pokémon Set benchmark", "Chase Depth", "mapped HC mass", "Top Chase odds", "Product Chase", "Chase Efficiency", "Chase Access at $X"]) assert.ok(chaseAccessibility.includes(phrase), phrase);
   assert.ok(chaseAccessibility.includes("does not mean a 64% chance"));
   assert.ok(!chaseAccessibility.includes("0.04"));
   const sitemap = read("../../lib/seo/sitemapEntries.mjs");

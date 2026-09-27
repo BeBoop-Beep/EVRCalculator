@@ -121,7 +121,7 @@ from backend.db.services.pokemon_set_market_service import (
 from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_explore_rankings_snapshot_payload,
     get_pokemon_explore_rankings_lens_payload,
-    get_pokemon_homepage_rankings_summary_payload,
+    get_pokemon_homepage_benchmark_summary_payload,
     get_pokemon_set_card_validation_snapshot_payload,
     get_pokemon_set_cards_page_snapshot_payload,
     get_pokemon_set_cards_snapshot_payload,
@@ -1318,7 +1318,9 @@ def get_explore_rankings_homepage_summary(limit: Optional[str] = Query(default=N
     change either of those endpoints' contracts or behavior.
     """
     try:
-        payload = get_pokemon_homepage_rankings_summary_payload(limit=limit or 60)
+        client = _benchmark_client()
+        contract = resolve_active_contract(client)
+        payload = get_pokemon_homepage_benchmark_summary_payload(client, contract, limit=limit or 60)
         return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
     except ExploreRipStatisticsTargetsError as exc:
         headers = (

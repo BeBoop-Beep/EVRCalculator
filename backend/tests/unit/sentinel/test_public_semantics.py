@@ -56,7 +56,7 @@ def _set_target(set_id="set-1", rank=1, score=91.2):
         "target_type": "set",
         "target_id": set_id,
         "name": "Test Set",
-        "setRipV1": {"rank": rank, "score": score, "tier": "S", "rankable": True},
+        "benchmarkOverall": {"rank": rank, "score": score, "cohortSize": 40, "status": "available"},
     }
 
 
@@ -121,7 +121,7 @@ def test_market_snapshot_missing_date_and_bad_values_fail():
 
 
 def test_homepage_rankings_require_public_rankable_set():
-    payload = {"targets": [_set_target()], "meta": {"snapshot": {"builtAt": "2026-09-11T19:00:00Z"}}}
+    payload = {"targets": [_set_target()], "benchmark": {"status": "available", "publicationId": "pub-1"}, "meta": {"snapshot": {"builtAt": "2026-09-11T19:00:00Z"}}}
     getter = _getter({f"{BASE}/explore/rankings/homepage-summary?limit=60": _Response(payload=payload)})
     result = check_homepage_rankings(CTX, base_url=BASE, http_get=getter)
     assert result.outcome == CheckOutcome.HEALTHY
@@ -129,7 +129,7 @@ def test_homepage_rankings_require_public_rankable_set():
 
 
 def test_homepage_rankings_empty_or_unrankable_fails():
-    payload = {"targets": [{"target_id": "set-1", "name": "Set", "setRipV1": None}], "meta": {}}
+    payload = {"targets": [{"target_id": "set-1", "name": "Set", "benchmarkOverall": None}], "benchmark": {"status": "available"}, "meta": {}}
     getter = _getter({f"{BASE}/explore/rankings/homepage-summary?limit=60": _Response(payload=payload)})
     assert check_homepage_rankings(CTX, base_url=BASE, http_get=getter).failure_code == "public_homepage_rankings_empty"
 
@@ -202,11 +202,11 @@ def test_representative_set_page_uses_current_public_top_ranked_set():
     getter = _getter({
         rankings_url: _Response(payload={
             "targets": [
-                {"target_type": "set", "target_id": "set-0", "name": "Unranked", "setRipV1": {"rankable": False}},
+                {"target_type": "set", "target_id": "set-0", "name": "Unranked", "benchmarkOverall": {"status": "unavailable"}},
                 _set_target("set-2", rank=2, score=88.0),
                 _set_target("set-1", rank=1, score=91.2),
             ],
-            "meta": {},
+            "benchmark": {"status": "available", "publicationId": "pub-1"}, "meta": {},
         }),
         page_url: _Response(payload={"target": {"id": "set-1", "target_id": "set-1"}, "set": {}, "meta": {}}),
     })
@@ -218,7 +218,7 @@ def test_representative_set_page_uses_current_public_top_ranked_set():
 
 def test_representative_set_page_missing_public_identity_fails():
     getter = _getter({
-        f"{BASE}/explore/rankings/homepage-summary?limit=60": _Response(payload={"targets": [_set_target()], "meta": {}}),
+        f"{BASE}/explore/rankings/homepage-summary?limit=60": _Response(payload={"targets": [_set_target()], "benchmark": {"status": "available", "publicationId": "pub-1"}, "meta": {}}),
         f"{BASE}/tcgs/pokemon/sets/set-1/page": _Response(payload={"target": {}, "set": {}, "meta": {}}),
     })
     result = check_representative_set_page(CTX, base_url=BASE, http_get=getter)

@@ -11,7 +11,7 @@ const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD
 const integer = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 function Score({ value }) {
-  return value === null || value === undefined ? <span aria-label="Unavailable">&mdash;</span> : Number(value).toFixed(1);
+  return value === null || value === undefined ? <span aria-label="Unavailable">&mdash;</span> : `${Number(value).toFixed(1)} / 10`;
 }
 
 function Money({ value }) {
@@ -37,7 +37,7 @@ function SupportingSetVisual({ row }) {
 function Metrics({ set }) {
   return (
     <dl className={styles.metricGrid}>
-      <div><dt>Set RIP</dt><dd><Score value={set?.score} /></dd></div>
+      <div><dt>RIP Score</dt><dd><Score value={set?.score} /><small>{set?.benchmarkPosition || "Benchmark unavailable"}</small></dd></div>
       <div><dt>Expected Value</dt><dd><Money value={set?.meanValue} /></dd></div>
       <div><dt>Typical Opening</dt><dd><Money value={set?.medianValue} /></dd></div>
     </dl>
@@ -144,12 +144,12 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], heroVisu
 
       <section className={styles.section} aria-labelledby="best-sets-heading">
         <div className={styles.shell}>
-          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published Set RIP ranking</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
+          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published Set Benchmark ranking</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
           {rankingRows.length ? <ol className={styles.rankingBoard}>
             {rankingRows.map((row) => <li key={row.key}><Link href={row.href} className={styles.rankingRow}>
               <span className={styles.rank}>#{row.rank}</span><SetMark set={row} className={styles.rowLogo} />
-              <span className={styles.rowName}><strong>{row.name}</strong><small>{row.tier ? `${row.tier} tier` : "Tier unavailable"}</small></span>
-              <span className={styles.rowMetric}><small>Set RIP</small><Score value={row.score} /></span>
+              <span className={styles.rowName}><strong>{row.name}</strong><small>{row.benchmarkPosition || "Benchmark unavailable"}</small></span>
+              <span className={styles.rowMetric}><small>RIP Score</small><Score value={row.score} /></span>
               <span className={`${styles.rowMetric} ${styles.optionalMetric}`}><small>Pack price</small><Money value={row.packCost} /></span>
             </Link></li>)}
           </ol> : <p className={styles.unavailable}>Published rankings are refreshing.</p>}

@@ -204,20 +204,15 @@ async function _fetchRipStatisticsTargets(request = null, { publicOnly = false }
   return promise;
 }
 
-// Bounded process cache + in-flight join for the Homepage's narrow public
+// In-flight join for the Homepage's narrow public
 // Rankings projection (`/explore/rankings/homepage-summary`, Prompt 2 / A2).
-// Separate cache from the general `/targets` cohort above: this is a
-// deliberately different, smaller backend contract, not another cache key
-// for the same payload. Always public (the endpoint takes no auth params at
-// all), so there is only ever one cache entry, matching the `/targets`
-// publicOnly path's single PUBLIC_COHORT_KEY pattern.
-const HOMEPAGE_SUMMARY_TTL_MS = 120_000;
+// This deliberately has no warm process cache: a newly published Benchmark
+// generation must become visible on the next request. Concurrent requests
+// still share one read, and the endpoint never receives ambient auth state.
 const HOMEPAGE_SUMMARY_LIMIT = 60;
-let homepageSummaryCache = null; // { data, expiresAt }
 let homepageSummaryInFlight = null; // Promise
 
 export function __resetHomepageRankingsSummaryCacheForTests() {
-  homepageSummaryCache = null;
   homepageSummaryInFlight = null;
 }
 
@@ -253,15 +248,10 @@ async function fetchHomepageRankingsSummaryUncached() {
 
 /**
  * The Homepage's narrow public Rankings projection. Cold miss -> one backend
- * request; concurrent cold misses -> one request, every waiter joins the same
- * in-flight promise; warm read inside TTL -> zero backend requests; TTL
- * expiry -> exactly one refresh request.
+ * request; concurrent requests -> one request, every waiter joins the same
+ * in-flight promise; the next request after completion performs a fresh read.
  */
 export async function getHomepageRankingsSummary() {
-  if (homepageSummaryCache && homepageSummaryCache.expiresAt > Date.now()) {
-    console.info("[rip-statistics-server] homepage_summary_cache_hit");
-    return homepageSummaryCache.data;
-  }
   if (homepageSummaryInFlight) {
     console.info("[rip-statistics-server] homepage_summary_in_flight_join");
     return homepageSummaryInFlight;
@@ -270,9 +260,6 @@ export async function getHomepageRankingsSummary() {
   homepageSummaryInFlight = (async () => {
     try {
       const data = await fetchHomepageRankingsSummaryUncached();
-      if (!data?.meta?.requestFailed) {
-        homepageSummaryCache = { data, expiresAt: Date.now() + HOMEPAGE_SUMMARY_TTL_MS };
-      }
       console.info("[rip-statistics-server] homepage_summary_fetch_complete", {
         elapsedMs: Date.now() - startedAt,
       });
