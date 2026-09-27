@@ -27,6 +27,7 @@ from backend.sentinel.recovery.engine import (
 )
 from backend.sentinel.recovery.runbooks import (
     LEASE_RUNBOOK,
+    PRICING_RUNBOOK,
     PUBLICATION_DIVERGENCE_RUNBOOK,
     PUBLICATION_RUNBOOK,
     build_safe_recovery_registry,
@@ -280,6 +281,7 @@ def test_p6_allowlist_contains_publication_stale_divergence_and_expired_lease():
     assert registry.matches() == (
         ("market.freshness", "market_publication_stale"),
         ("market.freshness", "market_snapshot_date_divergence"),
+        ("pricing.multi_source.run_freshness", "DAILY_RUN_STALE_OR_INCOMPLETE"),
         ("scrape.queue_leases", "scrape_job_lease_expired"),
     )
 
@@ -407,6 +409,81 @@ def test_publication_recovery_uses_canonical_wrapper_then_requires_healthy_verif
     assert report["action"] == "recovered"
     assert publish_calls[0][0] == "2026-09-11"
     assert store.get_incident(incident.id).status is IncidentStatus.RESOLVED
+
+
+def test_current_day_pricing_recovery_resumes_canonical_daily_pipeline():
+    class BatchResult:
+        data = [{"id": 65, "market_date": "2026-09-11", "status": "complete"}]
+
+    class BatchQuery:
+        def select(self, *args, **kwargs):
+            return self
+
+        def eq(self, *args, **kwargs):
+            return self
+
+        def limit(self, *args, **kwargs):
+            return self
+
+        def execute(self):
+            return BatchResult()
+
+    class BatchClient:
+        def table(self, name):
+            assert name == "pokemon_scrape_batches"
+            return BatchQuery()
+
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="pricing.multi_source.run_freshness",
+        code="DAILY_RUN_STALE_OR_INCOMPLETE",
+        authority="2026-09-11",
+    )
+    live_results = iter(
+        [
+            CheckResult.failure(
+                "pricing.multi_source.run_freshness",
+                failure_code="DAILY_RUN_STALE_OR_INCOMPLETE",
+                severity=Severity.WARNING,
+                authority_identity="2026-09-11",
+                observed={"expected_market_date": "2026-09-11"},
+                checked_at=NOW,
+            ),
+            CheckResult.healthy(
+                "pricing.multi_source.run_freshness",
+                authority_identity="2026-09-11",
+                observed={"expected_market_date": "2026-09-11"},
+                checked_at=NOW,
+            ),
+        ]
+    )
+    calls = []
+    recovery = build_safe_recovery_registry(
+        client=BatchClient(),
+        publish_if_needed_fn=lambda *a, **k: {"status": "noop_already_current"},
+        gate_evaluator=lambda *a, **k: SimpleNamespace(allowed=True, reason_code="allowed_complete"),
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy(
+            "market.freshness", checked_at=NOW
+        ),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_runner=lambda market_date: (
+            calls.append(market_date),
+            {"returncode": 0, "status": "complete"},
+        )[1],
+        pricing_checker=lambda *a, **k: next(live_results),
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert calls == ["2026-09-11"]
+    attempt = store.get_latest_recovery_attempt(incident.id, PRICING_RUNBOOK)
+    assert attempt is not None
+    assert attempt.status is RecoveryAttemptStatus.SUCCEEDED
 
 
 def test_lease_recovery_uses_narrow_reconciler_and_verifies_queue_clear():
