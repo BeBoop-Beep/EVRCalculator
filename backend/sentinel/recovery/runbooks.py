@@ -4,9 +4,12 @@ Only bounded, deterministic failure signatures are eligible:
 1. market.freshness / market_publication_stale
 2. market.freshness / market_snapshot_date_divergence
 3. pricing.multi_source.run_freshness / DAILY_RUN_STALE_OR_INCOMPLETE
-4. scrape.queue_leases / scrape_job_lease_expired
+4. pricing.ebay.scheduler / EBAY_DAILY_SCHEDULE_MISSING
+5. market_explorer.maintenance_scheduler / MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING
+6. scrape.queue_leases / scrape_job_lease_expired
 
-All other incidents remain observation/escalation only.
+Historical eBay coverage gaps remain observation-only; current active listings
+cannot truthfully reconstruct a missed historical market date.
 """
 
 from __future__ import annotations
@@ -23,6 +26,14 @@ from backend.sentinel.checks.authorities import (
     check_scrape_queue_leases,
 )
 from backend.sentinel.models import CheckOutcome, IncidentRecord
+from backend.sentinel.checks.pricing import (
+    PRICING_SCHEDULER_CHECK_KEY,
+    check_pricing_scheduler,
+)
+from backend.sentinel.checks.explorer import (
+    MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+    check_market_explorer_scheduler,
+)
 from backend.sentinel.recovery.engine import (
     RecoveryContext,
     RecoveryDecision,
@@ -38,7 +49,13 @@ PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 PUBLICATION_RUNBOOK = "publish_post_scrape_if_needed_v1"
 PUBLICATION_DIVERGENCE_RUNBOOK = "reconcile_market_snapshot_divergence_v1"
 PRICING_RUNBOOK = "resume_daily_multi_source_pricing_v1"
+PRICING_SCHEDULER_RUNBOOK = "install_multi_source_pricing_cron_v1"
+MARKET_EXPLORER_SCHEDULER_RUNBOOK = "install_market_explorer_prewarm_cron_v1"
 LEASE_RUNBOOK = "reconcile_stale_scrape_leases_v1"
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PRICING_CRON_INSTALLER = REPO_ROOT / "infra" / "oracle" / "install_multi_source_pricing_cron.sh"
+MARKET_EXPLORER_CRON_INSTALLER = REPO_ROOT / "infra" / "oracle" / "install_market_explorer_prewarm_cron.sh"
 
 
 def _default_client() -> Any:
@@ -118,6 +135,10 @@ def build_safe_recovery_registry(
     lease_checker: Optional[Callable[..., Any]] = None,
     pricing_runner: Optional[Callable[[str], dict]] = None,
     pricing_checker: Optional[Callable[..., Any]] = None,
+    pricing_scheduler_checker: Optional[Callable[..., Any]] = None,
+    pricing_cron_installer: Optional[Callable[[], dict]] = None,
+    market_explorer_scheduler_checker: Optional[Callable[..., Any]] = None,
+    market_explorer_cron_installer: Optional[Callable[[], dict]] = None,
 ) -> RecoveryRegistry:
     """Build the P6 exact-match recovery allowlist.
 
@@ -146,6 +167,42 @@ def build_safe_recovery_registry(
         pricing_runner = _default_pricing_runner
     if pricing_checker is None:
         pricing_checker = _pricing_run_freshness_check
+    if pricing_scheduler_checker is None:
+        pricing_scheduler_checker = check_pricing_scheduler
+    if market_explorer_scheduler_checker is None:
+        market_explorer_scheduler_checker = check_market_explorer_scheduler
+
+    if pricing_cron_installer is None:
+        def pricing_cron_installer() -> dict:
+            result = subprocess.run(
+                ["bash", str(PRICING_CRON_INSTALLER), "--apply"],
+                cwd=str(REPO_ROOT),
+                env=os.environ.copy(),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15 * 60,
+            )
+            return {
+                "status": "installed" if result.returncode == 0 else "failed",
+                "exit_code": int(result.returncode),
+            }
+
+    if market_explorer_cron_installer is None:
+        def market_explorer_cron_installer() -> dict:
+            result = subprocess.run(
+                ["bash", str(MARKET_EXPLORER_CRON_INSTALLER), "--apply"],
+                cwd=str(REPO_ROOT),
+                env=os.environ.copy(),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15 * 60,
+            )
+            return {
+                "status": "installed" if result.returncode == 0 else "failed",
+                "exit_code": int(result.returncode),
+            }
 
     registry = RecoveryRegistry()
 
@@ -178,6 +235,19 @@ def build_safe_recovery_registry(
                 incident_authority=incident.authority_identity,
                 live_authority=live.authority_identity,
             )
+
+        if incident.failure_code == "market_snapshot_date_divergence":
+            dates = dict(live.observed.get("authority_dates") or {})
+            divergent = sorted(
+                key for key, value in dates.items()
+                if not value or str(value)[:10] != market_date
+            )
+            if divergent and set(divergent).issubset({"market_explorer_v2"}):
+                return RecoveryDecision.block(
+                    "explorer_convergence_owned_by_maintained_worker",
+                    market_date=market_date,
+                    divergent_authorities=divergent,
+                )
 
         decision = gate_evaluator(
             resolved_client, market_date=market_date, override=False
@@ -366,6 +436,102 @@ def build_safe_recovery_registry(
             verify=pricing_verify,
             max_attempts=1,
             cooldown_seconds=2 * 60 * 60,
+        )
+    )
+
+    def pricing_scheduler_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        live = pricing_scheduler_checker(_check_context(context))
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block("pricing_scheduler_already_healthy")
+        if (
+            live.failure_code != "EBAY_DAILY_SCHEDULE_MISSING"
+            or (
+                incident.authority_identity is not None
+                and live.authority_identity != incident.authority_identity
+            )
+        ):
+            return RecoveryDecision.block(
+                "pricing_scheduler_failure_signature_changed",
+                live_failure=live.failure_code,
+                live_authority=live.authority_identity,
+            )
+        return RecoveryDecision.allow(observed=dict(live.observed))
+
+    def pricing_scheduler_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del incident, context
+        result = dict(pricing_cron_installer() or {})
+        if str(result.get("status") or "") == "installed":
+            return RecoveryExecution.succeeded(result=result, mutation_performed=True)
+        return RecoveryExecution.failed(result=result)
+
+    def pricing_scheduler_verify(incident: IncidentRecord, context: RecoveryContext):
+        del incident
+        return pricing_scheduler_checker(_check_context(context))
+
+    registry.register(
+        RecoveryRunbook(
+            key=PRICING_SCHEDULER_RUNBOOK,
+            version="1",
+            check_key=PRICING_SCHEDULER_CHECK_KEY,
+            failure_code="EBAY_DAILY_SCHEDULE_MISSING",
+            precondition=pricing_scheduler_precondition,
+            execute=pricing_scheduler_execute,
+            verify=pricing_scheduler_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
+        )
+    )
+
+    def market_explorer_scheduler_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        live = market_explorer_scheduler_checker(_check_context(context))
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block("market_explorer_scheduler_already_healthy")
+        if (
+            live.failure_code != "MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING"
+            or (
+                incident.authority_identity is not None
+                and live.authority_identity != incident.authority_identity
+            )
+        ):
+            return RecoveryDecision.block(
+                "market_explorer_scheduler_failure_signature_changed",
+                live_failure=live.failure_code,
+                live_authority=live.authority_identity,
+            )
+        return RecoveryDecision.allow(observed=dict(live.observed))
+
+    def market_explorer_scheduler_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del incident, context
+        result = dict(market_explorer_cron_installer() or {})
+        if str(result.get("status") or "") == "installed":
+            return RecoveryExecution.succeeded(result=result, mutation_performed=True)
+        return RecoveryExecution.failed(result=result)
+
+    def market_explorer_scheduler_verify(
+        incident: IncidentRecord, context: RecoveryContext
+    ):
+        del incident
+        return market_explorer_scheduler_checker(_check_context(context))
+
+    registry.register(
+        RecoveryRunbook(
+            key=MARKET_EXPLORER_SCHEDULER_RUNBOOK,
+            version="1",
+            check_key=MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+            failure_code="MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING",
+            precondition=market_explorer_scheduler_precondition,
+            execute=market_explorer_scheduler_execute,
+            verify=market_explorer_scheduler_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
         )
     )
 
