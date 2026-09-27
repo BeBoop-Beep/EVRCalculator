@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-status",
-  "request_id": "sentinel-post-pr405-status"
+  "operation": "sync-main-reviewed",
+  "request_id": "sentinel-pr405-reviewed-sync"
 }
