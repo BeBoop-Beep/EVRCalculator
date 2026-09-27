@@ -9,6 +9,8 @@ on:
       - main
     paths:
       - 'backend/sentinel/**'
+      - 'infra/oracle/sentinel.crontab'
+      - 'infra/oracle/install_sentinel_cron.sh'
       - 'backend/pricing_pipeline/health.py'
       - 'backend/alerts/market_freshness_watchdog.py'
       - 'backend/scripts/run_market_explorer_maintained_cache_prewarm.py'
@@ -63,6 +65,8 @@ jobs:
             backend/tests/unit/sentinel/test_safe_recovery.py \
             backend/tests/unit/sentinel/test_authority_adapters.py \
             backend/tests/unit/sentinel/test_explorer_scheduler.py \
+            backend/tests/unit/sentinel/test_runtime_scheduler.py \
+            backend/tests/unit/sentinel/test_public_semantics.py \
             backend/tests/unit/alerts/test_market_freshness_watchdog.py \
             backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py
           python -m py_compile \
@@ -71,11 +75,16 @@ jobs:
             backend/sentinel/checks/pricing.py \
             backend/sentinel/checks/explorer.py \
             backend/sentinel/checks/registry.py \
+            backend/sentinel/checks/runtime_scheduler.py \
+            backend/sentinel/checks/public_semantics.py \
             backend/sentinel/recovery/runbooks.py \
             backend/sentinel/operational.py \
             backend/scripts/run_market_explorer_maintained_cache_prewarm.py
           bash -n infra/oracle/run_market_explorer_prewarm_guarded.sh
           bash -n infra/oracle/install_market_explorer_prewarm_cron.sh
+          bash -n infra/oracle/install_sentinel_cron.sh
           grep -q -- '--max-caches 1' infra/oracle/run_market_explorer_prewarm_guarded.sh
           grep -q 'run_market_explorer_prewarm_guarded.sh' infra/oracle/market-explorer-prewarm.crontab
+          grep -q 'backend.sentinel.operational --profile fast' infra/oracle/sentinel.crontab
+          grep -q 'backend.sentinel.operational --profile public' infra/oracle/sentinel.crontab
           git diff --check
