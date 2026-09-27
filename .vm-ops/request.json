@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "sentinel-vm-status-before-main-sync-20260927"
+  "operation": "wait-sync-main-after-publication",
+  "request_id": "sentinel-sync-main-after-sep27-publication"
 }
