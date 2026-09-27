@@ -16,6 +16,7 @@ from backend.sentinel.registry import CheckContext
 PRICING_CHECK_KEYS = (
     "pricing.multi_source.run_freshness",
     "pricing.multi_source.target_freshness",
+    "pricing.ebay.daily_coverage",
     "pricing.ebay.budget_health",
     "pricing.ebay.quota_authority_v2",
     "pricing.ebay.evidence_freshness",
@@ -24,6 +25,12 @@ PRICING_CHECK_KEYS = (
     "pricing.canonical.source_guard",
     "pricing.multi_source.policy_drift",
 )
+
+
+def _default_client() -> Any:
+    from backend.db.clients.supabase_client import create_service_role_client
+
+    return create_service_role_client()
 
 
 class PricingHealthSnapshot:
@@ -48,7 +55,8 @@ class PricingHealthSnapshot:
 
     def _results_by_key(self, context: CheckContext) -> Dict[str, CheckResult]:
         if self._results is None:
-            snapshot = self._gather(self._client, context.now)
+            resolved_client = self._client if self._client is not None else _default_client()
+            snapshot = self._gather(resolved_client, context.now)
             self._results = {
                 result.check_key: result for result in self._sentinel_results(snapshot)
             }
