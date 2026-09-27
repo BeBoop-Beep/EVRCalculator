@@ -1,0 +1,58 @@
+name: Edition Coverage Archive Analysis
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/edition-coverage-archive-analysis.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  analyze:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 2
+    steps:
+      - name: Analyze captured catalogues offline without network or database access
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          timeout 45 .venv/bin/python - <<'PY'
+          import collections,hashlib,json
+          from pathlib import Path
+          from backend.Scraper.helpers.card_helper import clean_condition,parse_tcgplayer_printing
+          root=Path('/home/ubuntu/state/db-safety/edition-coverage-research')
+          hashes={604:'16d5e66f572c635bac886f0bdf7961830e65cb5ea3d1d4b5d3b69d8e4e003e9f',1663:'6b448cdf4badb1a6e823ad374ff9ea8fb3cdeac7c9092b1fd7c5b2d0d703930c',1444:'da6d1f69cc510b71d0abfe641d1170c1b835a87b017c1d402e228c57b0851ede',1389:'0a3c49af3845e764a541087d715ac1c61555b2e240648983dd7bce4b98b8e372'}
+          def emit(k,v):print(json.dumps({'check':k,'value':v},sort_keys=True),flush=True)
+          for group,digest in hashes.items():
+              raw=(root/(str(group)+'.'+digest[:12]+'.json')).read_bytes()
+              assert hashlib.sha256(raw).hexdigest()==digest
+              rows=json.loads(raw)['result'];products={}
+              for row in rows:products.setdefault(row['productID'],row)
+              if group in (604,1663):
+                  def number(r):
+                      v=str(r.get('number') or '').split('/')[0].lstrip('0')
+                      return int(v) if v.isdigit() else None
+                  names=collections.defaultdict(set)
+                  for row in products.values():names[number(row)].add(row['productName'])
+                  emit('base_catalogue_products',{'group':group,'distinct_numbers':len(names),'number_duplicates':{str(k):sorted(v) for k,v in names.items() if len(v)>1},'missing_checklist_numbers':sorted(set(range(1,103))-set(names))})
+                  editions=[''] if group==604 else ['1st-edition','unlimited']
+                  for edition in editions:
+                      eligible=[r for r in rows if parse_tcgplayer_printing(r.get('printing'))[0]==edition]
+                      nm=[r for r in eligible if clean_condition(r.get('condition'))=='Near Mint' and isinstance(r.get('marketPrice'),(int,float)) and r['marketPrice']>0]
+                      nm_ids={r['productID'] for r in nm}
+                      nm_numbers={number(r) for r in nm}
+                      emit('base_nm_coverage',{'group':group,'provider_edition':edition,'priced_products':len(nm_ids),'priced_checklist_numbers':len(nm_numbers),'missing_checklist_numbers':sorted(set(range(1,103))-nm_numbers),'products_without_nm':[{'product_id':pid,'name':p['productName'],'number':p.get('number'),'available_rows_for_edition':sum(r['productID']==pid for r in eligible)} for pid,p in products.items() if pid not in nm_ids]})
+              else:
+                  expected_edition='1st-edition';seen=collections.defaultdict(set);nm_seen=collections.defaultdict(set)
+                  for r in rows:
+                      edition=parse_tcgplayer_printing(r.get('printing'))[0]
+                      seen[r['productID']].add(edition)
+                      if clean_condition(r.get('condition'))=='Near Mint' and r.get('marketPrice'):nm_seen[r['productID']].add(edition)
+                  emit('neo_source_coverage',{'group':group,'first_edition_absent_products':[{'id':pid,'name':p['productName'],'number':p.get('number')} for pid,p in products.items() if expected_edition not in seen[pid]],'first_edition_nm_products':sum(expected_edition in nm_seen[pid] for pid in products),'unlimited_nm_products':sum('unlimited' in nm_seen[pid] for pid in products)})
+          emit('database_mutations',False)
+          emit('network_requests',0)
+          PY
