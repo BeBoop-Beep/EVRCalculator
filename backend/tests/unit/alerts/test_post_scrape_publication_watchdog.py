@@ -338,6 +338,30 @@ def test_latest_complete_batch_does_not_retry_deterministic_authority_failure():
 
 
 
+def test_process_scan_ignores_db_guard_shell_carrier(monkeypatch):
+    ps_output = """478999 478993 478993 60 /bin/sh -c bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-27
+479000 478999 478993 60 bash /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh 2026-09-27
+479046 479000 478993 55 /home/ubuntu/repos/EVRCalculator/.venv/bin/python backend/scripts/refresh_stale_public_snapshots.py --commit --market-date 2026-09-27
+"""
+    monkeypatch.setattr(
+        watchdog.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=ps_output, stderr=""),
+    )
+
+    rows = watchdog._default_all_publication_processes()
+    wrappers = [row for row in rows if row["kind"] == "wrapper"]
+    refreshers = [row for row in rows if row["kind"] == "refresh"]
+
+    assert [row["pid"] for row in wrappers] == [479000]
+    assert [row["pid"] for row in refreshers] == [479046]
+    identity = watchdog._validate_active_publication_identity(rows)
+    assert identity["ok"] is True
+    assert identity["wrapper_pid"] == 479000
+    assert identity["refresh_pid"] == 479046
+    assert identity["market_date"] == "2026-09-27"
+
+
 def _exact_stalled_processes():
     return [
         {
