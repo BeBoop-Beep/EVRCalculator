@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-status",
-  "request_id": "sentinel-runtime-status-after-pr411"
+  "operation": "sync-main-reviewed",
+  "request_id": "sentinel-self-scheduler-sync-20260927"
 }
