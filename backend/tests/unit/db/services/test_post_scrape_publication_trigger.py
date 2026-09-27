@@ -325,24 +325,14 @@ class _ExplorerCurrencyAuditReport:
         self.passed = passed
 
 
-def test_currency_is_stale_when_canonical_passes_but_explorer_v2_is_stale(monkeypatch):
+def test_currency_is_current_when_core_passes_even_if_explorer_v2_is_stale(monkeypatch):
     monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-20")
-    monkeypatch.setattr(trigger, "_market_explorer_v2_current", lambda client, market_date: False)
-    status = trigger.evaluate_post_scrape_publication_currency(
-        object(),
-        "2026-09-20",
-        audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, True),
-    )
-    assert status == trigger.PublicationCurrencyStatus.STALE
-
-
-def test_currency_is_current_only_when_canonical_and_explorer_v2_are_current(monkeypatch):
-    monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-20")
-    seen = []
     monkeypatch.setattr(
         trigger,
         "_market_explorer_v2_current",
-        lambda client, market_date: seen.append(market_date) or True,
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("Explorer belongs to the bounded convergence domain")
+        ),
     )
     status = trigger.evaluate_post_scrape_publication_currency(
         object(),
@@ -350,21 +340,31 @@ def test_currency_is_current_only_when_canonical_and_explorer_v2_are_current(mon
         audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, True),
     )
     assert status == trigger.PublicationCurrencyStatus.CURRENT
-    assert seen == ["2026-09-20"]
 
 
-def test_currency_is_unknown_when_explorer_v2_authority_errors(monkeypatch):
+def test_currency_is_stale_when_core_audit_fails(monkeypatch):
     monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-20")
-    def broken(client, market_date):
-        raise RuntimeError("coverage unavailable")
+    status = trigger.evaluate_post_scrape_publication_currency(
+        object(),
+        "2026-09-20",
+        audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, False),
+    )
+    assert status == trigger.PublicationCurrencyStatus.STALE
 
-    monkeypatch.setattr(trigger, "_market_explorer_v2_current", broken)
+
+def test_explorer_authority_error_cannot_poison_core_currency(monkeypatch):
+    monkeypatch.setattr(trigger, "_global_market_authority_date", lambda client: "2026-09-20")
+    monkeypatch.setattr(
+        trigger,
+        "_market_explorer_v2_current",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("coverage unavailable")),
+    )
     status = trigger.evaluate_post_scrape_publication_currency(
         object(),
         "2026-09-20",
         audit_runner=lambda client, market_date, phase: _ExplorerCurrencyAuditReport(market_date, True),
     )
-    assert status == trigger.PublicationCurrencyStatus.UNKNOWN
+    assert status == trigger.PublicationCurrencyStatus.CURRENT
 
 
 
@@ -436,20 +436,21 @@ def test_currency_shortcuts_full_audit_when_global_market_row_is_missing(monkeyp
     assert status == trigger.PublicationCurrencyStatus.STALE
 
 
-def test_current_global_market_still_requires_full_audit_and_explorer(monkeypatch):
+def test_current_global_market_still_requires_core_audit_but_not_explorer(monkeypatch):
     client = _GlobalMarketCurrencyClient([{"market_date": "2026-09-21"}])
-    seen = {"audit": 0, "explorer": 0}
+    seen = {"audit": 0}
 
     def audit_runner(_client, market_date, phase):
         seen["audit"] += 1
         return _ExplorerCurrencyAuditReport(market_date, True)
 
-    def explorer(_client, market_date):
-        seen["explorer"] += 1
-        assert market_date == "2026-09-21"
-        return True
-
-    monkeypatch.setattr(trigger, "_market_explorer_v2_current", explorer)
+    monkeypatch.setattr(
+        trigger,
+        "_market_explorer_v2_current",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            AssertionError("Explorer must not participate in core currency")
+        ),
+    )
 
     status = trigger.evaluate_post_scrape_publication_currency(
         client,
@@ -458,4 +459,4 @@ def test_current_global_market_still_requires_full_audit_and_explorer(monkeypatc
     )
 
     assert status == trigger.PublicationCurrencyStatus.CURRENT
-    assert seen == {"audit": 1, "explorer": 1}
+    assert seen == {"audit": 1}
