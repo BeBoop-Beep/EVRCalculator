@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/sentinel-autonomous-reliability-20260927
+      - fix/sentinel-autonomous-pricing-publication-20260927
       - develop
       - main
     paths:
