@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "inspect-db-guard-execution-policy-20260927"
+  "operation": "db-safety-guard-repair",
+  "request_id": "repair-db-guard-memory-policy-20260927"
 }
