@@ -171,19 +171,6 @@ create table public.pokemon_market_explorer_prepared_constituents_v1(
   unique(generation_id,market_key,instrument_id)
 );
 
-create or replace function public.search_pokemon_market_explorer_instruments_v2_unfiltered_phase2(
-  p_query text,p_asset text default 'all',p_limit integer default 20
-)
-returns table(
-  asset text,instrument_id uuid,name text,set_id uuid,set_name text,image_url text,
-  card_number text,rarity text,edition text,printing_type text,special_type text,
-  product_family text,variant_label text,match_kind text,relevance_score integer,name_similarity real
-)
-language sql stable set search_path='' as $function$
-  select *
-  from public.search_pokemon_market_explorer_instruments_v2(p_query,p_asset,p_limit);
-$function$;
-
 create table public.pokemon_market_index_daily_history(
   id uuid primary key default gen_random_uuid(),
   tcg text not null,
@@ -254,3 +241,18 @@ language sql stable set search_path='' as $$
   order by m.card_name
   limit least(greatest(coalesce(p_limit,20),1),50);
 $$;
+
+create or replace function public.search_pokemon_market_explorer_instruments_v2_unfiltered_phase2(
+  p_query text,p_asset text default 'all',p_limit integer default 20
+)
+returns table(
+  asset text,instrument_id uuid,name text,set_id uuid,set_name text,image_url text,
+  card_number text,rarity text,edition text,printing_type text,special_type text,
+  product_family text,variant_label text,match_kind text,relevance_score integer,name_similarity real
+)
+language sql stable set search_path='' as $function$
+  select *
+  from public.search_pokemon_market_explorer_instruments_v2(p_query,p_asset,p_limit);
+$function$;
+
+
