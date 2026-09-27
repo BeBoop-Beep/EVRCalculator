@@ -1771,6 +1771,7 @@ jobs:
               "$PY" -m pytest -q \
                 backend/tests/unit/sentinel/test_pricing_registration.py \
                 backend/tests/unit/sentinel/test_safe_recovery.py \
+                backend/tests/unit/sentinel/test_recovery_contract_guardrails.py \
                 backend/tests/unit/alerts/test_market_freshness_watchdog.py \
                 backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py \
                 backend/tests/unit/pricing_pipeline/test_daily_multi_source_pipeline.py
