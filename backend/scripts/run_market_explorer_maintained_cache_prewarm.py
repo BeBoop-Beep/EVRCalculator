@@ -101,10 +101,11 @@ def _prepared_db_error(exc: Exception) -> str:
 
 def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[str, Any]:
     """Run the least-privilege guarded publisher in one bounded DB transaction."""
+    dsn = _prepared_db_dsn()
     import psycopg
 
     with psycopg.connect(
-        _prepared_db_dsn(), connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
+        dsn, connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
         application_name="market_explorer_prepared_prewarm",
     ) as conn:
         try:
@@ -136,10 +137,11 @@ def _run_guarded_prepared_db(target_market_date: str, *, commit: bool) -> dict[s
 
 def _run_current_v2_surface_db() -> dict[str, Any]:
     """Publish V2 in a separate transaction after the V1 commit is durable."""
+    dsn = _prepared_db_dsn()
     import psycopg
 
     with psycopg.connect(
-        _prepared_db_dsn(), connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
+        dsn, connect_timeout=PREPARED_DB_CONNECT_TIMEOUT_SECONDS,
         application_name="market_explorer_v2_surface_publisher",
     ) as conn:
         try:
@@ -409,6 +411,65 @@ def select_stale_caches(
 
 # --- Prepared Explorer handoff ------------------------------------------------
 
+def prepared_surfaces_current(client: Any, target_market_date: str) -> bool:
+    """Cheap read-side gate before invoking the direct-DB prepared publishers.
+
+    Once both serving pointers are on the target date, repeated cron ticks must
+    stay cheap: they should not open direct Postgres transactions merely to
+    rediscover an already-current V1/V2 publication.
+    """
+    target = str(target_market_date)[:10]
+    if not hasattr(client, "table"):
+        return False
+    prepared_serving = list(
+        client.table("pokemon_market_explorer_prepared_serving_v1")
+        .select("generation_id")
+        .eq("singleton", True)
+        .limit(1)
+        .execute().data or []
+    )
+    prepared_id = str((prepared_serving[0] if prepared_serving else {}).get("generation_id") or "")
+    if not prepared_id:
+        return False
+    prepared_generation = list(
+        client.table("pokemon_market_explorer_prepared_generations_v1")
+        .select("status,comparison_as_of")
+        .eq("generation_id", prepared_id)
+        .limit(1)
+        .execute().data or []
+    )
+    prepared = prepared_generation[0] if prepared_generation else {}
+    if (
+        str(prepared.get("status") or "") != "serving"
+        or str(prepared.get("comparison_as_of") or "")[:10] != target
+    ):
+        return False
+
+    v2_serving = list(
+        client.table("pokemon_market_explorer_surface_serving_v2")
+        .select("generation_id")
+        .eq("singleton", 1)
+        .limit(1)
+        .execute().data or []
+    )
+    v2_id = str((v2_serving[0] if v2_serving else {}).get("generation_id") or "")
+    if not v2_id:
+        return False
+    v2_generation = list(
+        client.table("pokemon_market_explorer_surface_generations_v2")
+        .select("state,market_date,comparison_as_of")
+        .eq("generation_id", v2_id)
+        .limit(1)
+        .execute().data or []
+    )
+    v2 = v2_generation[0] if v2_generation else {}
+    return (
+        str(v2.get("state") or "") == "VALIDATED"
+        and str(v2.get("market_date") or "")[:10] == target
+        and str(v2.get("comparison_as_of") or "")[:10] == target
+    )
+
+
 def refresh_prepared_if_current(client: Any, *, target_market_date: str, commit: bool,
                                 verify: bool = False) -> dict[str, Any]:
     """Publish V1, then independently advance V2 only after a durable V1 success."""
@@ -527,12 +588,19 @@ def run_prewarm(
         if not stale:
             summary.stopReason = "no_stale_caches"
             if (commit or verify_prepared_direct_db) and not only_set_ids and not skip_fingerprints:
-                summary.preparedRefresh = refresh_prepared_if_current(
-                    client, target_market_date=target, commit=commit,
-                    verify=verify_prepared_direct_db,
-                )
-                if summary.preparedRefresh.get("status") == "failed":
-                    summary.failed += 1
+                if commit and prepared_surfaces_current(client, target):
+                    summary.preparedRefresh = {
+                        "status": "already_current",
+                        "targetMarketDate": str(target)[:10],
+                        "reason": "serving_pointers_current",
+                    }
+                else:
+                    summary.preparedRefresh = refresh_prepared_if_current(
+                        client, target_market_date=target, commit=commit,
+                        verify=verify_prepared_direct_db,
+                    )
+                    if summary.preparedRefresh.get("status") == "failed":
+                        summary.failed += 1
             summary.elapsedSeconds = round(time.monotonic() - started, 3)
             return asdict(summary)
 
@@ -584,11 +652,18 @@ def run_prewarm(
                 failure_cooldown_seconds=failure_cooldown_seconds,
             )
             if not stale_after:
-                summary.preparedRefresh = refresh_prepared_if_current(
-                    client, target_market_date=target, commit=True
-                )
-                if summary.preparedRefresh.get("status") == "failed":
-                    summary.failed += 1
+                if prepared_surfaces_current(client, target):
+                    summary.preparedRefresh = {
+                        "status": "already_current",
+                        "targetMarketDate": str(target)[:10],
+                        "reason": "serving_pointers_current",
+                    }
+                else:
+                    summary.preparedRefresh = refresh_prepared_if_current(
+                        client, target_market_date=target, commit=True
+                    )
+                    if summary.preparedRefresh.get("status") == "failed":
+                        summary.failed += 1
             else:
                 summary.preparedRefresh = {
                     "status": "deferred",
@@ -648,17 +723,6 @@ def main() -> int:
         raise SystemExit("--verify-prepared-direct-db requires --dry-run")
     from backend.db.clients.supabase_client import create_service_role_client
     client = create_service_role_client()
-
-    if args.verify_prepared_refresh_rollback:
-        target = args.market_date or resolve_latest_approved_market_date(client)
-        if not target:
-            print(json.dumps({"status": "failed", "error": "no_approved_market_date"}, sort_keys=True))
-            return 1
-        report = refresh_prepared_if_current(
-            client, target_market_date=target, commit=True, rollback_only=True
-        )
-        print(json.dumps(report, indent=2, sort_keys=True, default=str))
-        return 1 if report.get("status") == "failed" else 0
 
     def guard() -> HostGuardResult:
         return evaluate_host_guard(
