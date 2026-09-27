@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "sentinel-live-db-pressure-20260927"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sentinel-sep27-normal-recovery-after-pressure"
 }
