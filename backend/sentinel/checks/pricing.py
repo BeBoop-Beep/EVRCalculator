@@ -18,6 +18,8 @@ PRICING_CHECK_KEYS = (
     "pricing.multi_source.run_freshness",
     "pricing.ebay.calendar_continuity",
     "pricing.multi_source.target_freshness",
+    "pricing.multi_source.target_manifest_integrity",
+    "pricing.ebay.estimate_coverage",
     "pricing.ebay.budget_health",
     "pricing.ebay.quota_authority_v2",
     "pricing.ebay.evidence_freshness",

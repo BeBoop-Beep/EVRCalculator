@@ -10,6 +10,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Mapping
 
 from backend.pricing_pipeline.contracts import DAILY_REQUEST_LIMIT, PHOENIX
+from backend.pricing_pipeline.targets import verify_manifest
 from backend.scripts.freeze_ebay_active_ask_v1 import VERSION as ESTIMATOR_VERSION
 from backend.scripts.pokemon_multi_source_card_price_v1 import POLICY_VERSION
 
@@ -91,11 +92,29 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
                 out.add(raw)
         return sorted(out)
 
+    run = one(
+        "pokemon_multi_source_pricing_runs_v1",
+        "run_id,market_date,status,stage,failure_code,updated_at,finished_at,requests_attempted,"
+        "target_count,target_fingerprint,manifest",
+        "market_date",
+    )
+    eligible_estimate_count = None
+    if run and run.get("run_id"):
+        response = (
+            client.table("ebay_active_ask_price_estimates_v1")
+            .select("id", count="exact")
+            .eq("pricing_run_id", run["run_id"])
+            .limit(1)
+            .execute()
+        )
+        eligible_estimate_count = int(response.count or 0)
+
     return {
         "now": now,
-        "run": one("pokemon_multi_source_pricing_runs_v1", "market_date,status,stage,failure_code,updated_at,finished_at,requests_attempted,target_fingerprint", "market_date"),
+        "run": run,
         "evidence": one("ebay_pricing_runs_v1", "market_date,status,finished_at", "market_date", status="COMPLETE"),
         "estimate": one("ebay_active_ask_price_estimates_v1", "market_date,estimator_version", "market_date"),
+        "eligible_estimate_count": eligible_estimate_count,
         "shadow": one("pokemon_multi_source_card_prices_v1", "market_date,policy_version", "market_date"),
         "ledger": ledger[0] if ledger else None, "budget_v2": v2,
         "shadow_policies": sorted({p["policy_version"] for p in policies}),
@@ -113,6 +132,32 @@ def _check(key: str, ok: bool, code: str, observed: Mapping[str, Any], *, severi
     return {"check": key, "status": OK if ok else severity, "code": None if ok else code, "observed": dict(observed)}
 
 
+def _target_manifest_integrity(run: Mapping[str, Any] | None) -> bool:
+    """Recompute the stored target manifest fingerprint and verify its structural counts."""
+    if not isinstance(run, Mapping):
+        return False
+    manifest = run.get("manifest")
+    if not isinstance(manifest, Mapping):
+        return False
+    cards = manifest.get("cards")
+    if not isinstance(cards, list):
+        return False
+    try:
+        target_count = int(run.get("target_count"))
+        manifest_target_count = int(manifest.get("target_count"))
+    except (TypeError, ValueError):
+        return False
+    fingerprint = str(run.get("target_fingerprint") or "")
+    if not fingerprint or str(manifest.get("selector_fingerprint") or "") != fingerprint:
+        return False
+    if target_count != manifest_target_count or target_count != len(cards):
+        return False
+    try:
+        return bool(verify_manifest(manifest))
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
     now = snapshot["now"]
     expected = expected_market_date(now).isoformat()
@@ -126,8 +171,13 @@ def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
         day for day in diagnostic_expected
         if day not in diagnostic_completed and day < EBAY_CONTINUITY_ENFORCEMENT_DATE.isoformat()
     ]
+    target_count = int(run.get("target_count") or 0) if run else 0
+    current_complete_run = bool(
+        run and run["market_date"] >= expected and run["status"] == "COMPLETE"
+    )
+    eligible_estimate_count = snapshot.get("eligible_estimate_count")
     results = [
-        _check("pricing.multi_source.run_freshness", bool(run and run["market_date"] >= expected and run["status"] == "COMPLETE"),
+        _check("pricing.multi_source.run_freshness", current_complete_run,
                "DAILY_RUN_STALE_OR_INCOMPLETE", {"expected_market_date": expected, "latest_run": run and {k: run[k] for k in ("market_date", "status", "stage", "failure_code")}}),
         _check("pricing.ebay.calendar_continuity", not missing_ebay_dates,
                "EBAY_DAILY_COVERAGE_GAP", {
@@ -138,8 +188,42 @@ def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
                    "missing_ebay_dates": missing_ebay_dates,
                    "historical_pre_enforcement_gaps": historical_missing,
                }),
-        _check("pricing.multi_source.target_freshness", bool(run and run["market_date"] >= expected and run.get("target_fingerprint")),
-               "TARGET_MANIFEST_MISSING_FOR_EXPECTED_DATE", {"expected_market_date": expected, "latest_target_market_date": run and run["market_date"]}),
+        _check("pricing.multi_source.target_freshness", bool(
+                   run and run["market_date"] >= expected and run.get("target_fingerprint") and target_count > 0
+               ),
+               "TARGET_MANIFEST_MISSING_FOR_EXPECTED_DATE", {
+                   "expected_market_date": expected,
+                   "latest_target_market_date": run and run["market_date"],
+                   "target_count": target_count,
+               }),
+        _check("pricing.multi_source.target_manifest_integrity", bool(
+                   current_complete_run and _target_manifest_integrity(run)
+               ),
+               "TARGET_MANIFEST_CONTENT_INVALID", {
+                   "expected_market_date": expected,
+                   "latest_target_market_date": run and run["market_date"],
+                   "target_count": target_count,
+                   "manifest_target_count": (
+                       (run.get("manifest") or {}).get("target_count")
+                       if isinstance(run and run.get("manifest"), Mapping) else None
+                   ),
+                   "stored_target_fingerprint": run and run.get("target_fingerprint"),
+                   "manifest_target_fingerprint": (
+                       (run.get("manifest") or {}).get("selector_fingerprint")
+                       if isinstance(run and run.get("manifest"), Mapping) else None
+                   ),
+               }),
+        _check("pricing.ebay.estimate_coverage", bool(
+                   not current_complete_run
+                   or target_count <= 0
+                   or (eligible_estimate_count is not None and int(eligible_estimate_count) > 0)
+               ),
+               "EBAY_ZERO_ELIGIBLE_ESTIMATES", {
+                   "market_date": run and run.get("market_date"),
+                   "pricing_run_id": run and run.get("run_id"),
+                   "target_count": target_count,
+                   "eligible_estimate_count": eligible_estimate_count,
+               }),
     ]
     used = ledger["requests_reserved"] if ledger else 0
     limit = ledger["daily_limit"] if ledger else DAILY_REQUEST_LIMIT

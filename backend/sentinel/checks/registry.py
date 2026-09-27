@@ -120,6 +120,8 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
         "pricing.multi_source.run_freshness": "Daily multi-source pricing run is present/complete for the expected market date",
         "pricing.ebay.calendar_continuity": "Completed scrape dates in the recent continuity window each have a completed eBay pricing run",
         "pricing.multi_source.target_freshness": "Daily pricing run's target manifest fingerprint is present for the expected market date",
+        "pricing.multi_source.target_manifest_integrity": "Persisted target manifest fingerprint and target counts recompute consistently",
+        "pricing.ebay.estimate_coverage": "Completed pricing run with selected targets produced at least one eligible numeric eBay estimate",
         "pricing.ebay.budget_health": "eBay Browse request ledger is within the daily request budget",
         "pricing.ebay.quota_authority_v2": "eBay Browse provider-verified quota window is current and within its usable limit",
         "pricing.ebay.evidence_freshness": "Latest completed eBay pricing evidence run is not stale",
