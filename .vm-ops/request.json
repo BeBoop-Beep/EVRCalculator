@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "measure-supabase-swap-20260927"
+  "operation": "db-safety-guard-repair",
+  "request_id": "repair-db-guard-swap-policy-20260927"
 }
