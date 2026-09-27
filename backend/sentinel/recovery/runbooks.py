@@ -8,6 +8,7 @@ canonical entrypoints:
 4. pricing.multi_source.run_freshness / DAILY_RUN_STALE_OR_INCOMPLETE
 5. pricing.ebay.scheduler / EBAY_DAILY_SCHEDULE_MISSING
 6. market_explorer.maintenance_scheduler / MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING
+7. market_explorer.maintenance_progress / MARKET_EXPLORER_CONVERGENCE_STALLED
 
 Historical eBay continuity gaps remain observation-only because current active
 listings cannot truthfully reconstruct a missed past market date.
@@ -32,7 +33,9 @@ from backend.sentinel.checks.pricing import (
     check_pricing_scheduler,
 )
 from backend.sentinel.checks.explorer import (
+    MARKET_EXPLORER_PROGRESS_CHECK_KEY,
     MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
+    check_market_explorer_progress,
     check_market_explorer_scheduler,
 )
 from backend.sentinel.recovery.engine import (
@@ -53,6 +56,7 @@ LEASE_RUNBOOK = "reconcile_stale_scrape_leases_v1"
 PRICING_RUNBOOK = "run_daily_multi_source_pricing_v1"
 PRICING_SCHEDULER_RUNBOOK = "install_multi_source_pricing_cron_v1"
 MARKET_EXPLORER_SCHEDULER_RUNBOOK = "install_market_explorer_prewarm_cron_v1"
+MARKET_EXPLORER_PROGRESS_RUNBOOK = "advance_market_explorer_convergence_v1"
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PRICING_LOCK_PATH = "/tmp/multi-source-pricing.lock"
@@ -60,6 +64,9 @@ PRICING_STATE_DIR = "/home/ubuntu/state/multi_source_pricing"
 PRICING_CRON_INSTALLER = REPO_ROOT / "infra" / "oracle" / "install_multi_source_pricing_cron.sh"
 MARKET_EXPLORER_CRON_INSTALLER = (
     REPO_ROOT / "infra" / "oracle" / "install_market_explorer_prewarm_cron.sh"
+)
+MARKET_EXPLORER_GUARDED_WORKER = (
+    REPO_ROOT / "infra" / "oracle" / "run_market_explorer_prewarm_guarded.sh"
 )
 
 
@@ -98,6 +105,8 @@ def build_safe_recovery_registry(
     pricing_cron_installer: Optional[Callable[[], dict]] = None,
     market_explorer_scheduler_checker: Optional[Callable[..., Any]] = None,
     market_explorer_cron_installer: Optional[Callable[[], dict]] = None,
+    market_explorer_progress_checker: Optional[Callable[..., Any]] = None,
+    market_explorer_worker: Optional[Callable[[], dict]] = None,
 ) -> RecoveryRegistry:
     """Build the P6 exact-match recovery allowlist.
 
@@ -193,6 +202,8 @@ def build_safe_recovery_registry(
 
     if market_explorer_scheduler_checker is None:
         market_explorer_scheduler_checker = check_market_explorer_scheduler
+    if market_explorer_progress_checker is None:
+        market_explorer_progress_checker = check_market_explorer_progress
 
     if market_explorer_cron_installer is None:
         def market_explorer_cron_installer() -> dict:
@@ -209,6 +220,24 @@ def build_safe_recovery_registry(
                 "status": "installed" if result.returncode == 0 else "failed",
                 "exit_code": int(result.returncode),
             }
+
+    if market_explorer_worker is None:
+        def market_explorer_worker() -> dict:
+            result = subprocess.run(
+                ["bash", str(MARKET_EXPLORER_GUARDED_WORKER)],
+                cwd=str(REPO_ROOT),
+                env=os.environ.copy(),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15 * 60,
+            )
+            status = (
+                "advanced" if result.returncode == 0
+                else "deferred" if result.returncode in {3, 4, 75}
+                else "failed"
+            )
+            return {"status": status, "exit_code": int(result.returncode)}
 
     registry = RecoveryRegistry()
 
@@ -598,6 +627,70 @@ def build_safe_recovery_registry(
             verify=market_explorer_scheduler_verify,
             max_attempts=1,
             cooldown_seconds=60 * 60,
+        )
+    )
+
+    def market_explorer_progress_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        live = market_explorer_progress_checker(
+            _check_context(context), client=resolved_client
+        )
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block(
+                "market_explorer_convergence_already_progressing",
+                authority_identity=incident.authority_identity,
+            )
+        if live.failure_code != "MARKET_EXPLORER_CONVERGENCE_STALLED":
+            return RecoveryDecision.block(
+                "market_explorer_progress_failure_signature_changed",
+                live_failure=live.failure_code,
+            )
+        if (
+            incident.authority_identity
+            and live.authority_identity != incident.authority_identity
+        ):
+            return RecoveryDecision.block(
+                "market_explorer_progress_authority_changed",
+                incident_authority=incident.authority_identity,
+                live_authority=live.authority_identity,
+            )
+        return RecoveryDecision.allow(
+            authority_identity=live.authority_identity,
+            observed=dict(live.observed),
+        )
+
+    def market_explorer_progress_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del incident, context
+        result = dict(market_explorer_worker() or {})
+        status = str(result.get("status") or "")
+        if status == "advanced":
+            return RecoveryExecution.succeeded(result=result, mutation_performed=True)
+        if status == "deferred":
+            return RecoveryExecution.blocked(result=result)
+        return RecoveryExecution.failed(result=result)
+
+    def market_explorer_progress_verify(
+        incident: IncidentRecord, context: RecoveryContext
+    ):
+        del incident
+        return market_explorer_progress_checker(
+            _check_context(context), client=resolved_client
+        )
+
+    registry.register(
+        RecoveryRunbook(
+            key=MARKET_EXPLORER_PROGRESS_RUNBOOK,
+            version="1",
+            check_key=MARKET_EXPLORER_PROGRESS_CHECK_KEY,
+            failure_code="MARKET_EXPLORER_CONVERGENCE_STALLED",
+            precondition=market_explorer_progress_precondition,
+            execute=market_explorer_progress_execute,
+            verify=market_explorer_progress_verify,
+            max_attempts=1,
+            cooldown_seconds=30 * 60,
         )
     )
 
