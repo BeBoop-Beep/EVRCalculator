@@ -1903,6 +1903,38 @@ jobs:
                 grep -nE 'Mem(Free|Available)|available_memory|memory|25|0\.25|metrics|prometheus|node_exporter|localhost|127\.0\.0\.1' /home/ubuntu/state/db-safety/db_workload_guard.py | head -160 || true
                 echo "-- memory policy implementation --"
                 sed -n '45,110p' /home/ubuntu/state/db-safety/db_workload_guard.py || true
+                echo "-- current Supabase memory ratios (safe aggregate only) --"
+                "$PY" - <<'PY'
+          import base64
+          import importlib.util
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from dotenv import dotenv_values
+
+          guard_path = Path("/home/ubuntu/state/db-safety/db_workload_guard.py")
+          spec = importlib.util.spec_from_file_location("db_workload_guard_status", guard_path)
+          guard = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+          config = dotenv_values(Path("/home/ubuntu/repos/EVRCalculator/backend/.env"), interpolate=False)
+          key = config.get("SUPABASE_SERVICE_ROLE_KEY")
+          if not key:
+              raise SystemExit("service-role metric credential unavailable")
+          auth = base64.b64encode(("service_role:" + key).encode()).decode()
+          req = Request(
+              "https://" + guard.PROJECT + ".supabase.co/customer/v1/privileged/metrics",
+              headers={"Authorization": "Basic " + auth},
+          )
+          with urlopen(req, timeout=6) as response:
+              metrics = guard.parse_metrics(response.read(2_000_000).decode())
+          total = metrics["node_memory_MemTotal_bytes"]
+          available = metrics["node_memory_MemAvailable_bytes"]
+          committed = metrics["node_memory_Committed_AS_bytes"]
+          commit_limit = metrics["node_memory_CommitLimit_bytes"]
+          print("supabase_mem_total_gib=%.3f" % (total / 1024**3))
+          print("supabase_mem_available_gib=%.3f" % (available / 1024**3))
+          print("supabase_mem_available_pct=%.2f" % (100 * available / total))
+          print("supabase_commit_pct=%.2f" % (100 * committed / commit_limit))
+          PY
               else
                 echo "db_workload_guard.py missing"
               fi
