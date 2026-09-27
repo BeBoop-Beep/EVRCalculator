@@ -1,8 +1,9 @@
 """Initial allowlisted recovery runbooks for inDex Sentinel P6.
 
-Only two exact failure signatures are eligible:
+Only bounded, deterministic failure signatures are eligible:
 1. market.freshness / market_publication_stale
-2. scrape.queue_leases / scrape_job_lease_expired
+2. market.freshness / market_snapshot_date_divergence
+3. scrape.queue_leases / scrape_job_lease_expired
 
 All other incidents remain observation/escalation only.
 """
@@ -30,6 +31,7 @@ from backend.sentinel.registry import CheckContext
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 
 PUBLICATION_RUNBOOK = "publish_post_scrape_if_needed_v1"
+PUBLICATION_DIVERGENCE_RUNBOOK = "reconcile_market_snapshot_divergence_v1"
 LEASE_RUNBOOK = "reconcile_stale_scrape_leases_v1"
 
 
@@ -107,7 +109,8 @@ def build_safe_recovery_registry(
                 "publication_failure_already_cleared", market_date=market_date
             )
         if (
-            live.failure_code != "market_publication_stale"
+            live.failure_code != incident.failure_code
+            or live.failure_code not in {"market_publication_stale", "market_snapshot_date_divergence"}
             or live.authority_identity != incident.authority_identity
         ):
             return RecoveryDecision.block(
@@ -184,6 +187,20 @@ def build_safe_recovery_registry(
             version="1",
             check_key="market.freshness",
             failure_code="market_publication_stale",
+            precondition=publication_precondition,
+            execute=publication_execute,
+            verify=publication_verify,
+            max_attempts=1,
+            cooldown_seconds=60 * 60,
+        )
+    )
+
+    registry.register(
+        RecoveryRunbook(
+            key=PUBLICATION_DIVERGENCE_RUNBOOK,
+            version="1",
+            check_key="market.freshness",
+            failure_code="market_snapshot_date_divergence",
             precondition=publication_precondition,
             execute=publication_execute,
             verify=publication_verify,
