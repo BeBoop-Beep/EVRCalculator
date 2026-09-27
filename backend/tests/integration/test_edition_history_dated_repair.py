@@ -7,7 +7,7 @@ import pytest
 import psycopg
 from psycopg.conninfo import conninfo_to_dict
 
-MIGRATION=Path(__file__).resolve().parents[3]/'supabase/migrations/20260927014000_add_dated_edition_history_refresh.sql'
+MIGRATION=Path(__file__).resolve().parents[3]/'supabase/migrations/20260927014248_add_dated_edition_history_refresh.sql'
 SCHEMA='''
 DROP SCHEMA public CASCADE; CREATE SCHEMA public;
 DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role; END IF;

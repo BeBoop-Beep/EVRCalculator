@@ -102,6 +102,6 @@ class _Client:''')
     s=once(s,'        return SimpleNamespace(execute=lambda: SimpleNamespace(data=rows))','        return _HistoryRPCQuery(rows)')
     path.write_text(s)
 
-migration='20260927014000_add_dated_edition_history_refresh.sql'
+migration='20260927014248_add_dated_edition_history_refresh.sql'
 shutil.copyfile(ROOT/'supabase/migrations'/migration,ROOT/'backend/db/migrations'/migration)
 print('INTEGRATION_EDITS_AND_MIGRATION_MIRROR_PREPARED=true')
