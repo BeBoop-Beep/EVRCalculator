@@ -23,15 +23,64 @@ def _rows(query: Any) -> List[Dict[str, Any]]:
     return list(query.execute().data or [])
 
 
-def _paged_rows(query_factory: Any, page_size: int = 1000) -> List[Dict[str, Any]]:
+SEALED_OBSERVATION_PAGE_SIZE = 512
+SEALED_OBSERVATION_MAX_ROWS_PER_SET = 100_000
+
+
+class SealedObservationReadIncomplete(RuntimeError):
+    """The sealed observation read cannot be proven complete."""
+
+
+def _paged_rows(
+    query_factory: Any,
+    page_size: int = SEALED_OBSERVATION_PAGE_SIZE,
+    max_rows: int = SEALED_OBSERVATION_MAX_ROWS_PER_SET,
+) -> List[Dict[str, Any]]:
+    """Read every ordered row, even when PostgREST returns a short page early.
+
+    A short HTTP page is not proof of end-of-data.  The edition-history outage
+    exposed exactly that assumption elsewhere in the market pipeline.  Keep an
+    exact count stable across pages and advance by the number of rows actually
+    received so server-side response caps cannot silently truncate the history.
+    """
+    if not 1 <= page_size <= 1000 or max_rows < page_size:
+        raise ValueError("invalid sealed observation pagination bounds")
+
     rows: List[Dict[str, Any]] = []
-    offset = 0
-    while True:
-        page = _rows(query_factory().range(offset, offset + page_size - 1))
-        rows.extend(page)
-        if len(page) < page_size:
+    expected: int | None = None
+    previous_key: tuple[str, str] | None = None
+
+    while len(rows) <= max_rows:
+        response = query_factory().range(len(rows), len(rows) + page_size - 1).execute()
+        total = getattr(response, "count", None)
+        if type(total) is not int or total < 0 or total > max_rows:
+            raise SealedObservationReadIncomplete("missing_or_invalid_exact_count")
+        if expected is None:
+            expected = total
+        elif expected != total:
+            raise SealedObservationReadIncomplete("sealed_observations_changed_during_pagination")
+
+        page = response.data
+        if not isinstance(page, list) or len(page) > page_size:
+            raise SealedObservationReadIncomplete("invalid_sealed_observation_page")
+        if not page:
+            if len(rows) != expected:
+                raise SealedObservationReadIncomplete("sealed_observations_ended_before_exact_count")
             return rows
-        offset += page_size
+
+        for row in page:
+            key = (str(row.get("captured_at") or ""), str(row.get("id") or ""))
+            if not key[0] or not key[1] or (previous_key is not None and key <= previous_key):
+                raise SealedObservationReadIncomplete("unordered_or_duplicate_sealed_observations")
+            rows.append(dict(row))
+            previous_key = key
+
+        if len(rows) > expected:
+            raise SealedObservationReadIncomplete("sealed_observations_exceed_exact_count")
+        if len(rows) == expected:
+            return rows
+
+    raise SealedObservationReadIncomplete("sealed_observation_page_budget_exhausted")
 
 
 def resolve_sets(selector: str | None, all_sets: bool) -> List[Dict[str, Any]]:
@@ -47,7 +96,7 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
     product_ids = [product["id"] for product in products]
     observations = _paged_rows(
         lambda: service_read_client.table("sealed_product_price_observations")
-        .select("id,sealed_product_id,market_price,source,currency,captured_at")
+        .select("id,sealed_product_id,market_price,source,currency,captured_at", count="exact")
         .in_("sealed_product_id", product_ids)
         .order("captured_at")
         .order("id")
