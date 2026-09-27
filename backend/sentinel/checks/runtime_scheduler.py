@@ -39,7 +39,7 @@ def check_sentinel_scheduler(
             return result.stdout
 
     text = crontab_loader()
-    blocks = fast = public = dispatcher = freshness = 0
+    blocks = fast = public = audit = dispatcher = freshness = 0
     in_block = False
     for raw in text.splitlines():
         line = raw.strip()
@@ -54,6 +54,7 @@ def check_sentinel_scheduler(
             continue
         fast += int("backend.sentinel.operational --profile fast" in line)
         public += int("backend.sentinel.operational --profile public" in line)
+        audit += int("backend.sentinel.operational --profile audit" in line)
         dispatcher += int("backend.alerts.dispatcher" in line)
         freshness += int("backend.alerts.market_freshness_watchdog" in line)
 
@@ -61,6 +62,7 @@ def check_sentinel_scheduler(
         "managed_blocks": blocks,
         "fast_entries": fast,
         "public_entries": public,
+        "audit_entries": audit,
         "dispatcher_entries": dispatcher,
         "freshness_entries": freshness,
     }
@@ -68,6 +70,7 @@ def check_sentinel_scheduler(
         "managed_blocks": 1,
         "fast_entries": 1,
         "public_entries": 1,
+        "audit_entries": 1,
         "dispatcher_entries": 1,
         "freshness_entries": 1,
     }
