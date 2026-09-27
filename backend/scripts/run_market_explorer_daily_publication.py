@@ -161,6 +161,8 @@ class DailyPublicationSummary:
     metadata_refresh: dict[str, Any] | None = None
     projection: dict[str, Any] | None = None
     v2_projection: dict[str, Any] | None = None
+    prepared_surface: dict[str, Any] | None = None
+    serving_surface_v2: dict[str, Any] | None = None
     caches: dict[str, Any] | None = None
     elapsed_seconds: float = 0.0
     error: str | None = None
@@ -235,6 +237,47 @@ def run_daily_publication(
         summary.error = "one or more sets failed verified V2 daily publication"
         summary.elapsed_seconds = round(time.monotonic() - started, 3)
         return asdict(summary)
+
+    if commit:
+        # The serving-generation publisher was historically coupled to the
+        # maintained-cache prewarm worker. That worker is intentionally
+        # resource-guarded and may be unscheduled, so canonical daily
+        # publication must advance the authoritative prepared/V2 serving
+        # generations itself while continuing to defer cache prewarming.
+        from backend.scripts.run_market_explorer_maintained_cache_prewarm import (
+            _run_current_v2_surface_db,
+            _run_guarded_prepared_db,
+        )
+
+        try:
+            prepared = _run_guarded_prepared_db(resolved, commit=True)
+        except Exception as exc:  # noqa: BLE001
+            summary.status = "prepared_surface_failed"
+            summary.error = f"{type(exc).__name__}: {exc}"
+            summary.elapsed_seconds = round(time.monotonic() - started, 3)
+            return asdict(summary)
+        summary.prepared_surface = prepared
+        if str(prepared.get("status") or "") not in {"refreshed", "already_current"}:
+            summary.status = "prepared_surface_failed"
+            summary.error = str(prepared.get("error") or prepared.get("status") or "prepared surface publication failed")
+            summary.elapsed_seconds = round(time.monotonic() - started, 3)
+            return asdict(summary)
+
+        try:
+            serving_v2 = _run_current_v2_surface_db()
+        except Exception as exc:  # noqa: BLE001
+            summary.status = "serving_surface_v2_failed"
+            summary.error = f"{type(exc).__name__}: {exc}"
+            summary.elapsed_seconds = round(time.monotonic() - started, 3)
+            return asdict(summary)
+        summary.serving_surface_v2 = serving_v2
+        if str(serving_v2.get("status") or "") not in {
+            "promoted", "promoted_existing_validated", "already_current"
+        }:
+            summary.status = "serving_surface_v2_failed"
+            summary.error = str(serving_v2.get("error") or serving_v2.get("errorClass") or serving_v2.get("status") or "V2 serving promotion failed")
+            summary.elapsed_seconds = round(time.monotonic() - started, 3)
+            return asdict(summary)
 
     summary.caches = deferred_cache_report()
     summary.status = "ok"
