@@ -1,18 +1,20 @@
-# Market Explorer maintained-cache convergence. Application cron on the scraper VM.
+# Market Explorer V2 convergence. Application cron on the scraper VM.
 # Host timezone MUST be America/Phoenix.
 #
 # P0 safety contract:
-# - one maintained cache per Python process (--max-caches 1)
-# - no parallel prewarm processes (outer flock + worker's own lock)
+# - one logical convergence stage per Python process
+# - card-V2 work is capped to 8 stale sets per tick
+# - maintained-cache work remains capped to one cache per tick
+# - no parallel convergence processes (outer flock + worker-level locks)
 # - every write invocation passes through the production DB workload guard when available
 # - a database safety hold defers writes
 # - once all 37 maintained definitions and serving generations are current,
 #   worker ticks are cheap read-side no-ops
 CRON_TZ=America/Phoenix
 
-# Repeated bounded drain. One cache per invocation; five-minute cadence gives
-# the daily maintained cohort time to converge without rebuilding everything
-# inside one memory-heavy process.
+# Repeated bounded drain. Each invocation advances only the earliest stale
+# prerequisite. Five-minute cadence converges the daily graph without rebuilding
+# every authority inside one memory-heavy process.
 0-55/5 * * * * /usr/bin/flock -n /tmp/market-explorer-prewarm-cron.lock -c 'bash /home/ubuntu/repos/EVRCalculator/infra/oracle/run_market_explorer_prewarm_guarded.sh' >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_explorer_prewarm.log 2>&1
 
 # Read-only health report, offset from the writer.
