@@ -38,6 +38,10 @@ from backend.sentinel.checks.public_semantics import (
     check_representative_set_page,
     check_tcg_directory,
 )
+from backend.sentinel.checks.runtime_scheduler import (
+    SENTINEL_SCHEDULER_CHECK_KEY,
+    check_sentinel_scheduler,
+)
 from backend.sentinel.checks.runtime_provenance import (
     check_vm_runtime_provenance,
     load_vm_overlay_manifest,
@@ -56,6 +60,7 @@ FAST_CHECK_KEYS = (
     PRICING_SCHEDULER_CHECK_KEY,
     MARKET_EXPLORER_SCHEDULER_CHECK_KEY,
     MARKET_EXPLORER_PROGRESS_CHECK_KEY,
+    SENTINEL_SCHEDULER_CHECK_KEY,
 )
 PUBLIC_CHECK_KEYS = (
     "public.backend_health",
@@ -150,6 +155,13 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
         lambda ctx: check_market_explorer_progress(ctx, client=client),
         description="Market Explorer maintained caches are current or actively converging",
         confirm_after=2,
+        exception_severity=Severity.CRITICAL,
+    )
+    registry.register(
+        SENTINEL_SCHEDULER_CHECK_KEY,
+        lambda ctx: check_sentinel_scheduler(ctx),
+        description="Sentinel Fast/Public, alert dispatcher, and freshness schedules are installed",
+        confirm_after=1,
         exception_severity=Severity.CRITICAL,
     )
     return registry
