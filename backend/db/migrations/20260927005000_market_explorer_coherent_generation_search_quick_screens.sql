@@ -578,11 +578,21 @@ BEGIN
   INSERT INTO public.pokemon_market_explorer_surface_constituent_totals_v2(
     generation_id,market_key,asset,total_count,availability
   )
-  SELECT p_generation_id,m.market_key,'sealed',count(*)::integer,
-         CASE WHEN count(*)>0 THEN 'available' ELSE 'empty' END
-  FROM _mx_sealed_quick_members m
-  WHERE m.market_date=p_market_date
-  GROUP BY m.market_key;
+  SELECT
+    p_generation_id,
+    d.market_key,
+    'sealed',
+    coalesce(x.n,0),
+    CASE WHEN coalesce(x.n,0)>0 THEN 'available' ELSE 'empty' END
+  FROM public.pokemon_market_explorer_surface_directory_v2 d
+  LEFT JOIN (
+    SELECT m.market_key,count(*)::integer n
+    FROM _mx_sealed_quick_members m
+    WHERE m.market_date=p_market_date
+    GROUP BY m.market_key
+  ) x ON x.market_key=d.market_key
+  WHERE d.generation_id=p_generation_id
+    AND d.market_key LIKE 'sealed-quick:%';
   
   INSERT INTO public.pokemon_market_explorer_surface_constituents_v2(
     generation_id,market_key,rank,instrument_id,asset,set_id,
