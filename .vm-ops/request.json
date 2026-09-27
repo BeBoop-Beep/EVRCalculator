@@ -1,4 +1,4 @@
 {
-  "operation": "code-red-db-load-restore-merge",
-  "request_id": "sentinel-restore-merge-20260927"
+  "operation": "scrape-cycle-status",
+  "request_id": "sentinel-scrape-cycle-status-20260927"
 }
