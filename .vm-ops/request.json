@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-reviewed",
-  "request_id": "rip-benchmark-prod-1320c62c"
+  "operation": "sentinel-status",
+  "request_id": "rip-benchmark-prod-post-sync"
 }
