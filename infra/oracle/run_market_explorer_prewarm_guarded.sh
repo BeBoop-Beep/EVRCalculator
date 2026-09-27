@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# One bounded Market Explorer maintained-cache advancement under the production
-# DB workload guard. The Python worker itself builds at most one maintained
-# cache per process; this wrapper deliberately does not loop.
+# One bounded Market Explorer V2 convergence advancement under the production
+# DB workload guard. The coordinator advances only one logical stage per process
+# (small card batch, one-day sealed/rarity authority, one maintained cache, or
+# final atomic promotion); this wrapper deliberately does not loop.
 set -euo pipefail
 
 REPO="${REPO:-/home/ubuntu/repos/EVRCalculator}"
@@ -27,6 +28,6 @@ PY
   exec "$PY" "$DB_GUARD" --wait-lock-seconds 120 --run-encoded "$ENCODED"
 fi
 
-exec "$PY" -m backend.scripts.run_market_explorer_maintained_cache_prewarm \
+exec "$PY" -m backend.scripts.run_market_explorer_convergence \
   --commit \
-  --max-caches 1
+  --card-set-batch 8
