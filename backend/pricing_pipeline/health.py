@@ -18,7 +18,12 @@ OK, DEGRADED, CRITICAL = "ok", "degraded_multi_source_coverage", "critical"
 RUN_DEADLINE_PHOENIX = time(8, 0)
 MAX_EVIDENCE_AGE_HOURS = 36
 EBAY_CONTINUITY_LOOKBACK_DAYS = 7
-EBAY_PIPELINE_ACTIVATION_DATE = date(2026, 9, 21)
+# Strict daily-continuity enforcement begins when the repaired scheduler +
+# Sentinel self-healing contract became production-authoritative. Earlier
+# missed dates remain diagnostic evidence; current active listings cannot
+# truthfully reconstruct their historical eBay market state.
+EBAY_CONTINUITY_ENFORCEMENT_DATE = date(2026, 9, 27)
+EBAY_DIAGNOSTIC_START_DATE = date(2026, 9, 21)
 
 
 def expected_market_date(now: datetime) -> date:
@@ -54,10 +59,9 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
     policies = client.table("pokemon_multi_source_card_prices_v1").select("policy_version").order("market_date", desc=True).limit(50).execute().data or []
 
     expected_day = expected_market_date(now)
-    continuity_start = max(
-        EBAY_PIPELINE_ACTIVATION_DATE,
-        expected_day - timedelta(days=EBAY_CONTINUITY_LOOKBACK_DAYS - 1),
-    )
+    lookback_start = expected_day - timedelta(days=EBAY_CONTINUITY_LOOKBACK_DAYS - 1)
+    continuity_start = max(EBAY_CONTINUITY_ENFORCEMENT_DATE, lookback_start)
+    diagnostic_start = max(EBAY_DIAGNOSTIC_START_DATE, lookback_start)
     batch_rows = (
         client.table("pokemon_scrape_batches")
         .select("market_date,status")
@@ -75,7 +79,7 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
         .execute().data or []
     )
 
-    def continuity_dates(rows):
+    def dates_between(rows, start):
         out = set()
         for row in rows:
             raw = str(row.get("market_date") or "")[:10]
@@ -83,7 +87,7 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
                 parsed = date.fromisoformat(raw)
             except ValueError:
                 continue
-            if continuity_start <= parsed <= expected_day:
+            if start <= parsed <= expected_day:
                 out.add(raw)
         return sorted(out)
 
@@ -95,8 +99,11 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
         "shadow": one("pokemon_multi_source_card_prices_v1", "market_date,policy_version", "market_date"),
         "ledger": ledger[0] if ledger else None, "budget_v2": v2,
         "shadow_policies": sorted({p["policy_version"] for p in policies}),
-        "expected_ebay_dates": continuity_dates(batch_rows),
-        "completed_ebay_dates": continuity_dates(ebay_rows),
+        "expected_ebay_dates": dates_between(batch_rows, continuity_start),
+        "completed_ebay_dates": dates_between(ebay_rows, continuity_start),
+        "diagnostic_expected_ebay_dates": dates_between(batch_rows, diagnostic_start),
+        "diagnostic_completed_ebay_dates": dates_between(ebay_rows, diagnostic_start),
+        "continuity_enforcement_date": EBAY_CONTINUITY_ENFORCEMENT_DATE.isoformat(),
         "non_tcg_current": _guard(client, "card_variant_price_current_v2"),
         "non_tcg_canonical": _guard(client, "pokemon_canonical_card_market_prices_latest"),
     }
@@ -113,12 +120,24 @@ def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
     expected_ebay_dates = list(snapshot.get("expected_ebay_dates") or [])
     completed_ebay_dates = set(snapshot.get("completed_ebay_dates") or [])
     missing_ebay_dates = [day for day in expected_ebay_dates if day not in completed_ebay_dates]
+    diagnostic_expected = list(snapshot.get("diagnostic_expected_ebay_dates") or [])
+    diagnostic_completed = set(snapshot.get("diagnostic_completed_ebay_dates") or [])
+    historical_missing = [
+        day for day in diagnostic_expected
+        if day not in diagnostic_completed and day < EBAY_CONTINUITY_ENFORCEMENT_DATE.isoformat()
+    ]
     results = [
         _check("pricing.multi_source.run_freshness", bool(run and run["market_date"] >= expected and run["status"] == "COMPLETE"),
                "DAILY_RUN_STALE_OR_INCOMPLETE", {"expected_market_date": expected, "latest_run": run and {k: run[k] for k in ("market_date", "status", "stage", "failure_code")}}),
         _check("pricing.ebay.calendar_continuity", not missing_ebay_dates,
-               "EBAY_DAILY_COVERAGE_GAP", {"expected_market_date": expected, "expected_completed_batch_dates": expected_ebay_dates,
-                                          "completed_ebay_dates": sorted(completed_ebay_dates), "missing_ebay_dates": missing_ebay_dates}),
+               "EBAY_DAILY_COVERAGE_GAP", {
+                   "expected_market_date": expected,
+                   "continuity_enforcement_date": snapshot.get("continuity_enforcement_date"),
+                   "expected_completed_batch_dates": expected_ebay_dates,
+                   "completed_ebay_dates": sorted(completed_ebay_dates),
+                   "missing_ebay_dates": missing_ebay_dates,
+                   "historical_pre_enforcement_gaps": historical_missing,
+               }),
         _check("pricing.multi_source.target_freshness", bool(run and run["market_date"] >= expected and run.get("target_fingerprint")),
                "TARGET_MANIFEST_MISSING_FOR_EXPECTED_DATE", {"expected_market_date": expected, "latest_target_market_date": run and run["market_date"]}),
     ]
