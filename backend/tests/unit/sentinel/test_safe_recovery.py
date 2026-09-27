@@ -27,7 +27,9 @@ from backend.sentinel.recovery.engine import (
 )
 from backend.sentinel.recovery.runbooks import (
     LEASE_RUNBOOK,
+    MARKET_EXPLORER_SCHEDULER_RUNBOOK,
     PRICING_RUNBOOK,
+    PRICING_SCHEDULER_RUNBOOK,
     PUBLICATION_DIVERGENCE_RUNBOOK,
     PUBLICATION_RUNBOOK,
     build_safe_recovery_registry,
@@ -281,6 +283,8 @@ def test_p6_allowlist_contains_publication_stale_divergence_and_expired_lease():
     assert registry.matches() == (
         ("market.freshness", "market_publication_stale"),
         ("market.freshness", "market_snapshot_date_divergence"),
+        ("market_explorer.maintenance_scheduler", "MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING"),
+        ("pricing.ebay.scheduler", "EBAY_DAILY_SCHEDULE_MISSING"),
         ("pricing.multi_source.run_freshness", "DAILY_RUN_STALE_OR_INCOMPLETE"),
         ("scrape.queue_leases", "scrape_job_lease_expired"),
     )
@@ -484,6 +488,100 @@ def test_current_day_pricing_recovery_resumes_canonical_daily_pipeline():
     attempt = store.get_latest_recovery_attempt(incident.id, PRICING_RUNBOOK)
     assert attempt is not None
     assert attempt.status is RecoveryAttemptStatus.SUCCEEDED
+
+
+def test_pricing_scheduler_recovery_uses_managed_installer_then_verifies():
+    store = MemoryStateStore()
+    authority = "multi-source-pricing-cron-v1"
+    registered, incident = _open_incident(
+        store,
+        key="pricing.ebay.scheduler",
+        code="EBAY_DAILY_SCHEDULE_MISSING",
+        authority=authority,
+    )
+    states = iter([
+        CheckResult.failure(
+            "pricing.ebay.scheduler",
+            failure_code="EBAY_DAILY_SCHEDULE_MISSING",
+            severity=Severity.WARNING,
+            authority_identity=authority,
+            checked_at=NOW,
+        ),
+        CheckResult.healthy(
+            "pricing.ebay.scheduler",
+            authority_identity=authority,
+            checked_at=NOW,
+        ),
+    ])
+    installs = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        publish_if_needed_fn=lambda *a, **k: {"status": "noop_already_current"},
+        gate_evaluator=lambda *a, **k: SimpleNamespace(allowed=True, reason_code="allowed_complete"),
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy("market.freshness", checked_at=NOW),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy("scrape.queue_leases", checked_at=NOW),
+        pricing_scheduler_checker=lambda *a, **k: next(states),
+        pricing_cron_installer=lambda: installs.append(True) or {"status": "installed", "exit_code": 0},
+        market_explorer_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "market_explorer.maintenance_scheduler",
+            authority_identity="market-explorer-prewarm-cron-v1",
+            checked_at=NOW,
+        ),
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert installs == [True]
+    assert store.get_latest_recovery_attempt(incident.id, PRICING_SCHEDULER_RUNBOOK).status is RecoveryAttemptStatus.SUCCEEDED
+
+
+def test_market_explorer_scheduler_recovery_uses_managed_installer_then_verifies():
+    store = MemoryStateStore()
+    authority = "market-explorer-prewarm-cron-v1"
+    registered, incident = _open_incident(
+        store,
+        key="market_explorer.maintenance_scheduler",
+        code="MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING",
+        authority=authority,
+    )
+    states = iter([
+        CheckResult.failure(
+            "market_explorer.maintenance_scheduler",
+            failure_code="MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING",
+            severity=Severity.CRITICAL,
+            authority_identity=authority,
+            checked_at=NOW,
+        ),
+        CheckResult.healthy(
+            "market_explorer.maintenance_scheduler",
+            authority_identity=authority,
+            checked_at=NOW,
+        ),
+    ])
+    installs = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        publish_if_needed_fn=lambda *a, **k: {"status": "noop_already_current"},
+        gate_evaluator=lambda *a, **k: SimpleNamespace(allowed=True, reason_code="allowed_complete"),
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy("market.freshness", checked_at=NOW),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy("scrape.queue_leases", checked_at=NOW),
+        pricing_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "pricing.ebay.scheduler",
+            authority_identity="multi-source-pricing-cron-v1",
+            checked_at=NOW,
+        ),
+        market_explorer_scheduler_checker=lambda *a, **k: next(states),
+        market_explorer_cron_installer=lambda: installs.append(True) or {"status": "installed", "exit_code": 0},
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert installs == [True]
+    assert store.get_latest_recovery_attempt(incident.id, MARKET_EXPLORER_SCHEDULER_RUNBOOK).status is RecoveryAttemptStatus.SUCCEEDED
 
 
 def test_lease_recovery_uses_narrow_reconciler_and_verifies_queue_clear():
