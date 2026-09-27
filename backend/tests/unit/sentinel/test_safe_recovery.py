@@ -33,6 +33,7 @@ from backend.sentinel.recovery.runbooks import (
     PRICING_SCHEDULER_RUNBOOK,
     PUBLICATION_DIVERGENCE_RUNBOOK,
     PUBLICATION_RUNBOOK,
+    SENTINEL_SCHEDULER_RUNBOOK,
     build_safe_recovery_registry,
 )
 from backend.sentinel.registry import CheckRegistry
@@ -289,6 +290,7 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
         ("pricing.ebay.scheduler", "EBAY_DAILY_SCHEDULE_MISSING"),
         ("pricing.multi_source.run_freshness", "DAILY_RUN_STALE_OR_INCOMPLETE"),
         ("scrape.queue_leases", "scrape_job_lease_expired"),
+        ("sentinel.runtime_scheduler", "SENTINEL_RUNTIME_SCHEDULE_MISSING"),
     )
 
 
@@ -524,6 +526,65 @@ def test_explorer_only_divergence_defers_to_bounded_maintenance_worker():
     assert report["reason_code"] == "explorer_convergence_owned_by_maintained_worker"
     assert publish_calls == []
     assert store.get_incident(incident.id).recovery_attempt_count == 0
+
+
+def test_sentinel_scheduler_recovery_uses_managed_installer_then_verifies():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="sentinel.runtime_scheduler",
+        code="SENTINEL_RUNTIME_SCHEDULE_MISSING",
+        authority="sentinel-runtime-cron-v1",
+    )
+    states = iter([
+        CheckResult.failure(
+            "sentinel.runtime_scheduler",
+            failure_code="SENTINEL_RUNTIME_SCHEDULE_MISSING",
+            severity=Severity.CRITICAL,
+            authority_identity="sentinel-runtime-cron-v1",
+            checked_at=NOW,
+        ),
+        CheckResult.healthy(
+            "sentinel.runtime_scheduler",
+            authority_identity="sentinel-runtime-cron-v1",
+            checked_at=NOW,
+        ),
+    ])
+    installs = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        market_freshness_checker=lambda *a, **k: CheckResult.healthy(
+            "market.freshness", checked_at=NOW
+        ),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+        pricing_health_checker=lambda *a, **k: CheckResult.healthy(
+            k["check_key"], authority_identity="2026-09-11", checked_at=NOW
+        ),
+        pricing_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "pricing.ebay.scheduler", checked_at=NOW
+        ),
+        market_explorer_scheduler_checker=lambda *a, **k: CheckResult.healthy(
+            "market_explorer.maintenance_scheduler", checked_at=NOW
+        ),
+        market_explorer_progress_checker=lambda *a, **k: CheckResult.healthy(
+            "market_explorer.maintenance_progress",
+            authority_identity="2026-09-11",
+            checked_at=NOW,
+        ),
+        sentinel_scheduler_checker=lambda *a, **k: next(states),
+        sentinel_cron_installer=lambda: installs.append(True) or {
+            "status": "installed", "exit_code": 0
+        },
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["action"] == "recovered"
+    assert installs == [True]
+    assert SENTINEL_SCHEDULER_RUNBOOK
 
 
 def test_market_explorer_progress_recovery_runs_one_guarded_worker_tick():

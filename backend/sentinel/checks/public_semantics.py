@@ -240,13 +240,31 @@ def check_market_public_snapshot(
         )
     market_date = (((payload.get("meta") or {}).get("snapshot") or {}).get("marketDate"))
     invalid = []
+    unavailable_scoped = 0
     for row in sets:
+        if not isinstance(row, dict) or not row.get("setId"):
+            invalid.append((row or {}).get("setId") if isinstance(row, dict) else None)
+            continue
         try:
-            valid_value = float((row or {}).get("currentSetValue")) > 0
+            valid_value = float(row.get("currentSetValue")) > 0
         except (TypeError, ValueError):
             valid_value = False
-        if not isinstance(row, dict) or not row.get("setId") or not valid_value:
-            invalid.append((row or {}).get("setId") if isinstance(row, dict) else None)
+
+        market_scope = str(row.get("marketScope") or "").strip().lower()
+        value_status = str(row.get("valueStatus") or "").strip().lower()
+        certification = str(row.get("certificationStatus") or "").strip().upper()
+        explicitly_unavailable_scoped = bool(
+            market_scope
+            and market_scope != "standard"
+            and value_status == "unavailable"
+            and certification == "SCOPED_MARKET_INCOMPLETE"
+            and row.get("currentSetValue") is None
+        )
+        if explicitly_unavailable_scoped:
+            unavailable_scoped += 1
+            continue
+        if not valid_value:
+            invalid.append(row.get("setId"))
     if not market_date:
         code = "public_market_date_missing"
     elif invalid:
@@ -260,6 +278,7 @@ def check_market_public_snapshot(
                 "status_code": 200,
                 "set_count": len(sets),
                 "market_date": market_date,
+                "unavailable_scoped_count": unavailable_scoped,
                 "sample_set_ids": [row.get("setId") for row in sets[:_SAMPLE_LIMIT] if isinstance(row, dict)],
                 "elapsed_ms": probe["elapsed_ms"],
             },

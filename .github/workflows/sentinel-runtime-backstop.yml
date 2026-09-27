@@ -16,69 +16,56 @@ concurrency:
 jobs:
   heartbeat:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SENTINEL_STATE_WRITES_ENABLED: 'true'
+      SENTINEL_PERSISTENCE_SCHEMA_READY: 'true'
+      SENTINEL_RECOVERY_ENABLED: 'false'
+      SENTINEL_RECOVERY_EXECUTION_READY: 'false'
+      SENTINEL_COMPONENT: sentinel_github_backstop
+      SENTINEL_WATCH_COMPONENT: sentinel_vm
       SENTINEL_WATCH_HOST: tcgplayer-scraper-pokemon-v2
       SENTINEL_HEARTBEAT_MAX_AGE_SECONDS: '900'
+      SENTINEL_RUNNER_BUILD_SHA: ${{ github.sha }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install independent Sentinel runtime
+        run: python -m pip install -q supabase==2.28.3 python-dotenv==1.2.2 requests
       - name: Verify production Sentinel heartbeat independently
+        run: python -m backend.sentinel.operational --profile independent
+
+
+  vm-fast-backstop:
+    # GitHub's scheduler is independent of the VM crontab. If cron loses
+    # Sentinel but the self-hosted runner is still alive, this one Fast pass
+    # detects sentinel.runtime_scheduler and reinstalls the managed block.
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 20
+    steps:
+      - name: Run bounded Fast recovery outside VM cron
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${SUPABASE_URL:-}" || { echo "SUPABASE_URL secret missing"; exit 2; }
-          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "SUPABASE_SERVICE_ROLE_KEY secret missing"; exit 2; }
-
-          python3 - <<'PY'
-          import json
-          import os
-          import urllib.parse
-          import urllib.request
-          from datetime import datetime, timezone
-
-          base = os.environ["SUPABASE_URL"].rstrip("/")
-          key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-          host = os.environ["SENTINEL_WATCH_HOST"]
-          max_age = int(os.environ["SENTINEL_HEARTBEAT_MAX_AGE_SECONDS"])
-
-          params = urllib.parse.urlencode({
-              "select": "component,host,build_sha,heartbeat_at",
-              "component": "eq.sentinel_vm",
-              "host": f"eq.{host}",
-              "order": "heartbeat_at.desc",
-              "limit": "1",
-          })
-          request = urllib.request.Request(
-              f"{base}/rest/v1/sentinel_component_heartbeats?{params}",
-              headers={
-                  "apikey": key,
-                  "Authorization": "Bearer " + key,
-                  "Accept": "application/json",
-              },
-          )
-          with urllib.request.urlopen(request, timeout=20) as response:
-              rows = json.loads(response.read().decode("utf-8"))
-
-          if not rows:
-              raise SystemExit("production Sentinel heartbeat is missing")
-
-          row = rows[0]
-          heartbeat = datetime.fromisoformat(
-              str(row["heartbeat_at"]).replace("Z", "+00:00")
-          ).astimezone(timezone.utc)
-          age = max(0.0, (datetime.now(timezone.utc) - heartbeat).total_seconds())
-          print(json.dumps({
-              "component": row.get("component"),
-              "host": row.get("host"),
-              "build_sha": row.get("build_sha"),
-              "heartbeat_at": heartbeat.isoformat(),
-              "age_seconds": round(age, 1),
-              "max_age_seconds": max_age,
-          }, sort_keys=True))
-          if age > max_age:
-              raise SystemExit(
-                  f"production Sentinel heartbeat stale: {age:.1f}s > {max_age}s"
-              )
-          print("SENTINEL_INDEPENDENT_HEARTBEAT=PASS")
-          PY
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+          test -d "$REPO/.git"
+          test -x "$PY"
+          if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
+            echo "database_safety_hold_active=true"
+            exit 0
+          fi
+          cd "$REPO"
+          set -a
+          . backend/.env
+          set +a
+          export PYTHONPATH="$REPO"
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"             "$PY" -m backend.sentinel.operational --profile fast
