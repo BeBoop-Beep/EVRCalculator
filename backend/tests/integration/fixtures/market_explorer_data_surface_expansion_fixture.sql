@@ -251,8 +251,16 @@ returns table(
   product_family text,variant_label text,match_kind text,relevance_score integer,name_similarity real
 )
 language sql stable set search_path='' as $function$
-  select *
-  from public.search_pokemon_market_explorer_instruments_v2(p_query,p_asset,p_limit);
+  select
+    'cards'::text,m.card_variant_id,m.card_name,m.set_id,s.name,m.image_url,
+    m.card_number,m.rarity,m.edition,m.printing_type,m.special_type,
+    null::text,null::text,'fixture'::text,900::integer,1.0::real
+  from public.pokemon_market_explorer_card_current_metadata m
+  left join public.sets s on s.id=m.set_id
+  where p_asset in ('all','cards')
+    and lower(m.card_name) like '%'||lower(p_query)||'%'
+  order by m.card_name
+  limit least(greatest(coalesce(p_limit,20),1),50);
 $function$;
 
 
