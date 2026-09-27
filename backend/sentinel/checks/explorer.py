@@ -42,6 +42,7 @@ def check_market_explorer_scheduler(
     prewarm = 0
     health = 0
     bounded = 0
+    minute_cadence = 0
     in_block = False
     for raw in text.splitlines():
         line = raw.strip()
@@ -58,6 +59,8 @@ def check_market_explorer_scheduler(
             prewarm += 1
             if "/usr/bin/flock -n" in line:
                 bounded += 1
+            if line.startswith("* * * * * "):
+                minute_cadence += 1
         if "check_market_explorer_maintained_cache_health" in line:
             health += 1
 
@@ -66,12 +69,14 @@ def check_market_explorer_scheduler(
         "prewarm_entries": prewarm,
         "health_entries": health,
         "bounded_prewarm_entries": bounded,
+        "minute_cadence_entries": minute_cadence,
     }
     expected = {
         "managed_blocks": 1,
         "prewarm_entries": 1,
         "health_entries": 1,
         "bounded_prewarm_entries": 1,
+        "minute_cadence_entries": 1,
     }
     if observed != expected:
         return CheckResult.failure(
