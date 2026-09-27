@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from backend.pricing_pipeline.contracts import DAILY_REQUEST_LIMIT
 import backend.sentinel.checks.pricing as sentinel_pricing
+from backend.sentinel.checks.pricing import PRICING_SCHEDULER_CHECK_KEY, check_pricing_scheduler
 from backend.pricing_pipeline.contracts import PHOENIX as PP_PHOENIX
 from backend.scripts.freeze_ebay_active_ask_v1 import VERSION as ESTIMATOR_VERSION
 from backend.scripts.pokemon_multi_source_card_price_v1 import POLICY_VERSION
@@ -125,12 +126,29 @@ def _run_all(client):
 # --------------------------------------------------------------------------------- registration
 
 
+def test_pricing_scheduler_contract_detects_missing_and_valid_managed_block():
+    missing = check_pricing_scheduler(CTX, crontab_loader=lambda: "")
+    assert missing.outcome == CheckOutcome.FAILURE
+    assert missing.failure_code == "EBAY_DAILY_SCHEDULE_MISSING"
+    assert missing.severity == Severity.WARNING
+
+    valid = """# BEGIN multi-source-pricing (managed by install_multi_source_pricing_cron.sh)
+10 4 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'python -m backend.scripts.run_daily_multi_source_card_pricing'
+40 4,5,7-20 * * * /usr/bin/flock -n /tmp/multi-source-pricing.lock -c 'python -m backend.scripts.run_daily_multi_source_card_pricing'
+20 9 * * * python -m backend.scripts.check_multi_source_pricing_health
+# END multi-source-pricing
+"""
+    healthy = check_pricing_scheduler(CTX, crontab_loader=lambda: valid)
+    assert healthy.outcome == CheckOutcome.HEALTHY
+
+
 def test_pricing_checks_registered_exactly_once_in_fast_profile():
     registry = build_fast_registry(client=_client())
     keys = registry.keys()
     for key in PRICING_CHECK_KEYS:
         assert keys.count(key) == 1
     assert set(PRICING_CHECK_KEYS).issubset(set(FAST_CHECK_KEYS))
+    assert PRICING_SCHEDULER_CHECK_KEY in FAST_CHECK_KEYS
 
 
 def test_pricing_checks_registered_exactly_once_in_all_profile():
