@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from backend.api import main  # noqa: E402
 from backend.db.services import market_explorer_surface_v2 as v2  # noqa: E402
 from backend.db.services import market_explorer_prepared_directory as v1  # noqa: E402
+from backend.db.services import market_explorer_instrument_search as leaf_search  # noqa: E402
 
 GEN = "11111111-1111-1111-1111-111111111111"
 OTHER = "22222222-2222-2222-2222-222222222222"
@@ -55,9 +56,11 @@ class AliasQ:
 
 
 class Fake:
-    def __init__(self, directory=None, history=None, page=None, fail=None, search=None, options=None, aliases=None):
+    def __init__(self, directory=None, history=None, page=None, fail=None, search=None, options=None, aliases=None,
+                 leaves=None, screen=None):
         self.directory, self.history, self.page = directory or [], history or [], page
         self.fail, self.search, self.options, self.aliases, self.calls = fail or {}, search, options, aliases or [], []
+        self.leaves, self.screen = leaves, screen
 
     def table(self, name):
         return AliasQ([dict(a, generation_id=GEN) for a in self.aliases])
@@ -68,7 +71,8 @@ class Fake:
             raise self.fail[name]
         data = {v2.DIRECTORY_RPC_V2: self.directory, v2.HISTORY_RPC_V2: self.history,
                 v2.CONSTITUENTS_RPC_V2: self.page, v2.SEARCH_RPC_V1: self.search,
-                v2.ASSET_OPTIONS_RPC_V2: self.options}.get(name)
+                v2.ASSET_OPTIONS_RPC_V2: self.options, leaf_search.SEARCH_RPC: self.leaves,
+                v1.SCREEN_RPC: self.screen}.get(name)
         return Resp(data)
 
 
@@ -253,3 +257,102 @@ def test_comparison_enforces_plan_active_market_limit(monkeypatch, api):
     monkeypatch.setattr(main, "_resolve_index_plan", lambda a, t: "basic")
     single = client.post("/market/explorer/prepared-comparison", json={"marketKeys": [keys[0]], "contextMarketKeys": []})
     assert single.status_code == 200
+
+
+def test_leaf_search_is_public_normalized_and_graded_is_stably_unavailable(monkeypatch, api):
+    rows = [{"asset": "sealed", "instrument_id": "p1", "display_name": "Ascended Heroes Case",
+             "market_price": 149.0, "market_date": "2026-09-25", "product_family": "case",
+             "variant_label": "Hobby", "bulk_container": True}]
+    client = api(Fake(leaves=rows))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *a: pytest.fail("public search consulted plan"))
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **k: pytest.fail("public search required auth"))
+    result = client.get("/market/explorer/leaves/search", params={"asset": "sealed", "q": "Ascended Heroes"})
+    assert result.status_code == 200 and result.headers["cache-control"] == "no-store"
+    assert result.json()["items"][0] == {
+        "asset": "sealed", "instrumentId": "p1", "sealedProductId": "p1",
+        "displayName": "Ascended Heroes Case", "name": "Ascended Heroes Case",
+        "label": "Ascended Heroes Case", "marketPrice": 149.0, "marketDate": "2026-09-25",
+        "productFamily": "case", "productType": "case", "variantLabel": "Hobby", "bulkContainer": True,
+    }
+    graded = client.get("/market/explorer/leaves/search", params={"asset": "graded", "q": "Charizard"})
+    assert graded.status_code == 200
+    assert graded.json() == {
+        "asset": "graded", "query": "Charizard", "limit": 20, "items": [],
+        "availability": "INSUFFICIENT_AUTHORITY",
+        "reason": leaf_search.GRADED_UNAVAILABLE_REASON,
+    }
+
+
+def test_leaf_search_validation_and_failures_are_browser_safe(api):
+    client = api(Fake(fail={leaf_search.SEARCH_RPC: RuntimeError("secret database relation")}, leaves=[]))
+    assert client.get("/market/explorer/leaves/search", params={"asset": "cards", "q": "x"}).status_code == 422
+    failed = client.get("/market/explorer/leaves/search", params={"asset": "cards", "q": "Dragonite"})
+    assert failed.status_code == 503 and "secret" not in failed.text
+
+
+def test_single_market_is_anonymous_but_comparison_is_not(monkeypatch, api):
+    client = api(Fake(directory=[drow("set:a"), drow("set:b")]))
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **k: pytest.fail("single market required auth"))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *a: pytest.fail("single market consulted plan"))
+    assert client.post("/market/explorer/prepared-comparison", json={"marketKeys": ["set:a"]}).status_code == 200
+
+
+@pytest.mark.parametrize("asset,instrument_id", [("cards", "card-1"), ("sealed", "sealed-1")])
+def test_exact_one_item_executes_for_premium(monkeypatch, api, asset, instrument_id):
+    seen = []
+    client = api(Fake())
+
+    def run_exact(_client, *, instruments, start_date, end_date):
+        seen.extend(instruments)
+        return {"asOf": end_date, "series": [], "currentConstituents": []}
+
+    def execute(**kwargs):
+        payload = kwargs["novel_builder"](None, "2026-09-25")
+        return SimpleNamespace(payload=payload)
+
+    monkeypatch.setattr(main, "run_exact_basket_v2", run_exact)
+    monkeypatch.setattr(main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute", execute)
+    response = client.post("/market/explorer/query", json={
+        "asset": asset, "membershipMode": "explicit",
+        "instruments": [{"asset": asset, "instrumentId": instrument_id}],
+    })
+    assert response.status_code == 200
+    assert seen == [{"asset": asset, "instrumentId": instrument_id}]
+
+
+@pytest.mark.parametrize("plan", ["basic", "plus"])
+def test_exact_one_item_rejects_non_premium(monkeypatch, api, plan):
+    client = api(Fake())
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *a: plan)
+    response = client.post("/market/explorer/query", json={
+        "asset": "cards", "membershipMode": "explicit",
+        "instruments": [{"asset": "cards", "instrumentId": "card-1"}],
+    })
+    assert response.status_code == 403
+
+
+def test_exact_one_item_rejects_anonymous(monkeypatch, api):
+    client = api(Fake())
+
+    def deny(**_kwargs):
+        raise HTTPException(status_code=401, detail="auth")
+
+    monkeypatch.setattr(main, "_require_authenticated_user_id", deny)
+    response = client.post("/market/explorer/query", json={
+        "asset": "sealed", "membershipMode": "explicit",
+        "instruments": [{"asset": "sealed", "instrumentId": "sealed-1"}],
+    })
+    assert response.status_code == 401
+
+
+def test_prepared_screen_registry_validation_and_payload(api):
+    rows = [{"rank": 1, "market_key": "set:a", "label": "A", "asset": "cards",
+             "market_type": "set", "metric_value": 3.2, "comparison_as_of": "2026-09-25",
+             "generation_id": GEN, "generated_at": "2026-09-25T01:00:00Z", "private": "drop"}]
+    client = api(Fake(screen=rows))
+    for key in sorted(v1.PREPARED_SCREEN_KEYS):
+        response = client.get("/market/explorer/prepared-screen", params={"screen": key, "asset": "cards", "limit": 25})
+        assert response.status_code == 200 and "private" not in response.text
+    assert client.get("/market/explorer/prepared-screen", params={"screen": "unknown", "asset": "cards"}).status_code == 400
+    assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "graded"}).status_code == 400
+    assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "cards", "limit": 26}).status_code == 422

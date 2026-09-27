@@ -3,8 +3,8 @@ from types import SimpleNamespace
 import pytest
 
 from backend.db.services.market_explorer_instrument_search import (
-    SEARCH_RPC,
-    search_market_explorer_instruments,
+    GRADED_UNAVAILABLE_REASON, SEARCH_RPC,
+    search_market_explorer_instruments, search_market_explorer_leaves,
 )
 
 
@@ -55,7 +55,7 @@ def test_card_and_sealed_rows_share_the_canonical_browser_contract():
         "asset": "sealed", "instrumentId": "s1", "displayName": "Elite Trainer Box",
         "name": "Elite Trainer Box", "label": "Elite Trainer Box", "setId": "set-1",
         "setName": "Temporal Forces", "imageUrl": "sealed.jpg", "productFamily": "ETB",
-        "productType": "ETB", "variantLabel": "Pokemon Center",
+        "productType": "ETB", "variantLabel": "Pokemon Center", "sealedProductId": "s1",
     }
 
 
@@ -76,3 +76,43 @@ def test_short_queries_do_not_reach_the_database(q):
     with pytest.raises(ValueError):
         search_market_explorer_instruments(client, q=q)
     assert client.calls == []
+
+
+def test_leaf_shape_preserves_price_freshness_and_optional_asset_metadata_without_reranking():
+    rows = [
+        {"asset": "cards", "instrument_id": "dragonite", "display_name": "Dragonite",
+         "canonical_card_id": "card-1", "set_id": "fossil", "set_name": "Fossil",
+         "market_price": 42.5, "market_date": "2026-09-25", "variant_label": "1st Edition"},
+        {"asset": "sealed", "instrument_id": "case-1", "sealed_product_id": "case-1",
+         "display_name": "Ascended Heroes Case", "product_family": "Case",
+         "product_type": "Case", "bulk_container": True, "market_price": 999.0,
+         "market_date": "2026-09-24"},
+    ]
+    card = search_market_explorer_leaves(RpcClient(rows[:1]), q="Dragonite", asset="cards", limit=10)
+    assert card["items"][0]["marketPrice"] == 42.5
+    assert card["items"][0]["marketDate"] == "2026-09-25"
+    assert card["items"][0]["canonicalCardId"] == "card-1"
+    sealed = search_market_explorer_leaves(RpcClient(rows[1:]), q="Ascended Heroes", asset="sealed")
+    assert sealed["items"][0]["sealedProductId"] == "case-1"
+    assert sealed["items"][0]["bulkContainer"] is True
+
+
+def test_graded_leaf_search_is_a_stable_truthful_contract_and_never_calls_db():
+    client = RpcClient([])
+    payload = search_market_explorer_leaves(client, q="PSA 10", asset="graded", limit=25)
+    assert payload == {
+        "query": "PSA 10", "asset": "graded", "limit": 25, "items": [],
+        "availability": "INSUFFICIENT_AUTHORITY", "reason": GRADED_UNAVAILABLE_REASON,
+    }
+    assert client.calls == []
+
+
+@pytest.mark.parametrize("query,asset", [
+    ("Dragonite", "cards"), ("Charizard", "cards"), ("3 pack", "sealed"),
+    ("Ascended Heroes", "sealed"), ("Case", "sealed"),
+])
+def test_leaf_search_matrix_returns_only_physical_leaf_rows(query, asset):
+    rows = [{"asset": asset, "instrument_id": f"{asset}-1", "display_name": query}]
+    payload = search_market_explorer_leaves(RpcClient(rows), q=query, asset=asset)
+    assert [item["asset"] for item in payload["items"]] == [asset]
+    assert all("marketKey" not in item and "result_kind" not in item for item in payload["items"])

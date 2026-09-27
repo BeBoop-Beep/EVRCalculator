@@ -172,6 +172,7 @@ from backend.db.services.market_explorer_options_snapshot import (
     read_market_explorer_options_snapshot,
 )
 from backend.db.services.market_explorer_prepared_directory import (
+    PreparedSurfaceValidationError,
     read_prepared_comparison_bundle, read_prepared_constituents, enrich_prepared_constituent_page,
     read_prepared_directory,
     read_prepared_screen, read_set_context_ranking,
@@ -197,7 +198,7 @@ from backend.domain.pokemon.market_explorer_preflight import (
     call_filtered_cards_preflight,
 )
 from backend.db.services.market_explorer_instrument_search import (
-    search_market_explorer_instruments,
+    LeafSearchError, search_market_explorer_instruments, search_market_explorer_leaves,
 )
 from backend.db.services.sitewide_search import search_sitewide
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
@@ -1473,6 +1474,8 @@ def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
         )
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "PREPARED_COMPARISON_INVALID"}, status_code=400)
+    except PreparedSurfaceValidationError as exc:
+        return JSONResponse(content={"message": "Prepared comparison authority is inconsistent", "code": exc.code}, status_code=409)
     except Exception as exc:
         # Live QA (2026-09-22) reproduced a bare, unhandled 500 ("Internal
         # Server Error") from this route for even a single Set market, taking
@@ -1545,6 +1548,8 @@ def get_market_explorer_prepared_screen(screen: str, asset: Optional[str] = None
         return {"results": read_prepared_screen(service_read_client, screen, asset, limit)}
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "PREPARED_SCREEN_INVALID"}, status_code=400)
+    except PreparedSurfaceValidationError as exc:
+        return JSONResponse(content={"message": "Prepared Screen authority is inconsistent", "code": exc.code}, status_code=409)
     except Exception:
         logger.exception("/market/explorer/prepared-screen failed", extra={"screen": screen, "asset": asset, "limit": limit})
         return JSONResponse(content={"message": "Prepared Screen is temporarily unavailable", "code": "PREPARED_SCREEN_FAILED"}, status_code=503)
@@ -1661,6 +1666,40 @@ def get_market_explorer_catalog_search(
     except Exception:
         logger.exception("/market/explorer/catalog/search unexpected error")
         return JSONResponse(content={"message": "Search is temporarily unavailable", "code": "CATALOG_SEARCH_FAILED"}, status_code=503)
+
+
+@app.get("/market/explorer/leaves/search")
+def get_market_explorer_leaf_search(
+    request: Request,
+    asset: str = Query(default="cards", max_length=16),
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=20, ge=1, le=50),
+):
+    """Public, bounded physical-leaf discovery for Explorer's top search.
+
+    Aggregate Set/Era/prepared markets remain on the directory controls. This
+    endpoint deliberately reuses the canonical instrument adapter and does not
+    grant permission to execute the discovered exact market.
+    """
+    forwarded = str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+    network_identity = forwarded or (request.client.host if request.client else "unknown")
+    _enforce_paid_abuse(request, user_id=f"explorer-leaf-search:{network_identity}",
+                        policy_class=POLICY_SITE_SEARCH, route="/market/explorer/leaves/search")
+    try:
+        return JSONResponse(
+            content=search_market_explorer_leaves(
+                service_read_client, asset=asset, q=q, limit=limit,
+            ),
+            headers={"Cache-Control": "no-store"},
+        )
+    except ValueError:
+        return JSONResponse(content={"message": "Invalid leaf search request", "code": "LEAF_SEARCH_INVALID"}, status_code=400)
+    except LeafSearchError as exc:
+        logger.error("/market/explorer/leaves/search failed", extra={"code": exc.code})
+        return JSONResponse(content={"message": "Leaf search is temporarily unavailable", "code": exc.code}, status_code=503)
+    except Exception:
+        logger.exception("/market/explorer/leaves/search unexpected error")
+        return JSONResponse(content={"message": "Leaf search is temporarily unavailable", "code": "LEAF_SEARCH_FAILED"}, status_code=503)
 
 
 @app.get("/market/explorer/asset-options")

@@ -23,10 +23,45 @@ PREPARED_CONSTITUENT_MAX_LIMIT = 100
 # `test_prepared_comparison_bundle_never_selects_payload_json` guard.
 QUERY_CACHE_TABLE = "pokemon_market_explorer_query_cache"
 MAX_MARKETS = 25
+PREPARED_SCREEN_KEYS = frozenset({
+    "rarity-leaders", "sealed-format-leaders", "momentum-leaders",
+    "largest-drawdowns", "top-performers", "worst-performers",
+})
+PREPARED_SCREEN_ASSETS = frozenset({"cards", "sealed"})
 DIRECTORY_CACHE_TTL_SECONDS = 30.0
 _directory_cache_lock = Lock()
 _directory_cache_rows: list[dict[str, Any]] | None = None
 _directory_cache_expires_at = 0.0
+
+
+class PreparedSurfaceValidationError(RuntimeError):
+    """A stable browser-safe prepared-surface integrity failure."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def _published(row: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in row and row[key] is not None:
+            return row[key]
+    return None
+
+
+def _single_non_null(rows: list[dict[str, Any]], keys: tuple[str, ...], code: str) -> Any:
+    values = {str(value) for row in rows if (value := _published(row, *keys)) is not None}
+    if len(values) > 1:
+        raise PreparedSurfaceValidationError(code)
+    return next(iter(values), None)
+
+
+def _validate_history_watermark(history: list[dict[str, Any]], comparison_as_of: str | None) -> None:
+    if comparison_as_of is None:
+        return
+    cutoff = str(comparison_as_of)[:10]
+    if any(str(_published(row, "market_date", "marketDate") or "")[:10] > cutoff for row in history):
+        raise PreparedSurfaceValidationError("PREPARED_COMPARISON_HISTORY_AFTER_WATERMARK")
 
 
 def _rows(result: Any) -> list[dict[str, Any]]:
@@ -217,6 +252,13 @@ def read_prepared_comparison_bundle(
     history = read_prepared_history(client, market_keys, start_date)
     movements = _prepared_window_movements(history)
     counts = _prepared_constituent_counts(client, markets)
+    generation_id = _single_non_null(
+        markets, ("generation_id", "generationId"), "PREPARED_COMPARISON_GENERATION_MISMATCH",
+    )
+    comparison_as_of = _single_non_null(
+        markets, ("comparison_as_of", "comparisonAsOf"), "PREPARED_COMPARISON_WATERMARK_MISMATCH",
+    )
+    _validate_history_watermark(history, comparison_as_of)
     enriched: list[dict[str, Any]] = []
     for row in markets:
         market_key = str(row.get("market_key") or "")
@@ -229,11 +271,31 @@ def read_prepared_comparison_bundle(
     return {
         "markets": enriched, "history": history,
         "missingKeys": [key for key in market_keys if key not in found],
+        "surface": {
+            "version": "v1", "generationId": generation_id,
+            "comparisonAsOf": comparison_as_of,
+        },
     }
 
 
 def read_prepared_screen(client: Any, screen_key: str, asset: str | None, limit: int) -> list[dict[str, Any]]:
-    return _rows(client.rpc(SCREEN_RPC, {"p_screen_key": screen_key, "p_asset": asset, "p_limit": limit}).execute())
+    if screen_key not in PREPARED_SCREEN_KEYS:
+        raise ValueError("unsupported prepared screen")
+    if asset is not None and asset not in PREPARED_SCREEN_ASSETS:
+        raise ValueError("asset must be cards, sealed, or omitted")
+    if not 1 <= int(limit) <= 25:
+        raise ValueError("limit must be 1..25")
+    rows = _rows(client.rpc(SCREEN_RPC, {
+        "p_screen_key": screen_key, "p_asset": asset, "p_limit": int(limit),
+    }).execute())
+    _single_non_null(rows, ("generation_id", "generationId"), "PREPARED_SCREEN_GENERATION_MISMATCH")
+    _single_non_null(rows, ("comparison_as_of", "comparisonAsOf"), "PREPARED_SCREEN_WATERMARK_MISMATCH")
+    fields = (
+        "rank", "market_key", "label", "asset", "market_type", "metric_value",
+        "comparison_as_of", "generation_id", "generated_at", "relative_era_pct",
+        "relative_cohort_pct", "current_drawdown_pct", "constituent_count",
+    )
+    return [{key: row[key] for key in fields if key in row and row[key] is not None} for row in rows]
 
 
 def read_set_context_ranking(client: Any, set_id: str, ranking: str, timeframe: str, limit: int, as_of: str | None) -> dict[str, Any]:

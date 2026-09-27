@@ -6,8 +6,16 @@ from typing import Any
 
 MIN_QUERY_LENGTH = 2
 MAX_RESULTS = 50
+MAX_QUERY_LENGTH = 120
 SEARCH_RPC = "search_pokemon_market_explorer_instruments_v2"
 SITEWIDE_SEARCH_RPC = "search_pokemon_sitewide_instruments_v1"
+GRADED_UNAVAILABLE_REASON = "Graded leaf search is not available from the current published authority."
+
+
+class LeafSearchError(RuntimeError):
+    def __init__(self, code: str = "LEAF_SEARCH_FAILED") -> None:
+        super().__init__(code)
+        self.code = code
 
 
 def _text(row: dict[str, Any], *keys: str) -> str | None:
@@ -15,6 +23,14 @@ def _text(row: dict[str, Any], *keys: str) -> str | None:
         value = row.get(key)
         if value is not None and str(value).strip():
             return str(value)
+    return None
+
+
+def _value(row: dict[str, Any], *keys: str) -> Any:
+    """Return the first published value, preserving zero/False as authority."""
+    for key in keys:
+        if key in row and row[key] is not None:
+            return row[key]
     return None
 
 
@@ -32,10 +48,12 @@ def _canonical_item(row: dict[str, Any]) -> dict[str, Any] | None:
         # Transitional aliases keep the Phase-1 picker/drafts compatible.
         "name": display_name,
         "label": display_name,
-        "setId": _text(row, "set_id", "setId") or "",
+        "setId": _text(row, "set_id", "setId"),
         "setName": _text(row, "set_name", "setName"),
         "secondaryLabel": _text(row, "secondary_label", "secondaryLabel"),
         "imageUrl": _text(row, "image_url", "imageUrl"),
+        "marketPrice": _value(row, "market_price", "marketPrice"),
+        "marketDate": _text(row, "market_date", "marketDate"),
     }
     if asset == "cards":
         item.update({
@@ -50,9 +68,11 @@ def _canonical_item(row: dict[str, Any]) -> dict[str, Any] | None:
     else:
         family = _text(row, "product_family", "productFamily", "product_type", "productType")
         item.update({
+            "sealedProductId": _text(row, "sealed_product_id", "sealedProductId") or instrument_id,
             "productFamily": family,
             "productType": _text(row, "product_type", "productType") or family,
             "variantLabel": _text(row, "variant_label", "variantLabel"),
+            "bulkContainer": _value(row, "bulk_container", "bulkContainer"),
         })
     return {key: value for key, value in item.items() if value is not None}
 
@@ -73,6 +93,31 @@ def search_market_explorer_instruments(client: Any, *, q: str, asset: str = "all
     results = [item for row in rows if (item := _canonical_item(dict(row)))]
     results = [item for item in results if asset == "all" or item["asset"] == asset]
     return {"query": needle, "asset": asset, "limit": cap, "items": results[:cap]}
+
+
+def search_market_explorer_leaves(client: Any, *, q: str, asset: str, limit: int = 20) -> dict[str, Any]:
+    """Public Explorer leaf discovery; execution entitlement is enforced elsewhere."""
+    needle = " ".join(str(q or "").split())
+    if not MIN_QUERY_LENGTH <= len(needle) <= MAX_QUERY_LENGTH:
+        raise ValueError(f"q must contain {MIN_QUERY_LENGTH}..{MAX_QUERY_LENGTH} characters")
+    if asset not in ("cards", "sealed", "graded"):
+        raise ValueError("asset must be cards, sealed, or graded")
+    if not 1 <= int(limit) <= MAX_RESULTS:
+        raise ValueError(f"limit must be 1..{MAX_RESULTS}")
+    if asset == "graded":
+        return {
+            "query": needle, "asset": asset, "limit": int(limit), "items": [],
+            "availability": "INSUFFICIENT_AUTHORITY", "reason": GRADED_UNAVAILABLE_REASON,
+        }
+    try:
+        return search_market_explorer_instruments(client, q=needle, asset=asset, limit=int(limit))
+    except Exception as exc:
+        text = f"{type(exc).__name__} {exc}".lower()
+        code = "LEAF_SEARCH_UNAVAILABLE" if (
+            "pgrst202" in text or "could not find the function" in text
+            or "function" in text and "does not exist" in text
+        ) else "LEAF_SEARCH_FAILED"
+        raise LeafSearchError(code) from exc
 
 
 def search_sitewide_instruments(client: Any, *, q: str, limit: int = 20) -> dict[str, Any]:
