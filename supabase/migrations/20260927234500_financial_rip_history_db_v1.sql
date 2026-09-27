@@ -335,22 +335,11 @@ create or replace function public.get_pokemon_financial_rip_history_v1(
   p_start_date date,
   p_end_date date,
   p_benchmark_key text default 'pokemon_equal_weight_eligible_sets_v1',
-  p_calibration_version text default 'rip_benchmark_v1_fin5_chase10_collector10_overall5'
+  p_calibration_version text default 'rip_benchmark_v1_fin5_chase10_collector10_overall5',
+  p_limit integer default 10000,
+  p_after jsonb default null
 )
-returns table (
-  market_date date,
-  entity_type text,
-  entity_id uuid,
-  metric_key text,
-  absolute_financial_rip_score public.rip_benchmark_finite_v1,
-  overall_financial_rip_reference public.rip_benchmark_finite_v1,
-  absolute_delta_vs_overall public.rip_benchmark_finite_v1,
-  rank integer,
-  cohort_size integer,
-  financial_model_version text,
-  publication_id uuid,
-  status text
-)
+returns jsonb
 language plpgsql
 stable
 security invoker
@@ -359,6 +348,11 @@ as $$
 declare
   v_count integer;
   v_distinct_count integer;
+  v_after_date date;
+  v_after_type text;
+  v_after_id uuid;
+  v_after_publication uuid;
+  v_result jsonb;
 begin
   if jsonb_typeof(p_entities) <> 'array' then
     raise exception using errcode='22023', message='p_entities must be a JSON array';
@@ -372,9 +366,13 @@ begin
   if p_start_date is null or p_end_date is null
      or not isfinite(p_start_date) or not isfinite(p_end_date)
      or p_start_date > p_end_date
-     or (p_end_date - p_start_date) > 365
+     or (p_end_date - p_start_date) > 3652
   then
-    raise exception using errcode='22023', message='history window must be an inclusive range of at most 366 days';
+    raise exception using errcode='22023', message='history window must be an inclusive range of at most 10 years';
+  end if;
+
+  if p_limit is null or p_limit < 1 or p_limit > 10000 then
+    raise exception using errcode='22023', message='p_limit must be between 1 and 10000';
   end if;
 
   if coalesce(length(btrim(p_benchmark_key)),0) < 1
@@ -406,49 +404,111 @@ begin
     raise exception using errcode='22023', message='duplicate entities are not allowed';
   end if;
 
-  return query
+  if p_after is not null then
+    if jsonb_typeof(p_after) <> 'object'
+       or (p_after - 'market_date' - 'entity_type' - 'entity_id' - 'publication_id') <> '{}'::jsonb
+       or p_after->>'entity_type' not in ('set','era')
+    then
+      raise exception using errcode='22023', message='invalid history cursor';
+    end if;
+    begin
+      v_after_date := (p_after->>'market_date')::date;
+      v_after_type := p_after->>'entity_type';
+      v_after_id := (p_after->>'entity_id')::uuid;
+      v_after_publication := (p_after->>'publication_id')::uuid;
+    exception when invalid_text_representation or datetime_field_overflow then
+      raise exception using errcode='22023', message='invalid history cursor';
+    end;
+    if v_after_date is null or v_after_type is null or v_after_id is null or v_after_publication is null then
+      raise exception using errcode='22023', message='invalid history cursor';
+    end if;
+  end if;
+
   with requested as (
     select
       e.value->>'entity_type' as entity_type,
       (e.value->>'entity_id')::uuid as entity_id
     from jsonb_array_elements(p_entities) e(value)
+  ),
+  candidate as materialized (
+    select
+      r.market_date,
+      r.entity_type,
+      r.entity_id,
+      r.metric_key,
+      r.raw_model_value as absolute_financial_rip_score,
+      r.benchmark_raw_value as overall_financial_rip_reference,
+      r.raw_delta as absolute_delta_vs_overall,
+      r.rank,
+      r.cohort_size,
+      r.source_model_version as financial_model_version,
+      r.publication_id,
+      r.benchmark_status as status
+    from requested q
+    join public.pokemon_rip_benchmark_rows_v1 r
+      on r.entity_type = q.entity_type
+     and r.entity_id = q.entity_id
+     and r.metric_key = 'financial'
+     and r.market_date between p_start_date and p_end_date
+    join public.pokemon_rip_benchmark_publications_v1 p
+      on p.id = r.publication_id
+     and p.publication_status = 'published'
+     and p.benchmark_key = p_benchmark_key
+     and p.calibration_version = p_calibration_version
+    where p_after is null
+       or (r.market_date, r.entity_type, r.entity_id, r.publication_id)
+          > (v_after_date, v_after_type, v_after_id, v_after_publication)
+    order by r.market_date, r.entity_type, r.entity_id, r.publication_id
+    limit p_limit + 1
+  ),
+  page as (
+    select *
+    from candidate
+    order by market_date, entity_type, entity_id, publication_id
+    limit p_limit
+  ),
+  page_rows as (
+    select coalesce(
+      jsonb_agg(to_jsonb(page) order by market_date, entity_type, entity_id, publication_id),
+      '[]'::jsonb
+    ) as rows
+    from page
+  ),
+  tail as (
+    select market_date, entity_type, entity_id, publication_id
+    from page
+    order by market_date desc, entity_type desc, entity_id desc, publication_id desc
+    limit 1
   )
-  select
-    r.market_date,
-    r.entity_type,
-    r.entity_id,
-    r.metric_key,
-    r.raw_model_value,
-    r.benchmark_raw_value,
-    r.raw_delta,
-    r.rank,
-    r.cohort_size,
-    r.source_model_version,
-    r.publication_id,
-    r.benchmark_status
-  from requested q
-  join public.pokemon_rip_benchmark_rows_v1 r
-    on r.entity_type = q.entity_type
-   and r.entity_id = q.entity_id
-   and r.metric_key = 'financial'
-   and r.market_date between p_start_date and p_end_date
-  join public.pokemon_rip_benchmark_publications_v1 p
-    on p.id = r.publication_id
-   and p.publication_status = 'published'
-   and p.benchmark_key = p_benchmark_key
-   and p.calibration_version = p_calibration_version
-  order by r.market_date, r.entity_type, r.entity_id;
+  select jsonb_build_object(
+    'rows', page_rows.rows,
+    'has_more', exists(select 1 from candidate offset p_limit limit 1),
+    'next_cursor', case
+      when exists(select 1 from candidate offset p_limit limit 1) then
+        (select jsonb_build_object(
+          'market_date', tail.market_date,
+          'entity_type', tail.entity_type,
+          'entity_id', tail.entity_id,
+          'publication_id', tail.publication_id
+        ) from tail)
+      else null
+    end
+  )
+  into v_result
+  from page_rows;
+
+  return v_result;
 end;
 $$;
 
 revoke all on function public.validate_rip_benchmark_financial_authority_v1() from public, anon, authenticated;
-revoke all on function public.get_pokemon_financial_rip_history_v1(jsonb,date,date,text,text)
+revoke all on function public.get_pokemon_financial_rip_history_v1(jsonb,date,date,text,text,integer,jsonb)
   from public, anon, authenticated;
-grant execute on function public.get_pokemon_financial_rip_history_v1(jsonb,date,date,text,text)
+grant execute on function public.get_pokemon_financial_rip_history_v1(jsonb,date,date,text,text,integer,jsonb)
   to service_role;
 
-comment on function public.get_pokemon_financial_rip_history_v1(jsonb,date,date,text,text) is
-  'Backend-only bounded Financial RIP V4 Set/Era history. raw_model_value is the absolute score; benchmark_raw_value is the exact frozen same-publication equal-Set Pokemon-wide Financial RIP reference; raw_delta is their difference. No simulation or JSON source scan occurs on reads.';
+comment on function public.get_pokemon_financial_rip_history_v1(jsonb,date,date,text,text,integer,jsonb) is
+  'Backend-only paged Financial RIP V4 Set/Era history. A 22-Set one-year request fits under the 10,000-row page ceiling; larger ALL windows use a typed keyset cursor. raw_model_value is the absolute score; benchmark_raw_value is the exact frozen same-publication equal-Set Pokemon-wide Financial RIP reference; raw_delta is their difference. No simulation or source JSON scan occurs on reads.';
 comment on function public.validate_rip_benchmark_financial_authority_v1() is
   'Final staged->published guard: refuses mixed Rankings/model dates, non-canonical V4/V12 authority, incomplete 22-Set/2-Era cohorts, incorrect Overall Financial references, or non-deterministic era aggregation.';
 comment on table public.pokemon_rip_benchmark_publication_attempts_v1 is
