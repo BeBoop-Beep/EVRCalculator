@@ -393,7 +393,7 @@ BEGIN
     i.era_id,
     i.product_family,
     coalesce(meta.is_bulk_container,false) is_bulk_container,
-    s.release_date
+    nullif(to_jsonb(s)->>'release_date','')::date AS release_date
   FROM intervals i
   CROSS JOIN LATERAL generate_series(
     i.market_date,least(p_market_date,i.next_date-1),interval '1 day'
