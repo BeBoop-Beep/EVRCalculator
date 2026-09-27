@@ -18,7 +18,9 @@ import time
 from threading import Lock
 from typing import Any
 
-from backend.db.services.market_explorer_prepared_directory import _prepared_window_movements
+from backend.db.services.market_explorer_prepared_directory import (
+    PreparedSurfaceValidationError, _prepared_window_movements,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +87,9 @@ def normalize_directory_row(row: dict[str, Any]) -> dict[str, Any]:
     """One V2 directory row -> V1-shaped prepared row (+ explicit V2 fields)."""
     scope_kind = row.get("scope_kind")
     end = row.get("history_end_date") or row.get("source_as_of")
-    available = str(row.get("availability") or "available") == "available"
+    comparison_as_of = row.get("comparison_as_of") or end
+    availability = str(row.get("availability") or "available").lower()
+    available = availability == "available"
     normalized = {
         "market_key": row.get("market_key"), "label": row.get("label"),
         "base_label": row.get("base_label"), "asset": row.get("asset"),
@@ -96,7 +100,7 @@ def normalize_directory_row(row: dict[str, Any]) -> dict[str, Any]:
         "set_id": row.get("set_id"), "era_id": row.get("era_id"),
         "parent_era_id": row.get("era_id") if scope_kind == "set" else None,
         "market_scope": row.get("market_scope"), "taxonomy_key": row.get("taxonomy_key"),
-        "source_as_of": row.get("source_as_of"), "comparison_as_of": end,
+        "source_as_of": row.get("source_as_of"), "comparison_as_of": comparison_as_of,
         "current_value": _num(row.get("current_tracked_value")),
         "comparison_value": _num(row.get("current_tracked_value")),
         "comparison_index_value": _num(row.get("current_index_value")),
@@ -106,7 +110,7 @@ def normalize_directory_row(row: dict[str, Any]) -> dict[str, Any]:
         "history_point_count": row.get("history_point_count"),
         "constituent_count": row.get("constituent_count"),
         "composition_kind": row.get("composition_kind"),
-        "availability": row.get("availability") or "available",
+        "availability": availability,
         "available": available,
         "unavailable_reason": row.get("unavailable_reason"),
         "definition_version": row.get("definition_version"),
@@ -115,7 +119,7 @@ def normalize_directory_row(row: dict[str, Any]) -> dict[str, Any]:
         "current_drawdown_pct": row.get("current_drawdown_pct"),
         "max_drawdown_pct": row.get("max_drawdown_pct"),
         "screen_group": row.get("screen_group"), "screen_eligible": row.get("screen_eligible"),
-        "source_status": "current", "surface_version": "v2",
+        "source_status": "current" if available else availability, "surface_version": "v2",
         "metadata": dict(row.get("metadata") or {}),
     }
     if row.get("market_scope") and "marketScope" not in normalized["metadata"]:
@@ -204,6 +208,13 @@ def read_v2_comparison_bundle(client: Any, directory: list[dict[str, Any]], keys
     """
     if not 1 <= len(keys) <= MAX_MARKETS_V2:
         raise ValueError("prepared comparison requires 1..25 market keys")
+    generations = {
+        str(row.get("generation_id"))
+        for row in directory
+        if row.get("generation_id") is not None
+    }
+    if len(generations) != 1:
+        raise GenerationMismatch("V2 directory rows span multiple generations")
     generation_id = str(directory[0]["generation_id"])
     by_key = {row["market_key"]: row for row in directory}
     aliases = read_aliases(client, generation_id)
@@ -227,8 +238,34 @@ def read_v2_comparison_bundle(client: Any, directory: list[dict[str, Any]], keys
     for requested, canon in resolved.items():
         markets.append({**by_key[canon], "requested_market_key": requested,
                         "window_movements": movements.get(canon, {})})
+    comparison_as_of = resolve_surface_comparison_as_of(markets)
+    if comparison_as_of and any(
+        str(row.get("market_date") or "")[:10] > comparison_as_of for row in history
+    ):
+        raise PreparedSurfaceValidationError("PREPARED_COMPARISON_HISTORY_AFTER_WATERMARK")
     return {"markets": markets, "history": history, "missingKeys": missing,
-            "surface": {"version": "v2", "generationId": generation_id}}
+            "surface": {"version": "v2", "generationId": generation_id,
+                        "comparisonAsOf": comparison_as_of}}
+
+
+def resolve_surface_comparison_as_of(markets: list[dict[str, Any]]) -> str | None:
+    """Resolve the V2 comparison watermark at one isolated cutover seam.
+
+    New rows publish ``comparison_as_of`` explicitly. During the additive DB
+    rollout, normalized legacy V2 rows temporarily carry their authoritative
+    history/source end date in that field. This compatibility path never uses
+    wall-clock time and can be deleted once every serving generation publishes
+    the explicit column.
+    """
+    values = {
+        str(row.get("comparison_as_of"))[:10]
+        for row in markets
+        if row.get("comparison_as_of") is not None
+        and str(row.get("availability") or "available").lower() == "available"
+    }
+    if len(values) > 1:
+        raise PreparedSurfaceValidationError("PREPARED_COMPARISON_WATERMARK_MISMATCH")
+    return next(iter(values), None)
 
 
 def _valid_iso_date(value: Any) -> str | None:

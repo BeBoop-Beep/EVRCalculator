@@ -113,7 +113,7 @@ export async function fetchPreparedMarket(key, { contextKeys = [], signal } = {}
   const history = (Array.isArray(payload?.history) ? payload.history : []).filter((point) => point.market_key === key || point.requested_market_key === key);
   const [series] = buildPreparedSeries(rows, history);
   if (!series) throw new PreparedFetchError("Unknown prepared market", { status: 404, code: "PREPARED_MARKET_UNKNOWN" });
-  return series;
+  return { ...series, comparisonAsOf: payload?.surface?.comparisonAsOf || null };
 }
 
 export const QUICK_MARKET_KEYS = Object.freeze([
@@ -146,7 +146,9 @@ export function groupPreparedDirectory(rows = [], search = "") {
     if (!sets.has(key)) sets.set(key, { era, rows: [] });
     sets.get(key).rows.push(row);
   }
-  const quick = QUICK_MARKET_KEYS.map((key) => visible.find((row) => row.market_key === key)).filter(Boolean);
+  // Quick Markets are DB-published directory rows. This intentionally accepts
+  // additive card/sealed keys without teaching React their membership rules.
+  const quick = visible.filter((row) => row.scope_kind === "quick" || row.market_type === "curated");
   // Whole-asset parents (Raw Card Market / Total Sealed): published V2 directory rows,
   // listed first under Sets so the whole market stays selectable after Clear All.
   const parents = visible.filter((row) => row.market_type === "parent");

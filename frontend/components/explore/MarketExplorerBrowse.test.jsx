@@ -223,24 +223,21 @@ test("Sealed lists the real prepared sealed rows and no card Sets/Eras", async (
   const renderer = await mount();
   await act(async () => renderer.root.findByProps({ "data-market-directory-asset": "sealed" }).props.onClick());
   // SUPERSEDED (complete UI reconciliation): the flat V1 "Sealed Markets" list is retired.
-  // V1 and V2 share ONE Sealed IA (Sets, Eras, Quick Markets, Sealed Types); V1 formats are
-  // exposed inside Sealed Types and no card Set/Era ever appears under Sealed.
+  // Sealed Types lives under Analyze; Browse contains Sets/Eras/Quick/Build only.
   assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "sealed" }).length, 0);
-  for (const id of ["sets", "eras", "quick", "types"]) assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": id }).length, 1, id);
+  for (const id of ["sets", "eras", "quick"]) assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": id }).length, 1, id);
+  assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "types" }).length, 0);
   await act(async () => category(renderer, "sets").props.onClick());
   assert.equal(rows(renderer).length, 0, "no card Sets under Sealed");
-  await act(async () => category(renderer, "types").props.onClick());
-  const formatRows = renderer.root.findAll((node) => node.type === "button" && node.props?.["data-prepared-market"]);
-  assert.deepEqual(formatRows.map((row) => row.props["data-prepared-market"]).sort(), ["format:booster-box", "format:etb", "format:pack"]);
   renderer.unmount();
 });
 
 test("Sealed with no published sealed rows is honestly empty, never fabricated", async () => {
   const renderer = await mount({ directory: [...eras, ...sets, ...quick] });
   await act(async () => renderer.root.findByProps({ "data-market-directory-asset": "sealed" }).props.onClick());
-  await act(async () => category(renderer, "types").props.onClick());
+  await act(async () => category(renderer, "sets").props.onClick());
   assert.equal(rows(renderer).length, 0);
-  assert.match(JSON.stringify(renderer.toJSON()), /Sealed Type markets are awaiting the next prepared market generation\./);
+  assert.match(JSON.stringify(renderer.toJSON()), /Sealed Set markets are awaiting the current prepared generation\./);
   renderer.unmount();
 });
 
@@ -265,8 +262,6 @@ test("changing the directory asset is browsing state only: no callbacks, active 
   await act(async () => renderer.root.findByProps({ "data-market-directory-asset": "cards" }).props.onClick());
   assert.deepEqual(calls, []);
   await act(async () => renderer.root.findByProps({ "data-market-directory-asset": "sealed" }).props.onClick());
-  await act(async () => category(renderer, "types").props.onClick());
-  const formatRow = renderer.root.findAll((node) => node.type === "button" && node.props?.["data-prepared-market"] === "format:booster-box")[0];
-  assert.equal(formatRow.props["aria-pressed"], true);
+  assert.equal(renderer.root.findAllByProps({ "data-market-directory-category": "types" }).length, 0);
   renderer.unmount();
 });

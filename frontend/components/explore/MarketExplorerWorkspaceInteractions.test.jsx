@@ -88,10 +88,10 @@ test("chip focus is not hover-only: hidden by default only where a real hover ex
   assert.doesNotMatch(button, /(^|\s)(desk|tab|sm|md|lg):(hidden|opacity-0)/, "no viewport-width gating of the focus action");
 });
 
-test("chip target and visibility semantics stay distinct (aria-pressed on target and visibility, each labelled)", () => {
+test("chip body and magnifier share focus semantics; constituent targeting stays in its panel", () => {
   const { renderer } = mountChips();
-  assert.equal(one(renderer, "data-market-explorer-active-inspect", "A").props["aria-pressed"], true);
-  assert.equal(one(renderer, "data-market-explorer-active-inspect", "B").props["aria-pressed"], false);
+  assert.equal(one(renderer, "data-market-explorer-active-focus-body", "A").props["aria-pressed"], false);
+  assert.equal(one(renderer, "data-market-explorer-active-focus-body", "B").props["aria-pressed"], false);
 });
 
 test("exactly ONE workspace-level Clear All exists, red, and it is available at every width", () => {
@@ -452,9 +452,10 @@ test("workspace: trigger renders while markets are active; open shows a centred 
   const hide = one(renderer, "data-market-explorer-hide-details");
   assert.equal(hide.props["aria-expanded"], true);
   assert.match(hide.props.className, /violet/);
-  // Centred at the TOP edge: the button is the first child of a column-centred header.
+  // The title is left-aligned while the violet Hide action is independently centered.
   const header = hide.parent;
-  assert.match(header.props.className, /flex-col items-center/);
+  assert.match(header.props.className, /relative/);
+  assert.match(hide.props.className, /desk:left-1\/2/);
   assert.equal(header.children[0], hide, "Hide is the first (top) element of the expanded workspace");
 
   // Choose the query market as the target, then close.
