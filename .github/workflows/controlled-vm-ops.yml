@@ -1749,28 +1749,89 @@ jobs:
 
             code-red-db-load-restore-audit)
               cd "$REPO"
-              BACKUP="/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup"
-              test -f "$BACKUP" || { echo "REFUSING: code-red crontab backup missing"; exit 42; }
-              echo "== backup metadata =="
-              stat -c 'path=%n owner=%U group=%G mode=%a bytes=%s mtime=%y' "$BACKUP"
-              echo "== backup critical EVR entries =="
-              grep -E 'run_next_scrape_job.py|publish_post_scrape_if_needed.py|post_scrape_publication_watchdog|run_market_explorer_maintained_cache_prewarm|check_market_explorer_maintained_cache_health|market_freshness_watchdog|backend.sentinel.operational|backend.alerts.dispatcher' "$BACKUP" || true
-              echo "== backup counts =="
-              printf 'explorer_prewarm='; grep -c 'run_market_explorer_maintained_cache_prewarm' "$BACKUP" || true
-              printf 'explorer_health='; grep -c 'check_market_explorer_maintained_cache_health' "$BACKUP" || true
-              printf 'scrape_dispatcher='; grep -c 'run_next_scrape_job.py' "$BACKUP" || true
-              printf 'post_scrape_watchdog='; grep -c 'post_scrape_publication_watchdog' "$BACKUP" || true
-              printf 'six_am_publication='; grep -c 'publish_post_scrape_if_needed.py' "$BACKUP" || true
+              CURRENT="/tmp/index-code-red-restore-audit.cron"
+              crontab -l > "$CURRENT"
+              echo "== current code-red state =="
+              printf 'disabled_evr_entries='; grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true
+              printf 'bounded_collection_markers='; grep -c '^# INDEX_BOUNDED_COLLECTION_V1$' "$CURRENT" || true
+              printf 'bounded_projection_markers='; grep -c '^# INDEX_BOUNDED_PRICE_PROJECTION_V1$' "$CURRENT" || true
+              printf 'bounded_publication_markers='; grep -c '^# INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1$' "$CURRENT" || true
+              echo "== disabled canonical entries =="
+              grep '^# CODE_RED_DISABLED ' "$CURRENT" | grep -E 'run_next_scrape_job.py|publish_post_scrape_if_needed.py|post_scrape_publication_watchdog|market_freshness_watchdog|backend.sentinel.operational|backend.alerts.dispatcher' || true
+              echo "== pricing schedule =="
+              pricing_cron_report
+              rm -f "$CURRENT"
               echo "CODE_RED_DB_LOAD_RESTORE_AUDIT=PASS"
               ;;
 
             code-red-db-load-restore)
               cd "$REPO"
-              BACKUP="/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup"
-              test -f "$BACKUP" || { echo "REFUSING: code-red crontab backup missing"; exit 42; }
-              crontab "$BACKUP"
-              echo "== restored EVRCalculator cron entries =="
-              crontab -l | grep -F '/home/ubuntu/repos/EVRCalculator' || true
+              CURRENT="/tmp/index-code-red-restore.current"
+              RESTORED="/tmp/index-code-red-restore.restored"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
+
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold is active"; exit 42; }
+              test -f "$GUARD" || { echo "REFUSING: database workload guard missing"; exit 43; }
+              crontab -l > "$CURRENT"
+              DISABLED=$(grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true)
+              echo "code_red_disabled_entries_before=$DISABLED"
+
+              if [ "$DISABLED" -gt 0 ]; then
+                python3 - "$CURRENT" "$RESTORED" <<'PY'
+          import sys
+          from pathlib import Path
+
+          source = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+          skip_headers = {
+              "# INDEX_BOUNDED_COLLECTION_V1",
+              "# INDEX_BOUNDED_PRICE_PROJECTION_V1",
+              "# INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1",
+          }
+          out = []
+          skipping = False
+          for line in source:
+              if line.strip() in skip_headers:
+                  skipping = True
+                  continue
+              if skipping:
+                  if not line.strip():
+                      skipping = False
+                      out.append("")
+                  continue
+              prefix = "# CODE_RED_DISABLED "
+              if line.startswith(prefix):
+                  line = line[len(prefix):]
+              out.append(line)
+          Path(sys.argv[2]).write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+          PY
+                crontab "$RESTORED"
+              else
+                echo "code-red workload entries already restored; validating current scheduler"
+              fi
+
+              echo "== ensure managed eBay pricing schedule exists =="
+              timeout 600 bash infra/oracle/install_multi_source_pricing_cron.sh --apply
+
+              echo "== restored scheduler proof =="
+              ACTIVE="$(crontab -l)"
+              grep -F 'run_next_scrape_job.py' <<<"$ACTIVE" >/dev/null || { echo "FAIL: scrape dispatcher missing"; exit 50; }
+              grep -F 'publish_post_scrape_if_needed.py' <<<"$ACTIVE" >/dev/null || { echo "FAIL: 06:00 publication fallback missing"; exit 51; }
+              grep -F 'post_scrape_publication_watchdog' <<<"$ACTIVE" >/dev/null || { echo "FAIL: publication watchdog missing"; exit 52; }
+              grep -F 'backend.alerts.market_freshness_watchdog' <<<"$ACTIVE" >/dev/null || { echo "FAIL: market freshness watchdog missing"; exit 53; }
+              grep -F 'backend.sentinel.operational --profile fast' <<<"$ACTIVE" >/dev/null || { echo "FAIL: Sentinel fast schedule missing"; exit 54; }
+              grep -F 'backend.sentinel.operational --profile public' <<<"$ACTIVE" >/dev/null || { echo "FAIL: Sentinel public schedule missing"; exit 55; }
+              grep -F 'backend.alerts.dispatcher' <<<"$ACTIVE" >/dev/null || { echo "FAIL: alert dispatcher missing"; exit 56; }
+              ! grep -q '^# CODE_RED_DISABLED ' <<<"$ACTIVE" || { echo "FAIL: code-red disabled entries remain"; exit 57; }
+              ! grep -q '^# INDEX_BOUNDED_COLLECTION_V1$\|^# INDEX_BOUNDED_PRICE_PROJECTION_V1$\|^# INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1$' <<<"$ACTIVE" || { echo "FAIL: emergency bounded recovery entries remain"; exit 58; }
+
+              REPORT=$(pricing_cron_report)
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "FAIL: managed pricing block missing"; exit 59; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT" || { echo "FAIL: pricing run entries != 2"; exit 59; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT" || { echo "FAIL: pricing health entry != 1"; exit 59; }
+
+              rm -f "$CURRENT" "$RESTORED"
               echo "CODE_RED_DB_LOAD_RESTORE=PASS"
               ;;
 
