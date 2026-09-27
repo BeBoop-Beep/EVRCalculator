@@ -12,7 +12,7 @@ function numeric(value) {
 }
 
 export function defaultProductSortDirection(key) {
-  return key === "alphabetical" || key === "bestOpenPriceGapPercent" ? "asc" : "desc";
+  return key === "alphabetical" || key === "bestOpenPriceGapPercent" || key === "fullMarketRank" || key === "overallBenchmarkRank" ? "asc" : "desc";
 }
 
 /**
@@ -27,7 +27,13 @@ export function defaultProductSortDirection(key) {
  * orders challengers by the percentage discount required to become #1.
  */
 function readSortField(row, key) {
-  if (key === "chaseAccessibilityValue") return numeric(row?.chaseAccessibility?.value);
+  if (key === "fullMarketRank") return numeric(row?.budgetRank);
+  if (key === "overallBenchmarkRank") return numeric(row?.benchmarkMetrics?.overall?.rank);
+  if (key === "financialBenchmarkScore") return numeric(row?.benchmarkMetrics?.financial?.score);
+  if (key === "chaseBenchmarkScore") return numeric(row?.benchmarkMetrics?.chase?.score);
+  if (key === "collectorBenchmarkScore") return numeric(row?.benchmarkMetrics?.collector?.score);
+  if (key === "benchmarkExpectedValue") return numeric(row?.benchmarkMetrics?.financial?.financialEvidence?.expectedValuePerPack);
+  if (key === "benchmarkRecovery") return numeric(row?.benchmarkMetrics?.financial?.financialEvidence?.chanceToRecoverCost);
   if (key === "bestOpenPriceGapPercent") {
     if (row?.bestOpenPriceStatus === "current_number_one_with_headroom") return Number.NEGATIVE_INFINITY;
     return numeric(row?.bestOpenPriceGapPercent);
@@ -64,7 +70,7 @@ export function sortProductRankingRows(rows, query, sortKey, direction, overall)
 // The optional sort cannot remain active after its data disappears.
 export function resolveProductSort(sortKey, direction, bestOpenAvailable, entitled) {
   if (sortKey === "bestOpenPriceGapPercent" && !bestOpenAvailable) {
-    return { key: entitled ? "overallRipLeaderScore" : "alphabetical", direction: entitled ? "desc" : "asc" };
+    return { key: entitled ? "fullMarketRank" : "alphabetical", direction: "asc" };
   }
   return { key: sortKey, direction };
 }

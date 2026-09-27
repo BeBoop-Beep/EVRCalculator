@@ -24,7 +24,7 @@
 //
 // NOTHING IS COMPUTED HERE. Every score, tier, rank and denominator is lifted
 // from the single resolved canonical bundle. All three cards show the canonical
-// `publicScore` on `/10` to one decimal — the identical values the Overview
+// published Benchmark score on `/10` to one decimal — the identical values the Overview
 // RIP Summary and the "Why It Ranks" drivers show for the same set. Fixed-anchor
 // model outputs never drive the visible number or the rail. A missing value
 // renders an em dash — never a zero, never a legacy score, never the other
@@ -35,12 +35,10 @@ import React, { useMemo } from "react";
 
 import InfoPopover from "@/components/ui/InfoPopover";
 import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
-import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
-import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
 import { RIP_SUMMARY_DESCRIPTIONS } from "./OverviewRipSummary.jsx";
-import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
-
-const UNAVAILABLE_DASH = "—";
+import BenchmarkScoreBadge from "./BenchmarkScoreBadge";
+import { setBenchmarkMetrics } from "./productBenchmarkPresentation.mjs";
+import useSetBenchmarkHeadlines from "@/hooks/pokemon/useSetBenchmarkHeadlines";
 
 // One accent family per metric, matching the approved direction: gold for the
 // headline, blue/cyan for money, purple/magenta for appeal. These are the only
@@ -50,34 +48,6 @@ export const INSIGHTS_SUMMARY_ACCENTS = {
   financial: "56,189,248",
   collector: "192,132,252",
 };
-
-function toDisplayScore(value) {
-  return value === null || value === undefined || value === "" || Number.isNaN(Number(value))
-    ? null
-    : formatPublicRipScore(value);
-}
-
-function toRailPercent(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-  return Math.max(0, Math.min(100, parsed));
-}
-
-/**
- * The rank / tier / cohort line, assembled from backend values only. Returns
- * null when the backend ranked nothing, so the card shows no empty metadata
- * strip rather than a lone separator.
- */
-function formatMeta({ tier, rank, cohortSize }) {
-  const parts = [];
-  if (tier && tier !== UNAVAILABLE_DASH) parts.push(`${tier} Tier`);
-  if (rank !== null && rank !== undefined) {
-    parts.push(cohortSize ? `Rank #${rank} of ${cohortSize}` : `Rank #${rank}`);
-  }
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
 
 /**
  * THE ELEVATED RAIL. This treatment exists on exactly three elements on the
@@ -124,7 +94,8 @@ function SummaryRail({ accent, percent }) {
   );
 }
 
-function SummaryCard({ id, label, score, meta, description, available, accent, railPercent, badges = null }) {
+function SummaryCard({ id, label, metric, description, accent }) {
+  const available = metric?.available;
   return (
     <div
       data-insights-summary-metric={id}
@@ -135,22 +106,10 @@ function SummaryCard({ id, label, score, meta, description, available, accent, r
         {label}
       </p>
       <div className="mt-1 flex min-w-0 flex-wrap items-end gap-x-2 gap-y-1">
-        <p className="inline-flex items-end gap-1 text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)] desk:text-[28px]">
-          {/* An unavailable metric prints an em dash. It never falls back to a
-              legacy score, to the other metrics, or to zero. */}
-          <span data-insights-summary-score>{available ? score : UNAVAILABLE_DASH}</span>
-          {available ? (
-            <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/10</span>
-          ) : null}
-        </p>
-        {available && badges ? <span className="min-w-0">{badges}</span> : null}
+        <BenchmarkScoreBadge metric={metric} />
       </div>
 
-      <SummaryRail accent={accent} percent={available ? railPercent : null} />
-
-      {available && meta ? (
-        <p className="mt-2 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">{meta}</p>
-      ) : null}
+      <SummaryRail accent={accent} percent={available ? metric.score * 10 : null} />
       <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
         {available ? description : "Not available for this set yet."}
       </p>
@@ -170,23 +129,9 @@ function SummaryCard({ id, label, score, meta, description, available, accent, r
  * headline disagree with the header for the same set. `overallBadges` is the
  * page's existing HeroScoreBadges element, passed verbatim for the same reason.
  */
-export default function InsightsSummaryModule({
-  canonical,
-  overallScore = null,
-  overallTier = null,
-  overallRank = null,
-  overallCohortSize = null,
-  overallBadges = null,
-}) {
-  const financial = useMemo(
-    () => selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)),
-    [canonical]
-  );
-  const collector = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);
-
-  const overallDisplayScore = toDisplayScore(overallScore);
-  const financialScore = toDisplayScore(financial.publicScore);
-  const collectorScore = toDisplayScore(collector.publicScore);
+export default function InsightsSummaryModule({ setId = null }) {
+  const benchmarkState = useSetBenchmarkHeadlines(setId);
+  const benchmark = useMemo(() => setBenchmarkMetrics(setId, benchmarkState.payload), [setId, benchmarkState.payload]);
 
   return (
     <section
@@ -218,43 +163,25 @@ export default function InsightsSummaryModule({
           label="RIP Score"
           // The PUBLIC Overall RIP number is the cohort-relative score. The
           // absolute blend is never promoted into this headline.
-          score={overallDisplayScore}
-          available={overallDisplayScore !== null}
-          meta={formatMeta({ tier: overallTier, rank: overallRank, cohortSize: overallCohortSize })}
+          metric={benchmark.overall}
           description={RIP_SUMMARY_DESCRIPTIONS.overall}
           accent={INSIGHTS_SUMMARY_ACCENTS.overall}
-          railPercent={toRailPercent(overallScore)}
-          badges={overallBadges}
         />
         <SummaryCard
           id="financial"
           label="Financial RIP"
           // Financial RIP uses its backend cohort-relative public score.
-          score={financialScore}
-          available={financial.publicAvailable && financialScore !== null}
-          meta={formatMeta({
-            tier: financial.tier,
-            rank: financial.rank,
-            cohortSize: financial.rankedSetCount,
-          })}
+          metric={benchmark.financial}
           description={RIP_SUMMARY_DESCRIPTIONS.financial}
           accent={INSIGHTS_SUMMARY_ACCENTS.financial}
-          railPercent={toRailPercent(financial.publicScore)}
         />
         <SummaryCard
           id="collector"
           label="Collector Appeal"
           // Collector Appeal follows the same relative public-score policy.
-          score={collectorScore}
-          available={collector.publicAvailable && collectorScore !== null}
-          meta={formatMeta({
-            tier: collector.tier,
-            rank: collector.rank,
-            cohortSize: collector.rankedSetCount,
-          })}
+          metric={benchmark.collector}
           description={RIP_SUMMARY_DESCRIPTIONS.collector}
           accent={INSIGHTS_SUMMARY_ACCENTS.collector}
-          railPercent={toRailPercent(collector.publicScore)}
         />
       </div>
     </section>

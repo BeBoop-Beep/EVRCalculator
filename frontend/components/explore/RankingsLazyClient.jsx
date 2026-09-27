@@ -6,6 +6,7 @@ import SegmentedControl from "@/components/ui/SegmentedControl";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
+import { readCurrentBenchmark } from "@/lib/rankings/ripBenchmarkClient.mjs";
 import styles from "./explore.module.css";
 
 const lensModules = {
@@ -44,7 +45,6 @@ async function readLens(response, fallbackMessage) {
 export default function RankingsLazyClient({
   targets,
   openingEconomics,
-  loadError,
   rankingsMarketDate = null,
 }) {
   const { canViewRankingsIntelligence, canViewCardChaseEfficiency, canViewCardCollectorAppeal, authStatus, requestKey } = useRankingsAccess();
@@ -52,8 +52,8 @@ export default function RankingsLazyClient({
   const [eraLens, setEraLens] = useState("rankings");
   const [setEntryView, setSetEntryView] = useState("ripScore");
   const [selectedEra, setSelectedEra] = useState(null);
-  const [eraState, setEraState] = useState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
-  const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
+  const [eraState, setEraState] = useState({ status: "idle", contract: null, benchmark: null, marketDate: rankingsMarketDate });
+  const [setsState, setSetsState] = useState({ status: "idle", targets: [], benchmark: null, marketDate: rankingsMarketDate });
   const publicationIdentity = rankingsMarketDate || "current";
   const sessionCache = useMemo(
     () => createRankingsSessionCache(`${requestKey}:${publicationIdentity}`),
@@ -70,9 +70,14 @@ export default function RankingsLazyClient({
       const next = await sessionCache.request("eras:rankings", async () => {
         const payload = await fetch("/api/explore/rankings/lens?lens=eras", { cache: "no-store" })
           .then((response) => readLens(response, "Unable to load era rankings"));
+        const entities = (payload?.eraSetStrength?.eras || []).map((era) => ({ entity_type: "era", entity_id: era.eraId })).filter((entity) => entity.entity_id);
+        let benchmark = null;
+        try { benchmark = await readCurrentBenchmark(entities, { sessionCache }); }
+        catch (error) { if (error.status === 401 || error.status === 403) return { status: "locked", contract: payload?.eraSetStrength || null, benchmark: null, marketDate: payload?.marketDate || rankingsMarketDate, cacheIdentity: sessionCache.identity }; throw error; }
         const value = {
           status: payload?.status === "locked" ? "locked" : payload?.status === "available" && Array.isArray(payload?.eraSetStrength?.eras) ? "ready" : "unavailable",
           contract: payload?.eraSetStrength || null,
+          benchmark,
           marketDate: payload?.marketDate || rankingsMarketDate,
           cacheIdentity: sessionCache.identity,
         };
@@ -98,7 +103,12 @@ export default function RankingsLazyClient({
       const next = await sessionCache.request("sets:rankings", async () => {
         const payload = await fetch("/api/explore/rankings/lens?lens=sets", { cache: "no-store" })
           .then((response) => readLens(response, "Unable to load set rankings"));
-        const value = { status: payload?.status === "available" && Array.isArray(payload?.targets) && payload.targets.length > 0 ? "ready" : "unavailable", targets: Array.isArray(payload?.targets) ? payload.targets : [], marketDate: payload?.marketDate || rankingsMarketDate, cacheIdentity: sessionCache.identity };
+        const targets = Array.isArray(payload?.targets) ? payload.targets : [];
+        const entities = targets.map((target) => ({ entity_type: "set", entity_id: target?.target_id || target?.setId || target?.id })).filter((entity) => entity.entity_id);
+        let benchmark = null;
+        try { benchmark = await readCurrentBenchmark(entities, { sessionCache }); }
+        catch (error) { if (error.status === 401 || error.status === 403) return { status: "locked", targets, benchmark: null, marketDate: payload?.marketDate || rankingsMarketDate, cacheIdentity: sessionCache.identity }; throw error; }
+        const value = { status: payload?.status === "available" && targets.length > 0 ? "ready" : "unavailable", targets, benchmark, marketDate: payload?.marketDate || rankingsMarketDate, cacheIdentity: sessionCache.identity };
         if (value.status !== "ready") throw new Error("Set rankings are unavailable");
         return value;
       }, { force });
@@ -198,7 +208,7 @@ export default function RankingsLazyClient({
 
       {lens === "eras" ? (
         <nav aria-label="Era analysis" className="mb-3 flex gap-2 overflow-x-auto pb-1" data-analysis-lens-tabs>
-          {[{ value: "rankings", label: "Set Strength" }, { value: "economics", label: "Pack Economics" }].map((option) => {
+          {[{ value: "rankings", label: "Era RIP Score" }, { value: "economics", label: "Pack Economics" }].map((option) => {
             const active = eraLens;
             return (
               <button
@@ -225,14 +235,15 @@ export default function RankingsLazyClient({
             onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}
             onOpenLowestCost={() => { setSetEntryView("packEconomics"); setActiveLens("sets"); }}
           />
-          <OpeningEconomicsOverall economics={openingEconomics} targets={setTargets} />
+          <OpeningEconomicsOverall economics={openingEconomics} targets={setTargets} eras={visibleEraState.contract?.eras || []} benchmark={visibleSetsState.benchmark} />
         </>
       ) : lens === "eras" ? (
         eraLens === "rankings" ? (
           visibleEraState.status === "ready" ? (
             <EraRankings
               contract={visibleEraState.contract}
-              marketDate={visibleEraState.marketDate}
+              benchmark={visibleEraState.benchmark}
+              marketDate={visibleEraState.benchmark?.freshness?.benchmarkMarketDate || visibleEraState.marketDate}
                   onSelectEra={(era) => {
                     setSelectedEra(era?.eraName || null);
                     setSetEntryView("ripScore");
@@ -256,10 +267,12 @@ export default function RankingsLazyClient({
           />
         )
       ) : lens === "sets" ? (
-        visibleSetsState.status === "loading" || visibleSetsState.status === "idle" ? <LensSkeleton /> : setsUnavailable ? (
+        visibleSetsState.status === "loading" || visibleSetsState.status === "idle" ? <LensSkeleton /> : visibleSetsState.status === "locked" ? (
+          <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Benchmark Set Rankings are available with Index Plus or Premium.</section>
+        ) : setsUnavailable ? (
           <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => loadSets({ force: true, foreground: true })}>Retry</button></section>
         ) : (
-              <SetRankingsHub key={`${sessionCache.identity}:${setEntryView}`} initialView={setEntryView} targets={setTargets} openingEconomics={openingEconomics} loadError={loadError || setsUnavailable} canViewRankingsIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} onClearEraFilter={() => setSelectedEra(null)} marketDate={visibleSetsState.marketDate} />
+              <SetRankingsHub key={`${sessionCache.identity}:${setEntryView}`} initialView={setEntryView} targets={setTargets} benchmark={visibleSetsState.benchmark} openingEconomics={openingEconomics} canViewRankingsIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} onClearEraFilter={() => setSelectedEra(null)} marketDate={visibleSetsState.benchmark?.freshness?.benchmarkMarketDate || visibleSetsState.marketDate} />
         )
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />

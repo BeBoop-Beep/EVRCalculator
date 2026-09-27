@@ -2,6 +2,7 @@
 
 import RipDecisionPage from "@/components/explore/RipDecisionPage";
 import useSetRipProgressiveController from "@/hooks/pokemon/useSetRipProgressiveController";
+import useSetBenchmarkHeadlines from "@/hooks/pokemon/useSetBenchmarkHeadlines";
 
 export default function RichRipSetTab({
   canonical,
@@ -21,6 +22,7 @@ export default function RichRipSetTab({
   familyFilter,
   chaseAccessibilityPresentation,
 }) {
+  const setBenchmark = useSetBenchmarkHeadlines(setId);
   const {
     rankContextState,
     simulationState,
@@ -78,6 +80,7 @@ export default function RichRipSetTab({
       initialProductId={initialProductId}
       familyFilter={familyFilter}
       chaseAccessibilityPresentation={chaseAccessibilityPresentation}
+      benchmarkState={setBenchmark}
     />
   );
 }

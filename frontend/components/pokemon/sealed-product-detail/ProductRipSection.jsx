@@ -6,11 +6,9 @@ import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
 import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
-import RankBadge from "@/components/ui/RankBadge";
-import RipScoreSurface from "@/components/explore/RipScoreSurface.jsx";
-import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
-import { publicLeaderScoreTier } from "@/components/explore/ripTierPresentation.mjs";
-import { selectChaseAccessibilityPresentation } from "@/components/explore/chaseAccessibilityPresentationSelector.mjs";
+import BenchmarkScoreBadge from "@/components/explore/BenchmarkScoreBadge";
+import { formatBenchmarkFreshness } from "@/components/explore/ripBenchmarkPresentation.mjs";
+import { compactFamilyBenchmarkLabel, productBenchmarkMetrics } from "@/components/explore/productBenchmarkPresentation.mjs";
 import {
   finite,
   formatStrength,
@@ -60,21 +58,9 @@ export function ProductRipLock() {
   );
 }
 
-function ScoreCard({
-  label,
-  value,
-  tier: tierValue,
-  info,
-  primary = false,
-  children,
-}) {
+function ScoreCard({ label, metric, benchmarkLabel = "Pokémon", info, primary = false, showRank = true, children }) {
   return (
-    <RipScoreSurface
-      metricKey={label.toLowerCase().replaceAll(" ", "-")}
-      tier={tierValue}
-      prominent={primary}
-      className={`p-4 ${primary ? "min-h-36 justify-center sm:p-5" : "sm:p-5"}`}
-    >
+    <div className={`min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.38)] p-4 ${primary ? "min-h-36 sm:p-5" : "sm:p-5"}`}>
       <div
         data-product-rip-score={label.toLowerCase().replaceAll(" ", "-")}
         className="relative z-[1] min-w-0"
@@ -84,30 +70,11 @@ function ScoreCard({
             <span>{label}</span>
             {info ? <InfoPopover text={info} /> : null}
           </dt>
-          <RankBadge
-            rank={tierValue}
-            format="tier"
-            size={primary ? "supporting" : "compact"}
-            subtle
-          />
+          <BenchmarkScoreBadge metric={metric} benchmarkLabel={benchmarkLabel} showRank={showRank} />
         </div>
-        <dd
-          className={`mt-5 font-semibold leading-none tabular-nums text-[var(--text-primary)] ${primary ? "text-4xl sm:text-5xl" : "text-3xl"}`}
-        >
-          {finite(value) === null ? (
-            "Unavailable"
-          ) : (
-            <>
-              {formatPublicRipScore(value)}{" "}
-              <span className="ml-1 text-xs font-medium text-[var(--text-secondary)]">
-                /10
-              </span>
-            </>
-          )}
-        </dd>
         {children}
       </div>
-    </RipScoreSurface>
+    </div>
   );
 }
 
@@ -133,30 +100,27 @@ function ChaseAccessibilityCard({ chase }) {
       <div className="flex items-start justify-between gap-3">
         <dt className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.08em] text-[var(--text-primary)]">
           <span>Chase Accessibility</span>
-          <InfoPopover text={chase.technicalTooltip} />
         </dt>
         <span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--text-secondary)]">
           Parent set
         </span>
       </div>
-      <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">{chase.publicQuestion}</p>
-      <dd className="mt-3 text-right text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-        {chase.publicScore === null ? "Unavailable" : <>{formatPublicRipScore(chase.publicScore)} <span className="text-xs text-[var(--text-secondary)]">/10</span></>}
-      </dd>
+      <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">Inherited from the parent Set.</p>
+      <BenchmarkScoreBadge metric={chase} showRank={false} />
       {!chase.available ? (
         <p className="mt-2 text-xs text-[var(--text-secondary)]">
-          {chase.statusReason || "Chase Accessibility is not currently available for this set."}
+          {chase.benchmarkReason || "Chase Accessibility is not currently available for this set."}
         </p>
       ) : (
         <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
-          {chase.rank && chase.cohortSize ? `Set rank #${chase.rank} of ${chase.cohortSize}.` : "Parent-set rank unavailable."}
+          Parent Set · no Product rank
         </p>
       )}
     </div>
   );
 }
 
-export function ProductRipSection({ detail }) {
+export function ProductRipSection({ detail, benchmarkState }) {
   const { rip, product } = detail;
   if (!rip.available)
     return (
@@ -176,13 +140,8 @@ export function ProductRipSection({ detail }) {
         </p>
       </section>
     );
-  const financialTier = publicLeaderScoreTier(rip.financialRipLeaderScore);
-  const collectorTier = rip.collectorAppealTier;
-  // Chase Accessibility - reused SHARED presentation contract (Phase 3/6),
-  // never recomputed here. Reads `rip.publicRipContractV11.chaseAccessibility`
-  // when present (the exact-run-authenticated backend projection), falling
-  // back to plain `rip.chaseAccessibility` for any other caller shape.
-  const chase = selectChaseAccessibilityPresentation(rip);
+  const metrics = productBenchmarkMetrics(product, benchmarkState?.payload);
+  const family = compactFamilyBenchmarkLabel(product.productFamilyLabel);
   return (
     <section
       data-product-rip-section
@@ -203,17 +162,15 @@ export function ProductRipSection({ detail }) {
         <ScoreCard
           primary
           label="RIP Score"
-          value={rip.overallRipLeaderScore}
-          tier={rip.publicTier}
+          metric={metrics.overall}
+          benchmarkLabel={family}
         >
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--tier-border)] pt-4">
-            <p className="text-sm font-semibold">{formatStrength(rip)}</p>
             <p className="text-xs text-[var(--text-secondary)]">
               <span className="font-semibold text-[var(--text-primary)]">
                 Format Rank
               </span>{" "}
-              · #{rip.familyRank} of {rip.familySize}{" "}
-              {pluralFamilyLabel(product.productFamilyLabel)}
+              · #{metrics.overall.rank} of {metrics.overall.cohortSize}{" "}{pluralFamilyLabel(product.productFamilyLabel)}
             </p>
           </div>
         </ScoreCard>
@@ -244,23 +201,17 @@ export function ProductRipSection({ detail }) {
               modeled opening outcomes.
             </p>
             <div className="mt-3">
-              <RankBadge rank={financialTier} format="tier" size="compact" subtle />
+              <BenchmarkScoreBadge metric={metrics.financial} benchmarkLabel={family} showRank={false} />
             </div>
-            <dd className="mt-3 text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-              {finite(rip.financialRipLeaderScore) === null
-                ? "Unavailable"
-                : (
-                  <>
-                    {formatPublicRipScore(rip.financialRipLeaderScore)}{" "}
-                    <span className="ml-1 text-xs font-medium text-[var(--text-secondary)]">/10</span>
-                  </>
-                )}
-            </dd>
+            <p className="mt-2 text-[11px] text-[var(--text-secondary)]">Financial rank is not separately published.</p>
           </div>
-          <ChaseAccessibilityCard chase={chase} />
-          <ScoreCard label="Collector Appeal" value={rip.collectorAppealScore} tier={collectorTier} info="Collector Appeal reflects the collector-facing appeal of the product's parent set."><p className="mt-3 text-[11px] text-[var(--text-secondary)]"><span className="rounded-full border border-[var(--border-subtle)] px-2 py-0.5 font-semibold uppercase tracking-[.06em]">Parent set</span></p></ScoreCard>
+          <ChaseAccessibilityCard chase={metrics.chase} />
+          <ScoreCard label="Collector Appeal · Parent Set" metric={metrics.collector} showRank={false} info="Collector Appeal is inherited from this product's parent Set."><p className="mt-3 text-[11px] text-[var(--text-secondary)]">Parent Set · no Product rank</p></ScoreCard>
         </dl>
       </section>
+      {benchmarkState?.status === "loading" ? <p className="mt-3 text-xs text-[var(--text-secondary)]">Loading Benchmark…</p> : null}
+      {benchmarkState?.status === "error" ? <p className="mt-3 text-xs text-[var(--text-secondary)]">Benchmark unavailable. Refresh to retry.</p> : null}
+      {formatBenchmarkFreshness(benchmarkState?.payload?.freshness) ? <p className="mt-3 text-xs text-[var(--text-secondary)]">{formatBenchmarkFreshness(benchmarkState.payload.freshness)}</p> : null}
     </section>
   );
 }

@@ -1,0 +1,60 @@
+name: RIP Benchmark Backend V1
+on:
+  push:
+    branches: ['feat/rip-benchmark-backend-core-v1-20260926']
+  pull_request:
+    paths:
+      - 'backend/domain/pokemon/rip_benchmark_v1.py'
+      - 'backend/benchmarking/**'
+      - 'backend/scripts/run_rip_benchmark_v1.py'
+      - 'backend/tests/benchmark_v1/**'
+      - '.github/workflows/rip-benchmark-backend-v1.yml'
+permissions:
+  contents: read
+concurrency:
+  group: rip-benchmark-backend-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install pytest
+      - run: python -m pytest -q --confcutdir=backend/tests/benchmark_v1 backend/tests/benchmark_v1/test_core.py
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: benchmark_backend_test
+          POSTGRES_PASSWORD: fixture-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: fixture-only
+      PGDATABASE: benchmark_backend_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install pytest
+      - run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - run: python -m backend.tests.benchmark_v1.postgres_smoke

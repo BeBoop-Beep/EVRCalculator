@@ -35,11 +35,13 @@ const STEPS = [
 
 export default function MethodologySection({ marketContext, methodologyHref = "/Articles/how-rip-score-works" }) {
   const marketDate = formatFullDate(marketContext?.marketDate);
+  const benchmarkDate = formatFullDate(marketContext?.benchmarkDate);
   const rankedSets = marketContext?.rankedSetCount ?? null;
 
   const facts = [
     rankedSets ? { key: "sets", value: String(rankedSets), label: "Ranked sets published" } : null,
     marketDate ? { key: "market", value: marketDate, label: "Latest market snapshot" } : null,
+    benchmarkDate ? { key: "benchmark", value: benchmarkDate, label: "RIP Benchmark source date" } : null,
   ].filter(Boolean);
 
   return (

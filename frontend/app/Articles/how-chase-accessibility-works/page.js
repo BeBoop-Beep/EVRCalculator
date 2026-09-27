@@ -20,10 +20,10 @@ export default function HowChaseAccessibilityWorksArticle() {
     <H2>Raw measurement, public score, and rank</H2>
     <DefinitionGrid items={[
       ["Raw Accessibility", "The underlying modeled collectible-value accessibility measurement. It is not the probability of pulling ‘a chase.’"],
-      ["Public score", "The comparative presentation of Raw Accessibility across the eligible set cohort."],
+      ["Public Benchmark score", "The comparative presentation of Raw Accessibility where 5.0 is the Pokémon Set benchmark, above 5 is above that benchmark, and below 5 is below it."],
       ["Set rank", "The set's ordering inside that cohort, reported separately from both the raw measurement and public score."],
     ]} />
-    <p>A public score of 6.4 / 10 does not mean a 64% chance of pulling a chase. Score formatting makes sets easier to compare; it does not turn the underlying measurement into literal pull odds.</p>
+    <p>A public score of 6.4 / 10 does not mean a 64% chance of pulling a chase. Rank identifies the leading supported set; 10.0 is only the upper endpoint of the presentation scale. Score formatting makes sets easier to compare without turning the underlying measurement into literal pull odds.</p>
 
     <H2>Diagnostics and confidence</H2>
     <p>Chase Depth supplies diagnostic context about how the modeled important-value structure is distributed. It is not a literal count of chase cards and should not be read as one.</p>

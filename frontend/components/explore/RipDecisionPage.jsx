@@ -17,7 +17,7 @@ import RipDistributionChart from "./RipDistributionChart";
 import SimulationFullReport, {
   SimulationDiagnostics,
 } from "./SimulationFullReport.jsx";
-import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
+import InfoPopover from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import { getRipPageIconPresentation } from "./ripPageIconPresentation.mjs";
@@ -35,7 +35,6 @@ import ProductOpeningValue, {
   ENTERTAINMENT_COST_PER_PACK_HELP,
   ENTERTAINMENT_COST_HELP,
 } from "./ProductOpeningValue.jsx";
-import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 import {
   PremiumMetricLock,
   RankedProductHeader,
@@ -54,6 +53,9 @@ import {
 } from "./ripDecisionContract.mjs";
 import { familyLabel } from "./SetRipFamilyBreakdown.jsx";
 import { buildRipDistributionMarkers } from "./ripDistributionMarkers.mjs";
+import BenchmarkScoreBadge from "./BenchmarkScoreBadge";
+import { formatBenchmarkFreshness } from "./ripBenchmarkPresentation.mjs";
+import { setBenchmarkMetrics } from "./productBenchmarkPresentation.mjs";
 
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 const currency = new Intl.NumberFormat("en-US", {
@@ -136,7 +138,6 @@ function ScoreSurface({
 }) {
   return (
     <RipScoreSurface
-      tier={metric.tier}
       prominent={prominent}
       metricKey={metric.key}
       className={`${styles.scoreSurface} ${prominent ? styles.scoreSurfaceOverall : ""}`}
@@ -144,17 +145,10 @@ function ScoreSurface({
       <div className={styles.scoreContent}>
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"><IconCue name={metric.icon} />{metric.label}<Help text={metric.help} href={metric.href} label={`How ${metric.label} works`} /></div>
-          <p className={`${prominent ? "text-4xl" : "text-3xl"} flex-none text-right font-semibold leading-none tabular-nums text-[var(--text-primary)]`}>
-            {score(metric.score)}{metric.score === null ? null : <span className="ml-1 text-xs text-[var(--text-secondary)]">/10</span>}
-          </p>
+          <BenchmarkScoreBadge metric={metric.benchmark} />
         </div>
         <div className={styles.scoreFacts}>
-          <p className="text-xs tabular-nums text-[var(--text-secondary)]">
-            {rank(metric.rank, metric.cohortSize)}
-          </p>
-          {metric.tier ? (
-            <RankBadge rank={metric.tier} format="tier" size="compact" subtle />
-          ) : null}
+          <p className="text-xs tabular-nums text-[var(--text-secondary)]">{metric.benchmark?.available ? `#${metric.benchmark.rank} of ${metric.benchmark.cohortSize}` : "Unavailable"}</p>
         </div>
         <button
           type="button"
@@ -192,17 +186,17 @@ function ScoreSurface({
 function ChaseAccessibilitySnapshotCard({ chase, onActivate }) {
   return (
     <div data-chase-accessibility-snapshot className={styles.chaseAccessSummary}>
-      <div className="flex min-w-0 items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"><IconCue name="trend" />{chase.label}</div><span className={styles.chaseAccessMetricValue}>{chase.publicScore === null ? "—" : <>{score(chase.publicScore)} <small>/10</small></>}</span></div>
+      <div className="flex min-w-0 items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"><IconCue name="trend" />Chase Accessibility</div><BenchmarkScoreBadge metric={chase} /></div>
       {chase.available ? (
         <>
-          <p className="text-xs tabular-nums text-[var(--text-secondary)]">{rank(chase.rank, chase.cohortSize)}</p>
+          <p className="text-xs tabular-nums text-[var(--text-secondary)]">#{chase.rank} of {chase.cohortSize}</p>
           <p className="text-xs text-[var(--text-secondary)]">
-            {chase.publicQuestion}
+            Native Set Chase Accessibility Benchmark.
           </p>
         </>
       ) : (
         <p className="text-xs text-[var(--text-secondary)]">
-          {chase.statusReason ||
+          {chase.benchmarkReason ||
             "Chase Accessibility is not currently available for this set."}
         </p>
       )}
@@ -214,24 +208,7 @@ function ChaseAccessibilitySnapshotCard({ chase, onActivate }) {
   );
 }
 
-function SectionMeta({ metric }) {
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-      <strong className="text-lg tabular-nums text-[var(--text-primary)]">
-        {score(metric.publicScore)}{" "}
-        <small className="text-xs font-medium text-[var(--text-secondary)]">
-          /10
-        </small>
-      </strong>
-      <span className="text-xs tabular-nums text-[var(--text-secondary)]">
-        {rank(metric.rank, metric.cohortSize)}
-      </span>
-      {metric.tier ? (
-        <RankBadge rank={metric.tier} format="tier" size="compact" subtle />
-      ) : null}
-    </div>
-  );
-}
+function SectionMeta({ metric }) { return <div className="mt-2"><BenchmarkScoreBadge metric={metric} /></div>; }
 
 function scrollToSection(id) {
   const target = document.getElementById(id);
@@ -686,12 +663,6 @@ function ComparisonMobileRow({
     productComparisonMetrics(product);
   const rows = [
     [
-      "Product Rank",
-      familyRankInfo
-        ? `#${familyRankInfo.familyRank} / ${familyRankInfo.familySize}`
-        : "—",
-    ],
-    [
       "Average Return",
       product.modeledReturnPercent === null
         ? "—"
@@ -734,18 +705,7 @@ function ComparisonMobileRow({
         setName={setName}
         isBest={isBest}
       />
-      <div className="mt-3 flex items-center justify-between border-y border-[var(--border-subtle)] py-2">
-        <LockedValue canView={canView}>
-          <RipScoreBadge
-            score={familyRankInfo?.overallRipLeaderScore}
-            tier={familyRankInfo?.publicTier}
-            compact
-          />
-        </LockedValue>
-        <LockedValue canView={canView}>
-          <RipTierMark tier={familyRankInfo?.publicTier} />
-        </LockedValue>
-      </div>
+      <p className="mt-3 border-y border-[var(--border-subtle)] py-2 text-xs text-[var(--text-secondary)]">Product Benchmark is available on the Product detail page.</p>
       <dl className="mt-2 grid gap-2 text-xs">
         <div className="flex items-center justify-between gap-4">
           <dt className="text-[var(--text-secondary)]">Market Price</dt>
@@ -795,13 +755,6 @@ function ComparisonTableRow({
       data-sealed-product-id={product.sealedProductId}
       data-best-in-family={isBest ? "true" : undefined}
     >
-      <td className={`${rankingStyles.numeric} whitespace-nowrap`}>
-        <LockedValue canView={canView}>
-          {familyRankInfo
-            ? `#${familyRankInfo.familyRank} / ${familyRankInfo.familySize}`
-            : "—"}
-        </LockedValue>
-      </td>
       <td className={rankingStyles.productIdentityCell}>
         <ProductIdentity
           product={product}
@@ -809,18 +762,6 @@ function ComparisonTableRow({
           setName={setName}
           isBest={isBest}
         />
-      </td>
-      <td className="text-center">
-        <LockedValue canView={canView}>
-          <div className="flex flex-col items-center gap-1">
-            <RipScoreBadge
-              score={familyRankInfo?.overallRipLeaderScore}
-              tier={familyRankInfo?.publicTier}
-              compact
-            />
-            <RipTierMark tier={familyRankInfo?.publicTier} />
-          </div>
-        </LockedValue>
       </td>
       <td className={rankingStyles.numeric}>
         <span>
@@ -911,6 +852,7 @@ export default function RipDecisionPage({
   onRankContextRetry = null,
   canViewProductRipIntelligence = false,
   chaseAccessibilityPresentation = null,
+  benchmarkState = null,
 }) {
   const [overallOpen, setOverallOpen] = useState(false);
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
@@ -946,6 +888,10 @@ export default function RipDecisionPage({
     summary,
     chaseAccessibilityPresentation,
   });
+  const benchmark = useMemo(
+    () => setBenchmarkMetrics(benchmarkState?.setId, benchmarkState?.payload),
+    [benchmarkState?.setId, benchmarkState?.payload],
+  );
   const analyticalCanonical = useMemo(() => advancedEvidence ? {
     publicRipContractV10: {
       ...(canonical?.publicRipContractV10 || {}),
@@ -1034,10 +980,7 @@ export default function RipDecisionPage({
       label: "RIP Score",
       role: "overall",
       icon: "gauge",
-      score: model.overall.publicScore,
-      rank: model.overall.rank,
-      cohortSize: model.overall.cohortSize,
-      tier: model.overall.tier,
+      benchmark: benchmark.overall,
       cta: overallOpen ? "Hide explanation" : "How RIP Score works",
       help: "The current canonical overall score for opening this set relative to ranked sets.",
     },
@@ -1046,9 +989,7 @@ export default function RipDecisionPage({
       label: "Financial RIP",
       role: "financial",
       icon: "shield",
-      score: model.financial.publicScore,
-      rank: model.financial.rank,
-      cohortSize: model.financial.cohortSize,
+      benchmark: benchmark.financial,
       cta: "View Financial RIP breakdown",
       href: "/Articles/how-financial-rip-works",
       help: "Opening economics across typical outcomes, losses, upside, and efficiency.",
@@ -1058,9 +999,7 @@ export default function RipDecisionPage({
       label: "Collector Appeal",
       role: "collector",
       icon: "star",
-      score: model.collector.publicScore,
-      rank: model.collector.rank,
-      cohortSize: model.collector.cohortSize,
+      benchmark: benchmark.collector,
       cta: "Explore Collector Appeal",
       href: "/Articles/how-collector-appeal-works",
       help: "Roster desirability and the frequency of desirable modeled outcomes.",
@@ -1138,12 +1077,15 @@ export default function RipDecisionPage({
         ) : null}
         <div className={styles.pillarCardRow} data-three-pillar-summary>
           <ScoreSurface metric={metrics.financial} onActivate={() => scrollToSection("set-detail-financial-rip")} />
-          <ChaseAccessibilitySnapshotCard chase={model.chaseAccessibility} onActivate={() => scrollToSection("set-detail-chase-accessibility")} />
+          <ChaseAccessibilitySnapshotCard chase={benchmark.chase} onActivate={() => scrollToSection("set-detail-chase-accessibility")} />
           <ScoreSurface
             metric={metrics.collector}
             onActivate={() => scrollToSection("set-detail-collector-appeal")}
           />
         </div>
+        {benchmarkState?.status === "loading" ? <p className="mt-2 text-xs text-[var(--text-secondary)]">Loading Benchmark…</p> : null}
+        {benchmarkState?.status === "error" ? <button type="button" onClick={benchmarkState.retry} className="mt-2 text-xs text-[var(--accent)] underline">Retry Benchmark</button> : null}
+        {formatBenchmarkFreshness(benchmarkState?.payload?.freshness) ? <p className="mt-2 text-xs text-[var(--text-secondary)]">{formatBenchmarkFreshness(benchmarkState.payload.freshness)}</p> : null}
         <p className={styles.compactScoreTakeaway}>{model.takeaway}</p>
       </article>
 
@@ -1218,11 +1160,6 @@ export default function RipDecisionPage({
                         text={`Ranked against all currently eligible modeled ${heroFamilyName}s in the canonical product-family cohort, across every modeled set — not just this one.`}
                       />
                     </div>
-                    {heroPick.familyRankInfo?.overallRipLeaderScore == null ? null : (
-                      <span className={styles.heroBadge}>
-                        {score(heroPick.familyRankInfo.overallRipLeaderScore)} RIP Score
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1304,7 +1241,7 @@ export default function RipDecisionPage({
           </p>
           {rankContextFreshness === "latest_published" ? (
             <p className="mt-3 text-xs text-[var(--text-secondary)]">
-              Product Rank, RIP Score and Tier use the latest global Rankings publication{rankContextDate(rankContextUpdatedAt) ? ` · data as of ${rankContextDate(rankContextUpdatedAt)}` : ""}. Current opening economics use today&apos;s Set calculation.
+              Product-family context uses the latest global Rankings publication{rankContextDate(rankContextUpdatedAt) ? ` · data as of ${rankContextDate(rankContextUpdatedAt)}` : ""}. Current opening economics use today&apos;s Set calculation.
             </p>
           ) : null}
           {canViewProductRipIntelligence && rankContextStatus === "error" ? (
@@ -1326,10 +1263,8 @@ export default function RipDecisionPage({
         >
           <h2 className={styles.sectionTitle}>Product Comparison</h2>
           <p className={styles.sectionLede}>
-            Compare each way to open this set. Product Rank and RIP Score
-            compare each product only with products of the same type; opening
-            economics below describe the specific product at its current market
-            price.
+            Compare the current opening economics for each way to open this set.
+            Product Benchmark headlines live on each Product detail page.
           </p>
           {!canViewProductRipIntelligence ? (
             <div
@@ -1353,9 +1288,7 @@ export default function RipDecisionPage({
               data-set-product-comparison-table
             >
               <colgroup>
-                <col className="w-[7rem]" />
                 <col className="w-[16rem]" />
-                <col className="w-[6.25rem]" />
                 <col className="w-[6.25rem]" />
                 <col className="w-[6.25rem]" />
                 <col className="w-[8rem]" />
@@ -1368,17 +1301,7 @@ export default function RipDecisionPage({
               </caption>
               <thead className={rankingStyles.head}>
                 <tr>
-                  <th scope="col" className="whitespace-normal">
-                    <RankedProductHeader text="Ranked against eligible modeled products of the same product family.">
-                      Product Rank
-                    </RankedProductHeader>
-                  </th>
                   <th scope="col">Product</th>
-                  <th scope="col">
-                    <RankedProductHeader text="How close this product's RIP Score performance is to the strongest eligible product of the same type." info={<PublicRipTierInfo />}>
-                      RIP Score
-                    </RankedProductHeader>
-                  </th>
                   <th scope="col">
                     <RankedProductHeader text="Current product market price, with the price per included pack.">
                       Price
@@ -1635,10 +1558,10 @@ export default function RipDecisionPage({
             >
               <DeepDiveRow
                 id="deep-dive-financial-rip"
-                title={`Financial RIP Breakdown — ${score(model.financial.publicScore)}`}
+                title="Financial RIP Breakdown"
                 defaultOpen={financialDeepDiveOpen}
               >
-                <SectionMeta metric={model.financial} />
+                <SectionMeta metric={benchmark.financial} />
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
                   Six dimensions explain this set&apos;s modeled opening
                   economics.
@@ -1651,8 +1574,8 @@ export default function RipDecisionPage({
             </div>
 
             <div id="set-detail-chase-accessibility" tabIndex={-1} data-rip-section="chase-accessibility-explanation" className="scroll-mt-24 md:scroll-mt-28">
-              <DeepDiveRow id="deep-dive-chase-accessibility" title={`Chase Accessibility Breakdown — ${score(model.chaseAccessibility.publicScore)}`}>
-                <SectionMeta metric={{ publicScore: model.chaseAccessibility.publicScore, rank: model.chaseAccessibility.rank, cohortSize: model.chaseAccessibility.cohortSize, tier: null }} />
+              <DeepDiveRow id="deep-dive-chase-accessibility" title="Chase Accessibility Breakdown">
+                <SectionMeta metric={benchmark.chase} />
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">{model.chaseAccessibility.publicQuestion}</p>
                 {model.chaseAccessibility.displayAccessibility !== null ? <p className="mt-3 text-sm"><strong>Raw Accessibility:</strong> {model.chaseAccessibility.displayAccessibility.toFixed(2)}%</p> : null}
                 {(model.chaseAccessibility.chaseDepthAvailable || model.chaseAccessibility.mappedHcMassAvailable) ? <details className="mt-3 rounded-xl border border-[var(--border-subtle)] p-3"><summary className="cursor-pointer font-semibold">Diagnostic context</summary>{model.chaseAccessibility.chaseDepthAvailable ? <p className="mt-2 text-sm">Chase Depth: {model.chaseAccessibility.chaseDepth.toFixed(2)}</p> : null}{model.chaseAccessibility.mappedHcMassAvailable ? <p className="mt-1 text-sm">Mapped coverage: {(model.chaseAccessibility.mappedHcMass * 100).toFixed(1)}%</p> : null}</details> : null}
@@ -1668,10 +1591,10 @@ export default function RipDecisionPage({
             >
               <DeepDiveRow
                 id="deep-dive-collector-appeal"
-                title={`Collector Appeal Breakdown — why Collector Appeal is ${score(model.collector.publicScore)}`}
+                title="Collector Appeal Breakdown"
                 defaultOpen={collectorDeepDiveOpen}
               >
-                <SectionMeta metric={model.collector} />
+                <SectionMeta metric={benchmark.collector} />
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
                   Two parallel factors describe the roster and how often a
                   desirable card can appear.

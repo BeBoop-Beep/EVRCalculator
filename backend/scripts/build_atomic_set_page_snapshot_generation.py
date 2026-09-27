@@ -66,6 +66,20 @@ def main():
  if scored!=len(fresh_set_ids): raise RuntimeError('canonical Collector authority is incomplete for frozen cohort')
  summary={'fullGenerationExpectedSetCount':len(set_ids),'freshRebuiltSetCount':len(fresh_set_ids),'carriedForwardSetCount':len(carry_forward_set_ids),'collectorRows':len(collector),'scored':scored,'unavailable':len(collector)-scored,'collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'collectorModelRunId':args.collector_model_run_id,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs}
  latest_by_id={str(r['set_id']):r for r in existing_full_rows}
+ carried_collector_contracts=[]
+ for set_id in carry_forward_set_ids:
+  payload=(latest_by_id.get(set_id) or {}).get('payload_json') or {}
+  contract=payload.get(PUBLIC_CONTRACT_KEY)
+  if not contract: continue
+  appeal=contract.get('collectorAppeal') or {}
+  if contract.get('contractVersion')!='public_collector_appeal_contract_v1':
+   raise RuntimeError('carried-forward Collector contract version mismatch for set '+set_id)
+  if str(appeal.get('modelRunId') or '')!=str(args.collector_model_run_id or ''):
+   raise RuntimeError('carried-forward Collector authority mismatch for set '+set_id)
+  carried_collector_contracts.append(set_id)
+ expected_collector_row_count=len(collector)+len(carried_collector_contracts)
+ summary['carriedForwardCollectorRows']=len(carried_collector_contracts)
+ summary['expectedCollectorRows']=expected_collector_row_count
  def build_fresh_row(fresh_client,set_id):
   copied=build_set_page_snapshot_row(by_id[set_id],client=fresh_client,rankings_payload=rankings_payload); payload=dict(copied['payload_json']); payload.pop(PUBLIC_CONTRACT_KEY,None)
   contract=build_public_collector_appeal_contract(collector.get(set_id)) if args.collector_authority=='model-run' else build_public_collector_appeal_contract_from_v5(collector.get(set_id))
@@ -96,7 +110,7 @@ def main():
   c.table('pokemon_set_page_snapshot_generations').update({'status':'failed','diagnostics_json':{**(building[0].get('diagnostics_json') or {}),'failure':'frozen authority changed; generation is not resumable'}}).eq('id',building[0]['id']).execute()
  gid=str(building[0]['id']) if resumable else str(uuid.uuid4())
  if not resumable:
-  c.table('pokemon_set_page_snapshot_generations').insert({'id':gid,'expected_set_ids':set_ids,'expected_set_count':len(set_ids),'collector_model_run_id':args.collector_model_run_id,'collector_contract_version':'public_collector_appeal_contract_v1','expected_collector_row_count':len(collector),'previous_generation_id':current['generation_id'],'diagnostics_json':identity}).execute()
+  c.table('pokemon_set_page_snapshot_generations').insert({'id':gid,'expected_set_ids':set_ids,'expected_set_count':len(set_ids),'collector_model_run_id':args.collector_model_run_id,'collector_contract_version':'public_collector_appeal_contract_v1','expected_collector_row_count':expected_collector_row_count,'previous_generation_id':current['generation_id'],'diagnostics_json':identity}).execute()
  completed={str(r['set_id']) for r in (c.table('pokemon_set_page_snapshot_generation_rows').select('set_id').eq('generation_id',gid).execute().data or [])}
  try:
   for set_id in set_ids:

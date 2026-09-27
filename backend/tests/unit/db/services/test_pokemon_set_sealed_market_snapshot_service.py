@@ -558,6 +558,7 @@ def test_build_snapshot_publishes_the_set_level_lens():
     payload = build_snapshot({"id": "s", "canonical_key": "set", "name": "Set"}, products, observations)["payload_json"]
     assert payload["setMarket"]["currentValue"] == 460.0
     assert payload["setMarket"]["productCount"] == 2
+    assert payload["meta"]["eligibleProductIds"] == ["20", "21"]
     assert list(payload["setMarket"]["movements"]) == list(MOVEMENT_WINDOWS)
     # A single-day snapshot is a valid baseline observation: index 100.0, no
     # return yet (there is nothing to chain-link a return against).

@@ -139,9 +139,8 @@ def test_homepage_lens_projects_only_the_public_whitelist(monkeypatch):
     assert target["checklist_set_value"] == 123.45
     assert target["pack_cost"] == 4.5
     assert target["collector_appeal_score"] == 71
-    assert target["setRipV1"] == {"score": 90, "tier": "A", "rank": 1, "cohortSize": 50, "rankable": True}
+    assert "setRipV1" not in target
     assert target["universalSetDesirability"] == {"score": 80, "rank": 3}
-    assert "familyScores" not in target["setRipV1"]
     assert "rankedSetCount" not in target["universalSetDesirability"]
     assert "financialRipV4" not in target
     assert "overallRipV10" not in target

@@ -96,6 +96,8 @@ import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import OverallRipExplanationHierarchy from "./OverallRipExplanationHierarchy";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
+import useSetBenchmarkHeadlines from "@/hooks/pokemon/useSetBenchmarkHeadlines";
+import { setBenchmarkMetrics } from "./productBenchmarkPresentation.mjs";
 import { selectPreferredSetRipContract } from "./SetRipFamilyBreakdown.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
@@ -132,7 +134,7 @@ import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelect
 import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
-import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
+import { RIP_SCORE_HELPER } from "./ripHeroScoreMode.mjs";
 // `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
 // were imported from Insights/openingExperienceSelector.mjs for the removed
 // public Collector Profile. This page has no other consumer of either, so the
@@ -145,7 +147,6 @@ import {
   POSITIVE_VALUE_COLOR,
   getDangerValueStyle,
   getInterpretationTone,
-  getRipTierPresentation,
 } from "@/lib/explore/interpretationTone";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
@@ -6432,6 +6433,7 @@ function RipScoreBreakdownModule({
   // already the RESOLVED V10 bundle (`.overall`/`.financialRip` blocks), not
   // a raw contract, so it is not a usable source for that detection.
   rawSources = [],
+  setId = null,
 }) {
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
@@ -6467,6 +6469,7 @@ function RipScoreBreakdownModule({
             every rail in the two breakdowns below is deliberately quieter. */}
         <InsightsSummaryModule
           canonical={canonical}
+          setId={setId}
           overallScore={score}
           overallTier={rankTier}
           overallRank={rankValue}
@@ -8155,6 +8158,11 @@ export default function RipStatisticsPageClient({
     () => getResolvedPokemonSetResourceId({ requestedTargetId, selectedTarget, explorePayload, shellPayload }),
     [requestedTargetId, selectedTarget, explorePayload, shellPayload]
   );
+  const setBenchmarkState = useSetBenchmarkHeadlines(resolvedSetResourceId);
+  const setBenchmark = useMemo(
+    () => setBenchmarkMetrics(resolvedSetResourceId, setBenchmarkState.payload),
+    [resolvedSetResourceId, setBenchmarkState.payload]
+  );
   // Tracks the freshest resolved set id for async callbacks (e.g. the retry
   // fetch below) so a stale response can detect a set switch even if abort
   // somehow doesn't win the race.
@@ -9689,17 +9697,8 @@ export default function RipStatisticsPageClient({
     [ripBootstrap?.canonicalSource, explorePayload, effectiveShellPayload, selectedTarget, summary]
   );
 
-  const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });
-  // THE public RIP Score: the canonical cohort-relative 0-100 value, identical
-  // to the number the Overview RIP Summary, the "Why It Ranks" result line, the
-  // Insights summary, Explore and Home all print for this set.
-  //
-  // The fixed-anchor 90/10 formula output used to be printed directly beneath
-  // this as "Underlying model score", which put two differently-scaled numbers
-  // for one metric a centimetre apart. It is no longer read on this surface;
-  // `heroScoreSelection.modelScore` still carries it for audit/Research.
-  const topScoreRaw = heroScoreSelection.publicScore;
-  const displayedTopScore = formatRawScore(topScoreRaw);
+  const topScoreRaw = setBenchmark.overall.available ? setBenchmark.overall.score * 10 : null;
+  const displayedTopScore = setBenchmark.overall.available ? setBenchmark.overall.score.toFixed(1) : "—";
 
   // Canonical backend RIP contract: the set-page snapshot payload carries it
   // in set-detail mode, the rankings target carries it on Explore. The pillar
@@ -9766,15 +9765,8 @@ export default function RipStatisticsPageClient({
   // and the Opening Outlook paragraph, both of which described the retired
   // Profit/Safety/Stability model. The backend still emits them for
   // compatibility; no current public surface renders them.
-  const setContextRipPresentation = getRipTierPresentation({
-    rankTier: heroScoreSelection.tier,
-  });
-  // The selector owns the name of the score it resolved, so the title card can
-  // never name a metric it is not showing.
-  const setContextRipLabel = heroScoreSelection.label;
-  const setContextRipTier = String(heroScoreSelection.tier || "").trim().replace(/\s+tier$/i, "");
-  const setContextRipRank = toNumber(heroScoreSelection.rank);
-  const setContextRipCohort = toNumber(heroScoreSelection.cohortSize);
+  const setContextRipRank = setBenchmark.overall.rank;
+  const setContextRipCohort = setBenchmark.overall.cohortSize;
 
   // --- Mobile / tablet hero ------------------------------------------------
   // Identity only below 1200px. Set Value and RIP were duplicated readings —
@@ -11263,7 +11255,7 @@ export default function RipStatisticsPageClient({
     // Diagnostics only. Names WHICH canonical V7 shape answered, so a stale
     // snapshot (neither shape present) is visible here as "none" rather than
     // being inferred from an unavailable card.
-    ["canonical rip source", heroScoreSelection.sourceShape || "none"],
+    ["set benchmark status", setBenchmark.overall.benchmarkStatus || "unavailable"],
   ];
 
   const handleTargetIdChange = (nextTargetId, options = {}) => {
@@ -12438,24 +12430,8 @@ export default function RipStatisticsPageClient({
                         setHeaderSummary still carries the value in the shell
                         contract — this is a rendering decision, not a data one. */}
                     <div data-set-context-rip className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
-                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />RIP Rank</p>
-                        {/* Score stays the focal point and stays neutral; the tier
-                            takes the outlined pill and the verdict a lighter
-                            relative of the breakdown's interpretation pill, both
-                            from one shared tier presentation. The rank is plain
-                            inline text — it is a position, not a judgement, and a
-                            third chip on this row made the compact card read as
-                            three competing badges. */}
+                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />Benchmark Rank</p>
                         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                          {setContextRipTier ? (
-                            <span
-                              data-set-context-rip-tier
-                              className="inline-flex flex-none items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-tight"
-                              style={setContextRipPresentation.tierPill}
-                            >
-                              {setContextRipTier} Tier
-                            </span>
-                          ) : null}
                           {setContextRipRank !== null ? (
                             <span
                               data-set-context-rip-rank
@@ -12583,6 +12559,7 @@ export default function RipStatisticsPageClient({
                       <SectionErrorBoundary sectionName="overview-rip-summary" resetKeys={[resolvedSetResourceId]} title="RIP Summary" minHeightClassName="min-h-[7rem]">
                         <OverviewRipSummary
                           canonical={canonicalRip}
+                          setId={resolvedSetResourceId}
                           setRip={preferredSetRip}
                           onViewAnalysis={() =>
                             handleSetDetailNavSelect({
@@ -12884,9 +12861,9 @@ export default function RipStatisticsPageClient({
                       <div className="mt-1 flex w-full justify-center">
                         <div className="inline-flex items-center gap-2">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                            {heroScoreSelection.label}
+                            RIP Score
                           </p>
-                          <InfoPopover text={`${heroScoreSelection.helper}. ${PUBLIC_SCORE_SCALE_NOTE}`} />
+                          <InfoPopover text={`Compared with the published Pokémon Set benchmark. ${PUBLIC_SCORE_SCALE_NOTE}`} />
                         </div>
                       </div>
                       <div className="mt-3 flex w-full justify-center">
@@ -12902,7 +12879,7 @@ export default function RipStatisticsPageClient({
                         </div>
                       </div>
                       <div className="mt-4 w-full max-w-lg">
-                        <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
+                        <ScoreMeter score={topScoreRaw} rankTier={null} />
                       </div>
                       {/* "Underlying model score" stood here. It printed the
                           fixed-anchor 90/10 output directly under the public
@@ -12910,7 +12887,7 @@ export default function RipStatisticsPageClient({
                           model score is audit/Research data, not a public
                           headline, and is no longer read on this surface. */}
                       <div className="mt-4 flex w-full justify-center self-center">
-                        <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} cohortSize={heroScoreSelection.cohortSize} size="hero" />
+                        <HeroScoreBadges rank={setBenchmark.overall.rank} tier={null} cohortSize={setBenchmark.overall.cohortSize} size="hero" />
                       </div>
                     </div>
 
@@ -13136,10 +13113,11 @@ export default function RipStatisticsPageClient({
                 <div data-mobile-section>
                 <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score" minHeightClassName="min-h-[14rem]">
                   <RipScoreBreakdownModule
+                    setId={resolvedSetResourceId}
                     score={topScoreRaw}
-                    rankTier={heroScoreSelection.tier}
-                    rankValue={heroScoreSelection.rank}
-                    cohortSize={heroScoreSelection.cohortSize}
+                    rankTier={null}
+                    rankValue={setBenchmark.overall.rank}
+                    cohortSize={setBenchmark.overall.cohortSize}
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
                     canonical={canonicalRip}
                     requestTimeout={isTimeoutFallbackPayload}

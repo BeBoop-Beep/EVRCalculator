@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+const read = (url) => fs.readFileSync(new URL(url, import.meta.url), "utf8");
+const rip = read("./RipDecisionPage.jsx");
+const overview = read("./OverviewRipSummary.jsx");
+const insights = read("./InsightsSummaryModule.jsx");
+const analysis = read("../pokemon/set-page/Analysis/PokemonSetAnalysisClient.jsx");
+const product = read("../pokemon/sealed-product-detail/ProductRipSection.jsx");
+const productClient = read("../pokemon/sealed-product-detail/SealedProductDetailClient.jsx");
+const comparisons = read("../pokemon/sealed-product-detail/ProductComparisonSection.jsx");
+test("Set headline surfaces use shared Benchmark presentation without legacy fallback", () => { for (const source of [rip, overview, insights, analysis]) assert.match(source, /BenchmarkScoreBadge/); assert.doesNotMatch(overview, /label="Set RIP"/); assert.doesNotMatch(analysis, /role="progressbar"|RankBadge/); });
+test("Set Analysis clears and ignores stale Set responses through the shared hook", () => { const hook = read("../../hooks/pokemon/useSetBenchmarkHeadlines.js"); assert.match(analysis, /useSetBenchmarkHeadlines\(setId\)/); assert.match(hook, /setState\(\{ setId, status: "loading", payload: null/); assert.match(hook, /requestVersion\.current === version/); });
+test("Product detail requests Benchmark only after Plus and uses native/inherited semantics", () => { assert.match(productClient, /if \(!entitled \|\| !detail\.product\.id\)/); assert.match(product, /benchmarkLabel=\{family\}/); assert.match(product, /Financial rank is not separately published/); assert.match(product, /Parent Set · no Product rank/); assert.doesNotMatch(product, /overallRipLeaderScore|financialRipLeaderScore|publicTier|collectorAppealTier/); });
+test("comparison cards retain evidence and remove legacy score ordering without N+1", () => { assert.match(comparisons, /Average Return/); assert.doesNotMatch(comparisons, /overallRipLeaderScore|publicTier|readCurrentProductBenchmark/); });
+test("Card intelligence remains a separate non-Benchmark construct", () => { for (const path of ["../pokemon/card-detail/PokemonCardDetailClient.jsx", "./CardCollectorAppealRankings.jsx", "./CardChaseEfficiencyRankings.jsx"]) { const source = read(path); assert.doesNotMatch(source, /ripBenchmark|BenchmarkScoreBadge/); } });

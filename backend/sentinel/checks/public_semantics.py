@@ -272,21 +272,20 @@ def check_market_public_snapshot(
     )
 
 
-def _rankable_set_targets(payload: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
+def _rankable_set_targets(payload: Mapping[str, Any], *, benchmark_only: bool = False) -> Sequence[Mapping[str, Any]]:
     targets = payload.get("targets")
     if not isinstance(targets, list):
         return []
     rankable = []
     for row in targets:
-        block = row.get("setRipV1") if isinstance(row, dict) else None
-        if not isinstance(block, dict) or block.get("rankable") is False:
+        block = row.get("benchmarkOverall") if isinstance(row, dict) else None
+        if not benchmark_only and not isinstance(block, dict):
+            block = row.get("setRipV1") if isinstance(row, dict) else None
+        if not isinstance(block, dict) or (benchmark_only and block.get("status") != "available"):
             continue
-        score_value = block.get("publicScore")
-        if score_value is None:
-            score_value = block.get("score")
         try:
             rank = int(block.get("rank"))
-            score = float(score_value)
+            score = float(block.get("score") if block.get("score") is not None else block.get("publicScore"))
         except (TypeError, ValueError):
             continue
         if rank > 0 and score >= 0 and row.get("target_id") and row.get("name"):
@@ -304,7 +303,7 @@ def check_homepage_rankings(
     key = "public.rankings.homepage"
     path = "/explore/rankings/homepage-summary?limit=60"
     probe = _probe_json(base_url, path, http_get=http_get, timeout_seconds=timeout_seconds)
-    expected = {"status_code": 200, "rankable_targets_min": 1}
+    expected = {"status_code": 200, "rankable_targets_min": 1, "benchmark_authority": True, "private_fields_absent": True}
     generic = _probe_contract_failure(
         context, check_key=key, authority=path, probe=probe,
         prefix="public_homepage_rankings", expected=expected,
@@ -312,7 +311,8 @@ def check_homepage_rankings(
     if generic:
         return generic
     payload = probe["payload"]
-    rankable = list(_rankable_set_targets(payload))
+    benchmark = payload.get("benchmark") if isinstance(payload.get("benchmark"), dict) else {}
+    rankable = list(_rankable_set_targets(payload, benchmark_only=True))
     authority = _snapshot_identity(payload, path)
     if not rankable:
         return _http_failure(
@@ -321,6 +321,14 @@ def check_homepage_rankings(
             observed={"target_count": len(payload.get("targets") or [])},
         )
     top = rankable[0]
+    block = top.get("benchmarkOverall") or {}
+    private = {"rawModelValue", "benchmarkRawValue", "financialEvidence", "sourceLineage", "fingerprint", "tier"}
+    if benchmark.get("status") != "available" or private & set(block):
+        return _http_failure(
+            context, check_key=key, authority=authority,
+            failure_code="public_homepage_benchmark_contract_invalid", probe=probe, expected=expected,
+            observed={"benchmark_status": benchmark.get("status"), "private_fields": sorted(private & set(block))},
+        )
     return CheckResult.healthy(
         key,
         authority_identity=authority,
@@ -329,7 +337,9 @@ def check_homepage_rankings(
             "status_code": 200,
             "rankable_target_count": len(rankable),
             "top_target_id": top.get("target_id"),
-            "top_rank": (top.get("setRipV1") or {}).get("rank"),
+            "top_rank": block.get("rank"),
+            "top_score": block.get("score"),
+            "benchmark_publication_id": benchmark.get("publicationId"),
             "elapsed_ms": probe["elapsed_ms"],
         },
         checked_at=context.now,
@@ -466,13 +476,13 @@ def check_representative_set_page(
     )
     if generic:
         return generic
-    rankable = list(_rankable_set_targets(rankings_probe["payload"]))
+    rankable = list(_rankable_set_targets(rankings_probe["payload"], benchmark_only=True))
     if not rankable:
         return _http_failure(
             context, check_key=key, authority="representative-set",
             failure_code="public_setpage_source_empty", probe=rankings_probe, expected=expected,
         )
-    top_ranked = min(rankable, key=lambda row: int((row.get("setRipV1") or {}).get("rank")))
+    top_ranked = min(rankable, key=lambda row: int((row.get("benchmarkOverall") or {}).get("rank")))
     set_id = str(top_ranked.get("target_id"))
     path = f"/tcgs/pokemon/sets/{quote(set_id, safe='')}/page"
     probe = _probe_json(base_url, path, http_get=http_get, timeout_seconds=timeout_seconds)

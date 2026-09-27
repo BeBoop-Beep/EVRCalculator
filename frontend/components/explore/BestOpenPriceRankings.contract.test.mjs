@@ -10,10 +10,9 @@ function count(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
 
-test("Best-Open stays inside the existing Price column instead of adding a twelfth column", () => {
-  const colgroup = products.match(/<colgroup>([\s\S]*?)<\/colgroup>/)?.[1] || "";
-  assert.equal(count(colgroup, "<col "), 11);
-  assert.match(colgroup, /styles\.colPrice/);
+test("Best-Open stays inside the existing Price column instead of adding another column", () => {
+  const header = products.match(/<thead[\s\S]*?<tr>([\s\S]*?)<\/tr><\/thead>/)?.[1] || "";
+  assert.equal(count(header, "<th>"), 9);
   assert.doesNotMatch(products, /colBestOpen|bestOpenPriceColumn/);
   assert.match(products, /data-best-open-price/);
   assert.match(products, /Price \/ Best-Open/);
@@ -44,9 +43,9 @@ test("methodology disclosure names the actual Full Market counterfactual", () =>
 });
 
 test("budget responses use a distinct cache namespace from the warmed Full Market lens wrapper", () => {
-  assert.match(products, /peek\("products:full_market"\)/);
-  assert.match(products, /request\("products:full_market", load/);
+  assert.match(products, /request\("products:full_market", baseLoad/);
   assert.match(products, /sessionCache\.request\(`products:budget:\$\{next\}`/);
+  assert.match(products, /readCurrentProductBenchmark\(entities, \{ sessionCache/);
   assert.doesNotMatch(products, /sessionCache\.request\(`products:\$\{next\}`/);
 });
 
