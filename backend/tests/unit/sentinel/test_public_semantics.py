@@ -120,6 +120,38 @@ def test_market_snapshot_missing_date_and_bad_values_fail():
     assert check_market_public_snapshot(CTX, base_url=BASE, http_get=getter).failure_code == "public_market_rows_invalid"
 
 
+    scoped_unavailable = {
+        "sets": [{
+            "setId": "base",
+            "marketKey": "set:base:first_edition",
+            "marketScope": "first_edition",
+            "currentSetValue": None,
+            "valueStatus": "unavailable",
+            "certificationStatus": "SCOPED_MARKET_INCOMPLETE",
+        }],
+        "meta": {"snapshot": {"marketDate": "2026-09-11"}},
+    }
+    getter = _getter({f"{BASE}/explore/set-value-market": _Response(payload=scoped_unavailable)})
+    result = check_market_public_snapshot(CTX, base_url=BASE, http_get=getter)
+    assert result.outcome == CheckOutcome.HEALTHY
+    assert result.observed["unavailable_scoped_count"] == 1
+
+    malformed_unavailable = {
+        "sets": [{
+            "setId": "base",
+            "marketScope": "first_edition",
+            "currentSetValue": None,
+            "valueStatus": "unavailable",
+            "certificationStatus": "READY",
+        }],
+        "meta": {"snapshot": {"marketDate": "2026-09-11"}},
+    }
+    getter = _getter({f"{BASE}/explore/set-value-market": _Response(payload=malformed_unavailable)})
+    assert check_market_public_snapshot(
+        CTX, base_url=BASE, http_get=getter
+    ).failure_code == "public_market_rows_invalid"
+
+
 def test_homepage_rankings_require_public_rankable_set():
     payload = {"targets": [_set_target()], "benchmark": {"status": "available", "publicationId": "pub-1"}, "meta": {"snapshot": {"builtAt": "2026-09-11T19:00:00Z"}}}
     getter = _getter({f"{BASE}/explore/rankings/homepage-summary?limit=60": _Response(payload=payload)})
