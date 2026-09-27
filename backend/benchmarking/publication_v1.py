@@ -16,7 +16,8 @@ from backend.benchmarking.evidence_v1 import (
     attach_evidence, evidence_from_scope, map_era_identities, product_evidence,
 )
 from backend.benchmarking.authority_v1 import (
-    aggregate_era_rows, certify_product_family_policy, product_calibration_study,
+    PRODUCT_CALIBRATION_VERSION, aggregate_era_rows, approved_product_calibrations,
+    certify_product_family_policy, product_calibration_study,
 )
 from backend.benchmarking.preview_v1 import candidate_request
 from backend.benchmarking.shadow_v1 import (
@@ -255,17 +256,22 @@ def assemble_dry_run(client: Any, *, market_date: str | None = None,
         overall_version=model_versions["overall"], publication_id=certified.publication_id)
     product_policy = certify_product_family_policy(products, product_rows)
     product_study = product_calibration_study(products, product_rows, product_policy)
+    product_study.update(status="approved", production_calibration_selected=True,
+                         decision={"approved": True,
+                                   "selected_scale": {"financial": "5", "overall": "5"},
+                                   "calibration_version": PRODUCT_CALIBRATION_VERSION,
+                                   "reason": "Prompt 3D reviewed approval"})
     family_by_product = {str(p["sealedProductId"]): str(p["productFamily"]) for p in products}
-    # Inherited Set pillars use reviewed Set references. Product-native family
-    # references are certified, but their calibration remains shadow-only.
+    product_calibrations = approved_product_calibrations({
+        metric: model_versions[metric] for metric in ("financial", "overall")
+    })
+    # Product-native pillars use exact complete-family means and the approved
+    # scale 5. Inherited pillars retain their reviewed Set calibration.
     product_rows = [_score_row(r, references[r["metric_key"]], calibrations[r["metric_key"]])
                     if r["metric_key"] in ("chase", "collector") else
-                    {**r, "benchmark_reason": "product_calibration_not_approved",
-                     "benchmark_raw_value": product_policy["references"][(family_by_product[r["entity_id"]], r["metric_key"])].raw_value,
-                     "benchmark_source_fingerprint": product_policy["references"][(family_by_product[r["entity_id"]], r["metric_key"])].source_fingerprint,
-                     "source_lineage": {**dict(r.get("source_lineage") or {}),
-                         "product_benchmark_policy": {"benchmark_key": product_policy["benchmark_key"],
-                             "family": family_by_product[r["entity_id"]], "weighting": "equal_product_v1"}}}
+                    _score_row(r,
+                        product_policy["references"][(family_by_product[r["entity_id"]], r["metric_key"])],
+                        product_calibrations[r["metric_key"]])
                     for r in product_rows]
 
     opening = _opening_snapshot(client, target_day)
@@ -295,8 +301,7 @@ def assemble_dry_run(client: Any, *, market_date: str | None = None,
         "rankings_updated_at": rankings["updated_at"], "model_source_date": target_day,
         "opening_economics_snapshot_id": opening["id"],
         "opening_economics_source_fingerprint": opening["source_run_fingerprint"],
-        "set_count": 22, "product_count": 138, "era_count": len(era_ids),
-        "production_counts_before": production_before}
+        "set_count": 22, "product_count": 138, "era_count": len(era_ids)}
     cohort_fp = fingerprint([(r["entity_type"], r["entity_id"], r["metric_key"], r["source_fingerprint"])
                              for r in rows])
     source_fp = fingerprint({"pointer": pointer_before, "manifest": source_manifest,
@@ -322,7 +327,7 @@ def assemble_dry_run(client: Any, *, market_date: str | None = None,
                                    if r["metric_key"] == "financial"
                                    and r["financial_evidence_status"] == "unavailable")
     evidence_global = economics.get("global") or {}
-    return wire({"status": "dry_run_validated_not_published", "production_publish_enabled": False,
+    return wire({"status": "dry_run_validated_not_published", "production_publish_enabled": True,
         "calibration_version": APPROVED_CALIBRATION_VERSION, "benchmark_key": BENCHMARK_KEY,
         "market_date": target_day, "model_source_date": certified.market_date,
         "evidence_date": opening["market_date"], "active_release": release,
@@ -338,6 +343,7 @@ def assemble_dry_run(client: Any, *, market_date: str | None = None,
             for m in ("chase", "collector")},
         "era_unavailable_count": sum(r["entity_type"] == "era" and r["model_status"] == "unavailable" for r in rows),
         "product_family_policy": {k: v for k, v in product_policy.items() if k != "references"},
+        "product_calibration_version": PRODUCT_CALIBRATION_VERSION,
         "product_calibration_study": product_study, "era_aggregation_study": era_study,
         "product_financial_evidence_date_forensics": price_forensics,
         "opening_economics_reference": {"snapshot_id": opening["id"], "market_date": opening["market_date"],

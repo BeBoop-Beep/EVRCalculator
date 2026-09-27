@@ -134,6 +134,7 @@ class PublicationSummary:
     # `_set_rankings_outcome` below) - never set independently.
     rankings_publication_outcome: Optional[Dict[str, Any]] = None
     rip_stats_publication_status: str = "not_attempted"
+    rip_benchmark_publication_status: str = "not_attempted"
     ev_representativeness_status: str = "not_attempted"
     rip_stats_audit_status: str = "not_attempted"
     rip_stats_market_date: Optional[str] = None
@@ -198,6 +199,7 @@ class PublicationSummary:
         for failure in self.chase_audit_failures:
             out.append(f"{TAG}   chase_audit_failed={failure}")
         out.append(f"{TAG} rip_stats_publication_status={self.rip_stats_publication_status}")
+        out.append(f"{TAG} rip_benchmark_publication_status={self.rip_benchmark_publication_status}")
         out.append(f"{TAG} ev_representativeness_status={self.ev_representativeness_status}")
         out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
         out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
@@ -294,12 +296,26 @@ def rebuild_sealed_market_snapshots(*, market_date: str, python_executable: Opti
     return _run_command(command, dry_run=False)
 
 
+def publish_rip_benchmark(*, market_date: str, python_executable: Optional[str] = None,
+                          dry_run: bool = False) -> int:
+    command = [python_executable or sys.executable,
+               str(REPO_ROOT / "backend" / "scripts" / "run_rip_benchmark_publisher_v1.py"),
+               "--dry-run" if dry_run else "--publish", "--market-date", market_date]
+    return _run_command(command, dry_run=False)
+
+
 def _same_day_authority_capability_expected(client: Any) -> bool:
     """Keep legacy unit fakes compatible; real clients always enforce the gate."""
     tables = getattr(client, "_tables", None)
     if tables is None:
         tables = getattr(client, "tables", None)
     return not isinstance(tables, dict) or "pokemon_set_sealed_market_snapshot_latest" in tables
+
+
+def _rip_benchmark_capability_expected(client: Any) -> bool:
+    tables = getattr(client, "_tables", None)
+    if tables is None: tables = getattr(client, "tables", None)
+    return not isinstance(tables, dict) or "pokemon_rip_benchmark_publications_v1" in tables
 
 
 def refresh_public_snapshots(
@@ -1165,6 +1181,22 @@ def orchestrate(
             f"expected={resolved_market_date} rip_stats={summary.rip_stats_market_date} "
             f"explore_rankings={summary.rankings_market_date}"
         )
+        return summary
+
+    # Benchmark consumes the now-certified simulations, Rankings generation,
+    # and Opening Economics snapshot. Its RPC is independently atomic, so a
+    # failure retains the previous benchmark generation and stops here.
+    benchmark_code = (publish_rip_benchmark(
+        market_date=resolved_market_date, python_executable=python_executable, dry_run=dry_run
+    ) if _rip_benchmark_capability_expected(client) else 0)
+    summary.rip_benchmark_publication_status = (
+        "skipped_legacy_test_client" if not _rip_benchmark_capability_expected(client) else
+        "validated_dry_run" if dry_run and benchmark_code == 0 else
+        "published" if benchmark_code == 0 else f"failed_exit_{benchmark_code}"
+    )
+    if benchmark_code != 0:
+        summary.exit_code = EXIT_FAILED
+        summary.error = "RIP Benchmark publication failed; previous benchmark generation retained"
         return summary
 
     # Final step of the existing scheduler-owned chain: append/confirm today's

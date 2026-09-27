@@ -27,5 +27,5 @@ This financial-return reference is separate from every model-score `benchmark_ra
 - Inherited product Collector: 138
 - Explicit unavailable Era metric rows: 0
 - Product family policy: certified
-- Product Financial/Overall calibration: shadow candidates only; not approved
-- Production header/row counts: 0 / 0
+- Product Financial/Overall calibration: approved `rip_product_benchmark_v1_fin5_overall5_family_mean` (scale 5 / 5)
+- Production header/row counts: 2 / 1296

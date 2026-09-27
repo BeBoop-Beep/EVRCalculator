@@ -12,9 +12,18 @@ from backend.domain.pokemon.rip_benchmark_v1 import (
 )
 
 PRODUCT_BENCHMARK_KEY = "pokemon_product_family_equal_weight_v1"
+PRODUCT_CALIBRATION_VERSION = "rip_product_benchmark_v1_fin5_overall5_family_mean"
 PRODUCT_SHADOW_GRID_VERSION = "product_benchmark_shadow_grid_v1"
 PRODUCT_SCALE_GRID = tuple(map(Decimal, ("2.5", "5", "7.5", "10", "15", "20")))
 ERA_AGGREGATION_VERSION = "era_rip_aggregation_v1_equal_set_mean"
+
+
+def approved_product_calibrations(model_versions: Mapping[str, str]) -> dict[str, Calibration]:
+    if set(model_versions) != {"financial", "overall"} or not all(model_versions.values()):
+        raise BenchmarkError("exact Product Financial/Overall model identities required")
+    return {metric: Calibration(PRODUCT_CALIBRATION_VERSION, metric, model_versions[metric],
+                                PRODUCT_BENCHMARK_KEY, Decimal(5))
+            for metric in ("financial", "overall")}
 
 
 def _quantile(values: Sequence[Decimal], p: Decimal) -> Decimal:

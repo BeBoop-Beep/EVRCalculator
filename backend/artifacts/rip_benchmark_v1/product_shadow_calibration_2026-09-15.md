@@ -1,6 +1,6 @@
-# Product Benchmark V1 shadow calibration
+# Product Benchmark V1 calibration evidence
 
-**No Product Financial or Product Overall scale is approved or selected.**
+**Approved production scales: Product Financial 5; Product Overall 5.**
 
 Certified products: 138 across 8 exact serving families.
 

@@ -2,9 +2,13 @@
   "artifact_fingerprint": "15fd52902deb3f845fc45a199c829ea61f24a7c4a5ff66141fc18bcceac199ab",
   "benchmark_key": "pokemon_product_family_equal_weight_v1",
   "decision": {
-    "approved": false,
-    "reason": "human review required; no automatic product calibration policy",
-    "selected_scale": null
+    "approved": true,
+    "calibration_version": "rip_product_benchmark_v1_fin5_overall5_family_mean",
+    "reason": "Prompt 3D reviewed approval",
+    "selected_scale": {
+      "financial": "5",
+      "overall": "5"
+    }
   },
   "family_cardinalities": {
     "booster_box": 15,
@@ -2860,6 +2864,6 @@
     }
   },
   "product_count": 138,
-  "production_calibration_selected": false,
-  "status": "shadow_candidates_not_approved"
+  "production_calibration_selected": true,
+  "status": "approved"
 }

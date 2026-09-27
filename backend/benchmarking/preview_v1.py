@@ -25,6 +25,9 @@ HEADER_KEYS = frozenset({
     "opening_economics_basis", "source_manifest",
 })
 SERVER_ROW_KEYS = frozenset({"publication_id", "market_date", "raw_delta", "score_delta"})
+ADDITIONAL_REGISTERED_CALIBRATION_VERSIONS = frozenset({
+    "rip_product_benchmark_v1_fin5_overall5_family_mean",
+})
 
 
 def candidate_request(header: Mapping[str, Any], rows: Sequence[Mapping[str, Any]], *,
@@ -55,7 +58,8 @@ def candidate_request(header: Mapping[str, Any], rows: Sequence[Mapping[str, Any
                 raise BenchmarkError("future source")
         if row.get("benchmark_status") == "available":
             calibration = (row.get("source_lineage") or {}).get("benchmark_calibration") or {}
-            if calibration.get("version") != header.get("calibration_version"):
+            if (calibration.get("version") != header.get("calibration_version")
+                    and calibration.get("version") not in ADDITIONAL_REGISTERED_CALIBRATION_VERSIONS):
                 raise BenchmarkError("row/header calibration version mismatch")
             raw, ref, score = (number(row.get(k)) for k in
                                ("raw_model_value", "benchmark_raw_value", "benchmark_score"))

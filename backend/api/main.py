@@ -41,6 +41,7 @@ from backend.db.services.collection_portfolio_service import (
     get_public_collection_data_by_username,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.benchmarking.preview_v1 import PrivateBenchmarkReader
 from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
@@ -222,6 +223,56 @@ from backend.api.paid_abuse_control import (
 
 
 app = FastAPI(title="EVR Collection API")
+
+
+class BenchmarkEntityRequest(BaseModel):
+    entity_type: str
+    entity_id: UUID
+
+
+class BenchmarkCurrentRequest(BaseModel):
+    entities: List[BenchmarkEntityRequest] = Field(min_length=1, max_length=10)
+    benchmark_key: str = Field(min_length=1, max_length=100)
+    calibration_version: str = Field(min_length=1, max_length=160)
+
+
+class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
+    start_date: date
+    end_date: date
+    limit: int = Field(default=500, ge=1, le=1000)
+    after: Optional[Dict[str, Any]] = None
+
+
+def _benchmark_reader() -> PrivateBenchmarkReader:
+    from backend.db.clients.supabase_client import create_short_timeout_service_client
+    return PrivateBenchmarkReader(require_access=lambda: True,
+                                  client_factory=lambda _timeout: create_short_timeout_service_client(),
+                                  timeout_seconds=10)
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/current")
+def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
+                                  authorization: Optional[str] = Header(None),
+                                  token_cookie: Optional[str] = Cookie(None, alias="sb-access-token")):
+    _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+                           message="RIP Benchmark requires Index Plus.",
+                           authorization=authorization, token_cookie=token_cookie)
+    return _benchmark_reader().current([item.model_dump(mode="json") for item in body.entities],
+                                       benchmark_key=body.benchmark_key,
+                                       calibration_version=body.calibration_version)
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/history")
+def pokemon_rip_benchmark_history(body: BenchmarkHistoryRequest,
+                                  authorization: Optional[str] = Header(None),
+                                  token_cookie: Optional[str] = Cookie(None, alias="sb-access-token")):
+    _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+                           message="RIP Benchmark history requires Index Plus.",
+                           authorization=authorization, token_cookie=token_cookie)
+    return _benchmark_reader().history_page([item.model_dump(mode="json") for item in body.entities],
+        start_date=body.start_date.isoformat(), end_date=body.end_date.isoformat(),
+        benchmark_key=body.benchmark_key, calibration_version=body.calibration_version,
+        limit=body.limit, after=body.after)
 
 logger = logging.getLogger(__name__)
 

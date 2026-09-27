@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from backend.benchmarking.publication_v1 import assemble_dry_run
+from backend.benchmarking.publisher_v1 import publish_candidate
 
 
 def _fmt(value: Any) -> str:
@@ -42,14 +43,14 @@ def report(candidate: Mapping[str, Any]) -> str:
         f"- Inherited product Collector: {candidate['product_inheritance_counts']['collector']}",
         f"- Explicit unavailable Era metric rows: {candidate['era_unavailable_count']}",
         f"- Product family policy: {candidate['product_family_policy']['status']}",
-        "- Product Financial/Overall calibration: shadow candidates only; not approved",
+        f"- Product Financial/Overall calibration: approved `{candidate['product_calibration_version']}` (scale 5 / 5)",
         f"- Production header/row counts: {candidate['production_counts_after']['headers']} / {candidate['production_counts_after']['rows']}", ""]
     return "\n".join(lines)
 
 
 def product_report(study: Mapping[str, Any]) -> str:
-    lines = ["# Product Benchmark V1 shadow calibration", "",
-        "**No Product Financial or Product Overall scale is approved or selected.**", "",
+    lines = ["# Product Benchmark V1 calibration evidence", "",
+        "**Approved production scales: Product Financial 5; Product Overall 5.**", "",
         f"Certified products: {study['product_count']} across {len(study['family_cardinalities'])} exact serving families.", "",
         "| Metric | Scale | Score range | Clip 0 / 10 | Distinct 0.1 | Rank status | Clipping families | Compression families |",
         "|---|---:|---:|---:|---:|---|---|---|"]
@@ -86,13 +87,18 @@ def era_report(study: Mapping[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dry-run", action="store_true", required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--dry-run", action="store_true")
+    mode.add_argument("--publish", action="store_true")
     parser.add_argument("--market-date")
     parser.add_argument("--json", action="store_true", help="Print the full candidate JSON")
     parser.add_argument("--output-dir", type=Path, default=Path("backend/artifacts/rip_benchmark_v1"))
     args = parser.parse_args(argv)
     from backend.db.clients.supabase_client import create_short_timeout_service_client
     candidate = assemble_dry_run(create_short_timeout_service_client(), market_date=args.market_date)
+    publication = None
+    if args.publish:
+        publication = publish_candidate(create_short_timeout_service_client(), candidate)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stem = f"publisher_dry_run_{candidate['market_date']}"
     json_path, report_path = args.output_dir / f"{stem}.json", args.output_dir / f"{stem}.md"
@@ -107,12 +113,13 @@ def main(argv: list[str] | None = None) -> int:
     era_json.write_text(json.dumps(candidate["era_aggregation_study"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
     era_md.write_text(era_report(candidate["era_aggregation_study"]), encoding="utf-8")
     if args.json:
-        print(json.dumps(candidate, indent=2, sort_keys=True))
+        print(json.dumps(publication or candidate, indent=2, sort_keys=True))
     else:
         print(json.dumps({"status": candidate["status"], "json": str(json_path),
             "report": str(report_path), "product_calibration_json": str(product_json),
             "product_calibration_report": str(product_md), "era_aggregation_json": str(era_json),
-            "era_aggregation_report": str(era_md), "production_publish_enabled": False}, indent=2))
+            "era_aggregation_report": str(era_md), "production_publish_enabled": True,
+            "publication": publication}, indent=2))
     return 0
 
 

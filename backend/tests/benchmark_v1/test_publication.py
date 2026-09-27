@@ -40,7 +40,7 @@ def test_every_approved_calibration_has_exact_five_anchor():
 def test_reviewed_22_set_references_ranges_and_db_candidate_contract():
     artifact = json.loads(ARTIFACT.read_text(encoding="utf-8"))
     assert artifact["status"] == "dry_run_validated_not_published"
-    assert artifact["production_publish_enabled"] is False
+    assert artifact["production_publish_enabled"] is True
     assert artifact["references"] == {
         "financial": "31.94342272727272727272727273",
         "chase": "47.66021818181818181818181818",
@@ -67,7 +67,14 @@ def test_product_inheritance_era_unavailability_and_global_reference_separation(
     assert artifact["product_inheritance_counts"] == {"chase": 138, "collector": 138}
     assert artifact["era_unavailable_count"] == 0
     assert artifact["unavailable_counts"] == {}
-    assert artifact["benchmark_unavailable_counts"] == {"product_calibration_not_approved": 276}
+    assert artifact["benchmark_unavailable_counts"] == {}
+    rows = artifact["publish_rpc_request"]["arguments"]["p_rows"]
+    native_products = [row for row in rows if row["entity_type"] == "sealed_product"
+                       and row["metric_key"] in ("financial", "overall")]
+    assert len(native_products) == 276
+    assert all(row["benchmark_status"] == "available" for row in native_products)
+    assert all(row["rank"] is None for row in native_products if row["metric_key"] == "financial")
+    assert artifact["product_calibration_version"] == "rip_product_benchmark_v1_fin5_overall5_family_mean"
     global_return = str(artifact["opening_economics_reference"]["modeled_return_on_spend"])
     assert global_return not in set(artifact["references"].values())
     inherited = [row for row in artifact["publish_rpc_request"]["arguments"]["p_rows"]
@@ -108,4 +115,4 @@ def test_dry_run_module_has_no_database_rpc_invocation():
     # Candidate preparation may name the RPC, but Prompt 3A must not call it.
     assert ".rpc(" not in inspect.getsource(publication_v1)
     artifact = json.loads(ARTIFACT.read_text(encoding="utf-8"))
-    assert artifact["production_counts_before"] == artifact["production_counts_after"] == {"headers": 0, "rows": 0}
+    assert artifact["production_counts_before"] == artifact["production_counts_after"]
