@@ -1,0 +1,81 @@
+name: Edition Coverage Source Research
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/edition-coverage-source-research.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 3
+    steps:
+      - name: Read five provider catalogues and run the pure parser without persistence
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          cd /home/ubuntu/repos/EVRCalculator
+          timeout 130 .venv/bin/python - <<'PY'
+          import collections,contextlib,hashlib,io,json,subprocess,sys,time
+          from datetime import datetime,timezone
+          from pathlib import Path
+          import requests
+          from backend.Scraper.parsers.tcgplayer_parser import TCGPlayerParser
+          from backend.Scraper.helpers.card_helper import clean_condition
+          from backend.Scraper.clients.tcgplayer_client import TCGPlayerClient
+          def emit(k,v):print(json.dumps({'check':k,'value':v},sort_keys=True),flush=True)
+          emit('checked_at',datetime.now(timezone.utc).isoformat())
+          emit('runtime_sha',subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
+          emit('parser_blob',subprocess.check_output(['git','hash-object','backend/Scraper/parsers/tcgplayer_parser.py'],text=True).strip())
+          archive=Path('/home/ubuntu/state/db-safety/edition-coverage-research')
+          archive.mkdir(parents=True,exist_ok=True,mode=0o700)
+          session=requests.Session()
+          session.headers.update({'User-Agent':TCGPlayerClient.DEFAULT_USER_AGENT,'Accept':'application/json, text/plain, */*','Referer':'https://www.tcgplayer.com/'})
+          # No database client or production ingestion is instantiated. Five
+          # serial provider GETs, no retries, no configuration/schedule changes.
+          for group,name,targets in [(604,'Base',['Charizard','Alakazam','Machamp']),
+                                      (1663,'Base Set (Shadowless)',['Charizard','Alakazam','Machamp']),
+                                      (1444,'Neo Destiny',['Shining Noctowl']),
+                                      (1389,'Neo Revelation',['Shining Gyarados']),
+                                      (1840,'Deck Exclusives',['Machamp'])]:
+              url=f'https://infinite-api.tcgplayer.com/priceguide/set/{group}/cards/?rows=5000&productTypeID=1'
+              time.sleep(1)
+              started=time.monotonic()
+              try:
+                  with session.get(url,timeout=(5,15),stream=True) as r:
+                      status=r.status_code;r.raise_for_status()
+                      content=bytearray()
+                      for chunk in r.iter_content(65536):
+                          content.extend(chunk)
+                          if len(content)>6000000:raise RuntimeError('response_size_bound_exceeded')
+                  data=json.loads(content)
+                  rows=data.get('result')
+                  if not isinstance(rows,list):raise RuntimeError('unexpected_provider_schema')
+                  digest=hashlib.sha256(content).hexdigest()
+                  path=archive/(str(group)+'.'+digest[:12]+'.json');path.write_bytes(content);path.chmod(0o600)
+                  target=lambda row:any(t.casefold() in str(row.get('productName') or row.get('name') or '').casefold() for t in targets)
+                  selected=[row for row in rows if target(row)]
+                  parser=TCGPlayerParser({},set_name=name)
+                  capture=io.StringIO()
+                  with contextlib.redirect_stdout(capture):parsed=parser.parse_cards(data)
+                  report=parser.last_card_parse_report
+                  groups=collections.Counter((str(x.get('printing')),str(x.get('condition'))) for x in rows)
+                  fields=('productID','productName','set','setAbbrv','number','rarity','printing','condition','marketPrice','lowPrice')
+                  emit('catalogue',{'group':group,'name':name,'status':status,'ms':round((time.monotonic()-started)*1000),
+                      'bytes':len(content),'sha256':digest,'raw_rows':len(rows),'products':len({r.get('productID') for r in rows}),
+                      'printing_condition_counts':[{'printing':a,'condition':b,'rows':n} for (a,b),n in sorted(groups.items())],
+                      'target_rows':[{k:r.get(k) for k in fields} for r in selected][:45],
+                      'target_rows_total':len(selected),
+                      'target_parsed':[{k:r.get(k) for k in ('name','card_number','edition','printing_type','tcgplayer_product_id','external_variant_key','condition','prices','variant_collection_authority')} for r in parsed if target(r)][:20],
+                      'parser_diagnostics':{k:v for k,v in report.items() if not isinstance(v,list)},
+                      'target_group_rejections':{k:[v for v in report.get(k,[]) if any(str(row.get('productID'))==v.split('|')[0] for row in selected)] for k in ['ambiguous_variant_groups','missing_nm_variant_groups','external_variant_identity_unavailable']}})
+              except Exception as exc:
+                  emit('catalogue_error',{'group':group,'error_type':type(exc).__name__,'status':locals().get('status')})
+          emit('database_mutations',False)
+          emit('runtime_or_schedule_changes',False)
+          PY
