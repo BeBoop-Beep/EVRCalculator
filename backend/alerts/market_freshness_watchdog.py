@@ -16,10 +16,15 @@ PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 TERMINAL_BATCH_STATES = {"complete", "failed", "incomplete"}
 REQUIRED_AUTHORITY_DATE_KEYS = (
     "accepted_market_quality",
+    "canonical_card_prices",
+    "sealed_product_prices",
     "set_value",
+    "explore_set_value",
     "set_market_dashboard",
     "sealed_snapshot",
     "global_market_index",
+    "card_movers",
+    "market_explorer_v2",
 )
 
 
@@ -93,6 +98,27 @@ def _latest_date(client: Any, table: str, column: str, **filters: Any) -> Option
     return str(rows[0].get(column))[:10] if rows and rows[0].get(column) else None
 
 
+def _market_explorer_v2_date(client: Any) -> Optional[str]:
+    serving = list(
+        client.table("pokemon_market_explorer_surface_serving_v2")
+        .select("generation_id")
+        .eq("singleton", 1)
+        .limit(1)
+        .execute().data or []
+    )
+    generation_id = serving[0].get("generation_id") if serving else None
+    if not generation_id:
+        return None
+    rows = list(
+        client.table("pokemon_market_explorer_surface_generations_v2")
+        .select("market_date")
+        .eq("generation_id", generation_id)
+        .limit(1)
+        .execute().data or []
+    )
+    return str(rows[0].get("market_date"))[:10] if rows and rows[0].get("market_date") else None
+
+
 def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
     batches = list((client.table("pokemon_scrape_batches")
                     .select("id,market_date,status,created_at,started_at,updated_at,completed_at")
@@ -101,10 +127,15 @@ def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
         "batch": batches[0] if batches else None,
         "authority_dates": {
             "accepted_market_quality": _latest_date(client, "pokemon_market_date_quality", "market_date", status="READY"),
+            "canonical_card_prices": _latest_date(client, "card_variant_price_current_v2", "last_observed_date"),
+            "sealed_product_prices": _latest_date(client, "sealed_product_market_usd_latest", "captured_at"),
             "set_value": _latest_date(client, "pokemon_set_value_daily_history", "snapshot_date", value_scope="standard"),
+            "explore_set_value": _latest_date(client, "pokemon_explore_set_value_snapshot_latest", "market_date", tcg="pokemon", scope="market"),
             "set_market_dashboard": _latest_date(client, "pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
             "sealed_snapshot": _latest_date(client, "pokemon_set_sealed_market_snapshot_latest", "market_date"),
             "global_market_index": _latest_date(client, "pokemon_market_index_daily_history", "market_date", tcg="pokemon"),
+            "card_movers": _latest_date(client, "pokemon_explore_card_movers_snapshot_latest", "market_date", tcg="pokemon", scope="explore", window_key="7D"),
+            "market_explorer_v2": _market_explorer_v2_date(client),
         },
     }
 
