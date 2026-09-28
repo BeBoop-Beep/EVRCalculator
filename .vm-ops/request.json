@@ -1,5 +1,5 @@
 {
-  "operation": "scrape-catalog-set-refresh",
-  "set_id": "baseSetShadowless",
-  "request_id": "scoped-edition-base-source-refresh-r3-20260928"
+  "operation": "scrape-set-refresh",
+  "set_id": "neoDestiny",
+  "request_id": "scoped-edition-neo-destiny-refresh-20260928"
 }
