@@ -58,19 +58,57 @@ export async function readFinancialRipHistory(entities, { startDate, endDate, li
   const unique = dedupeBenchmarkEntities(entities);
   if (!unique.length || unique.length > 22) throw new Error("Financial RIP history requires 1–22 Sets/Eras.");
   if (unique.some((entity) => !["set", "era"].includes(entity.entity_type))) throw new Error("Financial RIP history supports Sets and Eras only.");
-  return fetchImpl(FINANCIAL_HISTORY_ENDPOINT, {
-    method: "POST",
-    credentials: "include",
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      entities: unique,
-      start_date: startDate,
-      end_date: endDate,
-      limit,
-      ...(after ? { after } : {}),
-    }),
-  }).then(json);
+
+  const rows = [];
+  let cursor = after;
+  let contractVersion = null;
+  let historyAvailableFrom = null;
+  let historyAvailableThrough = null;
+  const seenCursors = new Set();
+
+  do {
+    const payload = await fetchImpl(FINANCIAL_HISTORY_ENDPOINT, {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entities: unique,
+        start_date: startDate,
+        end_date: endDate,
+        limit,
+        ...(cursor ? { after: cursor } : {}),
+      }),
+    }).then(json);
+
+    if (contractVersion && payload?.contractVersion && payload.contractVersion !== contractVersion) {
+      throw new Error("Financial RIP history contract changed; refresh required.");
+    }
+    contractVersion ||= payload?.contractVersion || null;
+    historyAvailableFrom ||= payload?.historyAvailableFrom || null;
+    if (payload?.historyAvailableThrough) historyAvailableThrough = payload.historyAvailableThrough;
+    rows.push(...(Array.isArray(payload?.rows) ? payload.rows : []));
+
+    if (!payload?.hasMore) {
+      cursor = null;
+      continue;
+    }
+    if (!payload?.nextCursor) throw new Error("Financial RIP history pagination is incomplete.");
+    const cursorKey = JSON.stringify(payload.nextCursor);
+    if (seenCursors.has(cursorKey)) throw new Error("Financial RIP history pagination did not advance.");
+    seenCursors.add(cursorKey);
+    cursor = payload.nextCursor;
+  } while (cursor);
+
+  return {
+    contractVersion,
+    status: "available",
+    rows,
+    hasMore: false,
+    nextCursor: null,
+    historyAvailableFrom,
+    historyAvailableThrough,
+  };
 }
 
 export async function readBenchmarkOverviewHeadlines({ fetchImpl = fetch } = {}) {

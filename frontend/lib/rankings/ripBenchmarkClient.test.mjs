@@ -25,6 +25,46 @@ test("Financial history uses one bounded paid request and never sends model auth
   assert.ok(!("benchmark_key" in calls[0].body) && !("calibration_version" in calls[0].body));
 });
 
+test("Financial history follows typed cursors and returns one complete logical result", async () => {
+  const calls = [];
+  const cursor = { market_date: "2026-09-25", entity_type: "set", entity_id: "1", publication_id: "p1" };
+  const pages = [
+    {
+      contractVersion: "financial-rip-history-v1",
+      status: "available",
+      rows: [{ market_date: "2026-09-25", entity_id: "1" }],
+      hasMore: true,
+      nextCursor: cursor,
+      historyAvailableFrom: "2026-09-15",
+      historyAvailableThrough: "2026-09-27",
+    },
+    {
+      contractVersion: "financial-rip-history-v1",
+      status: "available",
+      rows: [{ market_date: "2026-09-27", entity_id: "1" }],
+      hasMore: false,
+      nextCursor: null,
+      historyAvailableFrom: "2026-09-15",
+      historyAvailableThrough: "2026-09-27",
+    },
+  ];
+  const fetchImpl = async (_url, init) => {
+    calls.push(JSON.parse(init.body));
+    return { ok: true, json: async () => pages[calls.length - 1] };
+  };
+  const result = await readFinancialRipHistory(
+    [{ entity_type: "set", entity_id: "1" }],
+    { startDate: "2026-09-15", endDate: "2026-09-27", limit: 1, fetchImpl },
+  );
+  assert.equal(calls.length, 2);
+  assert.equal("after" in calls[0], false);
+  assert.deepEqual(calls[1].after, cursor);
+  assert.deepEqual(result.rows.map((row) => row.market_date), ["2026-09-25", "2026-09-27"]);
+  assert.equal(result.hasMore, false);
+  assert.equal(result.historyAvailableFrom, "2026-09-15");
+  assert.equal(result.historyAvailableThrough, "2026-09-27");
+});
+
 test("Financial history rejects Product entities client-side", async () => {
   await assert.rejects(
     () => readFinancialRipHistory([{ entity_type: "sealed_product", entity_id: "1" }], {

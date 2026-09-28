@@ -42,13 +42,13 @@ export function OpeningEconomicsSkeleton() {
   </section>;
 }
 
-export default function OpeningEconomicsOverall({ economics, targets = [], eras = [], benchmark = null }) {
+export default function OpeningEconomicsOverall({ economics, targets = [], eras = [] }) {
   if (economics?.status === "loading") return <OpeningEconomicsSkeleton />;
   if (!isAvailable(economics)) return <OpeningEconomicsEmpty economics={economics} title="Pokémon Opening Economics" subject="Opening Economics" />;
   const scope = economics.global;
   return <section data-opening-economics-overall>
     <Header scope={scope} marketDate={economics.marketDate} />
-    <OpeningEconomicsDistribution scope={scope} targets={targets} eras={eras} benchmark={benchmark} />
+    <OpeningEconomicsDistribution scope={scope} targets={targets} openingSets={economics.sets || []} eras={eras} marketDate={economics.marketDate} />
     <details className={`${styles.surfaceQuiet} mt-3 rounded-xl px-4 py-3`} data-opening-economics-methodology>
       <summary className="cursor-pointer list-none text-xs font-medium text-[var(--text-primary)]">How this is calculated</summary>
       <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">{METHODOLOGY.map((line) => <li key={line} className="flex gap-2"><span aria-hidden="true" className="mt-1.5 h-1 w-1 flex-none rounded-full bg-[rgb(var(--ex-teal))]" /><span>{line}</span></li>)}</ul>
