@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery)"
+              r"vm-op:\s*(status|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -54,6 +54,8 @@ jobs:
               raise SystemExit("market-dashboard-set requires set_id")
           if op == "scrape-catalog-set-refresh" and not set_id:
               raise SystemExit("scrape-catalog-set-refresh requires set_id=<canonical_key>")
+          if op == "scrape-set-refresh" and not set_id:
+              raise SystemExit("scrape-set-refresh requires set_id=<canonical_key>")
           if op.startswith("pricing-") and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
 
@@ -1686,6 +1688,60 @@ jobs:
               raise SystemExit(f"watchdog recovery failed status={first.get('status')}")
 
           print("POST_SCRAPE_RECOVERY_NOW=PASS", flush=True)
+          PY
+              ;;
+
+            scrape-set-refresh)
+              # MUTATING but tightly bounded: manually refresh exactly one normal
+              # daily-eligible Set through the canonical scraper, outside batch state.
+              cd "$REPO"
+              HOLD=/home/ubuntu/state/db-safety/hold.json
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold active"; exit 20; }
+              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production checkout is not main"; exit 21; }
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+                echo "REFUSING: production checkout is not current origin/main"
+                echo "head=$(git rev-parse HEAD)"
+                echo "origin_main=$(git rev-parse origin/main)"
+                exit 23
+              }
+              [ -z "$(git status --porcelain --untracked-files=no)" ] || {
+                echo "REFUSING: tracked production changes exist"
+                git status --short --untracked-files=no
+                exit 24
+              }
+              set -a
+              . backend/.env
+              set +a
+              export PYTHONPATH="$REPO"
+              REPORT_BASE="/tmp/set-refresh-$VM_SET_ID-$VM_REQUEST_ID"
+              echo "== single-set dry-run gate =="
+              "$PY" backend/scripts/run_pokemon_set_scrape.py                 --set "$VM_SET_ID"                 --report-path "$REPORT_BASE.dry-run.json"
+              "$PY" - "$REPORT_BASE.dry-run.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert int(p.get("sets_selected") or 0)==1, p
+          assert p.get("run_aborted_early") is False, p
+          print("SET_REFRESH_DRY_RUN=PASS")
+          PY
+              echo "== single-set live refresh =="
+              /usr/bin/flock -w 180 /tmp/pokemon-scrape-dispatcher.lock                 "$PY" backend/scripts/run_pokemon_set_scrape.py                   --run                   --set "$VM_SET_ID"                   --report-path "$REPORT_BASE.live.json"
+              "$PY" - "$REPORT_BASE.live.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding="utf-8"))
+          print(json.dumps({
+              "market_date":p.get("market_date"),
+              "sets_selected":p.get("sets_selected"),
+              "sets_succeeded":p.get("sets_succeeded"),
+              "sets_failed":p.get("sets_failed"),
+              "http_requests_total":p.get("http_requests_total"),
+              "rate_limit_events":p.get("rate_limit_events"),
+              "retry_count_total":p.get("retry_count_total"),
+          },sort_keys=True))
+          assert int(p.get("sets_succeeded") or 0)==1, p
+          assert int(p.get("sets_failed") or 0)==0, p
+          assert p.get("run_aborted_early") is False, p
+          print("SET_REFRESH=PASS")
           PY
               ;;
 
