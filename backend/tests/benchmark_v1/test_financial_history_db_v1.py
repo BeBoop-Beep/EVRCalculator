@@ -9,7 +9,7 @@ from backend.scripts import run_rip_benchmark_publisher_v1 as publisher
 
 
 ROOT = Path(__file__).resolve().parents[3]
-MIGRATION = ROOT / "supabase" / "migrations" / "20260927234500_financial_rip_history_db_v1.sql"
+MIGRATION = ROOT / "supabase" / "migrations" / "20260927235534_financial_rip_history_db_v1.sql"
 FINANCIAL = "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5"
 
 
