@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-reviewed",
-  "request_id": "sentinel-finalize-sync-20260927"
+  "operation": "sentinel-status",
+  "request_id": "sentinel-finalize-status-20260927"
 }
