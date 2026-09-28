@@ -1,7 +1,9 @@
 const CURRENT_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/current";
 const HISTORY_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/history";
+const FINANCIAL_HISTORY_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/financial-history";
 const PRODUCT_CURRENT_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/current-batch";
 const SET_HEADLINES_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/set-headlines";
+const OVERVIEW_HEADLINES_ENDPOINT = "/api/tcgs/pokemon/rip-benchmark/overview-headlines";
 const DAY = 86_400_000;
 const key = (entity) => `${entity.entity_type}:${entity.entity_id}`;
 export function dedupeBenchmarkEntities(entities) { return [...new Map((entities || []).filter((e) => e?.entity_type && e?.entity_id).map((e) => [key(e), { entity_type: e.entity_type, entity_id: e.entity_id }])).values()]; }
@@ -50,4 +52,27 @@ export async function readBenchmarkHistory(entities, { startDate, endDate, fetch
     } while (after);
   }
   return { rows, openingEconomicsReferences: references, historyAvailableFrom: availableFrom, historyAvailableThrough: availableThrough };
+}
+
+export async function readFinancialRipHistory(entities, { startDate, endDate, limit = 10000, after = null, fetchImpl = fetch } = {}) {
+  const unique = dedupeBenchmarkEntities(entities);
+  if (!unique.length || unique.length > 22) throw new Error("Financial RIP history requires 1–22 Sets/Eras.");
+  if (unique.some((entity) => !["set", "era"].includes(entity.entity_type))) throw new Error("Financial RIP history supports Sets and Eras only.");
+  return fetchImpl(FINANCIAL_HISTORY_ENDPOINT, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entities: unique,
+      start_date: startDate,
+      end_date: endDate,
+      limit,
+      ...(after ? { after } : {}),
+    }),
+  }).then(json);
+}
+
+export async function readBenchmarkOverviewHeadlines({ fetchImpl = fetch } = {}) {
+  return fetchImpl(OVERVIEW_HEADLINES_ENDPOINT, { cache: "no-store" }).then(json);
 }
