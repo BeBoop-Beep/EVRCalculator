@@ -341,6 +341,11 @@ def refresh_public_snapshots(
         command.insert(2, "--commit")
     if skip_explore_rankings:
         command.append("--skip-explore-rankings")
+    # This coordinated publisher owns the later ordered Benchmark step after
+    # same-day Opening Economics and Rankings have both been validated. The
+    # standalone stale-snapshot recovery path reconciles Benchmark itself, so
+    # suppress that hook here to avoid duplicate publication attempts.
+    command.append("--skip-rip-benchmark")
     return _run_command(command, dry_run=dry_run)
 
 
