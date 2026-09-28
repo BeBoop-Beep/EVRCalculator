@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-enable-recovery",
-  "request_id": "sentinel-finalize-recovery-20260927"
+  "operation": "sentinel-audit-now",
+  "request_id": "sentinel-finalize-audit-20260927"
 }
