@@ -278,10 +278,13 @@ def read_index_history(
         row for row in legacy if str(row.get("market_date"))[:10] in accepted
     ]
 
-    effective_through = str(through_date)[:10] if through_date else max(
-        (str(row.get("market_date") or "")[:10] for row in rows),
-        default="",
-    )
+    # Publication and audit callers pass an explicit promoted date. Keep an
+    # unbounded diagnostic read on the legacy table so synthetic/offline
+    # fixtures and historical tooling do not silently opt into a production
+    # cutover merely because a string happens to sort after the cutover date.
+    if through_date is None:
+        return rows
+    effective_through = str(through_date)[:10]
     if effective_through < EDITION_STABLE_RAW_CUTOVER_DATE:
         return rows
 
