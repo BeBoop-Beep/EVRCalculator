@@ -467,11 +467,13 @@ def test_edition_stable_raw_rejects_duplicate_market_identity():
 def test_public_reader_replaces_only_raw_at_edition_stable_cutover():
     legacy_rows = [
         {
+            "tcg": "pokemon",
             "market_date": "2026-09-27", "index_key": "raw",
             "methodology_version": "chain_linked_common_cohort_v1",
             "normalized_index_value": 98.0,
         },
         {
+            "tcg": "pokemon",
             "market_date": "2026-09-27", "index_key": "top10",
             "methodology_version": "chain_linked_common_cohort_v1",
             "normalized_index_value": 99.0,
