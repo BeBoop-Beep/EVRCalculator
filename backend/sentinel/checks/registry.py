@@ -162,7 +162,7 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
     registry.register(
         SENTINEL_SCHEDULER_CHECK_KEY,
         lambda ctx: check_sentinel_scheduler(ctx),
-        description="Sentinel Fast/Public, alert dispatcher, and freshness schedules are installed",
+        description="Sentinel Fast/Public/Audit, alert dispatcher, and freshness schedules are installed",
         confirm_after=1,
         exception_severity=Severity.CRITICAL,
     )
