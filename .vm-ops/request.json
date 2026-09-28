@@ -1,4 +1,5 @@
 {
-  "operation": "scrape-cycle-status",
-  "request_id": "scoped-edition-publication-lock-recheck-2-20260928"
+  "operation": "scrape-catalog-set-refresh",
+  "set_id": "baseSetShadowless",
+  "request_id": "scoped-edition-base-source-refresh-r3-20260928"
 }
