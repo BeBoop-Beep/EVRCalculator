@@ -7,6 +7,10 @@ on:
       - 'supabase/migrations/*_financial_rip_history_db_v1.sql'
       - 'backend/db/migrations/*_financial_rip_history_db_v1.sql'
       - 'backend/scripts/run_rip_benchmark_publisher_v1.py'
+      - 'backend/scripts/refresh_stale_public_snapshots.py'
+      - 'backend/scripts/run_daily_opening_publication.py'
+      - 'backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py'
+      - 'backend/tests/unit/scripts/test_run_daily_opening_publication.py'
       - 'backend/tests/benchmark_v1/**'
       - 'backend/tests/integration/financial_rip_history_db_v1_postgres.py'
       - '.github/workflows/financial-rip-history-db-v1.yml'
@@ -16,6 +20,10 @@ on:
       - 'supabase/migrations/*_financial_rip_history_db_v1.sql'
       - 'backend/db/migrations/*_financial_rip_history_db_v1.sql'
       - 'backend/scripts/run_rip_benchmark_publisher_v1.py'
+      - 'backend/scripts/refresh_stale_public_snapshots.py'
+      - 'backend/scripts/run_daily_opening_publication.py'
+      - 'backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py'
+      - 'backend/tests/unit/scripts/test_run_daily_opening_publication.py'
       - 'backend/tests/benchmark_v1/**'
       - 'backend/tests/integration/financial_rip_history_db_v1_postgres.py'
       - '.github/workflows/financial-rip-history-db-v1.yml'
@@ -51,7 +59,9 @@ jobs:
             backend/tests/benchmark_v1/test_financial_history_db_v1.py \
             backend/tests/benchmark_v1/test_publisher.py \
             backend/tests/benchmark_v1/test_publication.py \
-            backend/tests/benchmark_v1/test_shadow.py
+            backend/tests/benchmark_v1/test_shadow.py \
+            backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py \
+            backend/tests/unit/scripts/test_run_daily_opening_publication.py
 
   postgres:
     runs-on: ubuntu-24.04
