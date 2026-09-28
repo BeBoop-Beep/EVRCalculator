@@ -1,0 +1,164 @@
+name: Raw Parent Edition Stable Publish Sep28
+
+on:
+  push:
+    branches:
+      - ops/raw-parent-edition-stable-publish-20260928
+    paths:
+      - '.github/workflows/raw-parent-edition-stable-publish-20260928.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: raw-parent-edition-stable-publish-sep28
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 30
+
+    steps:
+      - name: Prepare isolated current-main worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-raw-stable-publish-sep28
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+          test ! -e "$HOLD" || { echo "database safety hold active"; exit 41; }
+          git -C "$REPO" fetch origin main
+          if [ -d "$WT" ]; then
+            git -C "$REPO" worktree remove --force "$WT" || rm -rf "$WT"
+          fi
+          git -C "$REPO" worktree add --detach "$WT" origin/main
+          echo "main_sha=$(git -C "$WT" rev-parse HEAD)"
+          grep -q 'EDITION_STABLE_RAW_TABLE' "$WT/backend/db/services/pokemon_market_index_service.py"
+          grep -q 'rawEditionStable' "$WT/backend/scripts/build_pokemon_explore_set_value_snapshot.py"
+          test -x "$REPO/.venv/bin/python"
+
+      - name: Capture Sep28 stable Raw authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-raw-stable-publish-sep28
+          PY="$REPO/.venv/bin/python"
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          PYTHONPATH="$WT" "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          c=create_service_role_client()
+          rows=list(
+              c.table("pokemon_market_raw_edition_stable_daily_history_v1")
+              .select("market_date,basket_value,normalized_index_value,market_count,root_count,card_count,methodology_version")
+              .eq("market_date","2026-09-28").limit(1).execute().data or []
+          )
+          if not rows:
+              raise RuntimeError("Sep28 edition-stable Raw authority missing")
+          row=rows[0]
+          if row.get("methodology_version")!="edition_stable_market_identity_chain_v1":
+              raise RuntimeError(f"wrong stable methodology: {row}")
+          print("stable_raw="+json.dumps(row,sort_keys=True))
+          PY
+
+      - name: Publish Sep28 public Market snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-raw-stable-publish-sep28
+          PY="$REPO/.venv/bin/python"
+          cd "$WT"
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          export PYTHONPATH="$WT"
+          export SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS=180
+          export PUBLICATION_BUILD_SHA="$(git -C "$WT" rev-parse HEAD)"
+          "$PY" -m backend.scripts.build_pokemon_explore_set_value_snapshot \
+            --market-date 2026-09-28 --commit
+
+      - name: Verify live public Raw equals stable authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-raw-stable-publish-sep28
+          PY="$REPO/.venv/bin/python"
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          PYTHONPATH="$WT" "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          c=create_service_role_client()
+          stable=list(
+              c.table("pokemon_market_raw_edition_stable_daily_history_v1")
+              .select("market_date,basket_value,normalized_index_value,market_count,root_count,card_count,methodology_version")
+              .eq("market_date","2026-09-28").limit(1).execute().data or []
+          )
+          snap=list(
+              c.table("pokemon_explore_set_value_snapshot_latest")
+              .select("market_date,payload_json,source_generation_fingerprint")
+              .eq("tcg","pokemon").eq("scope","market").limit(1).execute().data or []
+          )
+          if not stable or not snap:
+              raise RuntimeError("stable authority or public Market snapshot missing")
+
+          s=stable[0]
+          row=snap[0]
+          if str(row.get("market_date"))[:10]!="2026-09-28":
+              raise RuntimeError(f"public Market date mismatch: {row.get('market_date')}")
+          payload=row.get("payload_json") or {}
+          overview=payload.get("marketOverview") or {}
+          raw=overview.get("raw") or {}
+          coverage=overview.get("coverage") or {}
+          method=overview.get("methodology") or {}
+          receipt=((payload.get("meta") or {}).get("publicationDiagnostics") or {}).get("rawEditionStable") or {}
+
+          if method.get("editionStableRaw") is not True:
+              raise RuntimeError(f"public Raw not edition-stable: {method}")
+          if method.get("rawMethodologyVersion")!="edition_stable_market_identity_chain_v1":
+              raise RuntimeError(f"wrong public Raw methodology: {method}")
+          if round(float(raw.get("basketValue")),2)!=round(float(s["basket_value"]),2):
+              raise RuntimeError(f"Raw basket mismatch public={raw.get('basketValue')} stable={s['basket_value']}")
+          if abs(float(raw.get("indexValue"))-float(s["normalized_index_value"]))>1e-8:
+              raise RuntimeError(f"Raw index mismatch public={raw.get('indexValue')} stable={s['normalized_index_value']}")
+          for public_key,stable_key in (
+              ("rawMarketCount","market_count"),
+              ("rawRootCount","root_count"),
+              ("rawCardCount","card_count"),
+          ):
+              if int(coverage.get(public_key) or 0)!=int(s[stable_key]):
+                  raise RuntimeError(f"{public_key} mismatch public={coverage.get(public_key)} stable={s[stable_key]}")
+          if receipt.get("status")!="READY" or str(receipt.get("marketDate") or "")[:10]!="2026-09-28":
+              raise RuntimeError(f"stable publication receipt missing/invalid: {receipt}")
+
+          print(json.dumps({
+              "status":"RAW_EDITION_STABLE_SEP28_PASS",
+              "marketDate":row["market_date"],
+              "basketValue":raw["basketValue"],
+              "indexValue":raw["indexValue"],
+              "marketCount":coverage["rawMarketCount"],
+              "rootCount":coverage["rawRootCount"],
+              "cardCount":coverage["rawCardCount"],
+              "fingerprint":row.get("source_generation_fingerprint"),
+          },sort_keys=True))
+          PY
+
+      - name: Clean isolated worktree
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-raw-stable-publish-sep28
+          if [ -d "$WT" ]; then
+            git -C "$REPO" worktree remove --force "$WT" || rm -rf "$WT"
+          fi
