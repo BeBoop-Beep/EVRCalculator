@@ -2150,9 +2150,20 @@ def post_market_explorer_query_constituents(
     if page is None:
         return JSONResponse(content={"message": "Market summary must be built first",
                                      "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
-    if normalized.get("asset") == "cards":
-        from backend.db.services.market_explorer_constituent_movement import enrich_card_constituent_page
-        page = enrich_card_constituent_page(service_read_client, page)
+    if normalized.get("asset") in {"cards", "sealed"}:
+        from backend.db.services.market_explorer_constituent_movement import enrich_constituent_page
+        try:
+            page = enrich_constituent_page(service_read_client, page, normalized["asset"])
+            page["movementAvailable"] = any(
+                any(value is not None for value in (row.get("changes") or {}).values())
+                for row in (page.get("items") or [])
+            )
+        except Exception:
+            logger.exception("Market Explorer query constituent movement failed",
+                             extra={"asset": normalized.get("asset")})
+            page = dict(page)
+            page["movementAvailable"] = False
+            page["movementReason"] = "Constituent movement is temporarily unavailable."
     return _tiered_response(page)
 
 
