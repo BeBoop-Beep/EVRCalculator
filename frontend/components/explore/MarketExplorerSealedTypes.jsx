@@ -34,6 +34,7 @@ export default function MarketExplorerSealedTypes({
   v2Mode = true,
   formatMarkets = [],
 }) {
+  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState(null);
   const [message, setMessage] = useState("");
@@ -59,9 +60,10 @@ export default function MarketExplorerSealedTypes({
     } finally { setPendingId(null); }
   };
 
-  return <section data-market-explorer-sealed-types className="py-2" aria-labelledby="sealed-types-heading">
-    <h3 id="sealed-types-heading" className="text-xs font-semibold text-[var(--text-primary)]">Sealed Types</h3>
-    <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Product-family markets. Bulk containers such as Cases and Displays are separate markets and are not part of Total Sealed.</p>
+  const activeCount = types.filter((type) => (type.marketKey && activeKeys.includes(type.marketKey)) || Boolean(queryFor(type))).length;
+  return <section data-market-explorer-sealed-types className="relative py-2" aria-labelledby="sealed-types-heading">
+    <button type="button" data-sealed-types-trigger aria-expanded={open} aria-controls="sealed-types-listbox" onClick={() => setOpen((value) => !value)} className="flex min-h-10 w-full items-center justify-between rounded-md border border-[var(--border-subtle)] bg-white/[.03] px-3 text-left text-xs font-semibold text-[var(--text-primary)]"><span><span id="sealed-types-heading" className="block">Sealed Types</span><span className="block text-[10px] font-normal text-[var(--text-secondary)]">{activeCount ? `${activeCount} sealed ${activeCount === 1 ? "type" : "types"} selected` : "Choose sealed types"}</span></span><span aria-hidden="true">{open ? "−" : "+"}</span></button>
+    {open ? <div id="sealed-types-listbox" role="group" aria-label="Sealed Type markets" className="absolute left-0 right-0 z-50 mt-1 max-h-[min(25rem,55vh)] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-2 shadow-2xl">
     {!v2Mode ? <>
       {formatMarkets.length ? <ul data-sealed-v1-formats className="mt-2 space-y-1" aria-label="Published sealed types">
         {formatMarkets.map((market) => {
@@ -77,8 +79,8 @@ export default function MarketExplorerSealedTypes({
     {v2Mode && status === "unavailable" ? <div role="alert" data-sealed-types-state="unavailable" className="mt-2 flex items-center justify-between gap-2 text-[11px] text-[var(--text-secondary)]"><span>Sealed types are temporarily unavailable.</span>{onRetry ? <button type="button" onClick={onRetry} className="rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold">Retry</button> : null}</div> : null}
     {v2Mode && status === "loading" && !types.length ? <p role="status" className="mt-2 text-[11px] text-[var(--text-secondary)]">Loading sealed types…</p> : null}
     {v2Mode && types.length ? <>
-      <input type="search" data-sealed-type-search value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search sealed types…" aria-label="Search sealed types" className="mt-2 min-h-9 w-full rounded-md border border-[var(--border-subtle)] bg-transparent px-3 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70" />
-      <ul className="mt-1 max-h-72 space-y-1 overflow-y-auto pr-1" aria-label="Sealed types">
+      <input type="search" data-sealed-type-search value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search sealed types…" aria-label="Search sealed types" className="min-h-9 w-full rounded-md border border-[var(--border-subtle)] bg-transparent px-3 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70" />
+      <ul className="mt-1 space-y-1 pr-1" aria-label="Sealed types">
         {filtered.map((type) => {
           const executable = type.action !== ASSET_OPTION_ACTION.none;
           const query = queryFor(type);
@@ -89,7 +91,7 @@ export default function MarketExplorerSealedTypes({
               <span className="min-w-0 truncate text-xs text-[var(--text-primary)]">{type.label}</span>
               {executable
                 ? <button type="button" data-sealed-type-action-button={type.id} disabled={pending} onClick={() => act(type)} className="flex-none rounded border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">{pending ? "Adding…" : active ? "Remove" : type.action === ASSET_OPTION_ACTION.build && !canBuild ? "Build · Premium" : "+ Compare"}</button>
-                : <span data-sealed-type-unavailable className="flex-none text-[10px] font-semibold text-[var(--text-secondary)]">Unavailable</span>}
+                : <button type="button" disabled aria-disabled="true" data-sealed-type-unavailable className="flex-none whitespace-nowrap text-[10px] font-semibold text-[var(--text-secondary)]">Unavailable</button>}
             </div>
             {!executable && type.reason ? <p data-sealed-type-reason className="mt-0.5 text-[10px] text-[var(--text-secondary)]">{type.reason}</p> : null}
             {type.note ? <p data-sealed-type-note className="mt-0.5 text-[10px] text-[var(--text-secondary)]">{type.note}</p> : null}
@@ -99,6 +101,7 @@ export default function MarketExplorerSealedTypes({
       </ul>
     </> : null}
     {message ? <p role="alert" className="mt-2 text-[10px] text-[var(--text-secondary)]">{message}</p> : null}
+    </div> : null}
   </section>;
 }
 

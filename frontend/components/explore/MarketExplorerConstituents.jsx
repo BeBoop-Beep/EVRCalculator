@@ -376,6 +376,7 @@ function QueryConstituentSection({ series, identity, movementWindow, mode = "exp
             </span>
             <span className="flex flex-none flex-col items-end pt-0.5">
               <span className="text-xs font-semibold tabular-nums text-[var(--text-primary)]">{formatBasketValue(row.marketPrice)}</span>
+              <span className="mt-0.5 text-[10px] font-semibold"><ChangeCell row={row} window={movementWindow} label={cellValue(row, primaryColumn)} /><span aria-hidden="true" className="ml-1 font-normal text-[var(--text-secondary)]">{movementWindow}</span></span>
             </span>
           </li>
         ))}

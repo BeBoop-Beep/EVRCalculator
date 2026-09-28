@@ -139,6 +139,7 @@ test("V1 Sealed Types control exposes published V1 sealed formats without Browse
   const selected = [];
   let renderer;
   await act(async () => { renderer = TestRenderer.create(<MarketExplorerSealedTypes v2Mode={false} formatMarkets={v1Sealed} status="unavailable" onSelect={(key) => selected.push(key)} />); });
+  await act(async () => renderer.root.findByProps({ "data-sealed-types-trigger": true }).props.onClick());
   const list = renderer.root.findByProps({ "data-sealed-v1-formats": true });
   assert.equal(list.findAll((n) => n.type === "button" && n.props["data-prepared-market"]).length, 3);
   assert.doesNotMatch(texts(renderer), /temporarily unavailable/, "V1 must not show the V2 asset-options failure");

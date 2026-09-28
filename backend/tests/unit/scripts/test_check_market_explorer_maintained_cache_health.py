@@ -5,6 +5,7 @@ import ast
 import inspect
 
 from backend.scripts import check_market_explorer_maintained_cache_health as health
+from backend.db.services.market_explorer_surface_freshness import read_surface_freshness
 
 
 class _Response:
@@ -45,6 +46,22 @@ class _CoverageClient:
     def table(self, name):
         assert name == health.V2_COVERAGE_TABLE
         return _Query(self.rows)
+
+
+def test_surface_freshness_adapter_is_one_compact_rpc_and_preserves_dates():
+    class C:
+        def __init__(self): self.calls = []
+        def rpc(self, name, params):
+            self.calls.append((name, params))
+            return type("R", (), {"execute": lambda _self: _Response({
+                "status": "CURRENT", "canonicalAcceptedDate": "2026-09-27",
+                "surfaceV2Date": "2026-09-27", "surfaceLagDays": 0,
+            })})()
+    client = C()
+    result = read_surface_freshness(client)
+    assert client.calls == [("get_pokemon_market_explorer_surface_freshness_v2", {})]
+    assert result["canonicalAcceptedDate"] == "2026-09-27"
+    assert result["surfaceV2Date"] == "2026-09-27"
 
 
 def test_v2_coverage_report_is_healthy_only_when_every_tracked_set_is_current():
@@ -93,7 +110,13 @@ def test_v2_coverage_report_flags_missing_or_lagging_sets():
 
 def _patch_common(monkeypatch, maintained):
     monkeypatch.setattr(health, "resolve_latest_approved_market_date", lambda *_a: "2026-09-10")
-    monkeypatch.setattr(health, "resolve_tracked_set_ids", lambda *_a: ["set-a"])
+    monkeypatch.setattr(health, "read_surface_freshness", lambda *_a: {
+        "status": "CURRENT", "reason": None,
+        "canonicalAcceptedDate": "2026-09-10", "surfaceV2Date": "2026-09-10",
+        "surfaceLagDays": 0, "maintainedCacheTotal": len(maintained),
+        "maintainedCacheCurrent": sum(r.get("status") == "ready" and r.get("computed_through") == "2026-09-10" for r in maintained),
+        "maintainedCacheNotCurrent": sum(not (r.get("status") == "ready" and r.get("computed_through") == "2026-09-10") for r in maintained),
+    })
     monkeypatch.setattr(
         health,
         "_v2_coverage_report",
@@ -149,10 +172,29 @@ def test_current_ready_cache_is_clean(monkeypatch):
 
 
 def test_no_approved_date_reports_cleanly(monkeypatch):
-    monkeypatch.setattr(health, "resolve_latest_approved_market_date", lambda *_a: None)
+    monkeypatch.setattr(health, "read_surface_freshness", lambda *_a: {
+        "status": "NO_ACCEPTED_MARKET_DATE", "canonicalAcceptedDate": None,
+    })
     report = health.check_maintained_cache_health(object())
     assert report["latest_approved_market_date"] is None
     assert report["alerts"] == []
+
+
+def test_compact_freshness_rpc_exposes_stale_surface_even_when_caches_are_current(monkeypatch):
+    _patch_common(monkeypatch, [{
+        "query_fingerprint": "ghi", "label": "Global All", "status": "ready",
+        "computed_through": "2026-09-10",
+    }])
+    monkeypatch.setattr(health, "read_surface_freshness", lambda *_a: {
+        "status": "STALE", "reason": "SURFACE_V2_PUBLICATION_LAG",
+        "canonicalAcceptedDate": "2026-09-10", "surfaceV2Date": "2026-09-09",
+        "surfaceLagDays": 1, "maintainedCacheTotal": 1,
+        "maintainedCacheCurrent": 1, "maintainedCacheNotCurrent": 0,
+    })
+    report = health.check_maintained_cache_health(object())
+    assert report["v2"]["healthy"] is False
+    assert report["v2"]["surface_lag_days"] == 1
+    assert report["ready_and_current"] == 1
 
 
 def test_health_module_contains_no_exact_v1_coverage_relation_literal():

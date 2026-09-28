@@ -61,7 +61,13 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
   // V2 mode = the directory is published by the V2 surface. Decided from row data only.
   const v2Mode = useMemo(() => directory.some((row) => row?.surface_version === "v2"), [directory]);
   const SEALED_CATEGORIES = v2Mode ? SEALED_V2_CATEGORIES : SEALED_V1_CATEGORIES;
-  const layerRows = useMemo(() => directory.filter((row) => (assetLayer === "sealed" ? row?.asset === "sealed" : row?.asset !== "sealed")), [directory, assetLayer]);
+  const layerRows = useMemo(() => directory.filter((row) => {
+    // V2 publishes explicit asset identity. Keep Browse layers exact so future
+    // Graded rows can never leak into Cards merely because they are "not sealed".
+    if (v2Mode) return row?.asset === assetLayer;
+    // Legacy prepared generations predate the full asset contract.
+    return assetLayer === "sealed" ? row?.asset === "sealed" : row?.asset !== "sealed";
+  }), [directory, assetLayer, v2Mode]);
   const grouped = useMemo(() => groupPreparedDirectory(layerRows, search), [layerRows, search]);
   const parentGroup = grouped.parents.length ? [{ era: { label: "Whole market", market_key: "parents" }, rows: grouped.parents }] : [];
   const rows = open === "eras" ? grouped.eras : open === "quick" ? grouped.quick : [...grouped.parents, ...grouped.sets.flatMap((group) => group.rows)];

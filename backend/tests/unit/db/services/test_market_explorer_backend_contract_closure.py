@@ -134,10 +134,19 @@ def test_screen_registry_and_normalization_cover_existing_top_and_worst_keys():
     assert "private_rank_score" not in read_prepared_screen(V1Client(screens=rows), "top-performers", "cards", 10)[0]
     with pytest.raises(ValueError):
         read_prepared_screen(V1Client(), "not-a-screen", None, 10)
-    with pytest.raises(ValueError):
-        read_prepared_screen(V1Client(), "top-performers", "graded", 10)
+    assert read_prepared_screen(V1Client(), "top-performers", "graded", 10) == []
     with pytest.raises(ValueError):
         read_prepared_screen(V1Client(), "top-performers", None, 26)
+
+
+def test_screen_legacy_limit_is_db_ranked_but_response_is_hard_capped_at_ten():
+    rows = [{"rank": rank, "market_key": f"m:{rank}", "asset": "cards",
+             "generation_id": "g1", "comparison_as_of": "2026-09-27"}
+            for rank in range(1, 26)]
+    client = V1Client(screens=rows)
+    result = read_prepared_screen(client, "top-performers", None, 25)
+    assert len(result) == 10
+    assert [row["rank"] for row in result] == list(range(1, 11))
 
 
 @pytest.mark.parametrize("field,code", [

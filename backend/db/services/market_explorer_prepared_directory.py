@@ -1,11 +1,14 @@
 """Read-only Phase-5 prepared Market Explorer serving adapter."""
 from __future__ import annotations
 
+import logging
 from threading import Lock
 import time
 from typing import Any
 
 from backend.domain.pokemon.market_index import compute_strict_window_movements
+
+logger = logging.getLogger(__name__)
 
 DIRECTORY_RPC = "get_pokemon_market_explorer_prepared_directory_v1"
 COMPARISON_RPC = "get_pokemon_market_explorer_prepared_comparison_v1"
@@ -27,7 +30,7 @@ PREPARED_SCREEN_KEYS = frozenset({
     "rarity-leaders", "sealed-format-leaders", "momentum-leaders",
     "largest-drawdowns", "top-performers", "worst-performers",
 })
-PREPARED_SCREEN_ASSETS = frozenset({"cards", "sealed"})
+PREPARED_SCREEN_ASSETS = frozenset({"cards", "sealed", "graded"})
 DIRECTORY_CACHE_TTL_SECONDS = 30.0
 _directory_cache_lock = Lock()
 _directory_cache_rows: list[dict[str, Any]] | None = None
@@ -128,32 +131,33 @@ def read_prepared_constituents(
 
 
 def enrich_prepared_constituent_page(client: Any, page: dict[str, Any]) -> dict[str, Any]:
-    """Attach accepted V2 constituent movement to a CARD page; honest otherwise.
-
-    Sealed rosters have no accepted per-constituent movement authority, so they
-    are reported ``movementAvailable: false`` rather than given fabricated
-    percentages. Movement failure never fails the roster read.
-    """
+    """Attach accepted asset-specific movement; never fail a valid roster."""
     result = dict(page)
     rows = list(result.get("rows") or [])
     if result.get("availability") != "available" or not rows:
         result["movementAvailable"] = False
         return result
-    if result.get("asset") != "cards":
+    asset = str(result.get("asset") or "")
+    if asset not in {"cards", "sealed"}:
         result["movementAvailable"] = False
-        result["movementReason"] = "Constituent movement is only published for card markets."
+        result["movementReason"] = "Constituent movement is not published for this asset."
         return result
-    from backend.db.services.market_explorer_constituent_movement import enrich_card_constituent_page
+    from backend.db.services.market_explorer_constituent_movement import enrich_constituent_page
     try:
-        enriched = enrich_card_constituent_page(
-            client, {"items": rows, "as_of": result.get("priceAsOf")})
+        enriched = enrich_constituent_page(
+            client, {"items": rows, "as_of": result.get("priceAsOf")}, asset)
     except Exception:
+        logger.exception("market_explorer_constituent_movement_failed", extra={"asset": asset})
         result["movementAvailable"] = False
         result["movementReason"] = "Constituent movement is temporarily unavailable."
         return result
     result["rows"] = list(enriched.get("items") or rows)
-    result["movementWindows"] = enriched.get("movement_windows") or {}
-    result["movementAvailable"] = any(row.get("changes") for row in result["rows"])
+    if enriched.get("movement_windows") is not None:
+        result["movementWindows"] = enriched.get("movement_windows") or {}
+    result["movementAvailable"] = any(
+        any(value is not None for value in (row.get("changes") or {}).values())
+        for row in result["rows"]
+    )
     return result
 
 
@@ -282,7 +286,7 @@ def read_prepared_screen(client: Any, screen_key: str, asset: str | None, limit:
     if screen_key not in PREPARED_SCREEN_KEYS:
         raise ValueError("unsupported prepared screen")
     if asset is not None and asset not in PREPARED_SCREEN_ASSETS:
-        raise ValueError("asset must be cards, sealed, or omitted")
+        raise ValueError("asset must be cards, sealed, graded, or omitted")
     if not 1 <= int(limit) <= 25:
         raise ValueError("limit must be 1..25")
     rows = _rows(client.rpc(SCREEN_RPC, {
@@ -295,7 +299,7 @@ def read_prepared_screen(client: Any, screen_key: str, asset: str | None, limit:
         "comparison_as_of", "generation_id", "generated_at", "relative_era_pct",
         "relative_cohort_pct", "current_drawdown_pct", "constituent_count",
     )
-    return [{key: row[key] for key in fields if key in row and row[key] is not None} for row in rows]
+    return [{key: row[key] for key in fields if key in row and row[key] is not None} for row in rows[:10]]
 
 
 def read_set_context_ranking(client: Any, set_id: str, ranking: str, timeframe: str, limit: int, as_of: str | None) -> dict[str, Any]:

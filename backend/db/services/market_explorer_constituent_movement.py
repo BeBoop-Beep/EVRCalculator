@@ -15,6 +15,8 @@ V2_DAILY_TABLE = "pokemon_market_explorer_card_daily_states_v2_shadow"
 V2_INTERVAL_TABLE = "pokemon_market_price_intervals_v2_shadow"
 QUALITY_TABLE = "pokemon_market_date_quality"
 WINDOWS = CONSTITUENT_MOVEMENT_WINDOWS
+SEALED_MOVEMENT_RPC = "get_pokemon_market_explorer_sealed_constituent_movement_v1"
+SEALED_MOVEMENT_MAX_IDS = 100
 
 
 def _execute_rows(query: Any) -> list[dict[str, Any]]:
@@ -133,3 +135,62 @@ def enrich_card_constituent_page(client: Any, page: Mapping[str, Any]) -> dict[s
     result["items"] = items
     result["movement_windows"] = movement.get("windows") or {}
     return result
+
+
+def enrich_sealed_constituent_page(client: Any, page: Mapping[str, Any]) -> dict[str, Any]:
+    """Attach DB-authoritative movement to one bounded sealed-product page.
+
+    The RPC owns baseline selection and percentage calculation. This adapter
+    only validates the civil date, performs one call, and maps rows by the
+    canonical sealed product identity. Missing baselines remain ``None``.
+    """
+    result = dict(page)
+    items = [dict(row) for row in result.get("items") or []]
+    as_of = str(result.get("as_of") or result.get("asOf") or "")[:10]
+    try:
+        as_of = date.fromisoformat(as_of).isoformat()
+    except ValueError:
+        result["items"] = items
+        return result
+    product_ids = list(dict.fromkeys(
+        str(row.get("sealedProductId") or "") for row in items
+        if row.get("sealedProductId")
+    ))
+    if not items or not product_ids:
+        result["items"] = items
+        return result
+    if len(product_ids) > SEALED_MOVEMENT_MAX_IDS:
+        raise ValueError("sealed movement requires 1..100 product ids")
+
+    rows = _execute_rows(client.rpc(SEALED_MOVEMENT_RPC, {
+        "p_sealed_product_ids": product_ids,
+        "p_as_of": as_of,
+    }))
+    by_id = {str(row.get("sealed_product_id")): row for row in rows}
+    fields = {
+        "1D": ("movement_1d_pct", "baseline_1d_date"),
+        "7D": ("movement_7d_pct", "baseline_7d_date"),
+        "30D": ("movement_30d_pct", "baseline_30d_date"),
+        "3M": ("movement_3m_pct", "baseline_3m_date"),
+    }
+    for item in items:
+        movement_row = by_id.get(str(item.get("sealedProductId") or ""), {})
+        item["changes"] = {
+            window: (None if movement_row.get(value_key) is None else float(movement_row[value_key]))
+            for window, (value_key, _) in fields.items()
+        }
+        item["changeBaselines"] = {
+            window: (str(movement_row[date_key])[:10] if movement_row.get(date_key) else None)
+            for window, (_, date_key) in fields.items()
+        }
+    result["items"] = items
+    return result
+
+
+def enrich_constituent_page(client: Any, page: Mapping[str, Any], asset: str) -> dict[str, Any]:
+    """Dispatch movement enrichment by asset without crossing authorities."""
+    if asset == "cards":
+        return enrich_card_constituent_page(client, page)
+    if asset == "sealed":
+        return enrich_sealed_constituent_page(client, page)
+    return dict(page)
