@@ -10,6 +10,7 @@ from backend.scripts import run_rip_benchmark_publisher_v1 as publisher
 
 ROOT = Path(__file__).resolve().parents[3]
 MIGRATION = ROOT / "supabase" / "migrations" / "20260927235534_financial_rip_history_db_v1.sql"
+PATCH_MIGRATION = ROOT / "supabase" / "migrations" / "20260928034800_financial_rip_history_numeric_tolerance_v1.sql"
 FINANCIAL = "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5"
 
 
@@ -194,3 +195,14 @@ def test_database_contract_contains_atomic_cutover_and_bounded_history_guards():
     assert "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5" in sql
     assert "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5" in sql
     assert "chase_accessibility_v1_hc_value_squared_modeled_probability" in sql
+
+
+def test_numeric_precision_patch_preserves_strict_authority_and_allows_only_sub_picopoint_mean_drift():
+    sql = PATCH_MIGRATION.read_text(encoding="utf-8")
+    assert "abs(v_set_reference - v_set_mean) > 0.000000000001" in sql
+    assert "abs(raw_model_value - member_mean) > 0.000000000001" in sql
+    assert "v_set_rows <> 22" in sql
+    assert "v_era_rows <> 2" in sql
+    assert "v_rankings_set_ids is distinct from v_stored_set_ids" in sql
+    assert "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5" in sql
+    assert "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5" in sql
