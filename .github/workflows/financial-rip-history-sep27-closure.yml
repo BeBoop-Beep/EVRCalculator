@@ -1,0 +1,154 @@
+name: Financial RIP Sep27 Closure
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/financial-rip-history-sep27-closure.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: financial-rip-history-sep27-closure
+  cancel-in-progress: false
+
+jobs:
+  publish-and-verify:
+    runs-on: self-hosted
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Build isolated closure runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/financial-rip-history-closure-venv"
+          PY="$RUNNER_TEMP/financial-rip-history-closure-venv/bin/python"
+          "$PY" -m pip install -q --upgrade pip
+          "$PY" -m pip install -q -r backend/requirements.txt psutil scipy==1.18.1
+
+      - name: Load production environment and publish certified Sep 27 Benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+          if [[ -e "$HOLD" || -L "$HOLD" || ! -x /home/ubuntu/state/db-safety ]]; then
+            echo "Database safety hold active or unreadable; refusing publication."
+            exit 1
+          fi
+
+          PY="$RUNNER_TEMP/financial-rip-history-closure-venv/bin/python"
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+
+          ENV_EXPORTS="$("$PY" - <<'PY'
+          import os, re, shlex
+          from dotenv import dotenv_values
+          values = dotenv_values("/home/ubuntu/repos/EVRCalculator/backend/.env")
+          for key, value in values.items():
+              if value is None or key in os.environ:
+                  continue
+              if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+                  raise SystemExit(f"invalid env key {key!r}")
+              print(f"export {key}={shlex.quote(value)}")
+          PY
+          )"
+          eval "$ENV_EXPORTS"
+
+          exec 9>/tmp/pokemon-opening-simulation-recovery.lock
+          flock -n 9 || { echo "opening publication/recovery lock busy"; exit 1; }
+          if ! /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+            echo "post-scrape market publication active; refusing concurrent Benchmark publish"
+            exit 1
+          fi
+
+          echo "closure_head=$(git rev-parse HEAD)"
+          "$PY" -m backend.scripts.run_rip_benchmark_publisher_v1             --dry-run --market-date 2026-09-27
+          "$PY" -m backend.scripts.run_rip_benchmark_publisher_v1             --publish --market-date 2026-09-27
+
+      - name: Verify production Financial history authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY="$RUNNER_TEMP/financial-rip-history-closure-venv/bin/python"
+          cd "$GITHUB_WORKSPACE"
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+
+          ENV_EXPORTS="$("$PY" - <<'PY'
+          import os, re, shlex
+          from dotenv import dotenv_values
+          values = dotenv_values("/home/ubuntu/repos/EVRCalculator/backend/.env")
+          for key, value in values.items():
+              if value is None or key in os.environ:
+                  continue
+              if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+                  raise SystemExit(f"invalid env key {key!r}")
+              print(f"export {key}={shlex.quote(value)}")
+          PY
+          )"
+          eval "$ENV_EXPORTS"
+
+          "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          client = create_service_role_client()
+          headers = list(
+              client.table("pokemon_rip_benchmark_publications_v1")
+              .select("id,market_date,publication_status,expected_entity_count,expected_row_count,financial_model_version,overall_model_version,published_at")
+              .eq("market_date", "2026-09-27")
+              .eq("publication_status", "published")
+              .order("published_at", desc=True)
+              .limit(2)
+              .execute().data or []
+          )
+          if len(headers) != 1:
+              raise SystemExit(f"expected exactly one published Sep27 Benchmark header, got {len(headers)}")
+          h = headers[0]
+          if int(h.get("expected_entity_count") or -1) != 162 or int(h.get("expected_row_count") or -1) != 648:
+              raise SystemExit(f"unexpected header counts: {h}")
+
+          rows = list(
+              client.table("pokemon_rip_benchmark_rows_v1")
+              .select("entity_type,metric_key,benchmark_status")
+              .eq("publication_id", h["id"])
+              .execute().data or []
+          )
+          if len(rows) != 648:
+              raise SystemExit(f"expected 648 rows, got {len(rows)}")
+          set_fin = sum(r.get("entity_type") == "set" and r.get("metric_key") == "financial" for r in rows)
+          era_fin = sum(r.get("entity_type") == "era" and r.get("metric_key") == "financial" for r in rows)
+          if set_fin != 22 or era_fin != 2:
+              raise SystemExit(f"financial row counts incorrect: sets={set_fin} eras={era_fin}")
+
+          attempts = list(
+              client.table("pokemon_rip_benchmark_publication_attempts_v1")
+              .select("id,status,reason_code,resulting_publication_id,attempted_at,completed_at,diagnostics")
+              .eq("market_date", "2026-09-27")
+              .eq("status", "published")
+              .order("attempted_at", desc=True)
+              .limit(1)
+              .execute().data or []
+          )
+          if len(attempts) != 1 or str(attempts[0].get("resulting_publication_id")) != str(h["id"]):
+              raise SystemExit(f"published attempt receipt missing/mismatched: {attempts}")
+
+          print(json.dumps({
+              "status": "DATABASE_BUCKET_1_COMPLETE",
+              "publication": h,
+              "row_count": len(rows),
+              "set_financial_rows": set_fin,
+              "era_financial_rows": era_fin,
+              "attempt": attempts[0],
+          }, sort_keys=True))
+          PY
