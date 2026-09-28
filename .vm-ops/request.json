@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-reviewed",
-  "request_id": "sentinel-finalize-sync2-20260927"
+  "operation": "sentinel-enable-recovery",
+  "request_id": "sentinel-finalize-recovery-20260927"
 }
