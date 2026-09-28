@@ -2,16 +2,16 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[4]
-SUPABASE = ROOT / "supabase" / "migrations" / "20260928043000_raw_parent_edition_stable_v1.sql"
-BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928043000_raw_parent_edition_stable_v1.sql"
-SERVICE_ROLE_GRANT_SUPABASE = ROOT / "supabase" / "migrations" / "20260928052000_grant_edition_history_binding_validator_service_role.sql"
-SERVICE_ROLE_GRANT_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928052000_grant_edition_history_binding_validator_service_role.sql"
-SCOPED_LEAF_AUTHORITY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928054500_raw_parent_scoped_leaf_authority_v2.sql"
-SCOPED_LEAF_AUTHORITY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928054500_raw_parent_scoped_leaf_authority_v2.sql"
-SCOPED_SET_OVERLAY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928061000_market_explorer_scoped_set_overlay_v2.sql"
-SCOPED_SET_OVERLAY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928061000_market_explorer_scoped_set_overlay_v2.sql"
-SCOPED_PRICE_ASOF_SUPABASE = ROOT / "supabase" / "migrations" / "20260928063500_market_explorer_scoped_price_asof_v2.sql"
-SCOPED_PRICE_ASOF_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928063500_market_explorer_scoped_price_asof_v2.sql"
+SUPABASE = ROOT / "supabase" / "migrations" / "20260928045911_raw_parent_edition_stable_v1.sql"
+BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928045911_raw_parent_edition_stable_v1.sql"
+SERVICE_ROLE_GRANT_SUPABASE = ROOT / "supabase" / "migrations" / "20260928051953_grant_edition_history_binding_validator_service_role.sql"
+SERVICE_ROLE_GRANT_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928051953_grant_edition_history_binding_validator_service_role.sql"
+SCOPED_LEAF_AUTHORITY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928053519_raw_parent_scoped_leaf_authority_v2.sql"
+SCOPED_LEAF_AUTHORITY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928053519_raw_parent_scoped_leaf_authority_v2.sql"
+SCOPED_SET_OVERLAY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928054042_market_explorer_scoped_set_overlay_v2.sql"
+SCOPED_SET_OVERLAY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928054042_market_explorer_scoped_set_overlay_v2.sql"
+SCOPED_PRICE_ASOF_SUPABASE = ROOT / "supabase" / "migrations" / "20260928054305_market_explorer_scoped_price_asof_v2.sql"
+SCOPED_PRICE_ASOF_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928054305_market_explorer_scoped_price_asof_v2.sql"
 
 
 def test_migration_copies_are_identical():
