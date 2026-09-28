@@ -133,13 +133,27 @@ export default function MarketExplorerClient({
   const gradedOptionStates = useAssetOptions("graded", { enabled: activeBrowseAsset === "graded" });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [methodologyOpen, setMethodologyOpen] = useState(false);
+  const methodologyTriggerRef = useRef(null);
+  const methodologyCloseRef = useRef(null);
+  const methodologyRestoreFocusRef = useRef(null);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   useEffect(() => {
     if (!methodologyOpen || typeof document === "undefined") return undefined;
-    const closeOnEscape = (event) => { if (event.key === "Escape") setMethodologyOpen(false); };
+    const focusFrame = requestAnimationFrame(() => methodologyCloseRef.current?.focus());
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMethodologyOpen(false);
+      }
+    };
     document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", closeOnEscape);
+      const restoreTarget = methodologyRestoreFocusRef.current || methodologyTriggerRef.current;
+      requestAnimationFrame(() => restoreTarget?.focus?.());
+    };
   }, [methodologyOpen]);
   // PREPARED SELECTION LIFECYCLE (marketExplorerPreparedLoader.mjs). A prepared
   // market is ACTIVE only once its data has loaded. Requested-but-unloaded and
@@ -484,7 +498,11 @@ export default function MarketExplorerClient({
           gradedReason={gradedOptionStates.data?.reason || null}
           onAddToBasket={(item) => { setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 }); setBuilderMode("exact"); setBuilderOpen(true); }}
           onBuild={() => { setBuilderMode("exact"); setBuilderOpen(true); }} />
-        <div className="px-3 pb-3"><button type="button" data-market-explorer-methodology-trigger aria-expanded={methodologyOpen} onClick={() => setMethodologyOpen((value) => !value)} className="flex min-h-9 w-full items-center justify-between rounded-md border border-violet-400/40 px-3 text-xs font-semibold text-violet-200"><span>Methodology</span><span aria-hidden="true">{methodologyOpen ? "−" : "+"}</span></button></div>
+        <div className="px-3 pb-3"><button ref={methodologyTriggerRef} type="button" data-market-explorer-methodology-trigger aria-expanded={methodologyOpen} onClick={() => {
+          if (methodologyOpen) { setMethodologyOpen(false); return; }
+          methodologyRestoreFocusRef.current = typeof document !== "undefined" ? document.activeElement : methodologyTriggerRef.current;
+          setMethodologyOpen(true);
+        }} className="flex min-h-9 w-full items-center justify-between rounded-md border border-violet-400/40 px-3 text-xs font-semibold text-violet-200"><span>Methodology</span><span aria-hidden="true">{methodologyOpen ? "−" : "+"}</span></button></div>
         <div data-market-explorer-sidebar-section="analyze" className="border-t-2 border-white/35 px-3 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
           {activeBrowseAsset === "cards" ? <MarketExplorerRarityMarkets
@@ -636,7 +654,9 @@ export default function MarketExplorerClient({
         {detailsOpen ? (
           <div
             data-market-explorer-compare-results
-            className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden border border-[var(--border-subtle)] bg-[rgba(2,6,23,.96)] shadow-2xl backdrop-blur"
+            aria-hidden={methodologyOpen ? "true" : undefined}
+            inert={methodologyOpen ? true : undefined}
+            className={`absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden border border-[var(--border-subtle)] bg-[rgba(2,6,23,.96)] shadow-2xl backdrop-blur ${methodologyOpen ? "pointer-events-none select-none" : ""}`}
           >
             <div className="relative flex flex-none flex-col gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-3 py-2 desk:min-h-14 desk:justify-center sm:px-4">
               {/* The reversible partner of the "View Constituents & Comparison"
@@ -688,7 +708,7 @@ export default function MarketExplorerClient({
         {methodologyOpen ? (
           <div data-market-explorer-methodology-takeover role="region" aria-label="Methodology" className="absolute inset-0 z-30 flex min-h-0 flex-col overflow-hidden border border-violet-400/35 bg-[rgba(2,6,23,.97)] shadow-2xl backdrop-blur">
             <div className="relative flex flex-none items-center justify-center border-b border-[var(--border-subtle)] px-3 py-2">
-              <button type="button" data-market-explorer-close-methodology onClick={() => setMethodologyOpen(false)} className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200">Close Methodology</button>
+              <button ref={methodologyCloseRef} type="button" data-market-explorer-close-methodology onClick={() => setMethodologyOpen(false)} className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200">Close Methodology</button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"><MarketExplorerMethodology /></div>
           </div>

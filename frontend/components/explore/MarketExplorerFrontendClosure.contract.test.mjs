@@ -41,7 +41,17 @@ test("Methodology is an in-place reversible takeover and not a standing page blo
   assert.match(source, /data-market-explorer-methodology-takeover/);
   assert.match(source, /data-market-explorer-close-methodology/);
   assert.match(source, /event\.key === "Escape"/);
+  assert.match(source, /methodologyCloseRef\.current\?\.focus/);
+  assert.match(source, /methodologyRestoreFocusRef/);
+  assert.match(source, /data-market-explorer-compare-results[\s\S]*aria-hidden=\{methodologyOpen \? "true" : undefined\}/);
+  assert.match(source, /data-market-explorer-compare-results[\s\S]*inert=\{methodologyOpen \? true : undefined\}/);
   assert.equal(source.match(/<MarketExplorerMethodology/g)?.length, 1);
+});
+
+test("V2 Browse layers use exact backend asset identity", async () => {
+  const source = await read("./MarketExplorerBrowse.jsx");
+  assert.match(source, /if \(v2Mode\) return row\?\.asset === assetLayer/);
+  assert.match(source, /\[directory, assetLayer, v2Mode\]/);
 });
 
 test("paged mobile constituents render their own selected-window ChangeCell", async () => {
