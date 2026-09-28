@@ -1,6 +1,5 @@
 "use client";
 
-import { toGrayscaleColor } from "@/lib/explore/marketExplorerFocusColor.mjs";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
@@ -190,12 +189,12 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
   });
 
   // FOCUS MODE is purely presentational. The focused series keeps its colour and
-  // full emphasis; every OTHER visible series is desaturated and slightly
+  // full emphasis; every OTHER visible series keeps its identity hue and becomes
   // transparent but stays drawn and readable in the tooltip. Data, index,
   // timeframe and axes are untouched. focusedSeriesKey null => original look.
   const focusActive = Boolean(focusedSeriesKey) && drawn.some((entry) => entry.key === focusedSeriesKey);
   const isDimmed = (entry) => focusActive && entry.key !== focusedSeriesKey;
-  const paintOf = (entry) => (isDimmed(entry) ? toGrayscaleColor(entry.color) : entry.color);
+  const paintOf = (entry) => entry.color;
   const lineOrder = focusActive ? [...drawn.filter(isDimmed), ...drawn.filter((entry) => !isDimmed(entry))] : drawn;
 
   const activeDate = activeIndex === null ? null : dates[activeIndex] || null;
@@ -278,7 +277,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
           <defs>
             {drawn.map((entry) => (
               <linearGradient key={entry.key} id={`${gradientPrefix}-${entry.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={paintOf(entry)} stopOpacity={isDimmed(entry) ? areaOpacity * 0.25 : areaOpacity} />
+                <stop offset="0%" stopColor={paintOf(entry)} stopOpacity={isDimmed(entry) ? 0.015 : areaOpacity} />
                 <stop offset="100%" stopColor={paintOf(entry)} stopOpacity="0" />
               </linearGradient>
             ))}
@@ -289,7 +288,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
             : null))}
           {referenceVisible ? <line data-market-performance-reference={referenceValue} x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.28)" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
           {lineOrder.map((entry) => (entry.coordinates.length >= 2
-            ? <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} data-market-performance-focus={focusActive ? (isDimmed(entry) ? "dimmed" : "focused") : undefined} points={entry.polyline} fill="none" stroke={paintOf(entry)} strokeOpacity={isDimmed(entry) ? 0.28 : undefined} strokeWidth={focusActive && !isDimmed(entry) ? "3" : "2"} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            ? <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} data-market-performance-focus={focusActive ? (isDimmed(entry) ? "dimmed" : "focused") : undefined} points={entry.polyline} fill="none" stroke={paintOf(entry)} strokeOpacity={isDimmed(entry) ? 0.11 : undefined} strokeWidth={focusActive && !isDimmed(entry) ? "3" : "2"} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             : null))}
           {overlayLines.map((overlay) => {
             const points = overlay.values.map((value, index) => (value === null || value === undefined ? null : `${xAt(index).toFixed(2)},${yAt(value).toFixed(2)}`)).filter(Boolean).join(" ");
@@ -317,7 +316,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
               data-market-performance-marker={entry.key}
               aria-hidden="true"
               className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-current bg-[rgba(2,6,23,0.9)]"
-              style={{ left: `${xAt(activeIndex)}%`, top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, color: paintOf(entry), opacity: isDimmed(entry) ? 0.28 : undefined }}
+              style={{ left: `${xAt(activeIndex)}%`, top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, color: paintOf(entry), opacity: isDimmed(entry) ? 0.11 : undefined }}
             />
           );
         })}

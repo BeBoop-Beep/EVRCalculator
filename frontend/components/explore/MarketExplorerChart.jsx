@@ -77,6 +77,9 @@ export default function MarketExplorerChart({
         <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
+            <div data-market-explorer-analysis-tools className="flex flex-wrap items-center gap-1.5">
+              {focusTools.map((tool) => <Fragment key={tool.id}>{tool.render({ focusedSeries })}</Fragment>)}
+            </div>
           </div>
           <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
             <MarketExplorerTimeframeSelector
@@ -108,7 +111,7 @@ export default function MarketExplorerChart({
           className="absolute left-3 top-[5.25rem] z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-md border border-sky-400/40 bg-[rgba(2,6,23,.94)] px-2.5 py-1.5 text-[11px] shadow-xl"
         >
           <span data-market-explorer-focus-label className="min-w-0 truncate font-semibold text-sky-100">
-            Focused: {focusedSeries.label}
+            Focused: {focusedSeries.label}{focusedSeries.asset ? ` — ${focusedSeries.asset === "sealed" ? "Sealed" : focusedSeries.asset === "graded" ? "Graded" : "Cards"}` : ""}
           </span>
           <button
             type="button"
@@ -118,7 +121,6 @@ export default function MarketExplorerChart({
           >
             Clear Focus
           </button>
-          {focusTools.map((tool) => <Fragment key={tool.id}>{tool.render({ focusedSeries })}</Fragment>)}
         </div>
       ) : null}
 

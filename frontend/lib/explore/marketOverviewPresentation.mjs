@@ -500,13 +500,15 @@ export function formatCount(value) {
 export function formatMarketDate(value) {
   const key = dateKey(value);
   if (!key) return null;
-  return new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const [year, month, day] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 export function formatShortDate(value) {
   const key = dateKey(value);
   if (!key) return "";
-  return new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const [year, month, day] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 /** Signed percentage text for a backend change, or an explicit unavailable dash. */

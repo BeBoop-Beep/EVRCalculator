@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import { computeChangeFromBaseline } from "@/lib/explore/marketDeltaWindows.mjs";
+import { formatMarketDate, formatShortDate } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import MarketTrendTooltipCard from "./MarketTrendTooltipCard";
 import {
@@ -15,8 +16,8 @@ import {
 import { buildMarketSparklineDomain } from "./marketSparklineDomain.mjs";
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const shortDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
-const longDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+const shortDate = (value) => formatShortDate(value) || "";
+const longDate = (value) => formatMarketDate(value) || "";
 const numeric = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 
 export default function MarketSparkline({

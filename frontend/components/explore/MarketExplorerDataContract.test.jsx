@@ -170,6 +170,7 @@ test("Sealed Types renders whatever the DB publishes with truthful actions; Case
   const selected = []; const built = [];
   let renderer;
   await act(async () => { renderer = TestRenderer.create(<MarketExplorerSealedTypes options={{ types }} canBuild onSelect={(k) => selected.push(k)} onAddQuery={async (s) => { built.push(s); return "added"; }} onRemoveQuery={noop} />); });
+  await act(async () => renderer.root.findByProps({ "data-sealed-types-trigger": true }).props.onClick());
   assert.equal(renderer.root.findAll((n) => n.props?.["data-sealed-type"]).length, FAMILIES.length);
   for (const type of types) {
     const li = renderer.root.findByProps({ "data-sealed-type": type.key });

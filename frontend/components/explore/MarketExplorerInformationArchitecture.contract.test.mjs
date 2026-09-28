@@ -29,7 +29,10 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
   assert.ok(active < workspace && workspace < graph && graph < results);
   assert.doesNotMatch(source, /desk:row-start-2/);
   assert.doesNotMatch(source, /data-market-explorer-research-peek/);
-  assert.match(source, /inert=\{detailsOpen \? true : undefined\}/);
+  assert.match(source, /inert=\{detailsOpen \|\| methodologyOpen \? true : undefined\}/);
+  assert.match(source, /data-market-explorer-methodology-trigger/);
+  assert.match(source, /data-market-explorer-methodology-takeover/);
+  assert.doesNotMatch(source, /order-6 desk:col-span-2/);
   assert.equal(source.indexOf('data-market-explorer-sidebar-section="filter"'), -1);
   assert.ok(source.indexOf("<MarketExplorerQueryBuilder", build) > build);
   assert.ok(source.indexOf("<MarketExplorerExactBasket", build) > build);
@@ -46,6 +49,7 @@ test("chart toolbar keeps the primary toggle left and responsive timeframes righ
   const windows = await read("./MarketOverviewWindowSelector.jsx");
   assert.match(chart, /data-market-explorer-chart-toolbar/);
   assert.ok(chart.indexOf("<MarketChartViewToggle") < chart.indexOf("<MarketExplorerTimeframeSelector"));
+  assert.ok(chart.indexOf("<MarketChartViewToggle") < chart.indexOf("data-market-explorer-analysis-tools"));
   assert.match(chart, /data-market-explorer-view-details/);
   assert.match(chart, /desk:h-\[clamp\(19rem,calc\(100dvh-24rem\),42rem\)\]/);
   assert.doesNotMatch(chart, /desk:h-\[40rem\]/);
