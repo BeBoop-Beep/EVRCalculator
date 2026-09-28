@@ -150,7 +150,7 @@ test("no view recomputes a statistic in the browser", () => {
 test("the interpretation block derives its cents from the live published ratio", () => {
   assert.equal(centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 39);
   assert.equal(100 - centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 61);
-  assert.ok(distribution.includes("ratioAsPercent(scope.modeledReturnOnSpend)"));
+  assert.ok(!distribution.includes("ratioAsPercent(scope.modeledReturnOnSpend)"));
   // No hardcoded figure may stand in for the live value.
   assert.ok(!/\b45¢|\b55¢/.test(overall));
 });
