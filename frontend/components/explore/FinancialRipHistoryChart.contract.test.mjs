@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("./FinancialRipHistoryChart.jsx", import.meta.url), "utf8");
 const model = readFileSync(new URL("./financialRipHistoryModel.mjs", import.meta.url), "utf8");
+const distribution = readFileSync(new URL("./OpeningEconomicsDistribution.jsx", import.meta.url), "utf8");
 
 test("uses the Financial RIP history reader and no legacy benchmark reader", () => {
   assert.ok(source.includes("readFinancialRipHistory"));
@@ -26,16 +27,34 @@ test("controls, gap behavior, moving reference, and responsive frame are explici
   assert.ok(source.includes("h-[20rem] sm:h-[24rem] desk:h-[28rem]"));
   assert.ok(source.includes("MAX_FINANCIAL_RIP_SET_SELECTION"));
 });
+
 test("refresh and failure preserve the last successful certified chart", () => {
   assert.ok(source.includes('setRequest((current) => ({ ...current, status: "loading"'));
   assert.ok(source.includes("const display = request.view"));
   assert.ok(source.includes("The latest refresh failed, so the last successful history remains visible."));
-  assert.ok(source.includes("Updating history…"));
+  assert.ok(source.includes("Updating history\u2026"));
+});
+
+test("the retired Financial Return chart cannot return as a second authority", () => {
+  const retiredName = `./${"Financial"}${"Return"}${"History"}.jsx`;
+  const retiredSymbol = `${"Financial"}${"Return"}${"History"}`;
+  assert.equal(existsSync(new URL(retiredName, import.meta.url)), false);
+  assert.ok(distribution.includes('import FinancialRipHistoryChart from "./FinancialRipHistoryChart"'));
+  assert.ok(!distribution.includes(retiredSymbol));
 });
 
 test("chart copy is valid UTF-8 and uses the canonical Rankings upgrade source", () => {
-  assert.ok(source.includes("Pokémon-wide Overall Financial RIP reference"));
+  for (const expected of ["Pok\u00e9mon-wide", "Loading Financial RIP history\u2026", " \u00b7 History available from"]) {
+    assert.ok(source.includes(expected), `missing intended copy: ${expected}`);
+  }
   assert.ok(source.includes('source="rankings"'));
-  assert.doesNotMatch(source, /PokÃ|â€¦|Â·/);
+  const brokenCopy = [
+    `Pok${"\u00c3\u0192\u00c2\u00a9"}mon`,
+    `Pok${"\u00c3\u00a9"}mon`,
+    `${"\u00c3\u00a2"}${"\u00e2\u201a\u00ac\u00c2\u00a6"}`,
+    `${"\u00e2"}${"\u20ac\u00a6"}`,
+    `${"\u00c3\u201a"}${"\u00c2\u00b7"}`,
+    `${"\u00c2"}\u00b7 History available from`,
+  ];
+  for (const broken of brokenCopy) assert.ok(!source.includes(broken), `found mojibake: ${broken}`);
 });
-
