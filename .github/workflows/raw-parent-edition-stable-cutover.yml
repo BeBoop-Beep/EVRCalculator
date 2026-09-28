@@ -1,0 +1,312 @@
+name: Raw Parent Edition Stable Cutover
+
+on:
+  push:
+    branches:
+      - fix/raw-parent-edition-stable-20260927
+    paths:
+      - '.github/workflows/raw-parent-edition-stable-cutover.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: raw-parent-edition-stable-cutover
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      ACTIONS_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PUBLICATION_BUILD_SHA: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+
+      - name: Install focused runtime
+        run: |
+          python -m pip install --disable-pip-version-check -q \
+            supabase==2.28.3 python-dotenv==1.2.2 pandas==2.2.3 numpy==2.4.3 \
+            requests==2.32.5 "psycopg[binary]==3.3.6"
+
+      - name: Verify required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$ACTIONS_DATABASE_URL"
+          echo "required_secrets_present=true"
+
+      - name: Build validate and promote edition-stable Explorer generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python - <<'PY'
+          import json
+          import os
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+          dsn = os.environ["ACTIONS_DATABASE_URL"]
+          parsed = conninfo_to_dict(dsn)
+          user = parsed.get("user") or ""
+          project_ref = user.split(".")[-1] if "." in user else "zwxzxuuawalvwioadhmf"
+          direct_user = user.split(".")[0] if "." in user else user
+          base_kwargs = {
+              "dbname": parsed.get("dbname") or "postgres",
+              "password": parsed.get("password") or "",
+              "sslmode": parsed.get("sslmode") or "require",
+              "connect_timeout": 15,
+              "application_name": "raw_parent_edition_stable_cutover",
+          }
+          routes = [("configured", dsn)]
+          pooler_host = parsed.get("host")
+          if pooler_host:
+              routes.append((
+                  "transaction_pooler",
+                  make_conninfo(host=pooler_host, port=6543, user=user, **base_kwargs),
+              ))
+          routes.append((
+              "direct",
+              make_conninfo(
+                  host=f"db.{project_ref}.supabase.co",
+                  port=5432,
+                  user=direct_user,
+                  **base_kwargs,
+              ),
+          ))
+
+          conn = None
+          failures = []
+          for label, candidate in routes:
+              try:
+                  conn = psycopg.connect(candidate, prepare_threshold=None)
+                  print(f"database_route={label}", flush=True)
+                  break
+              except Exception as exc:
+                  failures.append((label, type(exc).__name__, getattr(exc, "sqlstate", None)))
+          if conn is None:
+              raise RuntimeError(f"all database routes failed: {failures}")
+
+          with conn:
+              with conn.cursor() as cur:
+                  cur.execute("set statement_timeout = '900s'")
+                  cur.execute("set lock_timeout = '20s'")
+                  cur.execute("select pg_advisory_xact_lock(hashtext('raw-parent-edition-stable-cutover'))")
+
+                  cur.execute(
+                      "select to_regclass('public.pokemon_market_raw_edition_stable_daily_history_v1') "
+                      "is not null, "
+                      "to_regprocedure('public.refresh_pokemon_market_raw_edition_stable_history_v1(date)') "
+                      "is not null"
+                  )
+                  if tuple(cur.fetchone()) != (True, True):
+                      raise RuntimeError("edition-stable Raw migration is not installed")
+
+                  cur.execute(
+                      "select max(market_date) from public.pokemon_market_raw_edition_stable_daily_history_v1"
+                  )
+                  target = cur.fetchone()[0]
+                  if target is None:
+                      raise RuntimeError("edition-stable Raw history is empty")
+
+                  cur.execute(
+                      "select generation_id from public.pokemon_market_explorer_prepared_serving_v1 "
+                      "where singleton=true"
+                  )
+                  base_generation = cur.fetchone()[0]
+
+                  cur.execute(
+                      "select methodology_version from public.pokemon_market_index_daily_history "
+                      "where tcg='pokemon' and index_key='raw' and market_date=%s "
+                      "order by updated_at desc limit 1",
+                      (target,),
+                  )
+                  raw_methodology = cur.fetchone()[0]
+
+                  cur.execute(
+                      "select public.build_pokemon_market_explorer_surface_candidate_v2(%s,%s,%s)",
+                      (base_generation, target, raw_methodology),
+                  )
+                  build = cur.fetchone()[0]
+                  generation = build.get("generationId")
+                  if not generation:
+                      raise RuntimeError(f"candidate build returned no generation: {build}")
+                  print("build=" + json.dumps(build, default=str, sort_keys=True), flush=True)
+
+                  cur.execute(
+                      "select public.validate_pokemon_market_explorer_surface_candidate_v2(%s)",
+                      (generation,),
+                  )
+                  validation = cur.fetchone()[0]
+                  if validation.get("state") != "VALIDATED":
+                      raise RuntimeError(f"candidate validation failed: {validation}")
+                  print("validation=" + json.dumps(validation, default=str, sort_keys=True), flush=True)
+
+                  cur.execute(
+                      "select public.assert_pokemon_market_explorer_surface_coherent_v2(%s)",
+                      (generation,),
+                  )
+                  assertion = cur.fetchone()[0]
+                  if assertion.get("status") != "COHERENT":
+                      raise RuntimeError(f"candidate coherence failed: {assertion}")
+                  print("assertion=" + json.dumps(assertion, default=str, sort_keys=True), flush=True)
+
+                  cur.execute(
+                      """
+                      with stable as (
+                        select * from public.pokemon_market_raw_edition_stable_daily_history_v1
+                        where market_date=%s
+                      ),
+                      raw_dir as (
+                        select * from public.pokemon_market_explorer_surface_directory_v2
+                        where generation_id=%s and market_key='raw'
+                      ),
+                      raw_leaves as (
+                        select c.*
+                        from public.pokemon_market_explorer_surface_constituents_v2 c
+                        where c.generation_id=%s and c.market_key='raw'
+                      )
+                      select
+                        (select source_kind from raw_dir),
+                        (select round(current_tracked_value,2) from raw_dir),
+                        (select round(current_index_value,8) from raw_dir),
+                        (select round(basket_value,2) from stable),
+                        (select round(normalized_index_value,8) from stable),
+                        (select count(*)::int from raw_leaves),
+                        (select count(distinct instrument_id)::int from raw_leaves),
+                        (select card_count from stable),
+                        (select count(*)::int
+                         from raw_leaves l
+                         join public.pokemon_edition_split_root_sets_v2 r on r.set_id=l.set_id
+                         where coalesce(l.item->>'marketScope','standard')='standard')
+                      """,
+                      (target, generation, generation),
+                  )
+                  proof = cur.fetchone()
+                  expected = (
+                      "pokemon_market_raw_edition_stable_daily_history_v1",
+                      proof[3], proof[4], proof[3], proof[4], proof[7], proof[7], proof[7], 0,
+                  )
+                  if tuple(proof) != expected:
+                      raise RuntimeError(f"edition-stable candidate proof failed: {proof}")
+                  print("candidate_proof=" + json.dumps({
+                      "sourceKind": proof[0],
+                      "basketValue": str(proof[1]),
+                      "indexValue": str(proof[2]),
+                      "leafCount": proof[5],
+                      "uniqueLeaves": proof[6],
+                      "expectedLeaves": proof[7],
+                      "genericVintageLeaves": proof[8],
+                  }, sort_keys=True), flush=True)
+
+                  cur.execute(
+                      "select public.promote_pokemon_market_explorer_surface_v2(%s)",
+                      (generation,),
+                  )
+                  promotion = cur.fetchone()[0]
+                  print("promotion=" + json.dumps(promotion, default=str, sort_keys=True), flush=True)
+
+                  cur.execute(
+                      "select generation_id from public.pokemon_market_explorer_surface_serving_v2 "
+                      "where singleton=1"
+                  )
+                  serving = cur.fetchone()[0]
+                  if str(serving) != str(generation):
+                      raise RuntimeError(
+                          f"serving pointer mismatch: {serving} != {generation}"
+                      )
+
+                  print(json.dumps({
+                      "status": "EXPLORER_PROMOTED",
+                      "marketDate": str(target),
+                      "generationId": str(generation),
+                      "basePreparedGenerationId": str(base_generation),
+                  }, sort_keys=True), flush=True)
+          PY
+
+      - name: Rebuild public Market snapshot from stable Raw authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python -m backend.scripts.build_pokemon_explore_set_value_snapshot \
+            --market-date 2026-09-27 --commit
+
+      - name: Verify both public surfaces use edition-stable Raw
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          client = create_service_role_client()
+          serving = list(
+              client.table("pokemon_market_explorer_surface_serving_v2")
+              .select("generation_id").eq("singleton", 1).limit(1).execute().data or []
+          )
+          if not serving:
+              raise RuntimeError("Explorer serving pointer missing")
+          generation = str(serving[0]["generation_id"])
+
+          raw_dir = list(
+              client.table("pokemon_market_explorer_surface_directory_v2")
+              .select("source_kind,current_tracked_value,current_index_value,constituent_count,metadata")
+              .eq("generation_id", generation).eq("market_key", "raw").limit(1).execute().data or []
+          )
+          if not raw_dir:
+              raise RuntimeError("Explorer Raw directory missing")
+          directory = raw_dir[0]
+          if directory.get("source_kind") != "pokemon_market_raw_edition_stable_daily_history_v1":
+              raise RuntimeError(f"Explorer Raw source is not stable: {directory}")
+          metadata = directory.get("metadata") or {}
+          if metadata.get("editionStable") is not True or metadata.get("legacyGenericVintageExcluded") is not True:
+              raise RuntimeError(f"Explorer Raw metadata is not edition-stable: {metadata}")
+
+          snapshot = list(
+              client.table("pokemon_explore_set_value_snapshot_latest")
+              .select("market_date,payload_json")
+              .eq("tcg", "pokemon").eq("scope", "market").limit(1).execute().data or []
+          )
+          if not snapshot:
+              raise RuntimeError("public Market snapshot missing")
+          payload = snapshot[0].get("payload_json") or {}
+          overview = payload.get("marketOverview") or {}
+          method = overview.get("methodology") or {}
+          coverage = overview.get("coverage") or {}
+          raw = overview.get("raw") or {}
+          if method.get("editionStableRaw") is not True:
+              raise RuntimeError(f"public Market Raw methodology is not stable: {method}")
+          if method.get("rawMethodologyVersion") != "edition_stable_market_identity_chain_v1":
+              raise RuntimeError(f"wrong Raw methodology version: {method}")
+          if int(coverage.get("rawMarketCount") or 0) != 158:
+              raise RuntimeError(f"unexpected Raw market count: {coverage}")
+          if int(coverage.get("rawRootCount") or 0) != 154:
+              raise RuntimeError(f"unexpected Raw root count: {coverage}")
+          if int(coverage.get("rawCardCount") or 0) != 19952:
+              raise RuntimeError(f"unexpected Raw card count: {coverage}")
+          if round(float(raw.get("basketValue")),2) != 434954.97:
+              raise RuntimeError(f"unexpected Raw basket value: {raw}")
+          if abs(float(raw.get("indexValue")) - 119.63674934) > 0.000001:
+              raise RuntimeError(f"unexpected Raw index value: {raw}")
+
+          print(json.dumps({
+              "status": "RAW_EDITION_STABLE_CUTOVER_PASS",
+              "marketDate": snapshot[0]["market_date"],
+              "generationId": generation,
+              "rawBasketValue": raw.get("basketValue"),
+              "rawIndexValue": raw.get("indexValue"),
+              "rawMarketCount": coverage.get("rawMarketCount"),
+              "rawRootCount": coverage.get("rawRootCount"),
+              "rawCardCount": coverage.get("rawCardCount"),
+          }, sort_keys=True), flush=True)
+          PY
