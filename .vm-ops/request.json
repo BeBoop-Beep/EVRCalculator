@@ -1,4 +1,5 @@
 {
-  "operation": "sync-main-preserve-untracked-artifacts",
-  "request_id": "financial-rip-bucket1-sync-main-preserve-20260927"
+  "operation": "rip-benchmark-publish",
+  "market_date": "2026-09-27",
+  "request_id": "financial-rip-bucket1-publish-20260927"
 }
