@@ -97,8 +97,10 @@ jobs:
           test "${#migrations[@]}" -eq 1
           migration="${migrations[0]}"
           cmp "$migration" "backend/db/migrations/$(basename "$migration")"
+          patch="supabase/migrations/20260928034800_financial_rip_history_numeric_tolerance_v1.sql"
+          cmp "$patch" "backend/db/migrations/$(basename "$patch")"
           echo "RIP_FINANCIAL_HISTORY_MIGRATION=$migration" >> "$GITHUB_ENV"
-          sha256sum "$migration" | tee benchmark-test-output/financial-history-migration-sha256.txt
+          sha256sum "$migration" "$patch" | tee benchmark-test-output/financial-history-migration-sha256.txt
       - name: Foundation atomicity plus Financial history integration/scale
         shell: bash
         run: |
