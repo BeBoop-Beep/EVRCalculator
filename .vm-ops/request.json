@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main",
-  "request_id": "raw-edition-stable-runtime-sync-20260928"
+  "operation": "sync-main-preserve-untracked-artifacts",
+  "request_id": "raw-edition-stable-runtime-sync-preserve-20260928"
 }
