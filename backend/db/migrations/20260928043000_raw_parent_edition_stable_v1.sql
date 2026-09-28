@@ -78,11 +78,14 @@ BEGIN
       ON a.set_id=h.set_id
      AND a.activated_market_date<=h.snapshot_date
      AND (a.deactivated_market_date IS NULL OR a.deactivated_market_date>h.snapshot_date)
-    JOIN public.pokemon_market_date_quality q
-      ON q.tcg='pokemon'
-     AND q.market_date=h.snapshot_date
-     AND q.status IN ('READY','LEGACY_VERIFIED')
     WHERE h.value_scope='standard'
+      AND EXISTS (
+        SELECT 1
+        FROM public.pokemon_market_date_quality q
+        WHERE q.tcg='pokemon'
+          AND q.market_date=h.snapshot_date
+          AND q.status IN ('READY','LEGACY_VERIFIED')
+      )
       AND h.snapshot_date>=date '2026-04-23'
       AND h.snapshot_date<=p_through_date
       AND h.set_value>0
@@ -106,11 +109,14 @@ BEGIN
       ON c.set_id=h.set_id
      AND c.market_scope=h.market_scope
      AND c.history_publishable
-    JOIN public.pokemon_market_date_quality q
-      ON q.tcg='pokemon'
-     AND q.market_date=h.market_date
-     AND q.status IN ('READY','LEGACY_VERIFIED')
     WHERE h.market_scope IN ('first_edition','unlimited','shadowless')
+      AND EXISTS (
+        SELECT 1
+        FROM public.pokemon_market_date_quality q
+        WHERE q.tcg='pokemon'
+          AND q.market_date=h.market_date
+          AND q.status IN ('READY','LEGACY_VERIFIED')
+      )
       AND h.certified_on_date
       AND h.market_date>=date '2026-04-23'
       AND h.market_date<=p_through_date
