@@ -387,5 +387,6 @@ def test_prepared_screen_registry_validation_and_payload(api):
         response = client.get("/market/explorer/prepared-screen", params={"screen": key, "asset": "cards", "limit": 25})
         assert response.status_code == 200 and "private" not in response.text
     assert client.get("/market/explorer/prepared-screen", params={"screen": "unknown", "asset": "cards"}).status_code == 400
-    assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "graded"}).status_code == 400
+    graded = client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "graded"})
+    assert graded.status_code == 200
     assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "cards", "limit": 26}).status_code == 422
