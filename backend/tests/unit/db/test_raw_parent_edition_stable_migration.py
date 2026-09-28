@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 SUPABASE = ROOT / "supabase" / "migrations" / "20260928043000_raw_parent_edition_stable_v1.sql"
 BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928043000_raw_parent_edition_stable_v1.sql"
 
@@ -39,3 +39,4 @@ def test_raw_parent_history_is_quality_gated_and_history_certified():
     assert "q.status IN ('READY','LEGACY_VERIFIED')" in sql
     assert "c.history_publishable" in sql
     assert "h.certified_on_date" in sql
+    assert "2026-04-23" in sql
