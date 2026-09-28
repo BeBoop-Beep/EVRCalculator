@@ -1,8 +1,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-SUPABASE = ROOT / "supabase" / "migrations" / "20260928001500_market_explorer_database_closure_sealed_screens_movement_v1.sql"
-BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928001500_market_explorer_database_closure_sealed_screens_movement_v1.sql"
+SUPABASE = ROOT / "supabase" / "migrations" / "20260927234437_market_explorer_database_closure_sealed_screens_movement_v1.sql"
+BACKEND = ROOT / "backend" / "db" / "migrations" / "20260927234437_market_explorer_database_closure_sealed_screens_movement_v1.sql"
 
 
 def test_market_explorer_database_closure_migration_is_mirrored():
@@ -39,4 +39,4 @@ def test_sealed_movement_contract_is_bounded_and_null_preserving():
     assert "cardinality(p_sealed_product_ids)>100" in sql
     assert "get_pokemon_market_explorer_sealed_constituent_movement_v1" in sql
     assert "case when e.end_price>0 and b7.p>0" in sql
-    assert "coalesce" not in "case when e.end_price>0 and b7.p>0 then (e.end_price/b7.p-1.0)*100.0 end"
+    movement = sql.split("create or replace function public.get_pokemon_market_explorer_sealed_constituent_movement_v1", 1)[1]\n    assert "coalesce((e.end_price/b7.p-1.0)*100.0,0)" not in movement
