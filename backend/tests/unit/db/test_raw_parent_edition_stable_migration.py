@@ -4,6 +4,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 SUPABASE = ROOT / "supabase" / "migrations" / "20260928043000_raw_parent_edition_stable_v1.sql"
 BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928043000_raw_parent_edition_stable_v1.sql"
+SERVICE_ROLE_GRANT_SUPABASE = ROOT / "supabase" / "migrations" / "20260928052000_grant_edition_history_binding_validator_service_role.sql"
+SERVICE_ROLE_GRANT_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928052000_grant_edition_history_binding_validator_service_role.sql"
 
 
 def test_migration_copies_are_identical():
@@ -40,3 +42,13 @@ def test_raw_parent_history_is_quality_gated_and_history_certified():
     assert "c.history_publishable" in sql
     assert "h.certified_on_date" in sql
     assert "2026-04-23" in sql
+
+
+def test_edition_history_binding_validator_service_role_grant_is_narrow():
+    sql = SERVICE_ROLE_GRANT_SUPABASE.read_text(encoding="utf-8")
+    assert sql == SERVICE_ROLE_GRANT_BACKEND.read_text(encoding="utf-8")
+    assert "pokemon_market_binding_is_valid_v3" in sql
+    assert "TO service_role" in sql
+    assert "FROM PUBLIC, anon, authenticated" in sql
+    assert "TO anon" not in sql
+    assert "TO authenticated" not in sql
