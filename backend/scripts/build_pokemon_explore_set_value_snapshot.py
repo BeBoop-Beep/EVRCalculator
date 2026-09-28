@@ -522,6 +522,19 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
                     raise RuntimeError("edition_history_not_current:" + market["market_key"])
 
 
+    raw_edition_stable_receipt = None
+    if commit and str(market_date)[:10] >= "2026-09-27":
+        response = client.rpc(
+            "refresh_pokemon_market_raw_edition_stable_history_v1",
+            {"p_through_date": str(market_date)[:10]},
+        ).execute()
+        raw_edition_stable_receipt = response.data or {}
+        if (not isinstance(raw_edition_stable_receipt, dict)
+                or raw_edition_stable_receipt.get("status") != "READY"
+                or str(raw_edition_stable_receipt.get("marketDate") or "")[:10]
+                    != str(market_date)[:10]):
+            raise RuntimeError("raw_edition_stable_refresh_failed")
+
     overview = market_overview
     if overview is None:
         history = market_index_history
@@ -545,14 +558,22 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         market_overview=overview,
         publisher_build_sha=publisher_build_sha(),
     )
+    publication_diagnostics = (
+        row["payload_json"].setdefault("meta", {}).setdefault("publicationDiagnostics", {})
+    )
     if edition_receipts:
-        row["payload_json"].setdefault("meta", {}).setdefault("publicationDiagnostics", {})["editionHistory"] = {
+        publication_diagnostics["editionHistory"] = {
             "targetDate": str(market_date)[:10],
             "verifiedRoots": len(edition_receipts),
             "rawV2Parity": all(r["raw_v2_equal"] for r in edition_receipts),
             "perMarketDateValidated": True,
         }
-        row["payload_size_bytes"] = len(json.dumps(row["payload_json"], separators=(",", ":")).encode())
+    if raw_edition_stable_receipt:
+        publication_diagnostics["rawEditionStable"] = dict(raw_edition_stable_receipt)
+    if edition_receipts or raw_edition_stable_receipt:
+        row["payload_size_bytes"] = len(
+            json.dumps(row["payload_json"], separators=(",", ":")).encode()
+        )
     _attach_initial_selected_set_movers(client, row)
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)
