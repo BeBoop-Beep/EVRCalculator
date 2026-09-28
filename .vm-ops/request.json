@@ -1,5 +1,4 @@
 {
-  "operation": "scrape-catalog-set-refresh",
-  "set_id": "baseSetShadowless",
-  "request_id": "scoped-edition-base-source-refresh-20260928"
+  "operation": "sync-main-preserve-untracked-artifacts",
+  "request_id": "scoped-edition-runtime-sync-20260928"
 }
