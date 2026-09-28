@@ -3,13 +3,14 @@ import test from "node:test";
 
 import {
   FINANCIAL_RIP_WINDOWS,
-  MAX_FINANCIAL_RIP_SET_SELECTION,
   buildFinancialRipChartModel,
   eraFinancialRipCandidates,
   entitySeriesKey,
   financialRipWindowRange,
   shouldFetchFinancialRipHistory,
   stableEntityColor,
+  setFinancialRipCandidates,
+  setIdsForEra,
   toggleFinancialRipSelection,
 } from "./financialRipHistoryModel.mjs";
 
@@ -67,10 +68,15 @@ test("Basic and anonymous access cannot initiate history reads", () => {
   assert.equal(shouldFetchFinancialRipHistory({ ...ready, entitled: true, authStatus: "resolved" }), true);
 });
 
-test("set selection is capped at five and colors are stable", () => {
-  assert.equal(MAX_FINANCIAL_RIP_SET_SELECTION, 5);
-  assert.deepEqual(toggleFinancialRipSelection(["1", "2", "3", "4", "5"], "6", 5), ["1", "2", "3", "4", "5"]);
-  assert.deepEqual(toggleFinancialRipSelection(["1", "2"], "1", 5), ["2"]);
+test("set selection is uncapped so an Era shortcut can show every member Set", () => {
+  assert.deepEqual(toggleFinancialRipSelection(["1", "2", "3", "4", "5"], "6"), ["1", "2", "3", "4", "5", "6"]);
+  assert.deepEqual(toggleFinancialRipSelection(["1", "2"], "1"), ["2"]);
+  const candidates = setFinancialRipCandidates(
+    [{ target_id: "a", name: "Set A" }, { target_id: "b", name: "Set B" }, { target_id: "c", name: "Set C" }],
+    [{ setId: "a", eraId: "sv", eraName: "Scarlet & Violet" }, { setId: "b", eraId: "sv", eraName: "Scarlet & Violet" }, { setId: "c", eraId: "swsh", eraName: "Sword & Shield" }],
+  );
+  assert.deepEqual(setIdsForEra(candidates, "sv"), ["a", "b"]);
+  assert.equal(candidates[0].eraName, "Scarlet & Violet");
   assert.equal(stableEntityColor("set-a"), stableEntityColor("set-a"));
 });
 

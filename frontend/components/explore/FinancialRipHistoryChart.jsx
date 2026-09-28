@@ -9,7 +9,6 @@ import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
 import {
   FINANCIAL_RIP_WINDOWS,
-  MAX_FINANCIAL_RIP_SET_SELECTION,
   buildFinancialRipChartModel,
   eraFinancialRipCandidates,
   financialRipWindowRange,
@@ -17,6 +16,7 @@ import {
   formatFinancialRip,
   formatFinancialRipDelta,
   setFinancialRipCandidates,
+  setIdsForEra,
   shouldFetchFinancialRipHistory,
   toggleFinancialRipSelection,
 } from "./financialRipHistoryModel.mjs";
@@ -52,14 +52,15 @@ function LockedPreview() {
   </div>;
 }
 
-function EntitySelector({ candidates, selectedIds, onToggle, mode, search, onSearch }) {
+function EntitySelector({ candidates, selectedIds, onToggle, mode, search, onSearch, eraPresets = [], onSelectEra }) {
   const visible = candidates.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
   return <details className="relative mt-3 rounded-lg border border-[var(--border-subtle)] bg-black/10 px-3 py-2">
-    <summary className="cursor-pointer text-xs font-semibold text-[var(--text-primary)]">Choose {mode === "sets" ? "Sets" : "Eras"} <span className="ml-1 font-normal text-[var(--text-secondary)]">{selectedIds.length}{mode === "sets" ? ` / ${MAX_FINANCIAL_RIP_SET_SELECTION}` : ""} selected</span></summary>
+    <summary className="cursor-pointer text-xs font-semibold text-[var(--text-primary)]">Choose {mode === "sets" ? "Sets" : "Eras"} <span className="ml-1 font-normal text-[var(--text-secondary)]">{selectedIds.length} selected</span></summary>
     <div className="mt-3">
-      {mode === "sets" ? <input type="search" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search Sets" aria-label="Search Financial RIP Sets" className="min-h-10 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 text-sm" /> : null}
+      <input type="search" value={search} onChange={(event) => onSearch(event.target.value)} placeholder={`Search ${mode === "sets" ? "Sets" : "Eras"}`} aria-label={`Search Financial RIP ${mode === "sets" ? "Sets" : "Eras"}`} className="min-h-10 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 text-sm" />
+      {mode === "sets" && eraPresets.length ? <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Select Sets by Era">{eraPresets.map((era) => <button key={era.entity_id} type="button" onClick={() => onSelectEra?.(era.entity_id)} className="min-h-8 rounded-md border border-[var(--border-subtle)] px-2.5 text-[10px] font-semibold text-[var(--text-secondary)] hover:bg-white/[.04]">{era.name}</button>)}</div> : null}
       <div className="mt-2 grid max-h-52 gap-1 overflow-auto sm:grid-cols-2 lg:grid-cols-3">
-        {visible.map((item) => { const selected = selectedIds.includes(item.entity_id); const disabled = !selected && mode === "sets" && selectedIds.length >= MAX_FINANCIAL_RIP_SET_SELECTION; return <label key={item.entity_id} className={`flex min-h-10 items-center gap-2 rounded-md px-2 text-xs ${disabled ? "opacity-45" : "hover:bg-white/[.04]"}`}><input type="checkbox" checked={selected} disabled={disabled} onChange={() => onToggle(item.entity_id)} /><span>{item.name}</span></label>; })}
+        {visible.map((item) => { const selected = selectedIds.includes(item.entity_id); return <label key={item.entity_id} className="flex min-h-10 items-center gap-2 rounded-md px-2 text-xs hover:bg-white/[.04]"><input type="checkbox" checked={selected} onChange={() => onToggle(item.entity_id)} /><span>{item.name}</span></label>; })}
       </div>
     </div>
   </details>;
@@ -84,7 +85,7 @@ export default function FinancialRipHistoryChart({ targets = [], openingSets = [
   const [search, setSearch] = useState("");
   const [request, setRequest] = useState({ status: "idle", view: null, key: null, pendingKey: null, error: null });
   const [retryNonce, setRetryNonce] = useState(0);
-  const setCandidates = useMemo(() => setFinancialRipCandidates(targets), [targets]);
+  const setCandidates = useMemo(() => setFinancialRipCandidates(targets, openingSets), [targets, openingSets]);
   const eraCandidates = useMemo(() => eraFinancialRipCandidates(openingSets, eras), [openingSets, eras]);
   useEffect(() => { setSetSelection((current) => current.length ? current.filter((id) => setCandidates.some((item) => item.entity_id === id)).slice(0, MAX_FINANCIAL_RIP_SET_SELECTION) : setCandidates.slice(0, 3).map((item) => item.entity_id)); }, [setCandidates]);
   useEffect(() => { setEraSelection((current) => current.length ? current.filter((id) => eraCandidates.some((item) => item.entity_id === id)) : eraCandidates.map((item) => item.entity_id)); }, [eraCandidates]);
@@ -146,7 +147,8 @@ export default function FinancialRipHistoryChart({ targets = [], openingSets = [
   );
   const yDomain = useMemo(() => financialRipYAxisDomain(chart.points, chart.series), [chart]);
   const accessPending = authStatus !== "resolved" && authStatus !== "degraded";
-  const toggle = (id) => { const setter = mode === "sets" ? setSetSelection : setEraSelection; setter((current) => toggleFinancialRipSelection(current, id, mode === "sets" ? MAX_FINANCIAL_RIP_SET_SELECTION : Infinity)); };
+  const toggle = (id) => { const setter = mode === "sets" ? setSetSelection : setEraSelection; setter((current) => toggleFinancialRipSelection(current, id)); };
+  const selectEraSets = (eraId) => { const ids = setIdsForEra(setCandidates, eraId); if (ids.length) setSetSelection(ids); };
 
   return <section className="mt-5 border-t border-[var(--border-subtle)] pt-5" data-financial-rip-history-chart>
     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -163,7 +165,7 @@ export default function FinancialRipHistoryChart({ targets = [], openingSets = [
     {accessPending ? (
       <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">Loading access…</div>
     ) : !entitled ? <LockedPreview /> : <>
-      <EntitySelector candidates={candidates} selectedIds={selectedIds} onToggle={toggle} mode={mode} search={search} onSearch={setSearch} />
+      <EntitySelector candidates={candidates} selectedIds={selectedIds} onToggle={toggle} mode={mode} search={search} onSearch={setSearch} eraPresets={eraCandidates} onSelectEra={selectEraSets} />
 
       {!selected.length ? (
         <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]">
@@ -192,7 +194,7 @@ export default function FinancialRipHistoryChart({ targets = [], openingSets = [
                 <YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} />
                 <Tooltip content={<ChartTooltip names={names} />} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#e2e8f0" strokeWidth={3} strokeDasharray="7 6" dot={{ r: 2.5 }} connectNulls={false} isAnimationActive={false} />
+                <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#94a3b8" strokeWidth={4} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
                 {chart.series.map((item) => <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeWidth={2.25} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />)}
               </LineChart>
             </ResponsiveContainer>

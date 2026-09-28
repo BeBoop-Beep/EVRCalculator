@@ -8,7 +8,6 @@ export const FINANCIAL_RIP_WINDOWS = Object.freeze([
   { key: "ALL", label: "ALL", days: null, ariaLabel: "All available history" },
 ]);
 
-export const MAX_FINANCIAL_RIP_SET_SELECTION = 5;
 export const FINANCIAL_RIP_COLORS = ["#38bdf8", "#c084fc", "#fbbf24", "#fb7185", "#818cf8"];
 
 const dateOnly = (value) => value ? String(value).slice(0, 10) : null;
@@ -29,13 +28,27 @@ export function financialRipWindowRange(windowKey, availableThrough, availableFr
   return { startDate, endDate };
 }
 
-export function setFinancialRipCandidates(targets = []) {
-  return targets.map((target) => ({
-    entity_type: "set",
-    entity_id: entityId(target),
-    name: String(target?.name || target?.setName || "Unknown Set"),
-    canonicalKey: target?.canonical_key || target?.setCanonicalKey || null,
-  })).filter((item) => item.entity_id);
+export function setFinancialRipCandidates(targets = [], openingSets = []) {
+  const openingById = new Map(openingSets.map((row) => [String(row?.setId || row?.set_id || ""), row]).filter(([id]) => id));
+  const openingByKey = new Map(openingSets.map((row) => [String(row?.setCanonicalKey || row?.canonical_key || ""), row]).filter(([key]) => key));
+  return targets.map((target) => {
+    const id = entityId(target);
+    const canonicalKey = target?.canonical_key || target?.setCanonicalKey || null;
+    const opening = openingById.get(id) || (canonicalKey ? openingByKey.get(String(canonicalKey)) : null);
+    return {
+      entity_type: "set",
+      entity_id: id,
+      name: String(target?.name || target?.setName || opening?.setName || "Unknown Set"),
+      canonicalKey,
+      eraId: String(target?.eraId || target?.era_id || opening?.eraId || opening?.era_id || ""),
+      eraName: String(target?.eraName || target?.era_name || opening?.eraName || opening?.era_name || ""),
+    };
+  }).filter((item) => item.entity_id);
+}
+
+export function setIdsForEra(candidates = [], eraId) {
+  const key = String(eraId || "");
+  return candidates.filter((item) => item.eraId === key).map((item) => item.entity_id);
 }
 
 export function eraFinancialRipCandidates(openingSets = [], fallbackEras = []) {
