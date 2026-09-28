@@ -8,6 +8,8 @@ SERVICE_ROLE_GRANT_SUPABASE = ROOT / "supabase" / "migrations" / "20260928052000
 SERVICE_ROLE_GRANT_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928052000_grant_edition_history_binding_validator_service_role.sql"
 SCOPED_LEAF_AUTHORITY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928054500_raw_parent_scoped_leaf_authority_v2.sql"
 SCOPED_LEAF_AUTHORITY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928054500_raw_parent_scoped_leaf_authority_v2.sql"
+SCOPED_SET_OVERLAY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928061000_market_explorer_scoped_set_overlay_v2.sql"
+SCOPED_SET_OVERLAY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928061000_market_explorer_scoped_set_overlay_v2.sql"
 
 
 def test_migration_copies_are_identical():
@@ -64,3 +66,15 @@ def test_raw_parent_scoped_leaves_use_edition_history_v2_directly():
     assert "JOIN scoped_market_keys k ON k.market_key=c.market_key" not in sql
     assert "RAW_EDITION_STABLE_LEAF_COUNT_MISMATCH" in sql
     assert "RAW_EDITION_STABLE_LEAF_VALUE_MISMATCH" in sql
+
+
+def test_scoped_set_overlay_uses_certified_current_and_respects_history_review():
+    sql = SCOPED_SET_OVERLAY_SUPABASE.read_text(encoding="utf-8")
+    assert sql == SCOPED_SET_OVERLAY_BACKEND.read_text(encoding="utf-8")
+    assert "stage_pokemon_market_explorer_scoped_set_overlays_v2" in sql
+    assert "get_pokemon_edition_history_card_prices_as_of_v2" in sql
+    assert "AND h.certified_on_date" in sql
+    assert "cert.history_publishable" in sql
+    assert "WHERE c.history_publishable" in sql
+    assert "SCOPED_SET_OVERLAY_CURRENT_RECONCILIATION_FAILED" in sql
+    assert "'scoped',v_scoped" in sql
