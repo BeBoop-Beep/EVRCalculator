@@ -28,9 +28,10 @@ test("hover, focus, and click intent escalates the selected lens", () => {
   for (const lens of ["eras", "sets", "products", "cards"]) assert.ok(lazy.includes(`onIntent: () => signalIntent("${lens}")`));
 });
 
-test("Era Rankings is public while paid lenses remain entitlement aware", () => {
+test("Era Benchmark resolves paid denial to a deterministic lock", () => {
   const loader = lazy.slice(lazy.indexOf("const loadEra"), lazy.indexOf("const loadSets"));
-  assert.doesNotMatch(loader, /canViewRankingsIntelligence|status: "locked"/);
+  assert.match(loader, /error\.status === 401 \|\| error\.status === 403/);
+  assert.match(loader, /status: "locked"/);
   assert.match(lazy, /canViewCardChaseEfficiency/);
   assert.match(lazy, /canViewCardCollectorAppeal/);
   assert.match(lazy, /canViewRankingsIntelligence=\{canViewRankingsIntelligence\}/);

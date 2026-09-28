@@ -120,6 +120,7 @@ function multiple50(row) {
 
 export default function CardChaseEfficiencyRankings({
   entitled,
+  authStatus = "resolved",
   targets = [],
   sessionCache,
 }) {
@@ -130,8 +131,7 @@ export default function CardChaseEfficiencyRankings({
     rarity: "",
     min_price: "",
     max_price: "",
-    sort: "chase_efficiency",
-    direction: "desc",
+    sort: "chase_efficiency", direction: "desc",
   });
   const [page, setPage] = useState(1);
   const [result, setResult] = useState({ status: "idle", payload: null });
@@ -179,6 +179,7 @@ export default function CardChaseEfficiencyRankings({
     direction,
   } = filters;
   useEffect(() => {
+    if (authStatus === "resolving") return undefined;
     if (!entitled) {
       setResult({ status: "idle", payload: null });
       return undefined;
@@ -252,6 +253,7 @@ export default function CardChaseEfficiencyRankings({
       clearTimeout(timer);
     };
   }, [
+    authStatus,
     entitled,
     page,
     search,

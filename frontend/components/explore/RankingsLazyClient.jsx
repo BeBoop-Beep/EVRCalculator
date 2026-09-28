@@ -7,6 +7,8 @@ import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import { readCurrentBenchmark } from "@/lib/rankings/ripBenchmarkClient.mjs";
+import { beginLastGoodRefresh, failLastGoodRefresh, isRenderableEraState, isRenderableSetState } from "@/lib/rankings/rankingsLastGoodState.mjs";
+import { loadProductRankingsAuthorities } from "@/lib/rankings/productRankingsReadPath.mjs";
 import styles from "./explore.module.css";
 
 const lensModules = {
@@ -64,7 +66,7 @@ export default function RankingsLazyClient({
   const loadEra = useCallback(async ({ force = false, foreground = false } = {}) => {
     const cached = !force && sessionCache.peek("eras:rankings");
     if (cached) { setEraState(cached); return cached; }
-    if (foreground) setEraState((current) => ({ ...current, status: "loading" }));
+    if (foreground) setEraState((current) => beginLastGoodRefresh(current, isRenderableEraState));
     markRankingsLens("eras", "request-start");
     try {
       const next = await sessionCache.request("eras:rankings", async () => {
@@ -89,7 +91,7 @@ export default function RankingsLazyClient({
       return next;
     } catch (error) {
       const failed = { status: "error", error: error.message, contract: null, marketDate: rankingsMarketDate, cacheIdentity: sessionCache.identity };
-      if (foreground) setEraState(failed);
+      if (foreground) setEraState((current) => failLastGoodRefresh(current, error, isRenderableEraState, failed));
       return failed;
     }
   }, [rankingsMarketDate, sessionCache]);
@@ -97,7 +99,7 @@ export default function RankingsLazyClient({
   const loadSets = useCallback(async ({ force = false, foreground = false } = {}) => {
     const cached = !force && sessionCache.peek("sets:rankings");
     if (cached) { setSetsState(cached); return cached; }
-    if (foreground) setSetsState((current) => ({ ...current, status: "loading" }));
+    if (foreground) setSetsState((current) => beginLastGoodRefresh(current, isRenderableSetState));
     markRankingsLens("sets", "request-start");
     try {
       const next = await sessionCache.request("sets:rankings", async () => {
@@ -117,18 +119,14 @@ export default function RankingsLazyClient({
       return next;
     } catch (error) {
       const failed = { status: "error", error: error.message, targets: [], marketDate: rankingsMarketDate, cacheIdentity: sessionCache.identity };
-      if (foreground) setSetsState(failed);
+      if (foreground) setSetsState((current) => failLastGoodRefresh(current, error, isRenderableSetState, failed));
       return failed;
     }
   }, [rankingsMarketDate, sessionCache]);
 
   const warmProducts = useCallback(() => sessionCache.request("products:full_market", async () => {
-    const [payload, model] = await Promise.all([
-      fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store" }).then((response) => readLens(response, "Unable to load product rankings")),
-      import("./rankingsProductLensModel.mjs"),
-    ]);
-    if (payload?.status !== "available") throw new Error("Product rankings are unavailable");
-    return { state: { status: "ready", productFamilyRankings: payload.productFamilyRankings || null, overallProductRankings: payload.overallProductRankings || null }, overallResult: model.normalizeOverallProductResult(payload.overallProductRankings) };
+    const model = await import("./rankingsProductLensModel.mjs");
+    return loadProductRankingsAuthorities({ normalizeOverallProductResult: model.normalizeOverallProductResult });
   }), [sessionCache]);
 
   useEffect(() => {
@@ -228,8 +226,6 @@ export default function RankingsLazyClient({
       {lens === "overall" ? (
         <>
           <RankingsOverviewHighlights
-            setsState={visibleSetsState}
-            eraState={visibleEraState}
             openingEconomics={openingEconomics}
             onOpenTopSet={() => { setSetEntryView("ripScore"); setActiveLens("sets"); }}
             onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}
@@ -277,7 +273,7 @@ export default function RankingsLazyClient({
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
       ) : (
-        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} targets={targets} sessionCache={sessionCache} />
+        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} authStatus={authStatus} targets={targets} sessionCache={sessionCache} />
       )}
     </>
   );

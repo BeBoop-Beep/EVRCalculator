@@ -85,6 +85,7 @@ function cardHref(row) {
 
 export default function CardCollectorAppealRankings({
   entitled,
+  authStatus = "resolved",
   targets = [],
   sessionCache,
 }) {
@@ -120,6 +121,7 @@ export default function CardCollectorAppealRankings({
     [targets, filters.era],
   );
   useEffect(() => {
+    if (authStatus === "resolving") return;
     if (!entitled) {
       setResult({ status: "idle", payload: null });
       return;
@@ -171,7 +173,7 @@ export default function CardCollectorAppealRankings({
       active = false;
       clearTimeout(timer);
     };
-  }, [entitled, page, filters, sessionCache]);
+  }, [authStatus, entitled, page, filters, sessionCache]);
   if (!entitled) return <Lock />;
   const update = (k, v) => {
     setFilters((x) => ({ ...x, [k]: v, ...(k === "era" ? { set: "" } : {}) }));
