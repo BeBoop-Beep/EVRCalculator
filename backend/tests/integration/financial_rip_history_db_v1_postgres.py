@@ -23,8 +23,9 @@ if os.environ.get("PGHOST") not in ("127.0.0.1", "localhost") or os.environ.get(
     raise SystemExit("Refusing non-isolated PostgreSQL target")
 
 migration = Path(os.environ["RIP_FINANCIAL_HISTORY_MIGRATION"]).resolve()
-if not migration.is_relative_to(ROOT):
-    raise SystemExit("Migration must be inside this checkout")
+patch_migration = ROOT / "supabase" / "migrations" / "20260928034800_financial_rip_history_numeric_tolerance_v1.sql"
+if not migration.is_relative_to(ROOT) or not patch_migration.is_relative_to(ROOT):
+    raise SystemExit("Migrations must be inside this checkout")
 
 foundation_path = ROOT / "backend" / "tests" / "integration" / "rip_benchmark_v1_postgres.py"
 old_argv = sys.argv[:]
@@ -50,8 +51,8 @@ def decode(value: str):
     return json.loads(value)
 
 
-sql("BEGIN;\n" + migration.read_text(encoding="utf-8") + "\nCOMMIT;")
-ok("additive migration applies after certified Benchmark V1 foundation")
+sql("BEGIN;\n" + migration.read_text(encoding="utf-8") + "\n" + patch_migration.read_text(encoding="utf-8") + "\nCOMMIT;")
+ok("additive migration plus numeric-tolerance repair apply after certified Benchmark V1 foundation")
 
 assert sql(
     "SELECT count(*) FROM pg_class WHERE oid='pokemon_rip_benchmark_publication_attempts_v1'::regclass AND relrowsecurity;"
@@ -250,7 +251,7 @@ set_expr.update(
     benchmark_status="'available'",
     benchmark_reason="NULL",
     raw_model_value="30",
-    benchmark_raw_value="30",
+    benchmark_raw_value="30.00000000000000000000000001",
     benchmark_score="5",
     rank="x.rank",
     cohort_size="22",
@@ -295,8 +296,8 @@ for era_rank, era_id in enumerate(era_ids, 1):
         model_reason="NULL",
         benchmark_status="'available'",
         benchmark_reason="NULL",
-        raw_model_value="30",
-        benchmark_raw_value="30",
+        raw_model_value=("30.00000000000000000000000001" if era_rank == 1 else "30"),
+        benchmark_raw_value="30.00000000000000000000000001",
         benchmark_score="5",
         rank=str(era_rank),
         cohort_size="2",
@@ -347,8 +348,8 @@ assert len(set_history["rows"]) == 22 and set_history["has_more"] is False
 assert len(era_history["rows"]) == 2 and era_history["has_more"] is False
 assert {row["absolute_financial_rip_score"] for row in history_rows} == {30}
 assert {row["overall_financial_rip_reference"] for row in history_rows} == {30}
-assert {row["absolute_delta_vs_overall"] for row in history_rows} == {0}
-ok("typed Set/Era history RPC projects exact absolute score/reference/delta without source JSON")
+assert all(abs(float(row["absolute_delta_vs_overall"])) <= 1e-12 for row in history_rows)
+ok("typed Set/Era history RPC preserves absolute score/reference/delta through sub-picopoint numeric drift")
 
 # V5/V14 (or any other family) cannot enter this V4/V12 authority.
 wrong_id = uid()
