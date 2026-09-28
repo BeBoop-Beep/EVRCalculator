@@ -164,3 +164,18 @@ Mirrored in both `supabase/migrations` and `backend/db/migrations`:
 - `20260928031513_market_explorer_sealed_registry_current_pricing_v1.sql`
 - `20260928031746_market_explorer_surface_health_and_sealed_parity_v1.sql`
 - `20260928032222_market_explorer_sealed_authority_function_sync_v1.sql`
+
+
+## Durable publication convergence
+
+The current V2 publisher now owns both daily derived prerequisites that previously caused silent one-day lag:
+
+- Rarity coverage/certification advances only for the accepted target date and still fails closed when the certification contract cannot pass.
+- Missing raw Set Value frozen rosters converge in bounded chunks of at most 20 roots per invocation via `freeze_pokemon_market_legacy_set_value_rosters_v1(target, 20)`.
+- If roots remain after a tick, the publisher returns `status=blocked`, `errorClass=raw_frozen_rosters_converging`, plus ready/expected counts and the freeze receipt. The transaction commits that bounded progress instead of raising and rolling it back.
+- The managed Market Explorer prewarm worker invokes the V2 publisher on its once-per-minute serialized schedule, so valid missing rosters can converge across multiple safe ticks.
+- Current-date canary after the change: `already_current`, 156 frozen roots, generation `96740b15-88d7-455d-bf64-c9da57cf26ab`, 407 directory rows, coherence `COHERENT`.
+
+Additional mirrored migration:
+
+- `20260928032613_market_explorer_v2_bounded_roster_convergence_v1.sql`
