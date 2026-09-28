@@ -144,3 +144,23 @@ Examples:
 - Canonical validation: VALIDATED with zero issues; coherence assertion: COHERENT.
 - Bulk leak audit over Total/Set/Era/Quick consumer markets: 0.
 - Freshness root cause: current-day sources were ready, but the V2 publisher was blocked first by stale rarity certification and incomplete frozen Set Value rosters; the monolithic connector invocation also exceeded its session envelope. Rarity certification was advanced fail-closed, all 156 rosters were reconciled, and the final generation was built in bounded canonical stages and promoted atomically.
+
+
+## Vintage edition-scope regression proof
+
+- Serving edition-scoped card markets: 21
+- Unique (set_id, market_scope) identities: 21
+- Edition-scoped constituent rows: 1,431
+- Constituent edition / market-scope mismatches: 0
+- First Edition, Unlimited, and Shadowless identities therefore remain explicit and non-interchangeable after the sealed-market closure work.
+
+## Migration/source synchronization
+
+Mirrored in both `supabase/migrations` and `backend/db/migrations`:
+
+- `20260927234437_market_explorer_database_closure_sealed_screens_movement_v1.sql`
+- `20260928003045_market_explorer_sealed_type_truthfulness_v1.sql`
+- `20260928003715_market_explorer_sealed_parent_freshness_parity_v1.sql`
+- `20260928031513_market_explorer_sealed_registry_current_pricing_v1.sql`
+- `20260928031746_market_explorer_surface_health_and_sealed_parity_v1.sql`
+- `20260928032222_market_explorer_sealed_authority_function_sync_v1.sql`
