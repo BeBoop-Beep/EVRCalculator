@@ -123,12 +123,13 @@ export default function RankingsLazyClient({
   }, [rankingsMarketDate, sessionCache]);
 
   const warmProducts = useCallback(() => sessionCache.request("products:full_market", async () => {
-    const [payload, model] = await Promise.all([
+    const [payload, overallPayload, model] = await Promise.all([
       fetch("/api/explore/rankings/lens?lens=products", { cache: "no-store" }).then((response) => readLens(response, "Unable to load product rankings")),
+      fetch("/api/explore/product-rankings/overall?budget=full_market", { cache: "no-store" }).then((response) => readLens(response, "Unable to load Full Market product rankings")),
       import("./rankingsProductLensModel.mjs"),
     ]);
     if (payload?.status !== "available") throw new Error("Product rankings are unavailable");
-    return { state: { status: "ready", productFamilyRankings: payload.productFamilyRankings || null, overallProductRankings: payload.overallProductRankings || null }, overallResult: model.normalizeOverallProductResult(payload.overallProductRankings) };
+    return { state: { status: "ready", productFamilyRankings: payload.productFamilyRankings || null }, overallResult: model.normalizeOverallProductResult(overallPayload) };
   }), [sessionCache]);
 
   useEffect(() => {
@@ -228,8 +229,6 @@ export default function RankingsLazyClient({
       {lens === "overall" ? (
         <>
           <RankingsOverviewHighlights
-            setsState={visibleSetsState}
-            eraState={visibleEraState}
             openingEconomics={openingEconomics}
             onOpenTopSet={() => { setSetEntryView("ripScore"); setActiveLens("sets"); }}
             onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}
@@ -277,7 +276,7 @@ export default function RankingsLazyClient({
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
       ) : (
-        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} targets={targets} sessionCache={sessionCache} />
+        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} authStatus={authStatus} targets={targets} sessionCache={sessionCache} />
       )}
     </>
   );
