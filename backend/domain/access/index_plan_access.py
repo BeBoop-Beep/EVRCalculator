@@ -152,6 +152,29 @@ def evaluate_market_query_access(plan: Any, spec: Mapping[str, Any]) -> dict[str
     }
 
 
+def is_canonical_rarity_query_shape(spec: Mapping[str, Any]) -> bool:
+    """Whether a normalized spec can be verified as one canonical rarity market.
+
+    This proves shape only. The API must separately verify the sole segment key
+    against the current database-published Cards asset-options registry before
+    granting the Index Plus exception.
+    """
+    return (
+        spec.get("asset") == "cards"
+        and spec.get("mode") == "all"
+        and spec.get("membershipMode", "filters") == "filters"
+        and len(spec.get("segmentIds") or ()) == 1
+        and not (spec.get("eraIds") or ())
+        and not (spec.get("setIds") or ())
+        and not (spec.get("pokemonIds") or ())
+        and not (spec.get("priceSegmentIds") or ())
+        and not (spec.get("releaseAgeCohortIds") or ())
+        and not (spec.get("instrumentIds") or ())
+        and not (spec.get("instruments") or ())
+        and spec.get("topN") is None
+    )
+
+
 def _pick(source: Mapping[str, Any], allowed: frozenset[str]) -> dict[str, Any]:
     """Copy only fields classified for a response contract.
 

@@ -141,6 +141,74 @@ def test_bundle_history_movements_and_single_market_scope():
     assert bundle["missingKeys"] == [] and bundle["surface"]["generationId"] == GEN
 
 
+@pytest.mark.parametrize("asset,scope,key", [
+    ("cards", "set", "set:cards-current"),
+    ("cards", "era", "era:cards-current"),
+    ("cards", "quick", "curated:established"),
+    ("sealed", "set", "sealed-set:current"),
+    ("sealed", "era", "sealed-era:current"),
+    ("sealed", "quick", "sealed-quick:established"),
+])
+def test_current_set_era_quick_comparisons_retain_asset_generation_and_watermark(asset, scope, key):
+    row = drow(
+        key, scope, asset=asset, source_as_of="2026-09-28",
+        history_end_date="2026-09-28",
+    )
+    points = [{
+        "generation_id": GEN, "market_key": key, "market_date": "2026-09-28",
+        "index_value": 101.0, "tracked_value": 1000.0,
+        "constituent_count": 3, "chain_segment_id": 1,
+    }]
+    bundle = v2.read_comparison_v2_first(Client(directory=[row], history=points), [key])
+    assert bundle["missingKeys"] == []
+    assert len(bundle["markets"]) == 1 and bundle["markets"][0]["asset"] == asset
+    assert bundle["history"] and bundle["surface"] == {
+        "version": "v2", "generationId": GEN, "comparisonAsOf": "2026-09-28",
+    }
+
+
+def test_raw_repaired_history_and_unavailable_vintage_scope_are_transported_without_substitution():
+    raw = drow(
+        "raw", "parent", source_as_of="2026-09-28", history_end_date="2026-09-28",
+        metadata={"editionStable": True, "legacyGenericVintageExcluded": True},
+    )
+    vintage_key = "set:base:first_edition"
+    vintage = drow(
+        vintage_key, "set", market_scope="first_edition", availability="unavailable",
+        unavailable_reason="Edition-scoped market is not current for this prepared generation",
+        history_available=False, history_point_count=0, source_as_of="2026-09-28",
+        history_end_date=None,
+    )
+    points = [
+        {"generation_id": GEN, "market_key": "raw", "market_date": date,
+         "index_value": value, "tracked_value": 1, "constituent_count": count,
+         "chain_segment_id": 0}
+        for date, value, count in (
+            ("2026-09-10", 100.0, 14171),
+            ("2026-09-11", 100.0843, 14171),
+            ("2026-09-12", 100.0976112119, 15333),
+            ("2026-09-24", 100.0, 20210),
+            ("2026-09-25", 99.9666, 20210),
+        )
+    ]
+    client = Client(directory=[raw, vintage], history=points)
+    raw_bundle = v2.read_comparison_v2_first(client, ["raw"])
+    by_date = {row["market_date"]: row["index_value"] for row in raw_bundle["history"]}
+    assert round((by_date["2026-09-11"] / by_date["2026-09-10"] - 1) * 100, 4) == 0.0843
+    assert round((by_date["2026-09-12"] / by_date["2026-09-11"] - 1) * 100, 4) == 0.0133
+    assert round((by_date["2026-09-25"] / by_date["2026-09-24"] - 1) * 100, 4) == -0.0334
+    assert raw_bundle["surface"]["comparisonAsOf"] == "2026-09-28"
+    assert raw_bundle["markets"][0]["metadata"]["editionStable"] is True
+
+    vintage_bundle = v2.read_comparison_v2_first(
+        Client(directory=[raw, vintage], history=[]), [vintage_key],
+    )
+    market = vintage_bundle["markets"][0]
+    assert market["market_scope"] == "first_edition"
+    assert market["availability"] == "unavailable" and market["history_available"] is False
+    assert vintage_bundle["history"] == []
+
+
 def test_history_generation_mismatch_fails_closed():
     h = history("set:a", [1, 2])
     h[0]["generation_id"] = OTHER
@@ -228,6 +296,54 @@ def test_graded_asset_options_preserve_insufficient_authority():
             return Resp({"asset": "graded", "availability": "INSUFFICIENT_AUTHORITY", "types": []})
     result = v2.read_asset_options(C(), "graded")
     assert result == {"asset": "graded", "availability": "INSUFFICIENT_AUTHORITY", "types": []}
+
+
+def test_cards_asset_options_preserve_selection_and_screen_contract_unchanged():
+    options = {
+        "asset": "cards",
+        "rarities": [
+            {"key": "prepared", "eligibilityState": "PREPARED",
+             "selectionAvailable": True, "screenEligible": True,
+             "preparedMarketAvailable": True, "preparedMarketKey": "rarity:prepared"},
+            {"key": "thin", "eligibilityState": "CUSTOM_BUILD_AVAILABLE",
+             "selectionAvailable": True, "screenEligible": False,
+             "preparedMarketAvailable": False, "preparedMarketKey": None},
+            {"key": "blocked", "eligibilityState": "UNAVAILABLE",
+             "selectionAvailable": False, "screenEligible": False,
+             "preparedMarketAvailable": False, "preparedMarketKey": None},
+        ],
+    }
+    result = v2.read_asset_options(ClientWithOptions(options), "cards")
+    assert result == options
+    assert result["rarities"][0]["selectionAvailable"] is True
+    assert result["rarities"][0]["screenEligible"] is True
+    assert result["rarities"][0]["eligibilityState"] == "PREPARED"
+    assert result["rarities"][1]["eligibilityState"] == "CUSTOM_BUILD_AVAILABLE"
+    assert result["rarities"][1]["selectionAvailable"] is True
+    assert result["rarities"][1]["screenEligible"] is False
+    assert result["rarities"][2]["selectionAvailable"] is False
+
+
+class ClientWithOptions(Client):
+    def __init__(self, options):
+        super().__init__()
+        self.options = options
+
+    def rpc(self, name, args):
+        assert name == v2.ASSET_OPTIONS_RPC_V2 and args == {"p_asset": "cards"}
+        return Resp(self.options)
+
+
+@pytest.mark.parametrize("key,expected", [
+    ("prepared", True), ("thin", True), ("blocked", False), ("unknown", False),
+])
+def test_canonical_rarity_verification_uses_db_selection_contract(key, expected):
+    options = {"asset": "cards", "rarities": [
+        {"key": "prepared", "eligibilityState": "PREPARED", "selectionAvailable": True},
+        {"key": "thin", "eligibilityState": "CUSTOM_BUILD_AVAILABLE", "selectionAvailable": True},
+        {"key": "blocked", "eligibilityState": "UNAVAILABLE", "selectionAvailable": False},
+    ]}
+    assert v2.is_selectable_canonical_rarity(options, key) is expected
 
 
 def test_directory_publishes_legacy_aliases_per_market():

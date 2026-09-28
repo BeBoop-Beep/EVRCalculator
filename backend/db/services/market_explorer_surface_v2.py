@@ -351,6 +351,20 @@ def read_asset_options(client: Any, asset: str) -> dict[str, Any]:
     return dict(data or {})
 
 
+def is_selectable_canonical_rarity(options: Any, rarity_key: str) -> bool:
+    """Verify a rarity against the current DB-published execution contract."""
+    if not isinstance(options, dict) or options.get("asset") != "cards":
+        return False
+    for option in options.get("rarities") or ():
+        if not isinstance(option, dict) or option.get("key") != rarity_key:
+            continue
+        return (
+            option.get("selectionAvailable") is True
+            and option.get("eligibilityState") in {"PREPARED", "CUSTOM_BUILD_AVAILABLE"}
+        )
+    return False
+
+
 def validate_search_request(asset: str, q: str, limit: int) -> tuple[str, str, int]:
     asset = str(asset or "").strip().lower()
     query = " ".join(str(q or "").split())

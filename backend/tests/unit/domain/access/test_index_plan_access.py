@@ -10,6 +10,7 @@ import pytest
 from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     evaluate_market_query_access,
     INDEX_PLAN_PLUS,
     INDEX_PLAN_PREMIUM,
@@ -246,6 +247,33 @@ def test_only_premium_can_build_one_axis_all_constituent_markets(asset):
     assert evaluate_market_query_access("plus", scope)["allowed"] is False
     assert evaluate_market_query_access("plus", segment)["allowed"] is False
     assert evaluate_market_query_access("premium", scope)["allowed"] is True
+
+
+def test_canonical_rarity_shape_is_narrow_and_does_not_change_generic_access():
+    from backend.domain.access.index_plan_access import is_canonical_rarity_query_shape
+
+    canonical = {
+        "asset": "cards", "mode": "all", "membershipMode": "filters",
+        "eraIds": (), "setIds": (), "segmentIds": ("rareHolo",),
+        "pokemonIds": (), "priceSegmentIds": (), "releaseAgeCohortIds": (),
+        "topN": None,
+    }
+    assert is_canonical_rarity_query_shape(canonical) is True
+    assert evaluate_market_query_access("plus", canonical)["allowed"] is False
+    assert evaluate_market_query_access("plus", canonical)["capability"] == FEATURE_MARKET_EXPLORER_SINGLE_AXIS
+    assert evaluate_market_query_access("premium", canonical)["allowed"] is True
+
+    mutations = {
+        "sealed": {"asset": "sealed"},
+        "ranked": {"mode": "chase", "topN": 10},
+        "compound": {"setIds": ("set-1",)},
+        "pokemon": {"pokemonIds": ("25",)},
+        "price": {"priceSegmentIds": ("premium",)},
+        "age": {"releaseAgeCohortIds": ("new",)},
+        "explicit": {"membershipMode": "explicit", "instrumentIds": ("card-1",)},
+    }
+    for change in mutations.values():
+        assert is_canonical_rarity_query_shape({**canonical, **change}) is False
 
 
 def test_plus_cannot_build_compound_or_ranked_markets_but_premium_can():
