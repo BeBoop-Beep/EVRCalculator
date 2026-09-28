@@ -115,11 +115,23 @@ def test_card_page_gets_movement_from_the_accepted_v2_authority(monkeypatch):
     assert result["rows"][0]["changes"]["7D"]["percent"] == 1.5
 
 
-def test_sealed_movement_is_honestly_unavailable_not_fabricated():
+def test_sealed_movement_uses_shared_dispatch_and_preserves_missing_baselines(monkeypatch):
+    from backend.db.services import market_explorer_constituent_movement as movement
+    calls = []
+
+    def fake(client, page):
+        calls.append(page)
+        return {"items": [dict(row, changes={"1D": 2.0, "7D": -1.0, "30D": None, "3M": None})
+                          for row in page["items"]]}
+
+    monkeypatch.setattr(movement, "enrich_sealed_constituent_page", fake)
     page = dict(_cards_page("format:packs", 40, "prepared_sealed_snapshots"), asset="sealed")
+    for index, row in enumerate(page["rows"]):
+        row["sealedProductId"] = f"p-{index}"
     result = enrich_prepared_constituent_page(object(), page)
-    assert result["movementAvailable"] is False
-    assert all("changes" not in row for row in result["rows"])
+    assert len(calls) == 1 and calls[0]["as_of"] == "2026-09-19"
+    assert result["movementAvailable"] is True
+    assert result["rows"][0]["changes"]["30D"] is None
 
 
 def test_movement_failure_never_fails_the_roster(monkeypatch):

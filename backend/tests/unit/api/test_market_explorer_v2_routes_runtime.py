@@ -223,6 +223,39 @@ def test_v2_absent_falls_back_to_v1_only_then(monkeypatch):
         assert r.json() == {"markets": [{"market_key": "legacy"}]}
 
 
+def test_query_built_sealed_constituents_use_shared_movement_and_degrade_cleanly(monkeypatch, api):
+    import backend.db.services.market_explorer_constituent_movement as mv
+
+    base_page = {"as_of": "2026-09-27", "items": [
+        {"sealedProductId": "00000000-0000-0000-0000-000000000001", "marketPrice": 10},
+    ]}
+    class Cache:
+        def __init__(self, _client): pass
+        def constituent_page(self, *_args, **_kwargs): return dict(base_page)
+
+    monkeypatch.setattr(main, "PersistentMarketExplorerCache", Cache)
+    monkeypatch.setattr(main, "_require_market_explorer_query_access", lambda *a, **k: "user-1")
+    seen = []
+    def enrich(_client, page):
+        seen.append(page["as_of"])
+        return {**page, "items": [dict(page["items"][0], changes={
+            "1D": 1.0, "7D": 2.0, "30D": None, "3M": None,
+        })]}
+    monkeypatch.setattr(mv, "enrich_sealed_constituent_page", enrich)
+    client = api(Fake())
+    response = client.post("/market/explorer/query/constituents", json={"asset": "sealed"})
+    assert response.status_code == 200 and seen == ["2026-09-27"]
+    assert response.json()["items"][0]["changes"]["30D"] is None
+    assert response.json()["movementAvailable"] is True
+
+    monkeypatch.setattr(mv, "enrich_sealed_constituent_page",
+                        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("movement down")))
+    degraded = client.post("/market/explorer/query/constituents", json={"asset": "sealed"})
+    assert degraded.status_code == 200
+    assert degraded.json()["items"] == base_page["items"]
+    assert degraded.json()["movementAvailable"] is False
+
+
 @pytest.mark.parametrize("label,key", [("Fossil", "set:fossil"), ("HeartGold & SoulSilver", "set:hgss"),
                                        ("Base Set 2", "set:base2"), ("Rare Ultra", "rarity:rareUltra"),
                                        ("Rare Secret", "rarity:rareSecret")])
@@ -354,5 +387,6 @@ def test_prepared_screen_registry_validation_and_payload(api):
         response = client.get("/market/explorer/prepared-screen", params={"screen": key, "asset": "cards", "limit": 25})
         assert response.status_code == 200 and "private" not in response.text
     assert client.get("/market/explorer/prepared-screen", params={"screen": "unknown", "asset": "cards"}).status_code == 400
-    assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "graded"}).status_code == 400
+    graded = client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "graded"})
+    assert graded.status_code == 200
     assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "cards", "limit": 26}).status_code == 422

@@ -1,0 +1,54 @@
+name: Rankings Bucket 2 Validation
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - '.github/rankings-bucket2-validation-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rankings-bucket2-validation
+  cancel-in-progress: true
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Backend focused tests
+        shell: bash
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: unit-test-service-role-key
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/rankings-bucket2-venv"
+          PY="$RUNNER_TEMP/rankings-bucket2-venv/bin/python"
+          "$PY" -m pip install -q --upgrade pip
+          "$PY" -m pip install -q -r backend/requirements.txt
+          "$PY" -m pip install -q pytest
+          "$PY" -m pytest -q             backend/tests/unit/api/test_rip_benchmark_runtime.py             backend/tests/unit/api/test_paid_response_boundary.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Frontend focused tests
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test             lib/rankings/ripBenchmarkClient.test.mjs             app/api/tcgs/pokemon/rip-benchmark/ripBenchmarkProxy.contract.test.mjs             components/explore/ProductFamilyRankingsClient.contract.test.mjs             components/explore/RankingsLazyClient.authDowngrade.contract.test.mjs

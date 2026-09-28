@@ -86,6 +86,22 @@ def test_directory_normalizes_and_maps_fields():
     assert rows["sealed-set:s"]["available"] is False and rows["sealed-set:s"]["unavailable_reason"] == "x"
 
 
+def test_directory_passes_all_expanded_sealed_scopes_and_types_without_whitelist():
+    types = [drow(f"sealed-type:family_{i}", "type", asset="sealed",
+                  taxonomy_key=f"family_{i}") for i in range(35)]
+    types[-1].update(availability="unavailable", unavailable_reason="NO_CURRENT_PRICE")
+    source = types + [drow("sealed-set:s", "set", asset="sealed"),
+                      drow("sealed-era:e", "era", asset="sealed"),
+                      drow("sealed-quick:q", "quick", asset="sealed")]
+    rows = v2.read_v2_directory(Client(directory=source))
+    assert len([row for row in rows if row["scope_kind"] == "type"]) == 35
+    assert {row["scope_kind"] for row in rows} >= {"type", "set", "era", "quick"}
+    unavailable = next(row for row in rows if row["market_key"] == "sealed-type:family_34")
+    assert unavailable["taxonomy_key"] == "family_34"
+    assert unavailable["asset"] == "sealed" and unavailable["availability"] == "unavailable"
+    assert unavailable["generation_id"] == GEN and unavailable["comparison_as_of"] == "2026-09-24"
+
+
 def test_v2_absent_when_empty_or_rpc_missing_falls_back_to_v1(monkeypatch):
     assert v2.read_v2_directory(Client(directory=[])) is None
     v2._reset_v2_state_cache()
@@ -203,6 +219,15 @@ def test_asset_options_missing_authority_is_explicit():
     with pytest.raises(v2.SurfaceV2Error) as e:
         v2.read_asset_options(Client(fail={v2.ASSET_OPTIONS_RPC_V2: err}), "cards")
     assert e.value.code == "ASSET_OPTIONS_UNAVAILABLE"
+
+
+def test_graded_asset_options_preserve_insufficient_authority():
+    class C(Client):
+        def rpc(self, name, args):
+            assert name == v2.ASSET_OPTIONS_RPC_V2 and args == {"p_asset": "graded"}
+            return Resp({"asset": "graded", "availability": "INSUFFICIENT_AUTHORITY", "types": []})
+    result = v2.read_asset_options(C(), "graded")
+    assert result == {"asset": "graded", "availability": "INSUFFICIENT_AUTHORITY", "types": []}
 
 
 def test_directory_publishes_legacy_aliases_per_market():

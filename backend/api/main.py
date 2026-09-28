@@ -242,6 +242,26 @@ class BenchmarkCurrentRequest(BaseModel):
     entities: List[BenchmarkEntityRequest] = Field(min_length=1, max_length=10)
 
 
+class BenchmarkBatchCurrentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entities: List[BenchmarkEntityRequest] = Field(min_length=1, max_length=200)
+
+
+class BenchmarkFinancialHistoryEntityRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entity_type: Literal["set", "era"]
+    entity_id: UUID
+
+
+class BenchmarkFinancialHistoryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entities: List[BenchmarkFinancialHistoryEntityRequest] = Field(min_length=1, max_length=22)
+    start_date: date
+    end_date: date
+    limit: int = Field(default=10000, ge=1, le=10000)
+    after: Optional[Dict[str, Any]] = None
+
+
 class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
     start_date: date
     end_date: date
@@ -383,10 +403,142 @@ def _with_current_opening_reference(client: Any, payload: Dict[str, Any]) -> Dic
     return result
 
 
+def _benchmark_entity_dicts(items: List[BenchmarkEntityRequest]) -> List[Dict[str, str]]:
+    entities = [item.model_dump(mode="json") for item in items]
+    identities = [(item["entity_type"], item["entity_id"]) for item in entities]
+    if len(set(identities)) != len(identities):
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_RIP_BENCHMARK_REQUEST",
+            "message": "duplicate requested entity",
+        })
+    return entities
+
+
+def _benchmark_generation_signature(payload: Dict[str, Any]) -> tuple[Any, ...]:
+    return tuple(payload.get(key) for key in (
+        "publication_id", "market_date", "benchmark_key", "calibration_version",
+        "cohort_fingerprint", "overall_model_version",
+    ))
+
+
+def _read_current_benchmark_batch(
+    client: Any, entities: List[Dict[str, str]], contract: Any
+) -> Dict[str, Any]:
+    reader = _benchmark_reader(client)
+    payloads = [
+        reader.current(
+            entities[index:index + 10],
+            benchmark_key=contract.benchmark_key,
+            calibration_version=contract.calibration_version,
+        )
+        for index in range(0, len(entities), 10)
+    ]
+    if not payloads:
+        raise BenchmarkError("at least one Benchmark entity is required")
+    signature = _benchmark_generation_signature(payloads[0])
+    if any(_benchmark_generation_signature(payload) != signature for payload in payloads[1:]):
+        raise RuntimeError("mixed current Benchmark publications; retry the request")
+    result = dict(payloads[0])
+    result["rows"] = [
+        row for payload in payloads
+        for row in (payload.get("rows") or [])
+    ]
+    return result
+
+
+def _financial_history_range(client: Any, contract: Any) -> Dict[str, Optional[str]]:
+    query = lambda: (
+        client.table("pokemon_rip_benchmark_publications_v1")
+        .select("market_date")
+        .eq("benchmark_key", contract.benchmark_key)
+        .eq("calibration_version", contract.calibration_version)
+        .eq("publication_status", "published")
+    )
+    earliest = list(query().order("market_date").limit(1).execute().data or [])
+    latest = list(query().order("market_date", desc=True).limit(1).execute().data or [])
+    return {
+        "historyAvailableFrom": str(earliest[0]["market_date"])[:10] if earliest else None,
+        "historyAvailableThrough": str(latest[0]["market_date"])[:10] if latest else None,
+    }
+
+
+def _public_benchmark_overview_headlines(client: Any, contract: Any) -> Dict[str, Any]:
+    headers = list(
+        client.table("pokemon_rip_benchmark_publications_v1")
+        .select("id,market_date,opening_economics_snapshot_id")
+        .eq("benchmark_key", contract.benchmark_key)
+        .eq("calibration_version", contract.calibration_version)
+        .eq("publication_status", "published")
+        .order("market_date", desc=True)
+        .limit(1)
+        .execute().data or []
+    )
+    if not headers:
+        return {
+            "contractVersion": "rip-benchmark-overview-headlines-v1",
+            "status": "unavailable", "marketDate": None,
+            "topSet": None, "topEra": None,
+        }
+    header = headers[0]
+    rows = list(
+        client.table("pokemon_rip_benchmark_rows_v1")
+        .select("entity_type,entity_id,benchmark_score,rank,cohort_size,benchmark_status,model_status")
+        .eq("publication_id", header["id"])
+        .eq("metric_key", "overall")
+        .eq("rank", 1)
+        .in_("entity_type", ["set", "era"])
+        .execute().data or []
+    )
+    opening_rows = list(
+        client.table("pokemon_rip_stats_snapshots")
+        .select("payload_json")
+        .eq("id", header.get("opening_economics_snapshot_id"))
+        .limit(1)
+        .execute().data or []
+    ) if header.get("opening_economics_snapshot_id") else []
+    economics = ((opening_rows[0].get("payload_json") or {}).get("openingEconomics") or {}) if opening_rows else {}
+    set_names = {
+        str(item.get("setId")): {
+            "name": item.get("setName"),
+            "canonicalKey": item.get("setCanonicalKey"),
+        }
+        for item in (economics.get("sets") or [])
+        if item.get("setId")
+    }
+    era_names = {
+        str(item.get("eraId")): item.get("eraName")
+        for item in (economics.get("sets") or [])
+        if item.get("eraId") and item.get("eraName")
+    }
+    def project(entity_type: str) -> Optional[Dict[str, Any]]:
+        row = next((item for item in rows if item.get("entity_type") == entity_type), None)
+        if not row:
+            return None
+        entity_id = str(row.get("entity_id") or "")
+        identity = set_names.get(entity_id, {}) if entity_type == "set" else {}
+        return {
+            "entityType": entity_type,
+            "entityId": entity_id,
+            "name": identity.get("name") if entity_type == "set" else era_names.get(entity_id),
+            **({"canonicalKey": identity.get("canonicalKey")} if entity_type == "set" else {}),
+            "benchmarkScore": row.get("benchmark_score"),
+            "rank": row.get("rank"),
+            "cohortSize": row.get("cohort_size"),
+            "status": row.get("benchmark_status"),
+        }
+    return {
+        "contractVersion": "rip-benchmark-overview-headlines-v1",
+        "status": "available",
+        "marketDate": str(header.get("market_date"))[:10],
+        "topSet": project("set"),
+        "topEra": project("era"),
+    }
+
+
 @app.post("/tcgs/pokemon/rip-benchmark/current")
 def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
                                   authorization: Optional[str] = Header(None),
-                                  token_cookie: Optional[str] = Cookie(None, alias="sb-access-token")):
+                                  token_cookie: Optional[str] = Cookie(None, alias="token")):
     _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
                            message="RIP Benchmark requires Index Plus.",
                            authorization=authorization, token_cookie=token_cookie)
@@ -394,7 +546,7 @@ def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
     try:
         contract = resolve_active_contract(client)
         result = _benchmark_reader(client).current(
-            [item.model_dump(mode="json") for item in body.entities],
+            _benchmark_entity_dicts(body.entities),
             benchmark_key=contract.benchmark_key,
             calibration_version=contract.calibration_version,
         )
@@ -403,6 +555,46 @@ def pokemon_rip_benchmark_current(body: BenchmarkCurrentRequest,
         raise _benchmark_unavailable(exc) from exc
     except BenchmarkError as exc:
         raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
+    except RuntimeError as exc:
+        raise _benchmark_runtime_error(exc) from exc
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/current-batch")
+def pokemon_rip_benchmark_current_batch(
+    request: Request,
+    body: BenchmarkBatchCurrentRequest,
+    authorization: Optional[str] = Header(None),
+    token_cookie: Optional[str] = Cookie(None, alias="token"),
+):
+    user_id = _require_index_feature(
+        feature=FEATURE_PRODUCT_RIP,
+        code="INDEX_PLUS_REQUIRED",
+        message="Product RIP Benchmark requires Index Plus.",
+        authorization=authorization,
+        token_cookie=token_cookie,
+    )
+    _enforce_paid_abuse(
+        request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
+        route="/tcgs/pokemon/rip-benchmark/current-batch",
+    )
+    if any(item.entity_type != "sealed_product" for item in body.entities):
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_RIP_BENCHMARK_REQUEST",
+            "message": "Product Benchmark batch accepts sealed_product entities only.",
+        })
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        result = _read_current_benchmark_batch(
+            client, _benchmark_entity_dicts(body.entities), contract
+        )
+        return _with_benchmark_freshness(_with_current_opening_reference(client, result))
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)
+        }) from exc
     except RuntimeError as exc:
         raise _benchmark_runtime_error(exc) from exc
 
@@ -424,10 +616,20 @@ def pokemon_rip_benchmark_set_headlines(body: BenchmarkSetHeadlinesRequest):
         raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
 
 
+@app.get("/tcgs/pokemon/rip-benchmark/overview-headlines")
+def pokemon_rip_benchmark_overview_headlines():
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        return _public_benchmark_overview_headlines(client, contract)
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+
+
 @app.post("/tcgs/pokemon/rip-benchmark/history")
 def pokemon_rip_benchmark_history(body: BenchmarkHistoryRequest,
                                   authorization: Optional[str] = Header(None),
-                                  token_cookie: Optional[str] = Cookie(None, alias="sb-access-token")):
+                                  token_cookie: Optional[str] = Cookie(None, alias="token")):
     _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
                            message="RIP Benchmark history requires Index Plus.",
                            authorization=authorization, token_cookie=token_cookie)
@@ -447,6 +649,64 @@ def pokemon_rip_benchmark_history(body: BenchmarkHistoryRequest,
         raise HTTPException(status_code=422, detail={"code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)}) from exc
     except RuntimeError as exc:
         raise _benchmark_runtime_error(exc) from exc
+
+
+@app.post("/tcgs/pokemon/rip-benchmark/financial-history")
+def pokemon_financial_rip_history(
+    body: BenchmarkFinancialHistoryRequest,
+    authorization: Optional[str] = Header(None),
+    token_cookie: Optional[str] = Cookie(None, alias="token"),
+):
+    _require_index_feature(
+        feature=FEATURE_SET_RIP_ANALYTICS,
+        code="INDEX_PLUS_REQUIRED",
+        message="Financial RIP history requires Index Plus.",
+        authorization=authorization,
+        token_cookie=token_cookie,
+    )
+    if (body.end_date - body.start_date).days > 3652:
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_RIP_BENCHMARK_REQUEST",
+            "message": "Financial RIP history window must be at most 10 years.",
+        })
+    entities = [item.model_dump(mode="json") for item in body.entities]
+    identities = [(item["entity_type"], item["entity_id"]) for item in entities]
+    if len(set(identities)) != len(identities):
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_RIP_BENCHMARK_REQUEST",
+            "message": "duplicate requested entity",
+        })
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        response = client.rpc("get_pokemon_financial_rip_history_v1", {
+            "p_entities": entities,
+            "p_start_date": body.start_date.isoformat(),
+            "p_end_date": body.end_date.isoformat(),
+            "p_benchmark_key": contract.benchmark_key,
+            "p_calibration_version": contract.calibration_version,
+            "p_limit": body.limit,
+            "p_after": body.after,
+        }).execute()
+        data = getattr(response, "data", None)
+        if not isinstance(data, dict) or not isinstance(data.get("rows"), list):
+            raise BenchmarkError("invalid Financial RIP history read contract")
+        result = {
+            "contractVersion": "financial-rip-history-v1",
+            "status": "available",
+            "rows": data.get("rows") or [],
+            "hasMore": bool(data.get("has_more")),
+            "nextCursor": data.get("next_cursor"),
+            **_financial_history_range(client, contract),
+        }
+        return result
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+    except BenchmarkError as exc:
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_RIP_BENCHMARK_REQUEST", "message": str(exc)
+        }) from exc
+
 
 logger = logging.getLogger(__name__)
 
@@ -2150,9 +2410,20 @@ def post_market_explorer_query_constituents(
     if page is None:
         return JSONResponse(content={"message": "Market summary must be built first",
                                      "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
-    if normalized.get("asset") == "cards":
-        from backend.db.services.market_explorer_constituent_movement import enrich_card_constituent_page
-        page = enrich_card_constituent_page(service_read_client, page)
+    if normalized.get("asset") in {"cards", "sealed"}:
+        from backend.db.services.market_explorer_constituent_movement import enrich_constituent_page
+        try:
+            page = enrich_constituent_page(service_read_client, page, normalized["asset"])
+            page["movementAvailable"] = any(
+                any(value is not None for value in (row.get("changes") or {}).values())
+                for row in (page.get("items") or [])
+            )
+        except Exception:
+            logger.exception("Market Explorer query constituent movement failed",
+                             extra={"asset": normalized.get("asset")})
+            page = dict(page)
+            page["movementAvailable"] = False
+            page["movementReason"] = "Constituent movement is temporarily unavailable."
     return _tiered_response(page)
 
 

@@ -2,21 +2,10 @@
 
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import ChartTooltipShell from "@/components/explore/ChartTooltipShell";
+import { formatMarketDate, formatShortDate as formatCivilShortDate } from "@/lib/explore/marketOverviewPresentation.mjs";
 
-const formatLongDate = (value) => value
-  ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
-  : "";
-
-const formatShortDate = (value) => value
-  ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    })
-  : "";
+const formatLongDate = (value) => formatMarketDate(value) || "";
+const formatShortDate = (value) => formatCivilShortDate(value) || "";
 
 const numberOrNull = (value) => {
   if (value === null || value === undefined || value === "") return null;

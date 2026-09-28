@@ -238,3 +238,159 @@ def test_private_lineage_is_rejected_and_inherited_product_contract_is_preserved
     row = accepted.json()["rows"][0]
     assert row["model_status"] == "inherited" and row["rank"] is None
     assert row["inheritance_source_entity_type"] == "set"
+
+
+def test_canonical_app_cookie_authenticates_current_and_history(monkeypatch):
+    _install_auth(monkeypatch)
+    fake = _Client({"contract_version": "rip-benchmark-read-v1", "rows": []})
+    client, constructions = _client(monkeypatch, fake)
+    monkeypatch.setattr(main, "_with_benchmark_history_context", lambda _client, payload, _contract: payload)
+
+    current = client.post(
+        "/tcgs/pokemon/rip-benchmark/current",
+        json={"entities": [_entity()]},
+        cookies={"token": "plus"},
+    )
+    assert current.status_code == 200
+
+    history = client.post(
+        "/tcgs/pokemon/rip-benchmark/history",
+        json={"entities": [_entity()], "start_date": "2026-09-15", "end_date": "2026-09-27"},
+        cookies={"token": "plus"},
+    )
+    assert history.status_code == 200
+    assert constructions == ["constructed", "constructed"]
+
+
+def test_product_benchmark_batch_is_one_paid_boundary_and_server_chunks_to_ten(monkeypatch):
+    _install_auth(monkeypatch)
+    fake = _Client({
+        "contract_version": "rip-benchmark-read-v1",
+        "status": "available",
+        "publication_id": None,
+        "market_date": "2026-09-27",
+        "overall_model_version": OVERALL_RIP_V12_VERSION,
+        "rows": [],
+    })
+    client, constructions = _client(monkeypatch, fake)
+    monkeypatch.setattr(main, "_enforce_paid_abuse", lambda *_args, **_kwargs: None)
+
+    response = client.post(
+        "/tcgs/pokemon/rip-benchmark/current-batch",
+        json={"entities": [_entity(i, "sealed_product") for i in range(1, 23)]},
+        cookies={"token": "plus"},
+    )
+    assert response.status_code == 200
+    assert constructions == ["constructed"]
+    assert [len(args["p_entities"]) for _name, args in fake.rpc_calls] == [10, 10, 2]
+    assert all(name == "get_pokemon_rip_benchmark_current_v1" for name, _args in fake.rpc_calls)
+
+
+def test_product_benchmark_batch_rejects_non_products_and_basic_before_db(monkeypatch):
+    _install_auth(monkeypatch)
+    fake = _Client()
+    client, constructions = _client(monkeypatch, fake)
+    monkeypatch.setattr(main, "_enforce_paid_abuse", lambda *_args, **_kwargs: None)
+
+    basic = client.post(
+        "/tcgs/pokemon/rip-benchmark/current-batch",
+        json={"entities": [_entity(1, "sealed_product")]},
+        cookies={"token": "basic"},
+    )
+    assert basic.status_code == 403
+    wrong_type = client.post(
+        "/tcgs/pokemon/rip-benchmark/current-batch",
+        json={"entities": [_entity(1, "set")]},
+        cookies={"token": "plus"},
+    )
+    assert wrong_type.status_code == 422
+    assert constructions == []
+
+
+def test_financial_history_is_plus_gated_absolute_set_era_projection(monkeypatch):
+    _install_auth(monkeypatch)
+    row = {
+        "market_date": "2026-09-27",
+        "entity_type": "set",
+        "entity_id": ENTITY_ID,
+        "metric_key": "financial",
+        "absolute_financial_rip_score": 44.9,
+        "overall_financial_rip_reference": 30.37,
+        "absolute_delta_vs_overall": 14.53,
+        "rank": 1,
+        "cohort_size": 22,
+        "financial_model_version": "financial-v4",
+        "publication_id": str(UUID(int=99)),
+        "status": "available",
+    }
+    fake = _Client({"rows": [row], "has_more": False, "next_cursor": None})
+    client, constructions = _client(monkeypatch, fake)
+    monkeypatch.setattr(main, "_financial_history_range", lambda *_args: {
+        "historyAvailableFrom": "2026-09-15",
+        "historyAvailableThrough": "2026-09-27",
+    })
+
+    denied = client.post(
+        "/tcgs/pokemon/rip-benchmark/financial-history",
+        json={"entities": [_entity()], "start_date": "2026-09-01", "end_date": "2026-09-27"},
+        cookies={"token": "basic"},
+    )
+    assert denied.status_code == 403
+    assert constructions == []
+
+    accepted = client.post(
+        "/tcgs/pokemon/rip-benchmark/financial-history",
+        json={"entities": [_entity()], "start_date": "2026-09-01", "end_date": "2026-09-27"},
+        cookies={"token": "plus"},
+    )
+    assert accepted.status_code == 200
+    payload = accepted.json()
+    assert payload["contractVersion"] == "financial-rip-history-v1"
+    assert payload["rows"] == [row]
+    assert payload["historyAvailableThrough"] == "2026-09-27"
+    assert constructions == ["constructed"]
+
+
+def test_financial_history_rejects_products_duplicates_and_oversized_window(monkeypatch):
+    _install_auth(monkeypatch)
+    client, _ = _client(monkeypatch, _Client({"rows": []}))
+
+    product = client.post(
+        "/tcgs/pokemon/rip-benchmark/financial-history",
+        json={"entities": [_entity(entity_type="sealed_product")], "start_date": "2026-09-01", "end_date": "2026-09-27"},
+        cookies={"token": "plus"},
+    )
+    assert product.status_code == 422
+
+    duplicate = client.post(
+        "/tcgs/pokemon/rip-benchmark/financial-history",
+        json={"entities": [_entity(), _entity()], "start_date": "2026-09-01", "end_date": "2026-09-27"},
+        cookies={"token": "plus"},
+    )
+    assert duplicate.status_code == 422
+
+    long_window = client.post(
+        "/tcgs/pokemon/rip-benchmark/financial-history",
+        json={"entities": [_entity()], "start_date": "2016-01-01", "end_date": "2026-09-27"},
+        cookies={"token": "plus"},
+    )
+    assert long_window.status_code == 422
+
+
+def test_public_overview_headlines_require_no_auth_or_paid_client_projection(monkeypatch):
+    _install_auth(monkeypatch)
+    fake = _Client()
+    client, constructions = _client(monkeypatch, fake)
+    expected = {
+        "contractVersion": "rip-benchmark-overview-headlines-v1",
+        "status": "available",
+        "marketDate": "2026-09-27",
+        "topSet": {"entityId": ENTITY_ID, "name": "Temporal Forces", "rank": 1},
+        "topEra": {"entityId": str(UUID(int=2)), "name": "Scarlet and Violet", "rank": 1},
+    }
+    monkeypatch.setattr(main, "_public_benchmark_overview_headlines", lambda _client, _contract: expected)
+
+    response = client.get("/tcgs/pokemon/rip-benchmark/overview-headlines")
+    assert response.status_code == 200
+    assert response.json() == expected
+    assert constructions == ["constructed"]

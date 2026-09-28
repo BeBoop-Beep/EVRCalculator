@@ -132,8 +132,29 @@ export default function MarketExplorerClient({
   const sealedOptionStates = useAssetOptions("sealed", { enabled: activeBrowseAsset === "sealed" });
   const gradedOptionStates = useAssetOptions("graded", { enabled: activeBrowseAsset === "graded" });
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [methodologyOpen, setMethodologyOpen] = useState(false);
+  const methodologyTriggerRef = useRef(null);
+  const methodologyCloseRef = useRef(null);
+  const methodologyRestoreFocusRef = useRef(null);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  useEffect(() => {
+    if (!methodologyOpen || typeof document === "undefined") return undefined;
+    const focusFrame = requestAnimationFrame(() => methodologyCloseRef.current?.focus());
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMethodologyOpen(false);
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", closeOnEscape);
+      const restoreTarget = methodologyRestoreFocusRef.current || methodologyTriggerRef.current;
+      requestAnimationFrame(() => restoreTarget?.focus?.());
+    };
+  }, [methodologyOpen]);
   // PREPARED SELECTION LIFECYCLE (marketExplorerPreparedLoader.mjs). A prepared
   // market is ACTIVE only once its data has loaded. Requested-but-unloaded and
   // failed markets live in their own sets, are never re-sent with later
@@ -226,7 +247,7 @@ export default function MarketExplorerClient({
   const resetExplorerSessionState = useCallback(() => {
     clearGraph();
     setRequestedTimeframe(null); setCompareUpgradeVisible(false); setLimitNotice(null);
-    setBuilderOpen(false); setBuilderMode("exact"); setBasketSeed(null); setActiveBrowseAsset("cards");
+    setBuilderOpen(false); setBuilderMode("exact"); setBasketSeed(null); setActiveBrowseAsset("cards"); setMethodologyOpen(false);
     setMobileToolsOpen(false); setFocusToolToggles({}); setSessionResetKey((value) => value + 1);
     replacePrepared("raw");
   }, [clearGraph, replacePrepared]);
@@ -443,7 +464,7 @@ export default function MarketExplorerClient({
       data-market-explorer-comparison-as-of={comparisonAsOf || ""}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-access-mode={accessMode}
-      className="grid min-w-0 gap-3 desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-start desk:gap-3"
+      className="grid min-w-0 gap-3 desk:h-[calc(100dvh-15.5rem)] desk:min-h-[26rem] desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-stretch desk:gap-3 desk:overflow-hidden"
     >
       {compareUpgradeVisible ? (
         <section data-market-explorer-compare-upgrade role="status" className={`${styles.surfaceQuiet} set-glass-surface fixed left-1/2 top-20 z-[80] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 px-4 py-4 shadow-2xl`}>
@@ -462,7 +483,7 @@ export default function MarketExplorerClient({
         className="order-1 flex min-h-11 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 text-sm font-semibold text-[var(--text-primary)] desk:hidden">
         Markets / Tools <span aria-hidden="true">{mobileToolsOpen ? "−" : "+"}</span>
       </button>
-      <aside id="explorer-controls" data-market-explorer-sidebar className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:block desk:max-h-[calc(100vh-7rem)] desk:overflow-y-auto`}>
+      <aside id="explorer-controls" data-market-explorer-sidebar className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:block desk:h-full desk:overflow-y-auto`}>
         <section data-market-explorer-zone="explore" className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="explore-markets-zone-heading">
         <div className={styles.explorerZoneHeader}>
           <p className={styles.explorerZoneEyebrow}>Explore</p>
@@ -477,7 +498,12 @@ export default function MarketExplorerClient({
           gradedReason={gradedOptionStates.data?.reason || null}
           onAddToBasket={(item) => { setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 }); setBuilderMode("exact"); setBuilderOpen(true); }}
           onBuild={() => { setBuilderMode("exact"); setBuilderOpen(true); }} />
-        <div data-market-explorer-sidebar-section="analyze" className="border-t border-[var(--border-subtle)] px-3 py-3">
+        <div className="px-3 pb-3"><button ref={methodologyTriggerRef} type="button" data-market-explorer-methodology-trigger aria-expanded={methodologyOpen} onClick={() => {
+          if (methodologyOpen) { setMethodologyOpen(false); return; }
+          methodologyRestoreFocusRef.current = typeof document !== "undefined" ? document.activeElement : methodologyTriggerRef.current;
+          setMethodologyOpen(true);
+        }} className="flex min-h-9 w-full items-center justify-between rounded-md border border-violet-400/40 px-3 text-xs font-semibold text-violet-200"><span>Methodology</span><span aria-hidden="true">{methodologyOpen ? "−" : "+"}</span></button></div>
+        <div data-market-explorer-sidebar-section="analyze" className="border-t-2 border-white/35 px-3 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
           {activeBrowseAsset === "cards" ? <MarketExplorerRarityMarkets
             directory={preparedDirectory}
@@ -498,7 +524,7 @@ export default function MarketExplorerClient({
             activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys} activeSeries={querySeries}
             canBuild={canBuildCustomMarkets} onUpgrade={() => setCompareUpgradeVisible(true)}
             onSelect={selectPrepared} onAddQuery={addQuery} onRemoveQuery={removeQuery} /> : null}
-          <MarketExplorerScreens canUse={canComparePreparedMarkets} asset={activeBrowseAsset} activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys}
+          <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
         </div>
         </section>
@@ -536,7 +562,7 @@ export default function MarketExplorerClient({
       <section
         data-market-explorer-analysis
         data-market-explorer-zone="compare"
-        className="order-2 flex min-w-0 flex-col desk:order-none desk:col-start-2"
+        className="order-2 flex min-w-0 flex-col desk:order-none desk:col-start-2 desk:h-full desk:min-h-0"
         aria-labelledby="compare-markets-zone-heading"
       >
         <div className="sr-only">
@@ -575,12 +601,12 @@ export default function MarketExplorerClient({
             timeframe={timeframe}
           />
         </div>
-        <div data-market-explorer-chart-workspace className="order-2 relative min-w-0">
+        <div data-market-explorer-chart-workspace className="order-2 relative min-w-0 desk:min-h-0 desk:flex-1 desk:overflow-hidden">
         <div
           data-market-explorer-graph
-          aria-hidden={detailsOpen ? "true" : undefined}
-          inert={detailsOpen ? true : undefined}
-          className={detailsOpen ? "pointer-events-none min-w-0 select-none" : "min-w-0"}
+          aria-hidden={detailsOpen || methodologyOpen ? "true" : undefined}
+          inert={detailsOpen || methodologyOpen ? true : undefined}
+          className={detailsOpen || methodologyOpen ? "pointer-events-none min-w-0 select-none" : "min-w-0"}
         >
           <div data-market-explorer-workspace-notices data-market-explorer-workspace-overlay="notices" className="pointer-events-none absolute left-3 right-3 top-3 z-30 space-y-2 [&_button]:pointer-events-auto [&_a]:pointer-events-auto">
           {preparedPendingKeys.map((key) => (
@@ -628,7 +654,9 @@ export default function MarketExplorerClient({
         {detailsOpen ? (
           <div
             data-market-explorer-compare-results
-            className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden border border-[var(--border-subtle)] bg-[rgba(2,6,23,.96)] shadow-2xl backdrop-blur"
+            aria-hidden={methodologyOpen ? "true" : undefined}
+            inert={methodologyOpen ? true : undefined}
+            className={`absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden border border-[var(--border-subtle)] bg-[rgba(2,6,23,.96)] shadow-2xl backdrop-blur ${methodologyOpen ? "pointer-events-none select-none" : ""}`}
           >
             <div className="relative flex flex-none flex-col gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-3 py-2 desk:min-h-14 desk:justify-center sm:px-4">
               {/* The reversible partner of the "View Constituents & Comparison"
@@ -677,11 +705,18 @@ export default function MarketExplorerClient({
             </div>
           </div>
         ) : null}
+        {methodologyOpen ? (
+          <div data-market-explorer-methodology-takeover role="region" aria-label="Methodology" className="absolute inset-0 z-30 flex min-h-0 flex-col overflow-hidden border border-violet-400/35 bg-[rgba(2,6,23,.97)] shadow-2xl backdrop-blur">
+            <div className="relative flex flex-none items-center justify-center border-b border-[var(--border-subtle)] px-3 py-2">
+              <button ref={methodologyCloseRef} type="button" data-market-explorer-close-methodology onClick={() => setMethodologyOpen(false)} className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200">Close Methodology</button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"><MarketExplorerMethodology /></div>
+          </div>
+        ) : null}
       </div>
 
       </section>
 
-      <div className="order-6 desk:col-span-2"><MarketExplorerMethodology /></div>
     </div>
   );
 }

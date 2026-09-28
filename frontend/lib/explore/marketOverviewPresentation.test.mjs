@@ -18,6 +18,8 @@ import {
   MARKET_OVERVIEW_HELP,
   SHARED_COMPARISON_WINDOW_LABEL,
   buildCoverageSummary,
+  formatMarketDate,
+  formatShortDate,
   buildMarketPerformanceSeries,
   buildMarketWindowOptions,
   changeDirection,
@@ -35,6 +37,12 @@ import {
   resolveDefaultMarketWindow,
   resolveMarketOverview,
 } from "./marketOverviewPresentation.mjs";
+
+test("civil market dates never shift behind UTC in Phoenix-style timezones", () => {
+  assert.equal(formatShortDate("2026-09-27"), "Sep 27");
+  assert.equal(formatMarketDate("2026-09-27"), "Sep 27, 2026");
+  assert.equal(formatMarketDate("2026-09-27T23:59:59-07:00"), "Sep 27, 2026");
+});
 
 test("the /Market projection removes Top Chase without mutating canonical data", () => {
   const canonical = { families: [{ key: "raw" }, { key: "topChase" }, { key: "sealedMarket" }], coverage: { chaseCardCount: 100 } };

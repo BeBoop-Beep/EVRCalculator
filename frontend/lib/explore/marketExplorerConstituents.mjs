@@ -52,12 +52,12 @@ export const PENDING_PUBLICATION_MESSAGE =
 /**
  * The movement windows the table offers, and the default.
  *
- * Mirrors the backend's CONSTITUENT_MOVEMENT_WINDOWS exactly. 7D is the default
+ * The four windows published for both Cards and Sealed. 7D is the default
  * because 1D on a daily-observed market is mostly noise and 30D is too slow to
  * show what changed this week.
  */
 export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze([
-  "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking",
+  "1D", "7D", "30D", "3M",
 ]);
 export const constituentMovementWindowLabel = (window) =>
   (window === "SinceTracking" ? "Since Tracking" : window);

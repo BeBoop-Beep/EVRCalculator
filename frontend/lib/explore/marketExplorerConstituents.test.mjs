@@ -150,8 +150,8 @@ test("prepared and dynamic markets expose one identical movement contract", () =
   assert.equal(getConstituentChange(dynamicModel.rows[0], "7D"), 4.8);
 });
 
-test("the frontend windows mirror the backend contract exactly", () => {
-  assert.deepEqual([...CONSTITUENT_MOVEMENT_WINDOWS], ["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]);
+test("the constituent UI exposes the four accepted per-row movement windows", () => {
+  assert.deepEqual([...CONSTITUENT_MOVEMENT_WINDOWS], ["1D", "7D", "30D", "3M"]);
 });
 
 test("the sealed PARENT's roster resolves as sealed, not as cards", () => {

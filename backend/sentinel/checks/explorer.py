@@ -172,8 +172,14 @@ def check_market_explorer_progress(
         "ready_and_current": int(report.get("ready_and_current") or 0),
         "stale_maintained_count": len(stale),
         "v2_healthy": bool(v2.get("healthy")),
-        "v2_min_computed_through": v2.get("min_computed_through"),
-        "v2_max_computed_through": v2.get("max_computed_through"),
+        "canonical_accepted_date": v2.get("canonical_accepted_date"),
+        "surface_v2_date": v2.get("surface_v2_date"),
+        "surface_lag_days": v2.get("surface_lag_days"),
+        "freshness_status": v2.get("status"),
+        "freshness_reason": v2.get("reason"),
+        "maintained_cache_total": v2.get("maintained_cache_total", report.get("maintained_count")),
+        "maintained_cache_current": v2.get("maintained_cache_current", report.get("ready_and_current")),
+        "maintained_cache_not_current": v2.get("maintained_cache_not_current"),
         "alert_count": len(alerts),
         "latest_progress_at": latest_progress.isoformat() if latest_progress else None,
         "progress_age_seconds": progress_age,
@@ -204,7 +210,14 @@ def check_market_explorer_progress(
         str(row.get("reason") or "") in {"failed", "orphan_lease"}
         for row in alerts
     )
-    if stale and has_recent_progress and not deterministic_failure:
+    surface_converging = (
+        not bool(v2.get("healthy"))
+        and str(v2.get("reason") or "") in {
+            "PREPARED_V1_CONVERGENCE_LAG", "SURFACE_V2_PUBLICATION_LAG",
+            "CARD_DAILY_NOT_CURRENT", "SEALED_DAILY_NOT_CURRENT", "SEALED_METADATA_NOT_CURRENT",
+        }
+    )
+    if (stale or surface_converging) and has_recent_progress and not deterministic_failure:
         return CheckResult.healthy(
             MARKET_EXPLORER_PROGRESS_CHECK_KEY,
             authority_identity=target,

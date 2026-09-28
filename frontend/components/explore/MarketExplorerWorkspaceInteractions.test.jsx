@@ -321,7 +321,7 @@ test("chart with no focus renders exactly as before: original colours, no focus 
   assert.equal(find(renderer, "data-market-performance-focused").length, 0);
 });
 
-test("chart focus: focused line keeps colour and emphasis; others are grayscale, more transparent, and still drawn", () => {
+test("chart focus: focused line keeps colour and emphasis; others keep their hues at ghost opacity", () => {
   const renderer = mountChart({ focusedSeriesKey: "B" });
   const line = (key) => one(renderer, "data-market-performance-series", key);
   assert.equal(line("B").props.stroke, "#f472b6");
@@ -330,9 +330,8 @@ test("chart focus: focused line keeps colour and emphasis; others are grayscale,
   assert.equal(line("B").props["data-market-performance-focus"], "focused");
   for (const key of ["A", "C"]) {
     assert.equal(line(key).props["data-market-performance-focus"], "dimmed");
-    const [, r, g, b] = line(key).props.stroke.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
-    assert.ok(r === g && g === b, `${key} is grayscale`);
-    assert.ok(line(key).props.strokeOpacity < 1);
+    assert.equal(line(key).props.stroke, key === "A" ? "#22d3ee" : "#facc15");
+    assert.equal(line(key).props.strokeOpacity, 0.11);
   }
   assert.equal(find(renderer, "data-market-performance-series").length, 3, "nobody is removed from the chart");
   assert.equal(one(renderer, "data-market-performance-focused").props["data-market-performance-focused"], "B");
