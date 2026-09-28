@@ -9,6 +9,7 @@ const products = read("./RankingsProductLensClient.jsx");
 const hub = read("./CardRankingsHub.jsx");
 const collector = read("./CardCollectorAppealRankings.jsx");
 const chase = read("./CardChaseEfficiencyRankings.jsx");
+const productReadPath = fs.readFileSync(new URL("../../lib/rankings/productRankingsReadPath.mjs", import.meta.url), "utf8");
 
 test("Overview headlines use only the narrow public authority", () => {
   assert.match(overview, /readBenchmarkOverviewHeadlines\(\)/);
@@ -18,10 +19,11 @@ test("Overview headlines use only the narrow public authority", () => {
 
 test("default All Products and its warm path share the dedicated Full Market contract", () => {
   for (const source of [lazy, products]) {
-    assert.match(source, /\/api\/explore\/rankings\/lens\?lens=products/);
-    assert.match(source, /\/api\/explore\/product-rankings\/overall\?budget=full_market/);
+    assert.match(source, /loadProductRankingsAuthorities/);
     assert.match(source, /sessionCache\.request\("products:full_market"/);
   }
+  assert.match(productReadPath, /\/api\/explore\/rankings\/lens\?lens=products/);
+  assert.match(productReadPath, /\/api\/explore\/product-rankings\/overall\?budget=full_market/);
   assert.doesNotMatch(products, /normalizeOverallProductResult\(payload\.overallProductRankings\)/);
   assert.doesNotMatch(lazy, /normalizeOverallProductResult\(payload\.overallProductRankings\)/);
   assert.match(products, /\[\.\.\.familyProducts, \.\.\.fullMarketProducts\]/);
@@ -36,7 +38,11 @@ test("first Card request waits for auth reconciliation and retries on status com
   }
 });
 
-test("Set and Era transient errors preserve the previous visible payload", () => {
-  assert.match(lazy, /setEraState\(\(current\) => \(\{ \.\.\.current, status: "error"/);
-  assert.match(lazy, /setSetsState\(\(current\) => \(\{ \.\.\.current, status: "error"/);
+test("Set, Era, and Product refreshes use the tested last-good transition contract", () => {
+  assert.match(lazy, /beginLastGoodRefresh\(current, isRenderableEraState\)/);
+  assert.match(lazy, /failLastGoodRefresh\(current, error, isRenderableEraState/);
+  assert.match(lazy, /beginLastGoodRefresh\(current, isRenderableSetState\)/);
+  assert.match(lazy, /failLastGoodRefresh\(current, error, isRenderableSetState/);
+  assert.match(products, /beginLastGoodRefresh\(current, isRenderableProductState\)/);
+  assert.match(products, /failLastGoodRefresh\(current, error, isRenderableProductState/);
 });
