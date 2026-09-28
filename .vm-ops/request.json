@@ -1,5 +1,5 @@
 {
-  "operation": "scrape-catalog-set-refresh",
-  "set_id": "baseSetShadowless",
-  "request_id": "scoped-edition-base-source-refresh-r3-20260928"
+  "operation": "market-explorer-v2-repair",
+  "market_date": "2026-09-28",
+  "request_id": "scoped-edition-v2-rebuild-20260928"
 }
