@@ -23,8 +23,12 @@ if os.environ.get("PGHOST") not in ("127.0.0.1", "localhost") or os.environ.get(
     raise SystemExit("Refusing non-isolated PostgreSQL target")
 
 migration = Path(os.environ["RIP_FINANCIAL_HISTORY_MIGRATION"]).resolve()
+followup_migration = ROOT / "supabase" / "migrations" / "20260928032500_financial_rip_history_numeric_tolerance.sql"
+followup_mirror = ROOT / "backend" / "db" / "migrations" / "20260928032500_financial_rip_history_numeric_tolerance.sql"
 if not migration.is_relative_to(ROOT):
     raise SystemExit("Migration must be inside this checkout")
+if followup_migration.read_bytes() != followup_mirror.read_bytes():
+    raise SystemExit("Financial history numeric-tolerance migration mirrors differ")
 
 foundation_path = ROOT / "backend" / "tests" / "integration" / "rip_benchmark_v1_postgres.py"
 old_argv = sys.argv[:]
@@ -50,8 +54,14 @@ def decode(value: str):
     return json.loads(value)
 
 
-sql("BEGIN;\n" + migration.read_text(encoding="utf-8") + "\nCOMMIT;")
-ok("additive migration applies after certified Benchmark V1 foundation")
+sql(
+    "BEGIN;\n"
+    + migration.read_text(encoding="utf-8")
+    + "\n"
+    + followup_migration.read_text(encoding="utf-8")
+    + "\nCOMMIT;"
+)
+ok("additive migrations apply after certified Benchmark V1 foundation")
 
 assert sql(
     "SELECT count(*) FROM pg_class WHERE oid='pokemon_rip_benchmark_publication_attempts_v1'::regclass AND relrowsecurity;"
@@ -349,6 +359,59 @@ assert {row["absolute_financial_rip_score"] for row in history_rows} == {30}
 assert {row["overall_financial_rip_reference"] for row in history_rows} == {30}
 assert {row["absolute_delta_vs_overall"] for row in history_rows} == {0}
 ok("typed Set/Era history RPC projects exact absolute score/reference/delta without source JSON")
+
+# Regression: production Financial scores often form repeating-decimal means.
+# The frozen Decimal reference can retain more digits than PostgreSQL AVG(numeric)
+# at its aggregate scale. Representation noise below 1e-12 must pass, while a
+# materially different frozen reference must still fail closed.
+def clone_repeating_mean_candidate(publication_id: str, *, key: str, reference: str) -> None:
+    insert_staged(publication_id, key=key, day=DAY, manifest=manifest)
+    expr = {column: "r." + column for column in row_cols}
+    expr.update(
+        publication_id=f"'{publication_id}'::uuid",
+        benchmark_raw_value=f"'{reference}'::numeric",
+        benchmark_score="5",
+        raw_model_value=(
+            "case "
+            "when r.entity_type='set' and r.rank in (1,17) then 30.0001 "
+            "when r.entity_type='set' then 30 "
+            "when r.entity_type='era' and r.rank=1 then 30.00000625 "
+            "when r.entity_type='era' and r.rank=2 then 30.00001666666666666666666667 "
+            "else r.raw_model_value end"
+        ),
+    )
+    sql(
+        "INSERT INTO pokemon_rip_benchmark_rows_v1(" + ",".join(row_cols) + ") "
+        "SELECT " + ",".join(expr[column] for column in row_cols) + " "
+        f"FROM pokemon_rip_benchmark_rows_v1 r WHERE r.publication_id='{success_id}' "
+        "AND r.metric_key='financial' ORDER BY r.entity_type,r.rank;"
+    )
+
+
+repeat_id = uid()
+repeat_reference = "30.00000909090909090909090909"
+clone_repeating_mean_candidate(
+    repeat_id,
+    key="financial-history-repeating-decimal",
+    reference=repeat_reference,
+)
+update_with_financial_guard(repeat_id)
+assert sql(
+    f"SELECT publication_status FROM pokemon_rip_benchmark_publications_v1 WHERE id='{repeat_id}';"
+) == "published"
+ok("sub-1e-12 repeating-decimal AVG representation noise passes the final authority guard")
+
+material_id = uid()
+clone_repeating_mean_candidate(
+    material_id,
+    key="financial-history-material-reference-mismatch",
+    reference="30.00000909190909090909090909",
+)
+update_with_financial_guard(material_id, fail="Set Financial authority is incomplete")
+assert sql(
+    f"SELECT publication_status FROM pokemon_rip_benchmark_publications_v1 WHERE id='{material_id}';"
+) == "staged"
+ok("reference mismatch above 1e-12 remains fail-closed")
 
 # V5/V14 (or any other family) cannot enter this V4/V12 authority.
 wrong_id = uid()
