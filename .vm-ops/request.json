@@ -1,5 +1,4 @@
 {
-  "operation": "scrape-catalog-set-refresh",
-  "set_id": "baseSetShadowless",
-  "request_id": "scoped-edition-base-source-refresh-r2-20260928"
+  "operation": "sync-main-reviewed",
+  "request_id": "scoped-edition-runtime-attach-main-20260928"
 }
