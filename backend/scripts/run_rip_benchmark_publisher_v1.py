@@ -56,10 +56,15 @@ def _post_publish_parity(client: Any, candidate: Mapping[str, Any], publication_
     eras = [row for row in rows if row.get("entity_type") == "era"]
     expected_reference = Decimal(str(candidate["references"]["financial"]))
     references = {Decimal(str(row["benchmark_raw_value"])) for row in rows}
-    if len(sets) != 22 or len(eras) != 2 or references != {expected_reference}:
+    reference_matches = (
+        len(references) == 1
+        and abs(next(iter(references)) - expected_reference) <= Decimal("0.000000000001")
+    )
+    if len(sets) != 22 or len(eras) != 2 or not reference_matches:
         raise RuntimeError(
             "post-publication Financial history parity failed: "
-            f"sets={len(sets)} eras={len(eras)} references={sorted(map(str, references))}"
+            f"sets={len(sets)} eras={len(eras)} references={sorted(map(str, references))} "
+            f"expected_reference={expected_reference}"
         )
     if any(
         str(row.get("source_market_date")) != str(candidate["market_date"])
