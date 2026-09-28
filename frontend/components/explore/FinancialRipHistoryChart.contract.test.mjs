@@ -26,3 +26,16 @@ test("controls, gap behavior, moving reference, and responsive frame are explici
   assert.ok(source.includes("h-[20rem] sm:h-[24rem] desk:h-[28rem]"));
   assert.ok(source.includes("MAX_FINANCIAL_RIP_SET_SELECTION"));
 });
+test("refresh and failure preserve the last successful certified chart", () => {
+  assert.ok(source.includes('setRequest((current) => ({ ...current, status: "loading"'));
+  assert.ok(source.includes("const display = request.view"));
+  assert.ok(source.includes("The latest refresh failed, so the last successful history remains visible."));
+  assert.ok(source.includes("Updating history…"));
+});
+
+test("chart copy is valid UTF-8 and uses the canonical Rankings upgrade source", () => {
+  assert.ok(source.includes("Pokémon-wide Overall Financial RIP reference"));
+  assert.ok(source.includes('source="rankings"'));
+  assert.doesNotMatch(source, /PokÃ|â€¦|Â·/);
+});
+
