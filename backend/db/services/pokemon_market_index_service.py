@@ -20,6 +20,9 @@ _INDEX_TAG = "[market-index]"
 
 TABLE = "pokemon_market_index_daily_history"
 SOURCE_TABLE = "pokemon_set_value_daily_history"
+EDITION_STABLE_RAW_TABLE = "pokemon_market_raw_edition_stable_daily_history_v1"
+EDITION_STABLE_RAW_METHODOLOGY_VERSION = "edition_stable_market_identity_chain_v1"
+EDITION_STABLE_RAW_CUTOVER_DATE = "2026-09-27"
 PAGE_SIZE = 1000
 
 
@@ -222,6 +225,40 @@ def resolve_accepted_market_dates(client: Any, *, through_date: str | None = Non
     }
 
 
+def _read_edition_stable_raw_history(
+    client: Any, *, through_date: str | None = None,
+) -> list[dict[str, Any]]:
+    """Read the edition-stable Raw authority in the legacy index row shape.
+
+    The physical table deliberately stays separate from the historical legacy
+    Raw rows. Public consumers can therefore cut over without erasing evidence
+    of the old mixed-printing series.
+    """
+    query = (client.table(EDITION_STABLE_RAW_TABLE).select("*")
+             .order("market_date", desc=False))
+    if through_date:
+        query = query.lte("market_date", through_date)
+    rows: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        page = list(query.range(offset, offset + PAGE_SIZE - 1).execute().data or [])
+        for raw in page:
+            row = dict(raw)
+            row.update({
+                "tcg": "pokemon",
+                "index_key": RAW_INDEX_KEY,
+                # Existing overview readers use set_count as a root-count
+                # coverage field. The new Raw index also preserves its larger
+                # market-identity count separately.
+                "set_count": int(row.get("root_count") or 0),
+                "raw_market_count": int(row.get("market_count") or 0),
+            })
+            rows.append(row)
+        if len(page) < PAGE_SIZE:
+            return rows
+        offset += PAGE_SIZE
+
+
 def read_index_history(
     client: Any,
     *,
@@ -230,20 +267,42 @@ def read_index_history(
 ) -> list[dict[str, Any]]:
     """Accepted/public Market index history.
 
-    Rows whose market date is not accepted by Market Date Quality (DEGRADED,
-    INCOMPLETE, or unevaluated once enforcement is active) are withheld. The
-    rows remain physically stored - this filters the view, never the table.
-
-    ``accepted_dates`` may be supplied by a caller that already resolved the
-    set, matching the convention ``build_index_rows`` established, and avoids a
-    second read of the quality authority.
+    Legacy rows remain stored and auditable. Starting with the 2026-09-27
+    publication, the public Raw family is replaced by the edition-stable
+    Set-market-identity series; Top 10 Chase retains its existing authority.
     """
-    rows = read_raw_index_history_for_audit(client, through_date=through_date)
+    legacy = read_raw_index_history_for_audit(client, through_date=through_date)
     accepted = (resolve_accepted_market_dates(client, through_date=through_date)
                 if accepted_dates is None else {str(day)[:10] for day in accepted_dates})
-    if accepted is None:
+    rows = legacy if accepted is None else [
+        row for row in legacy if str(row.get("market_date"))[:10] in accepted
+    ]
+
+    effective_through = str(through_date)[:10] if through_date else max(
+        (str(row.get("market_date") or "")[:10] for row in rows),
+        default="",
+    )
+    if effective_through < EDITION_STABLE_RAW_CUTOVER_DATE:
         return rows
-    return [row for row in rows if str(row.get("market_date"))[:10] in accepted]
+
+    stable = _read_edition_stable_raw_history(client, through_date=effective_through)
+    if accepted is not None:
+        stable = [
+            row for row in stable
+            if str(row.get("market_date"))[:10] in accepted
+        ]
+    if not stable or str(stable[-1].get("market_date"))[:10] != effective_through:
+        raise PokemonMarketIndexUnavailable(
+            "edition-stable Raw authority does not reach the promoted market date",
+            diagnostics={"marketDate": effective_through},
+        )
+
+    # Replace only Raw. Top 10 Chase remains the independently persisted
+    # legacy family until its own edition-scoped redesign is explicitly made.
+    chase = [row for row in rows if row.get("index_key") != RAW_INDEX_KEY]
+    return sorted([*stable, *chase], key=lambda row: (
+        str(row.get("market_date") or ""), str(row.get("index_key") or "")
+    ))
 
 
 def _validate_constituents(raw: Mapping[str, Any], chase: Mapping[str, Any]) -> None:
@@ -293,6 +352,87 @@ def _validate_constituents(raw: Mapping[str, Any], chase: Mapping[str, Any]) -> 
             raise PokemonMarketIndexUnavailable(error)
 
 
+def _is_edition_stable_raw(raw: Mapping[str, Any]) -> bool:
+    return (
+        str(raw.get("methodology_version") or "") == EDITION_STABLE_RAW_METHODOLOGY_VERSION
+        or bool((raw.get("diagnostics_json") or {}).get("editionStable"))
+    )
+
+
+def _validate_edition_stable_raw(raw: Mapping[str, Any]) -> None:
+    """Validate Raw by persistent market identity, not by one row per root."""
+    error = "current edition-stable Raw constituents disagree"
+    constituents = raw.get("constituents_json") or []
+    if not isinstance(constituents, list) or not constituents:
+        raise PokemonMarketIndexUnavailable(error)
+
+    seen: set[str] = set()
+    root_ids: set[str] = set()
+    card_count = 0
+    allowed_scopes = {"standard", "first_edition", "unlimited", "shadowless"}
+    for item in constituents:
+        set_id = str((item or {}).get("setId") or "")
+        market_scope = str((item or {}).get("marketScope") or "")
+        market_key = str((item or {}).get("marketKey") or "")
+        if not set_id or market_scope not in allowed_scopes or not market_key:
+            raise PokemonMarketIndexUnavailable(error)
+        expected_key = (
+            f"set:{set_id}" if market_scope == "standard"
+            else f"set:{set_id}:{market_scope}"
+        )
+        if market_key != expected_key or market_key in seen:
+            raise PokemonMarketIndexUnavailable(error)
+        seen.add(market_key)
+        root_ids.add(set_id)
+        try:
+            included = int(item["includedCardCount"])
+        except (KeyError, TypeError, ValueError):
+            raise PokemonMarketIndexUnavailable(error)
+        if included <= 0:
+            raise PokemonMarketIndexUnavailable(error)
+        card_count += included
+
+    if card_count != int(raw.get("card_count") or 0):
+        raise PokemonMarketIndexUnavailable(error)
+    if len(root_ids) != int(raw.get("set_count") or 0):
+        raise PokemonMarketIndexUnavailable(error)
+    market_count = int(raw.get("raw_market_count") or raw.get("market_count") or 0)
+    if market_count and len(seen) != market_count:
+        raise PokemonMarketIndexUnavailable(error)
+
+
+def _validate_chase_constituents(chase: Mapping[str, Any]) -> None:
+    constituents = chase.get("constituents_json") or []
+    if not isinstance(constituents, list) or not constituents:
+        return
+    set_count = int(chase.get("set_count") or 0)
+    card_count = int(chase.get("card_count") or 0)
+    if len(constituents) != set_count:
+        raise PokemonMarketIndexUnavailable("current top10 constituent count disagrees")
+    seen: set[str] = set()
+    total = 0
+    for constituent in constituents:
+        set_id = str((constituent or {}).get("setId") or "")
+        if not set_id or set_id in seen:
+            raise PokemonMarketIndexUnavailable("current top10 constituent identity disagrees")
+        seen.add(set_id)
+        try:
+            included = int((constituent or {}).get("includedCardCount"))
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise PokemonMarketIndexUnavailable(
+                "current top10 constituent card count is invalid"
+            ) from exc
+        if included < 1 or included > 10:
+            raise PokemonMarketIndexUnavailable(
+                "current top10 constituent card count is outside 1..10"
+            )
+        total += included
+    if total != card_count:
+        raise PokemonMarketIndexUnavailable(
+            "current top10 constituent card counts do not reconcile"
+        )
+
+
 def build_market_overview(
     history: Sequence[Mapping[str, Any]], *, market_date: str,
     sealed_market: Mapping[str, Any] | None = None,
@@ -329,50 +469,36 @@ def build_market_overview(
     raw_set_count = int(raw["set_count"])
     chase_set_count = int(chase["set_count"])
     chase_card_count = int(chase["card_count"])
-    if (raw["cohort_fingerprint"] != chase["cohort_fingerprint"]
-            or raw_set_count != chase_set_count):
-        raise PokemonMarketIndexUnavailable("current raw/top10 cohort disagrees")
-    # Top 10 is an upper bound, not a promise that every set contributes ten
-    # priced cards. The canonical Set Value SQL ranks available priced cards
-    # and keeps price_rank <= 10, so a thin/partially-priced set can legitimately
-    # contribute 1..10 cards. Require one positive Top-10 contribution per set
-    # and cap the aggregate at ten per set.
+    stable_raw = _is_edition_stable_raw(raw)
+
+    # Top 10 remains one constituent per root. Raw, after the edition-stable
+    # cutover, deliberately has multiple market identities for a vintage root,
+    # so cross-family cohort equality is no longer a valid invariant.
+    if not stable_raw:
+        if (raw["cohort_fingerprint"] != chase["cohort_fingerprint"]
+                or raw_set_count != chase_set_count):
+            raise PokemonMarketIndexUnavailable("current raw/top10 cohort disagrees")
+
     if (chase_set_count <= 0
             or chase_card_count < chase_set_count
             or chase_card_count > chase_set_count * 10):
         raise PokemonMarketIndexUnavailable("current top10 chase card count is invalid")
+
     raw_constituents = raw.get("constituents_json")
     chase_constituents = chase.get("constituents_json")
-    if (isinstance(raw_constituents, list) and raw_constituents
+    if stable_raw:
+        _validate_edition_stable_raw(raw)
+        _validate_chase_constituents(chase)
+    elif (isinstance(raw_constituents, list) and raw_constituents
             and isinstance(chase_constituents, list) and chase_constituents):
-        # When both sides carry persisted constituent evidence, retain the
-        # stricter develop-side reconciliation: same set membership, exact
-        # aggregate sums, and top10Count == min(rawCount, 10) per set.
         _validate_constituents(raw, chase)
     elif isinstance(chase_constituents, list) and chase_constituents:
-        # Recent production/VM rows may expose Top-10 constituents without a
-        # matching Raw constituent payload. Preserve the newer main-side
-        # resilience fix while still reconciling every available Top-10 count.
-        if len(chase_constituents) != chase_set_count:
-            raise PokemonMarketIndexUnavailable("current top10 constituent count disagrees")
-        constituent_card_count = 0
-        for constituent in chase_constituents:
-            try:
-                included = int((constituent or {}).get("includedCardCount"))
-            except (TypeError, ValueError, AttributeError) as exc:
-                raise PokemonMarketIndexUnavailable(
-                    "current top10 constituent card count is invalid"
-                ) from exc
-            if included < 1 or included > 10:
-                raise PokemonMarketIndexUnavailable(
-                    "current top10 constituent card count is outside 1..10"
-                )
-            constituent_card_count += included
-        if constituent_card_count != chase_card_count:
-            raise PokemonMarketIndexUnavailable(
-                "current top10 constituent card counts do not reconcile"
-            )
-    if float(chase["basket_value"]) > float(raw["basket_value"]):
+        _validate_chase_constituents(chase)
+
+    # Legacy Raw and Top 10 share a cohort, so Top 10 cannot exceed Raw.
+    # Edition-stable Raw can intentionally withhold an unverified vintage scope
+    # that the still-legacy Top 10 contains, making that comparison invalid.
+    if not stable_raw and float(chase["basket_value"]) > float(raw["basket_value"]):
         raise PokemonMarketIndexUnavailable("top10 basket exceeds raw basket")
     def family(rows):
         latest = rows[-1]
@@ -400,16 +526,41 @@ def build_market_overview(
                 "familyChanges": strict,
                 "changes": strict,
                 "trend": [[row["date"], row["value"]] for row in points]}
+    raw_market_count = int(raw.get("raw_market_count") or raw.get("market_count") or raw["set_count"])
     result = {"contractVersion": "pokemon-market-overview-v1", "marketDate": market_date,
-        "coverage": {"eligibleSetCount": int(raw["set_count"]), "rawCardCount": int(raw["card_count"]),
-            "chaseCardCount": int(chase["card_count"]), "cohortFingerprint": raw["cohort_fingerprint"]},
+        "coverage": {
+            "eligibleSetCount": int(raw["set_count"]),
+            "rawRootCount": int(raw["set_count"]),
+            "rawMarketCount": raw_market_count,
+            "rawCardCount": int(raw["card_count"]),
+            "topChaseSetCount": int(chase["set_count"]),
+            "chaseCardCount": int(chase["card_count"]),
+            "cohortFingerprint": raw["cohort_fingerprint"],
+            "rawCohortFingerprint": raw["cohort_fingerprint"],
+            "topChaseCohortFingerprint": chase["cohort_fingerprint"],
+        },
         "raw": family(by_key[RAW_INDEX_KEY]), "topChase": family(by_key[CHASE_INDEX_KEY]),
-        "methodology": {"version": MARKET_INDEX_METHODOLOGY_VERSION,
-            "basketDefinition": "sum of canonical Near Mint raw-card set baskets",
-            "indexDefinition": "chain-linked return over consecutive common set cohorts",
+        "methodology": {
+            "version": (
+                EDITION_STABLE_RAW_METHODOLOGY_VERSION
+                if stable_raw else MARKET_INDEX_METHODOLOGY_VERSION
+            ),
+            "rawMethodologyVersion": str(raw.get("methodology_version") or MARKET_INDEX_METHODOLOGY_VERSION),
+            "topChaseMethodologyVersion": str(chase.get("methodology_version") or MARKET_INDEX_METHODOLOGY_VERSION),
+            "basketDefinition": (
+                "sum of canonical Near Mint Raw Set-market baskets; vintage First Edition, "
+                "Unlimited, and Shadowless scopes are separate persistent identities"
+                if stable_raw else "sum of canonical Near Mint raw-card set baskets"
+            ),
+            "indexDefinition": (
+                "chain-linked return over consecutive common Set-market identities"
+                if stable_raw else "chain-linked return over consecutive common set cohorts"
+            ),
             "basketChangeDefinition": "literal percentage change in the complete tracked basket value; includes cohort additions/removals",
             "pricePerformanceDefinition": "chain-linked common-cohort price performance; cohort entry/exit is neutralized at the transition",
-            "notMarketCapitalization": True},
+            "editionStableRaw": stable_raw,
+            "notMarketCapitalization": True,
+        },
         "sourceGenerationFingerprint": deterministic_fingerprint([raw["source_generation_fingerprint"], chase["source_generation_fingerprint"]])}
     if sealed_market is not None:
         # Additive extension: Raw/Top10 are built byte-for-byte by the existing
