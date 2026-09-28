@@ -83,6 +83,7 @@ BEGIN
      AND q.market_date=h.snapshot_date
      AND q.status IN ('READY','LEGACY_VERIFIED')
     WHERE h.value_scope='standard'
+      AND h.snapshot_date>=date '2026-04-23'
       AND h.snapshot_date<=p_through_date
       AND h.set_value>0
       AND coalesce(h.included_card_count,h.priced_card_count,0)>0
@@ -111,6 +112,7 @@ BEGIN
      AND q.status IN ('READY','LEGACY_VERIFIED')
     WHERE h.market_scope IN ('first_edition','unlimited','shadowless')
       AND h.certified_on_date
+      AND h.market_date>=date '2026-04-23'
       AND h.market_date<=p_through_date
       AND h.set_value>0
       AND h.priced_card_count>0
