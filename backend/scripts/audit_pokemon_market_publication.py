@@ -68,6 +68,7 @@ ALL_SECTIONS: Tuple[str, ...] = (
 )
 
 GLOBAL_SET_VALUE_TABLE = "pokemon_explore_set_value_snapshot_latest"
+GLOBAL_SET_VALUE_SCOPE_CONTRACT_VIEW = "pokemon_market_set_scope_contract_v1"
 
 # Every timeframe pill /Market can select. These are pure client-side slices of
 # the published payload, so a window absent here is a DEAD control on the page.
@@ -1031,6 +1032,211 @@ def global_set_value_snapshot_problem(
     return None
 
 
+
+def _market_scope(value: Any) -> str:
+    return _to_text(value) or "standard"
+
+
+def _market_key_from_identity(set_id: str, scope: str) -> str:
+    return f"set:{set_id}" if scope == "standard" else f"set:{set_id}:{scope}"
+
+
+def _single_point_window_state_is_valid(target: Dict[str, Any], market_date: str) -> bool:
+    """A brand-new market legitimately has no movement windows yet."""
+    try:
+        history_point_count = int(target.get("historyPointCount"))
+    except (TypeError, ValueError):
+        return False
+    windows = target.get("windows")
+    return (
+        history_point_count == 1
+        and isinstance(windows, dict)
+        and not windows
+        and _date_key(target.get("historyStartDate")) == market_date
+        and _date_key(target.get("historyEndDate")) == market_date
+    )
+
+
+def _audit_scoped_global_set_value(
+    market_date: str,
+    *,
+    targets: Sequence[Dict[str, Any]],
+    contract_rows: Sequence[Dict[str, Any]],
+    in_cohort: bool,
+    snapshot_problem: Optional[str] = None,
+) -> SectionVerdict:
+    """Audit an edition-split root at MARKET identity granularity.
+
+    The global Market publisher intentionally replaces the old blended Standard
+    vintage row with explicit first-edition / unlimited / shadowless markets.
+    A root-level audit must therefore validate every expected marketKey against
+    the DB scope authority, rather than selecting one row by setId and comparing
+    it to the obsolete Standard aggregate.
+    """
+    verdict = SectionVerdict(section=SECTION_GLOBAL_SET_VALUE)
+    if snapshot_problem:
+        verdict.passed = False
+        verdict.detail = snapshot_problem
+        return verdict
+
+    if not in_cohort:
+        verdict.applicable = False
+        verdict.detail = "set is outside the global Market Set Value cohort"
+        return verdict
+
+    scoped_contract = [
+        dict(row) for row in contract_rows
+        if _market_scope(row.get("market_scope")) != "standard"
+    ]
+    if not scoped_contract:
+        verdict.passed = False
+        verdict.detail = "edition-scoped Set Market has no authoritative scope contract rows"
+        return verdict
+
+    contract_by_key: Dict[str, Dict[str, Any]] = {}
+    for contract in scoped_contract:
+        set_id = _to_text(contract.get("set_id"))
+        scope = _market_scope(contract.get("market_scope"))
+        market_key = _to_text(contract.get("market_key"))
+        if not set_id or not market_key:
+            verdict.passed = False
+            verdict.detail = "edition scope authority publishes a row with no set_id/market_key"
+            return verdict
+        expected_key = _market_key_from_identity(set_id, scope)
+        if market_key != expected_key:
+            verdict.passed = False
+            verdict.detail = (
+                f"edition scope authority market_key {market_key!r} disagrees with "
+                f"set/scope identity {expected_key!r}"
+            )
+            return verdict
+        if market_key in contract_by_key:
+            verdict.passed = False
+            verdict.detail = f"edition scope authority duplicates market identity {market_key!r}"
+            return verdict
+        contract_by_key[market_key] = contract
+
+    target_by_key: Dict[str, Dict[str, Any]] = {}
+    for target in targets:
+        set_id = _to_text(target.get("setId") or target.get("set_id"))
+        scope = _market_scope(target.get("marketScope") or target.get("market_scope"))
+        market_key = _to_text(target.get("marketKey") or target.get("market_key"))
+        if not set_id:
+            verdict.passed = False
+            verdict.detail = "global Set Value scoped row has no setId"
+            return verdict
+        expected_key = _market_key_from_identity(set_id, scope)
+        market_key = market_key or expected_key
+        if market_key != expected_key:
+            verdict.passed = False
+            verdict.detail = (
+                f"global Set Value marketKey {market_key!r} disagrees with "
+                f"set/scope identity {expected_key!r}"
+            )
+            return verdict
+        if market_key in target_by_key:
+            verdict.passed = False
+            verdict.detail = f"global Set Value duplicates market identity {market_key!r}"
+            return verdict
+        target_by_key[market_key] = target
+
+    expected_keys = set(contract_by_key)
+    actual_keys = set(target_by_key)
+    missing = sorted(expected_keys - actual_keys)
+    if missing:
+        verdict.passed = False
+        verdict.detail = f"global Set Value is missing scoped market(s): {missing[:5]}"
+        return verdict
+    unexpected = sorted(actual_keys - expected_keys)
+    if unexpected:
+        verdict.passed = False
+        verdict.detail = f"global Set Value publishes unexpected scoped market(s): {unexpected[:5]}"
+        return verdict
+
+    current_count = 0
+    unavailable_count = 0
+    for market_key in sorted(expected_keys):
+        contract = contract_by_key[market_key]
+        target = target_by_key[market_key]
+        publishable = contract.get("publishable_100pct") is True
+        value_status = _to_text(target.get("valueStatus") or target.get("value_status"))
+        value = _finite(target.get("currentSetValue") or target.get("current_set_value"))
+        as_of = _date_key(target.get("setValueAsOf") or target.get("set_value_as_of"))
+
+        if not publishable:
+            unavailable_count += 1
+            # Non-publishable scope membership is still real. The publisher must
+            # expose that market honestly as unavailable, never borrow a Standard
+            # or sibling-edition price/history.
+            if value_status != "unavailable" or value is not None or as_of is not None:
+                verdict.passed = False
+                verdict.detail = (
+                    f"{market_key} is non-publishable in the scope authority but the "
+                    "global snapshot does not expose an honest unavailable state"
+                )
+                return verdict
+            continue
+
+        current_count += 1
+        verdict.observed_date = as_of
+        if value_status not in (None, "current"):
+            verdict.passed = False
+            verdict.detail = (
+                f"{market_key} is publishable but global Set Value status is "
+                f"{value_status!r}, not current"
+            )
+            return verdict
+        if as_of != market_date:
+            verdict.passed = False
+            verdict.detail = (
+                f"{market_key} is dated {as_of or 'nowhere'}, "
+                f"not the promoted market date {market_date}"
+            )
+            return verdict
+        if value is None or value <= 0:
+            verdict.passed = False
+            verdict.detail = (
+                f"{market_key} currentSetValue is not a finite positive number"
+            )
+            return verdict
+
+        authority_value = _finite(contract.get("public_current_value"))
+        if authority_value is None or authority_value <= 0:
+            verdict.passed = False
+            verdict.detail = (
+                f"{market_key} is marked publishable but the scope authority has no "
+                "finite positive public_current_value"
+            )
+            return verdict
+        if round(value, 2) != round(authority_value, 2):
+            verdict.passed = False
+            verdict.detail = (
+                f"{market_key} global Set Value {round(value, 2)} disagrees with "
+                f"scope authority {round(authority_value, 2)} for {market_date}"
+            )
+            return verdict
+
+        windows = target.get("windows")
+        windows = windows if isinstance(windows, dict) else {}
+        missing_windows = [key for key in EXPECTED_WINDOW_KEYS if key not in windows]
+        if missing_windows and not _single_point_window_state_is_valid(target, market_date):
+            verdict.passed = False
+            verdict.detail = (
+                f"{market_key} global Set Value row is missing window metadata: "
+                f"{missing_windows}"
+            )
+            return verdict
+
+    # The snapshot itself is current even when every scope is explicitly
+    # unavailable, so expose the promoted date to downstream header checks.
+    verdict.observed_date = market_date
+    verdict.detail = (
+        f"validated {len(expected_keys)} explicit edition market(s): "
+        f"{current_count} current, {unavailable_count} honestly unavailable"
+    )
+    return verdict
+
+
 def _audit_global_set_value(
     market_date: str,
     *,
@@ -1172,6 +1378,8 @@ def audit_market_set_row(
     explore_snapshot_problem_detail: Optional[str] = None,
     canonical_set_value: Optional[float] = None,
     global_set_value_target: Optional[Dict[str, Any]] = None,
+    global_set_value_targets_for_root: Optional[Sequence[Dict[str, Any]]] = None,
+    global_set_value_scope_contract: Optional[Sequence[Dict[str, Any]]] = None,
     global_set_value_problem_detail: Optional[str] = None,
     in_global_set_value_cohort: bool = False,
     top_chase_daily_ranks: Optional[Sequence[int]] = None,
@@ -1199,13 +1407,31 @@ def audit_market_set_row(
         canonical_set_value=canonical_set_value,
         snapshot_problem=explore_snapshot_problem_detail,
     )
-    global_set_value_verdict = _audit_global_set_value(
-        market_date,
-        target=global_set_value_target,
-        canonical_set_value=canonical_set_value,
-        in_cohort=in_global_set_value_cohort,
-        snapshot_problem=global_set_value_problem_detail,
+    root_targets = list(global_set_value_targets_for_root or [])
+    root_contract = list(global_set_value_scope_contract or [])
+    is_scoped_root = any(
+        _market_scope(row.get("market_scope")) != "standard"
+        for row in root_contract
+    ) or any(
+        _market_scope(target.get("marketScope") or target.get("market_scope")) != "standard"
+        for target in root_targets
     )
+    if is_scoped_root:
+        global_set_value_verdict = _audit_scoped_global_set_value(
+            market_date,
+            targets=root_targets,
+            contract_rows=root_contract,
+            in_cohort=in_global_set_value_cohort,
+            snapshot_problem=global_set_value_problem_detail,
+        )
+    else:
+        global_set_value_verdict = _audit_global_set_value(
+            market_date,
+            target=global_set_value_target,
+            canonical_set_value=canonical_set_value,
+            in_cohort=in_global_set_value_cohort,
+            snapshot_problem=global_set_value_problem_detail,
+        )
 
     if dashboard_row is None:
         # The dashboard row backs Top Chase and OPvC only. The other surfaces have
@@ -1520,6 +1746,48 @@ def index_global_set_value_targets(targets: Sequence[Dict[str, Any]]) -> Dict[st
     return index
 
 
+def group_global_set_value_targets_by_root(
+    targets: Sequence[Dict[str, Any]],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Preserve every market row for a root; scoped editions share one setId."""
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for target in targets:
+        set_id = _to_text(target.get("setId") or target.get("set_id"))
+        if set_id:
+            grouped.setdefault(set_id, []).append(target)
+    return grouped
+
+
+def _load_global_set_value_scope_contract(
+    client: Any,
+    set_ids: Sequence[str],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Current DB authority for explicit Set-market identities.
+
+    The latest global snapshot is itself a current-only artifact, so this view is
+    the independent current authority for which edition scopes are publishable
+    and which must remain present-but-unavailable.
+    """
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    ids = sorted({_to_text(value) for value in set_ids if _to_text(value)})
+    for start in range(0, len(ids), 100):
+        chunk = ids[start:start + 100]
+        result = (
+            client.table(GLOBAL_SET_VALUE_SCOPE_CONTRACT_VIEW)
+            .select(
+                "set_id,market_scope,market_key,publishable_100pct,"
+                "public_current_value,quality_status"
+            )
+            .in_("set_id", chunk)
+            .execute()
+        )
+        for row in list((result.data if result else []) or []):
+            set_id = _to_text(row.get("set_id"))
+            if set_id:
+                grouped.setdefault(set_id, []).append(dict(row))
+    return grouped
+
+
 def global_set_value_cohort_ids(sets: Sequence[Dict[str, Any]]) -> List[str]:
     """Set ids the global Set Value BUILDER would publish, via its own rule.
 
@@ -1618,6 +1886,13 @@ def run_market_publication_audit(
         # rankings row above is a DIFFERENT public surface and proves nothing
         # about this one.
         global_set_value_row = _load_global_set_value_row(client)
+        # Scope identities are an independent DB authority. Edition-split roots
+        # publish multiple rows sharing one setId, so this must remain grouped at
+        # market identity granularity rather than collapsed into the legacy
+        # single-target index.
+        global_scope_contract = _load_global_set_value_scope_contract(
+            client, global_set_value_cohort_ids(all_sets)
+        )
     except Exception as exc:
         return MarketAuditReport(
             market_date=resolved_date, phase=phase, error=f"publication surface read failed ({exc})"
@@ -1630,7 +1905,9 @@ def run_market_publication_audit(
     global_problem = global_set_value_snapshot_problem(
         resolved_date, global_set_value_row, expected_set_ids=sorted(global_cohort)
     )
-    global_index = index_global_set_value_targets(global_set_value_targets(global_set_value_row) or [])
+    global_targets = global_set_value_targets(global_set_value_row) or []
+    global_index = index_global_set_value_targets(global_targets)
+    global_targets_by_root = group_global_set_value_targets_by_root(global_targets)
 
     report = MarketAuditReport(market_date=resolved_date, phase=phase)
     for set_row in sorted(sets, key=lambda r: str(r.get("canonical_key") or "")):
@@ -1672,6 +1949,8 @@ def run_market_publication_audit(
                 global_set_value_target=(
                     global_index.get(set_id or "") or global_index.get(canonical_key or "")
                 ),
+                global_set_value_targets_for_root=global_targets_by_root.get(set_id or "", []),
+                global_set_value_scope_contract=global_scope_contract.get(set_id or "", []),
                 global_set_value_problem_detail=global_problem,
                 in_global_set_value_cohort=(set_id or "") in global_cohort,
                 top_chase_daily_ranks=top_chase_daily_ranks.get(set_id or "", []),

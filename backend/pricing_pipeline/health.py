@@ -95,15 +95,16 @@ def gather(client: Any, now: datetime | None = None) -> dict[str, Any]:
     run = one(
         "pokemon_multi_source_pricing_runs_v1",
         "run_id,market_date,status,stage,failure_code,updated_at,finished_at,requests_attempted,"
-        "target_count,target_fingerprint,manifest",
+        "target_count,target_fingerprint,manifest,ebay_pricing_run_id",
         "market_date",
     )
     eligible_estimate_count = None
-    if run and run.get("run_id"):
+    ebay_pricing_run_id = run.get("ebay_pricing_run_id") if run else None
+    if ebay_pricing_run_id:
         response = (
             client.table("ebay_active_ask_price_estimates_v1")
             .select("id", count="exact")
-            .eq("pricing_run_id", run["run_id"])
+            .eq("pricing_run_id", ebay_pricing_run_id)
             .limit(1)
             .execute()
         )
@@ -220,7 +221,11 @@ def assess(snapshot: Mapping[str, Any]) -> list[dict[str, Any]]:
                ),
                "EBAY_ZERO_ELIGIBLE_ESTIMATES", {
                    "market_date": run and run.get("market_date"),
-                   "pricing_run_id": run and run.get("run_id"),
+                   "multi_source_run_id": run and run.get("run_id"),
+                   "ebay_pricing_run_id": run and run.get("ebay_pricing_run_id"),
+                   # Compatibility name: estimates.pricing_run_id is the eBay collector run id,
+                   # not pokemon_multi_source_pricing_runs_v1.run_id.
+                   "pricing_run_id": run and run.get("ebay_pricing_run_id"),
                    "target_count": target_count,
                    "eligible_estimate_count": eligible_estimate_count,
                }),

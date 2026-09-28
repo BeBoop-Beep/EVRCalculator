@@ -20,6 +20,7 @@ def _managed_block() -> str:
 */5 * * * * /usr/bin/flock -n /tmp/index-market-freshness-watchdog.lock -c 'python -m backend.alerts.market_freshness_watchdog'
 1-59/5 * * * * /usr/bin/flock -n /tmp/index-sentinel-fast.lock -c 'python -m backend.sentinel.operational --profile fast'
 4-59/10 * * * * /usr/bin/flock -n /tmp/index-sentinel-public.lock -c 'python -m backend.sentinel.operational --profile public'
+30 6 * * * /usr/bin/flock -n /tmp/index-sentinel-audit.lock -c 'python -m backend.sentinel.operational --profile audit'
 # END sentinel-runtime
 """
 
@@ -40,6 +41,7 @@ def test_exact_sentinel_runtime_schedule_is_healthy():
         "managed_blocks": 1,
         "fast_entries": 1,
         "public_entries": 1,
+        "audit_entries": 1,
         "dispatcher_entries": 1,
         "freshness_entries": 1,
     }
@@ -49,3 +51,14 @@ def test_partial_or_unmanaged_runtime_schedule_fails_closed():
     text = "1-59/5 * * * * python -m backend.sentinel.operational --profile fast\n"
     result = check_sentinel_scheduler(CTX, crontab_loader=lambda: text)
     assert result.outcome == CheckOutcome.FAILURE
+
+
+def test_missing_audit_entry_fails_runtime_schedule_contract():
+    text = _managed_block().replace(
+        "30 6 * * * /usr/bin/flock -n /tmp/index-sentinel-audit.lock -c 'python -m backend.sentinel.operational --profile audit'\n",
+        "",
+    )
+    result = check_sentinel_scheduler(CTX, crontab_loader=lambda: text)
+    assert result.outcome == CheckOutcome.FAILURE
+    assert result.failure_code == "SENTINEL_RUNTIME_SCHEDULE_MISSING"
+    assert result.observed["audit_entries"] == 0
