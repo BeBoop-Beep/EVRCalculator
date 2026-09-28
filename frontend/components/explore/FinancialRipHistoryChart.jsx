@@ -47,7 +47,7 @@ function LockedPreview() {
       <PlanBadge plan={INDEX_PLAN_PLUS} />
       <p className="mt-4 max-w-md text-lg font-semibold text-[var(--text-primary)]">Track Financial RIP across Sets and Eras over time</p>
       <p className="mt-2 max-w-md text-sm text-[var(--text-secondary)]">Compare exact certified publications with the moving Overall Financial RIP reference.</p>
-      <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="rankings-financial-rip-history" className="mt-5" />
+      <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="rankings" className="mt-5" />
     </div>
   </div>;
 }
@@ -82,7 +82,7 @@ export default function FinancialRipHistoryChart({ targets = [], openingSets = [
   const [setSelection, setSetSelection] = useState([]);
   const [eraSelection, setEraSelection] = useState([]);
   const [search, setSearch] = useState("");
-  const [request, setRequest] = useState({ status: "idle", payload: null, key: null, error: null });
+  const [request, setRequest] = useState({ status: "idle", view: null, key: null, pendingKey: null, error: null });
   const [retryNonce, setRetryNonce] = useState(0);
   const setCandidates = useMemo(() => setFinancialRipCandidates(targets), [targets]);
   const eraCandidates = useMemo(() => eraFinancialRipCandidates(openingSets, eras), [openingSets, eras]);
@@ -91,8 +91,8 @@ export default function FinancialRipHistoryChart({ targets = [], openingSets = [
   const candidates = mode === "sets" ? setCandidates : eraCandidates;
   const selectedIds = mode === "sets" ? setSelection : eraSelection;
   const selected = useMemo(() => candidates.filter((item) => selectedIds.includes(item.entity_id)), [candidates, selectedIds]);
-  const knownFrom = request.payload?.historyAvailableFrom || null;
-  const knownThrough = request.payload?.historyAvailableThrough || marketDate;
+  const knownFrom = request.view?.payload?.historyAvailableFrom || null;
+  const knownThrough = request.view?.payload?.historyAvailableThrough || marketDate;
   const range = useMemo(() => financialRipWindowRange(windowKey, knownThrough, knownFrom), [windowKey, knownThrough, knownFrom]);
   const fetchRange = useMemo(() => financialRipWindowRange(windowKey, marketDate, windowKey === "ALL" ? null : knownFrom), [windowKey, marketDate, knownFrom]);
   const selectionKey = selected.map((item) => item.entity_id).sort().join(",");
@@ -101,28 +101,111 @@ export default function FinancialRipHistoryChart({ targets = [], openingSets = [
   useEffect(() => {
     if (!shouldFetchFinancialRipHistory({ entitled, authStatus, selectedCount: selected.length, startDate: fetchRange.startDate, endDate: fetchRange.endDate })) return undefined;
     let active = true;
-    setRequest({ status: "loading", payload: null, key: requestKey, error: null });
+    setRequest((current) => ({ ...current, status: "loading", pendingKey: requestKey, error: null }));
     readFinancialRipHistory(selected, { startDate: fetchRange.startDate, endDate: fetchRange.endDate })
-      .then((payload) => { if (active) setRequest({ status: "ready", payload, key: requestKey, error: null }); })
-      .catch((error) => { if (active) setRequest({ status: "error", payload: null, key: requestKey, error: error.message }); });
+      .then((payload) => {
+        if (!active) return;
+        const displayRange = financialRipWindowRange(
+          windowKey,
+          payload?.historyAvailableThrough || marketDate,
+          payload?.historyAvailableFrom || null,
+        );
+        setRequest({
+          status: "ready",
+          view: {
+            payload,
+            selected: selected.map((item) => ({ ...item })),
+            range: displayRange,
+            mode,
+            windowKey,
+          },
+          key: requestKey,
+          pendingKey: null,
+          error: null,
+        });
+      })
+      .catch((error) => {
+        if (active) setRequest((current) => ({
+          ...current,
+          status: "error",
+          pendingKey: null,
+          error: error?.message || "Financial RIP history is temporarily unavailable.",
+        }));
+      });
     return () => { active = false; };
-  }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, requestKey, selected]);
+  }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, marketDate, mode, requestKey, selected, windowKey]);
 
-  const chart = useMemo(() => buildFinancialRipChartModel(request.payload?.rows || [], selected, range), [request.payload, selected, range]);
-  const names = useMemo(() => Object.fromEntries(candidates.map((item) => [item.entity_id, item.name])), [candidates]);
+  const display = request.view;
+  const chart = useMemo(
+    () => buildFinancialRipChartModel(display?.payload?.rows || [], display?.selected || [], display?.range || range),
+    [display, range],
+  );
+  const names = useMemo(
+    () => Object.fromEntries((display?.selected || []).map((item) => [item.entity_id, item.name])),
+    [display],
+  );
   const yDomain = useMemo(() => financialRipYAxisDomain(chart.points, chart.series), [chart]);
+  const accessPending = authStatus !== "resolved" && authStatus !== "degraded";
   const toggle = (id) => { const setter = mode === "sets" ? setSetSelection : setEraSelection; setter((current) => toggleFinancialRipSelection(current, id, mode === "sets" ? MAX_FINANCIAL_RIP_SET_SELECTION : Infinity)); };
 
   return <section className="mt-5 border-t border-[var(--border-subtle)] pt-5" data-financial-rip-history-chart>
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div><h3 className="text-lg font-semibold text-[var(--text-primary)]">Financial RIP Over Time</h3><p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--text-secondary)]">Compare absolute Financial RIP scores with the PokÃ©mon-wide Overall Financial RIP reference.</p></div><div className="flex max-w-full flex-col gap-2 overflow-x-auto sm:flex-row sm:items-center"><ModeControls mode={mode} onChange={setMode} disabled={!entitled} /><WindowControls value={windowKey} onChange={setWindowKey} disabled={!entitled} /></div></div>
-    {!entitled ? <LockedPreview /> : <>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">Financial RIP Over Time</h3>
+        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--text-secondary)]">Compare absolute Financial RIP scores with the Pokémon-wide Overall Financial RIP reference.</p>
+      </div>
+      <div className="flex max-w-full flex-col gap-2 overflow-x-auto sm:flex-row sm:items-center">
+        <ModeControls mode={mode} onChange={setMode} disabled={!entitled || accessPending} />
+        <WindowControls value={windowKey} onChange={setWindowKey} disabled={!entitled || accessPending} />
+      </div>
+    </div>
+
+    {accessPending ? (
+      <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">Loading access…</div>
+    ) : !entitled ? <LockedPreview /> : <>
       <EntitySelector candidates={candidates} selectedIds={selectedIds} onToggle={toggle} mode={mode} search={search} onSearch={setSearch} />
-      <div className="mt-3 flex flex-wrap gap-2">{chart.series.map((item) => <span key={item.entity_id} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[10px]"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span>)}<span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[10px]"><span className="h-0.5 w-3 bg-slate-200" />Overall Financial RIP</span></div>
-      {request.status === "loading" ? <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">Loading Financial RIP historyâ€¦</div> : request.status === "error" ? <div className="mt-4 flex h-[20rem] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center sm:h-[24rem] desk:h-[28rem]"><p className="text-sm text-[var(--text-secondary)]">Financial RIP history is temporarily unavailable.</p><button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="mt-3 min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-sm font-semibold">Retry</button></div> : request.status === "ready" ? <>
-        <ChartFrame className="mt-4 h-[20rem] sm:h-[24rem] desk:h-[28rem]"><ResponsiveContainer><LineChart data={chart.points} margin={{ top: 12, right: 14, bottom: 6, left: 0 }}><CartesianGrid stroke="rgba(148,163,184,.16)" strokeDasharray="2 8" vertical={false} /><XAxis dataKey="date" tickFormatter={(value) => labelDate(value).replace(/, \d{4}/, "")} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 10 }} /><YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} /><Tooltip content={<ChartTooltip names={names} />} /><Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} /><Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#e2e8f0" strokeWidth={3} strokeDasharray="7 6" dot={{ r: 2.5 }} connectNulls={false} isAnimationActive={false} />{chart.series.map((item) => <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeWidth={2.25} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></ChartFrame>
-        <ol className="sr-only" aria-label="Visible Financial RIP observations">{chart.points.flatMap((point) => Object.entries(point.entities).map(([id, detail]) => <li key={`${point.date}:${id}`}>{labelDate(point.date)}, {names[id]} Financial RIP {formatFinancialRip(detail.financialRip)}, {formatFinancialRipDelta(detail.deltaVsOverall)}, Overall Financial RIP {formatFinancialRip(detail.overallFinancialRip)}, {detail.rank == null ? "rank unavailable" : `rank ${detail.rank} of ${detail.cohortSize}`}.</li>))}</ol>
-        <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Exact certified publications only{request.payload?.historyAvailableFrom ? ` Â· History available from ${labelDate(request.payload.historyAvailableFrom)}` : ""}{request.payload?.historyAvailableThrough ? ` through ${labelDate(request.payload.historyAvailableThrough)}` : ""}. Missing publication dates remain gaps.</p>
-      </> : <div className="mt-4 h-[20rem] rounded-xl border border-[var(--border-subtle)] sm:h-[24rem] desk:h-[28rem]" />}
+
+      {!selected.length ? (
+        <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]">
+          Choose at least one {mode === "sets" ? "Set" : "Era"} to view Financial RIP history.
+        </div>
+      ) : <>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {chart.series.map((item) => <span key={item.entity_id} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[10px]"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span>)}
+          {display ? <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[10px]"><span className="h-0.5 w-3 bg-slate-200" />Overall Financial RIP</span> : null}
+          {request.status === "loading" && display ? <span aria-live="polite" className="text-[10px] text-[var(--text-secondary)]">Updating history…</span> : null}
+        </div>
+
+        {!display && request.status === "loading" ? (
+          <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">Loading Financial RIP history…</div>
+        ) : !display && request.status === "error" ? (
+          <div className="mt-4 flex h-[20rem] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center sm:h-[24rem] desk:h-[28rem]">
+            <p className="text-sm text-[var(--text-secondary)]">Financial RIP history is temporarily unavailable.</p>
+            <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="mt-3 min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-sm font-semibold">Retry</button>
+          </div>
+        ) : display ? <>
+          <ChartFrame className="mt-4 h-[20rem] sm:h-[24rem] desk:h-[28rem]">
+            <ResponsiveContainer>
+              <LineChart data={chart.points} margin={{ top: 12, right: 14, bottom: 6, left: 0 }}>
+                <CartesianGrid stroke="rgba(148,163,184,.16)" strokeDasharray="2 8" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={(value) => labelDate(value).replace(/, \d{4}/, "")} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 10 }} />
+                <YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} />
+                <Tooltip content={<ChartTooltip names={names} />} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#e2e8f0" strokeWidth={3} strokeDasharray="7 6" dot={{ r: 2.5 }} connectNulls={false} isAnimationActive={false} />
+                {chart.series.map((item) => <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeWidth={2.25} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />)}
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartFrame>
+          <ol className="sr-only" aria-label="Visible Financial RIP observations">
+            {chart.points.flatMap((point) => Object.entries(point.entities).map(([id, detail]) => <li key={`${point.date}:${id}`}>{labelDate(point.date)}, {names[id]} Financial RIP {formatFinancialRip(detail.financialRip)}, {formatFinancialRipDelta(detail.deltaVsOverall)}, Overall Financial RIP {formatFinancialRip(detail.overallFinancialRip)}, {detail.rank == null ? "rank unavailable" : `rank ${detail.rank} of ${detail.cohortSize}`}.</li>))}
+          </ol>
+          <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Exact certified publications only{display.payload?.historyAvailableFrom ? ` · History available from ${labelDate(display.payload.historyAvailableFrom)}` : ""}{display.payload?.historyAvailableThrough ? ` through ${labelDate(display.payload.historyAvailableThrough)}` : ""}. Missing publication dates remain gaps.</p>
+          {request.status === "error" ? <p role="alert" className="mt-2 text-xs text-red-300">The latest refresh failed, so the last successful history remains visible. <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="underline">Retry</button></p> : null}
+        </> : (
+          <div className="mt-4 h-[20rem] rounded-xl border border-[var(--border-subtle)] sm:h-[24rem] desk:h-[28rem]" />
+        )}
+      </>}
     </>}
   </section>;
 }
