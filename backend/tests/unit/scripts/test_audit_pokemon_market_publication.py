@@ -101,6 +101,28 @@ def _global_set_value_target(**overrides):
     return target
 
 
+def _scope_contract_row(
+    *,
+    set_id="set-1",
+    market_scope="unlimited",
+    value=80.0,
+    publishable=True,
+):
+    market_key = (
+        f"set:{set_id}"
+        if market_scope == "standard"
+        else f"set:{set_id}:{market_scope}"
+    )
+    return {
+        "set_id": set_id,
+        "market_scope": market_scope,
+        "market_key": market_key,
+        "publishable_100pct": publishable,
+        "public_current_value": value if publishable else None,
+        "quality_status": "complete" if publishable else "incomplete",
+    }
+
+
 def _global_set_value_row(sets=None, **overrides):
     """A pokemon_explore_set_value_snapshot_latest row."""
     published = [_global_set_value_target()] if sets is None else sets
@@ -1268,26 +1290,156 @@ def test_global_set_value_out_of_cohort_set_fails():
 
 
 def test_global_set_value_shared_set_id_scopes_are_valid_distinct_markets():
+    """Edition markets must be compared to their own scoped authority values."""
     from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
 
     report = run_market_publication_audit(
-        _publication_db(pokemon_explore_set_value_snapshot_latest=[
-            _global_set_value_row(sets=[
-                _global_set_value_target(
-                    marketScope="unlimited",
-                    marketKey="set:set-1:unlimited",
-                    name="Test Set - Unlimited",
-                ),
-                _global_set_value_target(
-                    marketScope="first_edition",
-                    marketKey="set:set-1:first_edition",
-                    name="Test Set - 1st Edition",
-                ),
-            ])
-        ])
+        _publication_db(
+            pokemon_explore_set_value_snapshot_latest=[
+                _global_set_value_row(sets=[
+                    _global_set_value_target(
+                        marketScope="unlimited",
+                        marketKey="set:set-1:unlimited",
+                        name="Test Set - Unlimited",
+                        currentSetValue=80.0,
+                    ),
+                    _global_set_value_target(
+                        marketScope="first_edition",
+                        marketKey="set:set-1:first_edition",
+                        name="Test Set - 1st Edition",
+                        currentSetValue=140.0,
+                    ),
+                ])
+            ],
+            pokemon_market_set_scope_contract_v1=[
+                _scope_contract_row(market_scope="unlimited", value=80.0),
+                _scope_contract_row(market_scope="first_edition", value=140.0),
+            ],
+        )
     )
 
-    assert report.passed
+    assert report.passed, report.to_dict()["failed_by_section"]
+
+
+def test_scoped_global_set_value_accepts_honest_unavailable_market():
+    from backend.scripts.audit_pokemon_market_publication import _audit_scoped_global_set_value
+
+    target = _global_set_value_target(
+        marketScope="first_edition",
+        marketKey="set:set-1:first_edition",
+        valueStatus="unavailable",
+        currentSetValue=None,
+        setValueAsOf=None,
+        windows={},
+        trend=[],
+        historyPointCount=0,
+    )
+    verdict = _audit_scoped_global_set_value(
+        DATE,
+        targets=[target],
+        contract_rows=[
+            _scope_contract_row(
+                market_scope="first_edition",
+                value=None,
+                publishable=False,
+            )
+        ],
+        in_cohort=True,
+    )
+
+    assert verdict.passed is True
+    assert verdict.observed_date == DATE
+    assert "honestly unavailable" in verdict.detail
+
+
+def test_scoped_global_set_value_rejects_borrowed_value_for_unavailable_market():
+    from backend.scripts.audit_pokemon_market_publication import _audit_scoped_global_set_value
+
+    target = _global_set_value_target(
+        marketScope="first_edition",
+        marketKey="set:set-1:first_edition",
+        valueStatus="current",
+        currentSetValue=100.0,
+    )
+    verdict = _audit_scoped_global_set_value(
+        DATE,
+        targets=[target],
+        contract_rows=[
+            _scope_contract_row(
+                market_scope="first_edition",
+                value=None,
+                publishable=False,
+            )
+        ],
+        in_cohort=True,
+    )
+
+    assert verdict.passed is False
+    assert "honest unavailable state" in verdict.detail
+
+
+def test_scoped_global_set_value_rejects_wrong_edition_value():
+    from backend.scripts.audit_pokemon_market_publication import _audit_scoped_global_set_value
+
+    target = _global_set_value_target(
+        marketScope="unlimited",
+        marketKey="set:set-1:unlimited",
+        currentSetValue=81.0,
+    )
+    verdict = _audit_scoped_global_set_value(
+        DATE,
+        targets=[target],
+        contract_rows=[_scope_contract_row(market_scope="unlimited", value=80.0)],
+        in_cohort=True,
+    )
+
+    assert verdict.passed is False
+    assert "scope authority" in verdict.detail
+
+
+def test_scoped_global_set_value_single_point_current_market_needs_no_windows():
+    from backend.scripts.audit_pokemon_market_publication import _audit_scoped_global_set_value
+
+    target = _global_set_value_target(
+        marketScope="first_edition",
+        marketKey="set:set-1:first_edition",
+        currentSetValue=140.0,
+        windows={},
+        historyPointCount=1,
+        historyStartDate=DATE,
+        historyEndDate=DATE,
+    )
+    verdict = _audit_scoped_global_set_value(
+        DATE,
+        targets=[target],
+        contract_rows=[_scope_contract_row(market_scope="first_edition", value=140.0)],
+        in_cohort=True,
+    )
+
+    assert verdict.passed is True
+
+
+def test_scoped_global_set_value_missing_authoritative_market_fails():
+    from backend.scripts.audit_pokemon_market_publication import _audit_scoped_global_set_value
+
+    verdict = _audit_scoped_global_set_value(
+        DATE,
+        targets=[
+            _global_set_value_target(
+                marketScope="unlimited",
+                marketKey="set:set-1:unlimited",
+                currentSetValue=80.0,
+            )
+        ],
+        contract_rows=[
+            _scope_contract_row(market_scope="unlimited", value=80.0),
+            _scope_contract_row(market_scope="first_edition", value=140.0),
+        ],
+        in_cohort=True,
+    )
+
+    assert verdict.passed is False
+    assert "missing scoped market" in verdict.detail
 
 
 def test_global_set_value_duplicate_market_key_fails():
