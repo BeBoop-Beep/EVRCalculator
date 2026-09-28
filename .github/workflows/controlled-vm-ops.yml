@@ -1697,7 +1697,8 @@ jobs:
               cd "$REPO"
               HOLD=/home/ubuntu/state/db-safety/hold.json
               [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold active"; exit 20; }
-              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production checkout is not main"; exit 21; }
+              PRE_BRANCH="$(git branch --show-current)"
+              [ -z "$PRE_BRANCH" ] || [ "$PRE_BRANCH" = "main" ] || { echo "REFUSING: unexpected production branch $PRE_BRANCH"; exit 21; }
               git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
               [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
                 echo "REFUSING: production checkout is not current origin/main"
@@ -1752,7 +1753,8 @@ jobs:
               cd "$REPO"
               HOLD=/home/ubuntu/state/db-safety/hold.json
               [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold active"; exit 20; }
-              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production checkout is not main"; exit 21; }
+              PRE_BRANCH="$(git branch --show-current)"
+              [ -z "$PRE_BRANCH" ] || [ "$PRE_BRANCH" = "main" ] || { echo "REFUSING: unexpected production branch $PRE_BRANCH"; exit 21; }
               git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
               [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
                 echo "REFUSING: production checkout is not current origin/main"
