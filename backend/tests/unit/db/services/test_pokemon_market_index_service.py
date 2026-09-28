@@ -370,3 +370,172 @@ def test_mismatched_raw_and_top10_root_membership_fails():
     chase_c = [{"setId": "a", "includedCardCount": 10}, {"setId": "c", "includedCardCount": 10}]
     with pytest.raises(Exception):
         build_market_overview(_history(raw_c, chase_c), market_date="2026-01-01")
+
+
+# ---------------------------------------------------------------------------
+# Edition-stable Raw parent cutover.
+# ---------------------------------------------------------------------------
+
+def _stable_raw_row(*, constituents, root_count=2, market_count=3, card_count=30):
+    return {
+        "index_key": "raw",
+        "market_date": "2026-09-27",
+        "normalized_index_value": 101.25,
+        "basket_value": 300.0,
+        "set_count": root_count,
+        "root_count": root_count,
+        "raw_market_count": market_count,
+        "market_count": market_count,
+        "card_count": card_count,
+        "cohort_fingerprint": "stable-raw",
+        "source_generation_fingerprint": "stable-source",
+        "methodology_version": "edition_stable_market_identity_chain_v1",
+        "constituents_json": constituents,
+        "diagnostics_json": {"editionStable": True},
+    }
+
+
+def _legacy_chase_row(*, set_count=3):
+    constituents = [
+        {"setId": f"root-{index}", "includedCardCount": 10}
+        for index in range(set_count)
+    ]
+    return {
+        "index_key": "top10",
+        "market_date": "2026-09-27",
+        "normalized_index_value": 99.5,
+        "basket_value": 320.0,
+        "set_count": set_count,
+        "card_count": set_count * 10,
+        "cohort_fingerprint": "legacy-chase",
+        "source_generation_fingerprint": "chase-source",
+        "methodology_version": "chain_linked_common_cohort_v1",
+        "constituents_json": constituents,
+    }
+
+
+def test_edition_stable_raw_accepts_sibling_scopes_under_one_root():
+    raw = _stable_raw_row(constituents=[
+        {
+            "marketKey": "set:vintage:first_edition",
+            "setId": "vintage",
+            "marketScope": "first_edition",
+            "includedCardCount": 10,
+        },
+        {
+            "marketKey": "set:vintage:unlimited",
+            "setId": "vintage",
+            "marketScope": "unlimited",
+            "includedCardCount": 10,
+        },
+        {
+            "marketKey": "set:modern",
+            "setId": "modern",
+            "marketScope": "standard",
+            "includedCardCount": 10,
+        },
+    ])
+    overview = build_market_overview(
+        [raw, _legacy_chase_row()], market_date="2026-09-27"
+    )
+    assert overview["coverage"]["rawRootCount"] == 2
+    assert overview["coverage"]["rawMarketCount"] == 3
+    assert overview["coverage"]["topChaseSetCount"] == 3
+    assert overview["methodology"]["editionStableRaw"] is True
+    assert "separate persistent identities" in overview["methodology"]["basketDefinition"]
+
+
+def test_edition_stable_raw_rejects_duplicate_market_identity():
+    duplicate = {
+        "marketKey": "set:vintage:first_edition",
+        "setId": "vintage",
+        "marketScope": "first_edition",
+        "includedCardCount": 10,
+    }
+    raw = _stable_raw_row(
+        constituents=[duplicate, dict(duplicate), {
+            "marketKey": "set:modern",
+            "setId": "modern",
+            "marketScope": "standard",
+            "includedCardCount": 10,
+        }],
+    )
+    with pytest.raises(Exception):
+        build_market_overview([raw, _legacy_chase_row()], market_date="2026-09-27")
+
+
+def test_public_reader_replaces_only_raw_at_edition_stable_cutover():
+    legacy_rows = [
+        {
+            "market_date": "2026-09-27", "index_key": "raw",
+            "methodology_version": "chain_linked_common_cohort_v1",
+            "normalized_index_value": 98.0,
+        },
+        {
+            "market_date": "2026-09-27", "index_key": "top10",
+            "methodology_version": "chain_linked_common_cohort_v1",
+            "normalized_index_value": 99.0,
+        },
+    ]
+    stable_rows = [{
+        "market_date": "2026-09-27",
+        "basket_value": 300.0,
+        "normalized_index_value": 101.25,
+        "daily_return": 0.001,
+        "previous_market_date": "2026-09-26",
+        "market_count": 3,
+        "root_count": 2,
+        "card_count": 30,
+        "cohort_fingerprint": "stable",
+        "source_generation_fingerprint": "stable-source",
+        "constituents_json": [],
+        "diagnostics_json": {"editionStable": True},
+        "methodology_version": "edition_stable_market_identity_chain_v1",
+    }]
+
+    class Result:
+        def __init__(self, data):
+            self.data = data
+
+    class Query:
+        def __init__(self, rows):
+            self.rows = list(rows)
+            self.limit = (0, len(self.rows) - 1)
+        def select(self, *_a): return self
+        def eq(self, column, value):
+            self.rows = [row for row in self.rows if row.get(column) == value]
+            return self
+        def lte(self, column, value):
+            self.rows = [row for row in self.rows if str(row.get(column)) <= str(value)]
+            return self
+        def order(self, column, desc=False):
+            self.rows = sorted(self.rows, key=lambda row: str(row.get(column)), reverse=desc)
+            return self
+        def range(self, start, end):
+            self.limit = (start, end)
+            return self
+        def execute(self):
+            start, end = self.limit
+            return Result(self.rows[start:end + 1])
+
+    class Client:
+        def table(self, name):
+            if name == "pokemon_market_index_daily_history":
+                return Query(legacy_rows)
+            if name == "pokemon_market_raw_edition_stable_daily_history_v1":
+                return Query(stable_rows)
+            return Query([])
+
+    rows = read_index_history(
+        Client(),
+        through_date="2026-09-27",
+        accepted_dates={"2026-09-27"},
+    )
+    raw = next(row for row in rows if row["index_key"] == "raw")
+    chase = next(row for row in rows if row["index_key"] == "top10")
+    assert raw["methodology_version"] == "edition_stable_market_identity_chain_v1"
+    assert raw["normalized_index_value"] == pytest.approx(101.25)
+    assert raw["set_count"] == 2
+    assert raw["raw_market_count"] == 3
+    assert chase["methodology_version"] == "chain_linked_common_cohort_v1"
+    assert chase["normalized_index_value"] == pytest.approx(99.0)
