@@ -1756,3 +1756,27 @@ def test_a_successful_daily_run_never_reports_not_attempted(monkeypatch, patched
     assert summary.exit_code == EXIT_OK
     assert summary.rankings_publication_outcome is not None
     assert summary.rankings_publication_status != "not_attempted"
+
+
+def test_daily_refresh_explicitly_defers_benchmark_to_later_ordered_step(monkeypatch):
+    commands = []
+    monkeypatch.setattr(
+        orchestrator,
+        "_run_command",
+        lambda command, **_kwargs: commands.append(list(command)) or 0,
+    )
+
+    code = orchestrator.refresh_public_snapshots(
+        python_executable="python",
+        commit=True,
+        dry_run=False,
+        gate_wait_attempts=0,
+        gate_wait_seconds=0,
+        skip_explore_rankings=False,
+    )
+
+    assert code == 0
+    assert len(commands) == 1
+    command = commands[0]
+    assert "--skip-rip-benchmark" in command
+    assert "--skip-explore-rankings" not in command
