@@ -577,6 +577,11 @@ def pokemon_rip_benchmark_current_batch(
         request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
         route="/tcgs/pokemon/rip-benchmark/current-batch",
     )
+    if any(item.entity_type != "sealed_product" for item in body.entities):
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_RIP_BENCHMARK_REQUEST",
+            "message": "Product Benchmark batch accepts sealed_product entities only.",
+        })
     client = _benchmark_client()
     try:
         contract = resolve_active_contract(client)
