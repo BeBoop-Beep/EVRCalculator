@@ -10,6 +10,8 @@ SCOPED_LEAF_AUTHORITY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928054
 SCOPED_LEAF_AUTHORITY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928054500_raw_parent_scoped_leaf_authority_v2.sql"
 SCOPED_SET_OVERLAY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928061000_market_explorer_scoped_set_overlay_v2.sql"
 SCOPED_SET_OVERLAY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928061000_market_explorer_scoped_set_overlay_v2.sql"
+SCOPED_PRICE_ASOF_SUPABASE = ROOT / "supabase" / "migrations" / "20260928063500_market_explorer_scoped_price_asof_v2.sql"
+SCOPED_PRICE_ASOF_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928063500_market_explorer_scoped_price_asof_v2.sql"
 
 
 def test_migration_copies_are_identical():
@@ -78,3 +80,12 @@ def test_scoped_set_overlay_uses_certified_current_and_respects_history_review()
     assert "WHERE c.history_publishable" in sql
     assert "SCOPED_SET_OVERLAY_CURRENT_RECONCILIATION_FAILED" in sql
     assert "'scoped',v_scoped" in sql
+
+
+def test_scoped_constituents_separate_valuation_date_from_source_observation_date():
+    sql = SCOPED_PRICE_ASOF_SUPABASE.read_text(encoding="utf-8")
+    assert sql == SCOPED_PRICE_ASOF_BACKEND.read_text(encoding="utf-8")
+    assert "'priceAsOf',p_market_date" in sql
+    assert "'asOf',p_market_date" in sql
+    assert "'sourceDate',x.observed_date" in sql or "'sourceDate',r.observed_date" in sql
+    assert "p_market_date AS price_as_of" in sql
