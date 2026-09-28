@@ -85,7 +85,8 @@ class _CountingClient:
 
 def _healthy_tables():
     market_date = EXPECTED_MARKET_DATE
-    run_id = "11111111-1111-1111-1111-111111111111"
+    multi_source_run_id = "11111111-1111-1111-1111-111111111111"
+    ebay_run_id = "22222222-2222-2222-2222-222222222222"
     manifest = {
         "target_count": 1,
         "cards": [{"canonical_card_id": "card-1"}],
@@ -93,18 +94,20 @@ def _healthy_tables():
     manifest["selector_fingerprint"] = digest(manifest)
     return {
         "pokemon_multi_source_pricing_runs_v1": [
-            {"run_id": run_id, "market_date": market_date, "status": "COMPLETE", "stage": "done", "failure_code": None,
+            {"run_id": multi_source_run_id, "market_date": market_date, "status": "COMPLETE", "stage": "done", "failure_code": None,
              "updated_at": NOW.isoformat(), "finished_at": NOW.isoformat(), "requests_attempted": 10,
-             "target_count": 1, "target_fingerprint": manifest["selector_fingerprint"], "manifest": manifest},
+             "target_count": 1, "target_fingerprint": manifest["selector_fingerprint"], "manifest": manifest,
+             "ebay_pricing_run_id": ebay_run_id},
         ],
         "pokemon_scrape_batches": [
             {"market_date": market_date, "status": "complete"},
         ],
         "ebay_pricing_runs_v1": [
-            {"market_date": market_date, "status": "COMPLETE", "finished_at": NOW.isoformat()},
+            {"run_id": ebay_run_id, "market_date": market_date, "status": "COMPLETE",
+             "finished_at": NOW.isoformat()},
         ],
         "ebay_active_ask_price_estimates_v1": [
-            {"id": "estimate-1", "pricing_run_id": run_id, "market_date": market_date,
+            {"id": "estimate-1", "pricing_run_id": ebay_run_id, "market_date": market_date,
              "estimator_version": ESTIMATOR_VERSION},
         ],
         "pokemon_multi_source_card_prices_v1": [
@@ -303,6 +306,16 @@ def test_missing_ebay_evidence_is_warning_not_failure_of_canonical_pricing():
     assert result.severity == Severity.WARNING
     # canonical source guard is unaffected by missing eBay evidence
     assert results["pricing.canonical.source_guard"].outcome == CheckOutcome.HEALTHY
+
+
+def test_estimate_coverage_follows_linked_ebay_pricing_run_id():
+    results = _run_all(_client())
+    coverage = results["pricing.ebay.estimate_coverage"]
+    assert coverage.outcome == CheckOutcome.HEALTHY
+    assert coverage.observed["multi_source_run_id"] == "11111111-1111-1111-1111-111111111111"
+    assert coverage.observed["ebay_pricing_run_id"] == "22222222-2222-2222-2222-222222222222"
+    assert coverage.observed["pricing_run_id"] == coverage.observed["ebay_pricing_run_id"]
+    assert coverage.observed["eligible_estimate_count"] == 1
 
 
 def test_zero_eligible_ebay_estimates_in_successful_run_has_explicit_warning():
