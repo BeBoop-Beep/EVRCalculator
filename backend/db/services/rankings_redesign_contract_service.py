@@ -53,7 +53,7 @@ def benchmark_reference() -> dict[str, Any]:
 def read_financial_history_page(client: Any, *, entities: Sequence[Mapping[str, str]],
                                 start_date: date, end_date: date, limit: int,
                                 after: Optional[Mapping[str, Any]] = None) -> dict[str, Any]:
-    """Read the exact dedicated history in at most one query per entity type."""
+    """Read the exact history with a DB-bounded keyset query per entity type."""
     selected: list[dict[str, Any]] = []
     columns = ("market_date,entity_type,entity_id,absolute_financial_rip_score,"
                "overall_financial_rip_reference,absolute_delta_vs_overall,rank,"
@@ -65,11 +65,20 @@ def read_financial_history_page(client: Any, *, entities: Sequence[Mapping[str, 
         query = (client.table("pokemon_financial_rip_history_rows_v1").select(columns)
                  .eq("entity_type", entity_type).in_("entity_id", ids)
                  .gte("market_date", start_date.isoformat()).lte("market_date", end_date.isoformat()))
-        selected.extend(_rows(query.order("market_date").order("entity_id").execute()))
+        if after:
+            cursor_date = _day(after.get("marketDate")) or ""
+            cursor_type = str(after.get("entityType") or "")
+            cursor_id = str(after.get("entityId") or "")
+            if entity_type < cursor_type:
+                query = query.gt("market_date", cursor_date)
+            elif entity_type > cursor_type:
+                query = query.gte("market_date", cursor_date)
+            else:
+                query = query.or_(
+                    f"market_date.gt.{cursor_date},and(market_date.eq.{cursor_date},entity_id.gt.{cursor_id})"
+                )
+        selected.extend(_rows(query.order("market_date").order("entity_id").limit(limit + 1).execute()))
     selected.sort(key=lambda row: (_day(row.get("market_date")) or "", row.get("entity_type") or "", str(row.get("entity_id") or "")))
-    if after:
-        cursor_key = (_day(after.get("marketDate")) or "", str(after.get("entityType") or ""), str(after.get("entityId") or ""))
-        selected = [row for row in selected if (_day(row.get("market_date")) or "", row.get("entity_type") or "", str(row.get("entity_id") or "")) > cursor_key]
     page = selected[:limit]
     has_more = len(selected) > limit
     projected = [{
@@ -81,16 +90,18 @@ def read_financial_history_page(client: Any, *, entities: Sequence[Mapping[str, 
         "rank": row.get("rank"), "cohortSize": row.get("cohort_size"),
         "financialModelVersion": row.get("financial_model_version"),
     } for row in page]
-    bounds = _rows(client.table("pokemon_financial_rip_history_publications_v1")
-                   .select("market_date").order("market_date").execute())
+    oldest = _rows(client.table("pokemon_financial_rip_history_publications_v1")
+                   .select("market_date").order("market_date").limit(1).execute())
+    newest = _rows(client.table("pokemon_financial_rip_history_publications_v1")
+                   .select("market_date").order("market_date", desc=True).limit(1).execute())
     next_cursor = None
     if has_more and projected:
         last = projected[-1]
         next_cursor = {key: last[key] for key in ("marketDate", "entityType", "entityId")}
     return {
         "contractVersion": "financial-rip-history-v2", "status": "available",
-        "historyAvailableFrom": _day(bounds[0].get("market_date")) if bounds else None,
-        "historyAvailableThrough": _day(bounds[-1].get("market_date")) if bounds else None,
+        "historyAvailableFrom": _day(oldest[0].get("market_date")) if oldest else None,
+        "historyAvailableThrough": _day(newest[0].get("market_date")) if newest else None,
         "rows": projected, "hasMore": has_more, "nextCursor": next_cursor,
     }
 
@@ -238,6 +249,25 @@ def project_product_contract(payload: Mapping[str, Any], *, view: str,
         projected.append(item)
     return {"contractVersion": f"rankings-products-{view}-v1", "status": "available" if payload.get("available") else "unavailable",
             "marketDate": market_date, "view": view, "rows": projected}
+
+
+def read_product_best_open_map(client: Any, *, reference_date: Optional[str] = None) -> dict[str, dict[str, Any]]:
+    """Read the exact Product Best-Open authority directly, without Set hierarchy work."""
+    pointer = _rows(client.table("budget_product_best_open_price_latest")
+                    .select("snapshot_id,source_market_date").limit(1).execute())
+    if not pointer:
+        return {}
+    source_date = _day(pointer[0].get("source_market_date"))
+    rows = _rows(client.table("budget_product_best_open_price_rows").select(
+        "sealed_product_id,current_market_price,status,best_open_price,price_gap_dollars,price_gap_percent"
+    ).eq("snapshot_id", pointer[0]["snapshot_id"]).execute())
+    return {str(row["sealed_product_id"]): {
+        "bestOpenPrice": _number(row.get("best_open_price")), "bestOpenStatus": row.get("status"),
+        "bestOpenPriceGapDollars": _number(row.get("price_gap_dollars")),
+        "bestOpenPriceGapPercent": _number(row.get("price_gap_percent")),
+        "bestOpenSourceMarketDate": source_date,
+        "bestOpenFreshnessStatus": _freshness(source_date, _day(reference_date)),
+    } for row in rows}
 
 
 def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,

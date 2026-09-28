@@ -3,6 +3,7 @@ from datetime import date
 from backend.db.services.rankings_redesign_contract_service import (
     benchmark_presentation, benchmark_reference, project_product_contract,
     read_card_facets, read_financial_history_page, read_overview_v2, read_pack_economics,
+    read_product_best_open_map,
 )
 
 
@@ -15,10 +16,19 @@ class Query:
     def select(self, *_args, **_kwargs): return self
     def eq(self, key, value): self.rows = [r for r in self.rows if str(r.get(key)) == str(value)]; return self
     def gte(self, key, value): self.rows = [r for r in self.rows if str(r.get(key)) >= str(value)]; return self
+    def gt(self, key, value): self.rows = [r for r in self.rows if str(r.get(key)) > str(value)]; return self
     def lte(self, key, value): self.rows = [r for r in self.rows if str(r.get(key)) <= str(value)]; return self
     def in_(self, key, values): self.rows = [r for r in self.rows if str(r.get(key)) in {str(v) for v in values}]; return self
     def order(self, key, desc=False, **_kwargs): self.rows.sort(key=lambda r: str(r.get(key)), reverse=desc); return self
     def limit(self, value): self.rows = self.rows[:value]; return self
+    def or_(self, expression):
+        # The service emits the fixed keyset form: date > D OR (date = D AND id > I).
+        parts = expression.split(",")
+        date_value = parts[0].split(".gt.", 1)[1]
+        entity_value = parts[2].rsplit(".gt.", 1)[1].rstrip(")")
+        self.rows = [r for r in self.rows if str(r.get("market_date")) > date_value or
+                     (str(r.get("market_date")) == date_value and str(r.get("entity_id")) > entity_value)]
+        return self
     def execute(self): return Response(self.rows)
 
 
@@ -72,6 +82,29 @@ def test_financial_history_v2_supports_mixed_set_era_bounded_pagination():
     assert client.calls.count("pokemon_financial_rip_history_rows_v1") == 2
 
 
+def test_financial_history_keyset_pages_concatenate_without_gaps_or_duplicates():
+    rows = [{"market_date": day, "entity_type": kind, "entity_id": entity,
+             "absolute_financial_rip_score": 30, "overall_financial_rip_reference": 30,
+             "absolute_delta_vs_overall": 0, "rank": 1, "cohort_size": 24,
+             "financial_model_version": "v4"}
+            for day in ("2026-09-27", "2026-09-28")
+            for kind, entity in (("era", "e1"), ("era", "e2"), ("set", "s1"), ("set", "s2"), ("set", "s3"))]
+    client = Client({"pokemon_financial_rip_history_rows_v1": rows,
+                     "pokemon_financial_rip_history_publications_v1": [{"market_date": "2026-09-27"}, {"market_date": "2026-09-28"}]})
+    entities = [{"entity_type": kind, "entity_id": entity} for kind, entity in
+                (("era", "e1"), ("era", "e2"), ("set", "s1"), ("set", "s2"), ("set", "s3"))]
+    observed, cursor = [], None
+    while True:
+        page = read_financial_history_page(client, entities=entities, start_date=date(2026, 9, 1),
+                                           end_date=date(2026, 9, 30), limit=3, after=cursor)
+        observed.extend((r["marketDate"], r["entityType"], r["entityId"]) for r in page["rows"])
+        if not page["hasMore"]:
+            break
+        cursor = page["nextCursor"]
+    expected = sorted((r["market_date"], r["entity_type"], r["entity_id"]) for r in rows)
+    assert observed == expected and len(observed) == len(set(observed))
+
+
 def test_card_facets_are_one_prepared_pointer_bound_read():
     rows = [
         {"lens": "collector", "source_authority_id": "run", "source_model_version": "v7", "as_of_date": "2026-09-11",
@@ -100,6 +133,18 @@ def test_products_split_keeps_rank_scope_and_separates_units():
     assert economics["modeledReturnOnSpend"] == .4
     assert economics["bestOpenFreshnessStatus"] == "older"
     assert "unitPrice" not in scores and "ripScore" not in economics
+
+
+def test_product_best_open_reads_direct_rows_without_pack_hierarchy():
+    client = Client({
+        "budget_product_best_open_price_latest": [{"snapshot_id": "snap", "source_market_date": "2026-09-08"}],
+        "budget_product_best_open_price_rows": [{"snapshot_id": "snap", "sealed_product_id": "p1",
+            "status": "available", "best_open_price": 42, "price_gap_dollars": 3, "price_gap_percent": .07}],
+    })
+    result = read_product_best_open_map(client, reference_date="2026-09-28")
+    assert result["p1"]["bestOpenPrice"] == 42
+    assert result["p1"]["bestOpenFreshnessStatus"] == "older"
+    assert client.calls == ["budget_product_best_open_price_latest", "budget_product_best_open_price_rows"]
 
 
 def test_overview_v2_contains_absolute_financial_and_clean_economics_headlines():

@@ -96,7 +96,7 @@ def _best_open_price_projection(
 
 def read_public_overall_product_rankings(
     budget: str = "full_market", *, product_family_rankings: Mapping[str, Any], client: Any = None,
-    release: Any = None,
+    release: Any = None, include_best_open: bool = True,
 ) -> Dict[str, Any]:
     client = client or service_read_client
     release = release or rip_release.resolve_release_or_marked_fallback(client)   # once per request
@@ -126,8 +126,11 @@ def read_public_overall_product_rankings(
     identities = _identity_index(product_family_rankings)
     raw_rows = result.get("rows") or []
     presentation = public_budget_cohort_presentation(raw_rows, snapshot)
-    best_open_price, best_open_by_id = _best_open_price_projection(
-        client, snapshot, raw_rows, budget, release)
+    if include_best_open:
+        best_open_price, best_open_by_id = _best_open_price_projection(
+            client, snapshot, raw_rows, budget, release)
+    else:
+        best_open_price, best_open_by_id = {"available": False, "reason": "not_requested"}, {}
     best_open_is_v2 = best_open_price.get("methodVersion") in (
         BEST_OPEN_PRICE_V2_METHOD_VERSION, *(v for v in release.best_open_method_versions
                                             if v != BEST_OPEN_PRICE_METHOD_VERSION))

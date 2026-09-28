@@ -211,6 +211,7 @@ from backend.db.services.public_overall_product_rankings_service import read_pub
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.db.services.rankings_redesign_contract_service import (
     project_product_contract,
+    read_product_best_open_map,
     read_card_facets,
     read_financial_cohort,
     read_financial_history_page,
@@ -262,13 +263,20 @@ class BenchmarkFinancialHistoryEntityRequest(BaseModel):
     entity_id: UUID
 
 
+class BenchmarkFinancialHistoryCursor(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    market_date: date = Field(alias="marketDate")
+    entity_type: Literal["set", "era"] = Field(alias="entityType")
+    entity_id: UUID = Field(alias="entityId")
+
+
 class BenchmarkFinancialHistoryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     entities: List[BenchmarkFinancialHistoryEntityRequest] = Field(min_length=1, max_length=22)
     start_date: date
     end_date: date
     limit: int = Field(default=10000, ge=1, le=10000)
-    after: Optional[Dict[str, Any]] = None
+    after: Optional[BenchmarkFinancialHistoryCursor] = None
 
 
 class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
@@ -689,7 +697,8 @@ def pokemon_financial_rip_history(
     try:
         return read_financial_history_page(
             client, entities=entities, start_date=body.start_date,
-            end_date=body.end_date, limit=body.limit, after=body.after,
+            end_date=body.end_date, limit=body.limit,
+            after=body.after.model_dump(mode="json", by_alias=True) if body.after else None,
         )
     except BenchmarkContractUnavailable as exc:
         raise _benchmark_unavailable(exc) from exc
@@ -702,12 +711,18 @@ def pokemon_financial_rip_history(
 @app.get("/tcgs/pokemon/rankings/overview-v2")
 def pokemon_rankings_overview_v2():
     """Public narrow first-render projection; no paid Benchmark dependency."""
+    global _rankings_overview_cache
+    cached = _rankings_overview_cache
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
     client = _benchmark_client()
     try:
         contract = resolve_active_contract(client)
-        return read_overview_v2(
+        result = read_overview_v2(
             client, legacy_headlines=_public_benchmark_overview_headlines(client, contract)
         )
+        _rankings_overview_cache = (time.monotonic() + 60.0, result)
+        return result
     except BenchmarkContractUnavailable as exc:
         raise _benchmark_unavailable(exc) from exc
 
@@ -734,12 +749,25 @@ def pokemon_rankings_scorecards(
 
 
 @app.get("/tcgs/pokemon/rankings/pack-economics")
-def pokemon_rankings_pack_economics():
-    """Public prepared economics joined to exact, independently dated Best-Open."""
+def pokemon_rankings_pack_economics(
+    authorization: Optional[str] = Header(None),
+    token_cookie: Optional[str] = Cookie(None, alias="token"),
+):
+    """Plus prepared economics joined to exact, independently dated Best-Open."""
+    _require_index_feature(
+        feature=FEATURE_PACK_ECONOMICS, code="INDEX_PLUS_REQUIRED",
+        message="Detailed Pack Economics requires Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
     return read_pack_economics(_benchmark_client())
 
 
 logger = logging.getLogger(__name__)
+
+# These contain only shared, publication-bound authority data. Entitlement is
+# still checked on every paid request and paid HTTP responses remain no-store.
+_rankings_overview_cache: tuple[float, Dict[str, Any]] | None = None
+_rankings_product_authority_cache: tuple[float, Dict[str, Any]] | None = None
 
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
 _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
@@ -1805,19 +1833,22 @@ def _rankings_product_v2(
     )
     _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
                         route=f"/explore/product-rankings/{view}")
-    rankings = get_pokemon_explore_rankings_lens_payload(lens="products", limit=200)
-    payload = read_public_overall_product_rankings(
-        "full_market", product_family_rankings=rankings.get("productFamilyRankings") or {}
-    )
+    global _rankings_product_authority_cache
+    cached = _rankings_product_authority_cache
+    if cached and cached[0] > time.monotonic():
+        payload = cached[1]
+    else:
+        rankings = get_pokemon_explore_rankings_lens_payload(lens="products", limit=200)
+        payload = read_public_overall_product_rankings(
+            "full_market", product_family_rankings=rankings.get("productFamilyRankings") or {},
+            include_best_open=False,
+        )
+        _rankings_product_authority_cache = (time.monotonic() + 60.0, payload)
     best_open_products = None
     if view == "economics":
-        pack = read_pack_economics(service_read_client)
-        best_open_products = {
-            str(product["sealedProductId"]): product
-            for set_row in (pack.get("sets") or [])
-            for family in (set_row.get("families") or [])
-            for product in (family.get("products") or [])
-        }
+        best_open_products = read_product_best_open_map(
+            service_read_client, reference_date=payload.get("marketDate")
+        )
     return _tiered_response(project_product_contract(
         payload, view=view, best_open_products=best_open_products
     ))

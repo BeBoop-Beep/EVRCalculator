@@ -142,6 +142,49 @@ def test_redesign_card_facets_and_product_contracts_keep_paid_boundaries(monkeyp
     assert "Cookie" in products_plus.headers["vary"] and "Authorization" in products_plus.headers["vary"]
 
 
+def test_detailed_pack_economics_gates_before_any_database_work(monkeypatch):
+    _install_auth(monkeypatch)
+    reads = []
+    monkeypatch.setattr(main, "_benchmark_client", lambda: reads.append("client") or object())
+    monkeypatch.setattr(main, "read_pack_economics", lambda _client: reads.append("read") or {"sets": []})
+    client = TestClient(main.app)
+
+    assert client.get("/tcgs/pokemon/rankings/pack-economics").status_code == 401
+    assert client.get("/tcgs/pokemon/rankings/pack-economics", headers=_headers("base-token")).status_code == 403
+    assert reads == []
+    assert client.get("/tcgs/pokemon/rankings/pack-economics", headers=_headers("plus-token")).status_code == 200
+    assert client.get("/tcgs/pokemon/rankings/pack-economics", headers=_headers("premium-token")).status_code == 200
+    assert reads == ["client", "read", "client", "read"]
+
+
+def test_public_overview_matrix_reuses_only_shared_authority(monkeypatch):
+    _install_auth(monkeypatch)
+    main._rankings_overview_cache = None
+    calls = []
+    monkeypatch.setattr(main, "_benchmark_client", lambda: object())
+    monkeypatch.setattr(main, "resolve_active_contract", lambda _client: object())
+    monkeypatch.setattr(main, "_public_benchmark_overview_headlines", lambda *_args: {"status": "available"})
+    monkeypatch.setattr(main, "read_overview_v2", lambda *_args, **_kwargs: calls.append("read") or {"status": "available"})
+    client = TestClient(main.app)
+    for token in (None, "base-token", "plus-token", "premium-token"):
+        assert client.get("/tcgs/pokemon/rankings/overview-v2", headers=_headers(token)).status_code == 200
+    assert calls == ["read"]
+
+
+def test_product_views_share_authority_and_economics_reads_best_open_directly(monkeypatch):
+    _install_auth(monkeypatch)
+    main._rankings_product_authority_cache = None
+    calls = []
+    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda **_kwargs: calls.append("identity") or {"productFamilyRankings": {}})
+    monkeypatch.setattr(main, "read_public_overall_product_rankings", lambda *_args, **_kwargs: calls.append("ranking") or {
+        "available": True, "marketDate": "2026-09-28", "rows": []})
+    monkeypatch.setattr(main, "read_product_best_open_map", lambda *_args, **_kwargs: calls.append("best-open") or {})
+    client = TestClient(main.app)
+    assert client.get("/explore/product-rankings/scores", headers=_headers("plus-token")).status_code == 200
+    assert client.get("/explore/product-rankings/economics", headers=_headers("plus-token")).status_code == 200
+    assert calls == ["identity", "ranking", "best-open"]
+
+
 def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
     _install_auth(monkeypatch)
     family = {"label": "Booster Box", "count": 1, "products": [{

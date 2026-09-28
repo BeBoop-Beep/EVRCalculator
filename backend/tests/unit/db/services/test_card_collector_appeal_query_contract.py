@@ -57,6 +57,11 @@ class _Client:
     def table(self, name):
         return _Query(self, name)
 
+    def rpc(self, name, params):
+        query = _Query(self, name)
+        query.ops.append(("rpc", (params,), {}))
+        return query
+
 
 def test_query_pages_prepared_authority_then_batch_enriches_only_page():
     _pointer_cache.clear()
@@ -122,6 +127,10 @@ def test_component_lenses_rank_only_available_component_cohort(lens, column, pol
     client = _Client({
         "pokemon_collector_appeal_current": ([{"model_run_id": "run", "model_version": "v7", "as_of_date": "2026-09-11"}], None),
         "pokemon_card_collector_appeal_rankings": ([ranking], 40),
+        "get_pokemon_card_component_rankings_v1": ({
+            "rows": [{**ranking, "component_rank": 73, "component_score": 77}],
+            "total": 1, "componentCohortSize": 40,
+        }, None),
         "pokemon_canonical_cards": ([], None),
         "pokemon_card_collector_appeal_scores": ([{"pokemon_canonical_card_id": "card", "subject_policy": policy,
             "subject_baseline_score": 77, "artist_recognition_score": 77, "playability_score": 77,
@@ -130,10 +139,9 @@ def test_component_lenses_rank_only_available_component_cohort(lens, column, pol
         "eras": ([{"id": "era", "name": "Era", "canonical_key": "era"}], None),
     })
     result = query_card_collector_appeal(client, lens=lens)
-    assert result["rankSemantics"] == "rank_within_filtered_component_cohort"
-    assert result["rows"][0]["rank"] == 1 and result["rows"][0]["cohortSize"] == 40
+    assert result["rankSemantics"] == "global_component_cohort"
+    assert result["componentCohortSize"] == 40
+    assert result["rows"][0]["rank"] == 73 and result["rows"][0]["cohortSize"] == 40
     assert result["rows"][0]["componentScore"] == 77
-    ops = next(ops for name, ops in client.calls if name == "pokemon_card_collector_appeal_rankings")
-    assert any(op == "not.is" and args == (column, "null") for op, args, _ in ops)
-    if policy:
-        assert any(op == "eq" and args == ("subject_policy", policy) for op, args, _ in ops)
+    rpc_ops = next(ops for name, ops in client.calls if name == "get_pokemon_card_component_rankings_v1")
+    assert rpc_ops[0][1][0]["p_lens"] == lens
