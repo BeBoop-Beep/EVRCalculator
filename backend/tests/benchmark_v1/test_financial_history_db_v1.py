@@ -160,6 +160,14 @@ def test_post_publish_parity_accepts_exact_22_set_2_era_authority():
         "overall_financial_rip_reference": "30.22370909090909090909090909",
     }
 
+def test_post_publish_parity_accepts_sub_picopoint_numeric_transport_rounding():
+    expected = "30.37263636363636363636363636"
+    transported = "30.372636363636364"
+    client = Client({"pokemon_rip_benchmark_rows_v1": financial_rows(reference=transported)})
+    result = publisher._post_publish_parity(client, candidate(reference=expected), "pub-1")
+    assert result["overall_financial_rip_reference"] == expected
+
+
 
 @pytest.mark.parametrize(
     "mutation,match",
