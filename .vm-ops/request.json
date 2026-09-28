@@ -1,5 +1,4 @@
 {
-  "operation": "rip-benchmark-publish",
-  "market_date": "2026-09-27",
-  "request_id": "financial-rip-bucket1-publish-20260927"
+  "operation": "sync-main-reviewed",
+  "request_id": "sentinel-finalize-sync-20260927"
 }
