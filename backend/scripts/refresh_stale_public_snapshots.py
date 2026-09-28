@@ -473,6 +473,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Refresh independent market surfaces but explicitly defer the Rankings branch.",
     )
+    parser.add_argument(
+        "--skip-rip-benchmark",
+        action="store_true",
+        help=(
+            "Do not reconcile Benchmark V1 here. The coordinated daily opening "
+            "publisher sets this because it owns the later ordered Benchmark step."
+        ),
+    )
     return parser
 
 
@@ -2253,6 +2261,106 @@ def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: b
         summary.global_failed.append(f"explore_rankings: {exc}")
 
 
+def _maybe_reconcile_rip_benchmark(
+    client: Any,
+    *,
+    market_date: Optional[str],
+    commit: bool,
+    summary: RefreshSummary,
+) -> None:
+    """Close a Benchmark-history gap after a standalone Rankings recovery.
+
+    The coordinated daily opening publisher owns its own later Benchmark step
+    and passes --skip-rip-benchmark. Standalone stale-snapshot recovery does
+    not, so it must reconcile Benchmark after Rankings has become current;
+    otherwise a rankings_only repair can advance the public authority while
+    leaving historical Financial RIP behind.
+    """
+    target = str(market_date or "")[:10]
+    if not target:
+        summary.global_skipped.append("rip_benchmark_v1: deferred target market date unavailable")
+        return
+    if not commit:
+        summary.global_skipped.append(f"rip_benchmark_v1: dry-run target={target}")
+        return
+
+    try:
+        existing = list(
+            client.table("pokemon_rip_benchmark_publications_v1")
+            .select("id,market_date,publication_status")
+            .eq("market_date", target)
+            .eq("benchmark_key", "pokemon_equal_weight_eligible_sets_v1")
+            .eq("calibration_version", "rip_benchmark_v1_fin5_chase10_collector10_overall5")
+            .eq("publication_status", "published")
+            .limit(2)
+            .execute()
+            .data
+            or []
+        )
+        if len(existing) == 1:
+            return
+        if len(existing) > 1:
+            raise RuntimeError(f"ambiguous published Benchmark V1 authority for {target}")
+
+        rankings_rows = list(
+            client.table("pokemon_explore_rankings_snapshot_latest")
+            .select("ranking_payload_json,updated_at")
+            .eq("tcg", "pokemon")
+            .eq("scope", "rip-statistics")
+            .limit(2)
+            .execute()
+            .data
+            or []
+        )
+        if len(rankings_rows) != 1:
+            summary.global_skipped.append(
+                f"rip_benchmark_v1: deferred Rankings authority missing/ambiguous target={target}"
+            )
+            return
+        rankings_payload = rankings_rows[0].get("ranking_payload_json") or {}
+        snapshot = ((rankings_payload.get("meta") or {}).get("snapshot") or {})
+        rankings_day = str(
+            snapshot.get("simulationSourceMarketDate") or snapshot.get("marketDate") or ""
+        )[:10]
+        if rankings_day != target:
+            summary.global_skipped.append(
+                f"rip_benchmark_v1: deferred Rankings source date={rankings_day or 'missing'} target={target}"
+            )
+            return
+
+        opening_rows = list(
+            client.table("pokemon_rip_stats_snapshots")
+            .select("id,market_date,publication_status,contract_version")
+            .eq("market_date", target)
+            .eq("publication_status", "published")
+            .eq("contract_version", "pokemon-rip-stats-v3")
+            .limit(2)
+            .execute()
+            .data
+            or []
+        )
+        if len(opening_rows) != 1:
+            summary.global_skipped.append(
+                f"rip_benchmark_v1: deferred same-day Opening Economics V3 missing/ambiguous target={target}"
+            )
+            return
+
+        from backend.scripts.run_rip_benchmark_publisher_v1 import publish_market_date
+
+        result = publish_market_date(client, target)
+        publication = result.get("publication") or {}
+        logger.info(
+            "[rip-benchmark-reconcile] published target=%s attempt_id=%s publication_id=%s",
+            target,
+            result.get("attempt_id"),
+            publication.get("publication_id"),
+        )
+        summary.global_rebuilt.append("rip_benchmark_v1")
+    except Exception as exc:
+        logger.exception("failed RIP Benchmark V1 reconciliation")
+        summary.global_failed.append(f"rip_benchmark_v1: {exc}")
+
+
 def _maybe_rebuild_explore_card_movers(
     client: Any, *, market_date: Optional[str], commit: bool, summary: RefreshSummary
 ) -> None:
@@ -3152,6 +3260,14 @@ def main() -> None:
         _maybe_rebuild_rankings(
             client,
             FreshnessResult("explore_rankings", rankings_needed, rankings_reason),
+            commit=commit,
+            summary=summary,
+        )
+
+    if not args.skip_rip_benchmark:
+        _maybe_reconcile_rip_benchmark(
+            client,
+            market_date=args.market_date or gate.market_date,
             commit=commit,
             summary=summary,
         )
