@@ -4,12 +4,25 @@ on:
   push:
     paths:
       - 'backend/db/services/pokemon_explore_set_value_service.py'
+      - 'backend/db/services/pokemon_market_index_service.py'
       - 'backend/db/services/pokemon_set_market_service.py'
       - 'backend/scripts/build_pokemon_explore_set_value_snapshot.py'
       - 'backend/scripts/audit_pokemon_market_publication.py'
       - 'backend/db/migrations/20260925161052_explicit_vintage_market_scopes.sql'
+      - 'backend/db/migrations/20260928045911_raw_parent_edition_stable_v1.sql'
+      - 'backend/db/migrations/20260928051953_grant_edition_history_binding_validator_service_role.sql'
+      - 'backend/db/migrations/20260928053519_raw_parent_scoped_leaf_authority_v2.sql'
+      - 'backend/db/migrations/20260928054042_market_explorer_scoped_set_overlay_v2.sql'
+      - 'backend/db/migrations/20260928054305_market_explorer_scoped_price_asof_v2.sql'
       - 'supabase/migrations/20260925161052_explicit_vintage_market_scopes.sql'
+      - 'supabase/migrations/20260928045911_raw_parent_edition_stable_v1.sql'
+      - 'supabase/migrations/20260928051953_grant_edition_history_binding_validator_service_role.sql'
+      - 'supabase/migrations/20260928053519_raw_parent_scoped_leaf_authority_v2.sql'
+      - 'supabase/migrations/20260928054042_market_explorer_scoped_set_overlay_v2.sql'
+      - 'supabase/migrations/20260928054305_market_explorer_scoped_price_asof_v2.sql'
       - 'backend/tests/unit/db/services/test_pokemon_explore_set_value_service.py'
+      - 'backend/tests/unit/db/services/test_pokemon_market_index_service.py'
+      - 'backend/tests/unit/db/test_raw_parent_edition_stable_migration.py'
       - 'backend/tests/unit/scripts/test_audit_pokemon_market_publication.py'
       - 'backend/tests/unit/db/services/test_pokemon_set_market_scope_sanitizer.py'
       - 'backend/tests/unit/db/test_explicit_vintage_market_scopes_migration.py'
@@ -53,6 +66,7 @@ jobs:
         run: |
           python -m py_compile \
             backend/db/services/pokemon_explore_set_value_service.py \
+            backend/db/services/pokemon_market_index_service.py \
             backend/db/services/pokemon_set_market_service.py \
             backend/scripts/build_pokemon_explore_set_value_snapshot.py \
             backend/scripts/audit_pokemon_market_publication.py
@@ -60,6 +74,8 @@ jobs:
         run: |
           python -m pytest -q \
             backend/tests/unit/db/services/test_pokemon_explore_set_value_service.py \
+            backend/tests/unit/db/services/test_pokemon_market_index_service.py \
+            backend/tests/unit/db/test_raw_parent_edition_stable_migration.py \
             backend/tests/unit/scripts/test_audit_pokemon_market_publication.py \
             backend/tests/unit/db/services/test_pokemon_set_market_scope_sanitizer.py \
             backend/tests/unit/db/test_explicit_vintage_market_scopes_migration.py \
