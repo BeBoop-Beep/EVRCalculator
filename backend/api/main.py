@@ -507,8 +507,8 @@ def _public_benchmark_overview_headlines(client: Any, contract: Any) -> Dict[str
     }
     era_names = {
         str(item.get("eraId")): item.get("eraName")
-        for item in (economics.get("eras") or [])
-        if item.get("eraId")
+        for item in (economics.get("sets") or [])
+        if item.get("eraId") and item.get("eraName")
     }
     def project(entity_type: str) -> Optional[Dict[str, Any]]:
         row = next((item for item in rows if item.get("entity_type") == entity_type), None)
