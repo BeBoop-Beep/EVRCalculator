@@ -6,6 +6,8 @@ SUPABASE = ROOT / "supabase" / "migrations" / "20260928043000_raw_parent_edition
 BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928043000_raw_parent_edition_stable_v1.sql"
 SERVICE_ROLE_GRANT_SUPABASE = ROOT / "supabase" / "migrations" / "20260928052000_grant_edition_history_binding_validator_service_role.sql"
 SERVICE_ROLE_GRANT_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928052000_grant_edition_history_binding_validator_service_role.sql"
+SCOPED_LEAF_AUTHORITY_SUPABASE = ROOT / "supabase" / "migrations" / "20260928054500_raw_parent_scoped_leaf_authority_v2.sql"
+SCOPED_LEAF_AUTHORITY_BACKEND = ROOT / "backend" / "db" / "migrations" / "20260928054500_raw_parent_scoped_leaf_authority_v2.sql"
 
 
 def test_migration_copies_are_identical():
@@ -52,3 +54,13 @@ def test_edition_history_binding_validator_service_role_grant_is_narrow():
     assert "FROM PUBLIC, anon, authenticated" in sql
     assert "TO anon" not in sql
     assert "TO authenticated" not in sql
+
+
+def test_raw_parent_scoped_leaves_use_edition_history_v2_directly():
+    sql = SCOPED_LEAF_AUTHORITY_SUPABASE.read_text(encoding="utf-8")
+    assert sql == SCOPED_LEAF_AUTHORITY_BACKEND.read_text(encoding="utf-8")
+    assert "get_pokemon_edition_history_card_prices_as_of_v2" in sql
+    assert "identitySource','edition_history_card_prices_as_of_v2'" in sql
+    assert "JOIN scoped_market_keys k ON k.market_key=c.market_key" not in sql
+    assert "RAW_EDITION_STABLE_LEAF_COUNT_MISMATCH" in sql
+    assert "RAW_EDITION_STABLE_LEAF_VALUE_MISMATCH" in sql
