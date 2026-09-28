@@ -5,6 +5,10 @@ on:
     branches: [develop]
     paths:
       - '.github/workflows/financial-rip-history-sep27-closure.yml'
+  pull_request:
+    branches: [develop]
+    paths:
+      - '.github/financial-rip-history-sep27-trigger.txt'
 
 permissions:
   contents: read
