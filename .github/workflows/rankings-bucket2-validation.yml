@@ -36,6 +36,7 @@ jobs:
           PY="$RUNNER_TEMP/rankings-bucket2-venv/bin/python"
           "$PY" -m pip install -q --upgrade pip
           "$PY" -m pip install -q -r backend/requirements.txt
+          "$PY" -m pip install -q pytest
           "$PY" -m pytest -q             backend/tests/unit/api/test_rip_benchmark_runtime.py             backend/tests/unit/api/test_paid_response_boundary.py
 
       - uses: actions/setup-node@v4
