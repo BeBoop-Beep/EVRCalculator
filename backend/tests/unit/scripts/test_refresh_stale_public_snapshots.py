@@ -2807,3 +2807,162 @@ def test_market_dashboard_price_freshness_uses_compact_canonical_price_authority
     assert price_reads == [
         (("refreshed_at", "captured_at"), (("set_id", "set-1"),), ())
     ]
+
+
+# ---------------------------------------------------------------------------
+# RIP Benchmark reconciliation after standalone rankings-only recovery.
+# ---------------------------------------------------------------------------
+
+class _BenchmarkReconcileResult:
+    def __init__(self, data):
+        self.data = data
+
+
+class _BenchmarkReconcileQuery:
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self.filters = []
+
+    def select(self, *_args):
+        return self
+
+    def eq(self, column, value):
+        self.filters.append((column, value))
+        return self
+
+    def limit(self, count):
+        self.count = count
+        return self
+
+    def execute(self):
+        rows = [
+            row for row in self.rows
+            if all(row.get(column) == value for column, value in self.filters)
+        ]
+        return _BenchmarkReconcileResult(rows[: getattr(self, "count", len(rows))])
+
+
+class _BenchmarkReconcileClient:
+    def __init__(self, rows_by_table):
+        self.rows_by_table = rows_by_table
+
+    def table(self, name):
+        return _BenchmarkReconcileQuery(self.rows_by_table.get(name, []))
+
+
+def _benchmark_reconcile_client(*, benchmark_date=None, rankings_date="2026-09-27", opening_date="2026-09-27"):
+    snapshot = {
+        "meta": {
+            "snapshot": {
+                "marketDate": rankings_date,
+                "simulationSourceMarketDate": rankings_date,
+            }
+        }
+    }
+    rows = {
+        "pokemon_rip_benchmark_publications_v1": [],
+        "pokemon_explore_rankings_snapshot_latest": [{
+            "tcg": "pokemon",
+            "scope": "rip-statistics",
+            "updated_at": "2026-09-27T22:06:59+00:00",
+            "ranking_payload_json": snapshot,
+        }],
+        "pokemon_rip_stats_snapshots": [{
+            "id": "stats-1",
+            "market_date": opening_date,
+            "publication_status": "published",
+            "contract_version": "pokemon-rip-stats-v3",
+        }],
+    }
+    if benchmark_date:
+        rows["pokemon_rip_benchmark_publications_v1"].append({
+            "id": "benchmark-1",
+            "market_date": benchmark_date,
+            "benchmark_key": "pokemon_equal_weight_eligible_sets_v1",
+            "calibration_version": "rip_benchmark_v1_fin5_chase10_collector10_overall5",
+            "publication_status": "published",
+        })
+    return _BenchmarkReconcileClient(rows)
+
+
+def test_standalone_rankings_recovery_reconciles_missing_same_day_benchmark(monkeypatch):
+    from backend.scripts import run_rip_benchmark_publisher_v1 as benchmark_publisher
+
+    calls = []
+    monkeypatch.setattr(
+        benchmark_publisher,
+        "publish_market_date",
+        lambda client, day: calls.append((client, day)) or {
+            "attempt_id": "attempt-1",
+            "publication": {"publication_id": "benchmark-new"},
+        },
+    )
+    client = _benchmark_reconcile_client()
+    summary = refresh.RefreshSummary()
+
+    refresh._maybe_reconcile_rip_benchmark(
+        client, market_date="2026-09-27", commit=True, summary=summary
+    )
+
+    assert calls == [(client, "2026-09-27")]
+    assert summary.global_rebuilt == ["rip_benchmark_v1"]
+    assert summary.global_failed == []
+
+
+def test_standalone_recovery_is_noop_when_same_day_benchmark_already_exists(monkeypatch):
+    from backend.scripts import run_rip_benchmark_publisher_v1 as benchmark_publisher
+
+    monkeypatch.setattr(
+        benchmark_publisher,
+        "publish_market_date",
+        lambda *_a, **_k: pytest.fail("must not republish an existing exact-date Benchmark"),
+    )
+    summary = refresh.RefreshSummary()
+    refresh._maybe_reconcile_rip_benchmark(
+        _benchmark_reconcile_client(benchmark_date="2026-09-27"),
+        market_date="2026-09-27",
+        commit=True,
+        summary=summary,
+    )
+    assert summary.global_rebuilt == []
+    assert summary.global_failed == []
+
+
+def test_standalone_recovery_defers_mixed_date_rankings_without_publishing(monkeypatch):
+    from backend.scripts import run_rip_benchmark_publisher_v1 as benchmark_publisher
+
+    monkeypatch.setattr(
+        benchmark_publisher,
+        "publish_market_date",
+        lambda *_a, **_k: pytest.fail("mixed-date recovery must not publish Benchmark"),
+    )
+    summary = refresh.RefreshSummary()
+    refresh._maybe_reconcile_rip_benchmark(
+        _benchmark_reconcile_client(rankings_date="2026-09-26"),
+        market_date="2026-09-27",
+        commit=True,
+        summary=summary,
+    )
+    assert summary.global_rebuilt == []
+    assert summary.global_failed == []
+    assert any("Rankings source date=2026-09-26" in item for item in summary.global_skipped)
+
+
+def test_standalone_recovery_records_benchmark_failure_as_hard_failure(monkeypatch):
+    from backend.scripts import run_rip_benchmark_publisher_v1 as benchmark_publisher
+
+    monkeypatch.setattr(
+        benchmark_publisher,
+        "publish_market_date",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("candidate incoherent")),
+    )
+    summary = refresh.RefreshSummary()
+    refresh._maybe_reconcile_rip_benchmark(
+        _benchmark_reconcile_client(),
+        market_date="2026-09-27",
+        commit=True,
+        summary=summary,
+    )
+    assert summary.global_rebuilt == []
+    assert summary.global_failed == ["rip_benchmark_v1: candidate incoherent"]
+    assert refresh._has_hard_failures(summary) is True
