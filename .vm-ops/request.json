@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-audit-now",
-  "request_id": "sentinel-finalize-audit-20260927"
+  "operation": "sync-main-reviewed",
+  "request_id": "sentinel-scoped-audit-sync-20260927"
 }
