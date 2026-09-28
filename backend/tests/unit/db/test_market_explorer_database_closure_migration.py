@@ -8,6 +8,7 @@ MIGRATIONS = (
     "20260928031513_market_explorer_sealed_registry_current_pricing_v1.sql",
     "20260928031746_market_explorer_surface_health_and_sealed_parity_v1.sql",
     "20260928032222_market_explorer_sealed_authority_function_sync_v1.sql",
+    "20260928032613_market_explorer_v2_bounded_roster_convergence_v1.sql",
 )
 
 
@@ -99,3 +100,13 @@ def test_v5_sealed_refresh_functions_are_replayable_and_bounded():
     assert "sealed-product-classification-v5-consumer-retail-taxonomy" in sql
     assert "market-explorer-consumer-sealed-v3-nonbulk-retail" in sql
     assert "refresh_pokemon_market_explorer_sealed_current_metadata_v1" in sql
+
+
+def test_v2_publisher_converges_frozen_rosters_in_bounded_ticks():
+    sql = _sql(MIGRATIONS[6])
+    assert "freeze_pokemon_market_legacy_set_value_rosters_v1" in sql
+    assert "v_target,20" in sql
+    assert "raw_frozen_rosters_converging" in sql
+    assert "'readyRoots',coalesce(v_ready_roots,0)" in sql
+    assert "'expectedRoots',coalesce(v_expected_roots,0)" in sql
+    assert "CURRENT_V2_RAW_ROOT_COUNT_MISMATCH" in sql
