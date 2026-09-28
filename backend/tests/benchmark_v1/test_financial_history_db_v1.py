@@ -10,6 +10,8 @@ from backend.scripts import run_rip_benchmark_publisher_v1 as publisher
 
 ROOT = Path(__file__).resolve().parents[3]
 MIGRATION = ROOT / "supabase" / "migrations" / "20260927235534_financial_rip_history_db_v1.sql"
+FOLLOWUP_MIGRATION = ROOT / "supabase" / "migrations" / "20260928032500_financial_rip_history_numeric_tolerance.sql"
+FOLLOWUP_MIRROR = ROOT / "backend" / "db" / "migrations" / "20260928032500_financial_rip_history_numeric_tolerance.sql"
 FINANCIAL = "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5"
 
 
@@ -194,3 +196,23 @@ def test_database_contract_contains_atomic_cutover_and_bounded_history_guards():
     assert "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5" in sql
     assert "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5" in sql
     assert "chase_accessibility_v1_hc_value_squared_modeled_probability" in sql
+
+
+def test_numeric_tolerance_followup_is_mirrored_and_narrow():
+    sql = FOLLOWUP_MIGRATION.read_text(encoding="utf-8")
+    assert sql == FOLLOWUP_MIRROR.read_text(encoding="utf-8")
+    assert "v_numeric_tolerance constant numeric := 0.000000000001" in sql
+    assert "abs(v_set_reference - v_set_mean) > v_numeric_tolerance" in sql
+    assert "abs(raw_model_value - member_mean) > v_numeric_tolerance" in sql
+    assert "v_set_reference is distinct from v_set_mean" not in sql
+    assert "raw_model_value is distinct from member_mean" not in sql
+    # All non-numeric authority guards remain in the replacement validator.
+    for required in (
+        "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5",
+        "overall_rip_v12_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v5",
+        "RIP Benchmark Set membership differs from the active Rankings cohort",
+        "RIP Benchmark Opening Economics authority is not exact same-day published V3",
+        "equal_weight_mean_of_canonical_member_set_raw_scores",
+        "era_rip_aggregation_v1_equal_set_mean",
+    ):
+        assert required in sql
