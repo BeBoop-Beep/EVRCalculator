@@ -85,7 +85,7 @@ def test_rip_statistics_http_matrix_cache_isolation_and_spoof_resistance(monkeyp
 
 def test_product_rankings_http_projection_plus_then_base(monkeypatch):
     _install_auth(monkeypatch)
-    monkeypatch.setattr(main, "get_pokemon_explore_rankings_snapshot_payload", lambda limit=200: {"productFamilyRankings": {}})
+    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda lens, limit=200: {"productFamilyRankings": {}})
     monkeypatch.setattr(main, "read_public_overall_product_rankings", lambda *args, **kwargs: {
         "available": True, "reason": None, "cohortSize": 1,
         "selectedBudget": {"value": 100}, "availableBudgets": [],

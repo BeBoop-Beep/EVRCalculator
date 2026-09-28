@@ -11,6 +11,7 @@ const Chase = dynamic(() => import("./CardChaseEfficiencyRankings"));
 export default function CardRankingsHub({
   canViewCollectorAppeal,
   canViewChaseEfficiency,
+  authStatus,
   targets,
   sessionCache,
 }) {
@@ -33,6 +34,7 @@ export default function CardRankingsHub({
       {lens === "collector" ? (
         <Collector
           entitled={canViewCollectorAppeal}
+          authStatus={authStatus}
           targets={targets}
           sessionCache={sessionCache}
         />
@@ -40,6 +42,7 @@ export default function CardRankingsHub({
       {lens === "chase" ? (
         <Chase
           entitled={canViewChaseEfficiency}
+          authStatus={authStatus}
           targets={targets}
           sessionCache={sessionCache}
         />
