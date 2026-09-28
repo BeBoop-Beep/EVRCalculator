@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import pytest
 
 from backend.db.services.card_collector_appeal_query_service import (
     _pointer_cache,
@@ -33,6 +34,15 @@ class _Query:
             self.ops.append((operation, args, kwargs))
             return self
         return chained
+
+    @property
+    def not_(self):
+        query = self
+        class _Negation:
+            def is_(self, *args, **kwargs):
+                query.ops.append(("not.is", args, kwargs))
+                return query
+        return _Negation()
 
     def execute(self):
         self.client.calls.append((self.name, self.ops))
@@ -95,3 +105,35 @@ def test_unknown_era_returns_empty_without_scanning_rankings():
     payload = query_card_collector_appeal(client, era="does-not-exist")
     assert payload["available"] is True and payload["total"] == 0
     assert not any(name == "pokemon_card_collector_appeal_rankings" for name, _ in client.calls)
+
+
+@pytest.mark.parametrize(("lens", "column", "policy"), [
+    ("pokemon", "pokemon_appeal", "pokemon"),
+    ("trainer", "trainer_appeal", "trainer"),
+    ("artist", "artist_appeal", None),
+    ("playability", "playability", None),
+])
+def test_component_lenses_rank_only_available_component_cohort(lens, column, policy):
+    _pointer_cache.clear()
+    ranking = {"model_run_id": "run", "pokemon_canonical_card_id": "card", "set_id": "set",
+               "card_name": "Card", "rarity": "Rare", "collector_appeal_score": 80,
+               "rank": 999, "cohort_size": 18293, "subject_policy": policy or "neutral_functional",
+               column: 77, "methodology_version": "v7"}
+    client = _Client({
+        "pokemon_collector_appeal_current": ([{"model_run_id": "run", "model_version": "v7", "as_of_date": "2026-09-11"}], None),
+        "pokemon_card_collector_appeal_rankings": ([ranking], 40),
+        "pokemon_canonical_cards": ([], None),
+        "pokemon_card_collector_appeal_scores": ([{"pokemon_canonical_card_id": "card", "subject_policy": policy,
+            "subject_baseline_score": 77, "artist_recognition_score": 77, "playability_score": 77,
+            "component_inputs_json": {}}], None),
+        "sets": ([{"id": "set", "name": "Set", "canonical_key": "set", "era_id": "era"}], None),
+        "eras": ([{"id": "era", "name": "Era", "canonical_key": "era"}], None),
+    })
+    result = query_card_collector_appeal(client, lens=lens)
+    assert result["rankSemantics"] == "rank_within_filtered_component_cohort"
+    assert result["rows"][0]["rank"] == 1 and result["rows"][0]["cohortSize"] == 40
+    assert result["rows"][0]["componentScore"] == 77
+    ops = next(ops for name, ops in client.calls if name == "pokemon_card_collector_appeal_rankings")
+    assert any(op == "not.is" and args == (column, "null") for op, args, _ in ops)
+    if policy:
+        assert any(op == "eq" and args == ("subject_policy", policy) for op, args, _ in ops)

@@ -325,9 +325,16 @@ def test_financial_history_is_plus_gated_absolute_set_era_projection(monkeypatch
     }
     fake = _Client({"rows": [row], "has_more": False, "next_cursor": None})
     client, constructions = _client(monkeypatch, fake)
-    monkeypatch.setattr(main, "_financial_history_range", lambda *_args: {
-        "historyAvailableFrom": "2026-09-15",
-        "historyAvailableThrough": "2026-09-27",
+    monkeypatch.setattr(main, "read_financial_history_page", lambda *_args, **_kwargs: {
+        "contractVersion": "financial-rip-history-v2", "status": "available",
+        "historyAvailableFrom": "2026-08-22", "historyAvailableThrough": "2026-09-28",
+        "rows": [{
+            "marketDate": row["market_date"], "entityType": row["entity_type"],
+            "entityId": row["entity_id"], "absoluteFinancialRipScore": row["absolute_financial_rip_score"],
+            "overallFinancialRipReference": row["overall_financial_rip_reference"],
+            "absoluteDeltaVsOverall": row["absolute_delta_vs_overall"], "rank": row["rank"],
+            "cohortSize": row["cohort_size"], "financialModelVersion": row["financial_model_version"],
+        }], "hasMore": False, "nextCursor": None,
     })
 
     denied = client.post(
@@ -345,9 +352,10 @@ def test_financial_history_is_plus_gated_absolute_set_era_projection(monkeypatch
     )
     assert accepted.status_code == 200
     payload = accepted.json()
-    assert payload["contractVersion"] == "financial-rip-history-v1"
-    assert payload["rows"] == [row]
-    assert payload["historyAvailableThrough"] == "2026-09-27"
+    assert payload["contractVersion"] == "financial-rip-history-v2"
+    assert payload["rows"][0]["absoluteFinancialRipScore"] == 44.9
+    assert payload["rows"][0]["overallFinancialRipReference"] == 30.37
+    assert payload["historyAvailableThrough"] == "2026-09-28"
     assert constructions == ["constructed"]
 
 

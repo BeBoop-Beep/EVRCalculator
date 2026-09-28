@@ -111,6 +111,37 @@ def test_product_rankings_http_projection_plus_then_base(monkeypatch):
     }]
 
 
+def test_redesign_card_facets_and_product_contracts_keep_paid_boundaries(monkeypatch):
+    _install_auth(monkeypatch)
+    monkeypatch.setattr(main, "read_card_facets", lambda _client, lens: {
+        "contractVersion": "card-ranking-facets-v1", "status": "available", "lens": lens,
+        "eras": [], "sets": [], "rarities": [], "subjectTypes": [],
+    })
+    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda lens, limit=200: {
+        "productFamilyRankings": {}
+    })
+    monkeypatch.setattr(main, "read_public_overall_product_rankings", lambda *args, **kwargs: {
+        "available": True, "marketDate": "2026-09-28", "rows": [],
+    })
+    monkeypatch.setattr(main, "read_pack_economics", lambda _client: {"sets": []})
+    client = TestClient(main.app)
+
+    assert client.get("/explore/card-ranking-facets?lens=collector").status_code == 401
+    assert client.get("/explore/card-ranking-facets?lens=collector", headers=_headers("base-token")).status_code == 403
+    collector_plus = client.get("/explore/card-ranking-facets?lens=collector", headers=_headers("plus-token"))
+    assert collector_plus.status_code == 200
+    assert client.get("/explore/card-ranking-facets?lens=chase", headers=_headers("plus-token")).status_code == 403
+    chase_premium = client.get("/explore/card-ranking-facets?lens=chase", headers=_headers("premium-token"))
+    assert chase_premium.status_code == 200
+
+    assert client.get("/explore/product-rankings/scores").status_code == 401
+    assert client.get("/explore/product-rankings/economics", headers=_headers("base-token")).status_code == 403
+    products_plus = client.get("/explore/product-rankings/scores", headers=_headers("plus-token"))
+    assert products_plus.status_code == 200
+    assert products_plus.headers["cache-control"] == "no-store"
+    assert "Cookie" in products_plus.headers["vary"] and "Authorization" in products_plus.headers["vary"]
+
+
 def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):
     _install_auth(monkeypatch)
     family = {"label": "Booster Box", "count": 1, "products": [{

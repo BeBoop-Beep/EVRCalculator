@@ -142,6 +142,7 @@ def read_public_overall_product_rankings(
             "productName": identity.get("productName"), "setName": identity.get("setName"),
             "productFamily": raw.get("product_family"), "productFamilyLabel": identity.get("productFamilyLabel"),
             "productImageUrl": identity.get("productImageUrl"), "setCanonicalKey": identity.get("setCanonicalKey"),
+            "packCount": identity.get("packCount"),
             "budgetRank": public.get("budgetRank"), "budgetCohortSize": public.get("budgetCohortSize"),
             "budgetTier": raw.get("budget_tier"), "budgetModelTier": public.get("budgetModelTier"),
             "publicTier": public.get("publicTier"),
