@@ -366,18 +366,22 @@ ok("typed Set/Era history RPC projects exact absolute score/reference/delta with
 # materially different frozen reference must still fail closed.
 def clone_repeating_mean_candidate(publication_id: str, *, key: str, reference: str) -> None:
     insert_staged(publication_id, key=key, day=DAY, manifest=manifest)
+    raw_expression = (
+        "case "
+        "when r.entity_type='set' and r.rank in (1,17) then 30.0001 "
+        "when r.entity_type='set' then 30 "
+        "when r.entity_type='era' and r.rank=1 then 30.00000625 "
+        "when r.entity_type='era' and r.rank=2 then 30.00001666666666666666666667 "
+        "else r.raw_model_value end"
+    )
     expr = {column: "r." + column for column in row_cols}
     expr.update(
         publication_id=f"'{publication_id}'::uuid",
         benchmark_raw_value=f"'{reference}'::numeric",
-        benchmark_score="5",
-        raw_model_value=(
-            "case "
-            "when r.entity_type='set' and r.rank in (1,17) then 30.0001 "
-            "when r.entity_type='set' then 30 "
-            "when r.entity_type='era' and r.rank=1 then 30.00000625 "
-            "when r.entity_type='era' and r.rank=2 then 30.00001666666666666666666667 "
-            "else r.raw_model_value end"
+        raw_model_value=raw_expression,
+        benchmark_score=(
+            f"case when ({raw_expression}) > '{reference}'::numeric then 5.1 "
+            f"when ({raw_expression}) < '{reference}'::numeric then 4.9 else 5 end"
         ),
     )
     sql(
