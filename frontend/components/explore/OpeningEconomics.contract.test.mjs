@@ -174,21 +174,20 @@ test("Overview uses absolute Financial RIP history instead of the legacy Set RIP
   assert.ok(!distribution.includes("normalizedReturnPercentiles"));
 });
 
-test("the active distribution preserves all four global headline metrics", () => {
+test("the active Overall economics strip keeps only the decision-useful metrics", () => {
   assert.ok(overall.includes("<OpeningEconomicsDistribution scope={scope} targets={targets} openingSets={economics.sets || []} eras={eras} marketDate={economics.marketDate} />"));
-  assert.ok(distribution.includes('scope.modeledReturnOnSpend'));
-  assert.ok(distribution.includes('scope.typicalRetention'));
-  assert.ok(distribution.includes('scope.chanceToRecoverCost'));
-  assert.ok(distribution.includes('scope.averageEntertainmentCostPerPack'));
-  for (const label of ["Modeled Return", "Typical Retention", "Chance to Recover", "Entertainment Cost / Pack"]) {
+  for (const field of ["averageModelBreakEvenPerPack", "averageCostPerPack", "chanceToRecoverCost", "averageEntertainmentCostPerPack"]) {
+    assert.ok(distribution.includes(`scope.${field}`));
+  }
+  for (const label of ["Overall Expected Value / Pack", "Average Pack Cost", "Chance to Recover Cost", "Entertainment Cost / Pack"]) {
     assert.ok(distribution.includes(label));
   }
+  for (const removed of ["Modeled Return on Spend", "Typical Retention", "Typical Opening / Pack"]) assert.ok(!distribution.includes(removed));
 });
 
-test("Overall adds the three-value snapshot and one active distribution", () => {
+test("Overall renders one economics strip and the Financial RIP history", () => {
   assert.equal((overall.match(/OpeningEconomicsDistribution scope=/g) || []).length, 1);
-  for (const label of ["Average Cost / Pack", "Expected Value / Pack", "Typical Opening / Pack"]) assert.ok(distribution.includes(label));
-  for (const field of ["averageCostPerPack", "averageModelBreakEvenPerPack", "typicalOpeningPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
+  assert.ok(distribution.includes("<FinancialRipHistoryChart"));
 });
 
 test("Overall reuses the inDex frame for the financial history", () => {
