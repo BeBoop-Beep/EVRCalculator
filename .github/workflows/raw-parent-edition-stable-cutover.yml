@@ -1,4 +1,5 @@
 name: Raw Parent Edition Stable Cutover
+# One-time publication closure after the service-role validator grant.
 
 on:
   push:
