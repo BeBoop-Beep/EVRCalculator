@@ -2276,6 +2276,13 @@ def _maybe_reconcile_rip_benchmark(
     otherwise a rankings_only repair can advance the public authority while
     leaving historical Financial RIP behind.
     """
+    # Historical orchestration unit fakes intentionally predate the PostgREST
+    # surface. Production clients always expose table(); keep those tests isolated
+    # instead of turning Benchmark reconciliation into a hard failure.
+    if not hasattr(client, "table"):
+        summary.global_skipped.append("rip_benchmark_v1: client unavailable")
+        return
+
     target = str(market_date or "")[:10]
     if not target:
         summary.global_skipped.append("rip_benchmark_v1: deferred target market date unavailable")
