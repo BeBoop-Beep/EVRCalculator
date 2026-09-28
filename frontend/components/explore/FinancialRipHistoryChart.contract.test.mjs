@@ -25,7 +25,10 @@ test("controls, gap behavior, moving reference, and responsive frame are explici
   assert.equal((source.match(/connectNulls=\{false\}/g) || []).length, 2);
   assert.ok(source.includes("<ChartFrame"));
   assert.ok(source.includes("h-[20rem] sm:h-[24rem] desk:h-[28rem]"));
-  assert.ok(source.includes("MAX_FINANCIAL_RIP_SET_SELECTION"));
+  assert.ok(source.includes("Select Sets by Era"));
+  assert.ok(source.includes("setIdsForEra"));
+  assert.ok(source.includes('stroke="#94a3b8"'));
+  assert.ok(source.includes("strokeWidth={4}"));
 });
 
 test("refresh and failure preserve the last successful certified chart", () => {
