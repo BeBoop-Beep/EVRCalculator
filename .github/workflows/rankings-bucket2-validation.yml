@@ -30,6 +30,9 @@ jobs:
 
       - name: Backend focused tests
         shell: bash
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: unit-test-service-role-key
         run: |
           set -euo pipefail
           python -m venv "$RUNNER_TEMP/rankings-bucket2-venv"
