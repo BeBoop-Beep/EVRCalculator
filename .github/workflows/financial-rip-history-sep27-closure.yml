@@ -1,4 +1,5 @@
 name: Financial RIP Sep27 Closure
+# Retry token: post-publication-parity-tolerance-v1
 
 on:
   push:
