@@ -7,6 +7,7 @@ MIGRATIONS = (
     "20260928003715_market_explorer_sealed_parent_freshness_parity_v1.sql",
     "20260928031513_market_explorer_sealed_registry_current_pricing_v1.sql",
     "20260928031746_market_explorer_surface_health_and_sealed_parity_v1.sql",
+    "20260928032222_market_explorer_sealed_authority_function_sync_v1.sql",
 )
 
 
@@ -87,3 +88,14 @@ def test_surface_health_and_full_cohort_parity_audit_are_persisted():
     assert "'missingFromExplorer',v_missing" in sql
     assert "'extraInExplorer',v_extra" in sql
     assert "'setValueOrCountMismatches',v_value_mismatches" in sql
+
+
+def test_v5_sealed_refresh_functions_are_replayable_and_bounded():
+    sql = _sql(MIGRATIONS[5])
+    assert "market_explorer_sealed_is_bulk_container_v2" in sql
+    assert "market_explorer_sealed_parent_member_for_product_v1" in sql
+    assert "refresh_pokemon_market_explorer_sealed_daily_v1" in sql
+    assert "p_through-p_from > 31" in sql
+    assert "sealed-product-classification-v5-consumer-retail-taxonomy" in sql
+    assert "market-explorer-consumer-sealed-v3-nonbulk-retail" in sql
+    assert "refresh_pokemon_market_explorer_sealed_current_metadata_v1" in sql
