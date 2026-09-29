@@ -1,4 +1,4 @@
 {
-  "operation": "pkmnprices-install-credential",
-  "request_id": "pkmnprices-install-20260929"
+  "operation": "pricing-status",
+  "request_id": "pkmnprices-runtime-status-20260929"
 }
