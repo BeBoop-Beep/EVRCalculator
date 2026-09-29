@@ -76,7 +76,7 @@ DEFAULT_MAX_LOAD_PER_CPU = 1.5
 DEFAULT_FAILURE_COOLDOWN_SECONDS = 900.0
 PREPARED_REFRESH_RPC = "run_market_explorer_guarded_publisher_v1"
 V2_CURRENT_PUBLISH_RPC = "publish_pokemon_market_explorer_surface_current_v2"
-PREPARED_DB_TIMEOUT_SECONDS = 240  # guarded dry runs measured about 55 seconds
+PREPARED_DB_TIMEOUT_SECONDS = 420  # full V2 surface builds can legitimately take ~4.5 minutes
 PREPARED_DB_CONNECT_TIMEOUT_SECONDS = 10
 
 
