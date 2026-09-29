@@ -23,6 +23,10 @@ from backend.db.clients.supabase_client import create_service_role_client
 from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
 from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
 from backend.pricing_pipeline.pkmnprices_sold import normalize_sold_listing
+from backend.pricing_pipeline.pkmnprices_sold_identity import (
+    MATCHER_VERSION as SOLD_IDENTITY_MATCHER_VERSION,
+    classify_vintage_sold,
+)
 from backend.pricing_pipeline.pkmnprices_store import PkmnPricesStore
 from backend.pricing_pipeline.pkmnprices_targets import (
     discover_vintage_gap_rows,
@@ -89,6 +93,7 @@ def _run_metadata(
         "item_credit_cap": item_credit_cap,
         "set_value_authority_unchanged": True,
         "fair_value_research_only": True,
+        "sold_identity_matcher_version": SOLD_IDENTITY_MATCHER_VERSION,
     }
 
 
@@ -179,18 +184,36 @@ def collect(
                 )
 
                 collected_at = datetime.now(timezone.utc).isoformat()
-                normalized = [
-                    normalize_sold_listing(
-                        row,
+                normalized = []
+                for raw_row in raw_rows:
+                    row = normalize_sold_listing(
+                        raw_row,
                         provider_card_id=provider_card_id,
                         canonical_card_id=target["canonical_card_id"],
                         internal_variants=target["variant_candidates"],
                         collected_at=collected_at,
                     )
-                    for row in raw_rows
-                ]
-                for row in normalized:
+                    strict = classify_vintage_sold(target, raw_row)
+                    row["card_variant_id"] = strict["card_variant_id"]
+                    row["identity_state"] = strict["state"]
+                    row["fair_value_signal_eligible"] = bool(
+                        strict["state"] == "EXACT"
+                        and not row["graded"]
+                        and row["currency"] == "USD"
+                        and row["attribution"] == "exact"
+                    )
+                    row["exclusion_reason"] = (
+                        None if row["fair_value_signal_eligible"] else strict["reason"]
+                    )
+                    payload = dict(row["provider_payload"])
+                    payload["_index_identity"] = {
+                        "matcher_version": strict["matcher_version"],
+                        "reason": strict["reason"],
+                        "evidence": strict["evidence"],
+                    }
+                    row["provider_payload"] = payload
                     row["run_id"] = run_id
+                    normalized.append(row)
 
                 inserted, duplicates = store.insert_evidence(normalized)
                 totals["inserted"] += inserted
