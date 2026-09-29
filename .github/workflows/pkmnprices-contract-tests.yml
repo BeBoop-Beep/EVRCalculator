@@ -1,0 +1,35 @@
+name: PkmnPrices Contract Tests
+
+on:
+  push:
+    branches:
+      - feat/pkmnprices-sold-evidence-v1-20260929
+    paths:
+      - "backend/pricing_pipeline/pkmnprices_*.py"
+      - "backend/scripts/run_pkmnprices_sold_evidence.py"
+      - "backend/tests/unit/pricing_pipeline/test_pkmnprices.py"
+      - ".github/workflows/pkmnprices-contract-tests.yml"
+  pull_request:
+    paths:
+      - "backend/pricing_pipeline/pkmnprices_*.py"
+      - "backend/scripts/run_pkmnprices_sold_evidence.py"
+      - "backend/tests/unit/pricing_pipeline/test_pkmnprices.py"
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install focused test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run PkmnPrices contracts
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q backend/tests/unit/pricing_pipeline/test_pkmnprices.py

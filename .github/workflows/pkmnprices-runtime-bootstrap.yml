@@ -1,0 +1,115 @@
+name: PkmnPrices Runtime Bootstrap
+
+on:
+  push:
+    branches:
+      - feat/pkmnprices-sold-evidence-v1-20260929
+    paths:
+      - ".github/workflows/pkmnprices-runtime-bootstrap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-and-probe:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    env:
+      PKMNPRICES_API_KEY: ${{ secrets.PKMNPRICES_API_KEY }}
+    steps:
+      - name: Install credential and probe provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          ENV_FILE="$REPO/backend/.env"
+
+          test -n "${PKMNPRICES_API_KEY:-}" || {
+            echo "PKMNPRICES_API_KEY repository secret is missing"
+            exit 20
+          }
+          test -f "$ENV_FILE" || {
+            echo "backend/.env is missing"
+            exit 21
+          }
+
+          python3 - "$ENV_FILE" <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          key = os.environ["PKMNPRICES_API_KEY"].strip()
+          if not key:
+              raise SystemExit("empty PKMNPRICES_API_KEY")
+
+          lines = path.read_text(encoding="utf-8").splitlines()
+          out = []
+          replaced = False
+          for line in lines:
+              if line.startswith("PKMNPRICES_API_KEY="):
+                  if not replaced:
+                      out.append("PKMNPRICES_API_KEY=" + key)
+                      replaced = True
+                  continue
+              out.append(line)
+          if not replaced:
+              out.append("PKMNPRICES_API_KEY=" + key)
+
+          path.write_text("\n".join(out) + "\n", encoding="utf-8")
+          path.chmod(0o600)
+          print("pkmnprices_vm_credential_installed=true")
+          PY
+
+          # Never print the credential. Probe one known vintage TCGplayer product
+          # and one sold-comps item to prove Pro entitlement + auth.
+          "$REPO/.venv/bin/python" - <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          key = os.environ["PKMNPRICES_API_KEY"].strip()
+          headers = {
+              "X-API-Key": key,
+              "Accept": "application/json",
+              "User-Agent": "inDex-PkmnPrices-bootstrap/1",
+          }
+
+          def get(path, params):
+              url = "https://api.pkmnprices.com" + path + "?" + urllib.parse.urlencode(params)
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  payload = json.load(response)
+                  return payload, {
+                      "credits_charged": response.headers.get("x-credits-charged"),
+                      "credits_limit": response.headers.get("x-credits-limit"),
+                      "rate_remaining": response.headers.get("x-rate-remaining"),
+                  }
+
+          cards, card_headers = get("/v1/cards", {
+              "tcg_player_id": "89168",
+              "language": "English",
+              "per_page": 1,
+              "page": 1,
+          })
+          rows = cards.get("data") or []
+          if len(rows) != 1:
+              raise SystemExit(f"unexpected provider identity count={len(rows)}")
+          provider_id = rows[0]["id"]
+
+          sold, sold_headers = get(
+              f"/v1/cards/{provider_id}/listings/ebay",
+              {"graded": "false", "limit": 1, "sort": "date_desc"},
+          )
+          print(json.dumps({
+              "pkmnprices_auth_ok": True,
+              "provider_card_id": provider_id,
+              "sold_rows_returned": len(sold.get("data") or []),
+              "card_lookup_credits": card_headers["credits_charged"],
+              "sold_probe_credits": sold_headers["credits_charged"],
+              "credits_limit": sold_headers["credits_limit"] or card_headers["credits_limit"],
+              "rate_remaining": sold_headers["rate_remaining"],
+          }, sort_keys=True))
+          PY
