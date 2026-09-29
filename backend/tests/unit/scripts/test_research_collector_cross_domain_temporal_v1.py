@@ -56,8 +56,10 @@ def test_final_decision_is_preregistered_four_of_five():
 
 def test_temporal_harness_has_no_database_write_calls():
     source = Path("backend/scripts/research_collector_cross_domain_temporal_v1.py").read_text(encoding="utf-8").lower()
-    for token in (".insert(", ".update(", ".delete(", ".upsert("):
+    # Allow sys.path.insert(); reject persistence-shaped client calls.
+    for token in (".insert([", ".insert({", ".update({", ".delete()", ".upsert("):
         assert token not in source
+    assert ".table(" not in source
     assert "get_pokemon_market_root_standard_card_prices_as_of_v2" not in source
     # Historical authority is inherited from the already-reviewed Phase 1 helper.
     assert "historical_prices(" in source
