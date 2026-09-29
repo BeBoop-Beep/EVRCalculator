@@ -28,10 +28,14 @@ test("the optional medium thumbnail is larger and responsive without changing th
   assert.ok(!source.includes("object-cover"));
 });
 
-test("set identity remains exclusive to Explore mode", () => {
+test("set identity remains exclusive to Explore mode and explicit vintage scopes stay visible", () => {
+  assert.ok(source.includes("function marketSetLabel(card)"));
+  assert.ok(source.includes('if (scope === "first_edition") return \`\${setName} · 1st Edition\`;'));
+  assert.ok(source.includes('if (scope === "unlimited") return \`\${setName} · Unlimited\`;'));
+  assert.ok(source.includes('if (scope === "shadowless") return \`\${setName} · Shadowless\`;'));
   assert.ok(
     source.includes(
-      'crossSet ? <span className="block truncate text-[10px] text-[var(--text-secondary)]">{card?.setName || "Unknown set"}</span> : null'
+      'crossSet ? <span className="block truncate text-[10px] text-[var(--text-secondary)]">{marketSetLabel(card)}</span> : null'
     )
   );
 });
