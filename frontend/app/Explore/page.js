@@ -4,6 +4,7 @@ import RankingsLazyClient from "@/components/explore/RankingsLazyClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import styles from "@/components/explore/explore.module.css";
+import { getFinancialCohort, getRankingsOverview } from "@/lib/rankings/rankingsOverviewServer";
 
 export default async function ExplorePage() {
   const backgroundUrl = getExploreBackground("pokemon");
@@ -12,9 +13,11 @@ export default async function ExplorePage() {
   // opening-economics publication plus the slim set-route directory. The
   // canonical RIP targets cohort is intentionally absent from this route; it
   // is built only after the user asks for Sets, Eras or Products.
-  const [directory, openingEconomics] = await Promise.all([
+  const [directory, openingEconomics, rankingsOverview, financialCohort] = await Promise.all([
     getPokemonSetRouteDirectory({ limit: 500 }).catch(() => null),
     getOpeningEconomics(),
+    getRankingsOverview(),
+    getFinancialCohort(),
   ]);
 
   const directoryTargets = Array.isArray(directory?.targets) ? directory.targets : [];
@@ -51,6 +54,8 @@ export default async function ExplorePage() {
             targets={targets}
             openingEconomics={openingEconomics}
             rankingsMarketDate={rankingsMarketDate}
+            rankingsOverview={rankingsOverview}
+            financialCohort={financialCohort}
             loadError={rankingsLoadError}
           />
         </div>

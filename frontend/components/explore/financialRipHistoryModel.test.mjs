@@ -7,6 +7,7 @@ import {
   eraFinancialRipCandidates,
   entitySeriesKey,
   financialRipWindowRange,
+  formatFinancialRipDelta,
   shouldFetchFinancialRipHistory,
   stableEntityColor,
   setFinancialRipCandidates,
@@ -42,22 +43,43 @@ test("plots only the certified absolute Financial RIP contract", () => {
   });
 });
 
-test("daily domain leaves missing publications as truthful null gaps", () => {
+test("actual observations connect without fabricating missing calendar days", () => {
   const rows = ["2026-09-25", "2026-09-27"].map((market_date, index) => ({
     metric_key: "financial", entity_id: "set-a", market_date,
     absolute_financial_rip_score: 30 + index,
     overall_financial_rip_reference: 28 + index,
   }));
   const model = buildFinancialRipChartModel(rows, selected, { startDate: "2026-09-25", endDate: "2026-09-27" });
-  assert.deepEqual(model.points.map((point) => point.date), ["2026-09-25", "2026-09-26", "2026-09-27"]);
-  assert.equal(model.points[1][entitySeriesKey("set-a")], undefined);
-  assert.equal(model.points[1].overallFinancialRip, null);
+  assert.deepEqual(model.points.map((point) => point.date), ["2026-09-25", "2026-09-27"]);
+  assert.ok(!model.points.some((point) => point.date === "2026-09-26"));
+  assert.deepEqual(model.points.map((point) => point[entitySeriesKey("set-a")]), [30, 31]);
+});
+
+test("all twelve certified v2 observations and the moving Overall reference survive", () => {
+  const dates = ["2026-08-22", "2026-08-24", "2026-08-25", "2026-08-26", "2026-09-08", "2026-09-12", "2026-09-13", "2026-09-14", "2026-09-15", "2026-09-25", "2026-09-27", "2026-09-28"];
+  const rows = dates.map((marketDate, index) => ({
+    metricKey: "financial", entityId: "set-a", marketDate,
+    absoluteFinancialRipScore: 31 + index,
+    overallFinancialRipReference: 29 + (index * 0.1),
+    absoluteDeltaVsOverall: 2 + (index * 0.9),
+  }));
+  const model = buildFinancialRipChartModel(rows, selected);
+  assert.deepEqual(model.points.map((point) => point.date), dates);
+  assert.deepEqual(model.points.map((point) => point.overallFinancialRip), dates.map((_, index) => 29 + (index * 0.1)));
+  assert.ok(!model.points.some((point) => point.date === "2026-08-23"));
+  assert.ok(model.points.every((point) => Number.isFinite(point.timestamp)));
 });
 
 test("timeframes and authority date match the chart contract", () => {
   assert.deepEqual(FINANCIAL_RIP_WINDOWS.map((item) => item.key), ["30D", "3M", "6M", "1Y", "ALL"]);
   assert.deepEqual(financialRipWindowRange("30D", "2026-09-27"), { startDate: "2026-08-29", endDate: "2026-09-27" });
   assert.deepEqual(financialRipWindowRange("ALL", "2026-09-27", "2026-01-04"), { startDate: "2026-01-04", endDate: "2026-09-27" });
+});
+
+test("tooltip deltas use directional benchmark indicators", () => {
+  assert.equal(formatFinancialRipDelta(4.43), "↑ +4.43 vs Overall");
+  assert.equal(formatFinancialRipDelta(-3.27), "↓ −3.27 vs Overall");
+  assert.equal(formatFinancialRipDelta(0), "— 0.00 vs Overall");
 });
 
 test("Basic and anonymous access cannot initiate history reads", () => {
@@ -68,7 +90,8 @@ test("Basic and anonymous access cannot initiate history reads", () => {
   assert.equal(shouldFetchFinancialRipHistory({ ...ready, entitled: true, authStatus: "resolved" }), true);
 });
 
-test("set selection is uncapped so an Era shortcut can show every member Set", () => {
+test("selection supports a manual cap while an Era shortcut can show every member Set", () => {
+  assert.deepEqual(toggleFinancialRipSelection(["1", "2", "3", "4", "5"], "6", 5), ["1", "2", "3", "4", "5"]);
   assert.deepEqual(toggleFinancialRipSelection(["1", "2", "3", "4", "5"], "6"), ["1", "2", "3", "4", "5", "6"]);
   assert.deepEqual(toggleFinancialRipSelection(["1", "2"], "1"), ["2"]);
   const candidates = setFinancialRipCandidates(

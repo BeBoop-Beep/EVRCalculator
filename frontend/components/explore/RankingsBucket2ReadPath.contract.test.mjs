@@ -5,14 +5,19 @@ import test from "node:test";
 const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8");
 const lazy = read("./RankingsLazyClient.jsx");
 const overview = read("./RankingsOverviewHighlights.jsx");
+const page = read("../../app/Explore/page.js");
+const overviewServer = read("../../lib/rankings/rankingsOverviewServer.js");
 const products = read("./RankingsProductLensClient.jsx");
 const hub = read("./CardRankingsHub.jsx");
 const collector = read("./CardCollectorAppealRankings.jsx");
 const chase = read("./CardChaseEfficiencyRankings.jsx");
 const productReadPath = fs.readFileSync(new URL("../../lib/rankings/productRankingsReadPath.mjs", import.meta.url), "utf8");
 
-test("Overview headlines use only the narrow public authority", () => {
-  assert.match(overview, /readBenchmarkOverviewHeadlines\(\)/);
+test("Overview cards use the server-seeded v2 public authority", () => {
+  assert.match(overview, /overview\?\.topSet/);
+  assert.match(page, /getRankingsOverview\(\)/);
+  assert.match(overviewServer, /\/tcgs\/pokemon\/rankings\/overview-v2/);
+  assert.doesNotMatch(overview, /readBenchmarkOverviewHeadlines/);
   assert.doesNotMatch(overview, /setsState|eraState|readCurrentBenchmark/);
   assert.doesNotMatch(lazy, /<RankingsOverviewHighlights[\s\S]{0,250}(setsState|eraState)=/);
 });

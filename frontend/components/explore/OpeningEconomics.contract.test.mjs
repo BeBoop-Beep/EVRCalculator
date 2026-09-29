@@ -169,17 +169,18 @@ test("Overview uses absolute Financial RIP history instead of the legacy Set RIP
   assert.equal(PUBLISHED.basis, "all_modeled_products_per_pack_equivalent");
   assert.ok(distribution.includes("<FinancialRipHistoryChart"));
   assert.ok(financialHistory.includes("<LineChart"));
-  assert.ok(financialHistory.includes("connectNulls={false}"));
+  assert.ok(financialHistory.includes("connectNulls"));
+  assert.ok(financialHistory.includes('scale="time"'));
   assert.ok(!distribution.includes("normalizedReturnBuckets"));
   assert.ok(!distribution.includes("normalizedReturnPercentiles"));
 });
 
 test("the active Overall economics strip keeps only the decision-useful metrics", () => {
-  assert.ok(overall.includes("<OpeningEconomicsDistribution scope={scope} targets={targets} openingSets={economics.sets || []} eras={eras} marketDate={economics.marketDate} />"));
+  assert.ok(overall.includes("<OpeningEconomicsDistribution scope={scope} overview={overview} financialCohort={financialCohort}"));
   for (const field of ["averageModelBreakEvenPerPack", "averageCostPerPack", "chanceToRecoverCost", "averageEntertainmentCostPerPack"]) {
     assert.ok(distribution.includes(`scope.${field}`));
   }
-  for (const label of ["Overall Expected Value / Pack", "Average Pack Cost", "Chance to Recover Cost", "Entertainment Cost / Pack"]) {
+  for (const label of ["Overall Expected Value / Pack", "Average Pack Cost / Pack", "Chance to Recover Cost", "Entertainment Cost / Pack"]) {
     assert.ok(distribution.includes(label));
   }
   for (const removed of ["Modeled Return on Spend", "Typical Retention", "Typical Opening / Pack"]) assert.ok(!distribution.includes(removed));
