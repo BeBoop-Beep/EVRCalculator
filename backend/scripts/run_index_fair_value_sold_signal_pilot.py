@@ -27,13 +27,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
-from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_absolute_error
-from sklearn.model_selection import GroupKFold
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
@@ -215,10 +208,15 @@ def _metrics(actual: np.ndarray, pred: np.ndarray) -> dict[str, float]:
     pred = np.maximum(pred, 0.01)
     ape = np.abs(pred - actual) / actual
     tss = np.sum((actual - actual.mean()) ** 2)
-    rho = spearmanr(actual, pred).statistic if len(actual) > 2 else np.nan
+    rho = (
+        pd.Series(actual).rank(method="average").corr(
+            pd.Series(pred).rank(method="average"), method="pearson"
+        )
+        if len(actual) > 2 else np.nan
+    )
     return {
         "n": int(len(actual)),
-        "mae": float(mean_absolute_error(actual, pred)),
+        "mae": float(np.mean(np.abs(pred - actual))),
         "mdape": float(np.median(ape) * 100),
         "within30Pct": float(np.mean(ape <= 0.30) * 100),
         "r2Dollars": float(1 - np.sum((pred - actual) ** 2) / tss) if tss else float("nan"),
@@ -236,22 +234,38 @@ def _grouped_correction(frame: pd.DataFrame, baseline_col: str) -> tuple[np.ndar
     usable = frame[frame["eligible_sold_count"] >= 3].copy()
     if usable["root_set_id"].nunique() < 3 or len(usable) < 20:
         return np.array([]), {"status": "INSUFFICIENT_SAMPLE", "n": len(usable)}
-    X = usable[FEATURES].astype(float)
-    y = np.log(usable["target_nm_market_price"].astype(float)) - np.log(
-        usable[baseline_col].astype(float)
+    X = usable[FEATURES].astype(float).to_numpy()
+    y = (
+        np.log(usable["target_nm_market_price"].astype(float).to_numpy())
+        - np.log(usable[baseline_col].astype(float).to_numpy())
     )
-    groups = usable["root_set_id"].astype(str)
-    splits = min(5, groups.nunique())
-    gkf = GroupKFold(n_splits=splits)
+    groups = usable["root_set_id"].astype(str).to_numpy()
+    unique_groups = sorted(set(groups))
+    splits = min(5, len(unique_groups))
+    fold_for_group = {group: i % splits for i, group in enumerate(unique_groups)}
     pred_residual = np.zeros(len(usable))
-    for train, test in gkf.split(X, y, groups):
-        model = Pipeline([
-            ("impute", SimpleImputer(strategy="median")),
-            ("scale", StandardScaler()),
-            ("ridge", Ridge(alpha=10.0)),
-        ])
-        model.fit(X.iloc[train], y.iloc[train])
-        pred_residual[test] = model.predict(X.iloc[test])
+    alpha = 10.0
+    for fold in range(splits):
+        test = np.array([fold_for_group[g] == fold for g in groups])
+        train = ~test
+        train_x = X[train].copy()
+        test_x = X[test].copy()
+        medians = np.nanmedian(train_x, axis=0)
+        medians = np.where(np.isfinite(medians), medians, 0.0)
+        train_x = np.where(np.isfinite(train_x), train_x, medians)
+        test_x = np.where(np.isfinite(test_x), test_x, medians)
+        means = train_x.mean(axis=0)
+        scales = train_x.std(axis=0)
+        scales = np.where(scales > 1e-12, scales, 1.0)
+        train_x = (train_x - means) / scales
+        test_x = (test_x - means) / scales
+        design = np.column_stack([np.ones(len(train_x)), train_x])
+        penalty = np.eye(design.shape[1]) * alpha
+        penalty[0, 0] = 0.0
+        beta = np.linalg.solve(design.T @ design + penalty, design.T @ y[train])
+        pred_residual[test] = np.column_stack(
+            [np.ones(len(test_x)), test_x]
+        ) @ beta
     predicted = usable[baseline_col].astype(float).to_numpy() * np.exp(pred_residual)
     return predicted, {
         "status": "EVALUATED",
