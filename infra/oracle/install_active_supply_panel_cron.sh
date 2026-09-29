@@ -2,10 +2,11 @@
 # Verify-first installer for the reviewed, SHA-pinned Core Panel V1 VM schedule.
 set -euo pipefail
 
-REPO="${REPO:-/home/ubuntu/repos/EVRCalculator}"
+SOURCE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ENV_REPO="${ACTIVE_SUPPLY_ENV_REPO:-/home/ubuntu/repos/EVRCalculator}"
 STATE="${ACTIVE_SUPPLY_STATE_DIR:-/home/ubuntu/state/active_supply_panel}"
 RUNTIME="$STATE/runtime"
-PY="$REPO/.venv/bin/python"
+PY="$ENV_REPO/.venv/bin/python"
 HOLD="/home/ubuntu/state/db-safety/hold.json"
 BEGIN="# BEGIN active-supply-panel (managed by install_active_supply_panel_cron.sh)"
 END="# END active-supply-panel"
@@ -15,21 +16,22 @@ END="# END active-supply-panel"
   echo "FAIL: host timezone must be America/Phoenix" >&2; exit 2;
 }
 [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "FAIL: database safety hold active" >&2; exit 75; }
-git -C "$REPO" diff --quiet && git -C "$REPO" diff --cached --quiet || {
-  echo "FAIL: deployment checkout dirty" >&2; exit 2;
+git -C "$SOURCE_REPO" diff --quiet && git -C "$SOURCE_REPO" diff --cached --quiet || {
+  echo "FAIL: reviewed source checkout dirty" >&2; exit 2;
 }
-SHA="$(git -C "$REPO" rev-parse HEAD)"
-git -C "$REPO" cat-file -e "$SHA^{commit}"
-mkdir -p "$STATE" "$REPO/backend/logs"
-touch "$REPO/backend/logs/active_supply_panel.log" "$REPO/backend/logs/active_supply_panel_health.log"
+SHA="$(git -C "$SOURCE_REPO" rev-parse HEAD)"
+git -C "$SOURCE_REPO" cat-file -e "$SHA^{commit}"
+mkdir -p "$STATE" "$ENV_REPO/backend/logs"
+touch "$ENV_REPO/backend/logs/active_supply_panel.log" "$ENV_REPO/backend/logs/active_supply_panel_health.log"
 
 set -a
-. "$REPO/backend/.env"
+. "$ENV_REPO/backend/.env"
 set +a
-export PYTHONPATH="$REPO"
+export PYTHONPATH="$SOURCE_REPO"
+export ACTIVE_SUPPLY_ENV_REPO="$ENV_REPO"
 
-echo "== full 207-card activation preflight from reviewed checkout (zero provider credits/writes)"
-(cd "$REPO" && "$PY" -m backend.scripts.preflight_market_active_supply_panel --source-commit-sha "$SHA")
+echo "== full 207-card activation preflight from reviewed source (zero provider credits/writes)"
+(cd "$SOURCE_REPO" && "$PY" -m backend.scripts.preflight_market_active_supply_panel --source-commit-sha "$SHA")
 echo "== lock preflight"
 /usr/bin/flock -n /tmp/active-supply-panel.lock -c true || { echo "FAIL: panel lock held" >&2; exit 75; }
 /usr/bin/flock -n /tmp/pkmnprices-api.lock -c true || { echo "FAIL: shared PkmnPrices lock held" >&2; exit 75; }
@@ -47,11 +49,11 @@ if [ "${1:-}" != "--apply" ]; then
   exit 0
 fi
 
-git -C "$REPO" worktree prune
+git -C "$SOURCE_REPO" worktree prune
 if [ -e "$RUNTIME" ]; then
-  git -C "$REPO" worktree remove --force "$RUNTIME" >/dev/null 2>&1 || rm -rf "$RUNTIME"
+  git -C "$SOURCE_REPO" worktree remove --force "$RUNTIME" >/dev/null 2>&1 || rm -rf "$RUNTIME"
 fi
-git -C "$REPO" worktree add --detach "$RUNTIME" "$SHA"
+git -C "$SOURCE_REPO" worktree add --detach "$RUNTIME" "$SHA"
 [ "$(git -C "$RUNTIME" rev-parse HEAD)" = "$SHA" ] || {
   echo "FAIL: detached runtime SHA mismatch" >&2; exit 2;
 }
@@ -77,5 +79,5 @@ printf '%s\n' "$SHA" > "$STATE/release.sha.tmp"
 chmod 600 "$STATE/release.sha.tmp"
 mv "$STATE/release.sha.tmp" "$STATE/release.sha"
 crontab - <<<"$new"
-echo "ACTIVE_SUPPLY_PANEL_CRON_INSTALLED source_sha=$SHA runtime=$RUNTIME"
+echo "ACTIVE_SUPPLY_PANEL_CRON_INSTALLED source_sha=$SHA runtime=$RUNTIME env_repo=$ENV_REPO"
 crontab -l | grep -E 'run_active_supply_panel|run_active_supply_health'

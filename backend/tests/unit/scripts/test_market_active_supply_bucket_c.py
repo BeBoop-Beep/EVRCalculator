@@ -142,3 +142,15 @@ def test_full_panel_cap_stop_materializes_remaining_targets():
     assert "for pending in targets[target_index:]" in collector
     assert "absence must never be interpreted as" in collector.lower()
     assert "DAILY_CREDIT_CAP_WOULD_BE_EXCEEDED" in collector
+
+
+def test_installers_keep_reviewed_code_separate_from_vm_env_repo():
+    installer = (ROOT / "infra/oracle/install_active_supply_panel_cron.sh").read_text(encoding="utf-8")
+    credential_installer = (ROOT / "infra/oracle/install_active_supply_credentials.sh").read_text(encoding="utf-8")
+    assert 'SOURCE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"' in installer
+    assert "ACTIVE_SUPPLY_ENV_REPO" in installer
+    assert 'ENV_REPO="${ACTIVE_SUPPLY_ENV_REPO:-/home/ubuntu/repos/EVRCalculator}"' in installer
+    assert 'PY="$ENV_REPO/.venv/bin/python"' in installer
+    assert 'CODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"' in credential_installer
+    assert 'ENV_REPO="${ACTIVE_SUPPLY_ENV_REPO:-/home/ubuntu/repos/EVRCalculator}"' in credential_installer
+    assert 'ENV_FILE="$ENV_REPO/backend/.env"' in credential_installer
