@@ -8,6 +8,15 @@ import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImag
 const identity = (card) => [card?.canonicalCardId || card?.cardId || card?.id, card?.cardVariantId || "", card?.conditionId || ""].join(":");
 const hrefFor = (card) => buildPokemonCardDetailHref(card);
 
+function marketSetLabel(card) {
+  const setName = card?.setName || "Unknown set";
+  const scope = String(card?.marketScope || card?.market_scope || "standard").toLowerCase();
+  if (scope === "first_edition") return `${setName} · 1st Edition`;
+  if (scope === "unlimited") return `${setName} · Unlimited`;
+  if (scope === "shadowless") return `${setName} · Shadowless`;
+  return setName;
+}
+
 function Item({ card, movement, href, hidden, crossSet, thumbnailSize }) {
   const image = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl, CARD_THUMBNAIL_WIDTH);
   const name = card?.name || "Unknown card";
@@ -22,7 +31,7 @@ function Item({ card, movement, href, hidden, crossSet, thumbnailSize }) {
     </span>
     <span className="min-w-0 max-w-[11rem]">
       <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{name}</span>
-      {crossSet ? <span className="block truncate text-[10px] text-[var(--text-secondary)]">{card?.setName || "Unknown set"}</span> : null}
+      {crossSet ? <span className="block truncate text-[10px] text-[var(--text-secondary)]">{marketSetLabel(card)}</span> : null}
       <MarketValueChange value={Number.isFinite(price) ? price : null} changeAmount={movement?.amount}
         changePercent={movement?.percent} windowLabel="7D" showWindowLabel={false} variant="ticker"
         accessibleLabel={`${name} market price`} />
