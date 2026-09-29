@@ -16,12 +16,13 @@ def _chunks(values: list[Any], size: int = 100) -> Iterable[list[Any]]:
 
 
 def _same_evidence(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    # Evidence rows are append-only provider observations. Derived identity
+    # classification may legitimately become stricter in a later matcher version,
+    # so replay equality is based only on immutable provider/raw identity fields.
     fields = (
         "provider_listing_id", "provider_card_id", "canonical_card_id",
-        "card_variant_id", "price", "currency", "grader", "grade", "graded",
-        "provider_variant", "attribution", "sold_at", "ingested_at",
-        "identity_state", "fair_value_signal_eligible", "set_value_nm_eligible",
-        "condition_state", "exclusion_reason",
+        "title", "price", "currency", "grader", "grade", "graded",
+        "provider_variant", "attribution", "sold_at", "ingested_at", "listing_url",
     )
     for field in fields:
         av, bv = a.get(field), b.get(field)
