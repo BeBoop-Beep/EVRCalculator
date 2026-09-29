@@ -1,5 +1,7 @@
 name: PkmnPrices Vintage History Backfill
 
+# Resumable append-only historical fill; safe to trigger repeatedly.
+
 on:
   push:
     branches:
