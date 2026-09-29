@@ -286,6 +286,14 @@ def build_from_v7(v7: Mapping[str, Any], *, build_mode: str) -> dict[str, Any]:
     if manifest_v7.get("modelVersion") != V7_VERSION:
         raise RuntimeError("V8_BASE_ARTIFACT_IS_NOT_FROZEN_V7")
     source_authority = dict(manifest_v7.get("sourceAuthority") or {})
+    if not source_authority:
+        source_ids = list(manifest_v7.get("sourceRunIds") or [])
+        if len(source_ids) != 6:
+            raise RuntimeError("V8_BASE_V7_SOURCE_AUTHORITY_INCOMPLETE")
+        source_authority = dict(zip(
+            ("pokemonTrends", "trainer12m", "trainer5y", "playability", "artist12m", "artist5y"),
+            map(str, source_ids),
+        ))
     if set(source_authority) != {
         "pokemonTrends", "trainer12m", "trainer5y", "playability", "artist12m", "artist5y"
     }:
