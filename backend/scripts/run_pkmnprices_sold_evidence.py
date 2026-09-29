@@ -148,6 +148,7 @@ def collect(
         "fair_value_signal_eligible_count": 0,
         "inserted": 0,
         "duplicates": 0,
+        "provider_metadata_drifts": 0,
         "targets_completed": 0,
         "targets_failed": 0,
     }
@@ -242,9 +243,10 @@ def collect(
                     row["run_id"] = run_id
                     normalized.append(row)
 
-                inserted, duplicates = store.insert_evidence(normalized)
+                inserted, duplicates, metadata_drifts = store.insert_evidence(normalized)
                 totals["inserted"] += inserted
                 totals["duplicates"] += duplicates
+                totals["provider_metadata_drifts"] += metadata_drifts
                 totals["sold_item_count"] += len(normalized)
                 totals["exact_attribution_count"] += sum(
                     row["attribution"] == "exact" for row in normalized
@@ -360,6 +362,7 @@ def collect(
                 "targets_failed": totals["targets_failed"],
                 "inserted": totals["inserted"],
                 "duplicates": totals["duplicates"],
+                "provider_metadata_drifts": totals["provider_metadata_drifts"],
                 "failures": failures,
             },
         })
