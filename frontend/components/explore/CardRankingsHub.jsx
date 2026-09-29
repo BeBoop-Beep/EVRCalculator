@@ -12,7 +12,6 @@ export default function CardRankingsHub({
   canViewCollectorAppeal,
   canViewChaseEfficiency,
   authStatus,
-  targets,
   sessionCache,
 }) {
   const [lens, setLens] = useState("collector");
@@ -35,7 +34,6 @@ export default function CardRankingsHub({
         <Collector
           entitled={canViewCollectorAppeal}
           authStatus={authStatus}
-          targets={targets}
           sessionCache={sessionCache}
         />
       ) : null}
@@ -43,7 +41,6 @@ export default function CardRankingsHub({
         <Chase
           entitled={canViewChaseEfficiency}
           authStatus={authStatus}
-          targets={targets}
           sessionCache={sessionCache}
         />
       ) : null}

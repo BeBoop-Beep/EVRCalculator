@@ -262,7 +262,7 @@ export default function RankingsLazyClient({
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
       ) : (
-        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} authStatus={authStatus} targets={targets} sessionCache={sessionCache} />
+        <CardRankingsHub key={sessionCache.identity} canViewCollectorAppeal={canViewCardCollectorAppeal} canViewChaseEfficiency={canViewCardChaseEfficiency} authStatus={authStatus} sessionCache={sessionCache} />
       )}
     </>
   );

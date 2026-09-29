@@ -3,7 +3,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import TableSearchInput from "@/components/ui/TableSearchInput";
 import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import { canonicalCardQueryKey } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
@@ -11,23 +10,9 @@ import styles from "./explore.module.css";
 import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
 import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import { INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
+import { buildCardRowsParams, fetchCardRankingFacets, fetchChaseRows } from "@/lib/rankings/cardRankingsClient.mjs";
+import CardRankingsFilterBar from "./CardRankingsFilterBar";
 
-const SORTS = [
-  ["chase_efficiency", "Chase Efficiency"],
-  ["price", "Market Price"],
-  ["pull_probability", "Pull Odds"],
-  ["chase_spend_50", "50% Chase Spend"],
-  ["cost_multiple_50", "Cost Multiple"],
-  ["name", "Alphabetical"],
-];
-const RARITIES = [
-  "Special Illustration Rare",
-  "Illustration Rare",
-  "Hyper Rare",
-  "Mega Hyper Rare",
-  "Ultra Rare",
-  "Double Rare",
-];
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -121,7 +106,6 @@ function multiple50(row) {
 export default function CardChaseEfficiencyRankings({
   entitled,
   authStatus = "resolved",
-  targets = [],
   sessionCache,
 }) {
   const [filters, setFilters] = useState({
@@ -131,42 +115,25 @@ export default function CardChaseEfficiencyRankings({
     rarity: "",
     min_price: "",
     max_price: "",
-    sort: "chase_efficiency", direction: "desc",
+    sort: "rank", direction: "asc",
   });
   const [page, setPage] = useState(1);
   const [result, setResult] = useState({ status: "idle", payload: null });
+  const [facets, setFacets] = useState(null);
+  const [facetError, setFacetError] = useState("");
   const sets = useMemo(
     () =>
       new Map(
-        targets.map((target) => [
-          String(target?.set_id || target?.target_id || target?.id),
+        (facets?.sets || []).map((target) => [
+          String(target?.setId),
           {
-            name: target?.name,
-            canonicalKey: target?.canonical_key,
-            era: target?.era,
+            name: target?.setName,
+            canonicalKey: target?.canonicalKey,
+            era: target?.eraId,
           },
         ]),
       ),
-    [targets],
-  );
-  const eras = useMemo(
-    () =>
-      [
-        ...new Set(
-          targets
-            .map((target) => String(target?.era || "").trim())
-            .filter(Boolean),
-        ),
-      ].sort(),
-    [targets],
-  );
-  const setOptions = useMemo(
-    () =>
-      [...sets.entries()]
-        .map(([id, item]) => ({ id, ...item }))
-        .filter((item) => !filters.era || item.era === filters.era)
-        .sort((a, b) => String(a.name).localeCompare(String(b.name))),
-    [sets, filters.era],
+    [facets],
   );
   const {
     search,
@@ -179,6 +146,16 @@ export default function CardChaseEfficiencyRankings({
     direction,
   } = filters;
   useEffect(() => {
+    if (authStatus === "resolving" || !entitled) return undefined;
+    let active = true;
+    const key = "cards:facets:chase";
+    const load = () => fetchCardRankingFacets("chase");
+    (sessionCache ? sessionCache.request(key, load) : load())
+      .then((payload) => { if (active) setFacets(payload); })
+      .catch((error) => { if (active) setFacetError(error.message); });
+    return () => { active = false; };
+  }, [authStatus, entitled, sessionCache]);
+  useEffect(() => {
     if (authStatus === "resolving") return undefined;
     if (!entitled) {
       setResult({ status: "idle", payload: null });
@@ -187,21 +164,7 @@ export default function CardChaseEfficiencyRankings({
     let active = true;
     const timer = setTimeout(
       () => {
-        const params = new URLSearchParams({
-          page: String(page),
-          page_size: "50",
-          sort,
-          direction,
-        });
-        for (const [key, input] of Object.entries({
-          search,
-          era,
-          set: selectedSet,
-          rarity,
-          min_price: minPrice,
-          max_price: maxPrice,
-        }))
-          if (String(input || "").trim()) params.set(key, input);
+        const params = buildCardRowsParams({ page, filters });
         const cacheKey = canonicalCardQueryKey(params);
         const cached = sessionCache?.peek(cacheKey);
         if (cached) {
@@ -211,19 +174,7 @@ export default function CardChaseEfficiencyRankings({
         }
         setResult((current) => ({ ...current, status: "loading" }));
         markRankingsLens("cards", "request-start");
-        const load = () =>
-          fetch(`/api/explore/card-chase-efficiency?${params}`, {
-            cache: "no-store",
-          }).then(async (response) => {
-            const payload = await response.json();
-            if (!response.ok)
-              throw new Error(
-                payload?.detail?.message ||
-                  payload?.message ||
-                  "Unable to load rankings",
-              );
-            return payload;
-          });
+        const load = () => fetchChaseRows(params);
         const request = sessionCache
           ? sessionCache.request(cacheKey, load)
           : load();
@@ -264,15 +215,19 @@ export default function CardChaseEfficiencyRankings({
     maxPrice,
     sort,
     direction,
+    filters,
     sessionCache,
   ]);
   if (!entitled) return <LockedCards />;
   const update = (key, next) => {
-    setFilters((current) => ({
-      ...current,
-      [key]: next,
-      ...(key === "era" ? { set: "" } : {}),
-    }));
+    setFilters((current) => {
+      const changed = { ...current, [key]: next };
+      if (key === "era" && current.set) {
+        const selected = sets.get(current.set);
+        if (!next || String(selected?.era) !== next) changed.set = "";
+      }
+      return changed;
+    });
     setPage(1);
   };
   const rows = result.payload?.rows || [];
@@ -290,89 +245,8 @@ export default function CardChaseEfficiencyRankings({
           pack-equivalent cost.
         </p>
       </header>
-      <div className="grid gap-2 border-b border-[var(--border-subtle)] p-3 sm:grid-cols-2 desk:grid-cols-4">
-        <TableSearchInput
-          value={filters.search}
-          onChange={(e) => update("search", e.target.value)}
-          placeholder="Search cards"
-          ariaLabel="Search Chase Efficiency cards"
-          containerClassName="desk:max-w-none"
-        />
-        <select
-          aria-label="Filter by era"
-          value={filters.era}
-          onChange={(e) => update("era", e.target.value)}
-          className={`${styles.setMarketControl} min-h-11 px-2 text-xs`}
-        >
-          <option value="">All eras</option>
-          {eras.map((era) => (
-            <option key={era}>{era}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter by set"
-          value={filters.set}
-          onChange={(e) => update("set", e.target.value)}
-          className={`${styles.setMarketControl} min-h-11 px-2 text-xs`}
-        >
-          <option value="">All sets</option>
-          {setOptions.map((set) => (
-            <option key={set.id} value={set.id}>
-              {set.name}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter by rarity"
-          value={filters.rarity}
-          onChange={(e) => update("rarity", e.target.value)}
-          className={`${styles.setMarketControl} min-h-11 px-2 text-xs`}
-        >
-          <option value="">All rarities</option>
-          {RARITIES.map((rarity) => (
-            <option key={rarity}>{rarity}</option>
-          ))}
-        </select>
-        <input
-          aria-label="Minimum market price"
-          type="number"
-          min="0"
-          placeholder="Min price"
-          value={filters.min_price}
-          onChange={(e) => update("min_price", e.target.value)}
-          className={`${styles.setMarketControl} min-h-11 px-2 text-xs`}
-        />
-        <input
-          aria-label="Maximum market price"
-          type="number"
-          min="0"
-          placeholder="Max price"
-          value={filters.max_price}
-          onChange={(e) => update("max_price", e.target.value)}
-          className={`${styles.setMarketControl} min-h-11 px-2 text-xs`}
-        />
-        <select
-          aria-label="Sort cards"
-          value={filters.sort}
-          onChange={(e) => update("sort", e.target.value)}
-          className={`${styles.setMarketControl} min-h-11 px-2 text-xs`}
-        >
-          {SORTS.map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Sort direction"
-          value={filters.direction}
-          onChange={(e) => update("direction", e.target.value)}
-          className={`${styles.setMarketControl} min-h-11 px-2 text-xs`}
-        >
-          <option value="desc">Highest first</option>
-          <option value="asc">Lowest first</option>
-        </select>
-      </div>
+      <CardRankingsFilterBar filters={filters} facets={facets} onChange={update} onClear={() => { setFilters({ search: "", era: "", set: "", rarity: "", min_price: "", max_price: "", sort: "rank", direction: "asc" }); setPage(1); }} />
+      {facetError ? <p className="px-5 pt-4 text-sm text-rose-300">{facetError}</p> : null}
       {result.status === "error" ? (
         <p className="p-6 text-sm text-rose-300">{result.error}</p>
       ) : null}
