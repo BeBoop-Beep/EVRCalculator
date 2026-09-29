@@ -25,7 +25,7 @@ CREATE TABLE public.pkmnprices_sold_runs_v1 (
   provider_card_lookup_count integer NOT NULL DEFAULT 0 CHECK (provider_card_lookup_count >= 0),
   sold_item_count integer NOT NULL DEFAULT 0 CHECK (sold_item_count >= 0),
   exact_attribution_count integer NOT NULL DEFAULT 0 CHECK (exact_attribution_count >= 0),
-  fair_value_eligible_count integer NOT NULL DEFAULT 0 CHECK (fair_value_eligible_count >= 0),
+  fair_value_signal_eligible_count integer NOT NULL DEFAULT 0 CHECK (fair_value_signal_eligible_count >= 0),
   set_value_nm_eligible_count integer NOT NULL DEFAULT 0 CHECK (set_value_nm_eligible_count = 0),
   manifest_fingerprint text NOT NULL CHECK (manifest_fingerprint ~ '^[0-9a-f]{64}$'),
   error_code text,
@@ -79,7 +79,7 @@ CREATE TABLE public.pkmnprices_ebay_sold_evidence_v1 (
   ingested_at timestamptz,
   listing_url text,
   identity_state text NOT NULL CHECK (identity_state IN ('EXACT','AMBIGUOUS','NO_MATCH')),
-  fair_value_eligible boolean NOT NULL DEFAULT false,
+  fair_value_signal_eligible boolean NOT NULL DEFAULT false,
   set_value_nm_eligible boolean NOT NULL DEFAULT false CHECK (NOT set_value_nm_eligible),
   condition_state text NOT NULL DEFAULT 'UNKNOWN' CHECK (condition_state = 'UNKNOWN'),
   exclusion_reason text,
@@ -88,7 +88,7 @@ CREATE TABLE public.pkmnprices_ebay_sold_evidence_v1 (
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   UNIQUE (provider_listing_id, provider_card_id),
   CHECK (
-    NOT fair_value_eligible
+    NOT fair_value_signal_eligible
     OR (
       attribution = 'exact'
       AND NOT graded
@@ -112,7 +112,7 @@ CREATE INDEX pkmnprices_ebay_sold_evidence_v1_ingested_idx
 
 CREATE INDEX pkmnprices_ebay_sold_evidence_v1_fair_value_idx
   ON public.pkmnprices_ebay_sold_evidence_v1 (canonical_card_id, sold_at DESC)
-  WHERE fair_value_eligible;
+  WHERE fair_value_signal_eligible;
 
 CREATE TABLE public.pkmnprices_sold_sync_state_v1 (
   provider_card_id bigint PRIMARY KEY REFERENCES public.pkmnprices_card_identity_v1(provider_card_id) ON DELETE RESTRICT,
@@ -135,7 +135,7 @@ COMMENT ON TABLE public.pkmnprices_ebay_sold_evidence_v1 IS
   'Shadow-only PkmnPrices eBay completed-sale evidence. V1 is NOT a Near Mint Set Value price source.';
 COMMENT ON COLUMN public.pkmnprices_ebay_sold_evidence_v1.set_value_nm_eligible IS
   'Hard-false in V1 because PkmnPrices sold rows do not expose raw-card condition.';
-COMMENT ON COLUMN public.pkmnprices_ebay_sold_evidence_v1.fair_value_eligible IS
+COMMENT ON COLUMN public.pkmnprices_ebay_sold_evidence_v1.fair_value_signal_eligible IS
   'Exact-attribution, exact-internal-variant, ungraded USD transaction evidence; condition remains unknown.';
 
 ALTER TABLE public.pkmnprices_sold_runs_v1 ENABLE ROW LEVEL SECURITY;
