@@ -1,6 +1,7 @@
 name: PkmnPrices Vintage History Backfill
 
 # Resumable append-only historical fill; safe to trigger repeatedly.
+# Final resume: completed cards are skipped before sold-page requests.
 
 on:
   push:
