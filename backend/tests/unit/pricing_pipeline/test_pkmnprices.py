@@ -125,7 +125,7 @@ def test_variant_resolution_fails_closed_when_ambiguous():
     }
 
 
-def test_sold_evidence_is_fair_value_eligible_but_never_nm_by_default():
+def test_sold_evidence_is_fair_value_signal_eligible_but_never_nm_by_default():
     row = {
         "id": 123,
         "title": "Shining Noctowl 1st Edition",
@@ -147,12 +147,12 @@ def test_sold_evidence_is_fair_value_eligible_but_never_nm_by_default():
         collected_at="2026-09-29T00:00:00Z",
     )
     assert out["card_variant_id"] == "variant"
-    assert out["fair_value_eligible"] is True
+    assert out["fair_value_signal_eligible"] is True
     assert out["set_value_nm_eligible"] is False
     assert out["condition_state"] == "UNKNOWN"
 
 
-def test_shared_attribution_is_stored_but_not_fair_value_eligible():
+def test_shared_attribution_is_stored_but_not_fair_value_signal_eligible():
     row = {
         "id": 124, "title": "card", "price": 10, "currency": "USD",
         "grader": None, "grade": None, "variant": "Holofoil",
@@ -166,5 +166,5 @@ def test_shared_attribution_is_stored_but_not_fair_value_eligible():
         internal_variants=[{"id": "variant", "edition": None, "printing_type": "holo"}],
         collected_at="2026-09-29T00:00:00Z",
     )
-    assert out["fair_value_eligible"] is False
+    assert out["fair_value_signal_eligible"] is False
     assert out["exclusion_reason"] == "ATTRIBUTION_SHARED"
