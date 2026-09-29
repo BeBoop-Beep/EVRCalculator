@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const overview = JSON.parse(fs.readFileSync(path.join(here, "fixtures", "setValueMarket.slim.json"), "utf8"));
 
-const AS_OF = "2026-09-22";
+const AS_OF = "2026-09-28";
 let ART_ORIGIN = "http://127.0.0.1:8201";
 const GEN = { v1: "fixture-gen-v1", v2: "fixture-gen-v2" };
 const ERA = { base: "era-base", neo: "era-neo", hgss: "era-hgss" };
@@ -70,6 +70,7 @@ function directoryV2() {
     rows.push(v2Scoped("era", asset, ERA.base, "Base/WOTC"), v2Scoped("era", asset, ERA.neo, "Neo"), v2Scoped("era", asset, ERA.hgss, "HeartGold & SoulSilver"));
     rows.push(v2Scoped("set", asset, SET.fossil, "Fossil", ERA.base), v2Scoped("set", asset, SET.jungle, "Jungle", ERA.base), v2Scoped("set", asset, SET.bs2, "Base Set 2", ERA.base), v2Scoped("set", asset, SET.hgss, "HeartGold & SoulSilver", ERA.hgss));
     rows.push(...[["neoGenesis", "Neo Genesis"], ["neoDiscovery", "Neo Discovery"], ["neoRevelation", "Neo Revelation"], ["neoDestiny", "Neo Destiny"]].map(([id, label]) => v2Scoped("set", asset, SET[id], label, ERA.neo)));
+    rows.push(...Array.from({ length: 20 }, (_, index) => v2Scoped("set", asset, `fixture-set-${String(index + 1).padStart(2, "0")}`, `Fixture Set ${String(index + 1).padStart(2, "0")}`, index % 2 ? ERA.neo : ERA.base)));
   }
   rows.push(
     v2({ market_key: "raw", scope_kind: "parent", market_type: "parent", label: "Raw Card Market", asset: "cards", composition_kind: "index_and_composition", availability: "available" }),
@@ -78,7 +79,7 @@ function directoryV2() {
       .map((entry) => { const [a, k, l] = entry.split(":"); return v2({ market_key: `${a}:${k}`, scope_kind: "rarity", market_type: "prepared_rarity", label: l, asset: "cards", composition_kind: "index_and_composition" }); }),
     ...["case:Cases", "display:Displays", "booster_box:Booster Boxes", "elite_trainer_box:Elite Trainer Boxes", "three_pack_blister:Three-Pack Blisters", "collection_product:Collection Products"]
       .map((entry) => { const [k, l] = entry.split(":"); return v2({ market_key: `sealed-type:${k}`, scope_kind: "type", market_type: "prepared_format", label: l, asset: "sealed", composition_kind: "index_and_composition" }); }),
-    ...["obtainable:Obtainable", "premium:Premium"].map((entry) => { const [k, l] = entry.split(":"); return v2({ market_key: `curated:${k}`, scope_kind: "quick", market_type: "curated", label: l, asset: "cards" }); }),
+    ...["obtainable:Obtainable", "premium:Premium", "new-releases:New Releases", "established:Established", "global-top10:Global Top 10"].map((entry) => { const [k, l] = entry.split(":"); const asset = ["established", "global-top10"].includes(k) ? "sealed" : "cards"; return v2({ market_key: `${asset === "sealed" ? "sealed-quick" : "curated"}:${k}`, scope_kind: "quick", market_type: "curated", label: l, asset }); }),
   );
   return rows;
 }
@@ -92,14 +93,16 @@ const NO_IMAGE_MARKETS = new Set([`set:${SET.jungle}`]);
 function directory(mode) { return mode === "v2" ? directoryV2() : directoryV1(); }
 // PREPARED_CANDIDATE identities: absent from the directory but loadable by key through the
 // same prepared loader (asset-options publishes preparedMarketKey). Rare Holo GX is one.
-const candidateRows = (mode) => (mode === "v2" ? [v2({ market_key: "rarity:rareHoloGx", scope_kind: "rarity", market_type: "prepared_rarity", label: "Rare Holo GX", asset: "cards" })] : []);
+const candidateRows = (mode) => (mode === "v2" ? [
+  ["doubleRare", "Double Rare"], ["illustrationRare", "Illustration Rare"], ["rareHolo", "Rare Holo"], ["rareHoloGX", "Rare Holo GX"], ["promo", "Promo"],
+].map(([key, label]) => v2({ market_key: `rarity:${key}`, scope_kind: "rarity", market_type: "prepared_rarity", label, asset: "cards" })) : []);
 const resolveRows = (mode, keys) => [...directory(mode), ...candidateRows(mode)].filter((row) => keys.includes(row.market_key));
 
 function seeded(key) { let h = 0; for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
 function historyFor(key, generation) {
   const seed = seeded(key);
   const out = [];
-  const start = Date.UTC(2026, 6, 25); // 60 daily points ending on AS_OF (2026-09-22)
+  const start = Date.UTC(2026, 6, 31); // 60 daily points ending on AS_OF
   for (let i = 0; i < 60; i += 1) {
     const day = new Date(start + i * 86400000).toISOString().slice(0, 10);
     out.push({ market_key: key, market_date: day, index_value: money(100 + Math.sin((i + seed % 7) / 5) * 8 + (seed % 5) * i * 0.05), tracked_value: null, chain_segment_id: 0, generation_id: generation });
@@ -183,16 +186,21 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
         const asset = url.searchParams.get("asset");
         if (asset === "sealed") {
           const type = (key, label, extra = {}) => ({ key, label, eligibilityState: "PREPARED", preparedMarketAvailable: true, preparedMarketKey: `sealed-type:${key}`, bulkContainer: false, parentMembership: true, ...extra });
-          return reply(200, { types: [type("booster_box", "Booster Boxes"), type("elite_trainer_box", "Elite Trainer Boxes"), type("three_pack_blister", "Three-Pack Blisters"), type("collection_product", "Collection Products"), type("case", "Cases", { bulkContainer: true, parentMembership: false }), type("display", "Displays", { bulkContainer: true, parentMembership: false }), type("half_booster_box", "Half Booster Boxes", { eligibilityState: "UNAVAILABLE", preparedMarketAvailable: false, preparedMarketKey: null, reason: "No current priced inventory is available for this option." })], quickMarkets: [] });
+          return reply(200, { types: [type("booster_box", "Booster Boxes"), type("elite_trainer_box", "Elite Trainer Boxes"), type("three_pack_blister", "Three-Pack Blisters"), type("collection_product", "Collection Products"), type("case", "Cases", { bulkContainer: true, parentMembership: false }), type("display", "Displays", { bulkContainer: true, parentMembership: false }), type("half_booster_box", "Half Booster Boxes", { eligibilityState: "UNAVAILABLE", preparedMarketAvailable: false, preparedMarketKey: null, selectionAvailable: false, reason: "No current priced inventory is available for this option." })], quickMarkets: [{ key: "sealed-quick:established", label: "Established", status: "APPROVED" }, { key: "sealed-quick:global-top10", label: "Global Top 10", status: "APPROVED" }] });
         }
-        const prepared = (key, label) => ({ key, label, eligibilityState: "PREPARED", preparedMarketAvailable: true, preparedMarketKey: `rarity:${key}` });
-        const other = (key, label, eligibilityState, reason) => ({ key, label, eligibilityState, preparedMarketAvailable: false, preparedMarketKey: null, reason });
-        return reply(200, { rarities: [
-          { key: "rareHoloGX", label: "Rare Holo GX", eligibilityState: "PREPARED_CANDIDATE", preparedMarketAvailable: false, preparedMarketKey: "rarity:rareHoloGx" }, other("rareHoloEX", "Rare Holo EX", "INSUFFICIENT_COHORT"),
-          other("rareHoloV", "Rare Holo V", "CUSTOM_BUILD_AVAILABLE"), other("rareHoloVMAX", "Rare Holo VMAX", "INSUFFICIENT_HISTORY"),
-          other("rareHoloVSTAR", "Rare Holo VSTAR", "UNAVAILABLE"), prepared("rareUltra", "Rare Ultra"), prepared("rareSecret", "Rare Secret"),
-          prepared("ultraRare", "Ultra Rare"), prepared("specialIllustrationRare", "Special Illustration Rare"),
-        ] });
+        const preparedKeys = new Set(["doubleRare", "rareUltra", "rareSecret", "ultraRare", "specialIllustrationRare", "illustrationRare", "rareHolo", "rareHoloGX", "promo"]);
+        const rarityLabels = ["Amazing Rare", "ACE SPEC Rare", "Classic Collection", "Common", "Double Rare", "Hyper Rare", "Illustration Rare", "LEGEND", "Promo", "Radiant Rare", "Rare", "Rare ACE", "Rare BREAK", "Rare Holo", "Rare Holo EX", "Rare Holo GX", "Rare Holo LV.X", "Rare Holo Star", "Rare Holo V", "Rare Holo VMAX", "Rare Holo VSTAR", "Rare Prime", "Rare Prism Star", "Rare Rainbow", "Rare Secret", "Rare Shining", "Rare Shiny", "Rare Shiny GX", "Rare Ultra", "SH", "Shiny Rare", "Shiny Ultra Rare", "Special Illustration Rare", "Trainer Gallery Rare Holo", "Ultra Rare", "Uncommon", "Uncommon Prime", "V", "VMAX"];
+        const rarityKey = (label) => label.replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase()).replace(/^./, (c) => c.toLowerCase());
+        return reply(200, { rarities: rarityLabels.map((label) => { const key = rarityKey(label); const prepared = preparedKeys.has(key); return { key, label, eligibilityState: prepared ? "PREPARED" : "CUSTOM_BUILD_AVAILABLE", selectionAvailable: true, preparedMarketAvailable: prepared, preparedMarketKey: prepared ? `rarity:${key}` : null }; }) });
+      }
+
+      if (route === "/market/explorer/query" && req.method === "POST") {
+        if (!token || !plan) return reply(401, { message: "Sign in to build a custom market.", code: "AUTH" });
+        const spec = body || {};
+        const identity = JSON.stringify(spec);
+        const fingerprint = `fixture-${seeded(identity).toString(16)}`;
+        const segment = spec.segmentIds?.[0] || "custom";
+        return reply(200, { queryFingerprint: fingerprint, queryKey: identity, displayLabel: segment === "amazingRare" ? "Amazing Rare" : `Fixture ${segment}`, spec, trackedValue: 2400, indexValue: 108.2, asOf: AS_OF, historyStartDate: "2026-07-31", trend: historyFor(`query:${fingerprint}`, GEN.v2).map((point) => [point.market_date, point.index_value]), familyChanges: {}, trackedValueChanges: {}, scope: { resolvedSetCount: 12 } });
       }
       if (route === "/market/explorer/leaves/search") {
         const q = String(url.searchParams.get("q") || "").toLowerCase();

@@ -67,6 +67,7 @@ from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_CARD_COLLECTOR_APPEAL,
     FEATURE_MARKET_BREADTH,
+    FEATURE_MARKET_EXPLORER_PREPARED_COMPARE,
     FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     FEATURE_PACK_ECONOMICS,
     FEATURE_PRODUCT_RIP,
@@ -78,6 +79,7 @@ from backend.domain.access.index_plan_access import (
     market_explorer_active_market_limit,
     has_index_premium_access,
     has_index_feature_access,
+    is_canonical_rarity_query_shape,
     project_card_detail_response,
     project_insights_critical_response,
     project_product_chase_access_response,
@@ -184,7 +186,7 @@ from backend.db.services.market_explorer_prepared_directory import (
     read_prepared_screen, read_set_context_ranking,
 )
 from backend.db.services.market_explorer_surface_v2 import (
-    SurfaceV2Error, read_asset_options, read_comparison_v2_first,
+    SurfaceV2Error, is_selectable_canonical_rarity, read_asset_options, read_comparison_v2_first,
     read_constituents_v2_first, read_directory_v2_first, search_catalog,
 )
 from backend.db.services.market_explorer_exact_basket import (
@@ -967,9 +969,28 @@ def _require_market_explorer_query_access(
     user_id = _require_authenticated_user_id(
         authorization=authorization, token_cookie=token_cookie
     )
-    decision = evaluate_market_query_access(
-        _resolve_index_plan(authorization, token_cookie), spec
-    )
+    plan = _resolve_index_plan(authorization, token_cookie)
+    decision = evaluate_market_query_access(plan, spec)
+    if not decision["allowed"] and is_canonical_rarity_query_shape(spec):
+        # A canonical Rarity Market is part of prepared/research comparison
+        # packaging even when CUSTOM_BUILD_AVAILABLE execution reuses the
+        # generic planner. The exception is granted only from current DB
+        # authority; no request flag or Python rarity list can establish it.
+        try:
+            options = read_asset_options(service_read_client, "cards")
+        except SurfaceV2Error:
+            options = None
+        rarity_key = str((spec.get("segmentIds") or ("",))[0])
+        if is_selectable_canonical_rarity(options, rarity_key):
+            if has_index_feature_access(plan, FEATURE_MARKET_EXPLORER_PREPARED_COMPARE):
+                return user_id
+            decision = {
+                "allowed": False,
+                "requiredPlan": "plus",
+                "capability": FEATURE_MARKET_EXPLORER_PREPARED_COMPARE,
+                "reason": "canonical Rarity Markets require Index Plus",
+                "activeFilterAxes": ["segment"],
+            }
     if not decision["allowed"]:
         emit_security_event("entitlement_denied", route="market_explorer", policy_class=POLICY_CUSTOM_QUERY,
                             user_id=user_id, required_capability=decision["capability"],

@@ -90,7 +90,7 @@ test("focused chip keeps its identity; every other chip is dimmed but stays inte
   const chip = (key) => renderer.root.findByProps({ "data-market-explorer-active-chip": key });
   assert.equal(chip("set:b").props["data-market-explorer-active-chip-dimmed"], "false");
   assert.equal(chip("set:a").props["data-market-explorer-active-chip-dimmed"], "true");
-  assert.match(chip("set:a").props.className, /grayscale/);
+  assert.doesNotMatch(chip("set:a").props.className, /grayscale/, "dimming preserves the series hue");
   assert.doesNotMatch(chip("set:b").props.className, /grayscale/);
   // Dimmed chips remain fully operable.
   assert.equal(renderer.root.findByProps({ "data-market-explorer-active-focus-body": "set:a" }).props.disabled, undefined);
@@ -221,13 +221,14 @@ test("broken large-image URL falls back to the placeholder in the preview (sourc
   assert.match(source, /rel="noopener noreferrer"/);
 });
 
-test("View and Hide Constituents share the violet centred treatment (structure contract)", () => {
+test("View and Hide Constituents share the violet analysis treatment (structure contract)", () => {
   const chart = read("components/explore/MarketExplorerChart.jsx");
   const client = read("components/explore/MarketExplorerClient.jsx");
   const violet = /border-violet-400\/60 bg-violet-500\/\[\.12\] .*shadow-\[0_0_16px_rgba\(139,92,246,0\.35\)\]/;
   assert.match(chart.slice(chart.indexOf("data-market-explorer-view-details")), violet);
   assert.match(client.slice(client.indexOf("data-market-explorer-hide-details")), violet);
-  assert.match(chart, /data-market-explorer-chart-bottom-actions className="flex flex-none justify-center/);
+  assert.match(chart, /data-market-explorer-chart-bottom-actions className="flex flex-none flex-col gap-2/);
+  assert.match(chart, /sm:justify-between/);
   assert.match(client, /relative flex flex-none flex-col gap-2 border-b/);
   // One workspace Clear All; no Clear Graph label.
   assert.doesNotMatch(client + read("components/explore/MarketExplorerActiveMarkets.jsx"), />\s*Clear Graph\s*</);

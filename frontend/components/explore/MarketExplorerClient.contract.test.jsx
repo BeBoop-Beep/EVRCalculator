@@ -921,7 +921,9 @@ test("no published market snapshot degrades to a stated message rather than a cr
 // --- methodology copy -----------------------------------------------------
 
 test("the page explains Market Index without implying every constituent appreciated", () => {
-  const text = pageText(render());
+  const renderer = render();
+  click(renderer, "data-market-explorer-methodology-trigger", true);
+  const text = pageText(renderer);
   assert.ok(text.includes("Market Index measures price performance from a base of 100 while neutralizing constituent additions and removals."));
   assert.ok(text.includes("above its own index base"));
   assert.ok(text.includes("not that every card or product in it rose"));
@@ -1186,26 +1188,20 @@ test("hiding an active market drops it from Market Comparison Analysis but keeps
   assert.ok(picker.includes("raw") || picker.length <= 1);
 });
 
-test("the lower-page section order is Active Markets, then Comparison Detail, then Constituents, then Methodology", () => {
+test("Methodology is a chart action and opens as the existing in-place takeover", () => {
   const renderer = render();
-  const orderedNodes = renderer.root.findAll((node) =>
-    node.props?.["data-market-explorer-active-markets"] !== undefined
-    || node.props?.["data-market-explorer-details"] !== undefined
-    || node.props?.["data-market-explorer-constituents"] !== undefined
-    || node.props?.["data-market-explorer-methodology"] !== undefined
-  );
-  const markers = orderedNodes.map((node) => Object.keys(node.props).find((key) => key.startsWith("data-market-explorer-")));
-  assert.ok(markers.indexOf("data-market-explorer-active-markets") < markers.indexOf("data-market-explorer-details"));
-  assert.ok(markers.indexOf("data-market-explorer-details") < markers.indexOf("data-market-explorer-constituents"));
-  assert.ok(markers.indexOf("data-market-explorer-constituents") < markers.indexOf("data-market-explorer-methodology"));
-  const methodology = renderer.root.findAll(
-    (node) => node.props?.["data-market-explorer-methodology"] !== undefined
-  )[0];
-  assert.ok(methodology, "Methodology must render");
+  assert.equal(findAll(renderer, "data-market-explorer-methodology").length, 0);
+  assert.equal(findAll(renderer, "data-market-explorer-methodology-trigger").length, 1);
+  click(renderer, "data-market-explorer-methodology-trigger", true);
+  assert.equal(findAll(renderer, "data-market-explorer-methodology").length, 1);
+  click(renderer, "data-market-explorer-methodology-trigger", true);
+  assert.equal(findAll(renderer, "data-market-explorer-methodology").length, 0);
 });
 
 test("Methodology explains Per-Set Chase vs. Global Top 10 and Screens vs. the Builder", () => {
-  const text = pageText(render());
+  const renderer = render();
+  click(renderer, "data-market-explorer-methodology-trigger", true);
+  const text = pageText(renderer);
   assert.match(text, /Per-Set Chase/);
   assert.match(text, /Global Top 10/);
   assert.match(text, /highest-value cards globally/i);

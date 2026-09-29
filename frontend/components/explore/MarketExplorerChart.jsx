@@ -53,6 +53,9 @@ export default function MarketExplorerChart({
   // Server-published overlay series ({ id, label, values } aligned to the chart
   // dates). Empty by default; nothing is ever derived client-side.
   overlays = [],
+  methodologyOpen = false,
+  methodologyTriggerRef,
+  onToggleMethodology,
   // The Explorer chart is an OPEN CANVAS by default: no enclosing card, no plot
   // border, no interior background. /Market keeps the card surface because it
   // never passes `minimal`.
@@ -71,15 +74,15 @@ export default function MarketExplorerChart({
   const focusedSeries = focusedSeriesKey ? selectedSeries.find((entry) => entry.key === focusedSeriesKey) || null : null;
 
   return (
-    <section data-market-explorer-chart-pane className="relative flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
+    <section data-market-explorer-chart-pane className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" aria-labelledby="market-explorer-chart-heading">
       <div className="px-2 pb-1 pt-2 sm:px-3">
         <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
         <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
-            <div data-market-explorer-analysis-tools className="flex flex-wrap items-center gap-1.5">
+            {focusedSeries ? <div data-market-explorer-analysis-tools className="flex flex-wrap items-center gap-1.5">
               {focusTools.map((tool) => <Fragment key={tool.id}>{tool.render({ focusedSeries })}</Fragment>)}
-            </div>
+            </div> : null}
           </div>
           <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
             <MarketExplorerTimeframeSelector
@@ -134,7 +137,7 @@ export default function MarketExplorerChart({
         </p>
       ) : null}
 
-      <div className="min-w-0 flex-1 pl-2 pr-3 sm:pl-3 sm:pr-4">
+      <div data-market-explorer-chart-plot className="min-h-0 min-w-0 flex-1 pl-2 pr-3 sm:pl-3 sm:pr-4">
         {visibleModel?.available
           ? (
             // THE PLOT IS THE PRODUCT, so it gets real height at every width.
@@ -146,7 +149,8 @@ export default function MarketExplorerChart({
               model={visibleModel}
               timeframe={timeframe}
               viewMode={viewMode}
-              plotClassName="h-[20rem] tab:h-[26rem] desk:h-[clamp(19rem,calc(100dvh-24rem),42rem)]"
+              className="desk:flex desk:h-full desk:min-h-0 desk:flex-col"
+              plotClassName="h-[20rem] tab:h-[26rem] desk:h-auto desk:min-h-[12rem] desk:flex-1"
               minimal={openCanvas}
               focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
               overlays={overlays}
@@ -164,7 +168,17 @@ export default function MarketExplorerChart({
           scrolling, centred on the plot) rather than the toolbar or a page section.
           It opens the in-place takeover overlay; violet marks it as an analysis
           action, distinct from performance green/red and selected-teal controls. */}
-      <div data-market-explorer-chart-bottom-actions className="flex flex-none justify-center px-2 pb-2 pt-1.5 sm:px-3">
+      <div data-market-explorer-chart-bottom-actions className="flex flex-none flex-col gap-2 px-2 pb-2 pt-1.5 sm:flex-row sm:items-center sm:justify-between sm:px-3">
+        <button
+          ref={methodologyTriggerRef}
+          type="button"
+          data-market-explorer-methodology-trigger
+          aria-expanded={methodologyOpen}
+          onClick={onToggleMethodology}
+          className="min-h-10 rounded-lg border border-violet-400/45 bg-violet-500/[.08] px-4 text-xs font-semibold text-violet-200 transition-colors hover:border-violet-300/75 hover:bg-violet-500/[.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80"
+        >
+          Methodology
+        </button>
         {constituentsAvailable ? <button
           type="button"
           data-market-explorer-view-details

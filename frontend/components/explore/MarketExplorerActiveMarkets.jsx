@@ -136,7 +136,7 @@ export default function MarketExplorerActiveMarkets({
                 className={[
                   "group flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
                   isFocused ? "ring-2 ring-sky-400/80 font-semibold" : "",
-                  isDimmed ? "opacity-45 grayscale hover:opacity-75 focus-within:opacity-75" : "",
+                  isDimmed ? "opacity-45 hover:opacity-75 focus-within:opacity-75" : "",
                   isHidden ? "opacity-50" : "",
                   isActive
                     ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.15)]"

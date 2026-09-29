@@ -286,7 +286,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
           {drawn.map((entry) => (entry.coordinates.length
             ? <path key={`${entry.key}-area`} data-market-performance-area={entry.key} d={`M ${entry.polyline.replaceAll(" ", " L ")} L ${entry.coordinates[entry.coordinates.length - 1].x.toFixed(2)},${PLOT_BOTTOM} L ${entry.coordinates[0].x.toFixed(2)},${PLOT_BOTTOM} Z`} fill={`url(#${gradientPrefix}-${entry.key})`} />
             : null))}
-          {referenceVisible ? <line data-market-performance-reference={referenceValue} x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.28)" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
+          {referenceVisible ? <line data-market-performance-reference={referenceValue} x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.42)" strokeWidth="1.35" vectorEffect="non-scaling-stroke" /> : null}
           {lineOrder.map((entry) => (entry.coordinates.length >= 2
             ? <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} data-market-performance-focus={focusActive ? (isDimmed(entry) ? "dimmed" : "focused") : undefined} points={entry.polyline} fill="none" stroke={paintOf(entry)} strokeOpacity={isDimmed(entry) ? 0.11 : undefined} strokeWidth={focusActive && !isDimmed(entry) ? "3" : "2"} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             : null))}
@@ -302,7 +302,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
         {referenceVisible ? <span
           data-market-performance-reference-label
           aria-hidden="true"
-          className="pointer-events-none absolute left-[2.5%] text-[11px] font-semibold leading-none text-[var(--text-primary)] opacity-80"
+          className="pointer-events-none absolute left-[2.5%] text-[11px] font-semibold leading-none text-[var(--text-primary)] opacity-90"
           style={{ top: `${(referenceY / VIEW_HEIGHT) * 100}%`, transform: "translateY(-115%)" }}
         >
           {isIndexView ? formatIndexValue(referenceValue) : "0%"}

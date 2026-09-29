@@ -140,6 +140,7 @@ export default function MarketExplorerClient({
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   useEffect(() => {
     if (!methodologyOpen || typeof document === "undefined") return undefined;
+    const methodologyTrigger = methodologyTriggerRef.current;
     const focusFrame = requestAnimationFrame(() => methodologyCloseRef.current?.focus());
     const closeOnEscape = (event) => {
       if (event.key === "Escape") {
@@ -151,7 +152,7 @@ export default function MarketExplorerClient({
     return () => {
       cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", closeOnEscape);
-      const restoreTarget = methodologyRestoreFocusRef.current || methodologyTriggerRef.current;
+      const restoreTarget = methodologyRestoreFocusRef.current || methodologyTrigger;
       requestAnimationFrame(() => restoreTarget?.focus?.());
     };
   }, [methodologyOpen]);
@@ -498,13 +499,7 @@ export default function MarketExplorerClient({
           gradedReason={gradedOptionStates.data?.reason || null}
           onAddToBasket={(item) => { setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 }); setBuilderMode("exact"); setBuilderOpen(true); }}
           onBuild={() => { setBuilderMode("exact"); setBuilderOpen(true); }} />
-        <div className="px-3 pb-3"><button ref={methodologyTriggerRef} type="button" data-market-explorer-methodology-trigger aria-expanded={methodologyOpen} onClick={() => {
-          if (methodologyOpen) { setMethodologyOpen(false); return; }
-          methodologyRestoreFocusRef.current = typeof document !== "undefined" ? document.activeElement : methodologyTriggerRef.current;
-          setMethodologyOpen(true);
-        }} className="flex min-h-9 w-full items-center justify-between rounded-md border border-violet-400/40 px-3 text-xs font-semibold text-violet-200"><span>Methodology</span><span aria-hidden="true">{methodologyOpen ? "−" : "+"}</span></button></div>
-        <div data-market-explorer-sidebar-section="analyze" className="border-t-2 border-white/35 px-3 py-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">Analyze</p>
+        <div data-market-explorer-sidebar-section="asset-markets" className="px-3 pb-3">
           {activeBrowseAsset === "cards" ? <MarketExplorerRarityMarkets
             directory={preparedDirectory}
             assetOptions={cardOptionStates.status === "ready" ? cardOptionStates.data : null}
@@ -524,6 +519,8 @@ export default function MarketExplorerClient({
             activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys} activeSeries={querySeries}
             canBuild={canBuildCustomMarkets} onUpgrade={() => setCompareUpgradeVisible(true)}
             onSelect={selectPrepared} onAddQuery={addQuery} onRemoveQuery={removeQuery} /> : null}
+        </div>
+        <div data-market-explorer-directory-screens-divider className="border-t-2 border-white/40 px-3 py-3">
           <MarketExplorerScreens canUse={canComparePreparedMarkets} activeKeys={preparedActiveKeys} pendingKeys={preparedPendingKeys}
             onUpgrade={() => setCompareUpgradeVisible(true)} onSelect={selectPrepared} />
         </div>
@@ -601,12 +598,12 @@ export default function MarketExplorerClient({
             timeframe={timeframe}
           />
         </div>
-        <div data-market-explorer-chart-workspace className="order-2 relative min-w-0 desk:min-h-0 desk:flex-1 desk:overflow-hidden">
+        <div data-market-explorer-chart-workspace className="order-2 relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <div
           data-market-explorer-graph
           aria-hidden={detailsOpen || methodologyOpen ? "true" : undefined}
           inert={detailsOpen || methodologyOpen ? true : undefined}
-          className={detailsOpen || methodologyOpen ? "pointer-events-none min-w-0 select-none" : "min-w-0"}
+          className={detailsOpen || methodologyOpen ? "pointer-events-none flex h-full min-h-0 min-w-0 flex-1 select-none" : "flex h-full min-h-0 min-w-0 flex-1"}
         >
           <div data-market-explorer-workspace-notices data-market-explorer-workspace-overlay="notices" className="pointer-events-none absolute left-3 right-3 top-3 z-30 space-y-2 [&_button]:pointer-events-auto [&_a]:pointer-events-auto">
           {preparedPendingKeys.map((key) => (
@@ -649,6 +646,13 @@ export default function MarketExplorerClient({
             onClearFocus={clearFocus}
             focusTools={focusTools}
             overlays={chartOverlays}
+            methodologyOpen={methodologyOpen}
+            methodologyTriggerRef={methodologyTriggerRef}
+            onToggleMethodology={() => {
+              if (methodologyOpen) { setMethodologyOpen(false); return; }
+              methodologyRestoreFocusRef.current = typeof document !== "undefined" ? document.activeElement : methodologyTriggerRef.current;
+              setMethodologyOpen(true);
+            }}
           />
         </div>
         {detailsOpen ? (

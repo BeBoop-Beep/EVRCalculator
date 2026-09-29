@@ -130,6 +130,113 @@ def test_asset_options_ok_invalid_and_failure(api):
     assert r.status_code == 503 and "boom" not in r.text
 
 
+def _rarity_spec(key="thin", **updates):
+    spec = {
+        "asset": "cards", "mode": "all", "membershipMode": "filters",
+        "eraIds": (), "setIds": (), "segmentIds": (key,), "pokemonIds": (),
+        "priceSegmentIds": (), "releaseAgeCohortIds": (), "topN": None,
+    }
+    spec.update(updates)
+    return spec
+
+
+def _rarity_options(key="thin", *, state="CUSTOM_BUILD_AVAILABLE", selectable=True):
+    return {"asset": "cards", "rarities": [{
+        "key": key, "eligibilityState": state, "selectionAvailable": selectable,
+        "screenEligible": False, "preparedMarketAvailable": state == "PREPARED",
+        "preparedMarketKey": f"rarity:{key}" if state == "PREPARED" else None,
+    }]}
+
+
+@pytest.mark.parametrize("plan,state", [
+    ("plus", "PREPARED"),
+    ("plus", "CUSTOM_BUILD_AVAILABLE"),
+    ("premium", "CUSTOM_BUILD_AVAILABLE"),
+])
+def test_canonical_selectable_rarity_allows_paid_research_tiers(monkeypatch, api, plan, state):
+    api(Fake(options=_rarity_options(state=state)))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: plan)
+    assert main._require_market_explorer_query_access(
+        _rarity_spec(), authorization="Bearer token", token_cookie=None,
+    ) == "user-1"
+
+
+def test_canonical_rarity_authenticates_before_registry_lookup(monkeypatch, api):
+    fake = Fake(options=_rarity_options())
+    api(fake)
+
+    def deny(**_kwargs):
+        raise HTTPException(status_code=401, detail="auth")
+
+    monkeypatch.setattr(main, "_require_authenticated_user_id", deny)
+    with pytest.raises(HTTPException) as exc:
+        main._require_market_explorer_query_access(
+            _rarity_spec(), authorization=None, token_cookie=None,
+        )
+    assert exc.value.status_code == 401
+    assert v2.ASSET_OPTIONS_RPC_V2 not in fake.calls
+
+
+@pytest.mark.parametrize("plan", [None, "basic"])
+def test_basic_canonical_rarity_remains_denied(monkeypatch, api, plan):
+    api(Fake(options=_rarity_options()))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: plan)
+    with pytest.raises(HTTPException) as exc:
+        main._require_market_explorer_query_access(
+            _rarity_spec(), authorization="Bearer token", token_cookie=None,
+        )
+    assert exc.value.status_code == 403
+    assert exc.value.detail["requiredPlan"] == "plus"
+
+
+@pytest.mark.parametrize("options,key", [
+    (_rarity_options("known"), "unknown"),
+    (_rarity_options("blocked", state="UNAVAILABLE", selectable=False), "blocked"),
+])
+def test_plus_unknown_or_db_unavailable_rarity_fails_closed(monkeypatch, api, options, key):
+    api(Fake(options=options))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: "plus")
+    with pytest.raises(HTTPException) as exc:
+        main._require_market_explorer_query_access(
+            _rarity_spec(key), authorization="Bearer token", token_cookie=None,
+        )
+    assert exc.value.status_code == 403
+
+
+def test_plus_registry_failure_fails_closed_but_premium_keeps_builder_access(monkeypatch, api):
+    api(Fake(fail={v2.ASSET_OPTIONS_RPC_V2: RuntimeError("registry down")}))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: "plus")
+    with pytest.raises(HTTPException) as exc:
+        main._require_market_explorer_query_access(
+            _rarity_spec(), authorization="Bearer token", token_cookie=None,
+        )
+    assert exc.value.status_code == 403
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: "premium")
+    assert main._require_market_explorer_query_access(
+        _rarity_spec(), authorization="Bearer token", token_cookie=None,
+    ) == "user-1"
+
+
+@pytest.mark.parametrize("updates", [
+    {"priceSegmentIds": ("premium",), "segmentIds": ()},
+    {"releaseAgeCohortIds": ("new",), "segmentIds": ()},
+    {"setIds": ("set-1",)},
+    {"pokemonIds": ("25",)},
+    {"mode": "chase", "topN": 10},
+    {"membershipMode": "explicit", "segmentIds": (), "instrumentIds": ("card-1",)},
+])
+def test_plus_noncanonical_builder_shapes_remain_premium(monkeypatch, api, updates):
+    fake = Fake(options=_rarity_options())
+    api(fake)
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: "plus")
+    with pytest.raises(HTTPException) as exc:
+        main._require_market_explorer_query_access(
+            _rarity_spec(**updates), authorization="Bearer token", token_cookie=None,
+        )
+    assert exc.value.status_code == 403
+    assert v2.ASSET_OPTIONS_RPC_V2 not in fake.calls
+
+
 def test_comparison_v2_single_market_and_no_cross_market(api):
     fake = Fake(directory=[drow("set:a"), drow("set:b")],
                 history=[{"generation_id": GEN, "market_key": "set:a", "market_date": f"2026-09-{20+i}", "index_value": 100 + i,
