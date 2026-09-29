@@ -14,10 +14,11 @@ permissions:
 
 concurrency:
   group: index-fair-value-sold-signal-pilot
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   pilot:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: self-hosted
     timeout-minutes: 45
     steps:
