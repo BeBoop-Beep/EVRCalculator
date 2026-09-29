@@ -1,0 +1,15 @@
+{
+  "grid": {
+    "CONTROL": 0.0,
+    "ANCHOR25": 0.25,
+    "ANCHOR50": 0.5,
+    "ANCHOR75": 0.75,
+    "ANCHOR100": 1.0
+  },
+  "formula": "(1-alpha)*original_trainer_subject + alpha*trainer_pokemon_anchor_score",
+  "pokemonChanged": false,
+  "negativeControls": {
+    "domainZScore": "documented only; centers/scales each domain and can create boundary saturation",
+    "fullDomainQuantileEqualization": "documented only; forces both domains to uniform ranks and discards magnitude"
+  }
+}

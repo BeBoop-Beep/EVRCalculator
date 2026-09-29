@@ -1,0 +1,262 @@
+{
+  "required": [
+    {
+      "identity": "Gengar",
+      "printings": 42,
+      "baseline": 97.14811701844104,
+      "mappedSubject": null,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 97.14811701844104,
+          "globalRank": 39
+        },
+        "ANCHOR25": {
+          "finalScore": 97.14811701844104,
+          "globalRank": 23
+        },
+        "ANCHOR50": {
+          "finalScore": 97.14811701844104,
+          "globalRank": 13
+        },
+        "ANCHOR75": {
+          "finalScore": 97.14811701844104,
+          "globalRank": 1
+        },
+        "ANCHOR100": {
+          "finalScore": 97.14811701844104,
+          "globalRank": 1
+        }
+      },
+      "withinDomainRank": "preserved at identity level by monotone mapping"
+    },
+    {
+      "identity": "Giovanni",
+      "printings": 12,
+      "baseline": 100.0,
+      "mappedSubject": 94.51925800000004,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 100.0,
+          "globalRank": 3
+        },
+        "ANCHOR25": {
+          "finalScore": 98.62981450000001,
+          "globalRank": 3
+        },
+        "ANCHOR50": {
+          "finalScore": 97.25962900000002,
+          "globalRank": 3
+        },
+        "ANCHOR75": {
+          "finalScore": 95.88944350000003,
+          "globalRank": 47
+        },
+        "ANCHOR100": {
+          "finalScore": 94.51925800000004,
+          "globalRank": 117
+        }
+      },
+      "withinDomainRank": "preserved at identity level by monotone mapping"
+    },
+    {
+      "identity": "Cynthia",
+      "printings": 7,
+      "baseline": 99.34977344958554,
+      "mappedSubject": 93.25951,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 99.34977344958554,
+          "globalRank": 13
+        },
+        "ANCHOR25": {
+          "finalScore": 97.91090574766491,
+          "globalRank": 13
+        },
+        "ANCHOR50": {
+          "finalScore": 96.47203804574427,
+          "globalRank": 55
+        },
+        "ANCHOR75": {
+          "finalScore": 95.03317034382364,
+          "globalRank": 78
+        },
+        "ANCHOR100": {
+          "finalScore": 93.594302641903,
+          "globalRank": 210
+        }
+      },
+      "withinDomainRank": "preserved at identity level by monotone mapping"
+    },
+    {
+      "identity": "Lillie",
+      "printings": 11,
+      "baseline": 98.00485638136078,
+      "mappedSubject": 86.46577211591251,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 98.00485638136078,
+          "globalRank": 28
+        },
+        "ANCHOR25": {
+          "finalScore": 95.88603085986357,
+          "globalRank": 72
+        },
+        "ANCHOR50": {
+          "finalScore": 93.76720533836638,
+          "globalRank": 200
+        },
+        "ANCHOR75": {
+          "finalScore": 91.64837981686918,
+          "globalRank": 396
+        },
+        "ANCHOR100": {
+          "finalScore": 89.52955429537198,
+          "globalRank": 526
+        }
+      },
+      "withinDomainRank": "preserved at identity level by monotone mapping"
+    }
+  ],
+  "additional": [
+    {
+      "stratum": "high Pokemon",
+      "identity": "Lapras",
+      "baseline": 74.54637826907108,
+      "mappedSubject": null,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 74.54637826907108,
+          "globalRank": 1789
+        },
+        "ANCHOR25": {
+          "finalScore": 74.54637826907108,
+          "globalRank": 1757
+        },
+        "ANCHOR50": {
+          "finalScore": 74.54637826907108,
+          "globalRank": 1725
+        },
+        "ANCHOR75": {
+          "finalScore": 74.54637826907108,
+          "globalRank": 1671
+        },
+        "ANCHOR100": {
+          "finalScore": 74.54637826907108,
+          "globalRank": 1639
+        }
+      }
+    },
+    {
+      "stratum": "mid Pokemon",
+      "identity": "Diglett",
+      "baseline": 52.435918589174804,
+      "mappedSubject": null,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 52.435918589174804,
+          "globalRank": 8815
+        },
+        "ANCHOR25": {
+          "finalScore": 52.435918589174804,
+          "globalRank": 8814
+        },
+        "ANCHOR50": {
+          "finalScore": 52.435918589174804,
+          "globalRank": 8814
+        },
+        "ANCHOR75": {
+          "finalScore": 52.435918589174804,
+          "globalRank": 8817
+        },
+        "ANCHOR100": {
+          "finalScore": 52.435918589174804,
+          "globalRank": 8817
+        }
+      }
+    },
+    {
+      "stratum": "high Trainer",
+      "identity": "Kieran",
+      "baseline": 91.73192494866893,
+      "mappedSubject": 68.24542809937387,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 91.73192494866893,
+          "globalRank": 450
+        },
+        "ANCHOR25": {
+          "finalScore": 87.65555148213218,
+          "globalRank": 611
+        },
+        "ANCHOR50": {
+          "finalScore": 83.57917801559543,
+          "globalRank": 989
+        },
+        "ANCHOR75": {
+          "finalScore": 79.50280454905868,
+          "globalRank": 1100
+        },
+        "ANCHOR100": {
+          "finalScore": 75.42643108252193,
+          "globalRank": 1491
+        }
+      }
+    },
+    {
+      "stratum": "mid Trainer",
+      "identity": "Shauna",
+      "baseline": 47.015839321300305,
+      "mappedSubject": 48.67488774713839,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 47.015839321300305,
+          "globalRank": 12681
+        },
+        "ANCHOR25": {
+          "finalScore": 48.34011163340706,
+          "globalRank": 12074
+        },
+        "ANCHOR50": {
+          "finalScore": 49.66438394551381,
+          "globalRank": 11409
+        },
+        "ANCHOR75": {
+          "finalScore": 50.98865625762057,
+          "globalRank": 10031
+        },
+        "ANCHOR100": {
+          "finalScore": 52.312928569727326,
+          "globalRank": 8886
+        }
+      }
+    },
+    {
+      "stratum": "low Trainer",
+      "identity": "Faba",
+      "baseline": 3.81578947368421,
+      "mappedSubject": 35.75039339609047,
+      "candidates": {
+        "CONTROL": {
+          "finalScore": 3.81578947368421,
+          "globalRank": 18212
+        },
+        "ANCHOR25": {
+          "finalScore": 11.799440454285776,
+          "globalRank": 18212
+        },
+        "ANCHOR50": {
+          "finalScore": 19.783091434887343,
+          "globalRank": 18210
+        },
+        "ANCHOR75": {
+          "finalScore": 27.766742415488906,
+          "globalRank": 18194
+        },
+        "ANCHOR100": {
+          "finalScore": 35.75039339609047,
+          "globalRank": 17094
+        }
+      }
+    }
+  ]
+}

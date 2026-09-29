@@ -1,0 +1,162 @@
+{
+  "status": "EXACT",
+  "tolerance": 0.0025,
+  "frozenTargets": {
+    "medianRho": 0.31764708442997636,
+    "weightedMeanRho": 0.29910491268326117,
+    "positivePct": 95.45454545454545
+  },
+  "historicalReplay": {
+    "sets": 22,
+    "medianRho": 0.31764708442997636,
+    "weightedMeanRho": 0.29910491268326117,
+    "positivePct": 95.45454545454545,
+    "materiallyPositivePct": 72.72727272727273,
+    "negativePct": 4.545454545454546
+  },
+  "absoluteErrors": {
+    "medianRho": 0.0,
+    "weightedMeanRho": 0.0
+  },
+  "perSetReplay": {
+    "maxAbsolutePerSetRhoError": 0.0,
+    "meanAbsolutePerSetRhoError": 0.0,
+    "setsMatchingLe1e9": 22,
+    "setsOutsideLe1e9": 0,
+    "sets": [
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "expectedRho": 0.37334801225612874,
+        "replayRho": 0.37334801225612874,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "expectedRho": 0.377077469348897,
+        "replayRho": 0.377077469348897,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "expectedRho": 0.2547042413930756,
+        "replayRho": 0.2547042413930756,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "expectedRho": -0.1085810971733526,
+        "replayRho": -0.1085810971733526,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "expectedRho": 0.18404189139509813,
+        "replayRho": 0.18404189139509813,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "expectedRho": 0.1898236534820338,
+        "replayRho": 0.1898236534820338,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "expectedRho": 0.42007820213796176,
+        "replayRho": 0.42007820213796176,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "expectedRho": 0.3758302859438216,
+        "replayRho": 0.3758302859438216,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "expectedRho": 0.1581823346218835,
+        "replayRho": 0.1581823346218835,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "expectedRho": 0.18434592994821047,
+        "replayRho": 0.18434592994821047,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "expectedRho": 0.4713018835376628,
+        "replayRho": 0.4713018835376628,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "expectedRho": 0.35104129831807124,
+        "replayRho": 0.35104129831807124,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "expectedRho": 0.3115068321908311,
+        "replayRho": 0.3115068321908311,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "expectedRho": 0.14539817401708008,
+        "replayRho": 0.14539817401708008,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "expectedRho": 0.4723488147841466,
+        "replayRho": 0.4723488147841466,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "expectedRho": 0.41351033562990475,
+        "replayRho": 0.41351033562990475,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "expectedRho": 0.2537871052087162,
+        "replayRho": 0.2537871052087162,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "expectedRho": 0.3237873366691216,
+        "replayRho": 0.3237873366691216,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "expectedRho": 0.47820212647894283,
+        "replayRho": 0.47820212647894283,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "expectedRho": 0.34749544357170176,
+        "replayRho": 0.34749544357170176,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "expectedRho": 0.2868666100096556,
+        "replayRho": 0.2868666100096556,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "expectedRho": 0.24112620955086042,
+        "replayRho": 0.24112620955086042,
+        "absoluteError": 0.0
+      }
+    ]
+  },
+  "lineageFinding": "Canonical price-event as-of selection is the historical equivalent of the original canonical latest-card authority."
+}

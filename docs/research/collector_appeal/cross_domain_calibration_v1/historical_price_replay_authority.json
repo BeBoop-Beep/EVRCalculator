@@ -1,0 +1,228 @@
+{
+  "originalV7PriceAuthority": "pokemon_canonical_card_market_prices_latest",
+  "rejectedFirstPassReplayAuthority": "get_pokemon_cards_daily_constituents",
+  "rejectionReason": "Later Set Value historical abstraction and compatibility path; not semantically equivalent to original canonical-card selection.",
+  "correctedReplayAuthority": "get_pokemon_market_root_standard_card_prices_as_of_v2",
+  "marketDate": "2026-09-11",
+  "controlledMembership": 4331,
+  "priceCoverage": 4331,
+  "coveragePct": 100.0,
+  "sixRecoveredCards": [
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "2b8f2df8-c2a1-44ed-b847-7b595df93085",
+      "card_variant_id": "e5e21180-f7ab-48d9-b649-82776af79826",
+      "market_price": 0.57,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Prime Catcher"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "62f9b9ab-5cf0-4142-b6e9-4ada390d0a70",
+      "card_variant_id": "1323ad8b-4594-4bb3-b4ff-ef9c7cae6de7",
+      "market_price": 0.63,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Max Rod"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "6570e521-2f93-4ace-ba07-d2854fd05690",
+      "card_variant_id": "e0d0e055-ca6f-4474-9594-2dffe81503cb",
+      "market_price": 0.39,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Sparkling Crystal"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "68698b6a-b98a-4fe4-9d91-8b077951723d",
+      "card_variant_id": "1138bd69-fc8b-4ef5-98d5-6d2193e0c94d",
+      "market_price": 0.44,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Scoop Up Cyclone"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "8b49a13d-b877-45e4-ac13-38112b96c0a9",
+      "card_variant_id": "b8a4d732-46a6-475a-9d19-123a17f570e4",
+      "market_price": 0.34,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Treasure Tracker"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "da8c7d19-c029-40de-b155-b95b2223a856",
+      "card_variant_id": "63140a1a-0330-4074-a314-4c8d8b966751",
+      "market_price": 0.56,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Maximum Belt"
+    }
+  ],
+  "perSetReplayErrors": {
+    "maxAbsolutePerSetRhoError": 0.0,
+    "meanAbsolutePerSetRhoError": 0.0,
+    "setsMatchingLe1e9": 22,
+    "setsOutsideLe1e9": 0,
+    "sets": [
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "expectedRho": 0.37334801225612874,
+        "replayRho": 0.37334801225612874,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "expectedRho": 0.377077469348897,
+        "replayRho": 0.377077469348897,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "expectedRho": 0.2547042413930756,
+        "replayRho": 0.2547042413930756,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "expectedRho": -0.1085810971733526,
+        "replayRho": -0.1085810971733526,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "expectedRho": 0.18404189139509813,
+        "replayRho": 0.18404189139509813,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "expectedRho": 0.1898236534820338,
+        "replayRho": 0.1898236534820338,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "expectedRho": 0.42007820213796176,
+        "replayRho": 0.42007820213796176,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "expectedRho": 0.3758302859438216,
+        "replayRho": 0.3758302859438216,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "expectedRho": 0.1581823346218835,
+        "replayRho": 0.1581823346218835,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "expectedRho": 0.18434592994821047,
+        "replayRho": 0.18434592994821047,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "expectedRho": 0.4713018835376628,
+        "replayRho": 0.4713018835376628,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "expectedRho": 0.35104129831807124,
+        "replayRho": 0.35104129831807124,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "expectedRho": 0.3115068321908311,
+        "replayRho": 0.3115068321908311,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "expectedRho": 0.14539817401708008,
+        "replayRho": 0.14539817401708008,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "expectedRho": 0.4723488147841466,
+        "replayRho": 0.4723488147841466,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "expectedRho": 0.41351033562990475,
+        "replayRho": 0.41351033562990475,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "expectedRho": 0.2537871052087162,
+        "replayRho": 0.2537871052087162,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "expectedRho": 0.3237873366691216,
+        "replayRho": 0.3237873366691216,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "expectedRho": 0.47820212647894283,
+        "replayRho": 0.47820212647894283,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "expectedRho": 0.34749544357170176,
+        "replayRho": 0.34749544357170176,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "expectedRho": 0.2868666100096556,
+        "replayRho": 0.2868666100096556,
+        "absoluteError": 0.0
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "expectedRho": 0.24112620955086042,
+        "replayRho": 0.24112620955086042,
+        "absoluteError": 0.0
+      }
+    ]
+  },
+  "globalReplayErrors": {
+    "medianRho": 0.0,
+    "weightedMeanRho": 0.0
+  }
+}

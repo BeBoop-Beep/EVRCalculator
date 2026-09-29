@@ -1,0 +1,59 @@
+{
+  "decision": "ANCHOR25_SHADOW_SUPPORTED",
+  "reason": "Smallest preregistered candidate passing every gate.",
+  "gateMatrix": {
+    "ANCHOR25": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": true,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": true,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "bootstrapNoClearMaterialRegression": true,
+      "promotionBlocked": false
+    },
+    "ANCHOR50": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": true,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": true,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "bootstrapNoClearMaterialRegression": true,
+      "promotionBlocked": false
+    },
+    "ANCHOR75": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": true,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": true,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "bootstrapNoClearMaterialRegression": true,
+      "promotionBlocked": false
+    },
+    "ANCHOR100": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": true,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": false,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "bootstrapNoClearMaterialRegression": true,
+      "promotionBlocked": false
+    }
+  },
+  "productionMutations": "NONE"
+}

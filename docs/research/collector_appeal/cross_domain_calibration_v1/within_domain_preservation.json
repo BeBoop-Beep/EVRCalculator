@@ -1,0 +1,61 @@
+{
+  "pokemon": {
+    "CONTROL": {
+      "maxScoreDelta": 0.0,
+      "rankCorrelation": 1.0
+    },
+    "ANCHOR25": {
+      "maxScoreDelta": 0.0,
+      "rankCorrelation": 1.0
+    },
+    "ANCHOR50": {
+      "maxScoreDelta": 0.0,
+      "rankCorrelation": 1.0
+    },
+    "ANCHOR75": {
+      "maxScoreDelta": 0.0,
+      "rankCorrelation": 1.0
+    },
+    "ANCHOR100": {
+      "maxScoreDelta": 0.0,
+      "rankCorrelation": 1.0
+    }
+  },
+  "trainer": {
+    "CONTROL": {
+      "spearman": 1.0,
+      "meanAbsoluteRankMove": 0.0,
+      "maxRankMove": 0,
+      "top25Overlap": 25,
+      "top100Overlap": 100
+    },
+    "ANCHOR25": {
+      "spearman": 0.9998663170316343,
+      "meanAbsoluteRankMove": 2.3329223181257706,
+      "maxRankMove": 22,
+      "top25Overlap": 25,
+      "top100Overlap": 100
+    },
+    "ANCHOR50": {
+      "spearman": 0.9993034176932784,
+      "meanAbsoluteRankMove": 5.7385943279901355,
+      "maxRankMove": 57,
+      "top25Overlap": 25,
+      "top100Overlap": 99
+    },
+    "ANCHOR75": {
+      "spearman": 0.9978826030683705,
+      "meanAbsoluteRankMove": 10.064118372379777,
+      "maxRankMove": 94,
+      "top25Overlap": 25,
+      "top100Overlap": 99
+    },
+    "ANCHOR100": {
+      "spearman": 0.9925617194545469,
+      "meanAbsoluteRankMove": 18.739827373612822,
+      "maxRankMove": 165,
+      "top25Overlap": 25,
+      "top100Overlap": 99
+    }
+  }
+}

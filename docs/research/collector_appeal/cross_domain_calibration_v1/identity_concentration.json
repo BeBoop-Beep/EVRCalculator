@@ -1,0 +1,192 @@
+{
+  "CONTROL": {
+    "top25": {
+      "pokemon": {
+        "distinctIdentities": 0,
+        "maximumCardsOneIdentity": 0,
+        "herfindahl": null
+      },
+      "trainer": {
+        "distinctIdentities": 4,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.3504
+      }
+    },
+    "top50": {
+      "pokemon": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 1.0
+      },
+      "trainer": {
+        "distinctIdentities": 5,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.2409972299168975
+      }
+    },
+    "top100": {
+      "pokemon": {
+        "distinctIdentities": 2,
+        "maximumCardsOneIdentity": 42,
+        "herfindahl": 0.58
+      },
+      "trainer": {
+        "distinctIdentities": 6,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.21999999999999997
+      }
+    }
+  },
+  "ANCHOR25": {
+    "top25": {
+      "pokemon": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 3,
+        "herfindahl": 1.0
+      },
+      "trainer": {
+        "distinctIdentities": 3,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.4173553719008264
+      }
+    },
+    "top50": {
+      "pokemon": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 27,
+        "herfindahl": 1.0
+      },
+      "trainer": {
+        "distinctIdentities": 3,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.3950850661625709
+      }
+    },
+    "top100": {
+      "pokemon": {
+        "distinctIdentities": 3,
+        "maximumCardsOneIdentity": 42,
+        "herfindahl": 0.46539792387543255
+      },
+      "trainer": {
+        "distinctIdentities": 5,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.24609375
+      }
+    }
+  },
+  "ANCHOR50": {
+    "top25": {
+      "pokemon": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 13,
+        "herfindahl": 1.0
+      },
+      "trainer": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 1.0
+      }
+    },
+    "top50": {
+      "pokemon": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 38,
+        "herfindahl": 1.0
+      },
+      "trainer": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 1.0
+      }
+    },
+    "top100": {
+      "pokemon": {
+        "distinctIdentities": 4,
+        "maximumCardsOneIdentity": 42,
+        "herfindahl": 0.3955135773317591
+      },
+      "trainer": {
+        "distinctIdentities": 3,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.3950850661625709
+      }
+    }
+  },
+  "ANCHOR75": {
+    "top25": {
+      "pokemon": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 25,
+        "herfindahl": 1.0
+      },
+      "trainer": {
+        "distinctIdentities": 0,
+        "maximumCardsOneIdentity": 0,
+        "herfindahl": null
+      }
+    },
+    "top50": {
+      "pokemon": {
+        "distinctIdentities": 2,
+        "maximumCardsOneIdentity": 42,
+        "herfindahl": 0.913223140495868
+      },
+      "trainer": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 6,
+        "herfindahl": 1.0
+      }
+    },
+    "top100": {
+      "pokemon": {
+        "distinctIdentities": 4,
+        "maximumCardsOneIdentity": 42,
+        "herfindahl": 0.3793629019966468
+      },
+      "trainer": {
+        "distinctIdentities": 2,
+        "maximumCardsOneIdentity": 12,
+        "herfindahl": 0.5346260387811634
+      }
+    }
+  },
+  "ANCHOR100": {
+    "top25": {
+      "pokemon": {
+        "distinctIdentities": 1,
+        "maximumCardsOneIdentity": 25,
+        "herfindahl": 1.0
+      },
+      "trainer": {
+        "distinctIdentities": 0,
+        "maximumCardsOneIdentity": 0,
+        "herfindahl": null
+      }
+    },
+    "top50": {
+      "pokemon": {
+        "distinctIdentities": 2,
+        "maximumCardsOneIdentity": 42,
+        "herfindahl": 0.7311999999999999
+      },
+      "trainer": {
+        "distinctIdentities": 0,
+        "maximumCardsOneIdentity": 0,
+        "herfindahl": null
+      }
+    },
+    "top100": {
+      "pokemon": {
+        "distinctIdentities": 4,
+        "maximumCardsOneIdentity": 42,
+        "herfindahl": 0.30879999999999996
+      },
+      "trainer": {
+        "distinctIdentities": 0,
+        "maximumCardsOneIdentity": 0,
+        "herfindahl": null
+      }
+    }
+  }
+}
