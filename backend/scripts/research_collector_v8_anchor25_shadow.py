@@ -377,6 +377,10 @@ def main() -> int:
     pokemon, trainers = authorities(frozen["cards"])
     anchors = map_trainers(trainers, pokemon)
     candidates, equivalence = build_candidates(frozen["cards"], anchors)
+    frozen_by_id = {str(row["canonical_card_id"]): row for row in frozen["cards"]}
+    for row in candidates:
+        source = frozen_by_id[str(row["canonical_card_id"])]
+        row["pull_scarcity_diagnostic"] = source.get("pull_scarcity_diagnostic")
     preserve = preservation(candidates)
     control_sets = set_scores(candidates, frozen["sets"], "CONTROL")
     v8_sets = set_scores(candidates, frozen["sets"], "ANCHOR25")
