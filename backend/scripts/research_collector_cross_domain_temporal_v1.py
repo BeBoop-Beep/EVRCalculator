@@ -9,6 +9,7 @@ from collections import Counter, defaultdict
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import sys
 from typing import Any, Mapping, Sequence
@@ -27,7 +28,6 @@ from backend.scripts.research_collector_cross_domain_calibration_v1 import (
     build_candidates,
     controlled_cohort,
     cv_metrics,
-    historical_prices,
     joined_market,
     map_trainers,
     pair_diagnostics,
@@ -62,6 +62,172 @@ BASE_SEED = 20260929
 FORMULA_FINGERPRINT = "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b"
 PARENT_SHA = "012e38b1e9a85491ba2ba72b746f8baead6112ea"
 
+PHASE1_PRICE_AUTHORITY = "phase1_sql_20260928204424_market_explorer_root_standard_frozen_roster_v2"
+PHASE1_PRICE_SQL = r"""
+WITH root AS (
+  SELECT %(root_set_id)s::uuid root_set_id
+),
+members AS (
+  SELECT r.root_set_id,r.root_set_id member_set_id FROM root r
+  UNION ALL
+  SELECT r.root_set_id,c.id
+  FROM root r
+  JOIN public.sets c
+    ON c.parent_opening_set_id=r.root_set_id
+   AND c.counts_toward_parent_set_value=true
+),
+near_mint AS (
+  SELECT id
+  FROM public.conditions
+  WHERE name='Near Mint' AND abbreviation='NM'
+  ORDER BY id
+  LIMIT 1
+),
+base_cards AS MATERIALIZED (
+  SELECT
+    m.root_set_id,
+    m.member_set_id,
+    pcc.id canonical_card_id,
+    pcc.pokemon_tcg_api_card_id,
+    pcc.name,
+    pcc.number,
+    pcc.printed_number,
+    pcc.rarity
+  FROM members m
+  JOIN public.pokemon_canonical_cards pcc
+    ON pcc.set_id=m.member_set_id
+   AND pcc.set_value_eligible=true
+),
+manual_identity AS (
+  SELECT
+    pcc.root_set_id,pcc.member_set_id,pcc.canonical_card_id,pcc.rarity,
+    link.legacy_card_id,-1 identity_rank
+  FROM base_cards pcc
+  JOIN public.pokemon_canonical_card_legacy_identity_links link
+    ON link.canonical_card_id=pcc.canonical_card_id
+),
+parent_api_identity AS (
+  SELECT
+    pcc.root_set_id,pcc.member_set_id,pcc.canonical_card_id,pcc.rarity,
+    c.id legacy_card_id,0 identity_rank
+  FROM base_cards pcc
+  JOIN public.cards c
+    ON c.set_id=pcc.member_set_id
+   AND c.pokemon_tcg_api_id=pcc.pokemon_tcg_api_card_id
+),
+variant_api_identity AS (
+  SELECT
+    pcc.root_set_id,pcc.member_set_id,pcc.canonical_card_id,pcc.rarity,
+    c.id legacy_card_id,1 identity_rank
+  FROM base_cards pcc
+  JOIN public.card_variants mv
+    ON mv.pokemon_tcg_api_id=pcc.pokemon_tcg_api_card_id
+  JOIN public.cards c
+    ON c.id=mv.card_id
+   AND c.set_id=pcc.member_set_id
+  WHERE NOT EXISTS (
+    SELECT 1 FROM parent_api_identity p WHERE p.canonical_card_id=pcc.canonical_card_id
+  )
+),
+name_number_identity AS (
+  SELECT
+    pcc.root_set_id,pcc.member_set_id,pcc.canonical_card_id,pcc.rarity,
+    c.id legacy_card_id,2 identity_rank
+  FROM base_cards pcc
+  JOIN public.cards c
+    ON c.set_id=pcc.member_set_id
+   AND lower(regexp_replace(trim(c.name),'\s+',' ','g'))=
+       lower(regexp_replace(trim(pcc.name),'\s+',' ','g'))
+   AND regexp_replace(split_part(lower(coalesce(c.card_number,'')),'/',1),'^0+','')
+       IN (
+         regexp_replace(split_part(lower(coalesce(pcc.number,'')),'/',1),'^0+',''),
+         regexp_replace(split_part(lower(coalesce(pcc.printed_number,'')),'/',1),'^0+','')
+       )
+  WHERE NOT EXISTS (
+    SELECT 1 FROM parent_api_identity p WHERE p.canonical_card_id=pcc.canonical_card_id
+  )
+    AND NOT EXISTS (
+      SELECT 1 FROM variant_api_identity v WHERE v.canonical_card_id=pcc.canonical_card_id
+    )
+),
+resolved AS (
+  SELECT * FROM manual_identity
+  UNION ALL SELECT * FROM parent_api_identity
+  UNION ALL SELECT * FROM variant_api_identity
+  UNION ALL SELECT * FROM name_number_identity
+),
+variants AS MATERIALIZED (
+  SELECT DISTINCT
+    r.root_set_id,r.member_set_id,r.canonical_card_id,r.rarity,r.identity_rank,
+    cv.id card_variant_id,cv.printing_type,cv.special_type
+  FROM resolved r
+  JOIN public.card_variants cv ON cv.card_id=r.legacy_card_id
+),
+event_intervals AS MATERIALIZED (
+  SELECT
+    e.card_variant_id,
+    e.market_price,
+    e.effective_date valid_from,
+    lead(e.effective_date) OVER (
+      PARTITION BY e.card_variant_id ORDER BY e.effective_date
+    ) valid_to
+  FROM public.card_variant_price_events_v2 e
+  JOIN variants v ON v.card_variant_id=e.card_variant_id
+  CROSS JOIN near_mint nm
+  WHERE e.condition_id=nm.id
+    AND e.source='TCGPlayer'
+    AND e.currency='USD'
+),
+candidate AS (
+  SELECT
+    v.root_set_id,v.member_set_id,v.canonical_card_id,v.rarity,v.identity_rank,
+    v.card_variant_id,v.printing_type,v.special_type,ei.market_price,
+    obs.latest_observed_date,
+    row_number() OVER (
+      PARTITION BY v.canonical_card_id
+      ORDER BY
+        v.identity_rank,
+        obs.latest_observed_date DESC NULLS LAST,
+        CASE WHEN v.special_type IS NULL THEN 0 ELSE 1 END,
+        CASE
+          WHEN v.rarity IN ('Common','Uncommon') AND v.printing_type='non-holo' THEN 0
+          WHEN v.rarity IN ('Common','Uncommon') AND v.printing_type='holo' THEN 1
+          WHEN v.rarity IN ('Common','Uncommon') AND v.printing_type='reverse-holo'
+               AND v.special_type IS NULL THEN 2
+          WHEN v.printing_type='holo' THEN 0
+          WHEN v.printing_type='non-holo' THEN 1
+          WHEN v.printing_type='reverse-holo' AND v.special_type IS NULL THEN 2
+          ELSE 9
+        END,
+        v.card_variant_id
+    ) rn
+  FROM variants v
+  JOIN event_intervals ei
+    ON ei.card_variant_id=v.card_variant_id
+   AND ei.valid_from<=%(market_date)s::date
+   AND (ei.valid_to IS NULL OR %(market_date)s::date<ei.valid_to)
+   AND ei.market_price>0
+  CROSS JOIN near_mint nm
+  LEFT JOIN LATERAL (
+    SELECT max(least(r.observed_through,%(market_date)s::date)) latest_observed_date
+    FROM public.card_variant_price_observation_ranges_v2 r
+    WHERE r.card_variant_id=v.card_variant_id
+      AND r.condition_id=nm.id
+      AND r.source='TCGPlayer'
+      AND r.currency='USD'
+      AND r.observed_from<=%(market_date)s::date
+  ) obs ON true
+)
+SELECT
+  c.root_set_id,c.member_set_id,c.canonical_card_id,c.card_variant_id,
+  c.market_price,c.latest_observed_date AS observed_date,c.printing_type,c.special_type,
+  'canonical_price_events_v2_root_standard_v1'::text AS source
+FROM candidate c
+WHERE c.rn=1
+ORDER BY c.canonical_card_id
+"""
+PHASE1_PRICE_SQL_FINGERPRINT = hashlib.sha256(PHASE1_PRICE_SQL.encode("utf-8")).hexdigest()
+
 
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -79,6 +245,27 @@ def canonical_hash(value: Any) -> str:
 
 def fold_seed(market_date: str) -> int:
     return BASE_SEED + int(market_date.replace("-", ""))
+
+
+
+def historical_prices_phase1_sql(conn, root_set_ids: Sequence[str], market_date: str):
+    rows = []
+    with conn.cursor() as cur:
+        for root_set_id in sorted(root_set_ids):
+            cur.execute(
+                PHASE1_PRICE_SQL,
+                {"root_set_id": root_set_id, "market_date": market_date},
+            )
+            columns = [desc.name for desc in cur.description]
+            rows.extend(dict(zip(columns, values)) for values in cur.fetchall())
+    by_card = {}
+    for row in rows:
+        card_id = str(row.get("canonical_card_id") or "")
+        if card_id and row.get("market_price") is not None:
+            if card_id in by_card:
+                raise RuntimeError(f"duplicate canonical historical price: {card_id}")
+            by_card[card_id] = float(row["market_price"])
+    return by_card, rows
 
 
 def attach_prices(membership_rows: Sequence[Mapping[str, Any]], prices: Mapping[str, float]):
@@ -194,8 +381,8 @@ def bootstrap_fold(rows, pairs, cvs, *, draws: int, seed: int) -> dict[str, Any]
     }
 
 
-def baseline_lock(client, set_ids, membership_rows, candidate_rows, expected_sets):
-    prices, lineage = historical_prices(client, set_ids, BASELINE_DATE)
+def baseline_lock(conn, set_ids, membership_rows, candidate_rows, expected_sets):
+    prices, lineage = historical_prices_phase1_sql(conn, set_ids, BASELINE_DATE)
     priced, missing = attach_prices(membership_rows, prices)
     joined = joined_market(priced, candidate_rows)
     replay = raw_within_set(joined, "score_CONTROL")
@@ -233,8 +420,8 @@ def baseline_lock(client, set_ids, membership_rows, candidate_rows, expected_set
     }
 
 
-def evaluate_fold(client, market_date, set_ids, membership_rows, candidate_rows, bootstrap_draws):
-    prices, lineage = historical_prices(client, set_ids, market_date)
+def evaluate_fold(conn, market_date, set_ids, membership_rows, candidate_rows, bootstrap_draws):
+    prices, lineage = historical_prices_phase1_sql(conn, set_ids, market_date)
     priced, missing = attach_prices(membership_rows, prices)
     joined = joined_market(priced, candidate_rows)
     represented = len({str(x["set_id"]) for x in joined})
@@ -287,7 +474,7 @@ def report_text(decision, structural, folds, draws):
         "- Parent Phase 1 SHA: " + PARENT_SHA,
         "- Frozen Collector control: " + MODEL_VERSION + " / " + MODEL_RUN_ID,
         "- Candidate: ANCHOR25 only",
-        "- Historical price authority: get_pokemon_market_root_standard_card_prices_as_of_v2",
+        "- Historical price authority: pinned Phase 1 SQL from 20260928204424_market_explorer_root_standard_frozen_roster_v2",
         "- Production mutations: NONE",
         "",
         "## Structural lock",
@@ -351,6 +538,11 @@ def main() -> int:
 
     load_dotenv(ROOT / "backend/.env", override=False)
     from backend.db.clients.supabase_client import service_read_client
+    import psycopg
+
+    database_url = os.environ.get("ACTIONS_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("TEMPORAL_V1_DATABASE_URL_REQUIRED")
 
     membership, excluded = controlled_cohort(
         service_read_client,
@@ -360,7 +552,8 @@ def main() -> int:
     )
     counts = membership["manifest"]["counts"]
     cohort_contract = counts == EXPECTED_COUNTS and len(excluded) == EXPECTED_COUNTS["dropped"]["no_modeled_pull_probability"]
-    baseline = baseline_lock(service_read_client, set_ids, membership["rows"], candidate_rows, expected_sets)
+    with psycopg.connect(database_url, connect_timeout=15, autocommit=True) as sql_conn:
+        baseline = baseline_lock(sql_conn, set_ids, membership["rows"], candidate_rows, expected_sets)
     structural = {
         "artifactVerified": bool(artifact.get("verified")),
         "modelVersion": MODEL_VERSION,
@@ -376,6 +569,8 @@ def main() -> int:
         "trainerSpearman": preserve["trainer"][CANDIDATE]["spearman"],
         "trainerSpearmanGte995": preserve["trainer"][CANDIDATE]["spearman"] >= 0.995,
         "baselineReplay": baseline,
+        "historicalPriceAuthority": PHASE1_PRICE_AUTHORITY,
+        "historicalPriceSqlFingerprint": PHASE1_PRICE_SQL_FINGERPRINT,
     }
     structural_valid = all([
         structural["artifactVerified"],
@@ -388,12 +583,13 @@ def main() -> int:
 
     folds, boots = [], []
     if structural_valid:
-        for market_date in TEMPORAL_DATES:
-            fold, boot = evaluate_fold(
-                service_read_client, market_date, set_ids, membership["rows"], candidate_rows, args.bootstrap_draws
-            )
-            folds.append(fold)
-            boots.append(boot)
+        with psycopg.connect(database_url, connect_timeout=15, autocommit=True) as sql_conn:
+            for market_date in TEMPORAL_DATES:
+                fold, boot = evaluate_fold(
+                    sql_conn, market_date, set_ids, membership["rows"], candidate_rows, args.bootstrap_draws
+                )
+                folds.append(fold)
+                boots.append(boot)
     else:
         for market_date in TEMPORAL_DATES:
             folds.append({
