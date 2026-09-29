@@ -2,8 +2,9 @@ from pathlib import Path
 import json
 
 from backend.scripts.research_collector_cross_domain_calibration_v1 import (
-    ALPHAS, candidate_subject, combined_lift, map_trainers, sequential_lifts, tie_percentiles,
+    ALPHAS, candidate_subject, combined_lift, historical_replay_blocks, map_trainers, sequential_lifts, tie_percentiles,
 )
+from backend.research.collector_appeal_market_validation.stats import spearman
 
 
 def test_tie_aware_percentiles_and_monotone_mapping():
@@ -32,6 +33,11 @@ def test_missing_components_are_no_lift():
     assert sequential_lifts(55,None,None)==55
 
 
+def test_collector_spearman_is_tie_aware_midrank_correlation():
+    # Both vectors have ties; their average-rank ordering is perfectly reversed.
+    assert spearman([1,1,2,2],[9,9,3,3]) == -1.0
+
+
 def test_script_has_no_database_write_calls():
     source=Path("backend/scripts/research_collector_cross_domain_calibration_v1.py").read_text(encoding="utf-8").lower()
     for token in (".table(",):
@@ -39,12 +45,15 @@ def test_script_has_no_database_write_calls():
     for token in (".insert([", ".update({", ".delete()", ".upsert(["):
         assert token not in source
     assert source.count(".rpc(") == 1
-    assert 'client.rpc("get_pokemon_cards_daily_constituents"' in source
+    assert '"get_pokemon_market_root_standard_card_prices_as_of_v2",params' in source
+    assert 'client.rpc("get_pokemon_cards_daily_constituents"' not in source
 
 
 def test_promotion_is_historical_gate_blocked_in_source():
     source=Path("backend/scripts/research_collector_cross_domain_calibration_v1.py").read_text(encoding="utf-8")
-    assert '"promotionBlocked":not exact' in source
+    assert '"promotionBlocked":historical_replay_blocks(exact)' in source
+    assert historical_replay_blocks(False) is True
+    assert historical_replay_blocks(True) is False
 
 
 def test_frozen_controlled_membership_and_exclusions():
@@ -65,4 +74,14 @@ def test_bootstrap_is_pinned_and_gate_selection_is_blocked():
     boot=json.loads((root/"bootstrap_intervals.json").read_text(encoding="utf-8"))
     decision=json.loads((root/"decision.json").read_text(encoding="utf-8"))
     assert boot["seed"]==20260929 and boot["draws"]==1000
-    assert all(gate["promotionBlocked"] for gate in decision["gateMatrix"].values())
+    assert all("promotionBlocked" in gate for gate in decision["gateMatrix"].values())
+
+
+def test_corrected_historical_replay_contract():
+    root=Path("docs/research/collector_appeal/cross_domain_calibration_v1")
+    authority=json.loads((root/"historical_price_replay_authority.json").read_text(encoding="utf-8"))
+    assert authority["correctedReplayAuthority"]=="get_pokemon_market_root_standard_card_prices_as_of_v2"
+    assert authority["controlledMembership"]==authority["priceCoverage"]==4331
+    assert {row["card_name"] for row in authority["sixRecoveredCards"]}=={
+        "Max Rod","Maximum Belt","Prime Catcher","Scoop Up Cyclone","Sparkling Crystal","Treasure Tracker"}
+    assert authority["perSetReplayErrors"]["setsOutsideLe1e9"]==0

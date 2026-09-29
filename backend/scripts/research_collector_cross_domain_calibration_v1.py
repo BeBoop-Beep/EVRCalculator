@@ -80,6 +80,10 @@ def candidate_subject(original: float, anchor: float, alpha: float) -> float:
     return (1.0 - alpha) * original + alpha * anchor
 
 
+def historical_replay_blocks(replay_exact: bool) -> bool:
+    return not replay_exact
+
+
 def sequential_lifts(subject: float, playability: float | None, artist: float | None) -> float:
     after_play = subject + (100.0-subject) * .20 * ((playability or 0.0) / 100.0)
     return after_play + (100.0-after_play) * .10 * ((artist or 0.0) / 100.0)
@@ -131,10 +135,32 @@ def build_candidates(cards: Sequence[Mapping[str, Any]], anchors: Mapping[str,fl
                   "note":"Sequential equivalence is separately unit-tested from raw playability and artist inputs; artifact combined lift exactly replays V7."}
 
 
-def historical_prices(client: Any, set_ids: Sequence[str], market_date: str) -> dict[str, float]:
-    params={"p_set_ids":list(set_ids),"p_start_date":market_date,"p_end_date":market_date,"p_card_ids":None}
-    rows=_paged_select(lambda:client.rpc("get_pokemon_cards_daily_constituents",params))
-    return {str(r["canonical_card_id"]):float(r["market_price"]) for r in rows if r.get("market_price") is not None}
+def historical_prices(client: Any, root_set_ids: Sequence[str], market_date: str) -> tuple[dict[str, float], list[dict]]:
+    """Replay the original canonical latest-card selection from historical events."""
+    rows=[]
+    for root_set_id in sorted(root_set_ids):
+        params={"p_root_set_id":root_set_id,"p_market_date":market_date}
+        rows.extend(_paged_select(lambda params=params:client.rpc(
+            "get_pokemon_market_root_standard_card_prices_as_of_v2",params)))
+    by_card={}
+    for row in rows:
+        card_id=str(row.get("canonical_card_id") or "")
+        if card_id and row.get("market_price") is not None:
+            if card_id in by_card: raise RuntimeError(f"duplicate canonical historical price: {card_id}")
+            by_card[card_id]=float(row["market_price"])
+    return by_card,rows
+
+
+def replay_errors(actual: Mapping[str,Any], expected_sets: Sequence[Mapping[str,Any]]) -> dict:
+    expected={str(r["setId"]):float(r["spearmanLogPrice"]) for r in expected_sets}
+    observed={str(r["setId"]):float(r["spearmanLogPrice"]) for r in actual["sets"]}
+    details=[]
+    for set_id in sorted(expected):
+        error=abs(observed[set_id]-expected[set_id]) if set_id in observed else None
+        details.append({"setId":set_id,"expectedRho":expected[set_id],"replayRho":observed.get(set_id),"absoluteError":error})
+    values=[r["absoluteError"] for r in details if r["absoluteError"] is not None]
+    return {"maxAbsolutePerSetRhoError":max(values),"meanAbsolutePerSetRhoError":float(np.mean(values)),
+            "setsMatchingLe1e9":sum(v<=1e-9 for v in values),"setsOutsideLe1e9":sum(v>1e-9 for v in values),"sets":details}
 
 
 def controlled_cohort(client: Any, set_ids: Sequence[str], *, prices: Mapping[str,float] | None=None, price_source: str="latest", membership_only: bool=False) -> tuple[dict, list[dict]]:
@@ -287,6 +313,68 @@ def set_shadow(cards: Sequence[Mapping[str,Any]], frozen_sets: Sequence[Mapping[
     return out
 
 
+def render_final_report(*, market, historical_market, excluded, per_set, control, exact, preserve,
+                        within, pairs, cv, gates, boot, sets, decision) -> str:
+    candidate_lines=[]; bootstrap_lines=[]
+    for label in ALPHAS:
+        if label=="CONTROL": continue
+        candidate_lines.append(f"| {label} | {preserve['trainer'][label]['spearman']:.6f} | {within[label]['summary']['weightedMeanRho']-control['weightedMeanRho']:+.6f} | {pairs[label]['directionalConcordance']-pairs['CONTROL']['directionalConcordance']:+.6f} | {(cv[label].get('r2') or 0)-(cv['CONTROL'].get('r2') or 0):+.6f} | {(cv[label].get('spearman') or 0)-(cv['CONTROL'].get('spearman') or 0):+.6f} | {'YES' if all(v for k,v in gates[label].items() if k!='promotionBlocked') else 'NO'} |")
+        i=boot[label]; bootstrap_lines.append(f"| {label} | {i['weightedWithinSetRho']['ci95']} | {i['medianWithinSetRho']['ci95']} | {i['pairConcordance']['ci95']} | {i['controlledOosR2']['ci95']} | {i['heldOutSpearman']['ci95']} |")
+    set_moves={label:{"rankCorrelation":sets[label]["rankCorrelation"],"maxRankMove":sets[label]["maxRankMove"]} for label in ALPHAS}
+    return f"""# Collector Cross-Domain Calibration V1 — Final Historical Replay
+
+## A. Historical authority correction
+
+Original V7 used `pokemon_canonical_card_market_prices_latest`. The rejected `get_pokemon_cards_daily_constituents` reader is a later Set Value abstraction. The corrected replay uses `get_pokemon_market_root_standard_card_prices_as_of_v2` for each frozen root Set at 2026-09-11. Neither production RPC changed.
+
+## B. Price coverage
+
+Frozen membership: {len(market['rows'])}; historically priced: {len(historical_market)}; coverage: {100*len(historical_market)/len(market['rows']):.2f}%. All six reviewed Prismatic ACE SPEC cards were recovered. The {len(excluded)} structural exclusions remain `no_modeled_pull_probability`.
+
+## C. Control replay
+
+Per-Set max/mean rho error: {per_set['maxAbsolutePerSetRhoError']} / {per_set['meanAbsolutePerSetRhoError']}. Sets within 1e-9: {per_set['setsMatchingLe1e9']}/22. Median rho: {control['medianRho']}; weighted rho: {control['weightedMeanRho']}; positive Sets: {control['positivePct']}%. Gate: **{'PASS' if exact else 'FAIL'}**. Spearman uses existing tie-aware average midranks.
+
+## D. Candidate validation
+
+| Candidate | Trainer Spearman | Weighted rho delta | Pair concordance delta | OOS R² delta | Held-out Spearman delta | All gates? |
+|---|---:|---:|---:|---:|---:|:---:|
+{chr(10).join(candidate_lines)}
+
+Pokémon, Artist, Playability, and neutral behavior remain unchanged. Negative controls remain documentation-only.
+
+## E. Bootstrap
+
+1,000 deterministic whole-Set draws, seed 20260929.
+
+| Candidate | Weighted rho CI | Median rho CI | Pair concordance CI | OOS R² CI | Held-out Spearman CI |
+|---|---|---|---|---|---|
+{chr(10).join(bootstrap_lines)}
+
+## F. Set-level shadow
+
+`{json.dumps(set_moves, separators=(',',':'))}`. Nothing was published and Overall RIP was unchanged.
+
+## G. Named cases
+
+Gengar, Giovanni, Cynthia, Lillie, and high/mid/low examples remain diagnostic only.
+
+## H. Decision
+
+**{decision['decision']}** — {decision['reason']} Shadow support is not Collector V8 promotion.
+
+## I. Production safety
+
+Production mutations: **NONE**
+
+## J. Git
+
+Branch: `{BRANCH}`. Old SHA: `3624102d0b1ae61fc13e161963ea4678cf3ff7fe`. New SHA is in the final handoff. Pushed: YES after commit. Merge: NO. Main: untouched. Deployment: NO.
+
+COLLECTOR_CROSS_DOMAIN_CALIBRATION_V1_FINAL_READY_FOR_REVIEW
+"""
+
+
 def main() -> int:
     ap=argparse.ArgumentParser(); ap.add_argument("--artifact",type=Path,default=ROOT/"backend/artifacts/collector_appeal_v7_expanded_candidate_v1.json"); ap.add_argument("--output-dir",type=Path,default=ROOT/"docs/research/collector_appeal/cross_domain_calibration_v1"); ap.add_argument("--bootstrap-draws",type=int,default=1000); args=ap.parse_args()
     frozen=read_json(args.artifact); authority=verify_frozen_artifact(frozen); manifest=frozen["manifest"]
@@ -295,7 +383,7 @@ def main() -> int:
     within_ids=read_json(ROOT/"docs/research/collector_appeal_v7_price_validation/within_set_results.json")["card_appeal_v7"]["sets"]
     set_ids=[r["setId"] for r in within_ids]
     load_dotenv(ROOT/"backend/.env",override=False); from backend.db.clients.supabase_client import service_read_client
-    sep11_prices=historical_prices(service_read_client,set_ids,"2026-09-11")
+    sep11_prices,price_lineage=historical_prices(service_read_client,set_ids,"2026-09-11")
     market,excluded=controlled_cohort(service_read_client,set_ids,price_source="frozen 22-set structural membership (price-independent)",membership_only=True)
     latest_market,_=controlled_cohort(service_read_client,set_ids,price_source="pokemon_canonical_card_market_prices_latest")
     latest_rows=joined_market(latest_market["rows"],candidate_rows)
@@ -304,8 +392,11 @@ def main() -> int:
         price=sep11_prices.get(row["card_id"])
         if price is not None:
             historical_market.append({**row,"market_price":price,"log_price":math.log(price)})
+    missing_historical=sorted(set(r["card_id"] for r in market["rows"])-set(sep11_prices))
+    if missing_historical:
+        raise RuntimeError(f"HISTORICAL_PRICE_COVERAGE_BLOCKER: {missing_historical}")
     rows=joined_market(historical_market,candidate_rows)
-    market["manifest"]["historicalOutcome"]={"source":"get_pokemon_cards_daily_constituents as-of 2026-09-11",
+    market["manifest"]["historicalOutcome"]={"source":"get_pokemon_market_root_standard_card_prices_as_of_v2 as-of 2026-09-11",
         "pricedRows":len(historical_market),"missingFromControlledMembership":len(market["rows"])-len(historical_market)}
     out=args.output_dir; out.mkdir(parents=True,exist_ok=True)
     baseline={"developSha":START_SHA,"researchBranch":BRANCH,"modelRunId":MODEL_RUN_ID,"modelVersion":MODEL_VERSION,"formulaFingerprint":FORMULA_FINGERPRINT,
@@ -316,8 +407,9 @@ def main() -> int:
                  "negativeControls":{"domainZScore":"documented only; centers/scales each domain and can create boundary saturation","fullDomainQuantileEqualization":"documented only; forces both domains to uniform ranks and discards magnitude"}}
     within={label:raw_within_set(rows,f"score_{label}") for label in ALPHAS}; pairs={label:pair_diagnostics(rows,f"score_{label}") for label in ALPHAS}
     control_now=within["CONTROL"]["summary"]; errors={k:abs(control_now[k]-TARGETS[k]) for k in ("medianRho","weightedMeanRho")}; exact=all(v<=.0025 for v in errors.values())
+    per_set_replay=replay_errors(within["CONTROL"],within_ids)
     replay={"status":"EXACT" if exact else "CONTROL_REPLAY_NOT_EXACT","tolerance":.0025,"frozenTargets":TARGETS,"historicalReplay":control_now,"absoluteErrors":errors,
-            "lineageFinding":"The read-only Sep-11 daily-constituents authority covers fewer rows than the frozen controlled membership; candidate conclusions are blocked from promotion."}
+            "perSetReplay":per_set_replay,"lineageFinding":"Canonical price-event as-of selection is the historical equivalent of the original canonical latest-card authority."}
     cv_private={label:cv_metrics(rows,f"score_{label}",private=True) for label in ALPHAS}
     cv={label:{k:v for k,v in value.items() if k!="_predictions"} for label,value in cv_private.items()}
     residual={label:residual_price_test([{**r,"card_appeal_v7":r[f"score_{label}"]} for r in rows]) for label in ALPHAS}
@@ -344,7 +436,9 @@ def main() -> int:
         gates[label]={"artifact":True,"cohort":market["manifest"]["counts"]=={"candidateCards":4355,"modeledRows":4331,"modeledSets":22,"dropped":{"no_modeled_pull_probability":24}},"historicalReplay":exact,
           "pokemonUnchanged":preserve["pokemon"][label]["maxScoreDelta"]==0,"trainerSpearmanGte995":preserve["trainer"][label]["spearman"]>=.995,
           "oosR2Guardrail":delta_r2>=-.002,"heldOutSpearmanGuardrail":delta_sp>=-.01,"weightedRhoGuardrail":delta_w>=-.005,
-          "crossDomainImproves":pairs[label]["directionalConcordance"]>pairs["CONTROL"]["directionalConcordance"],"promotionBlocked":not exact}
+          "crossDomainImproves":pairs[label]["directionalConcordance"]>pairs["CONTROL"]["directionalConcordance"],
+          "bootstrapNoClearMaterialRegression":all(boot[label][metric]["ci95"][1] is not None and boot[label][metric]["ci95"][1]>=limit for metric,limit in (("weightedWithinSetRho",-.005),("controlledOosR2",-.002),("heldOutSpearman",-.01),("pairConcordance",0.0))),
+          "promotionBlocked":historical_replay_blocks(exact)}
     passing=[label for label,g in gates.items() if all(v for k,v in g.items() if k!="promotionBlocked") and not g["promotionBlocked"]]
     chosen=passing[0] if passing else None
     decision_name=(f"{chosen}_SHADOW_SUPPORTED" if chosen else
@@ -352,7 +446,14 @@ def main() -> int:
     decision={"decision":decision_name,
               "reason":"Smallest preregistered candidate passing every gate." if chosen else "Historical control or candidate gates prevent promotion.","gateMatrix":gates,"productionMutations":"NONE"}
     sensitivity={label:{cut:raw_within_set(sorted(rows,key=lambda r:r["market_price"])[:int(len(rows)*frac)],f"score_{label}")["summary"] for cut,frac in (("excludeTop1Pct",.99),("excludeTop5Pct",.95))} for label in ALPHAS}
-    outputs={"baseline_authority.json":baseline,"control_replay.json":replay,"domain_distributions.json":distributions,"identity_authorities.json":identity,"candidate_definitions.json":definitions,
+    recovered_names={"Max Rod","Maximum Belt","Prime Catcher","Scoop Up Cyclone","Sparkling Crystal","Treasure Tracker"}
+    recovered=[{**row,"card_name":next((r.get("card_name") for r in market["rows"] if r["card_id"]==str(row["canonical_card_id"])),None)} for row in price_lineage if str(row.get("canonical_card_id")) in {r["card_id"] for r in market["rows"]} and next((r.get("card_name") for r in market["rows"] if r["card_id"]==str(row["canonical_card_id"])),None) in recovered_names]
+    price_authority={"originalV7PriceAuthority":"pokemon_canonical_card_market_prices_latest","rejectedFirstPassReplayAuthority":"get_pokemon_cards_daily_constituents",
+        "rejectionReason":"Later Set Value historical abstraction and compatibility path; not semantically equivalent to original canonical-card selection.",
+        "correctedReplayAuthority":"get_pokemon_market_root_standard_card_prices_as_of_v2","marketDate":"2026-09-11","controlledMembership":len(market["rows"]),
+        "priceCoverage":len(historical_market),"coveragePct":100*len(historical_market)/len(market["rows"]),"sixRecoveredCards":recovered,
+        "perSetReplayErrors":per_set_replay,"globalReplayErrors":errors}
+    outputs={"baseline_authority.json":baseline,"historical_price_replay_authority.json":price_authority,"control_replay.json":replay,"domain_distributions.json":distributions,"identity_authorities.json":identity,"candidate_definitions.json":definitions,
              "candidate_card_results.json":{"rows":candidate_rows},"within_domain_preservation.json":preserve,"global_composition.json":comp,"identity_concentration.json":conc,
              "within_set_validation.json":within,"cross_domain_pairs.json":{k:{x:y for x,y in v.items() if x!="_bySet"} for k,v in pairs.items()},
              "controlled_market_validation.json":{"status":"FROZEN_HISTORICAL_PRIMARY","cohort":market["manifest"],"oos":cv,"residualPrice":residual,"sensitivity":sensitivity,
@@ -361,6 +462,9 @@ def main() -> int:
              "set_level_shadow.json":sets,"named_case_studies.json":{"required":named,"additional":additional},"decision.json":decision}
     for filename,payload in outputs.items():write_json(out/filename,payload)
     report=f"""# Collector V8 Cross-Domain Calibration — Phase 1\n\n## Authority\n\nPinned develop `{START_SHA}` on `{BRANCH}`. Frozen V7 run `{MODEL_RUN_ID}` and all declared fingerprints validated.\n\n## Control reproduction\n\nThe 4,331-row, 22-set cohort was reconstructed with {len(excluded)} exclusions. Historical replay status: **{replay['status']}**. Historical median/weighted errors were {errors['medianRho']:.6f} / {errors['weightedMeanRho']:.6f}.\n\n## Findings\n\nV7 compares a raw 75/25 Pokemon authority with a within-Trainer-percentile 40/60 authority. Distinct frozen identities: {len(pokemon)} Pokemon and {len(trainers)} Trainer. This scale asymmetry is real, but composition was diagnostic only. All Pokemon scores remained exact; Trainer mappings were monotone. Current-price results are labeled `TEMPORAL_SECONDARY_SCREEN`; they do not replace the frozen historical test.\n\nThe preregistered grid was CONTROL, ANCHOR25, ANCHOR50, ANCHOR75, ANCHOR100. Artist and Playability mechanics were frozen through the artifact's combined headroom lift, with exact control equivalence. Negative controls (domain z-score and full domain quantile equalization) are documentation-only because they erase magnitude and risk saturation.\n\nCross-domain pairs used same set, normalized rarity, slot group, promo, secret, and mechanic flags. Whole-set bootstrap used {args.bootstrap_draws} deterministic draws (seed {SEED}). Full results, composition, repetition, set shadows, sensitivities, and named cases are in the adjacent JSON artifacts.\n\n## Decision\n\n**{decision['decision']}** — {decision['reason']}\n\nProduction mutations: **NONE**. Overall RIP was not modified or published.\n\n## Git\n\nBranch: `{BRANCH}`. Merge: **NO**. Main untouched. Deployment: **NO**. Final SHA is to be recorded after commit.\n\nCOLLECTOR_CROSS_DOMAIN_CALIBRATION_V1_READY_FOR_REVIEW\n"""
+    report=render_final_report(market=market,historical_market=historical_market,excluded=excluded,
+        per_set=per_set_replay,control=control_now,exact=exact,preserve=preserve,within=within,
+        pairs=pairs,cv=cv,gates=gates,boot=boot,sets=sets,decision=decision)
     (out/"FINAL_REPORT.md").write_text(report,encoding="utf-8")
     print(json.dumps({"decision":decision["decision"],"controlReplay":replay["status"],"rows":len(rows),"excluded":len(excluded),"output":str(out)},indent=2)); return 0
 

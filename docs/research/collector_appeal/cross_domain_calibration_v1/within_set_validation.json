@@ -8,9 +8,9 @@
         "setName": "Phantasmal Flames",
         "era": "Mega Evolution",
         "n": 129,
-        "spearmanPrice": 0.37224815048505927,
-        "spearmanLogPrice": 0.37224815048505927,
-        "pearsonLogPrice": 0.4183381150665211
+        "spearmanPrice": 0.37334801225612874,
+        "spearmanLogPrice": 0.37334801225612874,
+        "pearsonLogPrice": 0.41894359718429675
       },
       {
         "setId": "142d3869-9d39-48b6-a810-751af2aac748",
@@ -44,18 +44,18 @@
         "setName": "Scarlet and Violet Base Set",
         "era": "Scarlet and Violet",
         "n": 256,
-        "spearmanPrice": 0.1815601810355129,
-        "spearmanLogPrice": 0.1815601810355129,
-        "pearsonLogPrice": 0.09728160503088791
+        "spearmanPrice": 0.18404189139509813,
+        "spearmanLogPrice": 0.18404189139509813,
+        "pearsonLogPrice": 0.0989530143537679
       },
       {
         "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
         "setName": "Black Bolt",
         "era": "Scarlet and Violet",
         "n": 170,
-        "spearmanPrice": 0.19557678506280812,
-        "spearmanLogPrice": 0.19557678506280812,
-        "pearsonLogPrice": 0.15400807936161215
+        "spearmanPrice": 0.1898236534820338,
+        "spearmanLogPrice": 0.1898236534820338,
+        "pearsonLogPrice": 0.15188830532373182
       },
       {
         "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
@@ -115,10 +115,10 @@
         "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
         "setName": "Prismatic Evolutions",
         "era": "Scarlet and Violet",
-        "n": 174,
-        "spearmanPrice": 0.3228501103669293,
-        "spearmanLogPrice": 0.3228501103669293,
-        "pearsonLogPrice": 0.3062774158260972
+        "n": 180,
+        "spearmanPrice": 0.3115068321908311,
+        "spearmanLogPrice": 0.3115068321908311,
+        "pearsonLogPrice": 0.30676572444933997
       },
       {
         "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
@@ -152,9 +152,9 @@
         "setName": "White Flare",
         "era": "Scarlet and Violet",
         "n": 172,
-        "spearmanPrice": 0.2539231872304462,
-        "spearmanLogPrice": 0.2539231872304462,
-        "pearsonLogPrice": 0.1894090687951995
+        "spearmanPrice": 0.2537871052087162,
+        "spearmanLogPrice": 0.2537871052087162,
+        "pearsonLogPrice": 0.18919569802515776
       },
       {
         "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
@@ -179,33 +179,33 @@
         "setName": "Destined Rivals",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.3480685505095596,
-        "spearmanLogPrice": 0.3480685505095596,
-        "pearsonLogPrice": 0.36176760352082304
+        "spearmanPrice": 0.34749544357170176,
+        "spearmanLogPrice": 0.34749544357170176,
+        "pearsonLogPrice": 0.36111396462560413
       },
       {
         "setId": "f59f25a2-d3da-4100-a918-901271a99925",
         "setName": "Surging Sparks",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.2859190000922061,
-        "spearmanLogPrice": 0.2859190000922061,
-        "pearsonLogPrice": 0.30286138707622745
+        "spearmanPrice": 0.2868666100096556,
+        "spearmanLogPrice": 0.2868666100096556,
+        "pearsonLogPrice": 0.3035369868005989
       },
       {
         "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
         "setName": "Paldean Fates",
         "era": "Scarlet and Violet",
         "n": 245,
-        "spearmanPrice": 0.24064692341076244,
-        "spearmanLogPrice": 0.24064692341076244,
-        "pearsonLogPrice": 0.23266114322124593
+        "spearmanPrice": 0.24112620955086042,
+        "spearmanLogPrice": 0.24112620955086042,
+        "pearsonLogPrice": 0.23325038160201936
       }
     ],
     "summary": {
       "sets": 22,
-      "medianRho": 0.32331872351802543,
-      "weightedMeanRho": 0.2995477168481579,
+      "medianRho": 0.31764708442997636,
+      "weightedMeanRho": 0.29910491268326117,
       "positivePct": 95.45454545454545,
       "materiallyPositivePct": 72.72727272727273,
       "negativePct": 4.545454545454546
@@ -220,9 +220,9 @@
         "setName": "Phantasmal Flames",
         "era": "Mega Evolution",
         "n": 129,
-        "spearmanPrice": 0.3810304649861686,
-        "spearmanLogPrice": 0.3810304649861686,
-        "pearsonLogPrice": 0.4394129652538958
+        "spearmanPrice": 0.38216966896937227,
+        "spearmanLogPrice": 0.38216966896937227,
+        "pearsonLogPrice": 0.44011319395586473
       },
       {
         "setId": "142d3869-9d39-48b6-a810-751af2aac748",
@@ -256,18 +256,18 @@
         "setName": "Scarlet and Violet Base Set",
         "era": "Scarlet and Violet",
         "n": 256,
-        "spearmanPrice": 0.184729783937267,
-        "spearmanLogPrice": 0.184729783937267,
-        "pearsonLogPrice": 0.10583631715005637
+        "spearmanPrice": 0.18691330324561448,
+        "spearmanLogPrice": 0.18691330324561448,
+        "pearsonLogPrice": 0.10719779789268083
       },
       {
         "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
         "setName": "Black Bolt",
         "era": "Scarlet and Violet",
         "n": 170,
-        "spearmanPrice": 0.1960226617507088,
-        "spearmanLogPrice": 0.1960226617507088,
-        "pearsonLogPrice": 0.15364531733081235
+        "spearmanPrice": 0.19027809122417896,
+        "spearmanLogPrice": 0.19027809122417896,
+        "pearsonLogPrice": 0.15156993906903182
       },
       {
         "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
@@ -327,10 +327,10 @@
         "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
         "setName": "Prismatic Evolutions",
         "era": "Scarlet and Violet",
-        "n": 174,
-        "spearmanPrice": 0.3231031259084242,
-        "spearmanLogPrice": 0.3231031259084242,
-        "pearsonLogPrice": 0.31795964145937206
+        "n": 180,
+        "spearmanPrice": 0.311605669973013,
+        "spearmanLogPrice": 0.311605669973013,
+        "pearsonLogPrice": 0.31846972709988763
       },
       {
         "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
@@ -364,9 +364,9 @@
         "setName": "White Flare",
         "era": "Scarlet and Violet",
         "n": 172,
-        "spearmanPrice": 0.25299970366668645,
-        "spearmanLogPrice": 0.25299970366668645,
-        "pearsonLogPrice": 0.1885321378555077
+        "spearmanPrice": 0.25286362327899475,
+        "spearmanLogPrice": 0.25286362327899475,
+        "pearsonLogPrice": 0.188314872080255
       },
       {
         "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
@@ -391,33 +391,33 @@
         "setName": "Destined Rivals",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.3488570954569042,
-        "spearmanLogPrice": 0.3488570954569042,
-        "pearsonLogPrice": 0.364301184930793
+        "spearmanPrice": 0.3482864984764384,
+        "spearmanLogPrice": 0.3482864984764384,
+        "pearsonLogPrice": 0.36363529847288567
       },
       {
         "setId": "f59f25a2-d3da-4100-a918-901271a99925",
         "setName": "Surging Sparks",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.29320347799332314,
-        "spearmanLogPrice": 0.29320347799332314,
-        "pearsonLogPrice": 0.3207583744464834
+        "spearmanPrice": 0.2941686646093495,
+        "spearmanLogPrice": 0.2941686646093495,
+        "pearsonLogPrice": 0.32147072026004897
       },
       {
         "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
         "setName": "Paldean Fates",
         "era": "Scarlet and Violet",
         "n": 245,
-        "spearmanPrice": 0.241609885680407,
-        "spearmanLogPrice": 0.241609885680407,
-        "pearsonLogPrice": 0.2377962993093007
+        "spearmanPrice": 0.24208917201697833,
+        "spearmanLogPrice": 0.24208917201697833,
+        "pearsonLogPrice": 0.2383979902443278
       }
     ],
     "summary": {
       "sets": 22,
-      "medianRho": 0.3232316932980174,
-      "weightedMeanRho": 0.30155728835046547,
+      "medianRho": 0.31748296533031173,
+      "weightedMeanRho": 0.3010906521997964,
       "positivePct": 95.45454545454545,
       "materiallyPositivePct": 72.72727272727273,
       "negativePct": 4.545454545454546
@@ -432,9 +432,9 @@
         "setName": "Phantasmal Flames",
         "era": "Mega Evolution",
         "n": 129,
-        "spearmanPrice": 0.3899470741977123,
-        "spearmanLogPrice": 0.3899470741977123,
-        "pearsonLogPrice": 0.45925944728812446
+        "spearmanPrice": 0.3911032401350515,
+        "spearmanLogPrice": 0.3911032401350515,
+        "pearsonLogPrice": 0.4600553639601661
       },
       {
         "setId": "142d3869-9d39-48b6-a810-751af2aac748",
@@ -468,18 +468,18 @@
         "setName": "Scarlet and Violet Base Set",
         "era": "Scarlet and Violet",
         "n": 256,
-        "spearmanPrice": 0.18846965761183498,
-        "spearmanLogPrice": 0.18846965761183498,
-        "pearsonLogPrice": 0.11443811274091728
+        "spearmanPrice": 0.19053935119897192,
+        "spearmanLogPrice": 0.19053935119897192,
+        "pearsonLogPrice": 0.11545319860317907
       },
       {
         "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
         "setName": "Black Bolt",
         "era": "Scarlet and Violet",
         "n": 170,
-        "spearmanPrice": 0.19640501628033316,
-        "spearmanLogPrice": 0.19640501628033316,
-        "pearsonLogPrice": 0.15274604611375955
+        "spearmanPrice": 0.19095730462372917,
+        "spearmanLogPrice": 0.19095730462372917,
+        "pearsonLogPrice": 0.1507231004518
       },
       {
         "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
@@ -539,10 +539,10 @@
         "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
         "setName": "Prismatic Evolutions",
         "era": "Scarlet and Violet",
-        "n": 174,
-        "spearmanPrice": 0.32305867723221565,
-        "spearmanLogPrice": 0.32305867723221565,
-        "pearsonLogPrice": 0.32870869762054716
+        "n": 180,
+        "spearmanPrice": 0.3115861083286228,
+        "spearmanLogPrice": 0.3115861083286228,
+        "pearsonLogPrice": 0.32923264774677286
       },
       {
         "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
@@ -576,9 +576,9 @@
         "setName": "White Flare",
         "era": "Scarlet and Violet",
         "n": 172,
-        "spearmanPrice": 0.25223897965822534,
-        "spearmanLogPrice": 0.25223897965822534,
-        "pearsonLogPrice": 0.18735407860612877
+        "spearmanPrice": 0.2521029006165806,
+        "spearmanLogPrice": 0.2521029006165806,
+        "pearsonLogPrice": 0.1871330951201417
       },
       {
         "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
@@ -603,33 +603,33 @@
         "setName": "Destined Rivals",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.3508579498246225,
-        "spearmanLogPrice": 0.3508579498246225,
-        "pearsonLogPrice": 0.36604562838332494
+        "spearmanPrice": 0.35029781099995705,
+        "spearmanLogPrice": 0.35029781099995705,
+        "pearsonLogPrice": 0.36536869472535927
       },
       {
         "setId": "f59f25a2-d3da-4100-a918-901271a99925",
         "setName": "Surging Sparks",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.2998110111328522,
-        "spearmanLogPrice": 0.2998110111328522,
-        "pearsonLogPrice": 0.3376976405199343
+        "spearmanPrice": 0.30078205927257995,
+        "spearmanLogPrice": 0.30078205927257995,
+        "pearsonLogPrice": 0.33844435226775144
       },
       {
         "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
         "setName": "Paldean Fates",
         "era": "Scarlet and Violet",
         "n": 245,
-        "spearmanPrice": 0.24208320611802892,
-        "spearmanLogPrice": 0.24208320611802892,
-        "pearsonLogPrice": 0.242661798481
+        "spearmanPrice": 0.24256249255117182,
+        "spearmanLogPrice": 0.24256249255117182,
+        "pearsonLogPrice": 0.24327524054060945
       }
     ],
     "summary": {
       "sets": 22,
-      "medianRho": 0.32308951681856607,
-      "weightedMeanRho": 0.30366374564254567,
+      "medianRho": 0.31735323236676966,
+      "weightedMeanRho": 0.30320150914150884,
       "positivePct": 95.45454545454545,
       "materiallyPositivePct": 72.72727272727273,
       "negativePct": 4.545454545454546
@@ -644,9 +644,9 @@
         "setName": "Phantasmal Flames",
         "era": "Mega Evolution",
         "n": 129,
-        "spearmanPrice": 0.4043641709241273,
-        "spearmanLogPrice": 0.4043641709241273,
-        "pearsonLogPrice": 0.47733292191876014
+        "spearmanPrice": 0.40557657669629754,
+        "spearmanLogPrice": 0.40557657669629754,
+        "pearsonLogPrice": 0.4782237537787217
       },
       {
         "setId": "142d3869-9d39-48b6-a810-751af2aac748",
@@ -680,18 +680,18 @@
         "setName": "Scarlet and Violet Base Set",
         "era": "Scarlet and Violet",
         "n": 256,
-        "spearmanPrice": 0.19529679754173704,
-        "spearmanLogPrice": 0.19529679754173704,
-        "pearsonLogPrice": 0.12280650527869676
+        "spearmanPrice": 0.19709766875307486,
+        "spearmanLogPrice": 0.19709766875307486,
+        "pearsonLogPrice": 0.12344075132425886
       },
       {
         "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
         "setName": "Black Bolt",
         "era": "Scarlet and Violet",
         "n": 170,
-        "spearmanPrice": 0.19548638814526118,
-        "spearmanLogPrice": 0.19548638814526118,
-        "pearsonLogPrice": 0.1512931503510519
+        "spearmanPrice": 0.19014004965196818,
+        "spearmanLogPrice": 0.19014004965196818,
+        "pearsonLogPrice": 0.1493304996862646
       },
       {
         "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
@@ -751,10 +751,10 @@
         "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
         "setName": "Prismatic Evolutions",
         "era": "Scarlet and Violet",
-        "n": 174,
-        "spearmanPrice": 0.32942509531686043,
-        "spearmanLogPrice": 0.32942509531686043,
-        "pearsonLogPrice": 0.33787882869991365
+        "n": 180,
+        "spearmanPrice": 0.3175668237108624,
+        "spearmanLogPrice": 0.3175668237108624,
+        "pearsonLogPrice": 0.3384090734340063
       },
       {
         "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
@@ -788,9 +788,9 @@
         "setName": "White Flare",
         "era": "Scarlet and Violet",
         "n": 172,
-        "spearmanPrice": 0.251341443269948,
-        "spearmanLogPrice": 0.251341443269948,
-        "pearsonLogPrice": 0.18585114606387923
+        "spearmanPrice": 0.2512053658164298,
+        "spearmanLogPrice": 0.2512053658164298,
+        "pearsonLogPrice": 0.1856266639170971
       },
       {
         "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
@@ -815,33 +815,33 @@
         "setName": "Destined Rivals",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.3533482458837961,
-        "spearmanLogPrice": 0.3533482458837961,
-        "pearsonLogPrice": 0.36691347339606234
+        "spearmanPrice": 0.35275882422288973,
+        "spearmanLogPrice": 0.35275882422288973,
+        "pearsonLogPrice": 0.36622690065764607
       },
       {
         "setId": "f59f25a2-d3da-4100-a918-901271a99925",
         "setName": "Surging Sparks",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.3083025258925484,
-        "spearmanLogPrice": 0.3083025258925484,
-        "pearsonLogPrice": 0.3528296369338298
+        "spearmanPrice": 0.30928529411382094,
+        "spearmanLogPrice": 0.30928529411382094,
+        "pearsonLogPrice": 0.3536065015041403
       },
       {
         "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
         "setName": "Paldean Fates",
         "era": "Scarlet and Violet",
         "n": 245,
-        "spearmanPrice": 0.2419665081480635,
-        "spearmanLogPrice": 0.2419665081480635,
-        "pearsonLogPrice": 0.24719153289435197
+        "spearmanPrice": 0.24244579455739657,
+        "spearmanLogPrice": 0.24244579455739657,
+        "pearsonLogPrice": 0.2478158597504412
       }
     ],
     "summary": {
       "sets": 22,
-      "medianRho": 0.32548347553956153,
-      "weightedMeanRho": 0.30629670124470737,
+      "medianRho": 0.31955433973656255,
+      "weightedMeanRho": 0.30581238592922744,
       "positivePct": 95.45454545454545,
       "materiallyPositivePct": 72.72727272727273,
       "negativePct": 4.545454545454546
@@ -856,9 +856,9 @@
         "setName": "Phantasmal Flames",
         "era": "Mega Evolution",
         "n": 129,
-        "spearmanPrice": 0.43452172683602847,
-        "spearmanLogPrice": 0.43452172683602847,
-        "pearsonLogPrice": 0.49311416964362625
+        "spearmanPrice": 0.43609564787551114,
+        "spearmanLogPrice": 0.43609564787551114,
+        "pearsonLogPrice": 0.4940972642031589
       },
       {
         "setId": "142d3869-9d39-48b6-a810-751af2aac748",
@@ -892,18 +892,18 @@
         "setName": "Scarlet and Violet Base Set",
         "era": "Scarlet and Violet",
         "n": 256,
-        "spearmanPrice": 0.21193918169575174,
-        "spearmanLogPrice": 0.21193918169575174,
-        "pearsonLogPrice": 0.1306048169061228
+        "spearmanPrice": 0.21317342246948018,
+        "spearmanLogPrice": 0.21317342246948018,
+        "pearsonLogPrice": 0.13082908743049693
       },
       {
         "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
         "setName": "Black Bolt",
         "era": "Scarlet and Violet",
         "n": 170,
-        "spearmanPrice": 0.19594692379276402,
-        "spearmanLogPrice": 0.19594692379276402,
-        "pearsonLogPrice": 0.14928658484736204
+        "spearmanPrice": 0.19065801094946694,
+        "spearmanLogPrice": 0.19065801094946694,
+        "pearsonLogPrice": 0.1473916581558743
       },
       {
         "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
@@ -963,10 +963,10 @@
         "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
         "setName": "Prismatic Evolutions",
         "era": "Scarlet and Violet",
-        "n": 174,
-        "spearmanPrice": 0.3290147998441658,
-        "spearmanLogPrice": 0.3290147998441658,
-        "pearsonLogPrice": 0.34475875369309306
+        "n": 180,
+        "spearmanPrice": 0.3169830630598502,
+        "spearmanLogPrice": 0.3169830630598502,
+        "pearsonLogPrice": 0.34528986783776433
       },
       {
         "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
@@ -1000,9 +1000,9 @@
         "setName": "White Flare",
         "era": "Scarlet and Violet",
         "n": 172,
-        "spearmanPrice": 0.2508614205235237,
-        "spearmanLogPrice": 0.2508614205235237,
-        "pearsonLogPrice": 0.1840019165761019
+        "spearmanPrice": 0.2507253439193715,
+        "spearmanLogPrice": 0.2507253439193715,
+        "pearsonLogPrice": 0.18377419778412404
       },
       {
         "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
@@ -1027,33 +1027,33 @@
         "setName": "Destined Rivals",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.35670740552686075,
-        "spearmanLogPrice": 0.35670740552686075,
-        "pearsonLogPrice": 0.3668302665411327
+        "spearmanPrice": 0.35612425875943454,
+        "spearmanLogPrice": 0.35612425875943454,
+        "pearsonLogPrice": 0.36613565555831956
       },
       {
         "setId": "f59f25a2-d3da-4100-a918-901271a99925",
         "setName": "Surging Sparks",
         "era": "Scarlet and Violet",
         "n": 243,
-        "spearmanPrice": 0.3210343590445151,
-        "spearmanLogPrice": 0.3210343590445151,
-        "pearsonLogPrice": 0.365261222443192
+        "spearmanPrice": 0.322030941929387,
+        "spearmanLogPrice": 0.322030941929387,
+        "pearsonLogPrice": 0.36606212717091197
       },
       {
         "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
         "setName": "Paldean Fates",
         "era": "Scarlet and Violet",
         "n": 245,
-        "spearmanPrice": 0.2443290299875728,
-        "spearmanLogPrice": 0.2443290299875728,
-        "pearsonLogPrice": 0.25131894921863057
+        "spearmanPrice": 0.24480913294881804,
+        "spearmanLogPrice": 0.24480913294881804,
+        "pearsonLogPrice": 0.2519531290918214
       }
     ],
     "summary": {
       "sets": 22,
-      "medianRho": 0.3250245794443405,
-      "weightedMeanRho": 0.31041412504262506,
+      "medianRho": 0.3195070024946186,
+      "weightedMeanRho": 0.3098970303122094,
       "positivePct": 95.45454545454545,
       "materiallyPositivePct": 77.27272727272727,
       "negativePct": 4.545454545454546

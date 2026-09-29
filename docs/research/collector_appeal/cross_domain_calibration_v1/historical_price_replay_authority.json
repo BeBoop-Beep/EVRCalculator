@@ -1,24 +1,87 @@
 {
-  "status": "EXACT",
-  "tolerance": 0.0025,
-  "frozenTargets": {
-    "medianRho": 0.31764708442997636,
-    "weightedMeanRho": 0.29910491268326117,
-    "positivePct": 95.45454545454545
-  },
-  "historicalReplay": {
-    "sets": 22,
-    "medianRho": 0.31764708442997636,
-    "weightedMeanRho": 0.29910491268326117,
-    "positivePct": 95.45454545454545,
-    "materiallyPositivePct": 72.72727272727273,
-    "negativePct": 4.545454545454546
-  },
-  "absoluteErrors": {
-    "medianRho": 0.0,
-    "weightedMeanRho": 0.0
-  },
-  "perSetReplay": {
+  "originalV7PriceAuthority": "pokemon_canonical_card_market_prices_latest",
+  "rejectedFirstPassReplayAuthority": "get_pokemon_cards_daily_constituents",
+  "rejectionReason": "Later Set Value historical abstraction and compatibility path; not semantically equivalent to original canonical-card selection.",
+  "correctedReplayAuthority": "get_pokemon_market_root_standard_card_prices_as_of_v2",
+  "marketDate": "2026-09-11",
+  "controlledMembership": 4331,
+  "priceCoverage": 4331,
+  "coveragePct": 100.0,
+  "sixRecoveredCards": [
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "2b8f2df8-c2a1-44ed-b847-7b595df93085",
+      "card_variant_id": "e5e21180-f7ab-48d9-b649-82776af79826",
+      "market_price": 0.57,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Prime Catcher"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "62f9b9ab-5cf0-4142-b6e9-4ada390d0a70",
+      "card_variant_id": "1323ad8b-4594-4bb3-b4ff-ef9c7cae6de7",
+      "market_price": 0.63,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Max Rod"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "6570e521-2f93-4ace-ba07-d2854fd05690",
+      "card_variant_id": "e0d0e055-ca6f-4474-9594-2dffe81503cb",
+      "market_price": 0.39,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Sparkling Crystal"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "68698b6a-b98a-4fe4-9d91-8b077951723d",
+      "card_variant_id": "1138bd69-fc8b-4ef5-98d5-6d2193e0c94d",
+      "market_price": 0.44,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Scoop Up Cyclone"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "8b49a13d-b877-45e4-ac13-38112b96c0a9",
+      "card_variant_id": "b8a4d732-46a6-475a-9d19-123a17f570e4",
+      "market_price": 0.34,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Treasure Tracker"
+    },
+    {
+      "root_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "member_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "canonical_card_id": "da8c7d19-c029-40de-b155-b95b2223a856",
+      "card_variant_id": "63140a1a-0330-4074-a314-4c8d8b966751",
+      "market_price": 0.56,
+      "observed_date": "2026-09-11",
+      "printing_type": "holo",
+      "special_type": "ace spec",
+      "source": "canonical_price_events_v2_root_standard_v1",
+      "card_name": "Maximum Belt"
+    }
+  ],
+  "perSetReplayErrors": {
     "maxAbsolutePerSetRhoError": 0.0,
     "meanAbsolutePerSetRhoError": 0.0,
     "setsMatchingLe1e9": 22,
@@ -158,5 +221,8 @@
       }
     ]
   },
-  "lineageFinding": "Canonical price-event as-of selection is the historical equivalent of the original canonical latest-card authority."
+  "globalReplayErrors": {
+    "medianRho": 0.0,
+    "weightedMeanRho": 0.0
+  }
 }

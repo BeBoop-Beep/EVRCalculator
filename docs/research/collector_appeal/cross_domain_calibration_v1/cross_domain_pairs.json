@@ -1,7 +1,7 @@
 {
   "CONTROL": {
     "pairCount": 4071,
-    "directionalConcordance": 0.5852390852390852,
+    "directionalConcordance": 0.5865384615384616,
     "scoreTieCount": 0,
     "meanAbsoluteScoreGap": 26.58656139036993,
     "medianAbsoluteScoreGap": 24.715431192468614,
@@ -10,7 +10,7 @@
   },
   "ANCHOR25": {
     "pairCount": 4071,
-    "directionalConcordance": 0.5896569646569647,
+    "directionalConcordance": 0.5904365904365905,
     "scoreTieCount": 0,
     "meanAbsoluteScoreGap": 23.336278437895817,
     "medianAbsoluteScoreGap": 20.838220532158864,
@@ -19,7 +19,7 @@
   },
   "ANCHOR50": {
     "pairCount": 4071,
-    "directionalConcordance": 0.5982328482328483,
+    "directionalConcordance": 0.599012474012474,
     "scoreTieCount": 0,
     "meanAbsoluteScoreGap": 20.277298647537556,
     "medianAbsoluteScoreGap": 17.150682400951666,
@@ -28,7 +28,7 @@
   },
   "ANCHOR75": {
     "pairCount": 4071,
-    "directionalConcordance": 0.6169438669438669,
+    "directionalConcordance": 0.6177234927234927,
     "scoreTieCount": 0,
     "meanAbsoluteScoreGap": 17.499723068423048,
     "medianAbsoluteScoreGap": 14.379276219280037,
@@ -37,7 +37,7 @@
   },
   "ANCHOR100": {
     "pairCount": 4071,
-    "directionalConcordance": 0.6335758835758836,
+    "directionalConcordance": 0.6343555093555093,
     "scoreTieCount": 0,
     "meanAbsoluteScoreGap": 15.276168666424994,
     "medianAbsoluteScoreGap": 12.087402637538226,
