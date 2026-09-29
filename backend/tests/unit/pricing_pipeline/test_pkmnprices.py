@@ -18,6 +18,7 @@ from backend.pricing_pipeline.pkmnprices_sold import (
     resolve_internal_variant,
 )
 from backend.pricing_pipeline.pkmnprices_sold_identity import classify_vintage_sold
+from backend.pricing_pipeline.pkmnprices_store import _same_evidence
 
 
 class Response(io.BytesIO):
@@ -339,3 +340,24 @@ def test_sold_collection_reports_resume_cursor():
     assert result["has_more"] is True
     assert result["next_cursor"] == "next-page"
     assert "cursor=resume-here" in opener.seen[0].full_url
+
+
+def test_sold_replay_timestamp_z_and_utc_offset_are_equivalent():
+    base = {
+        "provider_listing_id": 1,
+        "provider_card_id": 2,
+        "canonical_card_id": "card",
+        "title": "Card",
+        "price": "10.00",
+        "currency": "USD",
+        "grader": None,
+        "grade": None,
+        "graded": False,
+        "provider_variant": "Holofoil",
+        "attribution": "exact",
+        "sold_at": "2026-09-20",
+        "ingested_at": "2026-09-21T02:08:14.188257Z",
+        "listing_url": "https://example.invalid/1",
+    }
+    replay = dict(base, ingested_at="2026-09-21T02:08:14.188257+00:00")
+    assert _same_evidence(base, replay) is True
