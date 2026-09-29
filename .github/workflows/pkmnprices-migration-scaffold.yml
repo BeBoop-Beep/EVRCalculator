@@ -1,0 +1,55 @@
+name: PkmnPrices Migration Scaffold
+
+on:
+  push:
+    branches:
+      - feat/pkmnprices-sold-evidence-v1-20260929
+    paths:
+      - ".github/workflows/pkmnprices-migration-scaffold.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/pkmnprices-sold-evidence-v1-20260929
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Discover CLI and generate canonical migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLI=(npx --yes supabase@2.117.0)
+          "${CLI[@]}" --version
+          "${CLI[@]}" --help >/tmp/supabase-help.txt
+          "${CLI[@]}" migration --help >/tmp/supabase-migration-help.txt
+          "${CLI[@]}" migration new --help >/tmp/supabase-migration-new-help.txt
+          grep -q 'migration' /tmp/supabase-help.txt
+          grep -q 'new' /tmp/supabase-migration-help.txt
+
+          if find supabase/migrations -maxdepth 1 -type f -name '*_pkmnprices_sold_evidence_v1.sql' | grep -q .; then
+            echo "Migration already exists; refusing duplicate scaffold."
+            exit 20
+          fi
+
+          "${CLI[@]}" migration new pkmnprices_sold_evidence_v1
+          FILE="$(find supabase/migrations -maxdepth 1 -type f -name '*_pkmnprices_sold_evidence_v1.sql' -printf '%f\n' | head -1)"
+          test -n "$FILE"
+          cp "supabase/migrations/$FILE" "backend/db/migrations/$FILE"
+          cmp "supabase/migrations/$FILE" "backend/db/migrations/$FILE"
+
+          git config user.name "inDex migration scaffold"
+          git config user.email "actions@users.noreply.github.com"
+          git add "supabase/migrations/$FILE" "backend/db/migrations/$FILE"
+          git commit -m "db: scaffold PkmnPrices sold evidence migration"
+          git push origin HEAD:feat/pkmnprices-sold-evidence-v1-20260929
+          echo "pkmnprices_migration_filename=$FILE"
