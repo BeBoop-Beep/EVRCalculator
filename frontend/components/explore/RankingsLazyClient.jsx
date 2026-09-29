@@ -48,6 +48,8 @@ export default function RankingsLazyClient({
   targets,
   openingEconomics,
   rankingsMarketDate = null,
+  rankingsOverview = null,
+  financialCohort = null,
 }) {
   const { canViewRankingsIntelligence, canViewCardChaseEfficiency, canViewCardCollectorAppeal, authStatus, requestKey } = useRankingsAccess();
   const [lens, setActiveLens] = useState("overall");
@@ -226,12 +228,12 @@ export default function RankingsLazyClient({
       {lens === "overall" ? (
         <>
           <RankingsOverviewHighlights
-            openingEconomics={openingEconomics}
+            overview={rankingsOverview}
             onOpenTopSet={() => { setSetEntryView("ripScore"); setActiveLens("sets"); }}
             onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}
             onOpenLowestCost={() => { setSetEntryView("packEconomics"); setActiveLens("sets"); }}
           />
-          <OpeningEconomicsOverall economics={openingEconomics} targets={targets} eras={visibleEraState.contract?.eras || []} />
+          <OpeningEconomicsOverall economics={openingEconomics} overview={rankingsOverview} financialCohort={financialCohort} targets={targets} eras={visibleEraState.contract?.eras || []} />
         </>
       ) : lens === "eras" ? (
         eraLens === "rankings" ? (

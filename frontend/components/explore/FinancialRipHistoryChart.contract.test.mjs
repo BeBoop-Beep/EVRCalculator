@@ -19,21 +19,23 @@ test("locked access is a synthetic frosted preview with no chart data dependency
   assert.ok(source.includes("<LockedPreview />"));
 });
 
-test("controls, gap behavior, moving reference, and responsive frame are explicit", () => {
+test("controls, observed-date continuity, moving reference, and responsive frame are explicit", () => {
   for (const label of ["Sets", "Eras", "Overall Financial RIP"]) assert.ok(source.includes(label));
   for (const window of ["30D", "3M", "6M", "1Y", "ALL"]) assert.ok(model.includes(`key: "${window}"`));
-  assert.equal((source.match(/connectNulls=\{false\}/g) || []).length, 2);
+  assert.equal((source.match(/connectNulls/g) || []).length, 2);
   assert.ok(source.includes("<ChartFrame"));
   assert.ok(source.includes("h-[20rem] sm:h-[24rem] desk:h-[28rem]"));
-  assert.ok(source.includes("Select Sets by Era"));
+  assert.ok(source.includes("MultiSelectFilter"));
+  assert.ok(source.includes('mode === "sets" ? "Sets…" : "Eras…"'));
+  assert.ok(source.includes('searchPlaceholder="Search Eras…"'));
   assert.ok(source.includes("setIdsForEra"));
-  assert.ok(source.includes('stroke="#94a3b8"'));
+  assert.ok(source.includes('stroke="#cbd5e1"'));
   assert.ok(source.includes("strokeWidth={4}"));
 });
 
 test("refresh and failure preserve the last successful certified chart", () => {
   assert.ok(source.includes('setRequest((current) => ({ ...current, status: "loading"'));
-  assert.ok(source.includes("const display = request.view"));
+  assert.ok(source.includes("request.view?.mode === mode ? request.view : null"));
   assert.ok(source.includes("The latest refresh failed, so the last successful history remains visible."));
   assert.ok(source.includes("Updating history\u2026"));
 });

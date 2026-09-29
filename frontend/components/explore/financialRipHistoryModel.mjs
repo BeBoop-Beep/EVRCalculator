@@ -8,7 +8,7 @@ export const FINANCIAL_RIP_WINDOWS = Object.freeze([
   { key: "ALL", label: "ALL", days: null, ariaLabel: "All available history" },
 ]);
 
-export const FINANCIAL_RIP_COLORS = ["#38bdf8", "#c084fc", "#fbbf24", "#fb7185", "#818cf8"];
+export const FINANCIAL_RIP_COLORS = ["#38bdf8", "#c084fc", "#fbbf24", "#fb7185", "#818cf8", "#2dd4bf", "#f97316", "#a3e635", "#e879f9", "#60a5fa", "#f43f5e", "#14b8a6", "#d946ef", "#eab308", "#6366f1", "#22c55e"];
 
 const dateOnly = (value) => value ? String(value).slice(0, 10) : null;
 const finite = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -93,21 +93,16 @@ export function toggleFinancialRipSelection(current = [], id, max = Infinity) {
 export function buildFinancialRipChartModel(rows = [], selectedEntities = [], range = {}) {
   const selected = new Map(selectedEntities.map((item) => [String(item.entity_id), item]));
   const points = new Map();
-  if (range.startDate && range.endDate) {
-    for (let cursor = new Date(`${range.startDate}T00:00:00Z`), end = new Date(`${range.endDate}T00:00:00Z`); cursor <= end; cursor = new Date(cursor.getTime() + DAY)) {
-      const date = cursor.toISOString().slice(0, 10);
-      points.set(date, { date, overallFinancialRip: null, entities: {} });
-    }
-  }
   for (const row of rows) {
-    if (row?.metric_key !== "financial") continue;
-    const id = String(row?.entity_id || "");
+    if (row?.metric_key && row.metric_key !== "financial") continue;
+    const id = String(row?.entityId || row?.entity_id || "");
     if (!selected.has(id)) continue;
-    const date = dateOnly(row?.market_date);
-    const point = points.get(date);
-    if (!point) continue;
-    const score = finite(row?.absolute_financial_rip_score);
-    const reference = finite(row?.overall_financial_rip_reference);
+    const date = dateOnly(row?.marketDate || row?.market_date);
+    if (!date || (range.startDate && date < range.startDate) || (range.endDate && date > range.endDate)) continue;
+    const point = points.get(date) || { date, timestamp: new Date(`${date}T00:00:00Z`).getTime(), overallFinancialRip: null, entities: {} };
+    points.set(date, point);
+    const score = finite(row?.absoluteFinancialRipScore ?? row?.absolute_financial_rip_score);
+    const reference = finite(row?.overallFinancialRipReference ?? row?.overall_financial_rip_reference);
     if (reference !== null) point.overallFinancialRip = reference;
     if (score === null) continue;
     const key = entitySeriesKey(id);
@@ -115,14 +110,14 @@ export function buildFinancialRipChartModel(rows = [], selectedEntities = [], ra
     point.entities[id] = {
       financialRip: score,
       overallFinancialRip: reference,
-      deltaVsOverall: finite(row?.absolute_delta_vs_overall),
+      deltaVsOverall: finite(row?.absoluteDeltaVsOverall ?? row?.absolute_delta_vs_overall),
       rank: finite(row?.rank),
-      cohortSize: finite(row?.cohort_size),
+      cohortSize: finite(row?.cohortSize ?? row?.cohort_size),
       status: row?.status || null,
     };
   }
   const series = selectedEntities.map((item) => ({ ...item, key: entitySeriesKey(item.entity_id), color: stableEntityColor(item.entity_id) }));
-  return { points: [...points.values()], series };
+  return { points: [...points.values()].sort((a, b) => a.timestamp - b.timestamp), series };
 }
 
 export function financialRipYAxisDomain(points = [], series = []) {
@@ -149,6 +144,6 @@ export function formatFinancialRip(value) {
 export function formatFinancialRipDelta(value) {
   const number = finite(value);
   if (number === null) return "Unavailable";
-  if (number === 0) return "0.00 vs Overall";
-  return `${number > 0 ? "+" : "−"}${Math.abs(number).toFixed(2)} vs Overall`;
+  if (number === 0) return "— 0.00 vs Overall";
+  return `${number > 0 ? "↑ +" : "↓ −"}${Math.abs(number).toFixed(2)} vs Overall`;
 }
