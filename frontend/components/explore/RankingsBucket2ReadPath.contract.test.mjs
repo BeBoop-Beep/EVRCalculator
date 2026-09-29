@@ -11,7 +11,7 @@ const products = read("./RankingsProductLensClient.jsx");
 const hub = read("./CardRankingsHub.jsx");
 const collector = read("./CardCollectorAppealRankings.jsx");
 const chase = read("./CardChaseEfficiencyRankings.jsx");
-const productReadPath = fs.readFileSync(new URL("../../lib/rankings/productRankingsReadPath.mjs", import.meta.url), "utf8");
+const productReadPath = fs.readFileSync(new URL("../../lib/rankings/productRankingsClient.mjs", import.meta.url), "utf8");
 
 test("Overview cards use the server-seeded v2 public authority", () => {
   assert.match(overview, /overview\?\.topSet/);
@@ -22,16 +22,13 @@ test("Overview cards use the server-seeded v2 public authority", () => {
   assert.doesNotMatch(lazy, /<RankingsOverviewHighlights[\s\S]{0,250}(setsState|eraState)=/);
 });
 
-test("default All Products and its warm path share the dedicated Full Market contract", () => {
-  for (const source of [lazy, products]) {
-    assert.match(source, /loadProductRankingsAuthorities/);
-    assert.match(source, /sessionCache\.request\("products:full_market"/);
-  }
-  assert.match(productReadPath, /\/api\/explore\/rankings\/lens\?lens=products/);
-  assert.match(productReadPath, /\/api\/explore\/product-rankings\/overall\?budget=full_market/);
-  assert.doesNotMatch(products, /normalizeOverallProductResult\(payload\.overallProductRankings\)/);
-  assert.doesNotMatch(lazy, /normalizeOverallProductResult\(payload\.overallProductRankings\)/);
-  assert.match(products, /\[\.\.\.familyProducts, \.\.\.fullMarketProducts\]/);
+test("Products uses one lazy authority per active split view", () => {
+  assert.match(products, /readProductRankings\(target/);
+  assert.match(productReadPath, /\/api\/explore\/product-rankings\/scores/);
+  assert.match(productReadPath, /\/api\/explore\/product-rankings\/economics/);
+  assert.match(productReadPath, /`products:\$\{view\}`/);
+  assert.doesNotMatch(lazy, /loadProductRankingsAuthorities|products:full_market/);
+  assert.doesNotMatch(products, /product-rankings\/overall|rip-benchmark\/current-batch/);
 });
 
 test("first Card request waits for auth reconciliation and retries on status completion", () => {
@@ -48,6 +45,6 @@ test("Set, Era, and Product refreshes use the tested last-good transition contra
   assert.match(lazy, /failLastGoodRefresh\(current, error, isRenderableEraState/);
   assert.match(lazy, /beginLastGoodRefresh\(current, isRenderableSetState\)/);
   assert.match(lazy, /failLastGoodRefresh\(current, error, isRenderableSetState/);
-  assert.match(products, /beginLastGoodRefresh\(current, isRenderableProductState\)/);
-  assert.match(products, /failLastGoodRefresh\(current, error, isRenderableProductState/);
+  assert.match(products, /beginLastGoodRefresh\(current\[target\], renderable\)/);
+  assert.match(products, /failLastGoodRefresh\(current\[target\], error, renderable/);
 });

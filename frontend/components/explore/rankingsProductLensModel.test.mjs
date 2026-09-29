@@ -83,11 +83,11 @@ test("Closest to #1 can be reversed without coercing unavailable rows to zero", 
 });
 
 test("Products UI keeps Full Market authority separate from Benchmark authority", () => {
-  assert.match(productClientSource, /row\?\.budgetRank/);
-  assert.match(productClientSource, /metrics\?\.overall\?\.rank/);
+  assert.match(productClientSource, /row\.rank/);
+  assert.match(productClientSource, /row\.ripScore/);
   assert.doesNotMatch(productClientSource, /rankedUnderV12Authority/);
   assert.match(productClientSource, /<table/);
-  assert.match(productClientSource, /Inherited · no Product rank/);
+  assert.match(productClientSource, /inherited from this Product's parent Set/);
   assert.doesNotMatch(productClientSource, /overallRipLeaderScore|financialRipLeaderScore|publicTier/);
 });
 

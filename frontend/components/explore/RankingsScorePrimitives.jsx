@@ -9,24 +9,24 @@ const POSITION = {
   at: { glyph: "—", word: "at" },
 };
 
-export function BenchmarkPositionIndicator({ benchmarkPosition, deltaVsBenchmark, compact = false }) {
+export function BenchmarkPositionIndicator({ benchmarkPosition, deltaVsBenchmark, compact = false, benchmarkLabel = "Pokémon Overall Average" }) {
   const position = POSITION[benchmarkPosition] || POSITION.at;
   const delta = Number(deltaVsBenchmark);
   const amount = Number.isFinite(delta) ? Math.abs(delta).toFixed(1) : null;
   const aria = amount === null
-    ? `${position.word} Pokémon Overall Average`
-    : `${amount} points ${position.word} Pokémon Overall Average`;
+    ? `${position.word} ${benchmarkLabel}`
+    : `${amount} points ${position.word} ${benchmarkLabel}`;
   return <span data-benchmark-position={benchmarkPosition || "at"} aria-label={aria} title={aria} className="inline-flex items-center gap-1 text-[10px] font-semibold tabular-nums text-[var(--text-secondary)]">
     <span aria-hidden="true">{position.glyph}</span>{!compact && amount !== null ? <span aria-hidden="true">{benchmarkPosition === "above" ? "+" : benchmarkPosition === "below" ? "−" : ""}{amount}</span> : null}
   </span>;
 }
 
-export function RankingsRipScoreBadge({ metric, label = "RIP Score", compact = false }) {
+export function RankingsRipScoreBadge({ metric, label = "RIP Score", compact = false, benchmarkLabel = "Pokémon Overall Average" }) {
   const rank = Number(metric?.rank), cohortSize = Number(metric?.cohortSize);
   const hasRank = Number.isFinite(rank) && Number.isFinite(cohortSize);
   return <span className="inline-flex flex-col items-center gap-1" data-rankings-rip-score data-rank={hasRank ? rank : undefined} data-cohort-size={hasRank ? cohortSize : undefined}>
     <RipScoreBadge score={metric?.score} tier={metric?.tier} compact={compact} label={label} scoreScale={RIP_SCORE_SCALE_BENCHMARK_10} />
-    <BenchmarkPositionIndicator benchmarkPosition={metric?.benchmarkPosition} deltaVsBenchmark={metric?.deltaVsBenchmark} compact={compact} />
+    <BenchmarkPositionIndicator benchmarkPosition={metric?.benchmarkPosition} deltaVsBenchmark={metric?.deltaVsBenchmark} compact={compact} benchmarkLabel={benchmarkLabel} />
     {hasRank ? <span className="sr-only">Rank {rank} of {cohortSize}</span> : null}
   </span>;
 }

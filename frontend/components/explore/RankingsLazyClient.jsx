@@ -8,7 +8,6 @@ import { createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import { readRankingsScorecards, scorecardSetTarget } from "@/lib/rankings/rankingsScorecardsClient.mjs";
 import { beginLastGoodRefresh, failLastGoodRefresh, isRenderableEraState, isRenderableSetState } from "@/lib/rankings/rankingsLastGoodState.mjs";
-import { loadProductRankingsAuthorities } from "@/lib/rankings/productRankingsReadPath.mjs";
 import styles from "./explore.module.css";
 
 const lensModules = {
@@ -124,11 +123,6 @@ export default function RankingsLazyClient({
     }
   }, [authStatus, canViewRankingsIntelligence, rankingsMarketDate, sessionCache]);
 
-  const warmProducts = useCallback(() => sessionCache.request("products:full_market", async () => {
-    const model = await import("./rankingsProductLensModel.mjs");
-    return loadProductRankingsAuthorities({ normalizeOverallProductResult: model.normalizeOverallProductResult });
-  }), [sessionCache]);
-
   useEffect(() => {
     if (lens === "eras" && eraLens === "rankings") loadEra({ foreground: true });
   }, [lens, eraLens, loadEra]);
@@ -168,7 +162,6 @@ export default function RankingsLazyClient({
     lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
     if (next === "eras") loadEra({ foreground: true });
     if (next === "sets") { setSetEntryView("ripScore"); loadSets({ foreground: true }); }
-    if (next === "products") warmProducts().catch(() => null);
     setActiveLens(next);
     if (next !== "sets") setSelectedEra(null);
     if (next === "eras") setEraLens("rankings");
@@ -178,7 +171,6 @@ export default function RankingsLazyClient({
     lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
     if (next === "eras") loadEra();
     if (next === "sets") loadSets();
-    if (next === "products") warmProducts().catch(() => null);
   };
 
   const visibleEraState = eraState.cacheIdentity === sessionCache.identity ? eraState : { status: "idle", contract: null, marketDate: rankingsMarketDate };

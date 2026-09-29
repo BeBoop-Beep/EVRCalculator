@@ -1,55 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-
-// Source-string structural checks for the Products table layout cleanup
-// (Rankings -> Products). Mirrors the pattern used by
-// ThreePillarLayout.contract.test.mjs / pokemonSetRouteFailureSemantics
-// contract tests: these assert on the JSX/CSS text itself, not on rendered
-// DOM, because this repo does not run a component test harness for this
-// file.
-
-const read = (url) => fs.readFileSync(new URL(url, import.meta.url), "utf8");
-const jsx = read("./RankingsProductLensClient.jsx");
-const css = read("./explore.module.css");
-
-test("desktop table declares an explicit colgroup width contract, not per-cell hacks", () => {
-  assert.match(jsx, /<colgroup>/);
-  for (const col of [
-    "colRank", "colProduct", "colOverall", "colTier", "colFinancial",
-    "colChase", "colCollector", "colPrice", "colEv", "colRecover", "colFormat",
-  ]) {
-    assert.ok(jsx.includes(`styles.${col}`), `expected <col className={styles.${col}} /> in RankingsProductLensClient.jsx`);
-    assert.match(css, new RegExp(`\\.${col}\\s*[,{]`));
-  }
-  // Rank stays narrow, Product/Set gets one of the largest allocations.
-  const rankWidth = /\.colRank\s*{\s*width:\s*([\d.]+)rem/.exec(css)?.[1];
-  const productWidth = /\.colProduct\s*{\s*width:\s*([\d.]+)rem/.exec(css)?.[1];
-  assert.ok(rankWidth && productWidth, "colRank/colProduct widths must be declared in rem");
-  assert.ok(Number(productWidth) > Number(rankWidth) * 4, "Product/Set column must be materially wider than Rank");
-});
-
-test("Units and Committed are absent from desktop, mobile, and geometry", () => {
-  for (const removed of ["Units", "Committed", "Strategy", "row?.quantity", "row?.actualCommittedCapital", "styles.colUnits", "styles.colCommitted"]) assert.ok(!jsx.includes(removed), removed);
-  assert.doesNotMatch(css, /\.colUnits|\.colCommitted/);
-});
-
-test("freed width is assigned to Product and Set identity", () => {
-  assert.match(css, /\.colProduct\s*{\s*width:\s*17rem/);
-});
-
-test("Format Strength wraps instead of clipping and no longer uses a fixed min-w-[10rem] cap", () => {
-  assert.doesNotMatch(jsx, /min-w-\[10rem\]/);
-  assert.match(jsx, /whitespace-normal break-words/);
-});
-
-test("desktop table fits the viewport via colgroup-driven fixed layout rather than horizontal overflow", () => {
-  // Tasks 8/9 intentionally replaced the earlier `width: max-content` /
-  // horizontal-scroll approach: the table now uses `width: 100%` with
-  // `table-layout: fixed` so column widths (from colgroup <col> widths) are
-  // proportionally scaled to fit the viewport instead of overflowing it.
-  assert.match(jsx, /styles\.table\}\s*\$\{styles\.productsTable\}/);
-  assert.match(css, /\.productsTable\s*{[^}]*width:\s*100%/);
-  assert.match(css, /\.productsTable\s*{[^}]*table-layout:\s*fixed/);
-  assert.doesNotMatch(css, /\.productsTable\s*{[^}]*width:\s*max-content/);
-});
+const jsx = fs.readFileSync(new URL("./RankingsProductLensClient.jsx", import.meta.url), "utf8");
+const css = fs.readFileSync(new URL("./explore.module.css", import.meta.url), "utf8");
+test("split Product tables use explicit fixed-layout geometry", () => { for (const name of ["productScoresTable", "productEconomicsTable", "productRankColumn", "productIdentityColumn", "productRipColumn", "productMetricColumn", "productEconomicsColumn"]) { assert.ok(jsx.includes(`styles.${name}`), name); assert.match(css, new RegExp(`\\.${name}`)); } assert.match(css, /\.productScoresTable,[\s\S]*table-layout:\s*fixed/); });
+test("Scores and Economics do not share mixed columns", () => { const scores = jsx.slice(jsx.indexOf("function ScoresTable"), jsx.indexOf("function BestOpen")); const economics = jsx.slice(jsx.indexOf("function EconomicsTable"), jsx.indexOf("function freshnessContext")); assert.doesNotMatch(scores, /Unit Price|Best-Open Price|EV \/ Pack/); assert.doesNotMatch(economics, /RIP Score|Set Chase|Set Collector/); assert.doesNotMatch(jsx, /Units|Committed|Strategy/); });
+test("mobile cards replace horizontal Product tables below desktop", () => { assert.match(jsx, /desk:hidden/); assert.match(jsx, /hidden overflow-x-auto desk:block/); assert.match(jsx, /data-product-score-card/); assert.match(jsx, /data-product-economics-card/); });

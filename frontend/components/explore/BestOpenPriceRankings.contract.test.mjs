@@ -1,54 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-
-const read = (url) => fs.readFileSync(new URL(url, import.meta.url), "utf8");
-const products = read("./RankingsProductLensClient.jsx");
-const productRip = read("../pokemon/sealed-product-detail/ProductRipSection.jsx");
-
-function count(haystack, needle) {
-  return haystack.split(needle).length - 1;
-}
-
-test("Best-Open stays inside the existing Price column instead of adding another column", () => {
-  const header = products.match(/<thead[\s\S]*?<tr>([\s\S]*?)<\/tr><\/thead>/)?.[1] || "";
-  assert.equal(count(header, "<th>"), 9);
-  assert.doesNotMatch(products, /colBestOpen|bestOpenPriceColumn/);
-  assert.match(products, /data-best-open-price/);
-  assert.match(products, /Price \/ Best-Open/);
-});
-
-test("Best-Open is reachable only for All Products Full Market Plus presentation", () => {
-  assert.match(products, /overall\s*&&\s*budgetKey === "full_market"/);
-  assert.match(products, /canViewBestOpenPrice/);
-  assert.match(products, /overallResult\?\.bestOpenPrice\?\.available === true/);
-  assert.match(products, /bestOpenOnly/);
-  assert.match(products, /Closest to #1/);
-});
-
-test("desktop and mobile show semantic threshold copy for leader and challenger", () => {
-  assert.match(products, /data-best-open-price/);
-  assert.match(products, /data-best-open-price-mobile/);
-  assert.match(products, /current_number_one_with_headroom/);
-  assert.match(products, /#1 at threshold/);
-  assert.match(products, /to #1/);
-  assert.match(products, /Best-Open \$\{money\.format\(threshold\)\}/);
-});
-
-test("methodology disclosure names the actual Full Market counterfactual", () => {
-  assert.match(products, /highest price at which this product would rank #1/);
-  assert.match(products, /current published Full Market cohort/);
-  assert.match(products, /Other products remain at their published prices/);
-  assert.match(products, /published Full Market prices as of/);
-});
-
-test("budget responses use a distinct cache namespace from the warmed Full Market lens wrapper", () => {
-  assert.match(products, /request\("products:full_market", baseLoad/);
-  assert.match(products, /sessionCache\.request\(`products:budget:\$\{next\}`/);
-  assert.match(products, /readCurrentProductBenchmark\(entities, \{ sessionCache/);
-  assert.doesNotMatch(products, /sessionCache\.request\(`products:\$\{next\}`/);
-});
-
-test("first release remains Rankings-only and does not inject Best-Open into Product RIP detail", () => {
-  assert.doesNotMatch(productRip, /Best-Open|bestOpenPrice/);
-});
+const products = fs.readFileSync(new URL("./RankingsProductLensClient.jsx", import.meta.url), "utf8");
+const presentation = fs.readFileSync(new URL("./productRankingsPresentation.mjs", import.meta.url), "utf8");
+const productRip = fs.readFileSync(new URL("../pokemon/sealed-product-detail/ProductRipSection.jsx", import.meta.url), "utf8");
+test("Best-Open has a dedicated Product Economics column", () => { assert.match(products, /bestOpenPrice: "Best-Open Price"/); assert.match(products, /<BestOpen row=\{row\}/); assert.match(presentation, /bestOpenPriceGapDollars/); assert.match(presentation, /bestOpenPriceGapPercent/); });
+test("Best-Open is loaded only through the paid lazy Economics authority", () => { assert.match(products, /readProductRankings\(target/); assert.match(products, /if \(!canViewRankingsIntelligence\) return null/); assert.match(products, /value: "economics"/); });
+test("freshness and gaps use semantic copy without raw status enums", () => { assert.match(products, /Best-Open as of/); assert.match(products, /independently dated/); assert.match(products, /bestOpenGap\(row\)/); assert.doesNotMatch(products, /resolved_below_market|current_number_one_with_headroom/); });
+test("Product detail remains unchanged", () => { assert.doesNotMatch(productRip, /Best-Open|bestOpenPrice/); });

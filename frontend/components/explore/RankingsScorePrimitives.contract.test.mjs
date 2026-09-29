@@ -23,7 +23,8 @@ test("Rankings RIP scores reuse the canonical tier-colored octagonal /10 badge",
 test("benchmark positions use compact directional indicators with delta-aware accessible text", () => {
   for (const position of ["above", "below", "at"]) assert.ok(primitives.includes(`${position}:`));
   assert.ok(primitives.includes("aria-label={aria}"));
-  assert.ok(primitives.includes("points ${position.word} Pok"));
+  assert.ok(primitives.includes("points ${position.word} ${benchmarkLabel}"));
+  assert.ok(primitives.includes('benchmarkLabel = "Pokémon Overall Average"'));
   assert.ok(primitives.includes("deltaVsBenchmark"));
 });
 
