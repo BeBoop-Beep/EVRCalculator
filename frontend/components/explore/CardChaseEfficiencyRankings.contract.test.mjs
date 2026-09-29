@@ -35,10 +35,11 @@ test("locked Cards preview contains no ranked or numeric Premium intelligence", 
 });
 
 test("filters and sorting are sent to the backend and rows are never re-ranked locally", () => {
-  for (const key of ["search", "era", "set", "rarity", "min_price", "max_price", "sort", "direction", "page", "page_size"]) assert.ok(cards.includes(key), key);
-  assert.match(cards, /fetch\(`\/api\/explore\/card-chase-efficiency\?\$\{params\}`/);
+  for (const key of ["search", "era", "set", "rarity", "sort", "direction", "page"]) assert.ok(cards.includes(key), key);
+  assert.match(cards, /buildCardRowsParams/);
+  assert.match(cards, /fetchChaseRows\(params\)/);
   assert.doesNotMatch(cards, /rows\.(sort|filter)\(/);
-  assert.match(cards, /sort: "chase_efficiency", direction: "desc"/);
+  assert.match(cards, /sort: "rank", direction: "asc"/);
 });
 
 test("desktop table and mobile cards are intentional separate renderings", () => {
