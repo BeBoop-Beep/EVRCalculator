@@ -272,6 +272,7 @@ def build_global_raw_card_movers_row(
     universe_version = _text(authority.get("universeContractVersion"))
     ranking_methodology = _text(authority.get("rankingMethodology"))
     price_basis = _text(authority.get("priceBasis"))
+    baseline_guard = _text(authority.get("baselineQualityGuardVersion"))
     movements = authority.get("movements")
 
     diagnostics = {
@@ -292,6 +293,8 @@ def build_global_raw_card_movers_row(
         "universeContractVersion": universe_version,
         "rankingMethodology": ranking_methodology,
         "priceBasis": price_basis,
+        "baselineQualityGuardVersion": baseline_guard,
+        "baselineTransientExcludedCount": int(authority.get("baselineTransientExcludedCount") or 0),
     }
     problems = []
     if status != "READY":
@@ -308,6 +311,8 @@ def build_global_raw_card_movers_row(
         problems.append("universeContractVersion")
     if ranking_methodology != "market_movement_score_v1":
         problems.append("rankingMethodology")
+    if baseline_guard != "target_baseline_reversion_guard_v1":
+        problems.append("baselineQualityGuardVersion")
     if not isinstance(movements, list):
         problems.append("movements")
     if diagnostics["rawConstituentCount"] <= 0 or diagnostics["rawRootCount"] <= 0:
@@ -377,6 +382,7 @@ def build_global_raw_card_movers_row(
                 "baselineCoveredCount": diagnostics["baselineCoveredCount"],
                 "candidateCardCount": diagnostics["eligibleCandidateCount"],
                 "scopedCandidateCount": diagnostics["scopedCandidateCount"],
+                "baselineTransientExcludedCount": diagnostics["baselineTransientExcludedCount"],
                 "publishedCardCount": len(published),
             },
             "movementContractVersion": movement_version,
@@ -384,6 +390,7 @@ def build_global_raw_card_movers_row(
             "universeContractVersion": universe_version,
             "rankingMethodology": ranking_methodology,
             "priceBasis": price_basis,
+            "baselineQualityGuardVersion": baseline_guard,
             "sourceGenerationFingerprint": fingerprint,
             "builder": "pokemon_raw_market_seven_day_movers_v2",
             "warnings": [],
