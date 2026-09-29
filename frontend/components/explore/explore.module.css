@@ -119,6 +119,18 @@
   table-layout: fixed;
 }
 
+.productScoresTable,
+.productEconomicsTable {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.productRankColumn { width: 4.5rem; }
+.productIdentityColumn { width: 18rem; }
+.productRipColumn { width: 9rem; }
+.productMetricColumn { width: 8rem; }
+.productEconomicsColumn { width: 8.5rem; }
+
 .colRank {
   width: 2.75rem;
 }
