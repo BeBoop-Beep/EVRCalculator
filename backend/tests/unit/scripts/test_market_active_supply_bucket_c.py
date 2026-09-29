@@ -97,6 +97,9 @@ def test_vm_cron_is_phoenix_pinned_and_has_only_one_retry():
     assert "release.sha" in runner and "RELEASE_DRIFT_REFUSED" in runner
     assert "release.sha" in health_runner and "--record-missing" in health_runner
     assert "--apply" in installer and "VERIFY ONLY" in installer
+    assert "worktree add --detach" in installer
+    assert "/home/ubuntu/state/active_supply_panel/runtime/" in cron
+    assert "ENV_REPO" in runner and "ENV_REPO" in health_runner
     assert "openssl rand -hex 32" in credential_installer
     assert "credential unchanged" in credential_installer
     assert "value=<redacted>" in credential_installer
@@ -108,3 +111,25 @@ def test_no_turnover_scarcity_or_page_two_collection():
     assert '"market_scarcity_enabled": False' in collector
     assert '"page_2_requested": False' in collector
     assert "limit=offer_limit" in collector
+
+
+def test_full_panel_partial_date_is_resumable_not_a_noop():
+    collector = (ROOT / "backend/scripts/run_market_active_supply_snapshot.py").read_text(encoding="utf-8")
+    store = (ROOT / "backend/pricing_pipeline/active_supply_store.py").read_text(encoding="utf-8")
+    assert 'existing.get("status") == "COMPLETE"' in collector
+    assert 'existing.get("status") == "MISSING"' in collector
+    assert "existing_run=existing" in collector
+    assert "full_panel_retry" in collector
+    assert "prior_credits + provider.credits_charged" in collector
+    assert "replace_retryable_snapshot" in collector
+    assert "observed snapshot is immutable" in store
+
+
+def test_retry_update_grant_is_mirrored():
+    relative = "20260930030000_market_active_supply_retry_update_v1.sql"
+    backend = (ROOT / "backend/db/migrations" / relative).read_bytes()
+    supabase = (ROOT / "supabase/migrations" / relative).read_bytes()
+    assert backend == supabase
+    sql = backend.decode().lower()
+    assert "grant update on public.market_active_supply_snapshots_v1 to service_role" in sql
+    assert "target_failed placeholders" in sql
