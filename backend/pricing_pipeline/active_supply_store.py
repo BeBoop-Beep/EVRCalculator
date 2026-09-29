@@ -14,6 +14,13 @@ class ActiveSupplyStore:
     def finish_run(self, run_id: str, values: dict[str, Any]) -> None:
         self.c.table("market_active_supply_snapshot_runs_v1").update(values).eq("run_id", run_id).execute()
 
+    def provider_identity(self, canonical_card_id: str) -> dict[str, Any] | None:
+        rows = (self.c.table("pkmnprices_card_identity_v1")
+                .select("provider_card_id,canonical_card_id,tcgplayer_product_id,language")
+                .eq("canonical_card_id", canonical_card_id).eq("language", "English")
+                .limit(1).execute().data or [])
+        return dict(rows[0]) if rows else None
+
     def insert_snapshot(self, row: dict[str, Any], listings: list[dict[str, Any]]) -> None:
         try:
             result = self.c.table("market_active_supply_snapshots_v1").insert(row).execute().data or []

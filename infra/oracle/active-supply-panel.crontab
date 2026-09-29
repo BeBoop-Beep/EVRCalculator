@@ -1,0 +1,10 @@
+# Core Panel V1 active supply. Application cron on the scraper VM; never GitHub schedule.
+# Times are America/Phoenix and occur after the final 20:40 multi-source retry.
+CRON_TZ=America/Phoenix
+
+# Primary plus one bounded retry. The runtime is an exact-date no-op after COMPLETE.
+10 21 * * * /home/ubuntu/repos/EVRCalculator/infra/oracle/run_active_supply_panel.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/active_supply_panel.log 2>&1
+40 21 * * * /home/ubuntu/repos/EVRCalculator/infra/oracle/run_active_supply_panel.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/active_supply_panel.log 2>&1
+
+# Materialize explicit RUN_MISSING rows after the retry window; never infer disappearance.
+10 22 * * * /home/ubuntu/repos/EVRCalculator/infra/oracle/run_active_supply_health.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/active_supply_panel_health.log 2>&1

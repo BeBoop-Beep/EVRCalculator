@@ -63,3 +63,48 @@ def test_missing_health_path_can_materialize_explicit_continuity_rows():
     assert '"observation_state": "RUN_MISSING"' in script
     assert '"absence_is_not_disappearance": True' in script
     assert '"automatic_schedule_enabled": False' in script
+
+
+def test_reviewed_full_panel_dry_run_is_exact_and_bounded():
+    out = preflight(target_limit=207, offer_limit=19, credit_cap=4500,
+                    full_panel=True, unresolved_identity_count=207)
+    assert out["target_count"] == 207
+    assert out["projected_max_credits"] == 4140
+    assert out["database_writes"] == out["provider_requests"] == 0
+    assert out["full_panel_mode"] is True
+
+
+@pytest.mark.parametrize("targets,offers,cap", [(206, 19, 4500), (207, 18, 4500), (207, 19, 4499)])
+def test_full_panel_contract_cannot_be_weakened(targets, offers, cap):
+    with pytest.raises(ValueError):
+        preflight(target_limit=targets, offer_limit=offers, credit_cap=cap,
+                  full_panel=True, unresolved_identity_count=0)
+
+
+def test_vm_cron_is_phoenix_pinned_and_has_only_one_retry():
+    cron = (ROOT / "infra/oracle/active-supply-panel.crontab").read_text(encoding="utf-8")
+    runner = (ROOT / "infra/oracle/run_active_supply_panel.sh").read_text(encoding="utf-8")
+    health_runner = (ROOT / "infra/oracle/run_active_supply_health.sh").read_text(encoding="utf-8")
+    installer = (ROOT / "infra/oracle/install_active_supply_panel_cron.sh").read_text(encoding="utf-8")
+    credential_installer = (ROOT / "infra/oracle/install_active_supply_credentials.sh").read_text(encoding="utf-8")
+    assert "CRON_TZ=America/Phoenix" in cron
+    assert "10 21 * * *" in cron and "40 21 * * *" in cron
+    assert cron.count("run_active_supply_panel.sh") == 2
+    assert "/tmp/pkmnprices-api.lock" in runner
+    assert "/tmp/active-supply-panel.lock" in runner
+    assert "/tmp/pokemon-post-scrape-publication.lock" in runner
+    assert "/home/ubuntu/state/db-safety/hold.json" in runner
+    assert "release.sha" in runner and "RELEASE_DRIFT_REFUSED" in runner
+    assert "release.sha" in health_runner and "--record-missing" in health_runner
+    assert "--apply" in installer and "VERIFY ONLY" in installer
+    assert "openssl rand -hex 32" in credential_installer
+    assert "credential unchanged" in credential_installer
+    assert "value=<redacted>" in credential_installer
+
+
+def test_no_turnover_scarcity_or_page_two_collection():
+    collector = (ROOT / "backend/scripts/run_market_active_supply_snapshot.py").read_text(encoding="utf-8")
+    assert '"turnover_enabled": False' in collector
+    assert '"market_scarcity_enabled": False' in collector
+    assert '"page_2_requested": False' in collector
+    assert "limit=offer_limit" in collector
