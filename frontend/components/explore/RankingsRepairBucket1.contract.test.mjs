@@ -34,11 +34,11 @@ test("Overview replaces the old outcome chart and reuses the one cached Set requ
 
 test("Set Pack Economics uses the requested vocabulary and canonical order", () => {
   assert.deepEqual(SET_PACK_COLUMNS.map(([key, label]) => [key, label]), [
-    ["productFamilies", "Product Families"], ["products", "Products"], ["packPrice", "Avg Cost / Pack"], ["modelBreakEven", "Expected Value / Pack"], ["modeledReturn", "Modeled Return"], ["typicalOpening", "Typical Opening / Pack"], ["typicalRetention", "Typical Retention"], ["chanceToRecoverCost", "Chance to Recover Cost"], ["entertainmentCost", "Entertainment Cost / Pack"],
+    ["productFamilyCount", "Families"], ["productCount", "Products"], ["averagePackCostPerPack", "Avg Pack Cost"], ["expectedValuePerPack", "EV / Pack"], ["modeledReturnOnSpend", "Modeled Return"], ["chanceToRecoverCost", "Recover Cost"], ["entertainmentCostPerPack", "Entertainment Cost"], ["bestOpenPrice", "Best-Open Price"],
   ]);
   assert.ok(setPack.includes("overflow-x-auto"));
-  assert.ok(setPack.includes("styles.colSetPackIdentity"));
-  assert.ok(!setPack.includes("Break-Even / Pack"));
+  assert.ok(setPack.includes("styles.colPackEconomicsIdentity"));
+  for (const removed of ["Break-Even / Pack", "Typical Opening", "Typical Retention"]) assert.ok(!setPack.includes(removed));
 });
 
 test("Era Pack Economics has the matching vocabulary and order", () => {

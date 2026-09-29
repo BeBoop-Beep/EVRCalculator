@@ -183,7 +183,6 @@ export default function RankingsLazyClient({
 
   const visibleEraState = eraState.cacheIdentity === sessionCache.identity ? eraState : { status: "idle", contract: null, marketDate: rankingsMarketDate };
   const visibleSetsState = setsState.cacheIdentity === sessionCache.identity ? setsState : { status: "idle", targets: [], marketDate: rankingsMarketDate };
-  const setTargets = visibleSetsState.status === "ready" ? visibleSetsState.targets : [];
   const setsUnavailable = visibleSetsState.status === "unavailable" || visibleSetsState.status === "error";
 
   return (
@@ -266,7 +265,7 @@ export default function RankingsLazyClient({
         ) : setsUnavailable ? (
           <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable. <button type="button" className="ml-2 underline" onClick={() => loadSets({ force: true, foreground: true })}>Retry</button></section>
         ) : (
-              <SetRankingsHub key={`${sessionCache.identity}:${setEntryView}`} initialView={setEntryView} targets={setTargets} scorecards={visibleSetsState.scorecards} openingEconomics={openingEconomics} canViewRankingsIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} onClearEraFilter={() => setSelectedEra(null)} />
+              <SetRankingsHub key={`${sessionCache.identity}:${setEntryView}`} initialView={setEntryView} scorecards={visibleSetsState.scorecards} sessionCache={sessionCache} canViewRankingsIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} onClearEraFilter={() => setSelectedEra(null)} />
         )
       ) : lens === "products" ? (
         <RankingsProductLensClient key={sessionCache.identity} sessionCache={sessionCache} />
