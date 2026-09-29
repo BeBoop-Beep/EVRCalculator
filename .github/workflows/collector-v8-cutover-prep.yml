@@ -18,6 +18,7 @@ on:
       - "backend/tests/unit/scripts/test_run_daily_opening_publication.py"
       - "backend/tests/unit/services/test_pokemon_set_onboarding_service.py"
       - "backend/tests/unit/db/services/test_collector_appeal_current_service.py"
+      - "docs/research/collector_appeal/v8_anchor25_promotion_readiness/**"
 
 permissions:
   contents: read
