@@ -78,11 +78,17 @@ def spearman_ranks(a: Mapping[str, int], b: Mapping[str, int]) -> float | None:
 def set_scores(cards: Sequence[Mapping[str, Any]], frozen_sets: Sequence[Mapping[str, Any]], label: str) -> list[dict[str, Any]]:
     old = {str(row["set_id"]): row for row in frozen_sets}
     grouped = defaultdict(list)
+    frozen_set_ids = set(old)
     for row in cards:
-        grouped[str(row["set_id"])].append(row)
+        set_id = str(row["set_id"])
+        if set_id in frozen_set_ids:
+            grouped[set_id].append(row)
 
     out = []
-    for set_id, rows in grouped.items():
+    for set_id in sorted(frozen_set_ids):
+        rows = grouped.get(set_id, [])
+        if not rows:
+            raise RuntimeError(f"FROZEN_V7_SET_CARD_MEMBERSHIP_MISSING:{set_id}")
         pg = defaultdict(list)
         tg = defaultdict(list)
         for row in rows:
