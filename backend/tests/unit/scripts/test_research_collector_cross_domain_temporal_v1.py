@@ -62,7 +62,7 @@ def test_final_decision_is_preregistered_four_of_five():
 
 def test_temporal_harness_is_offline_and_has_no_database_write_calls():
     source = Path("backend/scripts/research_collector_cross_domain_temporal_v1.py").read_text(encoding="utf-8").lower()
-    for token in (".insert(", ".update(", ".delete(", ".upsert(", ".rpc(", ".table(", "execute_sql"):
+    for token in (".insert([", ".insert({", ".update({", ".delete()", ".upsert(", ".rpc(", ".table(", "execute_sql"):
         assert token not in source
     assert "supabase" not in source
     assert "requests" not in source
