@@ -218,6 +218,15 @@ def resolve_targets(
         missing = sorted(set(canonical_ids) - set(card_by))
         raise TargetResolutionError(f"canonical cards missing: {missing}")
 
+    set_ids = sorted({str(row.get("set_id") or "") for row in cards if row.get("set_id")})
+    sets = _paged(
+        lambda: client.table("sets")
+        .select("id,name,canonical_key")
+        .in_("id", set_ids)
+        .order("id")
+    )
+    set_by = {str(row["id"]): dict(row) for row in sets}
+
     by_canonical: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for raw in gap_rows:
         row = dict(raw)
@@ -258,6 +267,8 @@ def resolve_targets(
                 "card_name": card.get("name"),
                 "card_number": card.get("printed_number") or card.get("number"),
                 "set_id": str(card.get("set_id") or ""),
+                "set_name": (set_by.get(str(card.get("set_id") or "")) or {}).get("name"),
+                "set_key": (set_by.get(str(card.get("set_id") or "")) or {}).get("canonical_key"),
                 "tcgplayer_product_id": product_id,
                 "product_identity_basis": product_basis,
                 "gap_variants": [
