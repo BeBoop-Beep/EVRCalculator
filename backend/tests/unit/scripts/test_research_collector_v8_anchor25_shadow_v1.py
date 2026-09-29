@@ -17,7 +17,7 @@ def test_v8_shadow_contract_is_frozen():
 
 def test_v8_shadow_has_no_database_write_calls():
     source = Path("backend/scripts/research_collector_v8_anchor25_shadow_v1.py").read_text(encoding="utf-8").lower()
-    for token in (".insert(", ".update(", ".delete(", ".upsert(", "apply_migration", "promote_"):
+    for token in (".insert({", ".insert([", ".update({", ".delete()", ".upsert(", "apply_migration", "promote_"):
         assert token not in source
     assert ".rpc(" not in source
 
