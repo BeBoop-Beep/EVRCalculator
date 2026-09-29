@@ -1,0 +1,91 @@
+name: Collector V8 ANCHOR25 Shadow V1
+
+on:
+  push:
+    branches:
+      - research/collector-v8-anchor25-shadow-v1-20260929
+    paths:
+      - ".github/workflows/collector-v8-anchor25-shadow-v1.yml"
+      - "backend/scripts/research_collector_v8_anchor25_shadow_v1.py"
+      - "backend/tests/unit/scripts/test_research_collector_v8_anchor25_shadow_v1.py"
+      - "docs/research/collector_appeal/cross_domain_temporal_v1/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collector-v8-anchor25-shadow-v1
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS: "90"
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest==8.3.5
+
+      - name: Run Collector V8 shadow contract tests
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_research_collector_cross_domain_calibration_v1.py \
+            backend/tests/unit/scripts/test_research_collector_cross_domain_temporal_v1.py \
+            backend/tests/unit/scripts/test_research_collector_v8_anchor25_shadow_v1.py
+
+      - name: Run Collector V8 shadow
+        run: |
+          test -n "${SUPABASE_URL:-}" || { echo "SUPABASE_URL secret missing"; exit 2; }
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "SUPABASE_SERVICE_ROLE_KEY secret missing"; exit 2; }
+          python backend/scripts/research_collector_v8_anchor25_shadow_v1.py
+
+      - name: Verify shadow output contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("docs/research/collector_appeal/collector_v8_anchor25_shadow_v1")
+          result=json.loads((root/"shadow_results.json").read_text())
+          assert result["productionMutations"] == "NONE"
+          assert result["decision"] == "COLLECTOR_V8_ANCHOR25_SHADOW_READY_FOR_PROMOTION_REVIEW"
+          assert result["v7Replay"]["passed"] is True
+          assert result["overallComparison"]["v12Replay"]["passed"] is True
+          print(json.dumps({
+              "decision": result["decision"],
+              "marketDate": result["marketDate"],
+              "setComparison": {k:v for k,v in result["setComparison"].items() if k != "rows"},
+              "overallComparison": {k:v for k,v in result["overallComparison"].items() if k != "rows"},
+          }, indent=2))
+          PY
+
+      - name: Commit Collector V8 shadow artifacts
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/research/collector_appeal/collector_v8_anchor25_shadow_v1/FINAL_REPORT.md \
+            docs/research/collector_appeal/collector_v8_anchor25_shadow_v1/shadow_results.json \
+            docs/research/collector_appeal/collector_v8_anchor25_shadow_v1/set_rows_v8.json
+          if git diff --cached --quiet; then
+            echo "No Collector V8 shadow artifact changes to commit."
+          else
+            git commit -m "research: record Collector V8 ANCHOR25 shadow"
+            git push origin HEAD:research/collector-v8-anchor25-shadow-v1-20260929
+          fi
