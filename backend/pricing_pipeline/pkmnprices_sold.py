@@ -136,4 +136,5 @@ def normalize_sold_listing(
         "condition_state": "UNKNOWN",
         "exclusion_reason": exclusion,
         "collected_at": collected_at,
+        "provider_payload": dict(row),
     }
