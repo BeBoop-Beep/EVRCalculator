@@ -53,6 +53,7 @@ function blocked(state, option) {
  */
 export function resolveAssetOptionAction(option) {
   const state = String(option?.eligibilityState || "").toUpperCase();
+  if (option?.selectionAvailable === false) return blocked(state, option);
   const key = usable(option?.preparedMarketKey);
   if (option?.preparedMarketAvailable === true && key) {
     return { action: ASSET_OPTION_ACTION.prepared, marketKey: key, reason: null, state: state || "PREPARED" };

@@ -35,10 +35,11 @@ test("(A) the constituents trigger is no longer in the top toolbar beside the In
   assert.equal(chart.match(/data-market-explorer-view-details/g).length, 1);
 });
 
-test("(B) the trigger is structurally the bottom-centre of the chart workspace, after the plot", () => {
+test("(B) chart actions share the bottom row after the plot", () => {
   assert.ok(chart.indexOf("data-market-explorer-view-details") > chart.indexOf("<MarketPerformanceChart"));
   const row = chart.slice(chart.indexOf("data-market-explorer-chart-bottom-actions"));
-  assert.match(row, /^[^>]*justify-center/);
+  assert.match(row, /^[^>]*sm:justify-between/);
+  assert.match(row, /data-market-explorer-methodology-trigger/);
   assert.match(row, /data-market-explorer-view-details/);
   assert.ok(row.indexOf("data-market-explorer-view-details") < row.indexOf("</section>"));
   assert.doesNotMatch(chart, /fixed inset-0/, "not a fullscreen modal");
@@ -61,7 +62,7 @@ test("(C)(D) opening activates the in-place overlay and closing restores the sam
   // The chart is always mounted (only made inert), so its Index/Performance state survives.
   assert.match(client, /data-market-explorer-graph\n\s+aria-hidden=\{detailsOpen/);
   assert.doesNotMatch(client, /\{detailsOpen \? null : <MarketExplorerChart/);
-  assert.match(client, /\{detailsOpen \? \(\n\s+<div\n\s+data-market-explorer-compare-results\n\s+className="absolute inset-0/);
+  assert.match(client, /\{detailsOpen \? \(\n\s+<div\n\s+data-market-explorer-compare-results[\s\S]*?className=\{`absolute inset-0/);
 });
 
 test("(E) Explorer gets the open-canvas chart; other consumers keep the card surface", () => {
@@ -96,7 +97,8 @@ test("(G) Browse Markets gets modest top padding above the Market Directory head
 
 test("(V) the fixed 40rem/46rem desktop graph heights do not return; sizing stays viewport-aware", () => {
   assert.doesNotMatch(chart, /desk:h-\[40rem\]|2xl:h-\[46rem\]/);
-  assert.match(chart, /desk:h-\[clamp\(19rem,calc\(100dvh-24rem\),42rem\)\]/);
+  assert.match(chart, /flex h-full min-h-0 min-w-0 flex-1/);
+  assert.match(chart, /data-market-explorer-chart-plot className="min-h-0 min-w-0 flex-1/);
 });
 
 test("(4) research column takes the remaining width with a small deliberate right gutter", () => {

@@ -53,6 +53,11 @@ test("a maintained prepared identity is never downgraded by an empty current aud
   assert.equal(result.action, ASSET_OPTION_ACTION.prepared);
 });
 
+test("selectionAvailable remains the backend's final option authority", () => {
+  assert.equal(resolveAssetOptionAction({ eligibilityState: "CUSTOM_BUILD_AVAILABLE", selectionAvailable: false, reason: "Temporarily unavailable." }).action, "none");
+  assert.equal(resolveAssetOptionAction({ eligibilityState: "CUSTOM_BUILD_AVAILABLE", selectionAvailable: true }).action, "build");
+});
+
 const SEALED_TYPES = ["booster_box", "half_booster_box", "enhanced_booster_box", "elite_trainer_box", "pokemon_center_elite_trainer_box", "booster_bundle", "loose_booster_pack", "sleeved_booster_pack", "build_and_battle_box", "build_and_battle_stadium", "three_pack_blister", "single_pack_blister", "collection_product", "case", "display", "multi_product_bundle", "fun_pack", "other"];
 
 test("sealed matrix: every published family gets a truthful action across all states; the list is read, not hard-coded", () => {

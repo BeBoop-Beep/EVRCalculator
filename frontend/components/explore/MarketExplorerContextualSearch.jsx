@@ -28,10 +28,18 @@ export default function MarketExplorerContextualSearch({ asset = "cards", onAddT
     }
   }, [asset, controller, text]);
   useEffect(() => {
-    if (typeof document === "undefined") return undefined;
-    const outside = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false); };
+    // This search and the prepared-directory menus share one disclosure owner.
+    // When search is closed it must not interpret pointer activity inside a Set,
+    // Era or Quick popover as an instruction to clear that sibling disclosure.
+    if (typeof document === "undefined" || !open) return undefined;
+    const outside = (event) => {
+      const root = rootRef.current;
+      const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+      if (root && (path.includes(root) || root.contains(event.target))) return;
+      setOpen(false);
+    };
     document.addEventListener("pointerdown", outside); return () => document.removeEventListener("pointerdown", outside);
-  });
+  }, [open, setOpen]);
   const results = snapshot.results; const actions = useMemo(() => results.map(resolveSearchResultAction), [results]);
   const showPanel = open && (snapshot.status !== "idle" || text.trim().length >= SEARCH_MIN_LENGTH);
   const invoke = (index) => { const action = actions[index]?.primary; if (action?.kind === "basket") onAddToBasket?.(action.item); };

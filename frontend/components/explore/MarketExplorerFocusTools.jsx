@@ -17,7 +17,7 @@ function ToolControl({ id, label, tool, badge, pressed, onToggle }) {
   const { state, reason } = tool;
   const available = state === FOCUS_TOOL_STATE.available;
   return (
-    <span data-market-explorer-focus-tool={id} data-focus-tool-state={state} className="inline-flex flex-wrap items-center gap-1.5">
+    <span data-market-explorer-focus-tool={id} data-focus-tool-state={state} className="inline-flex items-center">
       <button
         type="button"
         data-market-explorer-focus-tool-button={id}
@@ -25,18 +25,13 @@ function ToolControl({ id, label, tool, badge, pressed, onToggle }) {
         aria-disabled={available ? undefined : true}
         disabled={!available}
         title={reason || undefined}
+        aria-label={reason ? `${label}. ${reason}` : label}
         onClick={() => onToggle?.(id)}
-        className={`${CONTROL} ${available && pressed ? "border-sky-300/70 bg-sky-400/[.22] text-sky-50" : "border-sky-300/40 text-sky-100"} disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/80`}
+        className={`${CONTROL} ${available && pressed ? "border-sky-300/70 bg-sky-400/[.22] text-sky-50" : available ? "border-sky-300/40 text-sky-100" : "border-slate-500/45 bg-slate-500/[.06] text-slate-400"} disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/80`}
       >
         {label}
         {badge ? <span data-focus-tool-badge className="rounded-full bg-violet-500/25 px-1.5 py-px text-[9px] uppercase tracking-wide text-violet-100">{badge}</span> : null}
       </button>
-      {reason ? (
-        <span data-focus-tool-reason className="text-[10px] text-[var(--text-secondary)]">
-          {reason}
-          {state === FOCUS_TOOL_STATE.locked ? <> <a href="/pricing" data-focus-tool-upgrade className="font-semibold text-sky-200 underline">Upgrade</a></> : null}
-        </span>
-      ) : null}
     </span>
   );
 }
