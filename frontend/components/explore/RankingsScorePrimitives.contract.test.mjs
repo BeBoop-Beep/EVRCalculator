@@ -13,6 +13,7 @@ test("Rankings RIP scores reuse the canonical tier-colored octagonal /10 badge",
   assert.ok(primitives.includes("metric?.tier"));
   assert.ok(primitives.includes("metric?.rank"));
   assert.ok(primitives.includes("metric?.cohortSize"));
+  assert.ok(primitives.includes("RIP_SCORE_SCALE_BENCHMARK_10"));
   assert.ok(badge.includes("getTierTone(tier)"));
   assert.ok(badge.includes("<polygon"));
   assert.ok(badge.includes('points="10,1 62,1 71,11 71,49 62,59 10,59 1,49 1,11"'));

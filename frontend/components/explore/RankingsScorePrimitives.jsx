@@ -1,6 +1,6 @@
 "use client";
 
-import { RipScoreBadge } from "./RipScoreBadge";
+import { RIP_SCORE_SCALE_BENCHMARK_10, RipScoreBadge } from "./RipScoreBadge";
 
 const POSITION = {
   above: { glyph: "↑", word: "above" },
@@ -24,7 +24,7 @@ export function RankingsRipScoreBadge({ metric, label = "RIP Score", compact = f
   const rank = Number(metric?.rank), cohortSize = Number(metric?.cohortSize);
   const hasRank = Number.isFinite(rank) && Number.isFinite(cohortSize);
   return <span className="inline-flex flex-col items-center gap-1" data-rankings-rip-score data-rank={hasRank ? rank : undefined} data-cohort-size={hasRank ? cohortSize : undefined}>
-    <RipScoreBadge score={metric?.score} tier={metric?.tier} compact={compact} label={label} />
+    <RipScoreBadge score={metric?.score} tier={metric?.tier} compact={compact} label={label} scoreScale={RIP_SCORE_SCALE_BENCHMARK_10} />
     <BenchmarkPositionIndicator benchmarkPosition={metric?.benchmarkPosition} deltaVsBenchmark={metric?.deltaVsBenchmark} compact={compact} />
     {hasRank ? <span className="sr-only">Rank {rank} of {cohortSize}</span> : null}
   </span>;
