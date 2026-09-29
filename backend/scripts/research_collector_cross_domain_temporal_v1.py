@@ -537,6 +537,9 @@ def main() -> int:
     set_ids = [str(x["setId"]) for x in expected_sets]
 
     load_dotenv(ROOT / "backend/.env", override=False)
+    vm_env = Path("/home/ubuntu/repos/EVRCalculator/backend/.env")
+    if vm_env.exists():
+        load_dotenv(vm_env, override=False)
     from backend.db.clients.supabase_client import service_read_client
     import psycopg
 
