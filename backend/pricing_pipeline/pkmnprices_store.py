@@ -32,7 +32,20 @@ def _same_evidence(a: dict[str, Any], b: dict[str, Any]) -> bool:
                     return False
             except Exception:
                 return False
-        elif av != bv:
+        elif field == "ingested_at":
+            def _utc(value: Any) -> datetime | None:
+                if value in (None, ""):
+                    return None
+                parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return parsed.astimezone(timezone.utc)
+            try:
+                if _utc(av) != _utc(bv):
+                    return False
+            except (TypeError, ValueError):
+                return False
+        elif str(av) != str(bv) if field in {"provider_listing_id", "provider_card_id", "canonical_card_id"} else av != bv:
             return False
     return True
 
