@@ -61,6 +61,7 @@ jobs:
           echo "== bounded live collection + V1 receipt =="
           "$PY" backend/scripts/run_index_fair_value_sold_signal_pilot.py             --per-band 30             --max-sold-per-card 20             --credit-cap 4500             --cutoff-date 2026-09-28
 
+          echo "== raw sold transactions are persisted to shadow DB evidence tables =="
           echo "== zero-credit leakage-free V2 reanalysis =="
           "$PY" backend/scripts/reanalyze_index_fair_value_sold_signal_v2.py             --input backend/artifacts/index_fair_value/sold_signal_pilot_v1/sample_features.csv
 
