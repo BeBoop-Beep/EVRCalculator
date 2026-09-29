@@ -13,27 +13,27 @@
       "passed": true,
       "note": "Sequential equivalence is separately unit-tested from raw playability and artist inputs; artifact combined lift exactly replays V7."
     },
-    "cohortContract": false,
+    "cohortContract": true,
     "cohortCounts": {
-      "candidateCards": 4356,
-      "modeledRows": 4332,
+      "candidateCards": 4355,
+      "modeledRows": 4331,
       "modeledSets": 22,
       "dropped": {
         "no_modeled_pull_probability": 24
       }
     },
-    "cohortCardFingerprint": "82e228e4054624cf53c5b127852066d81f79c5bb1bbfd9ba553b4772c75406f5",
+    "cohortCardFingerprint": "6897fd7e9edab5e24528cfc9b9989de6d94ca3861fd4c24dfef6bc2e8e338fc9",
     "pokemonUnchanged": true,
     "trainerSpearman": 0.9998663170316343,
     "trainerSpearmanGte995": true,
     "baselineReplay": {
       "passed": false,
-      "pricedRows": 4332,
+      "pricedRows": 4331,
       "missingCount": 0,
-      "maxPerSetRhoError": 0.011630786498421364,
+      "maxPerSetRhoError": 0.08590552156590342,
       "globalErrors": {
-        "medianRho": 0.0,
-        "weightedMeanRho": 0.0010674352583503466,
+        "medianRho": 0.018460363329733,
+        "weightedMeanRho": 0.005811664238930925,
         "positivePct": 0.0
       },
       "setChecks": [
@@ -95,7 +95,7 @@
         {
           "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
           "nMatch": true,
-          "rhoError": 0.0
+          "rhoError": 0.08590552156590342
         },
         {
           "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
@@ -119,8 +119,8 @@
         },
         {
           "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
-          "nMatch": false,
-          "rhoError": 0.011630786498421364
+          "nMatch": true,
+          "rhoError": 0.0
         },
         {
           "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
@@ -134,8 +134,8 @@
         },
         {
           "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
-          "nMatch": false,
-          "rhoError": 0.0006512877964974795
+          "nMatch": true,
+          "rhoError": 0.0
         },
         {
           "setId": "f59f25a2-d3da-4100-a918-901271a99925",
@@ -154,16 +154,17 @@
         "observedDateCounts": {
           "2026-06-30": 8,
           "2026-07-21": 1,
-          "2026-09-11": 4384
+          "2026-08-17": 19,
+          "2026-09-11": 4365
         },
         "sourceCounts": {
-          "TCGPlayer": 4393
+          "canonical_price_events_v2_root_standard_stable_identity_v2": 4393
         },
-        "priceStateFingerprint": "d5b319e375db125960aaadd29cbca62a3dff4d4ad7f2c36920d10f03d93be5b9"
+        "priceStateFingerprint": "73d99b9f3b89987c0d38b53a063304d421a8dccebf106f96136952019118458e"
       }
     },
-    "historicalPriceAuthority": "get_pokemon_set_value_canonical_prices_as_of_v2_shadow_legacy_identity",
-    "historicalPriceExecutable": "get_pokemon_set_value_canonical_prices_as_of_v2_shadow"
+    "historicalPriceAuthority": "get_pokemon_market_root_standard_card_prices_as_of_v2",
+    "historicalPriceExecutable": "get_pokemon_market_root_standard_card_prices_as_of_v2"
   },
   "folds": [
     {

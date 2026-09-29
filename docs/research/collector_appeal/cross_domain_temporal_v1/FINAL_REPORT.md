@@ -7,14 +7,14 @@ Decision: ANCHOR25_TEMPORAL_VALIDATION_INVALID
 - Parent Phase 1 SHA: 012e38b1e9a85491ba2ba72b746f8baead6112ea
 - Frozen Collector control: pokemon_collector_appeal_v7_expanded_price_blind_v1 / e282f26e-2136-4105-b0a3-f0974c4d9d70
 - Candidate: ANCHOR25 only
-- Historical price authority: get_pokemon_set_value_canonical_prices_as_of_v2_shadow (legacy identity chain; exact Sep-11 replay required)
+- Historical price authority: get_pokemon_market_root_standard_card_prices_as_of_v2 (exact corrected Phase 1 authority)
 - Production mutations: NONE
 
 ## Structural lock
 
 - Frozen artifact valid: True
 - Sep-11 exact baseline replay: False
-- Cohort contract: False
+- Cohort contract: True
 - Pokemon unchanged: True
 - Trainer Spearman >= 0.995: True
 
