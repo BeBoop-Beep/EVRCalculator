@@ -47,6 +47,8 @@ class PkmnPricesClient:
         self._sleep = sleep
         self.max_retries = max(0, int(max_retries))
         self.timeout = float(timeout)
+        self.request_attempt_count = 0
+        self.successful_request_count = 0
 
     def __repr__(self) -> str:
         return f"PkmnPricesClient(base_url={self.base_url!r}, api_key=<redacted>)"
@@ -84,6 +86,7 @@ class PkmnPricesClient:
         )
         for attempt in range(self.max_retries + 1):
             try:
+                self.request_attempt_count += 1
                 with self._opener(request, timeout=self.timeout) as response:
                     status = int(getattr(response, "status", 200))
                     payload = json.load(response)
@@ -91,6 +94,7 @@ class PkmnPricesClient:
                     raise PkmnPricesAPIError(status, "unexpected_status", "unexpected provider response")
                 if not isinstance(payload, dict):
                     raise PkmnPricesAPIError(status, "invalid_payload", "provider payload is not an object")
+                self.successful_request_count += 1
                 return payload
             except urllib.error.HTTPError as exc:
                 error = self._error(exc)
