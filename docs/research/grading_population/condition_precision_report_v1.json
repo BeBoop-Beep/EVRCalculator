@@ -1,0 +1,82 @@
+{
+  "accuracy": 1.0,
+  "classifier_version": "pkmnprices_sold_title_condition_v1",
+  "correct_count": 35,
+  "coverage": {
+    "era": {
+      "modern": 16,
+      "vintage": 19
+    },
+    "language_kind": {
+      "conflicting": 5,
+      "explicit": 22,
+      "implicit": 8
+    },
+    "risk": {
+      "abbreviation": 6,
+      "card_name_false_positive": 2,
+      "compound_grade": 1,
+      "conflicting_labels": 3,
+      "marketing_context": 4,
+      "none": 6,
+      "physical_damage_cue": 3,
+      "seller_language": 5,
+      "seller_marketing_language": 2,
+      "set_name_false_positive": 1,
+      "wording_variant": 2
+    },
+    "title_length": {
+      "short": 22,
+      "verbose": 13
+    },
+    "value_band": {
+      "high": 13,
+      "low": 13,
+      "mid": 9
+    }
+  },
+  "errors": [],
+  "interpretation": "Precision on a small reviewed contract fixture, not population-level recall or price-adjustment validation.",
+  "precision_by_class": {
+    "AMBIGUOUS": {
+      "correct": 5,
+      "precision": 1.0,
+      "predicted": 5
+    },
+    "DAMAGED": {
+      "correct": 5,
+      "precision": 1.0,
+      "predicted": 5
+    },
+    "HP": {
+      "correct": 5,
+      "precision": 1.0,
+      "predicted": 5
+    },
+    "LP": {
+      "correct": 5,
+      "precision": 1.0,
+      "predicted": 5
+    },
+    "MP": {
+      "correct": 5,
+      "precision": 1.0,
+      "predicted": 5
+    },
+    "NM": {
+      "correct": 5,
+      "precision": 1.0,
+      "predicted": 5
+    },
+    "UNLABELED": {
+      "correct": 5,
+      "precision": 1.0,
+      "predicted": 5
+    }
+  },
+  "pricing_use_authorized": false,
+  "reviewed": true,
+  "row_count": 35,
+  "sample_version": "pkmnprices_sold_title_condition_validation_v1",
+  "version": "condition_precision_report_v1"
+}

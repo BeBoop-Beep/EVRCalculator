@@ -1,0 +1,40 @@
+name: Grading Population and Condition Contracts
+
+on:
+  pull_request:
+    paths:
+      - "backend/pricing_pipeline/grading_population.py"
+      - "backend/pricing_pipeline/sold_condition_classifier.py"
+      - "backend/scripts/validate_sold_condition_classifier_v1.py"
+      - "backend/tests/fixtures/grading_population/**"
+      - "backend/tests/unit/pricing_pipeline/test_grading_population_and_condition.py"
+      - "backend/db/migrations/*sold_condition_classification*"
+      - "supabase/migrations/*sold_condition_classification*"
+      - "docs/research/grading_population/**"
+      - ".github/workflows/grading-population-condition-contracts.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --disable-pip-version-check pytest
+      - name: Compile changed modules
+        run: >-
+          python -m py_compile
+          backend/pricing_pipeline/grading_population.py
+          backend/pricing_pipeline/sold_condition_classifier.py
+          backend/scripts/validate_sold_condition_classifier_v1.py
+      - name: Run Bucket D contracts
+        run: python -m pytest -q backend/tests/unit/pricing_pipeline/test_grading_population_and_condition.py
+      - name: Replay reviewed classifier artifact
+        run: python -m backend.scripts.validate_sold_condition_classifier_v1
+      - name: Require deterministic artifact
+        run: git diff --exit-code -- docs/research/grading_population/condition_precision_report_v1.json

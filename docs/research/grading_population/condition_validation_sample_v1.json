@@ -1,0 +1,48 @@
+{
+  "version": "pkmnprices_sold_title_condition_validation_v1",
+  "reviewed": true,
+  "review_policy": "Human-authored expected labels; high-precision condition evidence only. Marketing language is not condition authority.",
+  "rows": [
+    {"id":"nm01","title":"1999 Pokemon Base Set Charizard 4/102 Near Mint","expected":"NM","era":"vintage","value_band":"high","title_length":"short","language_kind":"explicit","risk":"none"},
+    {"id":"nm02","title":"Pikachu 58/102 Base Set Unlimited Holo - NM","expected":"NM","era":"vintage","value_band":"mid","title_length":"short","language_kind":"explicit","risk":"abbreviation"},
+    {"id":"nm03","title":"Umbreon VMAX Alt Art 215/203 Near-Mint English Pokemon Card","expected":"NM","era":"modern","value_band":"high","title_length":"verbose","language_kind":"explicit","risk":"marketing_context"},
+    {"id":"nm04","title":"Pokemon TCG common card NM condition, see scans for exact copy","expected":"NM","era":"modern","value_band":"low","title_length":"verbose","language_kind":"explicit","risk":"seller_language"},
+    {"id":"nm05","title":"Neo Genesis Lugia 9/111 NM-MT raw","expected":"NM","era":"vintage","value_band":"high","title_length":"short","language_kind":"explicit","risk":"compound_grade"},
+
+    {"id":"lp01","title":"1st Edition Jungle Snorlax 11/64 Lightly Played","expected":"LP","era":"vintage","value_band":"high","title_length":"short","language_kind":"explicit","risk":"none"},
+    {"id":"lp02","title":"Pokemon Crown Zenith Pikachu Secret LP","expected":"LP","era":"modern","value_band":"mid","title_length":"short","language_kind":"explicit","risk":"abbreviation"},
+    {"id":"lp03","title":"Lightly-Played Gengar Fossil Unlimited Holo, clean front","expected":"LP","era":"vintage","value_band":"mid","title_length":"verbose","language_kind":"explicit","risk":"seller_language"},
+    {"id":"lp04","title":"Bulk modern holo card - LP condition - ships protected","expected":"LP","era":"modern","value_band":"low","title_length":"verbose","language_kind":"explicit","risk":"marketing_context"},
+    {"id":"lp05","title":"Charizard ex 223/197 lightly played","expected":"LP","era":"modern","value_band":"high","title_length":"short","language_kind":"explicit","risk":"none"},
+
+    {"id":"mp01","title":"Blastoise Base Set 2 2/130 Moderately Played","expected":"MP","era":"vintage","value_band":"mid","title_length":"short","language_kind":"explicit","risk":"none"},
+    {"id":"mp02","title":"Pokemon Silver Tempest Lugia V MP","expected":"MP","era":"modern","value_band":"high","title_length":"short","language_kind":"explicit","risk":"abbreviation"},
+    {"id":"mp03","title":"Moderately-Played vintage holo with edge wear; photos show card","expected":"MP","era":"vintage","value_band":"low","title_length":"verbose","language_kind":"explicit","risk":"seller_language"},
+    {"id":"mp04","title":"Mew ex promo MP condition authentic English copy","expected":"MP","era":"modern","value_band":"mid","title_length":"verbose","language_kind":"explicit","risk":"marketing_context"},
+    {"id":"mp05","title":"1999 Pokemon card moderate play wear","expected":"MP","era":"vintage","value_band":"low","title_length":"short","language_kind":"explicit","risk":"wording_variant"},
+
+    {"id":"hp01","title":"Shadowless Venusaur 15/102 Heavily Played","expected":"HP","era":"vintage","value_band":"high","title_length":"short","language_kind":"explicit","risk":"none"},
+    {"id":"hp02","title":"Pokemon Obsidian Flames Charizard ex HP","expected":"HP","era":"modern","value_band":"mid","title_length":"short","language_kind":"explicit","risk":"abbreviation"},
+    {"id":"hp03","title":"Heavily-Played WOTC holo, binder copy, please inspect pictures","expected":"HP","era":"vintage","value_band":"low","title_length":"verbose","language_kind":"explicit","risk":"seller_language"},
+    {"id":"hp04","title":"Modern full art heavy play condition with whitening","expected":"HP","era":"modern","value_band":"low","title_length":"verbose","language_kind":"explicit","risk":"wording_variant"},
+    {"id":"hp05","title":"Gold Star card HP condition","expected":"HP","era":"vintage","value_band":"high","title_length":"short","language_kind":"explicit","risk":"abbreviation"},
+
+    {"id":"d01","title":"Base Set Charizard damaged","expected":"DAMAGED","era":"vintage","value_band":"high","title_length":"short","language_kind":"explicit","risk":"none"},
+    {"id":"d02","title":"Pokemon modern holo DMG condition","expected":"DAMAGED","era":"modern","value_band":"low","title_length":"short","language_kind":"explicit","risk":"abbreviation"},
+    {"id":"d03","title":"Vintage Blastoise card creased at center, see all photos","expected":"DAMAGED","era":"vintage","value_band":"mid","title_length":"verbose","language_kind":"implicit","risk":"physical_damage_cue"},
+    {"id":"d04","title":"Moonbreon torn corner sold as-is","expected":"DAMAGED","era":"modern","value_band":"high","title_length":"short","language_kind":"implicit","risk":"physical_damage_cue"},
+    {"id":"d05","title":"Old Pokemon holo with water damage and edge wear","expected":"DAMAGED","era":"vintage","value_band":"low","title_length":"verbose","language_kind":"implicit","risk":"physical_damage_cue"},
+
+    {"id":"a01","title":"Charizard Near Mint front but LP back","expected":"AMBIGUOUS","era":"vintage","value_band":"high","title_length":"short","language_kind":"conflicting","risk":"conflicting_labels"},
+    {"id":"a02","title":"Pokemon card NM / MP please judge photos","expected":"AMBIGUOUS","era":"modern","value_band":"mid","title_length":"short","language_kind":"conflicting","risk":"conflicting_labels"},
+    {"id":"a03","title":"Lightly Played except damaged corner","expected":"AMBIGUOUS","era":"vintage","value_band":"low","title_length":"short","language_kind":"conflicting","risk":"conflicting_labels"},
+    {"id":"a04","title":"Seller says HP; previous label says moderately played","expected":"AMBIGUOUS","era":"modern","value_band":"low","title_length":"verbose","language_kind":"conflicting","risk":"seller_language"},
+    {"id":"a05","title":"Near-Mint appearance with a crease","expected":"AMBIGUOUS","era":"vintage","value_band":"high","title_length":"short","language_kind":"conflicting","risk":"marketing_context"},
+
+    {"id":"u01","title":"Damage Pump 156/195 Silver Tempest Reverse Holo","expected":"UNLABELED","era":"modern","value_band":"low","title_length":"short","language_kind":"implicit","risk":"card_name_false_positive"},
+    {"id":"u02","title":"Mint Berry Neo Genesis 83/111 Pokemon Card","expected":"UNLABELED","era":"vintage","value_band":"low","title_length":"short","language_kind":"implicit","risk":"card_name_false_positive"},
+    {"id":"u03","title":"Pack fresh Umbreon VMAX, minty, beautiful investment copy","expected":"UNLABELED","era":"modern","value_band":"high","title_length":"verbose","language_kind":"implicit","risk":"seller_marketing_language"},
+    {"id":"u04","title":"Excellent condition Base Set rare, see photos and decide","expected":"UNLABELED","era":"vintage","value_band":"mid","title_length":"verbose","language_kind":"implicit","risk":"seller_marketing_language"},
+    {"id":"u05","title":"Pokemon Hidden Potential set card clean copy","expected":"UNLABELED","era":"modern","value_band":"low","title_length":"short","language_kind":"implicit","risk":"set_name_false_positive"}
+  ]
+}
