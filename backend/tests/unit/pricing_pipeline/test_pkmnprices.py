@@ -322,3 +322,20 @@ def test_strict_vintage_identity_refuses_missing_edition():
     )
     assert out["state"] == "AMBIGUOUS"
     assert out["reason"] == "EDITION_NOT_EXPLICIT"
+
+
+def test_sold_collection_reports_resume_cursor():
+    opener = opener_for([
+        {
+            "data": [{"id": 1}],
+            "pagination": {"has_more": True, "next_cursor": "next-page"},
+        }
+    ])
+    client = PkmnPricesClient("secret", opener=opener, sleep=lambda _: None)
+    result = client.ebay_sold_collection(
+        77, max_items=1, initial_cursor="resume-here"
+    )
+    assert [row["id"] for row in result["rows"]] == [1]
+    assert result["has_more"] is True
+    assert result["next_cursor"] == "next-page"
+    assert "cursor=resume-here" in opener.seen[0].full_url
