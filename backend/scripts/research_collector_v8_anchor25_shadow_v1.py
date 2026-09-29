@@ -83,6 +83,11 @@ def set_score_rows(
         trainer_groups: dict[str, list[float]] = defaultdict(list)
         score_key = f"score_{label}"
 
+        def card_score(row: Mapping[str, Any]) -> float:
+            if label == "CONTROL":
+                return float(card_source[str(row["canonical_card_id"])]["card_collector_appeal_v7"])
+            return float(row[score_key])
+
         for row in rows:
             target = pokemon_groups if row["subject_type"] == "pokemon" else trainer_groups if row["subject_type"] == "trainer" else None
             if target is None:
@@ -90,7 +95,7 @@ def set_score_rows(
             for identity in str(row.get("subject_identity") or "").split(" + "):
                 identity = identity.strip()
                 if identity:
-                    target[identity].append(float(row[score_key]))
+                    target[identity].append(card_score(row))
 
         dp, strength, breadth = pokemon_d([max(values) for values in pokemon_groups.values()])
         dt = trainer_d([max(values) for values in trainer_groups.values()])
@@ -99,7 +104,7 @@ def set_score_rows(
 
         desirable = [
             row for row in rows
-            if row.get("hit_eligibility") and float(row[score_key]) > 50.0
+            if row.get("hit_eligibility") and card_score(row) > 50.0
         ]
         modeled = []
         covered_ids = set()
@@ -114,9 +119,9 @@ def set_score_rows(
                 })
                 covered_ids.add(str(row["canonical_card_id"]))
 
-        excess = sum(float(row[score_key]) - 50.0 for row in desirable)
+        excess = sum(card_score(row) - 50.0 for row in desirable)
         covered = sum(
-            float(row[score_key]) - 50.0
+            card_score(row) - 50.0
             for row in desirable
             if str(row["canonical_card_id"]) in covered_ids
         )
