@@ -101,7 +101,7 @@ def normalize_sold_listing(
     graded = bool(grader or grade)
     resolution = resolve_internal_variant(row.get("variant"), internal_variants)
     exact_identity = attribution == "exact" and resolution["state"] == "EXACT"
-    fair_value_eligible = bool(exact_identity and not graded and currency == "USD")
+    fair_value_signal_eligible = bool(exact_identity and not graded and currency == "USD")
     if graded:
         exclusion = "GRADED"
     elif currency != "USD":
@@ -130,7 +130,7 @@ def normalize_sold_listing(
         "ingested_at": ingested_at or None,
         "listing_url": str(row.get("listing_url") or "").strip() or None,
         "identity_state": resolution["state"],
-        "fair_value_eligible": fair_value_eligible,
+        "fair_value_signal_eligible": fair_value_signal_eligible,
         # Explicit fail-closed boundary: the sold endpoint has no raw-card condition.
         "set_value_nm_eligible": False,
         "condition_state": "UNKNOWN",
