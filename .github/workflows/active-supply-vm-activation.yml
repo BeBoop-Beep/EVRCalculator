@@ -1,0 +1,151 @@
+name: Active Supply VM Activation
+
+on:
+  push:
+    branches:
+      - ops/active-supply-vm-activation-20260929
+    paths:
+      - ".active-supply-vm/request.txt"
+      - ".github/workflows/active-supply-vm-activation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: active-supply-vm-activation
+  cancel-in-progress: false
+
+jobs:
+  vm:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 45
+    env:
+      RELEASE_SHA: b5c4f5da3122d8717d9efec1472d2c5677704135
+      VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+      ACTIONS_SELLER_HASH_KEY: ${{ secrets.ACTIVE_SUPPLY_SELLER_HASH_KEY }}
+    steps:
+      - name: Resolve fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$VM_REQUEST_MESSAGE" in
+            "active-supply-vm: noop") OP=noop ;;
+            "active-supply-vm: hostkeys") OP=hostkeys ;;
+            "active-supply-vm: credential-status") OP=credential-status ;;
+            "active-supply-vm: install-credential") OP=install-credential ;;
+            "active-supply-vm: installer-verify") OP=installer-verify ;;
+            "active-supply-vm: installer-apply") OP=installer-apply ;;
+            "active-supply-vm: first-run") OP=first-run ;;
+            "active-supply-vm: health") OP=health ;;
+            *) echo "REFUSING: invalid fixed operation"; exit 2 ;;
+          esac
+          echo "OP=$OP" >> "$GITHUB_ENV"
+          echo "operation=$OP release_sha=$RELEASE_SHA"
+
+      - name: Execute fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-active-supply-activation
+          STATE=/home/ubuntu/state/active_supply_panel
+
+          prepare_release() {
+            test -d "$REPO/.git" || { echo "REFUSING: production repo missing"; exit 2; }
+            git -C "$REPO" fetch origin develop --quiet
+            git -C "$REPO" cat-file -e "$RELEASE_SHA^{commit}" || {
+              echo "REFUSING: reviewed release SHA unavailable"; exit 2;
+            }
+            if [ -e "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+            fi
+            git -C "$REPO" worktree add --detach "$WT" "$RELEASE_SHA"
+            test "$(git -C "$WT" rev-parse HEAD)" = "$RELEASE_SHA" || {
+              echo "REFUSING: release worktree SHA mismatch"; exit 2;
+            }
+          }
+
+          cleanup() {
+            if [ -d "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+              rm -rf "$WT" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+
+          case "$OP" in
+            noop)
+              echo "ACTIVE_SUPPLY_VM_NOOP=PASS"
+              ;;
+
+            hostkeys)
+              echo "hostname=$(hostname)"
+              echo "architecture=$(uname -m)"
+              for key in /etc/ssh/ssh_host_*_key.pub; do
+                [ -r "$key" ] || continue
+                sudo ssh-keygen -lf "$key" -E sha256
+              done
+              ;;
+
+            credential-status)
+              ACTIONS_PRESENT=false
+              [ -n "${ACTIONS_SELLER_HASH_KEY:-}" ] && ACTIONS_PRESENT=true
+              echo "actions_active_supply_seller_hash_key_present=$ACTIONS_PRESENT"
+              python3 - <<'PY'
+          import os
+          import re
+          path = "/home/ubuntu/repos/EVRCalculator/backend/.env"
+          assign = re.compile(rb"^\s*(?:export\s+)?ACTIVE_SUPPLY_SELLER_HASH_KEY\s*=(.*)$")
+          present = False
+          if os.path.isfile(path):
+              with open(path, "rb") as handle:
+                  for line in handle.read().splitlines():
+                      m = assign.match(line)
+                      if m and len(m.group(1).strip().strip(b"'\"")) >= 32:
+                          present = True
+                          break
+          print("vm_active_supply_seller_hash_key_present=" + ("true" if present else "false"))
+          state = "/home/ubuntu/state/active_supply_panel/release.sha"
+          if os.path.isfile(state):
+              value = open(state, encoding="utf-8").read().strip()
+              print("runtime_release_pin_present=true")
+              print("runtime_release_pin_matches_reviewed=" + ("true" if value == os.environ["RELEASE_SHA"] else "false"))
+          else:
+              print("runtime_release_pin_present=false")
+              print("runtime_release_pin_matches_reviewed=false")
+          PY
+              ;;
+
+            install-credential)
+              [ -n "${ACTIONS_SELLER_HASH_KEY:-}" ] || {
+                echo "REFUSING: repository secret ACTIVE_SUPPLY_SELLER_HASH_KEY is missing"; exit 4;
+              }
+              prepare_release
+              ACTIVE_SUPPLY_ENV_REPO="$REPO"               ACTIVE_SUPPLY_SELLER_HASH_KEY_INSTALL="$ACTIONS_SELLER_HASH_KEY"                 "$WT/infra/oracle/install_active_supply_credentials.sh" --apply
+              ;;
+
+            installer-verify)
+              prepare_release
+              ACTIVE_SUPPLY_ENV_REPO="$REPO"                 "$WT/infra/oracle/install_active_supply_panel_cron.sh"
+              ;;
+
+            installer-apply)
+              prepare_release
+              ACTIVE_SUPPLY_ENV_REPO="$REPO"                 "$WT/infra/oracle/install_active_supply_panel_cron.sh" --apply
+              ;;
+
+            first-run)
+              test -x "$STATE/runtime/infra/oracle/run_active_supply_panel.sh" || {
+                echo "REFUSING: active-supply runtime not installed"; exit 2;
+              }
+              "$STATE/runtime/infra/oracle/run_active_supply_panel.sh"
+              ;;
+
+            health)
+              test -x "$STATE/runtime/infra/oracle/run_active_supply_health.sh" || {
+                echo "REFUSING: active-supply runtime not installed"; exit 2;
+              }
+              "$STATE/runtime/infra/oracle/run_active_supply_health.sh"
+              ;;
+          esac
