@@ -61,5 +61,6 @@ def test_temporal_harness_has_no_database_write_calls():
         assert token not in source
     assert ".table(" not in source
     assert ".rpc(" not in source
-    # Historical authority is inherited from the already-reviewed Phase 1 helper.
-    assert "historical_prices(" in source
+    # Historical authority is pinned to the exact Phase 1 SQL semantics after the mutable RPC drifted.
+    assert "historical_prices_phase1_sql(" in source
+    assert "20260928204424_market_explorer_root_standard_frozen_roster_v2" in source
