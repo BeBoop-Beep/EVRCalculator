@@ -179,9 +179,21 @@ jobs:
               python3 - <<'PY'
           import json,os,urllib.parse,urllib.request
           from pathlib import Path
-          from dotenv import dotenv_values
-          env=dotenv_values(Path("backend/.env"))
-          key=str(env.get("PKMNPRICES_API_KEY") or "")
+          def dotenv_value(path,key):
+              if not path.is_file():
+                  return ""
+              for raw in path.read_text(encoding="utf-8-sig").splitlines():
+                  line=raw.strip()
+                  if not line or line.startswith("#") or "=" not in line:
+                      continue
+                  k,v=line.split("=",1)
+                  k=k.strip()
+                  if k.startswith("export "):
+                      k=k[len("export "):].strip()
+                  if k==key:
+                      return v.strip().strip('"').strip("'")
+              return ""
+          key=dotenv_value(Path("backend/.env"),"PKMNPRICES_API_KEY")
           if not key:
               raise SystemExit("PKMNPRICES_PROBE=FAIL credential_missing")
           base="https://api.pkmnprices.com"
