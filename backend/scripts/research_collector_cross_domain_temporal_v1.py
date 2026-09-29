@@ -27,6 +27,7 @@ from backend.scripts.research_collector_cross_domain_calibration_v1 import (
     build_candidates,
     controlled_cohort,
     cv_metrics,
+    historical_prices,
     joined_market,
     map_trainers,
     pair_diagnostics,
@@ -61,8 +62,8 @@ BASE_SEED = 20260929
 FORMULA_FINGERPRINT = "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b"
 PARENT_SHA = "012e38b1e9a85491ba2ba72b746f8baead6112ea"
 
-PHASE1_PRICE_AUTHORITY = "get_pokemon_set_value_canonical_prices_as_of_v2_shadow_legacy_identity"
-EXECUTABLE_PRICE_RPC = "get_pokemon_set_value_canonical_prices_as_of_v2_shadow"
+PHASE1_PRICE_AUTHORITY = "get_pokemon_market_root_standard_card_prices_as_of_v2"
+EXECUTABLE_PRICE_RPC = "get_pokemon_market_root_standard_card_prices_as_of_v2"
 
 
 def read_json(path: Path) -> Any:
@@ -87,36 +88,8 @@ def fold_seed(market_date: str) -> int:
 
 
 def historical_prices_legacy_rpc(client: Any, set_ids: Sequence[str], market_date: str):
-    rows = []
-    for set_id in sorted(set_ids):
-        rows.extend(
-            client.rpc(
-                EXECUTABLE_PRICE_RPC,
-                {"target_set_id": set_id, "target_date": market_date},
-            ).execute().data or []
-        )
-    by_card = {}
-    normalized = []
-    for row in rows:
-        card_id = str(row.get("canonical_card_id") or "")
-        price = row.get("market_price")
-        if not card_id or price is None:
-            continue
-        if card_id in by_card:
-            raise RuntimeError(f"duplicate canonical historical price: {card_id}")
-        by_card[card_id] = float(price)
-        normalized.append({
-            "root_set_id": row.get("set_id"),
-            "member_set_id": row.get("set_id"),
-            "canonical_card_id": card_id,
-            "card_variant_id": row.get("card_variant_id"),
-            "market_price": float(price),
-            "observed_date": row.get("captured_at"),
-            "printing_type": row.get("printing_type"),
-            "special_type": None,
-            "source": row.get("source") or EXECUTABLE_PRICE_RPC,
-        })
-    return by_card, normalized
+    """Compatibility wrapper around the exact corrected Phase 1 authority."""
+    return historical_prices(client, set_ids, market_date)
 
 
 def attach_prices(membership_rows: Sequence[Mapping[str, Any]], prices: Mapping[str, float]):
@@ -325,7 +298,7 @@ def report_text(decision, structural, folds, draws):
         "- Parent Phase 1 SHA: " + PARENT_SHA,
         "- Frozen Collector control: " + MODEL_VERSION + " / " + MODEL_RUN_ID,
         "- Candidate: ANCHOR25 only",
-        "- Historical price authority: get_pokemon_set_value_canonical_prices_as_of_v2_shadow (legacy identity chain; exact Sep-11 replay required)",
+        "- Historical price authority: get_pokemon_market_root_standard_card_prices_as_of_v2 (exact corrected Phase 1 authority)",
         "- Production mutations: NONE",
         "",
         "## Structural lock",
