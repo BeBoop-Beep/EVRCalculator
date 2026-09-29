@@ -69,7 +69,7 @@ export function getMoversTickerTrendValue(movement) {
 }
 
 function stableCardIdentity(card) {
-  return String(
+  const canonical = String(
     card?.canonicalCardId ??
       card?.canonical_card_id ??
       card?.pokemonCanonicalCardId ??
@@ -81,6 +81,12 @@ function stableCardIdentity(card) {
       card?.pokemon_tcg_api_card_id ??
       `${card?.name || "unknown"}:${card?.setNumber || card?.set_number || card?.cardNumber || card?.card_number || ""}`
   );
+  const variant = String(card?.cardVariantId ?? card?.card_variant_id ?? "");
+  const condition = String(card?.conditionId ?? card?.condition_id ?? "");
+  // Global Raw markets contain economically distinct physical instruments for
+  // the same canonical card (for example Unlimited and 1st Edition). Do not
+  // collapse those exact variants back to canonical-card identity in the UI.
+  return variant ? `${canonical}:${variant}:${condition}` : canonical;
 }
 
 function getCandidateCards(entry) {
