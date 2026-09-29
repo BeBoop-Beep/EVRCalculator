@@ -60,6 +60,6 @@ def test_temporal_harness_has_no_database_write_calls():
     for token in (".insert([", ".insert({", ".update({", ".delete()", ".upsert("):
         assert token not in source
     assert ".table(" not in source
-    assert "get_pokemon_market_root_standard_card_prices_as_of_v2" not in source
+    assert ".rpc(" not in source
     # Historical authority is inherited from the already-reviewed Phase 1 helper.
     assert "historical_prices(" in source
