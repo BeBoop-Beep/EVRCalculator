@@ -9,7 +9,7 @@ const METHODOLOGY = [
   "Every eligible modeled sealed product is normalized to an all-in per-pack equivalent.",
   "Within each set, represented product families receive equal weight and SKUs inside each family receive equal weight.",
   "Every modeled set receives equal weight globally.",
-  "Typical Opening is the median of the weighted empirical product-opening distribution, not an average of product or set medians.",
+  "Distribution percentiles are calculated from the weighted empirical product-opening distribution, not from averages of product or set medians.",
   "Guaranteed modeled card components are included exactly once before normalization; accessories have zero modeled value.",
   "Card values are gross modeled market values before selling fees, shipping, grading, liquidity discounts, and taxes.",
 ];

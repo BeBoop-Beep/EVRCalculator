@@ -41,16 +41,6 @@ const COLUMNS = [
     emphasis: "primary",
   },
   {
-    key: "typicalOpening",
-    label: "Typical Opening / Pack",
-    sort: "typicalOpeningValue",
-  },
-  {
-    key: "typicalRetention",
-    label: "Typical Retention",
-    sort: "typicalRetention",
-  },
-  {
     key: "chanceToRecover",
     label: "Chance to Recover",
     sort: "chanceToBeatCost",
@@ -367,8 +357,6 @@ export default function OpeningEconomicsEras({
                     ["Avg Cost / Pack", cells.meanPackCost, false],
                     ["Expected Value / Pack", cells.expectedValue, false],
                     ["Modeled Return", cells.modeledReturn, true],
-                    ["Typical Opening / Pack", cells.typicalOpening, false],
-                    ["Typical Retention", cells.typicalRetention, false],
                     ["Chance to Recover", cells.chanceToRecover, false],
                     ["Entertainment Cost / Pack", cells.entertainmentCost, false],
                   ].map(([label, value, strong]) => (
@@ -429,7 +417,6 @@ export default function OpeningEconomicsEras({
             <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.68rem] text-[var(--text-secondary)]">
               {[
                 ["Modeled Return", baseline.modeledReturn],
-                ["Typical Retention", baseline.typicalRetention],
                 ["Entertainment Cost", baseline.entertainmentCost],
               ].map(([label, value]) => (
                 <div key={label} className="flex gap-1.5">
