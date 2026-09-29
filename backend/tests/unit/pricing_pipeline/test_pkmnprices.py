@@ -18,7 +18,7 @@ from backend.pricing_pipeline.pkmnprices_sold import (
     resolve_internal_variant,
 )
 from backend.pricing_pipeline.pkmnprices_sold_identity import classify_vintage_sold
-from backend.pricing_pipeline.pkmnprices_store import _same_evidence
+from backend.pricing_pipeline.pkmnprices_store import _same_evidence, _same_transaction
 
 
 class Response(io.BytesIO):
@@ -361,3 +361,36 @@ def test_sold_replay_timestamp_z_and_utc_offset_are_equivalent():
     }
     replay = dict(base, ingested_at="2026-09-21T02:08:14.188257+00:00")
     assert _same_evidence(base, replay) is True
+
+
+def test_sold_transaction_identity_tolerates_provider_enrichment_drift():
+    first = {
+        "provider_listing_id": 7,
+        "provider_card_id": 8,
+        "canonical_card_id": "card",
+        "title": "Original title",
+        "price": "19.99",
+        "currency": "USD",
+        "sold_at": "2026-09-23",
+    }
+    revised = dict(
+        first,
+        title="Provider-enriched title",
+        attribution="exact",
+        grader="PSA",
+    )
+    assert _same_transaction(first, revised) is True
+    assert _same_evidence(first, revised) is False
+
+
+def test_sold_transaction_identity_rejects_price_revision():
+    first = {
+        "provider_listing_id": 7,
+        "provider_card_id": 8,
+        "canonical_card_id": "card",
+        "price": "19.99",
+        "currency": "USD",
+        "sold_at": "2026-09-23",
+    }
+    changed = dict(first, price="29.99")
+    assert _same_transaction(first, changed) is False
