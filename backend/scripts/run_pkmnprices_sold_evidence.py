@@ -83,11 +83,13 @@ def _run_metadata(
     market_date: str,
     item_credit_cap: int,
     max_sold_per_card: int,
+    sync_mode: str,
 ) -> dict[str, Any]:
     return {
         "market_date": market_date,
         "mode": "vintage_gap_shadow",
         "max_sold_per_card": max_sold_per_card,
+        "sync_mode": sync_mode,
         "target_canonical_card_ids": [row["canonical_card_id"] for row in targets],
         "target_tcgplayer_product_ids": [row["tcgplayer_product_id"] for row in targets],
         "item_credit_cap": item_credit_cap,
@@ -105,6 +107,7 @@ def collect(
     item_credit_cap: int,
     max_sold_per_card: int,
     target_limit: int | None = None,
+    sync_mode: str = "incremental",
 ) -> dict[str, Any]:
     store = PkmnPricesStore(db)
     gap_rows = discover_vintage_gap_rows(db, market_date)
@@ -112,7 +115,9 @@ def collect(
     if target_limit is not None:
         targets = targets[: max(0, int(target_limit))]
 
-    metadata = _run_metadata(targets, market_date, item_credit_cap, max_sold_per_card)
+    metadata = _run_metadata(
+        targets, market_date, item_credit_cap, max_sold_per_card, sync_mode
+    )
     manifest_fingerprint = _fingerprint(metadata)
     run_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
@@ -172,16 +177,38 @@ def collect(
 
                 provider_card_id = int(identity["provider_card_id"])
                 sync = store.get_sync_state(provider_card_id)
-                since = str(sync.get("last_ingested_at")) if sync and sync.get("last_ingested_at") else None
+                sync_metadata = dict((sync or {}).get("metadata") or {})
+
+                if sync_mode == "historical_backfill":
+                    since = None
+                    initial_cursor = (
+                        str(sync_metadata.get("backfill_cursor"))
+                        if sync_metadata.get("backfill_in_progress")
+                        and sync_metadata.get("backfill_cursor")
+                        else None
+                    )
+                else:
+                    if sync_metadata.get("backfill_in_progress"):
+                        raise RuntimeError(
+                            "historical backfill is incomplete; incremental sync is blocked"
+                        )
+                    since = (
+                        str(sync.get("last_ingested_at"))
+                        if sync and sync.get("last_ingested_at")
+                        else None
+                    )
+                    initial_cursor = None
 
                 remaining_cap = max(0, item_credit_cap - provider.credits_charged)
                 max_items = min(max_sold_per_card, remaining_cap)
-                raw_rows = provider.ebay_sold(
+                collection = provider.ebay_sold_collection(
                     provider_card_id,
                     graded=False,
                     since=since,
                     max_items=max_items,
+                    initial_cursor=initial_cursor,
                 )
+                raw_rows = list(collection["rows"])
 
                 collected_at = datetime.now(timezone.utc).isoformat()
                 normalized = []
@@ -229,16 +256,66 @@ def collect(
 
                 old_seen = int((sync or {}).get("rows_seen") or 0)
                 old_inserted = int((sync or {}).get("rows_inserted") or 0)
-                last_ingested = max(
-                    [str(row["ingested_at"]) for row in normalized if row.get("ingested_at")]
-                    + ([str((sync or {}).get("last_ingested_at"))] if (sync or {}).get("last_ingested_at") else [])
-                    or [None]
+                observed_ingested = [
+                    str(row["ingested_at"]) for row in normalized if row.get("ingested_at")
+                ]
+                observed_sold = [
+                    str(row["sold_at"]) for row in normalized if row.get("sold_at")
+                ]
+                prior_ingested = (
+                    str((sync or {}).get("last_ingested_at"))
+                    if (sync or {}).get("last_ingested_at")
+                    else None
                 )
-                last_sold = max(
-                    [str(row["sold_at"]) for row in normalized if row.get("sold_at")]
-                    + ([str((sync or {}).get("last_sold_at"))] if (sync or {}).get("last_sold_at") else [])
-                    or [None]
+                prior_sold = (
+                    str((sync or {}).get("last_sold_at"))
+                    if (sync or {}).get("last_sold_at")
+                    else None
                 )
+
+                if sync_mode == "historical_backfill":
+                    watermark = sync_metadata.get("backfill_incremental_watermark")
+                    if not watermark and observed_ingested:
+                        watermark = max(observed_ingested)
+                    watermark_sold = sync_metadata.get("backfill_latest_sold_at")
+                    if not watermark_sold and observed_sold:
+                        watermark_sold = max(observed_sold)
+                    backfill_in_progress = bool(collection.get("has_more"))
+                    state_status = "PARTIAL" if backfill_in_progress else "CURRENT"
+                    last_ingested = prior_ingested if backfill_in_progress else (
+                        str(watermark) if watermark else prior_ingested
+                    )
+                    last_sold = prior_sold if backfill_in_progress else (
+                        str(watermark_sold) if watermark_sold else prior_sold
+                    )
+                    next_metadata = {
+                        "tcgplayer_product_id": target["tcgplayer_product_id"],
+                        "gap_variants": target["gap_variants"],
+                        "backfill_in_progress": backfill_in_progress,
+                        "backfill_complete": not backfill_in_progress,
+                        "backfill_cursor": collection.get("next_cursor")
+                            if backfill_in_progress else None,
+                        "backfill_incremental_watermark": watermark,
+                        "backfill_latest_sold_at": watermark_sold,
+                    }
+                else:
+                    last_ingested_candidates = observed_ingested + (
+                        [prior_ingested] if prior_ingested else []
+                    )
+                    last_sold_candidates = observed_sold + (
+                        [prior_sold] if prior_sold else []
+                    )
+                    last_ingested = (
+                        max(last_ingested_candidates) if last_ingested_candidates else None
+                    )
+                    last_sold = max(last_sold_candidates) if last_sold_candidates else None
+                    state_status = "CURRENT"
+                    next_metadata = {
+                        **sync_metadata,
+                        "tcgplayer_product_id": target["tcgplayer_product_id"],
+                        "gap_variants": target["gap_variants"],
+                    }
+
                 store.upsert_sync_state({
                     "provider_card_id": provider_card_id,
                     "canonical_card_id": target["canonical_card_id"],
@@ -246,15 +323,12 @@ def collect(
                     "last_sold_at": last_sold,
                     "last_attempt_at": collected_at,
                     "last_success_at": collected_at,
-                    "status": "CURRENT",
+                    "status": state_status,
                     "consecutive_failures": 0,
                     "rows_seen": old_seen + len(normalized),
                     "rows_inserted": old_inserted + inserted,
                     "last_error_code": None,
-                    "metadata": {
-                        "tcgplayer_product_id": target["tcgplayer_product_id"],
-                        "gap_variants": target["gap_variants"],
-                    },
+                    "metadata": next_metadata,
                 })
             except Exception as exc:
                 totals["targets_failed"] += 1
@@ -351,6 +425,11 @@ def main() -> int:
     parser.add_argument("--item-credit-cap", type=int, default=500)
     parser.add_argument("--max-sold-per-card", type=int, default=40)
     parser.add_argument("--target-limit", type=int, default=None)
+    parser.add_argument(
+        "--sync-mode",
+        choices=("incremental", "historical_backfill"),
+        default="incremental",
+    )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--commit", action="store_true")
@@ -376,6 +455,7 @@ def main() -> int:
             item_credit_cap=args.item_credit_cap,
             max_sold_per_card=args.max_sold_per_card,
             target_limit=args.target_limit,
+            sync_mode=args.sync_mode,
         )
 
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
