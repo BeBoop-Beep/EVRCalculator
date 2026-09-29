@@ -47,4 +47,5 @@ jobs:
 
           "$PY" backend/scripts/run_pkmnprices_sold_evidence.py             --commit             --market-date 2026-09-28             --sync-mode historical_backfill             --item-credit-cap 2500             --max-sold-per-card 200
 
+          "$PY" backend/scripts/check_pkmnprices_sold_evidence_health.py
           echo "PKMNPRICES_VINTAGE_HISTORY_BACKFILL=PASS"
