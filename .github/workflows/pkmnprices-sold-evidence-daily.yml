@@ -1,0 +1,62 @@
+name: PkmnPrices Sold Evidence Daily
+
+on:
+  schedule:
+    # 20:30 America/Phoenix (03:30 UTC next day), intentionally off the
+    # scrape/publication peak. Scheduled workflows run from the default branch.
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pkmnprices-sold-evidence-daily
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Collect current vintage-gap sold evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          exec 9>/tmp/pkmnprices-api.lock
+          flock -w 300 9 || { echo "PkmnPrices API lock remained held"; exit 21; }
+
+          # Keep this small provider/DB job out of the way of the heavy canonical
+          # market publisher. A skipped day is recoverable via the next run/manual trigger.
+          exec 8>/tmp/pokemon-post-scrape-publication.lock
+          flock -n 8 || { echo "post-scrape publisher active; defer PkmnPrices collection"; exit 0; }
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          WT=/tmp/EVRCalculator-pkmnprices-daily
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+
+          [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
+            echo "database safety hold active; defer PkmnPrices collection"
+            exit 0
+          }
+
+          cd "$REPO"
+          git fetch origin main --quiet
+          rm -rf "$WT"
+          git worktree add --detach "$WT" origin/main
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT"' EXIT
+
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          test -n "${PKMNPRICES_API_KEY:-}" || { echo "PKMNPRICES_API_KEY missing on VM"; exit 20; }
+
+          export PYTHONPATH="$WT"
+          cd "$WT"
+
+          "$PY" backend/scripts/run_pkmnprices_sold_evidence.py             --commit             --sync-mode incremental             --item-credit-cap 600             --max-sold-per-card 40
+
+          "$PY" backend/scripts/check_pkmnprices_sold_evidence_health.py
+          echo "PKMNPRICES_SOLD_EVIDENCE_DAILY=PASS"
