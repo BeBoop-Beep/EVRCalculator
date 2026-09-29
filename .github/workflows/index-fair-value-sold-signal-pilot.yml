@@ -70,11 +70,18 @@ jobs:
           echo "== research receipt =="
           cat backend/artifacts/index_fair_value/sold_signal_pilot_v1/pilot_report.json
 
-          echo "== persist aggregate research artifact =="
-          git config user.name "inDex Fair Value Research"
-          git config user.email "actions@users.noreply.github.com"
-          git add             backend/artifacts/index_fair_value/sold_signal_pilot_v1/pilot_report.json             backend/artifacts/index_fair_value/sold_signal_pilot_v1/sample_features.csv
-          git commit -m "research(fair-value): record sold-signal pilot results" || true
-          git push origin HEAD:research/index-fair-value-sold-signal-pilot-20260929
-
+          echo "== stage aggregate research artifact for Actions upload =="
+          OUTDIR="$GITHUB_WORKSPACE/sold_signal_pilot_v1"
+          rm -rf "$OUTDIR"
+          mkdir -p "$OUTDIR"
+          cp backend/artifacts/index_fair_value/sold_signal_pilot_v1/pilot_report.json "$OUTDIR/"
+          cp backend/artifacts/index_fair_value/sold_signal_pilot_v1/sample_features.csv "$OUTDIR/"
           echo "INDEX_FAIR_VALUE_SOLD_SIGNAL_PILOT=PASS"
+
+      - name: Upload aggregate research artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: index-fair-value-sold-signal-pilot-v1
+          path: sold_signal_pilot_v1/
+          if-no-files-found: error
+          retention-days: 30
