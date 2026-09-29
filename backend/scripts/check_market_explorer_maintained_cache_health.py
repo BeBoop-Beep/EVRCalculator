@@ -9,7 +9,7 @@ from typing import Any
 
 from backend.db.clients.supabase_client import create_service_role_client
 from backend.db.services.market_explorer_maintained_cache_ops import discover_maintained_caches
-from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids
+from backend.db.services.market_explorer_surface_freshness import read_surface_freshness
 from backend.scripts.publish_market_explorer_daily_projection import (
     APPROVED_STATUSES,
     DATE_QUALITY_TABLE,
@@ -104,13 +104,23 @@ def _v2_coverage_report(
 def check_maintained_cache_health(
     client: Any, *, stale_threshold_days: int = DEFAULT_STALE_THRESHOLD_DAYS,
 ) -> dict[str, Any]:
-    latest_approved = resolve_latest_approved_market_date(client)
+    freshness = read_surface_freshness(client)
+    latest_approved = str(freshness.get("canonicalAcceptedDate") or "")[:10] or None
     report = HealthReport(latest_approved_market_date=latest_approved)
     if latest_approved is None:
         return asdict(report)
 
-    tracked = set(resolve_tracked_set_ids(client))
-    report.v2 = _v2_coverage_report(client, tracked, latest_approved)
+    report.v2 = {
+        "healthy": str(freshness.get("status") or "").upper() == "CURRENT",
+        "status": freshness.get("status"),
+        "reason": freshness.get("reason"),
+        "canonical_accepted_date": str(freshness.get("canonicalAcceptedDate") or "")[:10] or None,
+        "surface_v2_date": str(freshness.get("surfaceV2Date") or "")[:10] or None,
+        "surface_lag_days": freshness.get("surfaceLagDays"),
+        "maintained_cache_total": freshness.get("maintainedCacheTotal"),
+        "maintained_cache_current": freshness.get("maintainedCacheCurrent"),
+        "maintained_cache_not_current": freshness.get("maintainedCacheNotCurrent"),
+    }
 
     rows = discover_maintained_caches(client)
     report.maintained_count = len(rows)
