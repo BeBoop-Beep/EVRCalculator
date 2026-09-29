@@ -2,23 +2,36 @@
 # Persist one externally retained seller-HMAC key without ever printing it.
 set -euo pipefail
 
-REPO="${REPO:-/home/ubuntu/repos/EVRCalculator}"
-ENV_FILE="$REPO/backend/.env"
+CODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ENV_REPO="${ACTIVE_SUPPLY_ENV_REPO:-/home/ubuntu/repos/EVRCalculator}"
+PY="$ENV_REPO/.venv/bin/python"
+ENV_FILE="$ENV_REPO/backend/.env"
 NAME="ACTIVE_SUPPLY_SELLER_HASH_KEY"
 INSTALL_NAME="ACTIVE_SUPPLY_SELLER_HASH_KEY_INSTALL"
 
+[ -x "$PY" ] || { echo "FAIL: shared Python runtime missing" >&2; exit 2; }
+
 probe_persisted() {
-  (cd "$REPO" && env -u ACTIVE_SUPPLY_SELLER_HASH_KEY ./.venv/bin/python - <<'PY'
-from backend.pricing_pipeline.active_supply_credentials import load_active_supply_credentials
-try:
-    value = load_active_supply_credentials()
-    if value.source != "backend/.env":
-        print("ACTIVE_SUPPLY_SELLER_HASH_CREDENTIAL_NOT_PERSISTENT source=" + value.source)
-        raise SystemExit(4)
-    print("ACTIVE_SUPPLY_SELLER_HASH_CREDENTIAL_PRESENT source=" + value.source)
-except Exception as exc:
-    print("ACTIVE_SUPPLY_SELLER_HASH_CREDENTIAL_MISSING type=" + type(exc).__name__)
+  (
+    cd "$CODE_ROOT"
+    env -u ACTIVE_SUPPLY_SELLER_HASH_KEY \
+      PYTHONPATH="$CODE_ROOT" \
+      ACTIVE_SUPPLY_ENV_REPO="$ENV_REPO" \
+      "$PY" - <<'PY'
+from pathlib import Path
+from backend.pricing_pipeline.ebay_credentials import parse_env_file
+from backend.pricing_pipeline.active_supply_credentials import ActiveSupplyCredentialUnavailable, ActiveSupplyCredentials, KEY
+
+env_repo = Path(__import__("os").environ["ACTIVE_SUPPLY_ENV_REPO"])
+values = parse_env_file(env_repo / "backend/.env")
+value = str(values.get(KEY) or "").strip()
+if not value:
+    print("ACTIVE_SUPPLY_SELLER_HASH_CREDENTIAL_MISSING")
     raise SystemExit(4)
+if len(value) < 32:
+    print("ACTIVE_SUPPLY_SELLER_HASH_CREDENTIAL_INVALID")
+    raise SystemExit(4)
+print("ACTIVE_SUPPLY_SELLER_HASH_CREDENTIAL_PRESENT source=backend/.env")
 PY
   )
 }
