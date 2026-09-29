@@ -123,6 +123,14 @@
   width: 2.75rem;
 }
 
+.rankingsScoreRankColumn {
+  width: 4.5rem;
+}
+
+.rankingsScoreValueColumn {
+  width: 10rem;
+}
+
 .colProduct {
   width: 17rem;
 }

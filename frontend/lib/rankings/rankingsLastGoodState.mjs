@@ -14,10 +14,14 @@ export function failLastGoodRefresh(current, error, isRenderable, emptyState) {
 }
 
 export const isRenderableEraState = (state) =>
-  state?.status === "ready" && Boolean(state?.contract) && Boolean(state?.benchmark);
+  state?.status === "ready" && Boolean(state?.contract) && (
+    (Array.isArray(state?.scorecards?.rows) && state.scorecards.rows.length > 0) || Boolean(state?.benchmark)
+  );
 
 export const isRenderableSetState = (state) =>
-  state?.status === "ready" && Array.isArray(state?.targets) && state.targets.length > 0 && Boolean(state?.benchmark);
+  state?.status === "ready" && Array.isArray(state?.targets) && state.targets.length > 0 && (
+    (Array.isArray(state?.scorecards?.rows) && state.scorecards.rows.length > 0) || Boolean(state?.benchmark)
+  );
 
 export const isRenderableProductState = (state) =>
   state?.status === "ready" && Boolean(state?.productFamilyRankings);
