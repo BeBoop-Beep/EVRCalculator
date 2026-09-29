@@ -6,6 +6,7 @@ from backend.db.services import public_read_retry
 from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
     build_global_card_movers_row,
+    build_global_raw_card_movers_row,
     read_explore_card_movers_snapshot,
 )
 from backend.db.services.pokemon_card_market_delta_contract import WINDOW_CONVENTION
@@ -179,3 +180,89 @@ def test_no_client_path_does_not_retry_missing_snapshot():
     empty = _Client([])
     with pytest.raises(ExploreCardMoversUnavailable):
         read_explore_card_movers_snapshot(client=empty)
+
+
+
+def raw_authority(*, market_date="2026-09-29", universe="serving_raw_exact_variant_v1"):
+    return {
+        "status": "READY",
+        "marketDate": market_date,
+        "generationId": "surface-generation",
+        "window": "7D",
+        "windowDays": 7,
+        "movementContractVersion": "pokemon_card_movement_v1",
+        "windowConvention": WINDOW_CONVENTION,
+        "universeContractVersion": universe,
+        "rankingMethodology": "market_movement_score_v1",
+        "priceBasis": "serving_raw_current_plus_exact_nm_tcgplayer_observation_baseline_v1",
+        "rawConstituentCount": 20315,
+        "rawRootCount": 155,
+        "rawMarketCount": 159,
+        "scopedConstituentCount": 1264,
+        "baselineCoveredCount": 20090,
+        "eligibleCandidateCount": 2370,
+        "scopedCandidateCount": 247,
+        "publishedCount": 2,
+        "movements": [
+            {
+                "canonicalCardId": "same-card",
+                "cardVariantId": "unlimited-variant",
+                "conditionId": "nm",
+                "setId": "neo",
+                "setName": "Neo Destiny",
+                "marketScope": "unlimited",
+                "edition": "unlimited",
+                "name": "Shining Tyranitar",
+                "changeAmount": -317.25,
+                "changePercent": -47.9,
+                "movementScore": -274.6961,
+            },
+            {
+                "canonicalCardId": "same-card",
+                "cardVariantId": "first-edition-variant",
+                "conditionId": "nm",
+                "setId": "neo",
+                "setName": "Neo Destiny",
+                "marketScope": "first_edition",
+                "edition": "1st-edition",
+                "name": "Shining Tyranitar",
+                "changeAmount": -100,
+                "changePercent": -10,
+                "movementScore": -90,
+            },
+        ],
+    }
+
+
+def test_raw_authority_snapshot_is_market_wide_and_preserves_exact_variants():
+    row = build_global_raw_card_movers_row(
+        raw_authority(), target_market_date="2026-09-29"
+    )
+    cards = row["payload_json"]["marketMovers"]["all"]
+    assert [card["cardVariantId"] for card in cards] == [
+        "unlimited-variant",
+        "first-edition-variant",
+    ]
+    assert [card["marketScope"] for card in cards] == ["unlimited", "first_edition"]
+    assert row["eligible_set_count"] == 155
+    coverage = row["payload_json"]["meta"]["coverage"]
+    assert coverage["rawConstituentCount"] == 20315
+    assert coverage["rawMarketCount"] == 159
+    assert coverage["scopedConstituentCount"] == 1264
+    assert coverage["candidateCardCount"] == 2370
+    assert row["payload_json"]["meta"]["builder"] == "pokemon_raw_market_seven_day_movers_v2"
+
+
+@pytest.mark.parametrize(
+    "authority",
+    [
+        raw_authority(market_date="2026-09-28"),
+        raw_authority(universe="legacy_top_chase_subset"),
+        {**raw_authority(), "status": "BLOCKED"},
+    ],
+)
+def test_raw_authority_snapshot_fails_closed_on_incoherent_authority(authority):
+    with pytest.raises(ExploreCardMoversUnavailable):
+        build_global_raw_card_movers_row(
+            authority, target_market_date="2026-09-29"
+        )
