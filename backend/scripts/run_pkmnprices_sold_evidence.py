@@ -447,7 +447,12 @@ def main() -> int:
         result = preview(db, market_date, args.target_limit)
     else:
         credentials = load_pkmnprices_credentials(allow_frontend_fallback=False)
-        provider = PkmnPricesClient(credentials.api_key)
+        provider = PkmnPricesClient(
+            credentials.api_key,
+            # Pro allows 60 req/min. 1.1s keeps this worker below that ceiling
+            # even during long cursor walks rather than depending on 429 retries.
+            min_request_interval=1.1,
+        )
         result = collect(
             db=db,
             provider=provider,
