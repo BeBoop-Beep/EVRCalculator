@@ -153,6 +153,30 @@ class PkmnPricesClient:
         payload = self.get(f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}", {"currency": currency})
         return dict(payload)
 
+    def tcgplayer_listings_page(
+        self,
+        provider_card_id: str | int,
+        *,
+        condition: str | None = None,
+        printing: str | None = None,
+        language: str | None = "English",
+        sort: str = "total_asc",
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch a bounded page of live TCGplayer offers for one provider card."""
+        return self.get(
+            f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}/listings/tcgplayer",
+            {
+                "condition": condition,
+                "printing": printing,
+                "language": language,
+                "sort": sort,
+                "limit": max(1, min(int(limit), 20)),
+                "cursor": cursor,
+            },
+        )
+
     def ebay_sold_page(
         self,
         provider_card_id: str | int,
