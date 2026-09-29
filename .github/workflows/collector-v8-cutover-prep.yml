@@ -15,6 +15,8 @@ on:
       - "backend/tests/unit/scripts/test_promote_pokemon_collector_v8_anchor25.py"
       - "backend/tests/unit/scripts/test_operationalize_historical_rip.py"
       - "backend/tests/unit/scripts/test_build_atomic_set_page_snapshot_generation.py"
+      - "backend/tests/unit/scripts/test_run_daily_opening_publication.py"
+      - "backend/tests/unit/services/test_pokemon_set_onboarding_service.py"
       - "backend/tests/unit/db/services/test_collector_appeal_current_service.py"
 
 permissions:
@@ -51,6 +53,8 @@ jobs:
             backend/tests/unit/scripts/test_promote_pokemon_collector_v8_anchor25.py \
             backend/tests/unit/scripts/test_operationalize_historical_rip.py \
             backend/tests/unit/scripts/test_build_atomic_set_page_snapshot_generation.py \
+            backend/tests/unit/scripts/test_run_daily_opening_publication.py \
+            backend/tests/unit/services/test_pokemon_set_onboarding_service.py \
             backend/tests/unit/db/services/test_collector_appeal_current_service.py
 
       - name: Rebuild exact frozen V8 candidate offline
