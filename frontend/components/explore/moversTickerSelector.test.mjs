@@ -239,3 +239,28 @@ test("ticker trend direction value covers positive, negative, zero, and unavaila
   assert.equal(getMoversTickerTrendValue({ amount: null, percent: null }), null);
   assert.equal(getMoversTickerTrendValue({ percent: 3.2 }), 3.2);
 });
+
+
+test("market-wide Raw movers preserve separate exact variants of one canonical card", () => {
+  const result = selectMoversTickerItems({
+    all: [
+      card("unlimited", -20, -100, {
+        canonicalCardId: "shared-canonical",
+        cardVariantId: "unlimited-variant",
+        conditionId: "nm",
+        marketScope: "unlimited",
+      }),
+      card("first-edition", 15, 80, {
+        canonicalCardId: "shared-canonical",
+        cardVariantId: "first-edition-variant",
+        conditionId: "nm",
+        marketScope: "first_edition",
+      }),
+    ],
+  });
+
+  assert.deepEqual(
+    result.map((item) => item.card.cardVariantId),
+    ["unlimited-variant", "first-edition-variant"]
+  );
+});
