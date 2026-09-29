@@ -378,10 +378,19 @@ def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date)
         ),
         "structural_information_gain": structural,
         "market_anchored_information_gain": market,
+        "treatment_model_validity": {
+            "status": "INVALID_TARGET_LEAKAGE",
+            "feature": "sold_median_to_nm_ratio",
+            "definition": "sold_median / target_nm_market_price",
+            "promotion_evidence_eligible": False,
+            "superseded_by": "index_fair_value_sold_signal_pilot_v2",
+        },
         "interpretation": (
-            "Cross-sectional information-gain pilot only. Backfilled sold rows were ingested after "
-            "their historical sale dates, so this is not forward-time validation. Sold raw-card "
-            "condition is unknown and no Near Mint equivalence is assumed."
+            "Cross-sectional collection artifact only. The V1 treatment-model comparison is "
+            "invalid for promotion because sold_median_to_nm_ratio uses the target NM price. "
+            "Backfilled sold rows were ingested after their historical sale dates, so this is not "
+            "forward-time validation. Sold raw-card condition is unknown and no Near Mint "
+            "equivalence is assumed. Use the V2 leakage-free reanalysis for model evidence."
         ),
     }
     manifest["fingerprint"] = _hash({k:v for k,v in manifest.items() if k!="generated_at"})
