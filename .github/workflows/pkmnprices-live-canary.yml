@@ -1,0 +1,48 @@
+name: PkmnPrices Live Canary
+
+on:
+  push:
+    branches:
+      - feat/pkmnprices-sold-evidence-v1-20260929
+    paths:
+      - ".github/workflows/pkmnprices-live-canary.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Run isolated two-card sold-evidence canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          WT=/tmp/EVRCalculator-pkmnprices-canary
+          REF=origin/feat/pkmnprices-sold-evidence-v1-20260929
+
+          cd "$REPO"
+          git fetch origin feat/pkmnprices-sold-evidence-v1-20260929 --quiet
+          rm -rf "$WT"
+          git worktree add --detach "$WT" "$REF"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT"' EXIT
+
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          test -n "${PKMNPRICES_API_KEY:-}" || { echo "PKMNPRICES_API_KEY missing on VM"; exit 20; }
+
+          export PYTHONPATH="$WT"
+          cd "$WT"
+
+          echo "== dry-run target resolution =="
+          "$PY" backend/scripts/run_pkmnprices_sold_evidence.py             --dry-run             --market-date 2026-09-28             --target-limit 2
+
+          echo "== live two-card canary =="
+          "$PY" backend/scripts/run_pkmnprices_sold_evidence.py             --commit             --market-date 2026-09-28             --target-limit 2             --item-credit-cap 30             --max-sold-per-card 10
+
+          echo "PKMNPRICES_LIVE_CANARY=PASS"
