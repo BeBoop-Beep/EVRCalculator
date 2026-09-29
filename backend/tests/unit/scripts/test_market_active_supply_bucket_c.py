@@ -43,6 +43,10 @@ def test_migration_is_mirrored_and_enforces_hashed_sellers():
     sql = backend.decode().lower()
     assert "landed_price" in sql and "seller_concentration_hhi" in sql
     assert "hmac-sha256:v1:" in sql
+    assert "market_active_supply_landed_price_backfill_incomplete" in sql
+    assert "market_active_supply_unsafe_seller_identity_present" in sql
+    assert "source_payload->>'landed_price'" in sql
+    assert sql.index("update public.market_active_supply_listing_observations_v1") < sql.index("alter column landed_price set not null")
     assert "captured_depth_only" not in sql  # runtime semantics, not a DB-derived total
 
 
