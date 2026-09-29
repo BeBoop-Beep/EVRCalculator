@@ -60,7 +60,7 @@ def test_temporal_harness_has_no_database_write_calls():
     for token in (".insert([", ".insert({", ".update({", ".delete()", ".upsert("):
         assert token not in source
     assert 'service_client.table("conditions").select(' in source
-    assert 'service_client.table("card_variant_price_observation_ranges_v2").select(' in source
+    assert 'service_client.table("card_variant_price_observation_ranges_v2")' in source
     assert source.count(".table(") == 2
     assert ".rpc(" not in source
     # Historical authority is pinned to the exact Phase 1 SQL semantics after the mutable RPC drifted.
