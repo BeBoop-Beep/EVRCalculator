@@ -228,6 +228,19 @@ def bootstrap_fold(rows, pairs, cvs, *, draws: int, seed: int) -> dict[str, Any]
     for row in rows:
         by_set[str(row["set_id"])].append(row)
     set_ids = sorted(by_set)
+
+    # Exact cache of the expensive within-Set correlations. Replicating every
+    # card in a Set k times leaves its Spearman rho unchanged; raw_within_set
+    # only changes that Set's n (and therefore weighted-rho weight) by k.
+    set_stats = {}
+    for label in ("CONTROL", CANDIDATE):
+        payload = raw_within_set(rows, f"score_{label}")
+        set_stats[label] = {
+            str(item["setId"]): {"rho": float(item["spearmanLogPrice"]), "n": int(item["n"])}
+            for item in payload["sets"]
+            if item.get("spearmanLogPrice") is not None
+        }
+
     pred = {}
     for label in ("CONTROL", CANDIDATE):
         grouped = defaultdict(list)
@@ -239,11 +252,27 @@ def bootstrap_fold(rows, pairs, cvs, *, draws: int, seed: int) -> dict[str, Any]
     rng = np.random.default_rng(seed)
     for _ in range(draws):
         picked = [set_ids[int(i)] for i in rng.choice(len(set_ids), len(set_ids), replace=True)]
-        sampled = [row for sid in picked for row in by_set[sid]]
-        summaries = {
-            label: raw_within_set(sampled, f"score_{label}")["summary"]
-            for label in ("CONTROL", CANDIDATE)
-        }
+        counts = Counter(picked)
+        unique_picked = sorted(counts)
+
+        summaries = {}
+        for label in ("CONTROL", CANDIDATE):
+            weighted_num = 0.0
+            weighted_den = 0
+            median_values = []
+            for sid in unique_picked:
+                stat = set_stats[label][sid]
+                multiplicity = counts[sid]
+                weighted_num += stat["rho"] * stat["n"] * multiplicity
+                weighted_den += stat["n"] * multiplicity
+                # This exactly mirrors raw_within_set on concatenated duplicate
+                # rows: duplicate copies merge under one set_id for the median.
+                median_values.append(stat["rho"])
+            summaries[label] = {
+                "weightedMeanRho": weighted_num / weighted_den,
+                "medianRho": float(np.median(median_values)),
+            }
+
         samples["weightedWithinSetRho"].append(
             float(summaries[CANDIDATE]["weightedMeanRho"]) - float(summaries["CONTROL"]["weightedMeanRho"])
         )
@@ -276,7 +305,7 @@ def bootstrap_fold(rows, pairs, cvs, *, draws: int, seed: int) -> dict[str, Any]
     return {
         "seed": seed,
         "draws": draws,
-        "method": "deterministic whole-Set resampling; aligned held-out predictions resampled by Set",
+        "method": "deterministic whole-Set resampling; exact cached within-Set rho and aligned held-out predictions resampled by Set",
         "deltas": {key: interval(values) for key, values in samples.items()},
     }
 
