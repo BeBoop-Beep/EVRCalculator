@@ -51,8 +51,10 @@ Accepted V8 fingerprints:
 - card: `0b66d491565717a9595c5c1da86f75d1c3009a13c0a7886f9dce2e8e26ebd9d7`
 - Set: `71fc319f473a65743e1855260ecc7dbe87ecd21868be1c105d5100d36098daa9`
 
-The cutover-prep workflow `36641788739` then passed **50 tests** and rebuilt
-those same three fingerprints exactly.
+The final cutover-prep workflow `36642183227`, run after rebasing onto the
+current `develop` branch and adding daily publication/onboarding integration
+coverage, passed **132 tests** and rebuilt those same three fingerprints exactly.
+Repository Pattern Overlay Guardrails also passed on that head.
 
 ## Live production preflight
 
