@@ -1,5 +1,5 @@
 {
-  "decision": "ANCHOR25_TEMPORAL_VALIDATION_PASS",
+  "decision": "ANCHOR25_TEMPORAL_VALIDATION_INVALID",
   "candidate": "ANCHOR25",
   "alpha": 0.25,
   "temporalDates": [
@@ -9,8 +9,8 @@
     "2026-09-23",
     "2026-09-26"
   ],
-  "dataValidFolds": 5,
-  "passingFolds": 5,
+  "dataValidFolds": 0,
+  "passingFolds": 0,
   "requiredPassingFolds": 4,
   "guardrails": {
     "weightedWithinSetRho": -0.005,
@@ -18,7 +18,7 @@
     "heldOutSpearman": -0.01,
     "pairConcordance": 0.0
   },
-  "structuralValid": true,
+  "structuralValid": false,
   "productionMutations": "NONE",
-  "nextStep": "COLLECTOR_V8_SHADOW_ONLY"
+  "nextStep": "STOP_ANCHOR25_PROMOTION_WORK"
 }
