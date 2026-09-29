@@ -4,11 +4,14 @@ Purpose:
 - deterministically sample the frozen strict F1 Fair Value cohort across the seven
   frozen price bands;
 - fetch a bounded set of ungraded PkmnPrices eBay sold rows;
-- aggregate transaction/liquidity descriptors without persisting raw provider rows;
+- aggregate transaction/liquidity descriptors;
+- optionally persist the same raw provider rows into shadow research tables without
+  making a second provider request;
 - compare those descriptors with the existing structural/market-anchored Fair
   Value diagnostics.
 
-This script NEVER writes Supabase and NEVER changes a production pricing authority.
+By default this script is read-only. With --persist-evidence it writes only the
+existing shadow PkmnPrices evidence tables. It NEVER changes a production pricing authority.
 PkmnPrices sold rows do not expose raw-card condition, so sold prices are NOT
 treated as Near Mint prices or as Set Value inputs.
 """
