@@ -180,6 +180,13 @@ def collect(
                 sync = store.get_sync_state(provider_card_id)
                 sync_metadata = dict((sync or {}).get("metadata") or {})
 
+                if (
+                    sync_mode == "historical_backfill"
+                    and sync_metadata.get("backfill_complete") is True
+                ):
+                    totals["targets_completed"] += 1
+                    continue
+
                 if sync_mode == "historical_backfill":
                     since = None
                     initial_cursor = (
