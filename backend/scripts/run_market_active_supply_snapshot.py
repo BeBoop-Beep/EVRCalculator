@@ -268,21 +268,31 @@ def collect(
 
     captured_this_attempt = 0
     failures: list[dict[str, str]] = []
-    for target in targets:
+    for target_index, target in enumerate(targets):
         variant_id = str(target["card_variant_id"])
         source_card_id = f"tcgplayer:{target['tcgplayer_product_id']}"
         cached = store.provider_identity(str(target["canonical_card_id"]))
         identity_cost = 0 if cached else 1
         if prior_credits + provider.credits_charged + identity_cost + offer_limit > credit_cap:
-            failures.append({"card_variant_id": variant_id, "code": "DAILY_CREDIT_CAP_WOULD_BE_EXCEEDED"})
-            if variant_id not in existing_states:
-                store.insert_snapshot(
-                    _failure_snapshot(
-                        run_id=run_id, target=target, source_card_id=source_card_id,
-                        code="DAILY_CREDIT_CAP_WOULD_BE_EXCEEDED",
-                    ),
-                    [],
-                )
+            # Preserve one explicit state row for every remaining target without
+            # making another provider call. Absence must never be interpreted as
+            # a disappeared listing.
+            for pending in targets[target_index:]:
+                pending_variant = str(pending["card_variant_id"])
+                failures.append({
+                    "card_variant_id": pending_variant,
+                    "code": "DAILY_CREDIT_CAP_WOULD_BE_EXCEEDED",
+                })
+                if pending_variant not in existing_states:
+                    store.insert_snapshot(
+                        _failure_snapshot(
+                            run_id=run_id,
+                            target=pending,
+                            source_card_id=f"tcgplayer:{pending['tcgplayer_product_id']}",
+                            code="DAILY_CREDIT_CAP_WOULD_BE_EXCEEDED",
+                        ),
+                        [],
+                    )
             break
         try:
             source_card_id, identity_reused = _provider_card_id(
