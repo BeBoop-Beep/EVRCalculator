@@ -446,6 +446,23 @@ def main() -> int:
     )
     v7_replay = v7_replay_check(v7_sets, frozen["sets"])
     if not v7_replay["passed"]:
+        worst = []
+        for detail in v7_replay["details"]:
+            for field, payload in detail["fields"].items():
+                if not payload["nullMatch"] or (payload["absoluteError"] is not None and payload["absoluteError"] > 1e-12):
+                    worst.append({
+                        "setId": detail["setId"],
+                        "setName": detail["setName"],
+                        "field": field,
+                        **payload,
+                    })
+        worst.sort(key=lambda row: -1 if row["absoluteError"] is None else -float(row["absoluteError"]))
+        print(json.dumps({
+            "v7ReplayPassed": False,
+            "maxAbsoluteError": v7_replay["maxAbsoluteError"],
+            "mismatchCount": len(worst),
+            "worst": worst[:20],
+        }, indent=2))
         raise RuntimeError("V8_SHADOW_V7_SET_REPLAY_FAILED")
 
     set_comparison = compare_sets(v7_sets, v8_sets)
