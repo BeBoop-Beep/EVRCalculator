@@ -1,0 +1,41 @@
+name: PkmnPrices Vintage Gap Price Probe
+
+on:
+  push:
+    branches:
+      - feat/pkmnprices-sold-evidence-v1-20260929
+    paths:
+      - ".github/workflows/pkmnprices-gap-price-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Probe exact NM condition/variant rows
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          WT=/tmp/EVRCalculator-pkmnprices-gap-price-probe
+          REF=origin/feat/pkmnprices-sold-evidence-v1-20260929
+
+          cd "$REPO"
+          git fetch origin feat/pkmnprices-sold-evidence-v1-20260929 --quiet
+          rm -rf "$WT"
+          git worktree add --detach "$WT" "$REF"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT"' EXIT
+
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          test -n "${PKMNPRICES_API_KEY:-}" || { echo "PKMNPRICES_API_KEY missing on VM"; exit 20; }
+
+          export PYTHONPATH="$WT"
+          cd "$WT"
+          "$PY" backend/scripts/probe_pkmnprices_vintage_gap_prices.py --market-date 2026-09-28
