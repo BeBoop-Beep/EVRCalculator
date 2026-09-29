@@ -65,6 +65,27 @@ PHASE1_PRICE_AUTHORITY = "get_pokemon_set_value_canonical_prices_as_of_v2_shadow
 EXECUTABLE_PRICE_RPC = "get_pokemon_set_value_canonical_prices_as_of_v2_shadow"
 
 
+def read_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def canonical_hash(value: Any) -> str:
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def fold_seed(market_date: str) -> int:
+    return BASE_SEED + int(market_date.replace("-", ""))
+
+
 def historical_prices_legacy_rpc(client: Any, set_ids: Sequence[str], market_date: str):
     rows = []
     for set_id in sorted(set_ids):
