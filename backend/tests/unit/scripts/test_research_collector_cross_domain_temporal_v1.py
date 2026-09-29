@@ -64,8 +64,8 @@ def test_temporal_harness_has_no_database_write_calls():
     for token in (".insert([", ".insert({", ".update({", ".delete()", ".upsert("):
         assert token not in source
     assert ".table(" not in source
-    assert source.count(".rpc(") == 1
-    assert "get_pokemon_set_value_canonical_prices_as_of_v2_shadow" in source
+    assert "get_pokemon_market_root_standard_card_prices_as_of_v2" in source
+    assert "get_pokemon_set_value_canonical_prices_as_of_v2_shadow" not in source
     assert "historical_prices_legacy_rpc(" in source
 
 
