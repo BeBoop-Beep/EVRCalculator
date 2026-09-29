@@ -5,8 +5,12 @@ from backend.scripts.research_collector_cross_domain_temporal_v1 import (
     EXPECTED_COUNTS,
     GUARDRAILS,
     TEMPORAL_DATES,
+    canonical_hash,
     decide,
     fold_pass,
+    fold_seed,
+    read_json,
+    write_json,
 )
 
 
@@ -63,3 +67,12 @@ def test_temporal_harness_has_no_database_write_calls():
     assert source.count(".rpc(") == 1
     assert "get_pokemon_set_value_canonical_prices_as_of_v2_shadow" in source
     assert "historical_prices_legacy_rpc(" in source
+
+
+def test_runtime_helpers_survive_authority_refactors(tmp_path):
+    target = tmp_path / "payload.json"
+    payload = {"a": 1, "b": ["x", "y"]}
+    write_json(target, payload)
+    assert read_json(target) == payload
+    assert len(canonical_hash(payload)) == 64
+    assert fold_seed("2026-09-14") == 20260929 + 20260914
