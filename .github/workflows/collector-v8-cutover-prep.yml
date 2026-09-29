@@ -1,0 +1,95 @@
+name: Collector V8 Cutover Prep
+
+on:
+  push:
+    branches:
+      - feat/collector-v8-anchor25-cutover-prep-20260929
+    paths:
+      - ".github/workflows/collector-v8-cutover-prep.yml"
+      - "backend/scripts/build_pokemon_collector_appeal_v8_anchor25.py"
+      - "backend/scripts/promote_pokemon_collector_v8_anchor25.py"
+      - "backend/scripts/operationalize_historical_rip.py"
+      - "backend/scripts/build_atomic_set_page_snapshot_generation.py"
+      - "backend/db/services/collector_appeal_current_service.py"
+      - "backend/tests/unit/scripts/test_build_pokemon_collector_appeal_v8_anchor25.py"
+      - "backend/tests/unit/scripts/test_promote_pokemon_collector_v8_anchor25.py"
+      - "backend/tests/unit/scripts/test_operationalize_historical_rip.py"
+      - "backend/tests/unit/scripts/test_build_atomic_set_page_snapshot_generation.py"
+      - "backend/tests/unit/db/services/test_collector_appeal_current_service.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collector-v8-cutover-prep
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest==8.3.5
+
+      - name: Run cutover-prep tests
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_build_pokemon_collector_appeal_v8_anchor25.py \
+            backend/tests/unit/scripts/test_promote_pokemon_collector_v8_anchor25.py \
+            backend/tests/unit/scripts/test_operationalize_historical_rip.py \
+            backend/tests/unit/scripts/test_build_atomic_set_page_snapshot_generation.py \
+            backend/tests/unit/db/services/test_collector_appeal_current_service.py
+
+      - name: Rebuild exact frozen V8 candidate offline
+        run: |
+          python backend/scripts/build_pokemon_collector_appeal_v8_anchor25.py \
+            --output /tmp/collector_v8_candidate.json \
+            > /tmp/collector_v8_summary.json
+
+      - name: Verify accepted research fingerprints and safety boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload=json.loads(Path("/tmp/collector_v8_candidate.json").read_text())
+          manifest=payload["manifest"]
+          assert manifest["formulaFingerprint"]=="212bd6e679bfdb80e93ec8e8d831f242a950c628a375b89655942d6f6e970957"
+          assert manifest["cardFingerprint"]=="0b66d491565717a9595c5c1da86f75d1c3009a13c0a7886f9dce2e8e26ebd9d7"
+          assert manifest["setFingerprint"]=="71fc319f473a65743e1855260ecc7dbe87ecd21868be1c105d5100d36098daa9"
+          assert len(payload["cards"])==18293
+          assert len(payload["sets"])==128
+          assert sum(row.get("collector_appeal") is not None for row in payload["sets"])==22
+          analysis=manifest["calibrationAnalysis"]
+          assert analysis["controlReplayExact"] is True
+          assert analysis["pokemonUnchanged"] is True
+          assert analysis["trainerWithinDomainSpearman"] >= .995
+
+          cutover=Path("backend/scripts/promote_pokemon_collector_v8_anchor25.py").read_text().lower()
+          assert "--commit" in cutover
+          assert "--i-understand-this-promotes-collector-v8" in cutover
+          assert "promote_pokemon_overall" not in cutover
+          print(json.dumps({
+            "formulaFingerprint":manifest["formulaFingerprint"],
+            "cardFingerprint":manifest["cardFingerprint"],
+            "setFingerprint":manifest["setFingerprint"],
+            "cards":len(payload["cards"]),
+            "sets":len(payload["sets"]),
+            "scoredSets":sum(row.get("collector_appeal") is not None for row in payload["sets"]),
+            "trainerWithinDomainSpearman":analysis["trainerWithinDomainSpearman"],
+            "overallRipMutation":"NONE",
+          }, indent=2))
+          PY

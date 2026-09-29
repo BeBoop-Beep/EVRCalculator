@@ -18,10 +18,11 @@ class _Client:
         self.calls.append((name, payload)); return _Rpc(self.inserted)
 
 
-def _plan(all_fresh=True):
+def _plan(all_fresh=True, model_version=subject.V7):
     return {"freshness":{"allFresh":all_fresh,"sources":[{"key":"artist_12m","due":not all_fresh}]},
             "rowsPlanned":128,"scoredRows":22,"unavailableRows":106,
             "providerCallsPlanned":0,"rowsToAppend":128,"modelRunId":"old-model",
+            "modelVersion":model_version,
             "sourceAuthority":{"pokemonTrends":"p","trainer12m":"t12","trainer5y":"t5",
                                "playability":"play","artist12m":"a12","artist5y":"a5"}}
 
@@ -186,3 +187,73 @@ def test_membership_catchup_reuses_current_authority_without_refreshing_due_sour
     assert refreshed == []
     assert captured["artist12m"] == "a12"
     assert any(name=="promote_pokemon_collector_v7_with_set_page_generation" for name,_ in client.calls)
+
+
+def test_v8_dry_run_keeps_zero_mutations(monkeypatch):
+    monkeypatch.setattr(subject, "build_plan", lambda *_a, **_k: _plan(model_version=subject.V8))
+    client = _Client()
+    result = subject.execute(
+        client,
+        as_of=date(2026,9,29),
+        now=datetime.now(timezone.utc),
+        commit=False,
+    )
+    assert result["status"] == "VALIDATED_DRY_RUN"
+    assert result["mutationsPerformed"] == 0
+    assert client.calls == []
+
+
+def test_v8_refresh_uses_v8_formula_gate_and_never_switches_version(monkeypatch):
+    monkeypatch.setattr(subject, "build_plan", lambda *_a, **_k: _plan(False, subject.V8))
+    monkeypatch.setattr(subject, "validate_source_run", lambda *_a, **_k: {})
+    paged_results=iter((
+        [{"set_id":"s","score_status":"scored","collector_appeal_score":50}],
+        [],
+    ))
+    monkeypatch.setattr(subject, "_paged", lambda _factory: next(paged_results))
+    monkeypatch.setattr(subject, "_append_current_collector_history", lambda *_a, **_k: 128)
+    built={
+        "manifest":{
+            "formulaFingerprint":subject.V8_FROZEN_FORMULA_FINGERPRINT,
+            "calibrationAnalysis":{"trainerWithinDomainSpearman":1.0},
+        },
+        "cards":[],
+        "sets":[{"set_id":"s","collector_appeal":51,"F_delta":0,"entering_cards":[],"leaving_cards":[]}],
+    }
+    hooks=_hooks(build=lambda *_a: built)
+    client=_Client()
+    result=subject.execute(
+        client,
+        as_of=date(2026,9,29),
+        now=datetime.now(timezone.utc),
+        commit=True,
+        hooks=hooks,
+    )
+    assert result["status"]=="COLLECTOR_HISTORY_APPENDED"
+    assert result["newModelRunId"]=="new-model"
+    assert any(name=="promote_pokemon_collector_v7_with_set_page_generation" for name,_ in client.calls)
+
+
+def test_v8_formula_drift_fails_closed_before_persistence(monkeypatch):
+    monkeypatch.setattr(subject, "build_plan", lambda *_a, **_k: _plan(False, subject.V8))
+    monkeypatch.setattr(subject, "validate_source_run", lambda *_a, **_k: {})
+    hooks=_hooks(build=lambda *_a:{"manifest":{"formulaFingerprint":"drift"},"sets":[]})
+    client=_Client()
+    result=subject.execute(
+        client,
+        as_of=date(2026,9,29),
+        now=datetime.now(timezone.utc),
+        commit=True,
+        hooks=hooks,
+    )
+    assert "V8_FROZEN_FORMULA_DRIFT_BLOCKER" in result["error"]
+    assert client.calls==[]
+
+
+def test_default_hooks_select_builder_by_current_version():
+    v7=subject.default_hooks(subject.V7)
+    v8=subject.default_hooks(subject.V8)
+    assert v7.build_model is subject._default_build_v7
+    assert v7.persist_model is subject._default_persist_v7
+    assert v8.build_model is subject._default_build_v8
+    assert v8.persist_model is subject._default_persist_v8

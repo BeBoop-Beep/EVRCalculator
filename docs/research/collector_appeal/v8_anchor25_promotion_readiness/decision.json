@@ -1,0 +1,51 @@
+{
+  "decision": "COLLECTOR_V8_ANCHOR25_PROMOTION_READINESS_CODE_READY_NO_PROMOTION",
+  "date": "2026-09-29",
+  "productionPromotionPerformed": false,
+  "databaseWritesPerformed": false,
+  "overallRipMutation": "NONE",
+  "productionCollector": {
+    "modelVersion": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "modelRunId": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "modelInputFingerprint": "3b781f4ec01ef8c74c77b34d2b91e9a90231d2feccf2ee41411de64606378c9d",
+    "formulaFingerprint": "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b",
+    "cardFingerprint": "7dbe5e989c6eb7bcb9d4684707f9c239ab1ca701fc429a7a0605657d79f2ab90",
+    "setFingerprint": "744f088e7e1e33e5f8b40aca707b8f7e0d93bf7def8308b860da0277257a4b52"
+  },
+  "v8Candidate": {
+    "modelVersion": "pokemon_collector_appeal_v8_anchor25_cross_domain_v1",
+    "formulaFingerprint": "212bd6e679bfdb80e93ec8e8d831f242a950c628a375b89655942d6f6e970957",
+    "cardFingerprint": "0b66d491565717a9595c5c1da86f75d1c3009a13c0a7886f9dce2e8e26ebd9d7",
+    "setFingerprint": "71fc319f473a65743e1855260ecc7dbe87ecd21868be1c105d5100d36098daa9",
+    "maxCardParityError": 0,
+    "maxSetParityError": 0,
+    "trainerWithinDomainSpearman": 0.9999999999999998
+  },
+  "temporalValidation": {
+    "foldsPassed": 5,
+    "foldsTotal": 5,
+    "modeledCoverage": "4331/4331 each fold"
+  },
+  "liveSetPagePreflight": {
+    "generationId": "7b1b688e-4453-4c6e-b315-5e7919523408",
+    "expectedSetCount": 212,
+    "collectorContractRows": 128,
+    "collectorModelRows": 128,
+    "modelPageMembershipMismatch": 0,
+    "freshSetCount": 22,
+    "scoredCollectorSetCount": 22,
+    "freshScoredMismatch": 0
+  },
+  "ci": {
+    "researchParityRunId": 36640412954,
+    "cutoverPrepRunId": 36641788739,
+    "cutoverPrepTestsPassed": 50
+  },
+  "dueDynamicSources": [
+    "google_trends_pokemon_v2",
+    "google_trends_trainer:today 12-m",
+    "google_trends_artist:today 12-m"
+  ],
+  "nextStep": "REVIEW_MERGE_DEPLOY_THEN_READ_ONLY_PRODUCTION_PREFLIGHT",
+  "explicitPromotionAuthorizationStillRequired": true
+}
