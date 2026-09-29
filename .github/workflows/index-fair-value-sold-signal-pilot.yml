@@ -1,24 +1,17 @@
 name: Fair Value Sold Signal Pilot
 
 on:
-  push:
-    branches:
-      - research/index-fair-value-sold-signal-pilot-20260929
-    paths:
-      - "backend/scripts/run_index_fair_value_sold_signal_pilot.py"
-      - ".github/workflows/index-fair-value-sold-signal-pilot.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: index-fair-value-sold-signal-pilot
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   pilot:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: self-hosted
     timeout-minutes: 45
     steps:
@@ -29,7 +22,7 @@ jobs:
           REPO=/home/ubuntu/repos/EVRCalculator
           PY="$REPO/.venv/bin/python"
           WT=/tmp/EVRCalculator-index-fair-value-sold-pilot
-          REF=origin/research/index-fair-value-sold-signal-pilot-20260929
+          REF="$GITHUB_SHA"
           HOLD=/home/ubuntu/state/db-safety/hold.json
 
           [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
@@ -41,7 +34,7 @@ jobs:
           flock -w 300 9 || { echo "PkmnPrices API lock remained held"; exit 21; }
 
           cd "$REPO"
-          git fetch origin research/index-fair-value-sold-signal-pilot-20260929 --quiet
+          git fetch origin "$GITHUB_REF_NAME" --quiet
           rm -rf "$WT"
           git worktree add --detach "$WT" "$REF"
           trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT"' EXIT
@@ -58,31 +51,37 @@ jobs:
           cd "$WT"
 
           echo "== no-credit code gates =="
-          "$PY" -m py_compile             backend/scripts/run_index_fair_value_sold_signal_pilot.py             backend/pricing_pipeline/pkmnprices_client.py             backend/pricing_pipeline/pkmnprices_sold.py
-          "$PY" -m pytest -q backend/tests/unit/pricing_pipeline/test_pkmnprices.py
+          "$PY" -m py_compile             backend/scripts/run_index_fair_value_sold_signal_pilot.py             backend/scripts/reanalyze_index_fair_value_sold_signal_v2.py             backend/pricing_pipeline/pkmnprices_client.py             backend/pricing_pipeline/pkmnprices_sold.py
+          "$PY" -m pytest -q             backend/tests/unit/pricing_pipeline/test_pkmnprices.py             backend/tests/unit/scripts/test_index_fair_value_sold_signal_v2.py
 
           test -s backend/artifacts/index_fair_value/index_fair_value_f1_dataset.json
           test -s backend/artifacts/index_fair_value/index_fair_value_f2_oof_predictions.csv
           test -s backend/artifacts/index_fair_value/index_fair_value_f2r_target_blind_predictions.csv
 
-          echo "== bounded live pilot =="
+          echo "== bounded live collection + V1 receipt =="
           "$PY" backend/scripts/run_index_fair_value_sold_signal_pilot.py             --per-band 30             --max-sold-per-card 20             --credit-cap 4500             --cutoff-date 2026-09-28
 
-          echo "== research receipt =="
-          cat backend/artifacts/index_fair_value/sold_signal_pilot_v1/pilot_report.json
+          echo "== zero-credit leakage-free V2 reanalysis =="
+          "$PY" backend/scripts/reanalyze_index_fair_value_sold_signal_v2.py             --input backend/artifacts/index_fair_value/sold_signal_pilot_v1/sample_features.csv
 
-          echo "== stage aggregate research artifact for Actions upload =="
-          OUTDIR="$GITHUB_WORKSPACE/sold_signal_pilot_v1"
+          echo "== research receipts =="
+          cat backend/artifacts/index_fair_value/sold_signal_pilot_v1/pilot_report.json
+          cat backend/artifacts/index_fair_value/sold_signal_pilot_v2/pilot_report.json
+
+          echo "== stage aggregate research artifacts =="
+          OUTDIR="$GITHUB_WORKSPACE/index-fair-value-sold-signal-pilot-v2"
           rm -rf "$OUTDIR"
-          mkdir -p "$OUTDIR"
-          cp backend/artifacts/index_fair_value/sold_signal_pilot_v1/pilot_report.json "$OUTDIR/"
-          cp backend/artifacts/index_fair_value/sold_signal_pilot_v1/sample_features.csv "$OUTDIR/"
-          echo "INDEX_FAIR_VALUE_SOLD_SIGNAL_PILOT=PASS"
+          mkdir -p "$OUTDIR/v1" "$OUTDIR/v2"
+          cp backend/artifacts/index_fair_value/sold_signal_pilot_v1/pilot_report.json "$OUTDIR/v1/"
+          cp backend/artifacts/index_fair_value/sold_signal_pilot_v1/sample_features.csv "$OUTDIR/v1/"
+          cp backend/artifacts/index_fair_value/sold_signal_pilot_v2/pilot_report.json "$OUTDIR/v2/"
+          cp backend/artifacts/index_fair_value/sold_signal_pilot_v2/oof_predictions.csv "$OUTDIR/v2/"
+          echo "INDEX_FAIR_VALUE_SOLD_SIGNAL_PILOT_V2=PASS"
 
       - name: Upload aggregate research artifact
         uses: actions/upload-artifact@v4
         with:
-          name: index-fair-value-sold-signal-pilot-v1
-          path: sold_signal_pilot_v1/
+          name: index-fair-value-sold-signal-pilot-v2
+          path: index-fair-value-sold-signal-pilot-v2/
           if-no-files-found: error
           retention-days: 30
