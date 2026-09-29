@@ -180,10 +180,11 @@ class PkmnPricesClient:
         variant: str | None = None,
         since: str | None = None,
         max_items: int = 200,
+        initial_cursor: str | None = None,
     ) -> dict[str, Any]:
         """Collect a bounded cursor walk and report whether older rows remain."""
         rows: list[dict[str, Any]] = []
-        cursor: str | None = None
+        cursor: str | None = initial_cursor
         has_more = False
         next_cursor: str | None = None
         while len(rows) < max(0, int(max_items)):
@@ -235,5 +236,6 @@ class PkmnPricesClient:
                 variant=variant,
                 since=since,
                 max_items=max_items,
+                initial_cursor=None,
             )["rows"]
         )
