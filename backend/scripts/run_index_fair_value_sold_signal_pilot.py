@@ -101,14 +101,21 @@ def _load_frozen() -> pd.DataFrame:
     return df.merge(market, on="canonical_card_id", validate="one_to_one")
 
 
+def _chunks(values: list[str], size: int = 200):
+    for start in range(0, len(values), size):
+        yield values[start:start + size]
+
+
 def _variant_product_ids(db: Any, variant_ids: list[str]) -> dict[str, str]:
-    rows = _paged(
-        lambda: db.table("card_variant_external_identities")
-        .select("card_variant_id,provider,external_product_id")
-        .eq("provider", "tcgplayer")
-        .in_("card_variant_id", variant_ids)
-        .order("card_variant_id")
-    )
+    rows: list[dict[str, Any]] = []
+    for chunk in _chunks(variant_ids):
+        rows.extend(_paged(
+            lambda chunk=chunk: db.table("card_variant_external_identities")
+            .select("card_variant_id,provider,external_product_id")
+            .eq("provider", "tcgplayer")
+            .in_("card_variant_id", chunk)
+            .order("card_variant_id")
+        ))
     grouped: dict[str, set[str]] = defaultdict(set)
     for row in rows:
         value = str(row.get("external_product_id") or "").strip()
@@ -118,12 +125,14 @@ def _variant_product_ids(db: Any, variant_ids: list[str]) -> dict[str, str]:
 
 
 def _variant_rows(db: Any, variant_ids: list[str]) -> dict[str, dict[str, Any]]:
-    rows = _paged(
-        lambda: db.table("card_variants")
-        .select("id,edition,printing_type,special_type")
-        .in_("id", variant_ids)
-        .order("id")
-    )
+    rows: list[dict[str, Any]] = []
+    for chunk in _chunks(variant_ids):
+        rows.extend(_paged(
+            lambda chunk=chunk: db.table("card_variants")
+            .select("id,edition,printing_type,special_type")
+            .in_("id", chunk)
+            .order("id")
+        ))
     return {str(row["id"]): dict(row) for row in rows}
 
 
