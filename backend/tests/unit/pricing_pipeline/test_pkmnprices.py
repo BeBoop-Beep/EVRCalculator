@@ -17,6 +17,7 @@ from backend.pricing_pipeline.pkmnprices_sold import (
     parse_provider_variant,
     resolve_internal_variant,
 )
+from backend.pricing_pipeline.pkmnprices_sold_identity import classify_vintage_sold
 
 
 class Response(io.BytesIO):
@@ -213,3 +214,111 @@ def test_raw_sold_condition_is_never_inferred_from_title():
     )
     assert out["condition_state"] == "UNKNOWN"
     assert out["set_value_nm_eligible"] is False
+
+
+def _vintage_target(*, edition="1st-edition", variant_id="v1", set_name="Base", number="5/102"):
+    return {
+        "card_name": "Clefairy",
+        "card_number": number,
+        "set_name": set_name,
+        "gap_variants": [{
+            "card_variant_id": variant_id,
+            "effective_edition": edition,
+            "printing_type": "holo",
+        }],
+    }
+
+
+def test_strict_vintage_identity_accepts_explicit_first_edition():
+    out = classify_vintage_sold(
+        _vintage_target(),
+        {
+            "title": "Pokemon Clefairy 5/102 Base Set 1st Edition Holo",
+            "variant": "Holofoil",
+            "attribution": "exact",
+            "grader": None,
+            "grade": None,
+        },
+    )
+    assert out["state"] == "EXACT"
+    assert out["card_variant_id"] == "v1"
+
+
+def test_strict_vintage_identity_rejects_unlimited_for_first_edition_target():
+    out = classify_vintage_sold(
+        _vintage_target(),
+        {
+            "title": "Pokemon Clefairy 5/102 Base Set Unlimited Holo",
+            "variant": "Holofoil",
+            "attribution": "exact",
+            "grader": None,
+            "grade": None,
+        },
+    )
+    assert out["state"] == "NO_MATCH"
+    assert out["reason"] == "WRONG_EDITION"
+
+
+def test_strict_vintage_identity_rejects_base_set_2_fraction():
+    target = {
+        "card_name": "Chansey",
+        "card_number": "3/102",
+        "set_name": "Base",
+        "gap_variants": [{
+            "card_variant_id": "shadow",
+            "effective_edition": "shadowless",
+            "printing_type": "holo",
+        }],
+    }
+    out = classify_vintage_sold(
+        target,
+        {
+            "title": "Chansey Holo Base Set 2 3/130 Shadowless",
+            "variant": "Holofoil",
+            "attribution": "exact",
+            "grader": None,
+            "grade": None,
+        },
+    )
+    assert out["state"] == "NO_MATCH"
+    assert out["reason"] in {"WRONG_CARD_NUMBER", "WRONG_SET"}
+
+
+def test_strict_vintage_identity_accepts_explicit_shadowless():
+    target = {
+        "card_name": "Chansey",
+        "card_number": "3/102",
+        "set_name": "Base",
+        "gap_variants": [{
+            "card_variant_id": "shadow",
+            "effective_edition": "shadowless",
+            "printing_type": "holo",
+        }],
+    }
+    out = classify_vintage_sold(
+        target,
+        {
+            "title": "Pokemon Chansey 3/102 Base Set Shadowless Holo",
+            "variant": "Holofoil",
+            "attribution": "exact",
+            "grader": None,
+            "grade": None,
+        },
+    )
+    assert out["state"] == "EXACT"
+    assert out["card_variant_id"] == "shadow"
+
+
+def test_strict_vintage_identity_refuses_missing_edition():
+    out = classify_vintage_sold(
+        _vintage_target(),
+        {
+            "title": "Pokemon Clefairy 5/102 Base Set Holo",
+            "variant": "Holofoil",
+            "attribution": "exact",
+            "grader": None,
+            "grade": None,
+        },
+    )
+    assert out["state"] == "AMBIGUOUS"
+    assert out["reason"] == "EDITION_NOT_EXPLICIT"
