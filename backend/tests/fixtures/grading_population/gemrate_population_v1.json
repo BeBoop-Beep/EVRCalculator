@@ -1,0 +1,36 @@
+{
+  "description": "1999 Pokemon Base Set 1st Edition Charizard 4",
+  "gemrate_id": "fixture-gemrate-base-charizard-first-edition",
+  "universal_gemrate_id": "fixture-gemrate-base-charizard-first-edition",
+  "source_observed_at": "2026-09-28T18:00:00Z",
+  "population": {
+    "population_data": {
+      "data_last_updated": "2026-09-28",
+      "by_grader": {
+        "beckett": {
+          "grades": {
+            "beckett_9_5": 120,
+            "beckett_10_pristine": 8,
+            "beckett_10_black": 2
+          }
+        },
+        "cgc": {
+          "grades": {
+            "cgc_10": 31,
+            "cgc_10_pristine": 11,
+            "cgc_10_perfect": 1
+          }
+        },
+        "psa": {
+          "grades": {
+            "psa_8_5": 77,
+            "psa_10": 124
+          },
+          "qualifiers": {
+            "psa_q8": 4
+          }
+        }
+      }
+    }
+  }
+}
