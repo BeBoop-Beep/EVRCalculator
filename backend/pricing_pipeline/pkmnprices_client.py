@@ -153,6 +153,30 @@ class PkmnPricesClient:
         payload = self.get(f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}", {"currency": currency})
         return dict(payload)
 
+    def price_history_page(
+        self,
+        provider_card_id: str | int,
+        *,
+        currency: str = "usd",
+        period: str = "30d",
+        condition: str | None = None,
+        variant: str | None = None,
+        limit: int = 30,
+        page: int = 1,
+    ) -> dict[str, Any]:
+        """Fetch bounded daily price aggregates for one card/condition/variant."""
+        return self.get(
+            f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}/prices/history",
+            {
+                "currency": currency,
+                "period": period,
+                "condition": condition,
+                "variant": variant,
+                "limit": max(1, min(int(limit), 365)),
+                "page": max(1, int(page)),
+            },
+        )
+
     def tcgplayer_listings_page(
         self,
         provider_card_id: str | int,
