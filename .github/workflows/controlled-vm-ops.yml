@@ -494,7 +494,7 @@ jobs:
           echo "SUPABASE_PROJECT_RESTART=PASS"
 
       - name: Execute approved operation
-        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' && env.VM_OPERATION != 'supabase-project-restart' }}
+        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' && env.VM_OPERATION != 'pkmnprices-credential-status' && env.VM_OPERATION != 'pkmnprices-install-credential' && env.VM_OPERATION != 'pkmnprices-probe' && env.VM_OPERATION != 'supabase-project-restart' }}
         shell: bash
         run: |
           set -euo pipefail
