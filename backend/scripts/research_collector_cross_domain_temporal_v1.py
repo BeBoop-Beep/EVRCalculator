@@ -127,7 +127,12 @@ def load_frozen_cohort(root: Path) -> tuple[list[dict[str, Any]], dict[str, Any]
 
 
 def load_price_state(root: Path, market_date: str) -> tuple[dict[str, float], dict[str, Any]]:
-    rows = read_json(root / PRICE_FILES[market_date])
+    payload = read_json(root / PRICE_FILES[market_date])
+    if not isinstance(payload, Mapping) or payload.get("date") != market_date:
+        raise RuntimeError(f"TEMPORAL_PRICE_STATE_SCHEMA_FAILED:{market_date}")
+    if payload.get("authority") != "pre_drift_sql_20260928204424":
+        raise RuntimeError(f"TEMPORAL_PRICE_STATE_AUTHORITY_FAILED:{market_date}")
+    rows = payload.get("rows") or []
     by_id = {str(row["id"]): float(row["p"]) for row in rows}
     if len(rows) != EXPECTED_COUNTS["modeledRows"] or len(by_id) != len(rows):
         raise RuntimeError(f"TEMPORAL_PRICE_STATE_COVERAGE_FAILED:{market_date}")
@@ -135,6 +140,7 @@ def load_price_state(root: Path, market_date: str) -> tuple[dict[str, float], di
         raise RuntimeError(f"TEMPORAL_PRICE_STATE_INVALID_PRICE:{market_date}")
     lineage = {
         "marketDate": market_date,
+        "authority": payload.get("authority"),
         "rows": len(rows),
         "observedDateCounts": dict(sorted(Counter(str(row.get("obs") or "") for row in rows).items())),
         "priceStateFingerprint": canonical_hash(sorted((str(row["id"]), float(row["p"])) for row in rows)),
