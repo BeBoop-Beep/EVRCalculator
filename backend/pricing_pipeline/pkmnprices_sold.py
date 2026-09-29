@@ -97,8 +97,11 @@ def normalize_sold_listing(
             raise ValueError("invalid ingested_at") from exc
 
     grader = str(row.get("grader") or "").strip() or None
+    # Grades are opaque provider identifiers. In particular, half grades must
+    # never pass through float conversion ("8.5" is not "8.50").
     grade = str(row.get("grade") or "").strip() or None
-    graded = bool(grader or grade)
+    grade_qualifier = str(row.get("grade_qualifier") or "").strip() or None
+    graded = bool(grader or grade or grade_qualifier)
     resolution = resolve_internal_variant(row.get("variant"), internal_variants)
     exact_identity = attribution == "exact" and resolution["state"] == "EXACT"
     fair_value_signal_eligible = bool(exact_identity and not graded and currency == "USD")
@@ -123,6 +126,7 @@ def normalize_sold_listing(
         "currency": currency,
         "grader": grader,
         "grade": grade,
+        "grade_qualifier": grade_qualifier,
         "graded": graded,
         "provider_variant": str(row.get("variant") or "").strip() or None,
         "attribution": attribution,

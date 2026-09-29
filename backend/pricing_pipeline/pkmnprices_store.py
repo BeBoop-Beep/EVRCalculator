@@ -37,7 +37,7 @@ def _same_evidence(a: dict[str, Any], b: dict[str, Any]) -> bool:
     # so replay equality is based only on immutable provider/raw identity fields.
     fields = (
         "provider_listing_id", "provider_card_id", "canonical_card_id",
-        "title", "price", "currency", "grader", "grade", "graded",
+        "title", "price", "currency", "grader", "grade", "grade_qualifier", "graded",
         "provider_variant", "attribution", "sold_at", "ingested_at", "listing_url",
     )
     for field in fields:

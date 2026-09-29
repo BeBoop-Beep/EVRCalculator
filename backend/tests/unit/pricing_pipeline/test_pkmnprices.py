@@ -116,6 +116,16 @@ def test_cursor_walk_is_bounded_by_item_credit_cap():
     assert "limit=5" in opener.seen[1].full_url
 
 
+def test_sold_filters_support_combined_stream_grader_and_grade():
+    opener = opener_for([{"data": [], "pagination": {"has_more": False}}])
+    client = PkmnPricesClient("secret", opener=opener, sleep=lambda _: None)
+    client.ebay_sold_collection(77, graded=None, grader="CGC", grade="10", max_items=20)
+    url = opener.seen[0].full_url
+    assert "graded=" not in url
+    assert "grader=CGC" in url
+    assert "grade=10" in url
+
+
 def test_http_error_does_not_leak_key():
     body = io.BytesIO(json.dumps({"error": {"code": "forbidden", "message": "upgrade"}}).encode())
 
@@ -183,6 +193,47 @@ def test_sold_evidence_is_fair_value_signal_eligible_but_never_nm_by_default():
     assert out["fair_value_signal_eligible"] is True
     assert out["set_value_nm_eligible"] is False
     assert out["condition_state"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    ("grader", "grade", "qualifier"),
+    [
+        ("CGC", "10", "Pristine"),
+        ("CGC", "10", None),
+        ("BGS", "10", "Black Label"),
+        ("BGS", "10", None),
+        ("PSA", "8.5", None),
+    ],
+)
+def test_graded_identity_preserves_qualifier_and_string_grade(grader, grade, qualifier):
+    row = {
+        "id": 900, "title": "graded card", "price": "100.00", "currency": "USD",
+        "grader": grader, "grade": grade, "grade_qualifier": qualifier,
+        "variant": "Holofoil", "attribution": "exact", "sold_at": "2026-09-20",
+    }
+    out = normalize_sold_listing(
+        row, provider_card_id=77, canonical_card_id="card",
+        internal_variants=[{"id": "variant", "edition": None, "printing_type": "holo"}],
+        collected_at="2026-09-29T00:00:00Z",
+    )
+    assert out["grade"] == grade
+    assert isinstance(out["grade"], str)
+    assert out["grade_qualifier"] == qualifier
+    assert out["graded"] is True
+    assert out["fair_value_signal_eligible"] is False
+    assert out["set_value_nm_eligible"] is False
+
+
+def test_grade_qualifier_is_part_of_replay_evidence_identity():
+    base = {
+        "provider_listing_id": 1, "provider_card_id": 2, "canonical_card_id": "card",
+        "title": "Card", "price": "10.00", "currency": "USD", "grader": "CGC",
+        "grade": "10", "grade_qualifier": "Pristine", "graded": True,
+        "provider_variant": "Holofoil", "attribution": "exact", "sold_at": "2026-09-20",
+        "ingested_at": None, "listing_url": None,
+    }
+    assert _same_evidence(base, dict(base)) is True
+    assert _same_evidence(base, dict(base, grade_qualifier=None)) is False
 
 
 def test_shared_attribution_is_stored_but_not_fair_value_signal_eligible():
