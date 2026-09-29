@@ -63,8 +63,14 @@ def _health(*, v2_healthy=False, alerts=None, ready=10, maintained=37):
         "ready_and_current": ready,
         "v2": {
             "healthy": v2_healthy,
-            "min_computed_through": "2026-09-27" if v2_healthy else "2026-09-26",
-            "max_computed_through": "2026-09-27",
+            "status": "CURRENT" if v2_healthy else "STALE",
+            "reason": None if v2_healthy else "SURFACE_V2_PUBLICATION_LAG",
+            "canonical_accepted_date": "2026-09-27",
+            "surface_v2_date": "2026-09-27" if v2_healthy else "2026-09-26",
+            "surface_lag_days": 0 if v2_healthy else 1,
+            "maintained_cache_total": maintained,
+            "maintained_cache_current": ready,
+            "maintained_cache_not_current": maintained - ready,
         },
         "alerts": list(alerts or []),
     }
