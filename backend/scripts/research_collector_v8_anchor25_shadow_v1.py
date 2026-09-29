@@ -138,21 +138,24 @@ def set_score_rows(
         appeal = min(100.0, max(0.0, d_final + modifier)) if modifier is not None else None
 
         base = frozen_set.get(set_id) or {}
+        supported = base.get("D_final") is not None
         out.append({
             "set_id": set_id,
             "set_name": base.get("set_name"),
-            "D_pokemon": float(dp),
-            "S": float(strength),
-            "B": float(breadth),
-            "D_trainer": float(dt),
-            "trainer_lift_points": float(trainer_lift),
-            "D_final": float(d_final),
-            "F": None if frequency is None else float(frequency),
-            "frequency_index": None if index is None else float(index),
-            "frequency_modifier": None if modifier is None else float(modifier),
-            "collector_appeal": None if appeal is None else float(appeal),
-            "desirable_card_count": len(desirable),
-            "frequency_excess_coverage": coverage,
+            "D_pokemon": float(dp) if supported else None,
+            "S": float(strength) if supported else None,
+            "B": float(breadth) if supported else None,
+            "D_trainer": float(dt) if supported else None,
+            "trainer_lift_points": float(trainer_lift) if supported else None,
+            "D_final": float(d_final) if supported else None,
+            "F": (None if frequency is None else float(frequency)) if supported else None,
+            "frequency_index": (None if index is None else float(index)) if supported else None,
+            "frequency_modifier": (None if modifier is None else float(modifier)) if supported else None,
+            "collector_appeal": (None if appeal is None else float(appeal)) if supported else None,
+            "desirable_card_count": len(desirable) if supported else None,
+            "frequency_excess_coverage": coverage if supported else None,
+            "availabilityInheritedFromV7": supported,
+            "diagnosticComputedDFinal": float(d_final),
         })
     eligible = [row for row in out if row["collector_appeal"] is not None]
     ranks = ranked(eligible, "collector_appeal", "set_id")
