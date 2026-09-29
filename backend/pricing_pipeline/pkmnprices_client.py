@@ -172,7 +172,7 @@ class PkmnPricesClient:
             },
         )
 
-    def ebay_sold(
+    def ebay_sold_collection(
         self,
         provider_card_id: str | int,
         *,
@@ -180,10 +180,12 @@ class PkmnPricesClient:
         variant: str | None = None,
         since: str | None = None,
         max_items: int = 200,
-    ) -> list[dict[str, Any]]:
-        """Collect a bounded cursor walk.  max_items is also a hard credit bound."""
+    ) -> dict[str, Any]:
+        """Collect a bounded cursor walk and report whether older rows remain."""
         rows: list[dict[str, Any]] = []
         cursor: str | None = None
+        has_more = False
+        next_cursor: str | None = None
         while len(rows) < max(0, int(max_items)):
             remaining = int(max_items) - len(rows)
             if remaining <= 0:
@@ -201,10 +203,37 @@ class PkmnPricesClient:
                 raise PkmnPricesAPIError(200, "invalid_payload", "sold data is not an array")
             rows.extend(dict(row) for row in data if isinstance(row, dict))
             page = payload.get("pagination") or {}
-            if not page.get("has_more"):
+            has_more = bool(page.get("has_more"))
+            next_value = page.get("next_cursor")
+            next_cursor = str(next_value) if next_value else None
+            if not has_more:
                 break
-            next_cursor = page.get("next_cursor")
             if not next_cursor or next_cursor == cursor:
                 raise PkmnPricesAPIError(200, "invalid_pagination", "sold pagination cursor did not advance")
-            cursor = str(next_cursor)
-        return rows
+            if len(rows) >= int(max_items):
+                break
+            cursor = next_cursor
+        return {
+            "rows": rows,
+            "has_more": has_more,
+            "next_cursor": next_cursor if has_more else None,
+        }
+
+    def ebay_sold(
+        self,
+        provider_card_id: str | int,
+        *,
+        graded: bool | None = False,
+        variant: str | None = None,
+        since: str | None = None,
+        max_items: int = 200,
+    ) -> list[dict[str, Any]]:
+        return list(
+            self.ebay_sold_collection(
+                provider_card_id,
+                graded=graded,
+                variant=variant,
+                since=since,
+                max_items=max_items,
+            )["rows"]
+        )
