@@ -209,6 +209,16 @@ from backend.db.services.market_explorer_instrument_search import (
 from backend.db.services.sitewide_search import search_sitewide
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
+from backend.db.services.rankings_redesign_contract_service import (
+    project_product_contract,
+    read_product_best_open_map,
+    read_card_facets,
+    read_financial_cohort,
+    read_financial_history_page,
+    read_overview_v2,
+    read_pack_economics,
+    read_scorecards,
+)
 from backend.domain.pokemon.market_explorer_query import (
     ASSET_SEALED,
     SUPPORTED_ASSETS,
@@ -253,13 +263,20 @@ class BenchmarkFinancialHistoryEntityRequest(BaseModel):
     entity_id: UUID
 
 
+class BenchmarkFinancialHistoryCursor(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    market_date: date = Field(alias="marketDate")
+    entity_type: Literal["set", "era"] = Field(alias="entityType")
+    entity_id: UUID = Field(alias="entityId")
+
+
 class BenchmarkFinancialHistoryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     entities: List[BenchmarkFinancialHistoryEntityRequest] = Field(min_length=1, max_length=22)
     start_date: date
     end_date: date
     limit: int = Field(default=10000, ge=1, le=10000)
-    after: Optional[Dict[str, Any]] = None
+    after: Optional[BenchmarkFinancialHistoryCursor] = None
 
 
 class BenchmarkHistoryRequest(BenchmarkCurrentRequest):
@@ -678,28 +695,11 @@ def pokemon_financial_rip_history(
         })
     client = _benchmark_client()
     try:
-        contract = resolve_active_contract(client)
-        response = client.rpc("get_pokemon_financial_rip_history_v1", {
-            "p_entities": entities,
-            "p_start_date": body.start_date.isoformat(),
-            "p_end_date": body.end_date.isoformat(),
-            "p_benchmark_key": contract.benchmark_key,
-            "p_calibration_version": contract.calibration_version,
-            "p_limit": body.limit,
-            "p_after": body.after,
-        }).execute()
-        data = getattr(response, "data", None)
-        if not isinstance(data, dict) or not isinstance(data.get("rows"), list):
-            raise BenchmarkError("invalid Financial RIP history read contract")
-        result = {
-            "contractVersion": "financial-rip-history-v1",
-            "status": "available",
-            "rows": data.get("rows") or [],
-            "hasMore": bool(data.get("has_more")),
-            "nextCursor": data.get("next_cursor"),
-            **_financial_history_range(client, contract),
-        }
-        return result
+        return read_financial_history_page(
+            client, entities=entities, start_date=body.start_date,
+            end_date=body.end_date, limit=body.limit,
+            after=body.after.model_dump(mode="json", by_alias=True) if body.after else None,
+        )
     except BenchmarkContractUnavailable as exc:
         raise _benchmark_unavailable(exc) from exc
     except BenchmarkError as exc:
@@ -708,7 +708,66 @@ def pokemon_financial_rip_history(
         }) from exc
 
 
+@app.get("/tcgs/pokemon/rankings/overview-v2")
+def pokemon_rankings_overview_v2():
+    """Public narrow first-render projection; no paid Benchmark dependency."""
+    global _rankings_overview_cache
+    cached = _rankings_overview_cache
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+    client = _benchmark_client()
+    try:
+        contract = resolve_active_contract(client)
+        result = read_overview_v2(
+            client, legacy_headlines=_public_benchmark_overview_headlines(client, contract)
+        )
+        _rankings_overview_cache = (time.monotonic() + 60.0, result)
+        return result
+    except BenchmarkContractUnavailable as exc:
+        raise _benchmark_unavailable(exc) from exc
+
+
+@app.get("/tcgs/pokemon/rankings/financial-cohort")
+def pokemon_rankings_financial_cohort():
+    """Public identities only: the 22-Set Financial opening cohort."""
+    return read_financial_cohort(_benchmark_client())
+
+
+@app.get("/tcgs/pokemon/rankings/scorecards")
+def pokemon_rankings_scorecards(
+    entity_type: Literal["set", "era"] = Query(...),
+    authorization: Optional[str] = Header(None),
+    token_cookie: Optional[str] = Cookie(None, alias="token"),
+):
+    _require_index_feature(feature=FEATURE_SET_RIP_ANALYTICS, code="INDEX_PLUS_REQUIRED",
+                           message="Rankings scorecards require Index Plus.",
+                           authorization=authorization, token_cookie=token_cookie)
+    client = _benchmark_client()
+    contract = resolve_active_contract(client)
+    return read_scorecards(client, entity_type=entity_type, benchmark_key=contract.benchmark_key,
+                           calibration_version=contract.calibration_version)
+
+
+@app.get("/tcgs/pokemon/rankings/pack-economics")
+def pokemon_rankings_pack_economics(
+    authorization: Optional[str] = Header(None),
+    token_cookie: Optional[str] = Cookie(None, alias="token"),
+):
+    """Plus prepared economics joined to exact, independently dated Best-Open."""
+    _require_index_feature(
+        feature=FEATURE_PACK_ECONOMICS, code="INDEX_PLUS_REQUIRED",
+        message="Detailed Pack Economics requires Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
+    return read_pack_economics(_benchmark_client())
+
+
 logger = logging.getLogger(__name__)
+
+# These contain only shared, publication-bound authority data. Entitlement is
+# still checked on every paid request and paid HTTP responses remain no-store.
+_rankings_overview_cache: tuple[float, Dict[str, Any]] | None = None
+_rankings_product_authority_cache: tuple[float, Dict[str, Any]] | None = None
 
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
 _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
@@ -1730,6 +1789,7 @@ def get_card_collector_appeal_rankings(
     search: Optional[str] = Query(default=None), era: Optional[str] = Query(default=None),
     set_id: Optional[str] = Query(default=None, alias="set"), rarity: Optional[str] = Query(default=None),
     sort: str = Query(default="rank"), direction: str = Query(default="asc"),
+    lens: Literal["overall", "pokemon", "trainer", "artist", "playability"] = Query(default="overall"),
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
@@ -1739,13 +1799,79 @@ def get_card_collector_appeal_rankings(
     try:
         return _tiered_response(query_card_collector_appeal(
             service_read_client, page=page, page_size=page_size, search=search,
-            era=era, set_id=set_id, rarity=rarity, sort=sort, direction=direction,
+            era=era, set_id=set_id, rarity=rarity, sort=sort, direction=direction, lens=lens,
         ))
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "CARD_COLLECTOR_APPEAL_QUERY_INVALID"}, status_code=400)
     except Exception:
         logger.exception("/explore/card-collector-appeal unexpected error")
         return JSONResponse(content={"message": "Unable to load Collector Appeal", "code": "CARD_COLLECTOR_APPEAL_FAILED"}, status_code=500)
+
+
+@app.get("/explore/card-ranking-facets")
+def get_card_ranking_facets(
+    lens: Literal["collector", "chase"] = Query(...),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    # Facet membership itself reveals the paid ranking universe, so apply the
+    # same gate as the corresponding rows before touching the pointer view.
+    if lens == "collector":
+        _require_card_collector_appeal(authorization=authorization, token_cookie=token_cookie)
+    else:
+        _require_card_chase_efficiency(authorization=authorization, token_cookie=token_cookie)
+    return _tiered_response(read_card_facets(service_read_client, lens=lens))
+
+
+def _rankings_product_v2(
+    *, view: str, request: Request, authorization: Optional[str], token_cookie: Optional[str]
+):
+    user_id = _require_index_feature(
+        feature=FEATURE_PRODUCT_RIP, code="INDEX_PLUS_REQUIRED",
+        message="Product Rankings require Index Plus.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
+                        route=f"/explore/product-rankings/{view}")
+    global _rankings_product_authority_cache
+    cached = _rankings_product_authority_cache
+    if cached and cached[0] > time.monotonic():
+        payload = cached[1]
+    else:
+        rankings = get_pokemon_explore_rankings_lens_payload(lens="products", limit=200)
+        payload = read_public_overall_product_rankings(
+            "full_market", product_family_rankings=rankings.get("productFamilyRankings") or {},
+            include_best_open=False,
+        )
+        _rankings_product_authority_cache = (time.monotonic() + 60.0, payload)
+    best_open_products = None
+    if view == "economics":
+        best_open_products = read_product_best_open_map(
+            service_read_client, reference_date=payload.get("marketDate")
+        )
+    return _tiered_response(project_product_contract(
+        payload, view=view, best_open_products=best_open_products
+    ))
+
+
+@app.get("/explore/product-rankings/scores")
+def get_product_ranking_scores(
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    return _rankings_product_v2(view="scores", request=request, authorization=authorization,
+                                token_cookie=token_cookie)
+
+
+@app.get("/explore/product-rankings/economics")
+def get_product_ranking_economics(
+    request: Request,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    return _rankings_product_v2(view="economics", request=request, authorization=authorization,
+                                token_cookie=token_cookie)
 
 
 @app.get("/explore/product-chase-intelligence")

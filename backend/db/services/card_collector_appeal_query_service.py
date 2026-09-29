@@ -12,6 +12,13 @@ SORT_COLUMNS = {
     "artist_appeal": "artist_appeal", "playability": "playability",
     "pull_probability": "modeled_pull_probability", "name": "card_name",
 }
+COMPONENT_LENSES = {
+    "overall": ("collector_appeal_score", None),
+    "pokemon": ("pokemon_appeal", "pokemon"),
+    "trainer": ("trainer_appeal", "trainer"),
+    "artist": ("artist_appeal", None),
+    "playability": ("playability", None),
+}
 RANKING_COLUMNS = (
     "model_run_id,pokemon_canonical_card_id,set_id,card_name,rarity,"
     "collector_appeal_score,rank,cohort_size,status,methodology_version,"
@@ -91,9 +98,18 @@ def _resolve_era_set_ids(client: Any, era: str) -> list[str]:
 def query_card_collector_appeal(client: Any, *, page: int = 1, page_size: int = 50,
                                 search: Optional[str] = None, era: Optional[str] = None,
                                 set_id: Optional[str] = None, rarity: Optional[str] = None,
-                                sort: str = "rank", direction: str = "asc") -> Dict[str, Any]:
+                                sort: str = "rank", direction: str = "asc",
+                                lens: str = "overall") -> Dict[str, Any]:
     page = max(1, int(page)); page_size = min(100, max(1, int(page_size)))
-    sort_key = str(sort).lower(); sort_column = SORT_COLUMNS.get(sort_key)
+    lens = str(lens).lower()
+    if lens not in COMPONENT_LENSES:
+        raise ValueError("unsupported Collector lens")
+    component_column, subject_policy = COMPONENT_LENSES[lens]
+    # Component lenses have their own ranked cohort.  They never reuse the
+    # global Collector rank, whose cross-domain meaning is intentionally not
+    # asserted by the current production model.
+    sort_key = str(sort).lower()
+    sort_column = component_column if lens != "overall" and sort_key in {"rank", "collector_appeal"} else SORT_COLUMNS.get(sort_key)
     if not sort_column:
         raise ValueError("unsupported sort")
     direction = str(direction).lower()
@@ -108,24 +124,46 @@ def query_card_collector_appeal(client: Any, *, page: int = 1, page_size: int = 
 
     query = (client.table("pokemon_card_collector_appeal_rankings")
              .select(RANKING_COLUMNS, count="exact").eq("model_run_id", str(model_run_id)))
-    if search:
+    component_cohort_size = None
+    component_page = None
+    if lens != "overall":
+        component_set_ids = None
+        if era:
+            component_set_ids = _resolve_era_set_ids(client, str(era))
+            if not component_set_ids:
+                component_set_ids = []
+        if set_id:
+            component_set_ids = [str(set_id)] if component_set_ids is None else [value for value in component_set_ids if value == str(set_id)]
+        response = client.rpc("get_pokemon_card_component_rankings_v1", {
+            "p_model_run_id": str(model_run_id), "p_lens": lens,
+            "p_set_ids": component_set_ids, "p_search": str(search).strip()[:100] if search else None,
+            "p_rarity": rarity, "p_offset": (page - 1) * page_size, "p_limit": page_size,
+        }).execute()
+        component_page = getattr(response, "data", None) or {}
+    if lens == "overall" and search:
         query = query.ilike("card_name", f"%{str(search).strip()[:100]}%")
-    if era:
+    if lens == "overall" and era:
         era_set_ids = _resolve_era_set_ids(client, str(era))
         if not era_set_ids:
             return {"available": True, "modelRunId": str(model_run_id),
                     "modelVersion": pointer.get("model_version"), "asOfDate": pointer.get("as_of_date"),
                     "page": page, "pageSize": page_size, "total": 0, "totalPages": 0, "rows": []}
         query = query.in_("set_id", era_set_ids)
-    if set_id:
+    if lens == "overall" and set_id:
         query = query.eq("set_id", set_id)
-    if rarity:
+    if lens == "overall" and rarity:
         query = query.eq("rarity", rarity)
     start = (page - 1) * page_size
-    response = (query.order(sort_column, desc=direction == "desc", nullsfirst=False)
-                .order("pokemon_canonical_card_id").range(start, start + page_size - 1).execute())
-    ranking_rows = _rows(response)
-    total = int(getattr(response, "count", None) or 0)
+    component_default_desc = lens != "overall" and sort_key in {"rank", "collector_appeal"}
+    if component_page is None:
+        response = (query.order(sort_column, desc=(direction == "desc" or component_default_desc), nullsfirst=False)
+                    .order("pokemon_canonical_card_id").range(start, start + page_size - 1).execute())
+        ranking_rows = _rows(response)
+        total = int(getattr(response, "count", None) or 0)
+    else:
+        ranking_rows = list(component_page.get("rows") or [])
+        total = int(component_page.get("total") or 0)
+        component_cohort_size = int(component_page.get("componentCohortSize") or 0)
 
     card_ids = [str(row["pokemon_canonical_card_id"]) for row in ranking_rows]
     set_ids = sorted({str(row["set_id"]) for row in ranking_rows if row.get("set_id")})
@@ -141,13 +179,14 @@ def query_card_collector_appeal(client: Any, *, page: int = 1, page_size: int = 
                         .in_("id", era_ids).execute())) if era_ids else {}
 
     enriched = []
-    for ranking in ranking_rows:
+    for page_index, ranking in enumerate(ranking_rows):
         card_id = str(ranking["pokemon_canonical_card_id"])
         set_row = sets.get(str(ranking.get("set_id")), {})
         era_row = eras.get(str(set_row.get("era_id")), {})
         component = scores.get(card_id, {})
         inputs = component.get("component_inputs_json") or {}
         enriched.append({**ranking, **component,
+                         "component_rank": ranking.get("component_rank") if lens != "overall" else ranking.get("rank"),
                          "model_version": pointer.get("model_version"), "as_of_date": pointer.get("as_of_date"),
                          "image_small_url": cards.get(card_id, {}).get("image_small_url"),
                          "set_name": set_row.get("name"), "set_canonical_key": set_row.get("canonical_key"),
@@ -158,8 +197,18 @@ def query_card_collector_appeal(client: Any, *, page: int = 1, page_size: int = 
                          "playability_confidence": component.get("confidence"),
                          "treatment_status": (inputs.get("treatmentDiagnostic") or {}).get("status")})
 
+    public_rows = [_public_row(row) for row in enriched]
+    if lens != "overall":
+        for row, source in zip(public_rows, enriched):
+            row["rank"] = source["component_rank"]
+            row["cohortSize"] = component_cohort_size
+            row["componentScore"] = _number(source.get(component_column))
     return {"available": True, "modelRunId": str(model_run_id),
             "modelVersion": pointer.get("model_version"), "asOfDate": pointer.get("as_of_date"),
+            "lens": lens,
+            "definitionStatus": "production_overall_price_blind_v7" if lens == "overall" else "component_specific_uncalibrated_domain",
+            "rankSemantics": "published_global_overall" if lens == "overall" else "global_component_cohort",
+            "componentCohortSize": component_cohort_size if lens != "overall" else None,
             "page": page, "pageSize": page_size, "total": total,
             "totalPages": math.ceil(total / page_size) if total else 0,
-            "rows": [_public_row(row) for row in enriched]}
+            "rows": public_rows}
