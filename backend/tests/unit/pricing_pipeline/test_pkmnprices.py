@@ -168,3 +168,48 @@ def test_shared_attribution_is_stored_but_not_fair_value_signal_eligible():
     )
     assert out["fair_value_signal_eligible"] is False
     assert out["exclusion_reason"] == "ATTRIBUTION_SHARED"
+
+
+def test_client_tracks_provider_credit_headers():
+    class HeaderResponse(Response):
+        headers = {
+            "x-credits-charged": "3",
+            "x-credits-limit": "20000",
+            "x-rate-remaining": "57",
+        }
+
+    def open_(request, timeout=30):
+        return HeaderResponse(json.dumps({"data": []}).encode())
+
+    client = PkmnPricesClient("secret", opener=open_, sleep=lambda _: None)
+    client.get("/v1/cards")
+    assert client.credits_charged == 3
+    assert client.credits_limit == 20000
+    assert client.rate_remaining == 57
+
+
+def test_raw_sold_condition_is_never_inferred_from_title():
+    row = {
+        "id": 125,
+        "title": "NM Shining Noctowl 1st Edition",
+        "price": 500,
+        "currency": "USD",
+        "grader": None,
+        "grade": None,
+        "variant": "1st Edition Holofoil",
+        "attribution": "exact",
+        "sold_at": "2026-09-20",
+        "ingested_at": "2026-09-21T04:00:00Z",
+        "listing_url": "https://example.invalid/125",
+    }
+    out = normalize_sold_listing(
+        row,
+        provider_card_id=77,
+        canonical_card_id="card",
+        internal_variants=[
+            {"id": "variant", "edition": "1st-edition", "printing_type": "holo"}
+        ],
+        collected_at="2026-09-29T00:00:00Z",
+    )
+    assert out["condition_state"] == "UNKNOWN"
+    assert out["set_value_nm_eligible"] is False
