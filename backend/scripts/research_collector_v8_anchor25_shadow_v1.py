@@ -75,7 +75,9 @@ def set_score_rows(
     frozen_set = {str(row["set_id"]): row for row in frozen_sets}
     by_set: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for row in candidate_rows:
-        by_set[str(row["set_id"])].append(row)
+        set_id = str(row["set_id"])
+        if set_id in frozen_set:
+            by_set[set_id].append(row)
 
     out = []
     for set_id, rows in sorted(by_set.items()):
