@@ -73,6 +73,37 @@ def test_client_auth_is_header_not_url_and_card_lookup():
     assert "tcg_player_id=89168" in request.full_url
 
 
+
+
+def test_tcgplayer_listings_probe_uses_exact_filters():
+    opener = opener_for([{
+        "data": [{
+            "id": 1,
+            "printing": "1st Edition Holofoil",
+            "condition": "Near Mint",
+            "price": 100,
+            "shipping_price": 5,
+        }],
+        "pagination": {"has_more": False, "next_cursor": None},
+    }])
+    client = PkmnPricesClient("secret", opener=opener, sleep=lambda _: None)
+    payload = client.tcgplayer_listings_page(
+        77,
+        condition="Near Mint",
+        printing="1st Edition Holofoil",
+        language="English",
+        sort="total_asc",
+        limit=1,
+    )
+    assert payload["data"][0]["printing"] == "1st Edition Holofoil"
+    url = opener.seen[0].full_url
+    assert "condition=Near+Mint" in url
+    assert "printing=1st+Edition+Holofoil" in url
+    assert "language=English" in url
+    assert "sort=total_asc" in url
+    assert "limit=1" in url
+
+
 def test_cursor_walk_is_bounded_by_item_credit_cap():
     opener = opener_for([
         {"data": [{"id": i} for i in range(20)], "pagination": {"has_more": True, "next_cursor": "a"}},
