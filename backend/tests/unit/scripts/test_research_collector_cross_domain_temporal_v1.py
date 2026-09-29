@@ -4,6 +4,7 @@ from backend.scripts.research_collector_cross_domain_temporal_v1 import (
     CANDIDATE,
     EXPECTED_COUNTS,
     GUARDRAILS,
+    PRICE_FILES,
     TEMPORAL_DATES,
     canonical_hash,
     decide,
@@ -35,6 +36,7 @@ def test_temporal_contract_is_frozen():
         "heldOutSpearman": -0.010,
         "pairConcordance": 0.0,
     }
+    assert set(PRICE_FILES) == {"2026-09-11", *TEMPORAL_DATES}
 
 
 def test_fold_gate_requires_every_guardrail():
@@ -58,15 +60,15 @@ def test_final_decision_is_preregistered_four_of_five():
     assert decide(False, [{"dataValid": True, "passed": True}] * 5) == "ANCHOR25_TEMPORAL_VALIDATION_INVALID"
 
 
-def test_temporal_harness_has_no_database_write_calls():
+def test_temporal_harness_is_offline_and_has_no_database_write_calls():
     source = Path("backend/scripts/research_collector_cross_domain_temporal_v1.py").read_text(encoding="utf-8").lower()
-    # Allow sys.path.insert(); reject persistence-shaped client calls.
-    for token in (".insert([", ".insert({", ".update({", ".delete()", ".upsert("):
+    for token in (".insert(", ".update(", ".delete(", ".upsert(", ".rpc(", ".table(", "execute_sql"):
         assert token not in source
-    assert ".table(" not in source
-    assert "get_pokemon_market_root_standard_card_prices_as_of_v2" in source
-    assert "get_pokemon_set_value_canonical_prices_as_of_v2_shadow" not in source
-    assert "historical_prices_legacy_rpc(" in source
+    assert "supabase" not in source
+    assert "requests" not in source
+    assert "prices_20260920.json" in source
+    assert "frozen_temporal_cohort_part1.json" in source
+    assert "authority_amendment_3.md" in source
 
 
 def test_runtime_helpers_survive_authority_refactors(tmp_path):
