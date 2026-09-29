@@ -1,0 +1,19 @@
+{
+  "status": "COLLECTOR_V8_ANCHOR25_SHADOW_READY_FOR_REVIEW",
+  "temporalAuthoritySha": "26dde672086cfc429e9b4ca2a48062badc91a8ea",
+  "temporalDecision": "ANCHOR25_TEMPORAL_VALIDATION_PASS",
+  "passingTemporalFolds": 5,
+  "totalTemporalFolds": 5,
+  "comparableSets": 22,
+  "meanCollectorDelta": -0.0271613606433295,
+  "medianCollectorDelta": -0.0371598052203268,
+  "overallRows": 276,
+  "meanOverallDelta": -0.00308260869565217,
+  "rankAgreement": 0.999996004623222,
+  "rowsWithRankChange": 11,
+  "maxRankMovement": 2,
+  "tierChanges": 1,
+  "top10Overlap": 10,
+  "productionMutations": "NONE",
+  "promotionAuthorized": false
+}
