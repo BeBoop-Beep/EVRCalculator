@@ -49,6 +49,9 @@ class PkmnPricesClient:
         self.timeout = float(timeout)
         self.request_attempt_count = 0
         self.successful_request_count = 0
+        self.credits_charged = 0
+        self.credits_limit: int | None = None
+        self.rate_remaining: int | None = None
 
     def __repr__(self) -> str:
         return f"PkmnPricesClient(base_url={self.base_url!r}, api_key=<redacted>)"
@@ -90,11 +93,26 @@ class PkmnPricesClient:
                 with self._opener(request, timeout=self.timeout) as response:
                     status = int(getattr(response, "status", 200))
                     payload = json.load(response)
+                    headers = getattr(response, "headers", {}) or {}
+                    charged = headers.get("x-credits-charged") if hasattr(headers, "get") else None
+                    limit = headers.get("x-credits-limit") if hasattr(headers, "get") else None
+                    remaining = headers.get("x-rate-remaining") if hasattr(headers, "get") else None
                 if status != 200:
                     raise PkmnPricesAPIError(status, "unexpected_status", "unexpected provider response")
                 if not isinstance(payload, dict):
                     raise PkmnPricesAPIError(status, "invalid_payload", "provider payload is not an object")
                 self.successful_request_count += 1
+                try:
+                    if charged is not None:
+                        self.credits_charged += max(0, int(charged))
+                    if limit is not None:
+                        self.credits_limit = int(limit)
+                    if remaining is not None:
+                        self.rate_remaining = int(remaining)
+                except (TypeError, ValueError):
+                    # Provider accounting headers are observability only; malformed
+                    # values must not corrupt evidence collection.
+                    pass
                 return payload
             except urllib.error.HTTPError as exc:
                 error = self._error(exc)
