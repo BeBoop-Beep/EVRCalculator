@@ -1,0 +1,64 @@
+{
+  "version": "index_fair_value_sold_signal_pilot_v1",
+  "recovered_from_actions_run": 36606907239,
+  "source_job_id": 109538148474,
+  "cutoff_date": "2026-09-28",
+  "research_only": true,
+  "production_authority_changed": false,
+  "condition_equivalence_assumed": false,
+  "f1_fingerprint": "0e7b04f1119ce525fbe387b50b523ac580aa7a14c758e5d16487a334969825d9",
+  "sample_seed": 20260929,
+  "per_band_target": 30,
+  "sample_rows": 207,
+  "completed_rows": 207,
+  "eligible_3plus_rows": 202,
+  "provider_credits_used": 4347,
+  "provider_credit_limit": 20000,
+  "failures": [],
+  "fingerprint": "6a2fa14d7d6bbac9e98c2d00d56451afa74f91858f9c9ad9a9280a298af71aca",
+  "eligible_3plus_by_band": {
+    "under_5": 25,
+    "5_to_under_10": 30,
+    "10_to_under_25": 30,
+    "25_to_under_50": 30,
+    "50_to_under_100": 30,
+    "100_to_under_250": 30,
+    "250_plus": 27
+  },
+  "structural_information_gain": {
+    "n": 202,
+    "baseline": {
+      "mae": 61.50440837432884,
+      "mdape": 48.499942913428754,
+      "r2Dollars": 0.36446829844848405,
+      "spearman": 0.8623657495155982,
+      "within30Pct": 36.13861386138614
+    },
+    "plusSoldSignals": {
+      "mae": 78.51691956079856,
+      "mdape": 48.369746387350396,
+      "r2Dollars": -0.8397629215533906,
+      "spearman": 0.8586415257307417,
+      "within30Pct": 31.18811881188119
+    }
+  },
+  "market_anchored_information_gain": {
+    "n": 202,
+    "baseline": {
+      "mae": 60.40138906656516,
+      "mdape": 45.085175757275685,
+      "r2Dollars": 0.36691078164460333,
+      "spearman": 0.893912729509064,
+      "within30Pct": 37.62376237623762
+    },
+    "plusSoldSignals": {
+      "mae": 83.68940385292005,
+      "mdape": 44.48255914983107,
+      "r2Dollars": -1.7607237530952582,
+      "spearman": 0.9017456925569959,
+      "within30Pct": 35.148514851485146
+    }
+  },
+  "interpretation": "Cross-sectional information-gain pilot only. The naive sold-signal correction did not improve price-level accuracy and must not be promoted. Backfilled sold rows were ingested after their historical sale dates, so this is not forward-time validation. Sold raw-card condition is unknown and no Near Mint equivalence is assumed.",
+  "recovery_note": "The original workflow completed the research and generated artifacts, then failed only during git push from the self-hosted runner. This JSON preserves the reported aggregate metrics without re-spending provider credits."
+}
