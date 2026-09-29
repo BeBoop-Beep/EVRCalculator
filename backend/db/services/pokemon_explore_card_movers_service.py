@@ -223,6 +223,187 @@ def build_global_card_movers_row(
     }
 
 
+
+def read_raw_market_movers_authority(
+    *,
+    market_date: str,
+    limit: int = LIMIT,
+    client: Any,
+) -> Dict[str, Any]:
+    """Read the market-wide 7D mover authority from the serving Raw roster.
+
+    The RPC owns exact-variant membership, Near Mint baseline selection, vintage
+    market scopes, and market-significance ranking. This reader intentionally
+    does not derive candidates from RIP/public-analytics membership or per-set
+    Top Chase cards.
+    """
+    try:
+        sanitized = max(1, min(int(limit), LIMIT))
+    except (TypeError, ValueError):
+        sanitized = LIMIT
+    result = client.rpc(
+        "get_pokemon_market_raw_card_movers_v1",
+        {"p_market_date": str(market_date)[:10], "p_limit": sanitized},
+    ).execute()
+    data = getattr(result, "data", None)
+    if isinstance(data, list):
+        data = data[0] if data else None
+    if not isinstance(data, Mapping):
+        raise ExploreCardMoversUnavailable(
+            "market-wide Raw mover authority is unavailable",
+            diagnostics={"marketDate": str(market_date)[:10]},
+        )
+    return dict(data)
+
+
+def build_global_raw_card_movers_row(
+    authority: Mapping[str, Any],
+    *,
+    target_market_date: str,
+    limit: int = LIMIT,
+    built_at: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Package the serving Raw exact-variant authority into the public snapshot."""
+    status = _text(authority.get("status"))
+    authority_date = _text(authority.get("marketDate"))
+    generation_id = _text(authority.get("generationId"))
+    movement_version = _text(authority.get("movementContractVersion"))
+    convention = _text(authority.get("windowConvention"))
+    universe_version = _text(authority.get("universeContractVersion"))
+    ranking_methodology = _text(authority.get("rankingMethodology"))
+    price_basis = _text(authority.get("priceBasis"))
+    movements = authority.get("movements")
+
+    diagnostics = {
+        "requestedTargetMarketDate": target_market_date,
+        "authorityMarketDate": authority_date,
+        "authorityStatus": status,
+        "sourceGenerationId": generation_id,
+        "rawConstituentCount": int(authority.get("rawConstituentCount") or 0),
+        "rawRootCount": int(authority.get("rawRootCount") or 0),
+        "rawMarketCount": int(authority.get("rawMarketCount") or 0),
+        "scopedConstituentCount": int(authority.get("scopedConstituentCount") or 0),
+        "baselineCoveredCount": int(authority.get("baselineCoveredCount") or 0),
+        "eligibleCandidateCount": int(authority.get("eligibleCandidateCount") or 0),
+        "scopedCandidateCount": int(authority.get("scopedCandidateCount") or 0),
+        "publishedCardCount": int(authority.get("publishedCount") or 0),
+        "movementContractVersion": movement_version,
+        "windowConvention": convention,
+        "universeContractVersion": universe_version,
+        "rankingMethodology": ranking_methodology,
+        "priceBasis": price_basis,
+    }
+    problems = []
+    if status != "READY":
+        problems.append("status")
+    if authority_date != target_market_date:
+        problems.append("marketDate")
+    if not generation_id:
+        problems.append("generationId")
+    if movement_version != MOVEMENT_CONTRACT_VERSION:
+        problems.append("movementContractVersion")
+    if convention != WINDOW_CONVENTION:
+        problems.append("windowConvention")
+    if universe_version != "serving_raw_exact_variant_v1":
+        problems.append("universeContractVersion")
+    if ranking_methodology != "market_movement_score_v1":
+        problems.append("rankingMethodology")
+    if not isinstance(movements, list):
+        problems.append("movements")
+    if diagnostics["rawConstituentCount"] <= 0 or diagnostics["rawRootCount"] <= 0:
+        problems.append("rawUniverse")
+    if problems:
+        raise ExploreCardMoversUnavailable(
+            "market-wide Raw mover authority is incoherent",
+            diagnostics={**diagnostics, "invalidFields": problems},
+        )
+
+    sanitized = max(1, min(int(limit), LIMIT))
+    published: List[Dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for value in movements:
+        if not isinstance(value, Mapping):
+            raise ExploreCardMoversUnavailable(
+                "market-wide Raw mover authority contains a malformed movement",
+                diagnostics=diagnostics,
+            )
+        movement = dict(value)
+        try:
+            identity = movement_identity(movement)
+        except ValueError as exc:
+            raise ExploreCardMoversUnavailable(
+                "market-wide Raw mover authority is missing exact card identity",
+                diagnostics=diagnostics,
+            ) from exc
+        if identity in seen:
+            continue
+        seen.add(identity)
+        published.append(movement)
+        if len(published) >= sanitized:
+            break
+
+    built_at = built_at or datetime.now(timezone.utc).isoformat()
+    fingerprint_input = "\n".join(
+        [
+            target_market_date,
+            generation_id,
+            movement_version or "",
+            convention or "",
+            universe_version or "",
+            ranking_methodology or "",
+            *(f"{movement_identity(row)}|{row.get('movementScore')}" for row in published),
+        ]
+    )
+    fingerprint = hashlib.sha256(fingerprint_input.encode("utf-8")).hexdigest()
+    payload = {
+        "marketMovers": {
+            "window": "7D",
+            "windowDays": 7,
+            "all": published,
+        },
+        "meta": {
+            "snapshot": {
+                "builtAt": built_at,
+                "marketDate": target_market_date,
+                "window": "7D",
+                "limit": LIMIT,
+                "sourceGenerationId": generation_id,
+            },
+            "coverage": {
+                "rawConstituentCount": diagnostics["rawConstituentCount"],
+                "rawRootCount": diagnostics["rawRootCount"],
+                "rawMarketCount": diagnostics["rawMarketCount"],
+                "scopedConstituentCount": diagnostics["scopedConstituentCount"],
+                "baselineCoveredCount": diagnostics["baselineCoveredCount"],
+                "candidateCardCount": diagnostics["eligibleCandidateCount"],
+                "scopedCandidateCount": diagnostics["scopedCandidateCount"],
+                "publishedCardCount": len(published),
+            },
+            "movementContractVersion": movement_version,
+            "windowConvention": convention,
+            "universeContractVersion": universe_version,
+            "rankingMethodology": ranking_methodology,
+            "priceBasis": price_basis,
+            "sourceGenerationFingerprint": fingerprint,
+            "builder": "pokemon_raw_market_seven_day_movers_v2",
+            "warnings": [],
+        },
+    }
+    diagnostics["publishedCardCount"] = len(published)
+    return {
+        "tcg": "pokemon",
+        "scope": "explore",
+        "window_key": "7D",
+        "payload_json": payload,
+        "market_date": target_market_date,
+        "card_count": len(published),
+        "eligible_set_count": diagnostics["rawRootCount"],
+        "source_updated_at": built_at,
+        "source_generation_fingerprint": fingerprint,
+        "_diagnostics": diagnostics,
+    }
+
+
 def _read_explore_card_movers_snapshot_once(active: Any, *, limit: Any) -> Dict[str, Any]:
     started = time.perf_counter()
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,card_count").eq("tcg", "pokemon").eq("scope", "explore")
