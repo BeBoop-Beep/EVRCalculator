@@ -1,30 +1,40 @@
 import { money, ratioAsPercent } from "./openingEconomicsSelector.mjs";
 
-const finite = value => value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) : null;
-export const SET_PACK_COLUMNS = [
-  ["productFamilies", "Product Families"], ["products", "Products"], ["packPrice", "Avg Cost / Pack"], ["modelBreakEven", "Expected Value / Pack"],
-  ["modeledReturn", "Modeled Return"], ["typicalOpening", "Typical Opening / Pack"], ["typicalRetention", "Typical Retention"],
-  ["chanceToRecoverCost", "Chance to Recover Cost"], ["entertainmentCost", "Entertainment Cost / Pack"]
-];
-export function projectSetPackMetric(target) {
-  return { raw: { set_id: target?.setId, canonical_key: target?.setCanonicalKey, name: target?.setName }, setId: target?.setId, setName: target?.setName, canonicalKey: target?.setCanonicalKey,
-    logo: target?.logoImageUrl || target?.symbolImageUrl, canonicalRank: target?.canonicalSetRipRank, eraName: target?.eraName,
-    productFamilies: finite(target?.productFamilyCount), products: finite(target?.productSkuCount),
-    packPrice: finite(target?.averageCostPerPack), modelBreakEven: finite(target?.averageModelBreakEvenPerPack),
-    typicalOpening: finite(target?.typicalOpeningPerPack), modeledReturn: finite(target?.modeledReturnOnSpend),
-    entertainmentCost: finite(target?.averageEntertainmentCostPerPack), typicalRetention: finite(target?.typicalRetention),
-    chanceToRecoverCost: finite(target?.chanceToRecoverCost), familyEconomics: target?.familyEconomics || [] };
-}
-export function mergeSetEconomics(sets, targets) {
-  const identities = new Map((targets || []).map(target => [String(target.set_id || target.target_id), target]));
-  return (sets || []).map(economics => {
-    const identity = identities.get(String(economics.setId)) || {};
-    return {...economics, canonicalSetRipRank: identity.canonicalSetRipRank ?? identity.setRipV1?.rank,
-      logoImageUrl: identity.logo_image_url, symbolImageUrl: identity.symbol_image_url};
+const finite = (value) => value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) : null;
+
+export const SET_PACK_COLUMNS = Object.freeze([
+  ["productFamilyCount", "Families"], ["productCount", "Products"],
+  ["averagePackCostPerPack", "Avg Pack Cost"], ["expectedValuePerPack", "EV / Pack"],
+  ["modeledReturnOnSpend", "Modeled Return"], ["chanceToRecoverCost", "Recover Cost"],
+  ["entertainmentCostPerPack", "Entertainment Cost"], ["bestOpenPrice", "Best-Open Price"],
+]);
+
+export const ECONOMIC_KEYS = Object.freeze(SET_PACK_COLUMNS.slice(2, 7).map(([key]) => key));
+
+export function sortPackEconomicsSets(sets = [], key = "modeledReturnOnSpend", direction = "desc") {
+  const sign = direction === "asc" ? 1 : -1;
+  return [...sets].sort((left, right) => {
+    if (key === "setName") return sign * String(left.setName || "").localeCompare(String(right.setName || ""));
+    const a = finite(left?.[key]), b = finite(right?.[key]);
+    if (a === null) return b === null ? String(left.setName || "").localeCompare(String(right.setName || "")) : 1;
+    if (b === null) return -1;
+    return sign * (a - b) || String(left.setName || "").localeCompare(String(right.setName || ""));
   });
 }
-export function sortSetPackMetrics(targets, key, direction="desc") {
-  const sign = direction === "asc" ? 1 : -1;
-  return (targets || []).map(projectSetPackMetric).sort((a,b) => { const av=finite(a[key]), bv=finite(b[key]); if(av===null)return bv===null?(a.canonicalRank||999)-(b.canonicalRank||999):1;if(bv===null)return -1;return sign*(av-bv)||(a.canonicalRank||999)-(b.canonicalRank||999); });
+
+export function formatPackEconomicsValue(key, value) {
+  if (["productFamilyCount", "productCount"].includes(key)) return finite(value) === null ? null : String(Number(value));
+  if (["modeledReturnOnSpend", "chanceToRecoverCost"].includes(key)) return ratioAsPercent(value);
+  return money(value);
 }
-export const formatSetMetric = (key, value) => ["productFamilies","products"].includes(key) ? (value == null ? null : String(value)) : ["modeledReturn","typicalRetention","chanceToRecoverCost"].includes(key) ? ratioAsPercent(value) : money(value);
+
+export function familyBestOpenPresentation(family) {
+  if (family?.bestOpenDisplayMode === "multiple") return `${family?.products?.length || family?.productCount || 0} prices`;
+  return formatPackEconomicsValue("bestOpenPrice", family?.products?.[0]?.bestOpenPrice) || "—";
+}
+
+export function filterPackEconomicsSets(sets = [], query = "", eraFilter = null) {
+  const needle = String(query || "").trim().toLocaleLowerCase();
+  const era = String(eraFilter || "").trim().toLocaleLowerCase();
+  return sets.filter((row) => (!era || String(row?.era?.eraName || "").toLocaleLowerCase() === era) && (!needle || `${row?.setName || ""} ${row?.era?.eraName || ""}`.toLocaleLowerCase().includes(needle)));
+}

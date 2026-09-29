@@ -48,22 +48,22 @@ test("EraRankings uses the Rankings table shell and fails closed without rows", 
   for (const label of ["Rank", "Era", "Era Set Strength", "Tier", "Sets", "Strongest Set", "Set Strength Range"]) assert.ok(eraRankings.includes(label));
 });
 
-test("Set Pack Economics expansion is a sibling full-width table row", () => {
+test("Set Pack Economics expansion uses sibling family and product rows in the parent grid", () => {
   assert.ok(setPack.includes("expandedSetId"));
   assert.ok(setPack.includes("<Fragment key={row.setId}>") );
-  assert.ok(setPack.includes('className="family-detail-row"'));
-  assert.ok(setPack.includes("<td colSpan={TOTAL_COLUMN_COUNT}"));
+  assert.ok(setPack.includes("<FamilyRow"));
+  assert.ok(setPack.includes("<ProductRow"));
+  assert.ok(!setPack.includes("colSpan"));
   assert.ok(setPack.includes("aria-expanded={expanded}"));
-  assert.ok(setPack.includes("`family-economics-${row.setId}`"));
+  assert.ok(setPack.includes("`pack-families-${row.setId}`"));
   assert.ok(!setPack.includes("<details"));
-  assert.ok(!setPack.includes("<th className=\"min-w-64 text-left\"><Identity"));
 });
 
 test("Set Pack Economics has an explicit fixed-layout width contract", () => {
   assert.ok(setPack.includes("<colgroup>"));
-  assert.ok(setPack.includes("styles.colSetPackIdentity"));
-  assert.ok(setPack.includes("styles.colSetPackMetric"));
-  assert.match(css, /\.colSetPackIdentity\s*\{\s*width:\s*19rem/);
+  assert.ok(setPack.includes("styles.colPackEconomicsIdentity"));
+  assert.ok(setPack.includes("styles.colPackEconomicsMetric"));
+  assert.match(css, /\.colPackEconomicsIdentity\s*\{\s*width:\s*17rem/);
   assert.ok(!setPack.includes('className="min-w-52"'));
 });
 
@@ -74,20 +74,19 @@ test("Pitch Black's six represented families are ordered and never truncated", (
   assert.equal(rendered.length, 6);
   assert.deepEqual(rendered.map((row) => row.family), ["loose_booster_pack", "sleeved_booster_pack", "booster_bundle", "elite_trainer_box", "pokemon_center_elite_trainer_box", "booster_box"]);
   assert.deepEqual(rendered.map((row) => displaySetPackFamily(row.family)), ["Loose Booster Pack", "Sleeved Booster Pack", "Booster Bundle", "Elite Trainer Box", "Pokémon Center ETB", "Booster Box"]);
-  assert.ok(setPack.includes("families.map((row)"));
+  assert.ok(setPack.includes("(row.families || []).map((family"));
   assert.ok(!/\.slice\(\s*0\s*,/.test(setPack));
-  assert.ok(setPack.includes("data-family-economics-row={row.family}"));
-  assert.ok(setPack.includes("data-family-economics-mobile-row={row.family}"));
+  assert.ok(setPack.includes("data-pack-family-row={family.familyKey}"));
+  assert.ok(setPack.includes("data-pack-family-mobile={family.familyKey}"));
 });
 
 test("Pack Economics keeps canonical aggregates, search, sorting and explicit Set RIP authority", () => {
-  assert.ok(setPack.includes("mergeSetEconomics(sets, targets)"));
+  assert.ok(setPack.includes("filterPackEconomicsSets(contract?.sets, query, eraFilter)"));
   assert.ok(setPack.includes("AnalyticsTableShell"));
-  assert.ok(setPack.includes("Search sets..."));
-  assert.ok(setPack.includes("row.eraName"));
-  assert.ok(setPack.includes('canViewRankingsIntelligence ? "modeledReturn" : "packPrice"'));
-  assert.ok(setPack.includes("Set RIP #{row.canonicalRank"));
-  assert.ok(!setPack.includes("averageModelBreakEvenPerPack /"));
+  assert.ok(setPack.includes("Search Sets…"));
+  assert.ok(setPack.includes("row.era?.eraName"));
+  assert.ok(setPack.includes('useState({ key: "modeledReturnOnSpend"'));
+  assert.ok(!setPack.includes("Typical Opening"));
 });
 
 test("Era Pack Economics uses the same shared table language", () => {
@@ -106,7 +105,7 @@ test("all four Era and Set lenses share the analytics shell and authoritative da
   assert.ok(client.includes("marketDate={openingEconomics?.marketDate}"));
   for (const token of ["Best Eras to Rip Right Now", "Search eras...", "Select an era for the full RIP breakdown."]) assert.ok(eraRankings.includes(token));
   for (const token of ["Pack Economics by Era", "Search eras...", "Select an era for the full Pack Economics breakdown."]) assert.ok(eraEconomics.includes(token));
-  for (const token of ["Pack Economics by Set", "Search sets..."]) assert.ok(setPack.includes(token));
+  for (const token of ["Pack Economics by Set", "Search Sets…"]) assert.ok(setPack.includes(token));
 });
 
 test("Rankings and Pack Economics reuse Product-family pill primitives", () => {
@@ -129,12 +128,8 @@ test("Set Pack Economics entitlement treats anonymous and unpaid accounts as Bas
   const fixtures = [null, { id: "signed-in-basic", index_plan: null }, { id: "plus", index_plan: "plus" }, { id: "premium", index_plan: "premium" }];
   assert.deepEqual(fixtures.map((user) => resolveRankingsPlanAccess(user).canViewRankingsIntelligence), [false, false, true, true]);
   assert.ok(client.includes("canViewRankingsIntelligence={canViewRankingsIntelligence}"));
-  assert.ok(setPack.includes('const PUBLIC_COLUMN_KEYS = new Set(["products", "packPrice"])'));
-  assert.ok(setPack.includes("canViewRankingsIntelligence || PUBLIC_COLUMN_KEYS.has(key)"));
-  assert.ok(setPack.includes("<PremiumMetricLock />"));
-  assert.ok(setPack.includes("Index Plus required for detailed Pack Economics"));
-  assert.ok(setPack.includes("expanded = canViewRankingsIntelligence"));
-  assert.ok(setPack.includes("expanded ? <tr"), "family values only mount for entitled expansion");
+  assert.ok(read("./SetRankingsHub.jsx").includes("if (!canViewRankingsIntelligence) return null"));
+  assert.ok(read("./setRankingViews.mjs").includes('value: "packEconomics", label: "Pack Economics", requiredPlan: INDEX_PLAN_PLUS'));
   assert.ok(!setPack.includes("isAuthenticated"));
   assert.ok(!setPack.includes("index_plan"));
 });
@@ -152,8 +147,7 @@ test("Era Pack Economics applies the same Plus entitlement matrix without render
 });
 
 test("Basic Pack Economics cannot sort by hidden Set or Era intelligence", () => {
-  assert.ok(setPack.includes('canViewRankingsIntelligence ? "modeledReturn" : "packPrice"'));
-  assert.match(setPack, /if \(!canViewRankingsIntelligence && !PUBLIC_COLUMN_KEYS\.has\(key\)\) \{\s*onUnlockProductRip\?\.\(\);\s*return;/);
+  assert.ok(read("./SetRankingsHub.jsx").includes("if (!canViewRankingsIntelligence) return null"));
   assert.ok(eraEconomics.includes('canViewRankingsIntelligence ? DEFAULT_ERA_SORT : { key: "eraName", direction: "asc" }'));
   assert.match(eraEconomics, /if \(!canViewRankingsIntelligence && column && !PUBLIC_ERA_COLUMN_KEYS\.has\(column\.key\)\) \{\s*onUnlockProductRip\?\.\(\);\s*return;/);
 });

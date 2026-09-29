@@ -143,6 +143,11 @@
   width: 7.75rem;
 }
 
+.colPackEconomicsIdentity { width: 17rem; }
+.colPackEconomicsCount { width: 5.25rem; }
+.colPackEconomicsMetric { width: 7.25rem; }
+.colPackEconomicsBestOpen { width: 8rem; }
+
 .colOverall,
 .colFinancial,
 .colCollector,

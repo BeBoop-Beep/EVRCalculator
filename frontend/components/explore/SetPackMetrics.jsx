@@ -1,437 +1,85 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import InfoPopover from "@/components/ui/InfoPopover";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import AnalyticsTableShell from "./AnalyticsTableShell";
-import { PremiumMetricLock } from "./RankedProductTablePrimitives.jsx";
-import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
-import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
-import {
-  displaySetPackFamily,
-  orderSetPackFamilies,
-} from "./setPackFamilyPresentation.mjs";
-import {
-  SET_PACK_COLUMNS,
-  sortSetPackMetrics,
-  formatSetMetric,
-  mergeSetEconomics,
-} from "./setPackMetricsSelector.mjs";
+import { displaySetPackFamily } from "./setPackFamilyPresentation.mjs";
+import { ECONOMIC_KEYS, SET_PACK_COLUMNS, familyBestOpenPresentation, filterPackEconomicsSets, formatPackEconomicsValue, sortPackEconomicsSets } from "./setPackMetricsSelector.mjs";
 import styles from "./explore.module.css";
 
-const TOTAL_COLUMN_COUNT = SET_PACK_COLUMNS.length + 1;
-const PLUS_COMPACT_LOCK = planPresentation(INDEX_PLAN_PLUS).compactClassName;
-const PUBLIC_COLUMN_KEYS = new Set(["products", "packPrice"]);
-const displayFamily = displaySetPackFamily;
+const DEFINITIONS = {
+  productFamilyCount: "Distinct modeled sealed-product families in this Set.",
+  productCount: "Exact modeled sealed products represented by the contract.",
+  averagePackCostPerPack: "Average modeled purchase cost per pack.",
+  expectedValuePerPack: "Average modeled card value per pack.",
+  modeledReturnOnSpend: "Modeled card value divided by purchase cost.",
+  chanceToRecoverCost: "Modeled chance that an opening recovers its purchase cost.",
+  entertainmentCostPerPack: "Average pack cost not recovered by modeled card value.",
+  bestOpenPrice: "The highest modeled purchase price where opening this product still meets its Best-Open comparison threshold.",
+};
 
-function Identity({ row }) {
-  return (
-    <Link
-      href={buildTcgSetHrefFromTarget(row.raw)}
-      className="flex min-w-0 items-center gap-2.5"
-    >
-      {row.logo ? (
-        <Image
-          src={row.logo}
-          width={56}
-          height={32}
-          alt=""
-          className="h-8 w-12 flex-none object-contain"
-        />
-      ) : (
-        <span className="h-8 w-12 flex-none" />
-      )}
-      <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">
-        {row.setName}
-        <small className="block text-[10px] font-normal text-[var(--text-secondary)]">
-          Set RIP #{row.canonicalRank || "—"}
-        </small>
-      </span>
-    </Link>
-  );
+function setHref(row) {
+  return buildTcgSetHrefFromTarget({ target_type: "set", target_id: row.setId, setId: row.setId, canonical_key: row.canonicalKey, name: row.setName });
 }
 
-function FamilyMatrix({ rows, setId }) {
-  const families = orderSetPackFamilies(rows);
-  return (
-    <div id={`family-economics-${setId}`} data-family-economics-detail>
-      <table
-        className="hidden w-full table-fixed text-xs desk:table"
-        data-family-economics-matrix
-      >
-        <thead>
-          <tr className="border-b border-[var(--border-subtle)] text-[9px] uppercase tracking-wide text-[var(--text-secondary)]">
-            <th className="py-2 text-left">Product Family</th>
-            <th>Products</th>
-            <th>Avg Cost / Pack</th>
-            <th>Expected Value / Pack</th>
-            <th>Modeled Return</th>
-            <th>Typical Opening / Pack</th>
-            <th>Typical Retention</th>
-            <th>Chance to Recover</th>
-            <th>Entertainment Cost / Pack</th>
-          </tr>
-        </thead>
-        <tbody>
-          {families.map((row) => (
-            <tr
-              key={row.family}
-              data-family-economics-row={row.family}
-              className="border-b border-[rgba(255,255,255,0.035)] last:border-0"
-            >
-              <th className="py-2 text-left font-medium">
-                {displayFamily(row.family)}
-              </th>
-              <td className="text-center tabular-nums">
-                {row.productSkuCount ?? "—"}
-              </td>
-              <td className="text-center tabular-nums">
-                {formatSetMetric("packPrice", row.averageCostPerPack) || "—"}
-              </td>
-              <td className="text-center tabular-nums">
-                {formatSetMetric(
-                  "modelBreakEven",
-                  row.averageModelBreakEvenPerPack,
-                ) || "—"}
-              </td>
-              <td className="text-center tabular-nums">
-                {formatSetMetric("modeledReturn", row.modeledReturnOnSpend) ||
-                  "—"}
-              </td>
-              <td className="text-center tabular-nums">
-                {formatSetMetric("typicalOpening", row.typicalOpeningPerPack) || "—"}
-              </td>
-              <td className="text-center tabular-nums">
-                {formatSetMetric("typicalRetention", row.typicalRetention) ||
-                  "—"}
-              </td>
-              <td className="text-center tabular-nums">
-                {formatSetMetric(
-                  "chanceToRecoverCost",
-                  row.chanceToRecoverCost,
-                ) || "—"}
-              </td>
-              <td className="text-center tabular-nums">
-                {formatSetMetric("entertainmentCost", row.averageEntertainmentCostPerPack) || "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <ul className="space-y-1.5 desk:hidden">
-        {families.map((row) => (
-          <li
-            key={row.family}
-            data-family-economics-mobile-row={row.family}
-            className="border-b border-[var(--border-subtle)] px-1 py-2 last:border-0"
-          >
-            <div className="flex justify-between gap-3">
-              <strong className="text-xs">{displayFamily(row.family)}</strong>
-              <strong className="text-xs tabular-nums">
-                {formatSetMetric("packPrice", row.averageCostPerPack) || "—"} cost
-              </strong>
-            </div>
-            <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-              {formatSetMetric(
-                "modelBreakEven",
-                row.averageModelBreakEvenPerPack,
-              ) || "—"}{" "}
-              expected value ·{" "}
-              {formatSetMetric("modeledReturn", row.modeledReturnOnSpend) || "—"} return ·{" "}
-              {formatSetMetric("typicalOpening", row.typicalOpeningPerPack) ||
-                "—"}{" "}
-              typical
-            </p>
-            <p className="text-[10px] text-[var(--text-secondary)]">
-              {formatSetMetric("typicalRetention", row.typicalRetention) || "—"}{" "}
-              typical retention ·{" "}
-              {formatSetMetric(
-                "chanceToRecoverCost",
-                row.chanceToRecoverCost,
-              ) || "—"}{" "}
-              recover ·{" "}
-              {formatSetMetric("entertainmentCost", row.averageEntertainmentCostPerPack) || "—"} entertainment
-            </p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function Numeric({ children, className = "" }) {
+  return <td className={`${styles.numeric} tabular-nums ${className}`}>{children ?? "—"}</td>;
 }
 
-export default function SetPackMetrics({
-  sets,
-  targets,
-  eraFilter,
-  marketDate = null,
-  canViewRankingsIntelligence = false,
-  onUnlockProductRip = null,
-}) {
-  const [sort, setSort] = useState(() => ({
-    key: canViewRankingsIntelligence ? "modeledReturn" : "packPrice",
-    direction: "desc",
-  }));
+const familyLabel = (family) => family?.familyName && family.familyName !== family.familyKey ? family.familyName : displaySetPackFamily(family?.familyKey);
+
+function SetRow({ row, expanded, toggle }) {
+  return <tr className={`${styles.row} bg-white/[.018]`} data-set-pack-parent-row={row.setId}>
+    <td><div className="flex min-w-0 items-center gap-2"><button type="button" onClick={toggle} aria-expanded={expanded} aria-controls={`pack-families-${row.setId}`} aria-label={`${expanded ? "Hide" : "View"} Product Families for ${row.setName}`} className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-white/5"><span aria-hidden="true" className={`text-lg transition-transform ${expanded ? "rotate-90" : ""}`}>›</span></button><Link href={setHref(row)} className="min-w-0 font-semibold text-[var(--text-primary)] hover:underline"><span className="block truncate">{row.setName}</span><small className="block truncate font-normal text-[var(--text-secondary)]">{row.era?.eraName || "—"}</small></Link></div></td>
+    <Numeric>{formatPackEconomicsValue("productFamilyCount", row.productFamilyCount)}</Numeric>
+    <Numeric>{formatPackEconomicsValue("productCount", row.productCount)}</Numeric>
+    {ECONOMIC_KEYS.map((key) => <Numeric key={key}>{formatPackEconomicsValue(key, row[key])}</Numeric>)}
+    <Numeric><span className="text-[var(--text-secondary)]">—</span><span className="sr-only">No Set-level Best-Open aggregate</span></Numeric>
+  </tr>;
+}
+
+function FamilyRow({ family, setId, first }) {
+  return <tr id={first ? `pack-families-${setId}` : undefined} className="border-b border-white/[.035] bg-[rgba(2,8,23,.28)]" data-pack-family-row={family.familyKey}>
+    <th scope="row" className="px-2 py-2.5 text-left font-medium"><span className="ml-9 inline-flex items-center gap-2"><span aria-hidden="true" className="text-[var(--text-secondary)]">└</span>{familyLabel(family)}</span><span className="sr-only">Product Family</span></th>
+    <Numeric><span className="text-[var(--text-secondary)]">—</span></Numeric>
+    <Numeric>{formatPackEconomicsValue("productCount", family.productCount)}</Numeric>
+    {ECONOMIC_KEYS.map((key) => <Numeric key={key}>{formatPackEconomicsValue(key, family[key])}</Numeric>)}
+    <Numeric><span data-family-best-open-mode={family.bestOpenDisplayMode}>{familyBestOpenPresentation(family)}</span></Numeric>
+  </tr>;
+}
+
+function ProductRow({ product }) {
+  return <tr className="border-b border-white/[.025] bg-[rgba(2,8,23,.18)] text-[var(--text-secondary)]" data-pack-product-row={product.sealedProductId}>
+    <th scope="row" className="px-2 py-2 text-left text-xs font-normal"><span className="ml-16 inline-flex items-center gap-2"><span aria-hidden="true">└</span>{product.productName || "Exact Product"}</span><span className="sr-only">Exact Product</span></th>
+    <Numeric><span className="text-[var(--text-secondary)]">—</span></Numeric><Numeric>1</Numeric>
+    {ECONOMIC_KEYS.map((key) => <Numeric key={key}><span className="text-[var(--text-secondary)]">—</span></Numeric>)}
+    <Numeric><strong className="text-[var(--text-primary)]">{formatPackEconomicsValue("bestOpenPrice", product.bestOpenPrice) || "—"}</strong>{product.marketPrice != null ? <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">Market {formatPackEconomicsValue("marketPrice", product.marketPrice)}</span> : null}</Numeric>
+  </tr>;
+}
+
+function MetricList({ source, includeBestOpen = false, bestOpen = null }) {
+  return <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">{ECONOMIC_KEYS.map((key) => <div key={key}><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">{SET_PACK_COLUMNS.find(([column]) => column === key)?.[1]}</dt><dd className="tabular-nums">{formatPackEconomicsValue(key, source?.[key]) || "—"}</dd></div>)}{includeBestOpen ? <div><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">Best-Open Price</dt><dd className="font-semibold tabular-nums">{bestOpen || "—"}</dd></div> : null}</dl>;
+}
+
+function MobileSet({ row, expanded, toggle }) {
+  return <li className={`${styles.surfaceQuiet} rounded-xl p-3.5`} data-set-pack-mobile-row={row.setId}><div className="flex items-start justify-between gap-3"><div><Link href={setHref(row)} className="font-semibold hover:underline">{row.setName}</Link><p className="mt-1 text-xs text-[var(--text-secondary)]">{row.productFamilyCount} families · {row.productCount} products</p></div><button type="button" onClick={toggle} aria-expanded={expanded} aria-controls={`mobile-pack-families-${row.setId}`} aria-label={`${expanded ? "Hide" : "View"} Product Families for ${row.setName}`} className="min-h-11 shrink-0 text-xs font-semibold text-[rgb(var(--ex-teal))]">{expanded ? "Hide families" : "View families"}</button></div><MetricList source={row} />{expanded ? <ul id={`mobile-pack-families-${row.setId}`} className="mt-3 space-y-2 border-t border-[var(--border-subtle)] pt-3">{(row.families || []).map((family) => <li key={family.familyKey} className="rounded-lg bg-white/[.025] p-3" data-pack-family-mobile={family.familyKey}><div className="flex justify-between gap-2"><strong className="text-sm">{familyLabel(family)}</strong><span className="text-xs text-[var(--text-secondary)]">{family.productCount} product{family.productCount === 1 ? "" : "s"}</span></div><MetricList source={family} includeBestOpen bestOpen={familyBestOpenPresentation(family)} />{family.products?.length ? <ul className="mt-2 space-y-1.5 border-t border-white/[.05] pt-2">{family.products.map((product) => <li key={product.sealedProductId} className="flex items-start justify-between gap-3 text-xs" data-pack-product-mobile={product.sealedProductId}><span className="pl-2 text-[var(--text-secondary)]">{product.productName || "Exact Product"}</span><strong className="shrink-0 tabular-nums">{formatPackEconomicsValue("bestOpenPrice", product.bestOpenPrice) || "—"}</strong></li>)}</ul> : null}</li>)}</ul> : null}</li>;
+}
+
+export default function SetPackMetrics({ contract, eraFilter }) {
+  const [sort, setSort] = useState({ key: "modeledReturnOnSpend", direction: "desc" });
   const [query, setQuery] = useState("");
   const [expandedSetId, setExpandedSetId] = useState(null);
-  const merged = mergeSetEconomics(sets, targets);
-  const filtered = merged.filter((row) => {
-    if (
-      eraFilter &&
-      String(row.eraName).toLowerCase() !== String(eraFilter).toLowerCase()
-    )
-      return false;
-    const needle = query.trim().toLowerCase();
-    return (
-      !needle ||
-      `${row.setName || ""} ${row.eraName || ""}`.toLowerCase().includes(needle)
-    );
-  });
-  const effectiveSort =
-    canViewRankingsIntelligence || PUBLIC_COLUMN_KEYS.has(sort.key)
-      ? sort
-      : { key: "packPrice", direction: "desc" };
-  const rows = useMemo(
-    () =>
-      sortSetPackMetrics(filtered, effectiveSort.key, effectiveSort.direction),
-    [effectiveSort.direction, effectiveSort.key, filtered],
-  );
-  const change = (key) => {
-    if (!canViewRankingsIntelligence && !PUBLIC_COLUMN_KEYS.has(key)) {
-      onUnlockProductRip?.();
-      return;
-    }
-    setSort((current) => ({
-      key,
-      direction:
-        current.key === key && current.direction === "desc" ? "asc" : "desc",
-    }));
-  };
-  const toggle = (setId) =>
-    canViewRankingsIntelligence
-      ? setExpandedSetId((current) => (current === setId ? null : setId))
-      : onUnlockProductRip?.();
-  return (
-    <AnalyticsTableShell
-      title="Pack Economics by Set"
-      info="Each Set aggregates all eligible modeled sealed products as per-pack equivalents. Product families are balanced within the Set; expanding a row shows the published family-level breakdown for Index Plus members."
-      query={query}
-      onQueryChange={(event) => setQuery(event.target.value)}
-      searchPlaceholder="Search sets..."
-      searchLabel="Search Pack Economics sets"
-      shown={rows.length}
-      marketDate={marketDate}
-    >
-      <section
-        data-set-pack-metrics
-        data-pack-economics-entitled={
-          canViewRankingsIntelligence ? "true" : "false"
-        }
-      >
-        <div className="hidden overflow-x-auto desk:block">
-          <table className={styles.table}>
-            <colgroup>
-              <col className={styles.colSetPackIdentity} />
-              {SET_PACK_COLUMNS.map(([key]) => (
-                <col key={key} className={styles.colSetPackMetric} />
-              ))}
-            </colgroup>
-            <caption className="sr-only">
-              Pack Economics by Set. Parent metrics are canonical V3 Set
-              aggregates.
-            </caption>
-            <thead className={`${styles.head} ${styles.analyticsTableHead}`}>
-              <tr>
-                <th>Set</th>
-                {SET_PACK_COLUMNS.map(([key, label]) => (
-                  <th
-                    key={key}
-                    className={styles.numeric}
-                    aria-sort={
-                      effectiveSort.key === key
-                        ? effectiveSort.direction === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : undefined
-                    }
-                  >
-                    <button
-                      type="button"
-                      className={styles.sortButton}
-                      onClick={() => change(key)}
-                    >
-                      {label}
-                    </button>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const expanded =
-                  canViewRankingsIntelligence && expandedSetId === row.setId;
-                return (
-                  <Fragment key={row.setId}>
-                    <tr
-                      className={styles.row}
-                      data-set-pack-parent-row={row.setId}
-                    >
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggle(row.setId)}
-                            aria-expanded={expanded}
-                            aria-controls={
-                              canViewRankingsIntelligence
-                                ? `family-economics-${row.setId}`
-                                : undefined
-                            }
-                            aria-label={
-                              canViewRankingsIntelligence
-                                ? `${expanded ? "Hide" : "View"} Product-Family Economics for ${row.setName}`
-                                : `Unlock Product-Family Economics for ${row.setName}`
-                            }
-                            className="relative z-[2] flex h-7 w-7 flex-none items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
-                          >
-                            {canViewRankingsIntelligence ? (
-                              <span
-                                aria-hidden="true"
-                                className={`transition-transform ${expanded ? "rotate-90" : ""}`}
-                              >
-                                ›
-                              </span>
-                            ) : (
-                              <PremiumMetricLock />
-                            )}
-                          </button>
-                          <Identity row={row} />
-                        </div>
-                      </td>
-                      {SET_PACK_COLUMNS.map(([key]) => (
-                        <td
-                          key={key}
-                          className={`${styles.numeric} tabular-nums`}
-                        >
-                          {canViewRankingsIntelligence ||
-                          PUBLIC_COLUMN_KEYS.has(key) ? (
-                            formatSetMetric(key, row[key]) || "—"
-                          ) : (
-                            <PremiumMetricLock />
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                    {expanded ? (
-                      <tr
-                        className="family-detail-row"
-                        data-family-detail-row={row.setId}
-                      >
-                        <td
-                          colSpan={TOTAL_COLUMN_COUNT}
-                          className="border-b border-[var(--ex-line-strong)] bg-[rgba(2,8,23,0.34)] px-4 py-3"
-                        >
-                          <FamilyMatrix
-                            rows={row.familyEconomics}
-                            setId={row.setId}
-                          />
-                        </td>
-                      </tr>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <ul className="space-y-2.5 p-3 desk:hidden">
-          {rows.map((row) => {
-            const expanded =
-              canViewRankingsIntelligence && expandedSetId === row.setId;
-            return (
-              <li
-                key={row.setId}
-                className={`${styles.surfaceQuiet} rounded-xl p-3.5`}
-                data-set-pack-mobile-row={row.setId}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <Identity row={row} />
-                  <button
-                    type="button"
-                    onClick={() => toggle(row.setId)}
-                    aria-expanded={expanded}
-                    aria-controls={
-                      canViewRankingsIntelligence
-                        ? `family-economics-${row.setId}`
-                        : undefined
-                    }
-                    className={`min-h-11 px-2 text-xs ${canViewRankingsIntelligence ? "text-[rgb(var(--ex-teal))]" : PLUS_COMPACT_LOCK}`}
-                  >
-                    {canViewRankingsIntelligence
-                      ? expanded
-                        ? "Hide families"
-                        : "View families"
-                      : "Index Plus"}
-                  </button>
-                </div>
-                {canViewRankingsIntelligence ? (
-                  <>
-                    <dl className="mt-3 grid grid-cols-2 gap-2">
-                      {[
-                        "packPrice",
-                        "modelBreakEven",
-                        "modeledReturn",
-                        "typicalOpening",
-                        "typicalRetention",
-                        "chanceToRecoverCost",
-                        "entertainmentCost",
-                      ].map((key) => (
-                        <div key={key}>
-                          <dt className="text-[.65rem] uppercase text-[var(--text-secondary)]">
-                            {
-                              SET_PACK_COLUMNS.find(
-                                (column) => column[0] === key,
-                              )[1]
-                            }
-                          </dt>
-                          <dd>{formatSetMetric(key, row[key]) || "—"}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                    <p className="mt-2 border-t border-[var(--ex-line)] pt-2 text-xs text-[var(--text-secondary)]">
-                      {formatSetMetric("products", row.products) || "—"} products
-                    </p>
-                    {expanded ? (
-                      <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">
-                        <FamilyMatrix
-                          rows={row.familyEconomics}
-                          setId={row.setId}
-                        />
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="mt-3 border-t border-[var(--ex-line)] pt-2">
-                    <p className="text-xs tabular-nums text-[var(--text-primary)]">
-                      {formatSetMetric("products", row.products) || "—"}{" "}
-                      products ·{" "}
-                      {formatSetMetric("packPrice", row.packPrice) || "—"} avg
-                      cost / pack
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => onUnlockProductRip?.()}
-                      className={`mt-2 rounded-md border px-2 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 ${PLUS_COMPACT_LOCK}`}
-                    >
-                      Index Plus required for detailed Pack Economics
-                    </button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    </AnalyticsTableShell>
-  );
+  const filtered = useMemo(() => filterPackEconomicsSets(contract?.sets, query, eraFilter), [contract, eraFilter, query]);
+  const rows = useMemo(() => sortPackEconomicsSets(filtered, sort.key, sort.direction), [filtered, sort]);
+  useEffect(() => { if (expandedSetId && !rows.some((row) => row.setId === expandedSetId)) setExpandedSetId(null); }, [expandedSetId, rows]);
+  const changeSort = (key) => { if (key === "bestOpenPrice") return; setSort((current) => ({ key, direction: current.key === key && current.direction === "desc" ? "asc" : "desc" })); };
+  const freshness = contract?.bestOpenSourceMarketDate ? `Best-Open as of ${contract.bestOpenSourceMarketDate}${contract.bestOpenFreshnessStatus === "older" ? " · independently dated" : ""}` : null;
+  return <AnalyticsTableShell title="Pack Economics by Set" info="Set and Product Family economics come directly from the prepared Pack Economics contract. Best-Open is an exact Product threshold and is never averaged across Products." query={query} onQueryChange={(event) => setQuery(event.target.value)} searchPlaceholder="Search Sets…" searchLabel="Search Sets" context={freshness} shown={rows.length} marketDate={contract?.openingEconomicsMarketDate || null}>
+    <section data-set-pack-metrics data-pack-economics-entitled="true">
+      <div className="hidden overflow-x-auto desk:block"><table className={`${styles.table} min-w-[68rem] table-fixed`}><caption className="sr-only">Pack Economics hierarchy. Expanded Product Family and exact Product rows share every parent Set column.</caption><colgroup><col className={styles.colPackEconomicsIdentity} /><col span="2" className={styles.colPackEconomicsCount} /><col span="5" className={styles.colPackEconomicsMetric} /><col className={styles.colPackEconomicsBestOpen} /></colgroup><thead className={`${styles.head} ${styles.analyticsTableHead}`}><tr><th><button type="button" className={styles.sortButton} onClick={() => changeSort("setName")}>Set</button></th>{SET_PACK_COLUMNS.map(([key, label]) => <th key={key} className={styles.numeric} aria-sort={sort.key === key ? sort.direction === "asc" ? "ascending" : "descending" : undefined}><span className="inline-flex items-center justify-end gap-1"><button type="button" disabled={key === "bestOpenPrice"} className={styles.sortButton} onClick={() => changeSort(key)}>{label}</button><InfoPopover text={DEFINITIONS[key]} /></span></th>)}</tr></thead><tbody>{rows.map((row) => { const expanded = expandedSetId === row.setId; return <Fragment key={row.setId}><SetRow row={row} expanded={expanded} toggle={() => setExpandedSetId((current) => current === row.setId ? null : row.setId)} />{expanded ? (row.families || []).map((family, familyIndex) => <Fragment key={family.familyKey}><FamilyRow family={family} setId={row.setId} first={familyIndex === 0} />{(family.products || []).map((product) => <ProductRow key={product.sealedProductId} product={product} />)}</Fragment>) : null}</Fragment>; })}</tbody></table></div>
+      <ul className="space-y-2.5 p-3 desk:hidden">{rows.map((row) => <MobileSet key={row.setId} row={row} expanded={expandedSetId === row.setId} toggle={() => setExpandedSetId((current) => current === row.setId ? null : row.setId)} />)}</ul>
+    </section>
+  </AnalyticsTableShell>;
 }
