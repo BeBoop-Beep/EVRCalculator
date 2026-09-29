@@ -1,4 +1,4 @@
 {
-  "operation": "pkmnprices-probe",
-  "request_id": "pkmnprices-sold-access-probe-r2-20260929"
+  "operation": "pkmnprices-migration-scaffold",
+  "request_id": "pkmnprices-migration-scaffold-20260929"
 }
