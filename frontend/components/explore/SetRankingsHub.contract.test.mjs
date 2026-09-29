@@ -24,9 +24,11 @@ test("Set hub defaults to RIP Score and exposes the five Benchmark V1 lenses", (
   assert.ok(!registry.includes('label: "Compare Metrics"'));
 });
 
-test("public leaderboard reads only canonical Benchmark presentation", () => {
-  for (const heading of ["Rank", "Set", "Era", "RIP Score"]) assert.ok(leaderboard.includes(heading));
-  assert.ok(leaderboard.includes("benchmarkMetric(benchmark?.rows"));
+test("Set leaderboard delegates canonical scorecards to the shared table", () => {
+  assert.ok(leaderboard.includes("RankingsScoreTable"));
+  assert.ok(leaderboard.includes('scoreLabel="RIP Score"'));
+  assert.ok(leaderboard.includes('entity="Sets"'));
+  assert.ok(leaderboard.includes('canonicalMetricRows(scorecards?.rows, "overall"'));
   assert.ok(!leaderboard.includes("RipTierMark"));
   assert.ok(!leaderboard.includes("overallRipV12"));
   for (const paid of ["Financial RIP", "Chase Accessibility", "Collector Appeal", "Format Strength", "RankingsFamilyCells"]) assert.ok(!leaderboard.includes(paid));
@@ -39,8 +41,9 @@ test("paid Benchmark lenses share one Plus lock and no legacy dense score table 
 });
 
 test("all Set tabs reuse one loaded cohort and Era handoff retains the filter", () => {
-  assert.equal((lazy.match(/fetch\("\/api\/explore\/rankings\/lens\?lens=sets"/g) || []).length, 1);
+  assert.equal((lazy.match(/readRankingsScorecards\("set"/g) || []).length, 1);
   assert.ok(hub.includes("targets={targets}"));
+  assert.ok(hub.includes("scorecards={scorecards}"));
   assert.ok(!hub.includes("fetch("));
   assert.ok(lazy.includes("setSelectedEra(era?.eraName || null)"));
   assert.ok(lazy.includes('initialView={setEntryView} targets={setTargets}'));

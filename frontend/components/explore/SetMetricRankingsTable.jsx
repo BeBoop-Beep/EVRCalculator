@@ -1,22 +1,29 @@
 "use client";
-import Link from "next/link";
+
 import { useMemo, useState } from "react";
-import TableSearchInput from "@/components/ui/TableSearchInput";
 import SetIdentity from "./SetIdentity";
-import BenchmarkScoreBadge from "./BenchmarkScoreBadge";
+import RankingsSearchInput from "./RankingsSearchInput";
+import RankingsScoreTable from "./RankingsScoreTable";
+import { canonicalMetricRows } from "./rankingsScoreTableModel.mjs";
+import { scorecardSetTarget } from "@/lib/rankings/rankingsScorecardsClient.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
-import { benchmarkMetric, formatBenchmarkFreshness } from "./ripBenchmarkPresentation.mjs";
-import { money } from "./openingEconomicsSelector.mjs";
 import styles from "./explore.module.css";
-const CONFIG = { financial: { metric: "financial", title: "Financial RIP rankings", description: "Financial strength compared with the modeled Pokémon opening benchmark." }, collectorAppeal: { metric: "collector", title: "Collector RIP rankings", description: "Collectible appeal compared with the Pokémon benchmark." }, chaseAccessibility: { metric: "chase", title: "Chase RIP rankings", description: "Chase accessibility compared with the Pokémon benchmark." } };
-const entityId = (target) => target?.target_id || target?.setId || target?.id;
-const pct = (value) => Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "Unavailable";
-export default function SetMetricRankingsTable({ kind, targets = [], benchmark = null, eraFilter = null }) {
-  const config = CONFIG[kind]; const [query, setQuery] = useState("");
-  const rows = useMemo(() => targets.map((target) => ({ target, metric: benchmarkMetric(benchmark?.rows, "set", entityId(target), config.metric) })).filter(({ target }) => (!eraFilter || String(target?.era).toLowerCase() === String(eraFilter).toLowerCase()) && (!query.trim() || String(target?.name).toLowerCase().includes(query.trim().toLowerCase()))).sort((a, b) => a.metric.rank == null ? 1 : b.metric.rank == null ? -1 : a.metric.rank - b.metric.rank), [targets, benchmark, config.metric, eraFilter, query]);
-  const freshness = formatBenchmarkFreshness(benchmark?.freshness);
+
+const CONFIG = {
+  financial: { metric: "financial", title: "Financial RIP rankings", label: "Financial" },
+  collectorAppeal: { metric: "collector", title: "Collector RIP rankings", label: "Collector" },
+  chaseAccessibility: { metric: "chase", title: "Chase RIP rankings", label: "Chase" },
+};
+
+export default function SetMetricRankingsTable({ kind, scorecards = null, eraFilter = null }) {
+  const config = CONFIG[kind];
+  const [query, setQuery] = useState("");
+  const rows = useMemo(() => canonicalMetricRows(scorecards?.rows, config.metric, query, eraFilter).map((item) => {
+    const target = scorecardSetTarget(item.row);
+    return { ...item, target, href: buildTcgSetHrefFromTarget(target) };
+  }), [scorecards, config.metric, query, eraFilter]);
   return <section className={`${styles.surface} set-glass-surface overflow-hidden`} data-set-metric-ranking={kind}>
-    <header className="border-b border-[var(--border-subtle)] px-3 py-4 sm:px-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-semibold">{config.title}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{config.description}</p></div>{freshness ? <p className="text-xs text-[var(--text-secondary)]">{freshness}</p> : null}</div><TableSearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sets..." ariaLabel={`Search ${config.title}`} containerClassName="mt-3" /></header>
-    {rows.length ? <><div className="hidden overflow-x-auto md:block"><table className={styles.table}><caption className="sr-only">{config.title}, ordered by canonical rank.</caption><thead className={styles.head}><tr><th className={styles.numeric}>Rank</th><th>Set</th><th className={styles.numeric}>Benchmark Score</th>{kind === "financial" ? <><th>Modeled Return</th><th>Cost / Pack</th><th>EV / Pack</th></> : null}</tr></thead><tbody>{rows.map(({ target, metric }, index) => <tr key={`${target?.target_type}:${entityId(target)}`} className={styles.row}><td className={styles.numeric}>{metric.rank == null ? "—" : `#${metric.rank}`}</td><td><Link href={buildTcgSetHrefFromTarget(target)} className={styles.rowLink}><SetIdentity target={target} variant="compact" eager={index < 6} /></Link></td><td className={styles.numeric}><BenchmarkScoreBadge metric={metric} compact label={`${config.metric} RIP Score`} /></td>{kind === "financial" ? <><td>{pct(metric.financialEvidence.modeledReturnOnSpend)}</td><td>{metric.financialEvidence.costPerPack == null ? "Unavailable" : money(metric.financialEvidence.costPerPack)}</td><td>{metric.financialEvidence.expectedValuePerPack == null ? "Unavailable" : money(metric.financialEvidence.expectedValuePerPack)}</td></> : null}</tr>)}</tbody></table></div><div className="space-y-2 p-3 md:hidden">{rows.map(({ target, metric }, index) => <Link key={`${target?.target_type}:${entityId(target)}`} href={buildTcgSetHrefFromTarget(target)} className={`${styles.mobileRow} block`}><div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2"><strong className="text-right text-sm">{metric.rank == null ? "—" : `#${metric.rank}`}</strong><SetIdentity target={target} variant="mobileRanking" eager={index < 4} /><BenchmarkScoreBadge metric={metric} compact label={`${config.metric} RIP Score`} /></div>{kind === "financial" ? <div className="mt-2 flex flex-wrap gap-x-3 text-[10px] text-[var(--text-secondary)]"><span>Modeled Return {pct(metric.financialEvidence.modeledReturnOnSpend)}</span><span>Cost / Pack {metric.financialEvidence.costPerPack == null ? "Unavailable" : money(metric.financialEvidence.costPerPack)}</span><span>EV / Pack {metric.financialEvidence.expectedValuePerPack == null ? "Unavailable" : money(metric.financialEvidence.expectedValuePerPack)}</span></div> : null}</Link>)}</div></> : <p className="p-5 text-sm text-[var(--text-secondary)]">No ranked sets match the current filters.</p>}
+    <header className="border-b border-[var(--border-subtle)] px-3 py-4 sm:px-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-semibold">{config.title}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Benchmark-centered Set scores ordered by canonical backend rank.</p></div><span className="text-xs tabular-nums text-[var(--text-secondary)]">As of {scorecards?.marketDate || "—"}</span></div><RankingsSearchInput value={query} onChange={(event) => setQuery(event.target.value)} entity="Sets" className="mt-3" /></header>
+    <RankingsScoreTable rows={rows} entityLabel="Set" scoreLabel={config.label} renderIdentity={(item, index, mobile) => <SetIdentity target={item.target} variant={mobile ? "mobileRanking" : "compact"} eager={index < (mobile ? 4 : 6)} />} />
   </section>;
 }

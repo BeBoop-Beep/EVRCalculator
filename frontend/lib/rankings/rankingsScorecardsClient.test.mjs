@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createRankingsSessionCache } from "./rankingsSessionCache.mjs";
+import { readRankingsScorecards, scorecardSetTarget } from "./rankingsScorecardsClient.mjs";
+
+test("one entity payload is reused across tab reads", async () => {
+  let calls = 0;
+  const fetchImpl = async (url, init) => {
+    calls += 1;
+    assert.equal(url, "/api/tcgs/pokemon/rankings/scorecards?entity_type=set");
+    assert.deepEqual(init, { credentials: "include", cache: "no-store" });
+    return { ok: true, json: async () => ({ status: "available", rows: [{ entityId: "s1" }] }) };
+  };
+  const sessionCache = createRankingsSessionCache("paid-user");
+  await readRankingsScorecards("set", { fetchImpl, sessionCache });
+  await readRankingsScorecards("set", { fetchImpl, sessionCache });
+  assert.equal(calls, 1);
+});
+
+test("set scorecard identity maps without deriving a score", () => {
+  assert.deepEqual(scorecardSetTarget({ entityId: "s1", name: "Set", canonicalKey: "set", era: { eraId: "e1", eraName: "Era" } }), { target_type: "set", target_id: "s1", setId: "s1", name: "Set", canonical_key: "set", era: "Era", eraId: "e1" });
+});

@@ -1,6 +1,7 @@
 "use client";
 
 import { RIP_SCORE_SCALE_BENCHMARK_10, RipScoreBadge } from "./RipScoreBadge";
+import { getTierTone } from "@/lib/explore/interpretationTone";
 
 const POSITION = {
   above: { glyph: "↑", word: "above" },
@@ -27,6 +28,20 @@ export function RankingsRipScoreBadge({ metric, label = "RIP Score", compact = f
     <RipScoreBadge score={metric?.score} tier={metric?.tier} compact={compact} label={label} scoreScale={RIP_SCORE_SCALE_BENCHMARK_10} />
     <BenchmarkPositionIndicator benchmarkPosition={metric?.benchmarkPosition} deltaVsBenchmark={metric?.deltaVsBenchmark} compact={compact} />
     {hasRank ? <span className="sr-only">Rank {rank} of {cohortSize}</span> : null}
+  </span>;
+}
+
+export function RankingsCompactScore({ metric, label }) {
+  const score = Number(metric?.score);
+  const tone = metric?.tier ? getTierTone(metric.tier) : null;
+  return <span
+    data-rankings-compact-score
+    className="inline-flex min-w-[4.5rem] flex-col items-center rounded-lg border bg-[var(--surface-page)]/40 px-2 py-1.5 text-center"
+    style={tone ? { borderColor: tone.accentColor } : undefined}
+  >
+    <strong className="text-base tabular-nums text-[var(--text-primary)]">{Number.isFinite(score) ? score.toFixed(1) : "—"}</strong>
+    <span className="text-[8px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</span>
+    <BenchmarkPositionIndicator benchmarkPosition={metric?.benchmarkPosition} deltaVsBenchmark={metric?.deltaVsBenchmark} compact />
   </span>;
 }
 
