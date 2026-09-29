@@ -38,6 +38,7 @@ class PkmnPricesClient:
         sleep: Callable[[float], None] = time.sleep,
         max_retries: int = 2,
         timeout: float = 30.0,
+        min_request_interval: float = 0.0,
     ) -> None:
         if not api_key:
             raise ValueError("PkmnPrices API key is required")
@@ -47,6 +48,7 @@ class PkmnPricesClient:
         self._sleep = sleep
         self.max_retries = max(0, int(max_retries))
         self.timeout = float(timeout)
+        self.min_request_interval = max(0.0, float(min_request_interval))
         self.request_attempt_count = 0
         self.successful_request_count = 0
         self.credits_charged = 0
@@ -89,6 +91,8 @@ class PkmnPricesClient:
         )
         for attempt in range(self.max_retries + 1):
             try:
+                if self.min_request_interval > 0:
+                    self._sleep(self.min_request_interval)
                 self.request_attempt_count += 1
                 with self._opener(request, timeout=self.timeout) as response:
                     status = int(getattr(response, "status", 200))
