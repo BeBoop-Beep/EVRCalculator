@@ -113,6 +113,7 @@ function ChangeCell({ row, window, label }) {
 
 function cellValue(row, column) {
   const value = row[column.key];
+  if (column.price && row?.priceStatus === "unknown") return "Unknown";
   if (column.price) return formatBasketValue(value);
   if (value === null || value === undefined || value === "") return "—";
   return value;
@@ -465,6 +466,9 @@ export default function MarketExplorerConstituents({
     : isPrepared ? { marketKey: active.key, generationId: active.generationId } : null;
   const model = resolveSeriesConstituents(active, { movementWindow });
   const primaryColumn = model.columns.find((column) => column.primary);
+  const partialValue = active?.metadata?.currentValueStatus === "partial_known_only"
+    ? active.metadata
+    : null;
 
   return (
     <section
@@ -514,6 +518,21 @@ export default function MarketExplorerConstituents({
         entries={buildConstituentSwitcherEntries(selectedSeries.filter(Boolean), { targetKey: active?.key || null, hiddenKeys: hiddenSeriesKeys instanceof Set ? hiddenSeriesKeys : new Set(), focusedKey: focusedSeriesKey })}
         onSelect={onSelectSeries}
       />
+
+      {partialValue ? (
+        <p
+          data-market-partial-known-value
+          className="mx-3 mb-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-2 text-[10px] leading-relaxed text-[var(--text-secondary)] sm:mx-4"
+        >
+          Current market value is the subtotal of{" "}
+          <span className="font-semibold text-[var(--text-primary)]">{partialValue.pricedCardCount}</span>
+          {" "}priced exact-edition cards out of{" "}
+          <span className="font-semibold text-[var(--text-primary)]">{partialValue.expectedCardCount}</span>.
+          {" "}<span className="font-semibold text-[var(--text-primary)]">{partialValue.unknownCardCount}</span>
+          {" "}unresolved {partialValue.unknownCardCount === 1 ? "card is" : "cards are"} shown as Unknown and excluded from the subtotal.
+          Historical price performance is withheld until a complete comparable basket is available.
+        </p>
+      ) : null}
 
       {notInspectable.length ? (
         <ul data-market-constituents-not-inspectable className="space-y-0.5 px-3 pb-2 text-[10px] text-[var(--text-secondary)] sm:px-4">
