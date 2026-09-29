@@ -15,6 +15,22 @@ def _chunks(values: list[Any], size: int = 100) -> Iterable[list[Any]]:
         yield values[start:start + size]
 
 
+def _same_transaction(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """Economic transaction identity; enrichment may legitimately be revised."""
+    for field in ("provider_listing_id", "provider_card_id", "canonical_card_id"):
+        if str(a.get(field)) != str(b.get(field)):
+            return False
+    try:
+        if Decimal(str(a.get("price"))) != Decimal(str(b.get("price"))):
+            return False
+    except Exception:
+        return False
+    return (
+        a.get("currency") == b.get("currency")
+        and str(a.get("sold_at") or "") == str(b.get("sold_at") or "")
+    )
+
+
 def _same_evidence(a: dict[str, Any], b: dict[str, Any]) -> bool:
     # Evidence rows are append-only provider observations. Derived identity
     # classification may legitimately become stricter in a later matcher version,
@@ -147,15 +163,16 @@ class PkmnPricesStore:
                 result[int(row["provider_listing_id"])] = dict(row)
         return result
 
-    def insert_evidence(self, rows: list[dict[str, Any]]) -> tuple[int, int]:
+    def insert_evidence(self, rows: list[dict[str, Any]]) -> tuple[int, int, int]:
         if not rows:
-            return 0, 0
+            return 0, 0, 0
         by_provider: dict[int, list[dict[str, Any]]] = {}
         for row in rows:
             by_provider.setdefault(int(row["provider_card_id"]), []).append(dict(row))
 
         inserted = 0
         skipped = 0
+        metadata_drifts = 0
         for provider_id, provider_rows in by_provider.items():
             existing = self.existing_evidence(
                 provider_id, [int(row["provider_listing_id"]) for row in provider_rows]
@@ -166,13 +183,21 @@ class PkmnPricesStore:
                 if old is None:
                     fresh.append(row)
                     continue
-                if not _same_evidence(old, row):
-                    raise PkmnPricesStoreError(
-                        f"sold evidence conflict provider_card_id={provider_id} "
-                        f"listing_id={row['provider_listing_id']}"
-                    )
-                skipped += 1
+                if _same_evidence(old, row):
+                    skipped += 1
+                    continue
+                if _same_transaction(old, row):
+                    # Freeze first-seen enrichment in the append-only evidence row.
+                    # Provider-side title/attribution/grading enrichment can evolve;
+                    # surface that drift in the run receipt without rewriting history.
+                    skipped += 1
+                    metadata_drifts += 1
+                    continue
+                raise PkmnPricesStoreError(
+                    f"sold transaction conflict provider_card_id={provider_id} "
+                    f"listing_id={row['provider_listing_id']}"
+                )
             for chunk in _chunks(fresh, 100):
                 self.c.table("pkmnprices_ebay_sold_evidence_v1").insert(chunk).execute()
                 inserted += len(chunk)
-        return inserted, skipped
+        return inserted, skipped, metadata_drifts
