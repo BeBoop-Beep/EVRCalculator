@@ -4,6 +4,17 @@ import backend.alerts.market_freshness_watchdog as watchdog
 
 
 NOW = datetime(2026, 8, 30, 15, 0, tzinfo=timezone.utc)  # 08:00 America/Phoenix
+HEALTHY_MOVERS_CONTRACT = {
+    "builder": "pokemon_raw_market_seven_day_movers_v2",
+    "universe_contract": "serving_raw_exact_variant_v1",
+    "baseline_guard": "target_baseline_reversion_guard_v1",
+    "raw_constituent_count": 20315,
+    "candidate_card_count": 2370,
+    "published_card_count": 30,
+    "card_count": 30,
+    "eligible_set_count": 155,
+}
+
 FRESH_DATES = {
     "accepted_market_quality": "2026-08-30",
     "set_value": "2026-08-30",
@@ -18,8 +29,14 @@ FRESH_DATES = {
 }
 
 
-def _state(batch=None, dates=None):
-    return {"batch": batch, "authority_dates": dict(FRESH_DATES if dates is None else dates)}
+def _state(batch=None, dates=None, movers_contract=None):
+    return {
+        "batch": batch,
+        "authority_dates": dict(FRESH_DATES if dates is None else dates),
+        "explore_card_movers_contract": dict(
+            HEALTHY_MOVERS_CONTRACT if movers_contract is None else movers_contract
+        ),
+    }
 
 
 class _Result:
@@ -88,7 +105,10 @@ class _ContractClient:
         "pokemon_set_sealed_market_snapshot_latest": {"market_date"},
         "pokemon_market_index_daily_history": {"market_date", "tcg"},
         "pokemon_explore_set_value_snapshot_latest": {"market_date", "tcg", "scope"},
-        "pokemon_explore_card_movers_snapshot_latest": {"market_date", "tcg", "scope", "window_key"},
+        "pokemon_explore_card_movers_snapshot_latest": {
+            "market_date", "tcg", "scope", "window_key",
+            "payload_json", "card_count", "eligible_set_count",
+        },
         "pokemon_market_explorer_surface_serving_v2": {"singleton", "generation_id"},
         "pokemon_market_explorer_surface_generations_v2": {"generation_id", "market_date", "state"},
         "card_market_usd_latest": {"captured_at"},
@@ -132,7 +152,26 @@ class _ContractClient:
                 {"market_date": "2026-08-30", "tcg": "pokemon", "scope": "market"},
             ],
             "pokemon_explore_card_movers_snapshot_latest": [
-                {"market_date": "2026-08-30", "tcg": "pokemon", "scope": "explore", "window_key": "7D"},
+                {
+                    "market_date": "2026-08-30",
+                    "tcg": "pokemon",
+                    "scope": "explore",
+                    "window_key": "7D",
+                    "card_count": 30,
+                    "eligible_set_count": 155,
+                    "payload_json": {
+                        "meta": {
+                            "builder": "pokemon_raw_market_seven_day_movers_v2",
+                            "universeContractVersion": "serving_raw_exact_variant_v1",
+                            "baselineQualityGuardVersion": "target_baseline_reversion_guard_v1",
+                            "coverage": {
+                                "rawConstituentCount": 20315,
+                                "candidateCardCount": 2370,
+                                "publishedCardCount": 30,
+                            },
+                        }
+                    },
+                },
             ],
             "pokemon_market_explorer_surface_serving_v2": [
                 {"singleton": 1, "generation_id": "gen-current"},
@@ -204,6 +243,27 @@ def test_missing_required_authority_date_fails_closed_after_publication_deadline
 
 def test_fresh_healthy_state_has_no_failures():
     assert watchdog.evaluate_watchdog_state(_state({"status": "complete"}), now=NOW) == []
+
+
+def test_current_by_date_but_legacy_top_chase_movers_fail_semantics():
+    legacy = dict(
+        HEALTHY_MOVERS_CONTRACT,
+        builder="pokemon_explore_top_chase_seven_day_movers",
+        universe_contract=None,
+        baseline_guard=None,
+        raw_constituent_count=0,
+        candidate_card_count=180,
+        eligible_set_count=22,
+    )
+    failures = watchdog.evaluate_watchdog_state(
+        _state({"status": "complete"}, movers_contract=legacy), now=NOW
+    )
+    failure = next(
+        row for row in failures
+        if row["alert_type"] == "market_snapshot_semantics_invalid"
+    )
+    assert failure["failure_class"] == "explore_card_movers_universe_contract"
+    assert failure["expected_contract"]["universe_contract"] == "serving_raw_exact_variant_v1"
 
 
 def test_phoenix_rollover_does_not_use_utc_date(monkeypatch):
