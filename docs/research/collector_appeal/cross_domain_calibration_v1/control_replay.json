@@ -1,0 +1,22 @@
+{
+  "status": "CONTROL_REPLAY_NOT_EXACT",
+  "tolerance": 0.0025,
+  "frozenTargets": {
+    "medianRho": 0.31764708442997636,
+    "weightedMeanRho": 0.29910491268326117,
+    "positivePct": 95.45454545454545
+  },
+  "historicalReplay": {
+    "sets": 22,
+    "medianRho": 0.32331872351802543,
+    "weightedMeanRho": 0.2995477168481579,
+    "positivePct": 95.45454545454545,
+    "materiallyPositivePct": 72.72727272727273,
+    "negativePct": 4.545454545454546
+  },
+  "absoluteErrors": {
+    "medianRho": 0.005671639088049074,
+    "weightedMeanRho": 0.00044280416489672625
+  },
+  "lineageFinding": "The read-only Sep-11 daily-constituents authority covers fewer rows than the frozen controlled membership; candidate conclusions are blocked from promotion."
+}

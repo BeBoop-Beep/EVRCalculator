@@ -1,0 +1,122 @@
+{
+  "CONTROL": {
+    "top10": {
+      "trainer": 10
+    },
+    "top25": {
+      "trainer": 25
+    },
+    "top50": {
+      "trainer": 38,
+      "pokemon": 12
+    },
+    "top100": {
+      "trainer": 40,
+      "pokemon": 60
+    },
+    "top250": {
+      "trainer": 63,
+      "pokemon": 187
+    },
+    "top500": {
+      "trainer": 94,
+      "pokemon": 406
+    }
+  },
+  "ANCHOR25": {
+    "top10": {
+      "trainer": 10
+    },
+    "top25": {
+      "trainer": 22,
+      "pokemon": 3
+    },
+    "top50": {
+      "trainer": 23,
+      "pokemon": 27
+    },
+    "top100": {
+      "trainer": 32,
+      "pokemon": 68
+    },
+    "top250": {
+      "trainer": 38,
+      "pokemon": 212
+    },
+    "top500": {
+      "trainer": 53,
+      "pokemon": 447
+    }
+  },
+  "ANCHOR50": {
+    "top10": {
+      "trainer": 10
+    },
+    "top25": {
+      "trainer": 12,
+      "pokemon": 13
+    },
+    "top50": {
+      "trainer": 12,
+      "pokemon": 38
+    },
+    "top100": {
+      "trainer": 23,
+      "pokemon": 77
+    },
+    "top250": {
+      "trainer": 28,
+      "pokemon": 222
+    },
+    "top500": {
+      "trainer": 40,
+      "pokemon": 460
+    }
+  },
+  "ANCHOR75": {
+    "top10": {
+      "pokemon": 10
+    },
+    "top25": {
+      "pokemon": 25
+    },
+    "top50": {
+      "pokemon": 44,
+      "trainer": 6
+    },
+    "top100": {
+      "pokemon": 81,
+      "trainer": 19
+    },
+    "top250": {
+      "pokemon": 229,
+      "trainer": 21
+    },
+    "top500": {
+      "pokemon": 469,
+      "trainer": 31
+    }
+  },
+  "ANCHOR100": {
+    "top10": {
+      "pokemon": 10
+    },
+    "top25": {
+      "pokemon": 25
+    },
+    "top50": {
+      "pokemon": 50
+    },
+    "top100": {
+      "pokemon": 100
+    },
+    "top250": {
+      "pokemon": 237,
+      "trainer": 13
+    },
+    "top500": {
+      "pokemon": 474,
+      "trainer": 26
+    }
+  }
+}

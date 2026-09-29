@@ -1,0 +1,55 @@
+{
+  "decision": "CALIBRATION_SIGNAL_PRESENT_BUT_VALIDATION_BLOCKED",
+  "reason": "Historical control or candidate gates prevent promotion.",
+  "gateMatrix": {
+    "ANCHOR25": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": false,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": true,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "promotionBlocked": true
+    },
+    "ANCHOR50": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": false,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": true,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "promotionBlocked": true
+    },
+    "ANCHOR75": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": false,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": true,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "promotionBlocked": true
+    },
+    "ANCHOR100": {
+      "artifact": true,
+      "cohort": true,
+      "historicalReplay": false,
+      "pokemonUnchanged": true,
+      "trainerSpearmanGte995": false,
+      "oosR2Guardrail": true,
+      "heldOutSpearmanGuardrail": true,
+      "weightedRhoGuardrail": true,
+      "crossDomainImproves": true,
+      "promotionBlocked": true
+    }
+  },
+  "productionMutations": "NONE"
+}

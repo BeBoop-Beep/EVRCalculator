@@ -1,0 +1,1062 @@
+{
+  "CONTROL": {
+    "component": "score_CONTROL",
+    "minimumSetN": 8,
+    "sets": [
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "setName": "Phantasmal Flames",
+        "era": "Mega Evolution",
+        "n": 129,
+        "spearmanPrice": 0.37224815048505927,
+        "spearmanLogPrice": 0.37224815048505927,
+        "pearsonLogPrice": 0.4183381150665211
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "setName": "Journey Together",
+        "era": "Scarlet and Violet",
+        "n": 188,
+        "spearmanPrice": 0.377077469348897,
+        "spearmanLogPrice": 0.377077469348897,
+        "pearsonLogPrice": 0.3494414102802423
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "setName": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "n": 273,
+        "spearmanPrice": 0.2547042413930756,
+        "spearmanLogPrice": 0.2547042413930756,
+        "pearsonLogPrice": 0.20419673322910145
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "setName": "Shrouded Fable",
+        "era": "Scarlet and Violet",
+        "n": 94,
+        "spearmanPrice": -0.1085810971733526,
+        "spearmanLogPrice": -0.1085810971733526,
+        "pearsonLogPrice": -0.15139618457592233
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "setName": "Scarlet and Violet Base Set",
+        "era": "Scarlet and Violet",
+        "n": 256,
+        "spearmanPrice": 0.1815601810355129,
+        "spearmanLogPrice": 0.1815601810355129,
+        "pearsonLogPrice": 0.09728160503088791
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "setName": "Black Bolt",
+        "era": "Scarlet and Violet",
+        "n": 170,
+        "spearmanPrice": 0.19557678506280812,
+        "spearmanLogPrice": 0.19557678506280812,
+        "pearsonLogPrice": 0.15400807936161215
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "setName": "Pitch Black",
+        "era": "Mega Evolution",
+        "n": 118,
+        "spearmanPrice": 0.42007820213796176,
+        "spearmanLogPrice": 0.42007820213796176,
+        "pearsonLogPrice": 0.4688195847631399
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "setName": "Stellar Crown",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.3758302859438216,
+        "spearmanLogPrice": 0.3758302859438216,
+        "pearsonLogPrice": 0.36340807421529137
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "setName": "Chaos Rising",
+        "era": "Mega Evolution",
+        "n": 119,
+        "spearmanPrice": 0.1581823346218835,
+        "spearmanLogPrice": 0.1581823346218835,
+        "pearsonLogPrice": 0.2628187772188292
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "setName": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "n": 264,
+        "spearmanPrice": 0.18434592994821047,
+        "spearmanLogPrice": 0.18434592994821047,
+        "pearsonLogPrice": 0.16912922900209676
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "setName": "Perfect Order",
+        "era": "Mega Evolution",
+        "n": 121,
+        "spearmanPrice": 0.4713018835376628,
+        "spearmanLogPrice": 0.4713018835376628,
+        "pearsonLogPrice": 0.419358257182244
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "setName": "Ascended Heroes",
+        "era": "Mega Evolution",
+        "n": 293,
+        "spearmanPrice": 0.35104129831807124,
+        "spearmanLogPrice": 0.35104129831807124,
+        "pearsonLogPrice": 0.37875050129207766
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "setName": "Prismatic Evolutions",
+        "era": "Scarlet and Violet",
+        "n": 174,
+        "spearmanPrice": 0.3228501103669293,
+        "spearmanLogPrice": 0.3228501103669293,
+        "pearsonLogPrice": 0.3062774158260972
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "setName": "Temporal Forces",
+        "era": "Scarlet and Violet",
+        "n": 210,
+        "spearmanPrice": 0.14539817401708008,
+        "spearmanLogPrice": 0.14539817401708008,
+        "pearsonLogPrice": 0.07326479855296168
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "setName": "Mega Evolution",
+        "era": "Mega Evolution",
+        "n": 188,
+        "spearmanPrice": 0.4723488147841466,
+        "spearmanLogPrice": 0.4723488147841466,
+        "pearsonLogPrice": 0.4339822509851929
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "setName": "Obsidian Flames",
+        "era": "Scarlet and Violet",
+        "n": 229,
+        "spearmanPrice": 0.41351033562990475,
+        "spearmanLogPrice": 0.41351033562990475,
+        "pearsonLogPrice": 0.3565896060241383
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "setName": "White Flare",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.2539231872304462,
+        "spearmanLogPrice": 0.2539231872304462,
+        "pearsonLogPrice": 0.1894090687951995
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "setName": "Twilight Masquerade",
+        "era": "Scarlet and Violet",
+        "n": 218,
+        "spearmanPrice": 0.3237873366691216,
+        "spearmanLogPrice": 0.3237873366691216,
+        "pearsonLogPrice": 0.34140990217274986
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "setName": "Scarlet and Violet 151",
+        "era": "Scarlet and Violet",
+        "n": 206,
+        "spearmanPrice": 0.47820212647894283,
+        "spearmanLogPrice": 0.47820212647894283,
+        "pearsonLogPrice": 0.42518648691240746
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "setName": "Destined Rivals",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.3480685505095596,
+        "spearmanLogPrice": 0.3480685505095596,
+        "pearsonLogPrice": 0.36176760352082304
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "setName": "Surging Sparks",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.2859190000922061,
+        "spearmanLogPrice": 0.2859190000922061,
+        "pearsonLogPrice": 0.30286138707622745
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "setName": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "n": 245,
+        "spearmanPrice": 0.24064692341076244,
+        "spearmanLogPrice": 0.24064692341076244,
+        "pearsonLogPrice": 0.23266114322124593
+      }
+    ],
+    "summary": {
+      "sets": 22,
+      "medianRho": 0.32331872351802543,
+      "weightedMeanRho": 0.2995477168481579,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 72.72727272727273,
+      "negativePct": 4.545454545454546
+    }
+  },
+  "ANCHOR25": {
+    "component": "score_ANCHOR25",
+    "minimumSetN": 8,
+    "sets": [
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "setName": "Phantasmal Flames",
+        "era": "Mega Evolution",
+        "n": 129,
+        "spearmanPrice": 0.3810304649861686,
+        "spearmanLogPrice": 0.3810304649861686,
+        "pearsonLogPrice": 0.4394129652538958
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "setName": "Journey Together",
+        "era": "Scarlet and Violet",
+        "n": 188,
+        "spearmanPrice": 0.37732867812087106,
+        "spearmanLogPrice": 0.37732867812087106,
+        "pearsonLogPrice": 0.3632461433743952
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "setName": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "n": 273,
+        "spearmanPrice": 0.2584311866450822,
+        "spearmanLogPrice": 0.2584311866450822,
+        "pearsonLogPrice": 0.20674825774088132
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "setName": "Shrouded Fable",
+        "era": "Scarlet and Violet",
+        "n": 94,
+        "spearmanPrice": -0.10785823519896107,
+        "spearmanLogPrice": -0.10785823519896107,
+        "pearsonLogPrice": -0.159931613193118
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "setName": "Scarlet and Violet Base Set",
+        "era": "Scarlet and Violet",
+        "n": 256,
+        "spearmanPrice": 0.184729783937267,
+        "spearmanLogPrice": 0.184729783937267,
+        "pearsonLogPrice": 0.10583631715005637
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "setName": "Black Bolt",
+        "era": "Scarlet and Violet",
+        "n": 170,
+        "spearmanPrice": 0.1960226617507088,
+        "spearmanLogPrice": 0.1960226617507088,
+        "pearsonLogPrice": 0.15364531733081235
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "setName": "Pitch Black",
+        "era": "Mega Evolution",
+        "n": 118,
+        "spearmanPrice": 0.4191974699255776,
+        "spearmanLogPrice": 0.4191974699255776,
+        "pearsonLogPrice": 0.47119468660748715
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "setName": "Stellar Crown",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.3782336233031971,
+        "spearmanLogPrice": 0.3782336233031971,
+        "pearsonLogPrice": 0.36383588753014234
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "setName": "Chaos Rising",
+        "era": "Mega Evolution",
+        "n": 119,
+        "spearmanPrice": 0.15962244601639716,
+        "spearmanLogPrice": 0.15962244601639716,
+        "pearsonLogPrice": 0.27133484590736673
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "setName": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "n": 264,
+        "spearmanPrice": 0.1910505096814478,
+        "spearmanLogPrice": 0.1910505096814478,
+        "pearsonLogPrice": 0.17436823086435585
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "setName": "Perfect Order",
+        "era": "Mega Evolution",
+        "n": 121,
+        "spearmanPrice": 0.470712001880547,
+        "spearmanLogPrice": 0.470712001880547,
+        "pearsonLogPrice": 0.4239080451303547
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "setName": "Ascended Heroes",
+        "era": "Mega Evolution",
+        "n": 293,
+        "spearmanPrice": 0.35321242526173885,
+        "spearmanLogPrice": 0.35321242526173885,
+        "pearsonLogPrice": 0.38885505604505743
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "setName": "Prismatic Evolutions",
+        "era": "Scarlet and Violet",
+        "n": 174,
+        "spearmanPrice": 0.3231031259084242,
+        "spearmanLogPrice": 0.3231031259084242,
+        "pearsonLogPrice": 0.31795964145937206
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "setName": "Temporal Forces",
+        "era": "Scarlet and Violet",
+        "n": 210,
+        "spearmanPrice": 0.14784018473774715,
+        "spearmanLogPrice": 0.14784018473774715,
+        "pearsonLogPrice": 0.07880216161280161
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "setName": "Mega Evolution",
+        "era": "Mega Evolution",
+        "n": 188,
+        "spearmanPrice": 0.4704235302701847,
+        "spearmanLogPrice": 0.4704235302701847,
+        "pearsonLogPrice": 0.44716539594026034
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "setName": "Obsidian Flames",
+        "era": "Scarlet and Violet",
+        "n": 229,
+        "spearmanPrice": 0.4150235422106614,
+        "spearmanLogPrice": 0.4150235422106614,
+        "pearsonLogPrice": 0.35756415897391697
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "setName": "White Flare",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.25299970366668645,
+        "spearmanLogPrice": 0.25299970366668645,
+        "pearsonLogPrice": 0.1885321378555077
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "setName": "Twilight Masquerade",
+        "era": "Scarlet and Violet",
+        "n": 218,
+        "spearmanPrice": 0.32336026068761053,
+        "spearmanLogPrice": 0.32336026068761053,
+        "pearsonLogPrice": 0.33664945665396917
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "setName": "Scarlet and Violet 151",
+        "era": "Scarlet and Violet",
+        "n": 206,
+        "spearmanPrice": 0.4793472122995019,
+        "spearmanLogPrice": 0.4793472122995019,
+        "pearsonLogPrice": 0.4288392348634462
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "setName": "Destined Rivals",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.3488570954569042,
+        "spearmanLogPrice": 0.3488570954569042,
+        "pearsonLogPrice": 0.364301184930793
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "setName": "Surging Sparks",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.29320347799332314,
+        "spearmanLogPrice": 0.29320347799332314,
+        "pearsonLogPrice": 0.3207583744464834
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "setName": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "n": 245,
+        "spearmanPrice": 0.241609885680407,
+        "spearmanLogPrice": 0.241609885680407,
+        "pearsonLogPrice": 0.2377962993093007
+      }
+    ],
+    "summary": {
+      "sets": 22,
+      "medianRho": 0.3232316932980174,
+      "weightedMeanRho": 0.30155728835046547,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 72.72727272727273,
+      "negativePct": 4.545454545454546
+    }
+  },
+  "ANCHOR50": {
+    "component": "score_ANCHOR50",
+    "minimumSetN": 8,
+    "sets": [
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "setName": "Phantasmal Flames",
+        "era": "Mega Evolution",
+        "n": 129,
+        "spearmanPrice": 0.3899470741977123,
+        "spearmanLogPrice": 0.3899470741977123,
+        "pearsonLogPrice": 0.45925944728812446
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "setName": "Journey Together",
+        "era": "Scarlet and Violet",
+        "n": 188,
+        "spearmanPrice": 0.37918563505039166,
+        "spearmanLogPrice": 0.37918563505039166,
+        "pearsonLogPrice": 0.37597957938927135
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "setName": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "n": 273,
+        "spearmanPrice": 0.26150614511588594,
+        "spearmanLogPrice": 0.26150614511588594,
+        "pearsonLogPrice": 0.20851624950892944
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "setName": "Shrouded Fable",
+        "era": "Scarlet and Violet",
+        "n": 94,
+        "spearmanPrice": -0.10733777457739917,
+        "spearmanLogPrice": -0.10733777457739917,
+        "pearsonLogPrice": -0.16778206480384703
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "setName": "Scarlet and Violet Base Set",
+        "era": "Scarlet and Violet",
+        "n": 256,
+        "spearmanPrice": 0.18846965761183498,
+        "spearmanLogPrice": 0.18846965761183498,
+        "pearsonLogPrice": 0.11443811274091728
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "setName": "Black Bolt",
+        "era": "Scarlet and Violet",
+        "n": 170,
+        "spearmanPrice": 0.19640501628033316,
+        "spearmanLogPrice": 0.19640501628033316,
+        "pearsonLogPrice": 0.15274604611375955
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "setName": "Pitch Black",
+        "era": "Mega Evolution",
+        "n": 118,
+        "spearmanPrice": 0.421503453436011,
+        "spearmanLogPrice": 0.421503453436011,
+        "pearsonLogPrice": 0.472350009254591
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "setName": "Stellar Crown",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.37998450825229546,
+        "spearmanLogPrice": 0.37998450825229546,
+        "pearsonLogPrice": 0.36350407146060965
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "setName": "Chaos Rising",
+        "era": "Mega Evolution",
+        "n": 119,
+        "spearmanPrice": 0.1615616059139601,
+        "spearmanLogPrice": 0.1615616059139601,
+        "pearsonLogPrice": 0.27940740671012554
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "setName": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "n": 264,
+        "spearmanPrice": 0.19460342802879543,
+        "spearmanLogPrice": 0.19460342802879543,
+        "pearsonLogPrice": 0.17879053243888057
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "setName": "Perfect Order",
+        "era": "Mega Evolution",
+        "n": 121,
+        "spearmanPrice": 0.47591923306060374,
+        "spearmanLogPrice": 0.47591923306060374,
+        "pearsonLogPrice": 0.42683472149664886
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "setName": "Ascended Heroes",
+        "era": "Mega Evolution",
+        "n": 293,
+        "spearmanPrice": 0.3558833147447095,
+        "spearmanLogPrice": 0.3558833147447095,
+        "pearsonLogPrice": 0.3979717089010193
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "setName": "Prismatic Evolutions",
+        "era": "Scarlet and Violet",
+        "n": 174,
+        "spearmanPrice": 0.32305867723221565,
+        "spearmanLogPrice": 0.32305867723221565,
+        "pearsonLogPrice": 0.32870869762054716
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "setName": "Temporal Forces",
+        "era": "Scarlet and Violet",
+        "n": 210,
+        "spearmanPrice": 0.1494634379484056,
+        "spearmanLogPrice": 0.1494634379484056,
+        "pearsonLogPrice": 0.08430286520341577
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "setName": "Mega Evolution",
+        "era": "Mega Evolution",
+        "n": 188,
+        "spearmanPrice": 0.4694360427179744,
+        "spearmanLogPrice": 0.4694360427179744,
+        "pearsonLogPrice": 0.4594785316528998
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "setName": "Obsidian Flames",
+        "era": "Scarlet and Violet",
+        "n": 229,
+        "spearmanPrice": 0.4160415175468068,
+        "spearmanLogPrice": 0.4160415175468068,
+        "pearsonLogPrice": 0.35754016006765077
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "setName": "White Flare",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.25223897965822534,
+        "spearmanLogPrice": 0.25223897965822534,
+        "pearsonLogPrice": 0.18735407860612877
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "setName": "Twilight Masquerade",
+        "era": "Scarlet and Violet",
+        "n": 218,
+        "spearmanPrice": 0.3231203564049165,
+        "spearmanLogPrice": 0.3231203564049165,
+        "pearsonLogPrice": 0.33022161716453724
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "setName": "Scarlet and Violet 151",
+        "era": "Scarlet and Violet",
+        "n": 206,
+        "spearmanPrice": 0.4800286310961393,
+        "spearmanLogPrice": 0.4800286310961393,
+        "pearsonLogPrice": 0.43142908554465287
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "setName": "Destined Rivals",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.3508579498246225,
+        "spearmanLogPrice": 0.3508579498246225,
+        "pearsonLogPrice": 0.36604562838332494
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "setName": "Surging Sparks",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.2998110111328522,
+        "spearmanLogPrice": 0.2998110111328522,
+        "pearsonLogPrice": 0.3376976405199343
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "setName": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "n": 245,
+        "spearmanPrice": 0.24208320611802892,
+        "spearmanLogPrice": 0.24208320611802892,
+        "pearsonLogPrice": 0.242661798481
+      }
+    ],
+    "summary": {
+      "sets": 22,
+      "medianRho": 0.32308951681856607,
+      "weightedMeanRho": 0.30366374564254567,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 72.72727272727273,
+      "negativePct": 4.545454545454546
+    }
+  },
+  "ANCHOR75": {
+    "component": "score_ANCHOR75",
+    "minimumSetN": 8,
+    "sets": [
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "setName": "Phantasmal Flames",
+        "era": "Mega Evolution",
+        "n": 129,
+        "spearmanPrice": 0.4043641709241273,
+        "spearmanLogPrice": 0.4043641709241273,
+        "pearsonLogPrice": 0.47733292191876014
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "setName": "Journey Together",
+        "era": "Scarlet and Violet",
+        "n": 188,
+        "spearmanPrice": 0.38643092977588867,
+        "spearmanLogPrice": 0.38643092977588867,
+        "pearsonLogPrice": 0.38722413082163964
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "setName": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "n": 273,
+        "spearmanPrice": 0.265582095056654,
+        "spearmanLogPrice": 0.265582095056654,
+        "pearsonLogPrice": 0.20933934656435427
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "setName": "Shrouded Fable",
+        "era": "Scarlet and Violet",
+        "n": 94,
+        "spearmanPrice": -0.11540491421160869,
+        "spearmanLogPrice": -0.11540491421160869,
+        "pearsonLogPrice": -0.1744749096827329
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "setName": "Scarlet and Violet Base Set",
+        "era": "Scarlet and Violet",
+        "n": 256,
+        "spearmanPrice": 0.19529679754173704,
+        "spearmanLogPrice": 0.19529679754173704,
+        "pearsonLogPrice": 0.12280650527869676
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "setName": "Black Bolt",
+        "era": "Scarlet and Violet",
+        "n": 170,
+        "spearmanPrice": 0.19548638814526118,
+        "spearmanLogPrice": 0.19548638814526118,
+        "pearsonLogPrice": 0.1512931503510519
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "setName": "Pitch Black",
+        "era": "Mega Evolution",
+        "n": 118,
+        "spearmanPrice": 0.41893800109952245,
+        "spearmanLogPrice": 0.41893800109952245,
+        "pearsonLogPrice": 0.4721463153864343
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "setName": "Stellar Crown",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.3813354268956362,
+        "spearmanLogPrice": 0.3813354268956362,
+        "pearsonLogPrice": 0.36237257811521056
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "setName": "Chaos Rising",
+        "era": "Mega Evolution",
+        "n": 119,
+        "spearmanPrice": 0.1642814202555787,
+        "spearmanLogPrice": 0.1642814202555787,
+        "pearsonLogPrice": 0.28677993147540937
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "setName": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "n": 264,
+        "spearmanPrice": 0.19707817218295748,
+        "spearmanLogPrice": 0.19707817218295748,
+        "pearsonLogPrice": 0.18196177413093775
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "setName": "Perfect Order",
+        "era": "Mega Evolution",
+        "n": 121,
+        "spearmanPrice": 0.47940428101183974,
+        "spearmanLogPrice": 0.47940428101183974,
+        "pearsonLogPrice": 0.4276556286890298
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "setName": "Ascended Heroes",
+        "era": "Mega Evolution",
+        "n": 293,
+        "spearmanPrice": 0.35945396772967286,
+        "spearmanLogPrice": 0.35945396772967286,
+        "pearsonLogPrice": 0.40579850465001177
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "setName": "Prismatic Evolutions",
+        "era": "Scarlet and Violet",
+        "n": 174,
+        "spearmanPrice": 0.32942509531686043,
+        "spearmanLogPrice": 0.32942509531686043,
+        "pearsonLogPrice": 0.33787882869991365
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "setName": "Temporal Forces",
+        "era": "Scarlet and Violet",
+        "n": 210,
+        "spearmanPrice": 0.15404860965726633,
+        "spearmanLogPrice": 0.15404860965726633,
+        "pearsonLogPrice": 0.08963514371186307
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "setName": "Mega Evolution",
+        "era": "Mega Evolution",
+        "n": 188,
+        "spearmanPrice": 0.4677330106631559,
+        "spearmanLogPrice": 0.4677330106631559,
+        "pearsonLogPrice": 0.4704889646007318
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "setName": "Obsidian Flames",
+        "era": "Scarlet and Violet",
+        "n": 229,
+        "spearmanPrice": 0.41534369170212726,
+        "spearmanLogPrice": 0.41534369170212726,
+        "pearsonLogPrice": 0.35641140637685714
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "setName": "White Flare",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.251341443269948,
+        "spearmanLogPrice": 0.251341443269948,
+        "pearsonLogPrice": 0.18585114606387923
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "setName": "Twilight Masquerade",
+        "era": "Scarlet and Violet",
+        "n": 218,
+        "spearmanPrice": 0.32154185576226263,
+        "spearmanLogPrice": 0.32154185576226263,
+        "pearsonLogPrice": 0.3219103490730462
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "setName": "Scarlet and Violet 151",
+        "era": "Scarlet and Violet",
+        "n": 206,
+        "spearmanPrice": 0.48057678855553115,
+        "spearmanLogPrice": 0.48057678855553115,
+        "pearsonLogPrice": 0.4328256620678385
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "setName": "Destined Rivals",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.3533482458837961,
+        "spearmanLogPrice": 0.3533482458837961,
+        "pearsonLogPrice": 0.36691347339606234
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "setName": "Surging Sparks",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.3083025258925484,
+        "spearmanLogPrice": 0.3083025258925484,
+        "pearsonLogPrice": 0.3528296369338298
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "setName": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "n": 245,
+        "spearmanPrice": 0.2419665081480635,
+        "spearmanLogPrice": 0.2419665081480635,
+        "pearsonLogPrice": 0.24719153289435197
+      }
+    ],
+    "summary": {
+      "sets": 22,
+      "medianRho": 0.32548347553956153,
+      "weightedMeanRho": 0.30629670124470737,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 72.72727272727273,
+      "negativePct": 4.545454545454546
+    }
+  },
+  "ANCHOR100": {
+    "component": "score_ANCHOR100",
+    "minimumSetN": 8,
+    "sets": [
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "setName": "Phantasmal Flames",
+        "era": "Mega Evolution",
+        "n": 129,
+        "spearmanPrice": 0.43452172683602847,
+        "spearmanLogPrice": 0.43452172683602847,
+        "pearsonLogPrice": 0.49311416964362625
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "setName": "Journey Together",
+        "era": "Scarlet and Violet",
+        "n": 188,
+        "spearmanPrice": 0.3957166180521679,
+        "spearmanLogPrice": 0.3957166180521679,
+        "pearsonLogPrice": 0.3965795066174957
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "setName": "Paldea Evolved",
+        "era": "Scarlet and Violet",
+        "n": 273,
+        "spearmanPrice": 0.26728286600399964,
+        "spearmanLogPrice": 0.26728286600399964,
+        "pearsonLogPrice": 0.20907566071905162
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "setName": "Shrouded Fable",
+        "era": "Scarlet and Violet",
+        "n": 94,
+        "spearmanPrice": -0.11721929776733145,
+        "spearmanLogPrice": -0.11721929776733145,
+        "pearsonLogPrice": -0.17954475641665363
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "setName": "Scarlet and Violet Base Set",
+        "era": "Scarlet and Violet",
+        "n": 256,
+        "spearmanPrice": 0.21193918169575174,
+        "spearmanLogPrice": 0.21193918169575174,
+        "pearsonLogPrice": 0.1306048169061228
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "setName": "Black Bolt",
+        "era": "Scarlet and Violet",
+        "n": 170,
+        "spearmanPrice": 0.19594692379276402,
+        "spearmanLogPrice": 0.19594692379276402,
+        "pearsonLogPrice": 0.14928658484736204
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "setName": "Pitch Black",
+        "era": "Mega Evolution",
+        "n": 118,
+        "spearmanPrice": 0.4195556099953438,
+        "spearmanLogPrice": 0.4195556099953438,
+        "pearsonLogPrice": 0.47046810074803197
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "setName": "Stellar Crown",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.3842767720291282,
+        "spearmanLogPrice": 0.3842767720291282,
+        "pearsonLogPrice": 0.3604152921975785
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "setName": "Chaos Rising",
+        "era": "Mega Evolution",
+        "n": 119,
+        "spearmanPrice": 0.17133582730939687,
+        "spearmanLogPrice": 0.17133582730939687,
+        "pearsonLogPrice": 0.2931701997625514
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "setName": "Paradox Rift",
+        "era": "Scarlet and Violet",
+        "n": 264,
+        "spearmanPrice": 0.19919308997249513,
+        "spearmanLogPrice": 0.19919308997249513,
+        "pearsonLogPrice": 0.18343351582416287
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "setName": "Perfect Order",
+        "era": "Mega Evolution",
+        "n": 121,
+        "spearmanPrice": 0.4829503512034669,
+        "spearmanLogPrice": 0.4829503512034669,
+        "pearsonLogPrice": 0.42588348202586374
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "setName": "Ascended Heroes",
+        "era": "Mega Evolution",
+        "n": 293,
+        "spearmanPrice": 0.36430648537490207,
+        "spearmanLogPrice": 0.36430648537490207,
+        "pearsonLogPrice": 0.41204144991566855
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "setName": "Prismatic Evolutions",
+        "era": "Scarlet and Violet",
+        "n": 174,
+        "spearmanPrice": 0.3290147998441658,
+        "spearmanLogPrice": 0.3290147998441658,
+        "pearsonLogPrice": 0.34475875369309306
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "setName": "Temporal Forces",
+        "era": "Scarlet and Violet",
+        "n": 210,
+        "spearmanPrice": 0.15826427085092126,
+        "spearmanLogPrice": 0.15826427085092126,
+        "pearsonLogPrice": 0.09465173394699607
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "setName": "Mega Evolution",
+        "era": "Mega Evolution",
+        "n": 188,
+        "spearmanPrice": 0.4670752879385364,
+        "spearmanLogPrice": 0.4670752879385364,
+        "pearsonLogPrice": 0.4797302987366966
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "setName": "Obsidian Flames",
+        "era": "Scarlet and Violet",
+        "n": 229,
+        "spearmanPrice": 0.4139670488888241,
+        "spearmanLogPrice": 0.4139670488888241,
+        "pearsonLogPrice": 0.3540928601729469
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "setName": "White Flare",
+        "era": "Scarlet and Violet",
+        "n": 172,
+        "spearmanPrice": 0.2508614205235237,
+        "spearmanLogPrice": 0.2508614205235237,
+        "pearsonLogPrice": 0.1840019165761019
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "setName": "Twilight Masquerade",
+        "era": "Scarlet and Violet",
+        "n": 218,
+        "spearmanPrice": 0.31611271753868564,
+        "spearmanLogPrice": 0.31611271753868564,
+        "pearsonLogPrice": 0.31154085229297296
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "setName": "Scarlet and Violet 151",
+        "era": "Scarlet and Violet",
+        "n": 206,
+        "spearmanPrice": 0.4811304413277989,
+        "spearmanLogPrice": 0.4811304413277989,
+        "pearsonLogPrice": 0.43291924581158936
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "setName": "Destined Rivals",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.35670740552686075,
+        "spearmanLogPrice": 0.35670740552686075,
+        "pearsonLogPrice": 0.3668302665411327
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "setName": "Surging Sparks",
+        "era": "Scarlet and Violet",
+        "n": 243,
+        "spearmanPrice": 0.3210343590445151,
+        "spearmanLogPrice": 0.3210343590445151,
+        "pearsonLogPrice": 0.365261222443192
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "setName": "Paldean Fates",
+        "era": "Scarlet and Violet",
+        "n": 245,
+        "spearmanPrice": 0.2443290299875728,
+        "spearmanLogPrice": 0.2443290299875728,
+        "pearsonLogPrice": 0.25131894921863057
+      }
+    ],
+    "summary": {
+      "sets": 22,
+      "medianRho": 0.3250245794443405,
+      "weightedMeanRho": 0.31041412504262506,
+      "positivePct": 95.45454545454545,
+      "materiallyPositivePct": 77.27272727272727,
+      "negativePct": 4.545454545454546
+    }
+  }
+}
