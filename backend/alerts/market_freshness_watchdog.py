@@ -15,6 +15,9 @@ from backend.db.clients.supabase_client import supabase
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 TERMINAL_BATCH_STATES = {"complete", "failed", "incomplete"}
 EXPLORER_CONVERGENCE_AUTHORITY_KEYS = ("explorer_v2",)
+EXPLORE_MOVERS_BUILDER = "pokemon_raw_market_seven_day_movers_v2"
+EXPLORE_MOVERS_UNIVERSE_CONTRACT = "serving_raw_exact_variant_v1"
+EXPLORE_MOVERS_BASELINE_GUARD = "target_baseline_reversion_guard_v1"
 
 REQUIRED_AUTHORITY_DATE_KEYS = (
     "accepted_market_quality",
@@ -93,6 +96,32 @@ def evaluate_watchdog_state(state: Mapping[str, Any], *, now: datetime) -> List[
             failures.append({"alert_type": "market_snapshot_date_divergence", "failure_class": "authority_date_mismatch",
                              "message": f"Public market authorities disagree: {present}.", "actual_dates": present})
 
+        movers = dict(state.get("explore_card_movers_contract") or {})
+        mover_contract_ok = (
+            movers.get("builder") == EXPLORE_MOVERS_BUILDER
+            and movers.get("universe_contract") == EXPLORE_MOVERS_UNIVERSE_CONTRACT
+            and movers.get("baseline_guard") == EXPLORE_MOVERS_BASELINE_GUARD
+            and int(movers.get("raw_constituent_count") or 0) >= 1000
+            and int(movers.get("candidate_card_count") or 0) > 0
+            and int(movers.get("published_card_count") or 0) == int(movers.get("card_count") or 0)
+            and int(movers.get("eligible_set_count") or 0) > 0
+        )
+        if not mover_contract_ok:
+            failures.append({
+                "alert_type": "market_snapshot_semantics_invalid",
+                "failure_class": "explore_card_movers_universe_contract",
+                "message": (
+                    "Explore 7D card movers are current by date but are not built from "
+                    "the serving Raw exact-variant market authority."
+                ),
+                "observed_contract": movers,
+                "expected_contract": {
+                    "builder": EXPLORE_MOVERS_BUILDER,
+                    "universe_contract": EXPLORE_MOVERS_UNIVERSE_CONTRACT,
+                    "baseline_guard": EXPLORE_MOVERS_BASELINE_GUARD,
+                },
+            })
+
     for failure in failures:
         failure["market_date"] = market_date
     return failures
@@ -108,6 +137,34 @@ def _latest_date(client: Any, table: str, column: str, **filters: Any) -> Option
     query = query.not_.is_(column, "null")
     rows = list(query.order(column, desc=True).limit(1).execute().data or [])
     return str(rows[0].get(column))[:10] if rows and rows[0].get(column) else None
+
+
+def _explore_card_movers_contract(client: Any) -> Dict[str, Any]:
+    rows = list(
+        client.table("pokemon_explore_card_movers_snapshot_latest")
+        .select("payload_json,card_count,eligible_set_count")
+        .eq("tcg", "pokemon")
+        .eq("scope", "explore")
+        .eq("window_key", "7D")
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        return {}
+    row = rows[0]
+    payload = row.get("payload_json") or {}
+    meta = payload.get("meta") or {}
+    coverage = meta.get("coverage") or {}
+    return {
+        "builder": meta.get("builder"),
+        "universe_contract": meta.get("universeContractVersion"),
+        "baseline_guard": meta.get("baselineQualityGuardVersion"),
+        "raw_constituent_count": coverage.get("rawConstituentCount"),
+        "candidate_card_count": coverage.get("candidateCardCount"),
+        "published_card_count": coverage.get("publishedCardCount"),
+        "card_count": row.get("card_count"),
+        "eligible_set_count": row.get("eligible_set_count"),
+    }
 
 
 def _explorer_v2_serving_date(client: Any) -> Optional[str]:
@@ -138,6 +195,7 @@ def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
                     .eq("market_date", market_date).limit(1).execute()).data or [])
     return {
         "batch": batches[0] if batches else None,
+        "explore_card_movers_contract": _explore_card_movers_contract(client),
         "authority_dates": {
             "accepted_market_quality": _latest_date(client, "pokemon_market_date_quality", "market_date", status="READY"),
             "set_value": _latest_date(client, "pokemon_set_value_daily_history", "snapshot_date", value_scope="standard"),
