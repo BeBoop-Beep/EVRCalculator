@@ -20,6 +20,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          exec 9>/tmp/pkmnprices-api.lock
+          flock -w 300 9 || { echo "PkmnPrices API lock remained held"; exit 21; }
+
           REPO=/home/ubuntu/repos/EVRCalculator
           PY="$REPO/.venv/bin/python"
           WT=/tmp/EVRCalculator-pkmnprices-history-backfill
