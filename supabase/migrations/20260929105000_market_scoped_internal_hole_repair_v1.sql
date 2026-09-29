@@ -101,7 +101,7 @@ BEGIN
       AND x.certified_on_date
       AND x.set_value>0
       AND x.priced_card_count>0
-      AND NOT EXISTS (
+      AND EXISTS (
         SELECT 1
         FROM public.pokemon_market_root_set_value_daily_history_v2_shadow before_row
         WHERE before_row.set_id=x.set_id
@@ -110,8 +110,8 @@ BEGIN
           AND before_row.certified_on_date
           AND before_row.set_value>0
           AND before_row.priced_card_count>0
-      ) IS FALSE
-      AND NOT EXISTS (
+      )
+      AND EXISTS (
         SELECT 1
         FROM public.pokemon_market_root_set_value_daily_history_v2_shadow after_row
         WHERE after_row.set_id=x.set_id
@@ -120,7 +120,7 @@ BEGIN
           AND after_row.certified_on_date
           AND after_row.set_value>0
           AND after_row.priced_card_count>0
-      ) IS FALSE
+      )
     ON CONFLICT(set_id,market_scope,market_date) DO UPDATE
     SET set_value=excluded.set_value,
         expected_card_count=excluded.expected_card_count,
