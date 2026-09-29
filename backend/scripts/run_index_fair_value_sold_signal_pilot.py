@@ -4,11 +4,14 @@ Purpose:
 - deterministically sample the frozen strict F1 Fair Value cohort across the seven
   frozen price bands;
 - fetch a bounded set of ungraded PkmnPrices eBay sold rows;
-- aggregate transaction/liquidity descriptors without persisting raw provider rows;
+- aggregate transaction/liquidity descriptors;
+- optionally persist the same raw provider rows into shadow research tables without
+  making a second provider request;
 - compare those descriptors with the existing structural/market-anchored Fair
   Value diagnostics.
 
-This script NEVER writes Supabase and NEVER changes a production pricing authority.
+By default this script is read-only. With --persist-evidence it writes only the
+existing shadow PkmnPrices evidence tables. It NEVER changes a production pricing authority.
 PkmnPrices sold rows do not expose raw-card condition, so sold prices are NOT
 treated as Near Mint prices or as Set Value inputs.
 """
@@ -19,6 +22,7 @@ import hashlib
 import json
 import math
 import statistics
+import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -32,6 +36,7 @@ from backend.db.clients.supabase_client import create_service_role_client
 from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
 from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
 from backend.pricing_pipeline.pkmnprices_sold import normalize_sold_listing
+from backend.pricing_pipeline.pkmnprices_store import PkmnPricesStore
 
 ROOT = Path(__file__).resolve().parents[2]
 F1 = ROOT / "backend/artifacts/index_fair_value/index_fair_value_f1_dataset.json"
@@ -40,6 +45,8 @@ F2R = ROOT / "backend/artifacts/index_fair_value/index_fair_value_f2r_target_bli
 OUT = ROOT / "backend/artifacts/index_fair_value/sold_signal_pilot_v1"
 EXPECTED_F1_FINGERPRINT = "0e7b04f1119ce525fbe387b50b523ac580aa7a14c758e5d16487a334969825d9"
 VERSION = "index_fair_value_sold_signal_pilot_v1"
+PERSIST_SELECTOR_VERSION = "pkmnprices_fair_value_balanced_sample_v1"
+PERSIST_COLLECTOR_VERSION = "pkmnprices_fair_value_pilot_persist_v1"
 SEED = 20260929
 BANDS = [
     (-math.inf, 5, "under_5"),
@@ -162,6 +169,26 @@ def _mad(values: list[float]) -> float | None:
         return None
     med = statistics.median(values)
     return float(statistics.median(abs(x - med) for x in values))
+
+
+def _persistent_identity_row(target: dict[str, Any], provider_card: dict[str, Any]) -> dict[str, Any]:
+    provider_set = provider_card.get("set") or {}
+    return {
+        "provider_card_id": int(provider_card["id"]),
+        "canonical_card_id": str(target["canonical_card_id"]),
+        "tcgplayer_product_id": str(target["tcgplayer_product_id"]),
+        "language": "English",
+        "match_basis": "fair_value_target_direct_variant_external_identity",
+        "provider_name": provider_card.get("name"),
+        "provider_set_id": str(provider_set.get("id")) if provider_set.get("id") is not None else None,
+        "metadata": {
+            "research_cohort": "index_fair_value_sold_signal_balanced_v1",
+            "source_f1_fingerprint": EXPECTED_F1_FINGERPRINT,
+            "sample_seed": SEED,
+            "card_variant_id": str(target["card_variant_id"]),
+            "price_band": str(target["price_band"]),
+        },
+    }
 
 
 def _aggregate(
@@ -290,7 +317,7 @@ def _grouped_correction(frame: pd.DataFrame, baseline_col: str) -> tuple[np.ndar
     }
 
 
-def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date) -> dict[str, Any]:
+def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date, persist_evidence: bool = False) -> dict[str, Any]:
     db = create_service_role_client()
     frozen = _load_frozen()
     variant_ids = sorted({str(v) for v in frozen["card_variant_id"].dropna()})
@@ -304,6 +331,50 @@ def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date)
     provider = PkmnPricesClient(
         creds.api_key, min_request_interval=1.05, max_retries=2, timeout=30
     )
+    store = PkmnPricesStore(db) if persist_evidence else None
+    evidence_run_id = str(uuid.uuid4()) if store else None
+    persist_stats = {
+        "inserted": 0,
+        "duplicates": 0,
+        "provider_metadata_drifts": 0,
+        "sold_item_count": 0,
+        "exact_attribution_count": 0,
+        "fair_value_signal_eligible_count": 0,
+        "provider_card_lookup_count": 0,
+    }
+    if store and evidence_run_id:
+        run_metadata = {
+            "mode": "fair_value_broad_shadow",
+            "research_cohort": "index_fair_value_sold_signal_balanced_v1",
+            "source_f1_fingerprint": EXPECTED_F1_FINGERPRINT,
+            "sample_seed": SEED,
+            "per_band_target": per_band,
+            "max_sold_per_card": max_sold_per_card,
+            "cutoff_date": cutoff.isoformat(),
+            "target_canonical_card_ids": [str(x) for x in sample["canonical_card_id"].tolist()],
+            "target_variant_ids": [str(x) for x in sample["card_variant_id"].tolist()],
+            "condition_equivalence_assumed": False,
+            "set_value_authority_unchanged": True,
+        }
+        store.create_run({
+            "run_id": evidence_run_id,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": None,
+            "status": "RUNNING",
+            "selector_version": PERSIST_SELECTOR_VERSION,
+            "collector_version": PERSIST_COLLECTOR_VERSION,
+            "target_count": len(sample),
+            "item_credit_cap": credit_cap,
+            "api_request_count": 0,
+            "credits_used": 0,
+            "provider_card_lookup_count": 0,
+            "sold_item_count": 0,
+            "exact_attribution_count": 0,
+            "fair_value_signal_eligible_count": 0,
+            "set_value_nm_eligible_count": 0,
+            "manifest_fingerprint": _hash(run_metadata),
+            "metadata": run_metadata,
+        })
     aggregates = []
     failures = []
     for raw in sample.to_dict("records"):
@@ -312,6 +383,7 @@ def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date)
             break
         try:
             cards = provider.cards_by_tcgplayer_id(raw["tcgplayer_product_id"], per_page=5)
+            persist_stats["provider_card_lookup_count"] += 1
             matches = [
                 card for card in cards
                 if str(card.get("tcg_player_id") or "") == str(raw["tcgplayer_product_id"])
@@ -326,16 +398,31 @@ def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date)
                 max_items=min(max_sold_per_card, remaining),
             )
             target_variant = variants[str(raw["card_variant_id"])]
+            collected_at = datetime.now(timezone.utc).isoformat()
             normalized = [
                 normalize_sold_listing(
                     row,
                     provider_card_id=provider_id,
                     canonical_card_id=raw["canonical_card_id"],
                     internal_variants=[target_variant],
-                    collected_at=datetime.now(timezone.utc).isoformat(),
+                    collected_at=collected_at,
                 )
                 for row in collection["rows"]
             ]
+            if store and evidence_run_id:
+                store.upsert_identity(_persistent_identity_row(raw, matches[0]))
+                persisted_rows = [{**row, "run_id": evidence_run_id} for row in normalized]
+                inserted, duplicates, metadata_drifts = store.insert_evidence(persisted_rows)
+                persist_stats["inserted"] += inserted
+                persist_stats["duplicates"] += duplicates
+                persist_stats["provider_metadata_drifts"] += metadata_drifts
+                persist_stats["sold_item_count"] += len(persisted_rows)
+                persist_stats["exact_attribution_count"] += sum(
+                    row.get("attribution") == "exact" for row in persisted_rows
+                )
+                persist_stats["fair_value_signal_eligible_count"] += sum(
+                    bool(row.get("fair_value_signal_eligible")) for row in persisted_rows
+                )
             aggregates.append(_aggregate(normalized, raw, cutoff))
         except Exception as exc:
             failures.append({
@@ -354,6 +441,33 @@ def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date)
     else:
         rows = frame
 
+    if store and evidence_run_id:
+        persisted_status = "COMPLETE" if not failures else ("PARTIAL" if persist_stats["sold_item_count"] else "FAILED")
+        store.update_run(evidence_run_id, {
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+            "status": persisted_status,
+            "api_request_count": provider.request_attempt_count,
+            "credits_used": min(provider.credits_charged, credit_cap),
+            "provider_card_lookup_count": persist_stats["provider_card_lookup_count"],
+            "sold_item_count": persist_stats["sold_item_count"],
+            "exact_attribution_count": persist_stats["exact_attribution_count"],
+            "fair_value_signal_eligible_count": persist_stats["fair_value_signal_eligible_count"],
+            "set_value_nm_eligible_count": 0,
+            "error_code": failures[0]["reason"] if failures else None,
+            "metadata": {
+                "mode": "fair_value_broad_shadow",
+                "research_cohort": "index_fair_value_sold_signal_balanced_v1",
+                "source_f1_fingerprint": EXPECTED_F1_FINGERPRINT,
+                "sample_seed": SEED,
+                "per_band_target": per_band,
+                "max_sold_per_card": max_sold_per_card,
+                "condition_equivalence_assumed": False,
+                "set_value_authority_unchanged": True,
+                **persist_stats,
+                "failures": failures,
+            },
+        })
+
     manifest = {
         "version": VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -368,6 +482,9 @@ def run(*, per_band: int, max_sold_per_card: int, credit_cap: int, cutoff: date)
         "credit_cap": credit_cap,
         "provider_credits_used": provider.credits_charged,
         "provider_credit_limit": provider.credits_limit,
+        "persistent_evidence_enabled": persist_evidence,
+        "persistent_evidence_run_id": evidence_run_id,
+        "persistent_evidence": persist_stats if persist_evidence else None,
         "sample_rows": len(sample),
         "completed_rows": len(frame),
         "failures": failures,
@@ -410,12 +527,14 @@ def main() -> int:
     parser.add_argument("--max-sold-per-card", type=int, default=20)
     parser.add_argument("--credit-cap", type=int, default=6000)
     parser.add_argument("--cutoff-date", type=date.fromisoformat, default=date(2026, 9, 28))
+    parser.add_argument("--persist-evidence", action="store_true")
     args = parser.parse_args()
     report = run(
         per_band=max(1, args.per_band),
         max_sold_per_card=max(1, min(args.max_sold_per_card, 20)),
         credit_cap=max(100, args.credit_cap),
         cutoff=args.cutoff_date,
+        persist_evidence=args.persist_evidence,
     )
     return 0 if report["completed_rows"] else 2
 
