@@ -195,6 +195,8 @@ def raw_authority(*, market_date="2026-09-29", universe="serving_raw_exact_varia
         "universeContractVersion": universe,
         "rankingMethodology": "market_movement_score_v1",
         "priceBasis": "serving_raw_current_plus_exact_nm_tcgplayer_observation_baseline_v1",
+        "baselineQualityGuardVersion": "target_baseline_reversion_guard_v1",
+        "baselineTransientExcludedCount": 1,
         "rawConstituentCount": 20315,
         "rawRootCount": 155,
         "rawMarketCount": 159,
@@ -250,6 +252,8 @@ def test_raw_authority_snapshot_is_market_wide_and_preserves_exact_variants():
     assert coverage["rawMarketCount"] == 159
     assert coverage["scopedConstituentCount"] == 1264
     assert coverage["candidateCardCount"] == 2370
+    assert coverage["baselineTransientExcludedCount"] == 1
+    assert row["payload_json"]["meta"]["baselineQualityGuardVersion"] == "target_baseline_reversion_guard_v1"
     assert row["payload_json"]["meta"]["builder"] == "pokemon_raw_market_seven_day_movers_v2"
 
 
