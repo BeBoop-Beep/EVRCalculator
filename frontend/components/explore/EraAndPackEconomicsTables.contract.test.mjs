@@ -12,6 +12,7 @@ const client = read("./ProductFamilyRankingsClient.jsx");
 const eraRankings = read("./EraRankings.jsx");
 const setPack = read("./SetPackMetrics.jsx");
 const eraEconomics = read("./OpeningEconomicsEras.jsx");
+const overallEconomics = read("./OpeningEconomicsOverall.jsx");
 const setRankings = read("./ExploreTableClient.jsx");
 const shell = read("./AnalyticsTableShell.jsx");
 const css = read("./explore.module.css");
@@ -93,6 +94,12 @@ test("Era Pack Economics uses the same shared table language", () => {
   assert.ok(eraEconomics.includes("className={styles.table}"));
   assert.ok(eraEconomics.includes("styles.analyticsTableHead"));
   assert.ok(eraEconomics.includes("className={styles.row}"));
+});
+
+test("active Era Pack Economics omits retired Typical metrics", () => {
+  for (const source of [overallEconomics, eraEconomics, setPack]) {
+    assert.doesNotMatch(source, /Typical Opening|Typical Retention/);
+  }
 });
 
 test("all four Era and Set lenses share the analytics shell and authoritative date contract", () => {
