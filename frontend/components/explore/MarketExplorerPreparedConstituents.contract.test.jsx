@@ -84,6 +84,33 @@ for (const [key, marketType, extra] of MATRIX) {
   });
 }
 
+test("partial-known vintage scope shows unresolved cards as Unknown and explains the known-card subtotal", async () => {
+  globalThis.fetch = async () => page([
+    ...cardRows(1, 2),
+    { ...cardRows(3, 1)[0], marketPrice: null, priceStatus: "unknown" },
+  ], { totalCount: 3 });
+  const series = prepared("set:base-id:first_edition", "set", {
+    label: "Base - 1st Edition",
+    marketScope: "first_edition",
+    metadata: {
+      marketScope: "first_edition",
+      currentValueStatus: "partial_known_only",
+      expectedCardCount: 102,
+      pricedCardCount: 93,
+      unknownCardCount: 9,
+      coveragePct: 91.18,
+    },
+  });
+  const renderer = await mount({ selectedSeries: [series], activeSeriesId: series.key });
+  const rendered = text(renderer);
+  assert.match(rendered, /93/);
+  assert.match(rendered, /102/);
+  assert.match(rendered, /9/);
+  assert.match(rendered, /shown as Unknown and excluded from the subtotal/);
+  assert.match(rendered, /Historical price performance is withheld/);
+  assert.match(rendered, /Unknown/);
+});
+
 test("Load more appends the next prepared page at the returned cursor", async () => {
   const cursors = [];
   globalThis.fetch = async (url) => {
