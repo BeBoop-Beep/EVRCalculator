@@ -49,6 +49,7 @@ MODEL_VERSION = "pokemon_collector_appeal_v8_anchor25_cross_domain_v1"
 ALPHA = 0.25
 ANCHOR_METHOD = "trainer_tie_midrank_percentile_to_pokemon_empirical_quantile_v1"
 V7_VERSION = "pokemon_collector_appeal_v7_expanded_price_blind_v1"
+V7_ARTIFACT = ROOT / "backend/artifacts/collector_appeal_v7_expanded_candidate_v1.json"
 OUTPUT = ROOT / "backend/artifacts/collector_appeal_v8_anchor25_candidate_v1.json"
 
 
@@ -280,22 +281,19 @@ def build_v8_sets(v7_sets: Sequence[Mapping[str, Any]], cards: Sequence[Mapping[
     return sets
 
 
-def build(client: Any, *, pokemon_trends_source_run_id: str, trainer_12m_source_run_id: str,
-          trainer_5y_source_run_id: str, playability_source_run_id: str,
-          artist_12m_source_run_id: str, artist_5y_source_run_id: str) -> dict[str, Any]:
-    v7 = build_v7(
-        client,
-        pokemon_trends_source_run_id=pokemon_trends_source_run_id,
-        trainer_12m_source_run_id=trainer_12m_source_run_id,
-        trainer_5y_source_run_id=trainer_5y_source_run_id,
-        playability_source_run_id=playability_source_run_id,
-        artist_12m_source_run_id=artist_12m_source_run_id,
-        artist_5y_source_run_id=artist_5y_source_run_id,
-    )
+def build_from_v7(v7: Mapping[str, Any], *, build_mode: str) -> dict[str, Any]:
+    manifest_v7 = v7.get("manifest") or {}
+    if manifest_v7.get("modelVersion") != V7_VERSION:
+        raise RuntimeError("V8_BASE_ARTIFACT_IS_NOT_FROZEN_V7")
+    source_authority = dict(manifest_v7.get("sourceAuthority") or {})
+    if set(source_authority) != {
+        "pokemonTrends", "trainer12m", "trainer5y", "playability", "artist12m", "artist5y"
+    }:
+        raise RuntimeError("V8_BASE_V7_SOURCE_AUTHORITY_INCOMPLETE")
+
     cards, calibration = build_v8_cards(v7["cards"])
     sets = build_v8_sets(v7["sets"], cards)
 
-    source_authority = dict(v7["manifest"]["sourceAuthority"])
     formula_contract = {
         "modelVersion": MODEL_VERSION,
         "baseModelVersion": V7_VERSION,
@@ -342,11 +340,12 @@ def build(client: Any, *, pokemon_trends_source_run_id: str, trainer_12m_source_
     manifest = {
         "modelVersion": MODEL_VERSION,
         "baseModelVersion": V7_VERSION,
+        "buildMode": build_mode,
         "formulaFingerprint": formula_fingerprint,
         "formulaContract": formula_contract,
         "cardFingerprint": card_fingerprint,
         "setFingerprint": set_fingerprint,
-        "sourceRunIds": list(v7["manifest"]["sourceRunIds"]),
+        "sourceRunIds": list(manifest_v7["sourceRunIds"]),
         "sourceAuthority": source_authority,
         "expectedCounts": expected,
         "calibrationAnalysis": calibration,
@@ -356,6 +355,7 @@ def build(client: Any, *, pokemon_trends_source_run_id: str, trainer_12m_source_
     }
     manifest["modelFingerprint"] = canonical_hash({
         "version": MODEL_VERSION,
+        "buildMode": build_mode,
         "formulaFingerprint": formula_fingerprint,
         "sourceAuthority": source_authority,
         "cardFingerprint": card_fingerprint,
@@ -363,6 +363,30 @@ def build(client: Any, *, pokemon_trends_source_run_id: str, trainer_12m_source_
         "expectedCounts": expected,
     })
     return {"manifest": manifest, "cards": cards, "sets": sets}
+
+
+def build(client: Any, *, pokemon_trends_source_run_id: str, trainer_12m_source_run_id: str,
+          trainer_5y_source_run_id: str, playability_source_run_id: str,
+          artist_12m_source_run_id: str, artist_5y_source_run_id: str) -> dict[str, Any]:
+    v7 = build_v7(
+        client,
+        pokemon_trends_source_run_id=pokemon_trends_source_run_id,
+        trainer_12m_source_run_id=trainer_12m_source_run_id,
+        trainer_5y_source_run_id=trainer_5y_source_run_id,
+        playability_source_run_id=playability_source_run_id,
+        artist_12m_source_run_id=artist_12m_source_run_id,
+        artist_5y_source_run_id=artist_5y_source_run_id,
+    )
+    return build_from_v7(v7, build_mode="live_v7_rebuild")
+
+
+def build_frozen_cutover() -> dict[str, Any]:
+    v7 = json.loads(V7_ARTIFACT.read_text(encoding="utf-8"))
+    if v7.get("manifest", {}).get("modelFingerprint") != "3b781f4ec01ef8c74c77b34d2b91e9a90231d2feccf2ee41411de64606378c9d":
+        raise RuntimeError("V8_FROZEN_CUTOVER_V7_FINGERPRINT_MISMATCH")
+    if len(v7.get("cards") or []) != 18293 or len(v7.get("sets") or []) != 128:
+        raise RuntimeError("V8_FROZEN_CUTOVER_V7_COHORT_MISMATCH")
+    return build_from_v7(v7, build_mode="frozen_v7_exact_cutover")
 
 
 def persistence_rows(built: Mapping[str, Any], run_id: str):
@@ -620,6 +644,8 @@ def summary(built: Mapping[str, Any]) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write-stage", action="store_true")
+    parser.add_argument("--live-rebuild", action="store_true",
+                        help="Use current catalog membership through the V7 builder. Default is the exact frozen V7 cutover cohort.")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--as-of-date", default=date.today().isoformat())
     args = parser.parse_args()
@@ -631,15 +657,20 @@ def main() -> int:
         options=ClientOptions(postgrest_client_timeout=90),
     )
     authority = load_v7_source_authority(client)
-    built = build(
-        client,
-        pokemon_trends_source_run_id=authority["pokemonTrends"],
-        trainer_12m_source_run_id=authority["trainer12m"],
-        trainer_5y_source_run_id=authority["trainer5y"],
-        playability_source_run_id=authority["playability"],
-        artist_12m_source_run_id=authority["artist12m"],
-        artist_5y_source_run_id=authority["artist5y"],
-    )
+    if args.live_rebuild:
+        built = build(
+            client,
+            pokemon_trends_source_run_id=authority["pokemonTrends"],
+            trainer_12m_source_run_id=authority["trainer12m"],
+            trainer_5y_source_run_id=authority["trainer5y"],
+            playability_source_run_id=authority["playability"],
+            artist_12m_source_run_id=authority["artist12m"],
+            artist_5y_source_run_id=authority["artist5y"],
+        )
+    else:
+        built = build_frozen_cutover()
+        if built["manifest"]["sourceAuthority"] != authority:
+            raise RuntimeError("V8_FROZEN_CUTOVER_SOURCE_AUTHORITY_NO_LONGER_MATCHES_CURRENT_V7")
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(built, indent=2, ensure_ascii=False), encoding="utf-8")
