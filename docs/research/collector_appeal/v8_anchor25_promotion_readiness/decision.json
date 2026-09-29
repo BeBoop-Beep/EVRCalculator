@@ -38,8 +38,9 @@
   },
   "ci": {
     "researchParityRunId": 36640412954,
-    "cutoverPrepRunId": 36641788739,
-    "cutoverPrepTestsPassed": 50
+    "cutoverPrepRunId": 36642183227,
+    "cutoverPrepTestsPassed": 132,
+    "patternOverlayGuardrails": "passed"
   },
   "dueDynamicSources": [
     "google_trends_pokemon_v2",
