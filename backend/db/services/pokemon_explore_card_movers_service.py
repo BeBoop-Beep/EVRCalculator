@@ -356,6 +356,8 @@ def build_global_raw_card_movers_row(
             convention or "",
             universe_version or "",
             ranking_methodology or "",
+            baseline_guard or "",
+            price_basis or "",
             *(f"{movement_identity(row)}|{row.get('movementScore')}" for row in published),
         ]
     )
