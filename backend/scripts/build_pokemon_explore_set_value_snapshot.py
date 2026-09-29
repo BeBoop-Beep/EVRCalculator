@@ -373,6 +373,29 @@ def _load_canonical_histories(client, market_rows, *, through_date: str):
     }
 
     if post_cutover:
+        # Public Set Market history must use the same accepted Market-date
+        # calendar as the global index. Retained legacy rows from skipped or
+        # degraded dates remain audit evidence, but must not create visible
+        # one-day spikes in public charts.
+        quality_rows = list((
+            client.table("pokemon_market_date_quality")
+            .select("market_date,status")
+            .eq("tcg", "pokemon")
+            .in_("status", ["READY", "LEGACY_VERIFIED"])
+            .lte("market_date", limit_date)
+            .order("market_date", desc=False)
+            .execute()
+        ).data or [])
+        accepted_dates = {
+            str(row.get("market_date") or "")[:10]
+            for row in quality_rows
+            if row.get("market_date")
+        }
+        if not accepted_dates:
+            raise RuntimeError(
+                f"no accepted Pokemon Market dates are available through {limit_date}"
+            )
+
         page_size = 1000
         for offset in range(0, len(set_ids), 100):
             batch = set_ids[offset:offset + 100]
@@ -392,7 +415,8 @@ def _load_canonical_histories(client, market_rows, *, through_date: str):
                 rows = list(response.data or [])
                 for row in rows:
                     set_id = str(row.get("set_id") or "")
-                    if set_id not in standard_ids:
+                    row_date = str(row.get("snapshot_date") or "")[:10]
+                    if set_id not in standard_ids or row_date not in accepted_dates:
                         continue
                     grouped[_market_key(set_id, "standard")].append({
                         "set_id": row.get("set_id"),
