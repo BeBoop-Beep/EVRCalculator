@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
