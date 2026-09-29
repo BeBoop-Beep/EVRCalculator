@@ -34,7 +34,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery)"
+              r"vm-op:\s*(status|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -56,7 +56,7 @@ jobs:
               raise SystemExit("scrape-catalog-set-refresh requires set_id=<canonical_key>")
           if op == "scrape-set-refresh" and not set_id:
               raise SystemExit("scrape-set-refresh requires set_id=<canonical_key>")
-          if op.startswith("pricing-") and (market_date or set_id):
+          if (op.startswith("pricing-") or op.startswith("pkmnprices-")) and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
@@ -74,11 +74,12 @@ jobs:
           PY
 
       - name: Execute credential operation
-        if: ${{ env.VM_OPERATION == 'pricing-credential-status' || env.VM_OPERATION == 'pricing-install-credentials' }}
+        if: ${{ env.VM_OPERATION == 'pricing-credential-status' || env.VM_OPERATION == 'pricing-install-credentials' || env.VM_OPERATION == 'pkmnprices-credential-status' || env.VM_OPERATION == 'pkmnprices-install-credential' || env.VM_OPERATION == 'pkmnprices-probe' }}
         shell: bash
         env:
           ACTIONS_EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           ACTIONS_EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          ACTIONS_PKMNPRICES_API_KEY: ${{ secrets.PKMNPRICES_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -87,6 +88,131 @@ jobs:
           echo "request_id=$VM_REQUEST_ID"
 
           case "$VM_OPERATION" in
+            pkmnprices-credential-status)
+              # READ ONLY: presence only; never print value, prefix, length, or hash.
+              python3 - <<'PY'
+          import os,re
+          path="/home/ubuntu/repos/EVRCalculator/backend/.env"
+          secret=os.environ.get("ACTIONS_PKMNPRICES_API_KEY","")
+          print("actions_pkmnprices_api_key_present=" + ("true" if secret else "false"))
+          found=False
+          assign=re.compile(rb"^\s*(?:export\s+)?PKMNPRICES_API_KEY\s*=(.*)$")
+          if os.path.isfile(path):
+              with open(path,"rb") as h:
+                  for line in h.read().splitlines():
+                      m=assign.match(line)
+                      if m and m.group(1).strip().strip(b"'\"").strip():
+                          found=True
+          print("backend_env_pkmnprices_api_key_present=" + ("true" if found else "false"))
+          PY
+              ;;
+
+            pkmnprices-install-credential)
+              # MUTATING: atomically installs only PKMNPRICES_API_KEY into backend/.env.
+              cd "$REPO"
+              git fetch origin main --quiet
+              PRE_BRANCH="$(git branch --show-current)"
+              [ -z "$PRE_BRANCH" ] || [ "$PRE_BRANCH" = "main" ] || { echo "REFUSING: unexpected production branch $PRE_BRANCH"; exit 20; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "REFUSING: production HEAD is not current origin/main"; exit 21; }
+              [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "REFUSING: tracked production changes exist"; git status --short --untracked-files=no; exit 22; }
+              python3 - <<'PY'
+          import os,pwd,re,sys,tempfile,subprocess
+          repo="/home/ubuntu/repos/EVRCalculator"
+          path=repo+"/backend/.env"
+          key=os.environ.get("ACTIONS_PKMNPRICES_API_KEY","")
+          if not key:
+              raise SystemExit("REFUSING: PKMNPRICES_API_KEY Actions secret is empty")
+          if "\n" in key or "\r" in key:
+              raise SystemExit("REFUSING: PKMNPRICES_API_KEY contains a newline")
+          if not re.fullmatch(r"[A-Za-z0-9._:/+=@-]+",key):
+              raise SystemExit("REFUSING: PKMNPRICES_API_KEY contains characters unsafe for .env")
+          request=(os.environ.get("VM_REQUEST_MESSAGE","")+"\n"+os.environ.get("VM_REQUEST_ID",""))
+          if key in request:
+              raise SystemExit("REFUSING: credential value appears in request metadata")
+          if not os.path.isfile(path):
+              raise SystemExit("REFUSING: backend/.env does not exist")
+          st=os.stat(path)
+          if pwd.getpwuid(st.st_uid).pw_name!="ubuntu" or os.geteuid()!=st.st_uid:
+              raise SystemExit("REFUSING: backend/.env ownership mismatch")
+          if st.st_mode & 0o004:
+              raise SystemExit("REFUSING: backend/.env is world-readable")
+          with open(path,"rb") as h:
+              original=h.read()
+          assign=re.compile(rb"^\s*(?:export\s+)?PKMNPRICES_API_KEY\s*=(.*)$")
+          def strip_key(data):
+              return b"".join(line for line in data.splitlines(keepends=True) if not assign.match(line.rstrip(b"\r\n")))
+          eol=b"\r\n" if b"\r\n" in original else b"\n"
+          base=strip_key(original)
+          if base and not base.endswith(b"\n"):
+              base+=eol
+          new=base+b"PKMNPRICES_API_KEY="+key.encode()+eol
+          fd,tmp=tempfile.mkstemp(prefix=".env.pkmnprices.",dir=os.path.dirname(path))
+          try:
+              with os.fdopen(fd,"wb") as h:
+                  h.write(new); h.flush(); os.fsync(h.fileno())
+              os.chmod(tmp,st.st_mode & 0o7777)
+              ts=os.stat(tmp)
+              if ts.st_uid!=st.st_uid or ts.st_gid!=st.st_gid:
+                  os.chown(tmp,st.st_uid,st.st_gid)
+              os.replace(tmp,path)
+          except BaseException:
+              try: os.unlink(tmp)
+              except FileNotFoundError: pass
+              raise
+          with open(path,"rb") as h:
+              after=h.read()
+          matches=[m for line in after.splitlines() if (m:=assign.match(line))]
+          if len(matches)!=1 or not matches[0].group(1).strip():
+              raise SystemExit("PKMNPRICES_INSTALL_VERIFY=FAIL assignment")
+          if strip_key(after)!=base:
+              raise SystemExit("PKMNPRICES_INSTALL_VERIFY=FAIL non-provider content changed")
+          ast=os.stat(path)
+          if (ast.st_mode & 0o7777)!=(st.st_mode & 0o7777) or ast.st_uid!=st.st_uid or ast.st_gid!=st.st_gid:
+              raise SystemExit("PKMNPRICES_INSTALL_VERIFY=FAIL metadata")
+          print("PKMNPRICES_CREDENTIAL_INSTALLED=PASS")
+          PY
+              ;;
+
+            pkmnprices-probe)
+              # READ ONLY provider probe except provider-side credit usage (<=2 credits).
+              cd "$REPO"
+              python3 - <<'PY'
+          import json,os,urllib.parse,urllib.request
+          from pathlib import Path
+          from dotenv import dotenv_values
+          env=dotenv_values(Path("backend/.env"))
+          key=str(env.get("PKMNPRICES_API_KEY") or "")
+          if not key:
+              raise SystemExit("PKMNPRICES_PROBE=FAIL credential_missing")
+          base="https://api.pkmnprices.com"
+          def get(path):
+              req=urllib.request.Request(base+path,headers={"X-API-Key":key,"Accept":"application/json","User-Agent":"inDex-PkmnPrices/1"})
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  return r.status,json.load(r)
+          status,cards=get("/v1/cards?tcg_player_id=89168&language=English&per_page=1")
+          rows=cards.get("data") or []
+          if status!=200 or len(rows)!=1:
+              raise SystemExit("PKMNPRICES_PROBE=FAIL card_lookup")
+          card=rows[0]
+          cid=str(card.get("id"))
+          status,sales=get("/v1/cards/"+urllib.parse.quote(cid,safe="")+"/listings/ebay?graded=false&limit=1")
+          if status!=200:
+              raise SystemExit("PKMNPRICES_PROBE=FAIL sold_endpoint")
+          sold=sales.get("data") or []
+          attrs=sorted({str(x.get("attribution")) for x in sold if x.get("attribution")})
+          print(json.dumps({
+              "status":"PASS",
+              "card_lookup_count":len(rows),
+              "pkmnprices_card_id":cid,
+              "tcg_player_id":card.get("tcg_player_id"),
+              "sold_rows_returned":len(sold),
+              "attribution_states":attrs,
+              "has_more":bool((sales.get("pagination") or {}).get("has_more")),
+          },sort_keys=True))
+          print("PKMNPRICES_PROBE=PASS")
+          PY
+              ;;
+
             pricing-credential-status)
               # READ ONLY: reports presence flags only; no values, lengths, prefixes or hashes.
               python3 - <<'PY'
