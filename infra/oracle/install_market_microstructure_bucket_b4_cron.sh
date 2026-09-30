@@ -31,17 +31,18 @@ set +a
 export PYTHONPATH="$SOURCE_REPO"
 
 echo "== B4 preflight from reviewed source (zero provider credits/writes)"
-(cd "$SOURCE_REPO" && "$PY" -m backend.scripts.run_market_microstructure_bucket_b4   --preflight --credit-cap 8000)
+(cd "$SOURCE_REPO" && "$PY" -m backend.scripts.run_market_microstructure_bucket_b4   --preflight --credit-cap 55000)
 
 echo "== lock preflight"
 /usr/bin/flock -n /tmp/active-supply-panel.lock -c true || { echo "FAIL: active-supply lock held" >&2; exit 75; }
+/usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c true || { echo "FAIL: scrape dispatcher lock held" >&2; exit 75; }
 /usr/bin/flock -n /tmp/pkmnprices-api.lock -c true || { echo "FAIL: PkmnPrices lock held" >&2; exit 75; }
 /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true || { echo "FAIL: publication lock held" >&2; exit 75; }
 
 current="$(crontab -l 2>/dev/null || true)"
 outside="$(awk -v b="$BEGIN" -v e="$END" '$0==b{skip=1} !skip{print} $0==e{skip=0}' <<<"$current")"
-if awk '$1 !~ /^#/ && $1=="30" && $2=="22" {print}' <<<"$outside" | grep -q .; then
-  echo "FAIL: conflicting 22:30 schedule exists outside managed block" >&2
+if grep -v '^#' <<<"$outside" | grep -q 'run_market_microstructure_bucket_b4.sh'; then
+  echo "FAIL: conflicting B4 schedule exists outside managed block" >&2
   exit 2
 fi
 
@@ -64,7 +65,7 @@ git -C "$SOURCE_REPO" worktree add --detach "$RUNTIME" "$SHA"
 
 export PYTHONPATH="$RUNTIME"
 echo "== repeat B4 preflight from detached pinned runtime"
-(cd "$RUNTIME" && "$PY" -m backend.scripts.run_market_microstructure_bucket_b4   --preflight --credit-cap 8000)
+(cd "$RUNTIME" && "$PY" -m backend.scripts.run_market_microstructure_bucket_b4   --preflight --credit-cap 55000)
 
 SRC="$RUNTIME/infra/oracle/market-microstructure-b4.crontab"
 block="$(sed '/^CRON_TZ=/d' "$SRC")"
