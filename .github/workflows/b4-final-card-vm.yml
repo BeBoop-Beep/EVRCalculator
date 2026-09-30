@@ -1,0 +1,107 @@
+name: B4 Final Card VM
+
+on:
+  push:
+    branches:
+      - ops/b4-final-card-vm-20260930
+    paths:
+      - ".b4-final-card-vm/request.txt"
+      - ".github/workflows/b4-final-card-vm.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: b4-final-card-vm
+  cancel-in-progress: false
+
+jobs:
+  vm:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 60
+    env:
+      RELEASE_SHA: 79e72bfedc26e10aaa0649af7d6c856d21a55af6
+      VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+    steps:
+      - name: Resolve fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$VM_REQUEST_MESSAGE" in
+            "b4-final-card: noop") OP=noop ;;
+            "b4-final-card: preflight") OP=preflight ;;
+            "b4-final-card: run") OP=run ;;
+            *) echo "REFUSING: invalid fixed operation"; exit 2 ;;
+          esac
+          echo "OP=$OP" >> "$GITHUB_ENV"
+          echo "operation=$OP release_sha=$RELEASE_SHA"
+
+      - name: Execute fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-b4-final-card
+          PY="$REPO/.venv/bin/python"
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+
+          cleanup() {
+            if [ -d "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+              rm -rf "$WT" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+
+          prepare_release() {
+            test -d "$REPO/.git" || { echo "REFUSING: production repo missing"; exit 2; }
+            test -x "$PY" || { echo "REFUSING: shared Python runtime missing"; exit 2; }
+            git -C "$REPO" fetch origin develop --quiet
+            git -C "$REPO" cat-file -e "$RELEASE_SHA^{commit}" || {
+              echo "REFUSING: reviewed release unavailable"; exit 2;
+            }
+            if [ -e "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+            fi
+            git -C "$REPO" worktree add --detach "$WT" "$RELEASE_SHA"
+            test "$(git -C "$WT" rev-parse HEAD)" = "$RELEASE_SHA" || {
+              echo "REFUSING: worktree SHA mismatch"; exit 2;
+            }
+            set -a
+            . "$REPO/backend/.env"
+            set +a
+            export PYTHONPATH="$WT"
+          }
+
+          case "$OP" in
+            noop)
+              echo "B4_FINAL_CARD_NOOP=PASS"
+              ;;
+
+            preflight)
+              prepare_release
+              cd "$WT"
+              "$PY" -m backend.scripts.run_market_microstructure_bucket_b4_tail_completion --preflight
+              ;;
+
+            run)
+              prepare_release
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "B4_FINAL_CARD_DB_SAFETY_HOLD"; exit 75; }
+
+              exec 6>/tmp/active-supply-panel.lock
+              /usr/bin/flock -n 6 || { echo "B4_FINAL_CARD_ACTIVE_SUPPLY_BUSY"; exit 75; }
+
+              /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c true || {
+                echo "B4_FINAL_CARD_SCRAPE_DISPATCHER_BUSY"; exit 75;
+              }
+
+              exec 8>/tmp/pkmnprices-api.lock
+              /usr/bin/flock -n 8 || { echo "B4_FINAL_CARD_PROVIDER_BUSY"; exit 75; }
+
+              exec 9>/tmp/pokemon-post-scrape-publication.lock
+              /usr/bin/flock -n 9 || { echo "B4_FINAL_CARD_PUBLICATION_BUSY"; exit 75; }
+
+              cd "$WT"
+              "$PY" -m backend.scripts.run_market_microstructure_bucket_b4_tail_completion --commit
+              ;;
+          esac
