@@ -3,10 +3,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 BACKEND = ROOT / "backend/db/migrations/20260930210000_market_activity_projection_v1.sql"
 SUPABASE = ROOT / "supabase/migrations/20260930210000_market_activity_projection_v1.sql"
+FOLLOWUP_BACKEND = ROOT / "backend/db/migrations/20260930220000_market_activity_per_market_serving_v1.sql"
+FOLLOWUP_SUPABASE = ROOT / "supabase/migrations/20260930220000_market_activity_per_market_serving_v1.sql"
 
 
 def test_migration_mirrors_are_byte_equal():
     assert BACKEND.read_bytes() == SUPABASE.read_bytes()
+    assert FOLLOWUP_BACKEND.read_bytes() == FOLLOWUP_SUPABASE.read_bytes()
+
+
+def test_followup_replaces_global_serving_with_market_local_authority():
+    sql = FOLLOWUP_BACKEND.read_text().lower()
+    assert "create table public.market_activity_market_serving_v1" in sql
+    assert "market_key text primary key" in sql
+    assert "drop table public.market_activity_serving_v1" in sql
+    assert "market_count <> 1" in sql
+    assert "where market_key = target_market" in sql
+    assert "previous_activity_generation_id" in sql
+    assert "for update" in sql
+    assert "served_surface is distinct from pinned_surface" in sql
+    assert "enable row level security" in sql
+    assert "from public,anon,authenticated,service_role" in sql
 
 
 def test_security_and_immutable_projection_contract_present():

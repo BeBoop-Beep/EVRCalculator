@@ -10,7 +10,10 @@ ROOT = Path(__file__).resolve().parents[5]
 SPEC = importlib.util.spec_from_file_location("market_activity_v1_under_test", ROOT / "backend/db/services/market_activity_v1.py")
 MODULE = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(MODULE)
 read_constituent_activity_page = MODULE.read_constituent_activity_page
+read_group_activity = MODULE.read_group_activity
+read_instrument_activity = MODULE.read_instrument_activity
 DETAIL = json.loads((ROOT / "docs/research/market_activity_v1/fixtures/fma_fixture_12_legacy_no_receipts.json").read_text())["expected"]
+GROUP = json.loads((ROOT / "docs/research/market_activity_v1/fixtures/fma_fixture_11_group_activity.json").read_text())["expected"]
 GEN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 SURFACE = "11111111-1111-4111-8111-111111111111"
 REF = {"kind":"SURFACE_V2_GENERATION","generationId":SURFACE,"marketKey":"quick:core"}
@@ -34,8 +37,12 @@ class Query:
                             "evidence_cutoff":"2026-09-30T12:00:00Z","validated_at":"2026-09-30T12:01:00Z",
                             "policy":DETAIL["policy"]}])
         if self.table == "market_activity_rosters_v1":
-            return Result([{"activity_generation_id":GEN,"market_key":"quick:core","roster_revision":REF,
+            return Result([{"activity_generation_id":GEN,"market_key":self.filters.get("market_key"),"roster_revision":self.client.roster_ref,
                             "roster_as_of":"2026-09-29","roster_denominator":self.client.denominator}])
+        if self.table == "market_activity_group_payloads_v1":
+            return Result([{"payload": GROUP}])
+        if self.table == "market_activity_instrument_payloads_v1":
+            return Result([{"payload": DETAIL}])
         raise AssertionError(f"unexpected table query {self.table}")
 
 
@@ -50,7 +57,7 @@ class RpcQuery:
 
 
 class Client:
-    def __init__(self,denominator): self.denominator=denominator; self.query_count=0
+    def __init__(self,denominator,roster_ref=REF): self.denominator=denominator; self.roster_ref=roster_ref; self.query_count=0
     def table(self,name): return Query(self,name)
     def rpc(self,name,args):
         assert name=="get_market_activity_constituent_page_v1"
@@ -66,3 +73,14 @@ def test_page_query_count_is_constant_not_roster_sized(denominator):
     assert len(response["rows"])==50
     assert response["page"]["totalCount"]==denominator
     assert client.query_count==3
+
+
+def test_group_and_instrument_reads_each_use_three_calls():
+    group_client = Client(3, GROUP["request"]["rosterRef"])
+    group = read_group_activity(group_client, GROUP["request"])
+    assert group["kind"] == "groupActivity"
+    assert group_client.query_count == 3
+    instrument_client = Client(3, DETAIL["request"]["rosterRef"])
+    detail = read_instrument_activity(instrument_client, DETAIL["request"])
+    assert detail["kind"] == "instrumentDetail"
+    assert instrument_client.query_count == 3

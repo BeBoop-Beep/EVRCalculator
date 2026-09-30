@@ -14,6 +14,7 @@ from backend.domain.pokemon.market_activity import (
     DEFAULT_POLICY,
     CONTRACT_VERSION,
     _constituent_row,
+    _versions,
     decode_cursor,
     encode_cursor,
     fingerprint,
@@ -28,6 +29,8 @@ MEMBER_TABLE = "market_activity_roster_members_v1"
 DETAIL_TABLE = "market_activity_instrument_payloads_v1"
 GROUP_TABLE = "market_activity_group_payloads_v1"
 MAX_PAGE_SIZE = 100
+SERVING_TABLE = "market_activity_market_serving_v1"
+SURFACE_SERVING_TABLE = "pokemon_market_explorer_surface_serving_v2"
 
 
 def _rows(result: Any) -> list[dict[str, Any]]:
@@ -52,13 +55,110 @@ def _roster(client: Any, generation_id: str, market_key: str) -> dict[str, Any] 
 
 def _unavailable(kind: str, request: Mapping[str, Any], why: str) -> dict[str, Any]:
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    return {
+    response = {
         "kind": kind, "contractVersion": "market_activity_v1.1",
-        "versions": {}, "policy": DEFAULT_POLICY.as_contract(), "request": dict(request),
+        "versions": _versions(), "policy": DEFAULT_POLICY.as_contract(), "request": dict(request),
         "evaluatedAt": now, "activityGenerationId": None,
         "availability": {"state": "UNAVAILABLE", "reasons": reasons(why)},
         "evidenceFingerprint": fingerprint({"request": request, "reason": why}),
     }
+    if kind == "groupActivity":
+        response.update({"label": "Activity for current constituents", "roster": None,
+                         "coverage": None, "totals": None, "series": None})
+    elif kind == "constituentActivityPage":
+        response.update({"roster": None, "page": None, "rows": []})
+    elif kind == "instrumentDetail":
+        disabled = {"available": False, "reasons": reasons(why)}
+        expiring = {**disabled, "expiresAt": None}
+        response.update({
+            "instrument": None, "roster": None, "sales": None, "asks": None,
+            "peers": None, "series": None,
+            "capabilities": {
+                "saleCount": disabled, "observedSales": disabled,
+                "salePriceSummary": disabled, "activityPercentile": disabled,
+                "currentAsks": expiring, "askDepth": expiring, "landedAsk": expiring,
+                "supplyTurnover": disabled, "inferredSalesFromListings": disabled,
+            },
+        })
+    return response
+
+
+def _execute_rows(query: Any) -> list[dict[str, Any]]:
+    return _rows(query.execute())
+
+
+def discover_activity_capabilities(
+    client: Any, markets: list[Mapping[str, Any]], window_days: int,
+) -> dict[str, Any]:
+    """Resolve the current Activity authority for a bounded market batch.
+
+    The implementation is constant-call: serving pointer, current generation,
+    Explorer surface pointer, roster batch, and group-payload batch.  It never
+    invokes a builder or derives an evidence fingerprint from metadata.
+    """
+    unavailable = lambda item, why: {
+        "available": False, "marketKey": item.get("marketKey"),
+        "activityGenerationId": None, "rosterRef": None,
+        "evidenceFingerprint": None, "asOf": None, "windowDays": window_days,
+        "tier": "RAW", "reasons": [why],
+    }
+    result = {str(item.get("focusKey")): unavailable(item, "ACTIVITY_GENERATION_MISMATCH")
+              for item in markets}
+    keys = [str(item["marketKey"]) for item in markets]
+    serving_rows = _execute_rows(client.table(SERVING_TABLE).select(
+        "market_key,activity_generation_id"
+    ).in_("market_key", keys))
+    serving_by_key = {row["market_key"]: row.get("activity_generation_id") for row in serving_rows
+                      if row.get("activity_generation_id")}
+    generation_ids = list(dict.fromkeys(str(value) for value in serving_by_key.values()))
+    if not generation_ids:
+        return {"contractVersion": CONTRACT_VERSION, "capabilities": result}
+    generations = _execute_rows(client.table(GENERATION_TABLE).select(
+        "activity_generation_id,as_of,surface_generation_id,roster_ref,state,serving_state"
+    ).in_("activity_generation_id", generation_ids))
+    generation_by_id = {str(row["activity_generation_id"]): row for row in generations}
+    current_surface = _one(client.table(SURFACE_SERVING_TABLE).select("generation_id").eq("singleton", 1).limit(1))
+    rosters = _execute_rows(client.table(ROSTER_TABLE).select(
+        "activity_generation_id,market_key,roster_revision"
+    ).in_("activity_generation_id", generation_ids).in_("market_key", keys))
+    groups = _execute_rows(client.table(GROUP_TABLE).select(
+        "activity_generation_id,market_key,window_days,payload"
+    ).in_("activity_generation_id", generation_ids).eq("window_days", window_days).in_("market_key", keys))
+    roster_by_scope = {(str(row["activity_generation_id"]), row["market_key"]): row for row in rosters}
+    group_by_scope = {(str(row["activity_generation_id"]), row["market_key"]): row for row in groups}
+    for item in markets:
+        focus_key, market_key = str(item["focusKey"]), str(item["marketKey"])
+        generation_id = str(serving_by_key.get(market_key) or "")
+        generation = generation_by_id.get(generation_id)
+        if (not generation or generation.get("state") != "VALIDATED"
+                or generation.get("serving_state") != "SERVING"):
+            continue
+        pinned_surface = generation.get("surface_generation_id")
+        if pinned_surface and str((current_surface or {}).get("generation_id")) != str(pinned_surface):
+            result[focus_key] = unavailable(item, "GENERATION_MISMATCH")
+            continue
+        roster = roster_by_scope.get((generation_id, market_key))
+        if not roster or roster.get("roster_revision") != item.get("rosterRef"):
+            result[focus_key] = unavailable(item, "ROSTER_REVISION_MISMATCH")
+            continue
+        group = group_by_scope.get((generation_id, market_key))
+        payload = (group or {}).get("payload")
+        if not isinstance(payload, Mapping):
+            result[focus_key] = unavailable(item, "INVALID_MARKET_KEY")
+            continue
+        evidence = payload.get("evidenceFingerprint")
+        if (not isinstance(evidence, str) or len(evidence) != 64
+                or any(char not in "0123456789abcdef" for char in evidence)):
+            result[focus_key] = unavailable(item, "INVALID_EVIDENCE_ROW")
+            continue
+        result[focus_key] = {
+            "available": True, "marketKey": market_key,
+            "activityGenerationId": str(generation_id),
+            "rosterRef": roster["roster_revision"], "evidenceFingerprint": evidence,
+            "asOf": str(generation["as_of"]), "windowDays": window_days,
+            "tier": "RAW", "reasons": [],
+        }
+    return {"contractVersion": CONTRACT_VERSION, "capabilities": result}
 
 
 def _validate(client: Any, request: Mapping[str, Any], kind: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
@@ -151,4 +251,5 @@ def read_constituent_activity_page(client: Any, request: Mapping[str, Any]) -> d
                      "nextCursor": next_cursor}, "rows": rows}
 
 
-__all__ = ["read_group_activity", "read_constituent_activity_page", "read_instrument_activity"]
+__all__ = ["discover_activity_capabilities", "read_group_activity",
+           "read_constituent_activity_page", "read_instrument_activity"]
