@@ -25,7 +25,11 @@ import {
 } from "../access/indexPlanAccess.mjs";
 import { hasExactActivityCapability } from "./marketActivityState.mjs";
 
-export const MARKET_EXPLORER_PLAN_TIER = Object.freeze({ basic: "basic", plus: "plus", premium: "premium" });
+export const MARKET_EXPLORER_PLAN_TIER = Object.freeze({
+  basic: "basic",
+  plus: "plus",
+  premium: "premium",
+});
 
 /** Simultaneous ACTIVE markets per plan. The single frontend definition. */
 export const MARKET_EXPLORER_ACTIVE_MARKET_LIMIT = Object.freeze({
@@ -51,7 +55,8 @@ export function countActiveMarkets({ activeKeys = [], pendingKeys = [] } = {}) {
 }
 
 export const ACTIVE_MARKET_LIMIT_COPY = Object.freeze({
-  basic: "Basic includes one active market. Index+ supports up to 3 active comparison markets.",
+  basic:
+    "Basic includes one active market. Index+ supports up to 3 active comparison markets.",
   plus: "Index+ supports up to 3 active comparison markets.",
   premium: "Premium supports up to 10 active comparison markets.",
 });
@@ -64,9 +69,12 @@ export const ACTIVE_MARKET_LIMIT_COPY = Object.freeze({
 export function evaluateActiveMarketAdd(plan, activeCount) {
   const tier = marketExplorerTier(plan);
   const limit = MARKET_EXPLORER_ACTIVE_MARKET_LIMIT[tier];
-  if (activeCount < limit) return { allowed: true, tier, limit, message: null, upgrade: false };
+  if (activeCount < limit)
+    return { allowed: true, tier, limit, message: null, upgrade: false };
   return {
-    allowed: false, tier, limit,
+    allowed: false,
+    tier,
+    limit,
     message: ACTIVE_MARKET_LIMIT_COPY[tier],
     // Premium is the top tier: there is nothing to upgrade to.
     upgrade: tier !== MARKET_EXPLORER_PLAN_TIER.premium,
@@ -74,11 +82,18 @@ export function evaluateActiveMarketAdd(plan, activeCount) {
 }
 
 // --- Analytical focus tools --------------------------------------------------
-export const FOCUS_TOOL_STATE = Object.freeze({ locked: "locked", unavailable: "unavailable", available: "available" });
+export const FOCUS_TOOL_STATE = Object.freeze({
+  locked: "locked",
+  unavailable: "unavailable",
+  available: "available",
+});
 
-export const DEMAND_PRESSURE_UNAVAILABLE_COPY = "Demand Pressure data is not available for this market yet.";
-export const FAIR_VALUE_UNAVAILABLE_COPY = "inDex Fair Value is not available for this market yet.";
-export const MARKET_ACTIVITY_UNAVAILABLE_COPY = "Market Activity fixture data is not available for this market yet.";
+export const DEMAND_PRESSURE_UNAVAILABLE_COPY =
+  "Demand Pressure data is not available for this market yet.";
+export const FAIR_VALUE_UNAVAILABLE_COPY =
+  "inDex Fair Value is not available for this market yet.";
+export const MARKET_ACTIVITY_UNAVAILABLE_COPY =
+  "Market Activity is not available for this market yet.";
 
 /**
  * Backend capability shape (DEFAULT: nothing available). A future endpoint publishes
@@ -86,33 +101,77 @@ export const MARKET_ACTIVITY_UNAVAILABLE_COPY = "Market Activity fixture data is
  *     fairValue:      { [marketKey]: { available: true, series: [...] } } }
  * Absent or non-explicit => UNAVAILABLE. Nothing is ever synthesised client-side.
  */
-export const NO_BACKEND_CAPABILITIES = Object.freeze({ demandPressure: Object.freeze({}), fairValue: Object.freeze({}), activity: Object.freeze({}) });
+export const NO_BACKEND_CAPABILITIES = Object.freeze({
+  demandPressure: Object.freeze({}),
+  fairValue: Object.freeze({}),
+  activity: Object.freeze({}),
+});
 
-const explicitlyAvailable = (map, key) => Boolean(map && key && (map[key]?.available === true || map["*"]?.available === true));
+const explicitlyAvailable = (map, key) =>
+  Boolean(
+    map &&
+      key &&
+      (map[key]?.available === true || map["*"]?.available === true),
+  );
 
-export function resolveFocusToolStates(plan, marketKey, backendCapabilities = NO_BACKEND_CAPABILITIES) {
-  const demandEntitled = hasIndexFeatureAccess(plan, FEATURE_MARKET_EXPLORER_DEMAND_PRESSURE);
-  const fairEntitled = hasIndexFeatureAccess(plan, FEATURE_MARKET_EXPLORER_FAIR_VALUE);
+export function resolveFocusToolStates(
+  plan,
+  marketKey,
+  backendCapabilities = NO_BACKEND_CAPABILITIES,
+) {
+  const demandEntitled = hasIndexFeatureAccess(
+    plan,
+    FEATURE_MARKET_EXPLORER_DEMAND_PRESSURE,
+  );
+  const fairEntitled = hasIndexFeatureAccess(
+    plan,
+    FEATURE_MARKET_EXPLORER_FAIR_VALUE,
+  );
   const activityEntitled = hasIndexPlusAccess(plan);
   const caps = backendCapabilities || NO_BACKEND_CAPABILITIES;
   return {
     demandPressure: {
-      state: !demandEntitled ? FOCUS_TOOL_STATE.locked
-        : explicitlyAvailable(caps.demandPressure, marketKey) ? FOCUS_TOOL_STATE.available : FOCUS_TOOL_STATE.unavailable,
+      state: !demandEntitled
+        ? FOCUS_TOOL_STATE.locked
+        : explicitlyAvailable(caps.demandPressure, marketKey)
+          ? FOCUS_TOOL_STATE.available
+          : FOCUS_TOOL_STATE.unavailable,
       requiredPlan: "plus",
-      reason: !demandEntitled ? "Demand Pressure requires Index+." : explicitlyAvailable(caps.demandPressure, marketKey) ? null : DEMAND_PRESSURE_UNAVAILABLE_COPY,
+      reason: !demandEntitled
+        ? "Demand Pressure requires Index+."
+        : explicitlyAvailable(caps.demandPressure, marketKey)
+          ? null
+          : DEMAND_PRESSURE_UNAVAILABLE_COPY,
     },
     fairValue: {
-      state: !fairEntitled ? FOCUS_TOOL_STATE.locked
-        : explicitlyAvailable(caps.fairValue, marketKey) ? FOCUS_TOOL_STATE.available : FOCUS_TOOL_STATE.unavailable,
+      state: !fairEntitled
+        ? FOCUS_TOOL_STATE.locked
+        : explicitlyAvailable(caps.fairValue, marketKey)
+          ? FOCUS_TOOL_STATE.available
+          : FOCUS_TOOL_STATE.unavailable,
       requiredPlan: "premium",
-      reason: !fairEntitled ? "inDex Fair Value is a Premium feature." : explicitlyAvailable(caps.fairValue, marketKey) ? null : FAIR_VALUE_UNAVAILABLE_COPY,
+      reason: !fairEntitled
+        ? "inDex Fair Value is a Premium feature."
+        : explicitlyAvailable(caps.fairValue, marketKey)
+          ? null
+          : FAIR_VALUE_UNAVAILABLE_COPY,
     },
     activity: {
-      state: !activityEntitled ? FOCUS_TOOL_STATE.locked
-        : hasExactActivityCapability(caps.activity?.[marketKey] || caps.activity?.["*"]) ? FOCUS_TOOL_STATE.available : FOCUS_TOOL_STATE.unavailable,
+      state: !activityEntitled
+        ? FOCUS_TOOL_STATE.locked
+        : hasExactActivityCapability(
+              caps.activity?.[marketKey] || caps.activity?.["*"],
+            )
+          ? FOCUS_TOOL_STATE.available
+          : FOCUS_TOOL_STATE.unavailable,
       requiredPlan: "plus",
-      reason: !activityEntitled ? "Market Activity requires Index+." : hasExactActivityCapability(caps.activity?.[marketKey] || caps.activity?.["*"]) ? null : MARKET_ACTIVITY_UNAVAILABLE_COPY,
+      reason: !activityEntitled
+        ? "Market Activity requires Index+."
+        : hasExactActivityCapability(
+              caps.activity?.[marketKey] || caps.activity?.["*"],
+            )
+          ? null
+          : MARKET_ACTIVITY_UNAVAILABLE_COPY,
     },
   };
 }
