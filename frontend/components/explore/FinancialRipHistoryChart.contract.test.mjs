@@ -9,7 +9,8 @@ const distribution = readFileSync(new URL("./OpeningEconomicsDistribution.jsx", 
 test("uses the Financial RIP history reader and no legacy benchmark reader", () => {
   assert.ok(source.includes("readFinancialRipHistory"));
   assert.ok(!source.includes("readBenchmarkHistory"));
-  assert.ok(source.indexOf("shouldFetchFinancialRipHistory") < source.indexOf("readFinancialRipHistory(selected"));
+  assert.ok(source.indexOf("shouldFetchFinancialRipHistory") < source.indexOf("readFinancialRipHistory(requestEntities"));
+  assert.match(source, /financialRipRequestEntities\(selected, request\.view\?\.selected\)/);
 });
 
 test("locked access is a synthetic frosted preview with no chart data dependency", () => {

@@ -12,6 +12,7 @@ import {
   FINANCIAL_RIP_WINDOWS,
   buildFinancialRipChartModel,
   eraFinancialRipCandidates,
+  financialRipRequestEntities,
   financialRipWindowRange,
   financialRipYAxisDomain,
   formatFinancialRip,
@@ -92,6 +93,7 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   const candidates = mode === "sets" ? setCandidates : eraCandidates;
   const selectedIds = mode === "sets" ? setSelection : eraSelection;
   const selected = useMemo(() => candidates.filter((item) => selectedIds.includes(item.entity_id)), [candidates, selectedIds]);
+  const requestEntities = useMemo(() => financialRipRequestEntities(selected, request.view?.selected), [request.view?.selected, selected]);
   const knownFrom = request.view?.payload?.historyAvailableFrom || null;
   const knownThrough = request.view?.payload?.historyAvailableThrough || marketDate;
   const range = useMemo(() => financialRipWindowRange(windowKey, knownThrough, knownFrom), [windowKey, knownThrough, knownFrom]);
@@ -100,12 +102,12 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   const requestKey = `${mode}:${selectionKey}:${fetchRange.startDate}:${fetchRange.endDate}:${retryNonce}`;
 
   useEffect(() => {
-    if (!shouldFetchFinancialRipHistory({ entitled, authStatus, selectedCount: selected.length, startDate: fetchRange.startDate, endDate: fetchRange.endDate })) return undefined;
+    if (!shouldFetchFinancialRipHistory({ entitled, authStatus, selectedCount: requestEntities.length, startDate: fetchRange.startDate, endDate: fetchRange.endDate })) return undefined;
     const loadedIds = new Set((request.view?.selected || []).map((item) => item.entity_id));
     if (request.view?.mode === mode && request.view?.windowKey === windowKey && selected.every((item) => loadedIds.has(item.entity_id))) return undefined;
     let active = true;
     setRequest((current) => ({ ...current, status: "loading", pendingKey: requestKey, error: null }));
-    readFinancialRipHistory(selected, { startDate: fetchRange.startDate, endDate: fetchRange.endDate })
+    readFinancialRipHistory(requestEntities, { startDate: fetchRange.startDate, endDate: fetchRange.endDate })
       .then((payload) => {
         if (!active) return;
         const displayRange = financialRipWindowRange(
@@ -136,7 +138,7 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
         }));
       });
     return () => { active = false; };
-  }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, marketDate, mode, request.view, requestKey, selected, windowKey]);
+  }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, marketDate, mode, request.view, requestEntities, requestKey, selected, windowKey]);
 
   const display = request.view?.mode === mode ? request.view : null;
   const chart = useMemo(

@@ -6,6 +6,7 @@ import {
   buildFinancialRipChartModel,
   eraFinancialRipCandidates,
   entitySeriesKey,
+  financialRipRequestEntities,
   financialRipWindowRange,
   financialRipTooltipRows,
   formatFinancialRipDelta,
@@ -110,6 +111,13 @@ test("Overall-only mode retains authoritative observed references without entity
   assert.deepEqual(model.series, []);
   assert.deepEqual(model.points.map((point) => [point.date, point.overallFinancialRip]), [["2026-09-25", 29], ["2026-09-27", 30]]);
   assert.ok(model.points.every((point) => Object.keys(point.entities).length === 0));
+});
+
+test("Overall-only window changes retain one transport anchor without rendering it", () => {
+  const prior = [{ entity_type: "set", entity_id: "a", name: "Anchor" }, { entity_type: "set", entity_id: "b", name: "Other" }];
+  assert.deepEqual(financialRipRequestEntities([], prior), [prior[0]]);
+  assert.deepEqual(financialRipRequestEntities([prior[1]], prior), [prior[1]]);
+  assert.deepEqual(financialRipRequestEntities([], []), []);
 });
 
 test("Basic and anonymous access cannot initiate history reads", () => {

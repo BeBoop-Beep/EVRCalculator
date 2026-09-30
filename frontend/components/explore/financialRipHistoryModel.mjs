@@ -85,6 +85,11 @@ export function shouldFetchFinancialRipHistory({ entitled, authStatus, selectedC
   );
 }
 
+export function financialRipRequestEntities(selected = [], lastSelected = []) {
+  if (selected.length) return selected;
+  return lastSelected.length ? [lastSelected[0]] : [];
+}
+
 export function toggleFinancialRipSelection(current = [], id, max = Infinity) {
   if (current.includes(id)) return current.filter((item) => item !== id);
   return current.length >= max ? current : [...current, id];

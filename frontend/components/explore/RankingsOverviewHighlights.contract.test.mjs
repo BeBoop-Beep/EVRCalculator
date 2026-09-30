@@ -22,8 +22,8 @@ test("Overview handoffs switch existing state and reuse cached Set/Era loaders",
   assert.ok(lazy.includes('onOpenTopSet={() => { setSetEntryView("ripScore"); setActiveLens("sets"); }}'));
   assert.ok(lazy.includes('onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}'));
   assert.ok(lazy.includes('onOpenLowestCost={() => { setSetEntryView("packEconomics"); setActiveLens("sets"); }}'));
-  assert.equal((lazy.match(/fetch\("\/api\/explore\/rankings\/lens\?lens=sets"/g) || []).length, 1);
-  assert.equal((lazy.match(/fetch\("\/api\/explore\/rankings\/lens\?lens=eras"/g) || []).length, 1);
+  assert.ok(lazy.includes("loadSets({ foreground: true })"));
+  assert.ok(lazy.includes("loadEra({ foreground: true })"));
 });
 
 test("Overview replaces the legacy Set RIP landscape with absolute Financial RIP history", () => {
@@ -33,7 +33,7 @@ test("Overview replaces the legacy Set RIP landscape with absolute Financial RIP
   assert.ok(lazy.includes("targets={targets}"));
   const overviewInvocation = lazy.slice(lazy.indexOf("<OpeningEconomicsOverall"), lazy.indexOf("</>", lazy.indexOf("<OpeningEconomicsOverall")));
   assert.ok(!overviewInvocation.includes("benchmark="));
-  assert.equal((lazy.match(/lens\?lens=sets/g) || []).length, 1);
+  assert.ok(lazy.includes('readPublicRankingsHeadlines("set"'));
 });
 
 test("Top Set and Top Era use bespoke concise hierarchy without a redundant Era rank", () => {

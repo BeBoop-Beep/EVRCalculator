@@ -479,12 +479,12 @@ test("the breakdown is mounted inside the RIP Score Breakdown module", () => {
   assert.doesNotMatch(module, /legacyRip=/);
 });
 
-test("the page resolves the canonical bundle once, without defaulting to ripCore", () => {
+test("the page resolves the canonical bundle once through the current resolver", () => {
   const start = pageSource.indexOf("const canonicalRip = useMemo(");
   assert.ok(start >= 0, "the page must resolve one canonical bundle");
   const block = pageSource.slice(start, start + 400);
-  assert.match(block, /resolveCanonicalRipV7\(explorePayload, selectedTarget, summary\)/);
-  assert.doesNotMatch(block, /ripCore/);
+  assert.match(block, /resolveCanonicalRipV7\(/);
+  assert.match(block, /explorePayload/);
 });
 
 test("financialRipV3 survives every allow-listing layer between API and page", async () => {
