@@ -1,0 +1,136 @@
+name: Active Supply VM Activation V2
+
+on:
+  push:
+    branches:
+      - ops/active-supply-vm-activation-20260929
+    paths:
+      - ".active-supply-vm-v2/request.txt"
+      - ".github/workflows/active-supply-vm-activation-v2.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: active-supply-vm-activation-v2
+  cancel-in-progress: false
+
+jobs:
+  vm:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 45
+    env:
+      RELEASE_SHA: d008a943ba66ad4f0738c2fd779d58e637df2880
+      VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+      ACTIONS_SELLER_HASH_KEY: ${{ secrets.ACTIVE_SUPPLY_SELLER_HASH_KEY }}
+    steps:
+      - name: Resolve fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$VM_REQUEST_MESSAGE" in
+            "active-supply-v2: noop") OP=noop ;;
+            "active-supply-v2: status") OP=status ;;
+            "active-supply-v2: installer-verify") OP=installer-verify ;;
+            "active-supply-v2: installer-apply") OP=installer-apply ;;
+            "active-supply-v2: first-run") OP=first-run ;;
+            "active-supply-v2: health") OP=health ;;
+            *) echo "REFUSING: invalid fixed operation"; exit 2 ;;
+          esac
+          echo "OP=$OP" >> "$GITHUB_ENV"
+          echo "operation=$OP release_sha=$RELEASE_SHA"
+
+      - name: Execute fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-active-supply-v2
+          STATE=/home/ubuntu/state/active_supply_panel
+
+          prepare_release() {
+            test -d "$REPO/.git" || { echo "REFUSING: production repo missing"; exit 2; }
+            git -C "$REPO" fetch origin develop --quiet
+            git -C "$REPO" cat-file -e "$RELEASE_SHA^{commit}" || {
+              echo "REFUSING: reviewed release SHA unavailable"; exit 2;
+            }
+            if [ -e "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+            fi
+            git -C "$REPO" worktree add --detach "$WT" "$RELEASE_SHA"
+            test "$(git -C "$WT" rev-parse HEAD)" = "$RELEASE_SHA" || {
+              echo "REFUSING: release worktree SHA mismatch"; exit 2;
+            }
+          }
+
+          cleanup() {
+            if [ -d "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+              rm -rf "$WT" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+
+          case "$OP" in
+            noop)
+              echo "ACTIVE_SUPPLY_V2_NOOP=PASS"
+              ;;
+
+            status)
+              echo "reviewed_release_sha=$RELEASE_SHA"
+              python3 - <<'PY'
+          import os, re
+          env_path = "/home/ubuntu/repos/EVRCalculator/backend/.env"
+          pat = re.compile(rb"^\s*(?:export\s+)?ACTIVE_SUPPLY_SELLER_HASH_KEY\s*=(.*)$")
+          present = False
+          if os.path.isfile(env_path):
+              with open(env_path, "rb") as h:
+                  for line in h.read().splitlines():
+                      m = pat.match(line)
+                      if m and len(m.group(1).strip().strip(b"'\"")) >= 32:
+                          present = True
+                          break
+          print("vm_seller_hash_key_present=" + ("true" if present else "false"))
+          pin = "/home/ubuntu/state/active_supply_panel/release.sha"
+          if os.path.isfile(pin):
+              value = open(pin, encoding="utf-8").read().strip()
+              print("release_pin_present=true")
+              print("release_pin_matches_reviewed=" + ("true" if value == os.environ["RELEASE_SHA"] else "false"))
+          else:
+              print("release_pin_present=false")
+              print("release_pin_matches_reviewed=false")
+          PY
+              echo "== managed cron =="
+              crontab -l 2>/dev/null | grep -E 'run_active_supply_panel|run_active_supply_health' || true
+              ;;
+
+            installer-verify)
+              prepare_release
+              ACTIVE_SUPPLY_ENV_REPO="$REPO"                 "$WT/infra/oracle/install_active_supply_panel_cron.sh"
+              ;;
+
+            installer-apply)
+              prepare_release
+              ACTIVE_SUPPLY_ENV_REPO="$REPO"                 "$WT/infra/oracle/install_active_supply_panel_cron.sh" --apply
+              ;;
+
+            first-run)
+              test -x "$STATE/runtime/infra/oracle/run_active_supply_panel.sh" || {
+                echo "REFUSING: pinned runtime not installed"; exit 2;
+              }
+              test "$(tr -d '[:space:]' < "$STATE/release.sha")" = "$RELEASE_SHA" || {
+                echo "REFUSING: installed pin does not match reviewed release"; exit 2;
+              }
+              "$STATE/runtime/infra/oracle/run_active_supply_panel.sh"
+              ;;
+
+            health)
+              test -x "$STATE/runtime/infra/oracle/run_active_supply_health.sh" || {
+                echo "REFUSING: pinned runtime not installed"; exit 2;
+              }
+              test "$(tr -d '[:space:]' < "$STATE/release.sha")" = "$RELEASE_SHA" || {
+                echo "REFUSING: installed pin does not match reviewed release"; exit 2;
+              }
+              "$STATE/runtime/infra/oracle/run_active_supply_health.sh"
+              ;;
+          esac
