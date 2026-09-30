@@ -1,0 +1,122 @@
+name: FMA-5 Prismatic Activity Stage
+
+on:
+  push:
+    branches:
+      - ops/fma5-market-activity-prismatic-stage-20260930
+    paths:
+      - ".github/workflows/fma5-market-activity-prismatic-stage.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fma5-prismatic-activity-stage
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      MARKET_KEY: set:7a3dd188-4375-41af-94de-c5247fe0b1a6
+      MARKET_AS_OF: "2026-09-29"
+      ACTIVITY_GENERATION_ID: f5a50000-0001-4a29-8c01-202609300001
+      STAGE_OUT: /tmp/fma5-prismatic-stage.json
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install focused runtime
+        run: |
+          python -m pip install --disable-pip-version-check -q             supabase==2.28.3 python-dotenv==1.2.2
+
+      - name: Verify required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$SUPABASE_ANON_KEY"
+          echo "fma5_stage_required_secrets_present=true"
+
+      - name: Fail closed if generation already exists or target moved
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python - <<'PY'
+          import json, os
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          gid=os.environ["ACTIVITY_GENERATION_ID"]
+          existing=list(c.table("market_activity_generations_v1").select("activity_generation_id").eq("activity_generation_id",gid).limit(1).execute().data or [])
+          if existing:
+              raise RuntimeError("fixed activation generation already exists")
+          serving=list(c.table("pokemon_market_explorer_surface_serving_v2").select("generation_id").eq("singleton",1).limit(1).execute().data or [])
+          if not serving:
+              raise RuntimeError("no Explorer V2 serving generation")
+          generation=str(serving[0]["generation_id"])
+          rows=list(c.table("pokemon_market_explorer_surface_constituent_totals_v2").select("total_count,asset").eq("generation_id",generation).eq("market_key",os.environ["MARKET_KEY"]).limit(1).execute().data or [])
+          if not rows or rows[0].get("asset")!="cards" or int(rows[0].get("total_count") or 0)!=174:
+              raise RuntimeError(f"Prismatic target changed: {rows}")
+          print(json.dumps({"surfaceGenerationId":generation,"rosterCount":174,"generationId":gid},sort_keys=True))
+          PY
+
+      - name: Stage and validate one Prismatic Activity generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python -m backend.scripts.build_market_activity_projection             --stage             --confirm-stage FMA1_STAGE             --market-key "$MARKET_KEY"             --as-of "$MARKET_AS_OF"             --generation-id "$ACTIVITY_GENERATION_ID" | tee "$STAGE_OUT"
+          grep -q '"state": "VALIDATED"' "$STAGE_OUT"
+          grep -q '"promoted": false' "$STAGE_OUT"
+          grep -q '"providerCalls": 0' "$STAGE_OUT"
+          echo "FMA5_PRISMATIC_STAGE_OK"
+
+      - name: Verify persisted generation is complete and not served
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python - <<'PY'
+          import json, os
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          gid=os.environ["ACTIVITY_GENERATION_ID"]
+          market=os.environ["MARKET_KEY"]
+          generation=list(c.table("market_activity_generations_v1").select("state,serving_state,surface_generation_id,as_of,evidence_cutoff").eq("activity_generation_id",gid).limit(1).execute().data or [])
+          roster=list(c.table("market_activity_rosters_v1").select("roster_denominator,roster_type,roster_revision").eq("activity_generation_id",gid).eq("market_key",market).limit(1).execute().data or [])
+          members=list(c.table("market_activity_roster_members_v1").select("rank",count="exact").eq("activity_generation_id",gid).eq("market_key",market).limit(1).execute().data or [])
+          groups=list(c.table("market_activity_group_payloads_v1").select("window_days,payload").eq("activity_generation_id",gid).eq("market_key",market).execute().data or [])
+          payloads=list(c.table("market_activity_instrument_payloads_v1").select("instrument_key",count="exact").eq("activity_generation_id",gid).limit(1).execute().data or [])
+          served=list(c.table("market_activity_market_serving_v1").select("activity_generation_id").eq("market_key",market).limit(1).execute().data or [])
+          if not generation or generation[0]["state"]!="VALIDATED" or generation[0]["serving_state"]!="RETAINED":
+              raise RuntimeError(f"generation state invalid: {generation}")
+          if not roster or int(roster[0]["roster_denominator"])!=174 or roster[0]["roster_type"]!="PREPARED_GENERATION":
+              raise RuntimeError(f"roster invalid: {roster}")
+          if sorted(int(row["window_days"]) for row in groups)!=[7,30,90,180]:
+              raise RuntimeError(f"group windows invalid: {groups}")
+          if served:
+              raise RuntimeError("staged generation became served unexpectedly")
+          print(json.dumps({
+              "generation":generation[0],
+              "rosterType":roster[0]["roster_type"],
+              "rosterDenominator":roster[0]["roster_denominator"],
+              "groupWindows":sorted(int(row["window_days"]) for row in groups),
+              "served":False
+          },default=str,sort_keys=True))
+          PY
+
+      - name: Upload stage receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fma5-prismatic-activity-stage
+          path: /tmp/fma5-prismatic-stage.json
+          if-no-files-found: warn
+          retention-days: 14
