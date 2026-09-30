@@ -7,6 +7,7 @@ from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
     build_global_card_movers_row,
     build_global_raw_card_movers_row,
+    build_global_mixed_movers_row,
     read_explore_card_movers_snapshot,
 )
 from backend.db.services.pokemon_card_market_delta_contract import WINDOW_CONVENTION
@@ -122,12 +123,12 @@ class _Client:
     def table(self, _name): return _Query(self.rows)
 
 
-def test_read_service_serves_only_prepared_snapshot_and_caps_limit():
-    payload = {"marketMovers": {"window": "7D", "all": [movement(str(i), i, i) for i in range(35)]},
+def test_read_service_serves_only_prepared_snapshot_and_caps_limit_at_fifty():
+    payload = {"marketMovers": {"window": "7D", "all": [movement(str(i), i, i) for i in range(55)]},
                "meta": {"snapshot": {"marketDate": "2026-08-01"}}}
     result = read_explore_card_movers_snapshot(client=_Client([{"payload_json": payload}]), limit=99)
     assert result["marketMovers"]["window"] == "7D"
-    assert len(result["marketMovers"]["all"]) == 30
+    assert len(result["marketMovers"]["all"]) == 50
 
 
 def _transient_error(code="PGRST002"):
@@ -268,5 +269,103 @@ def test_raw_authority_snapshot_is_market_wide_and_preserves_exact_variants():
 def test_raw_authority_snapshot_fails_closed_on_incoherent_authority(authority):
     with pytest.raises(ExploreCardMoversUnavailable):
         build_global_raw_card_movers_row(
+            authority, target_market_date="2026-09-29"
+        )
+
+
+
+def mixed_authority(*, market_date="2026-09-29", universe="serving_cards_and_sealed_exact_instruments_v1"):
+    return {
+        "status": "READY",
+        "marketDate": market_date,
+        "generationId": "surface-generation",
+        "window": "7D",
+        "windowDays": 7,
+        "movementContractVersion": "pokemon_card_movement_v1",
+        "windowConvention": WINDOW_CONVENTION,
+        "universeContractVersion": universe,
+        "rankingMethodology": "market_movement_score_v1",
+        "baselineQualityGuardVersion": "target_baseline_reversion_guard_v1",
+        "marketSetCount": 208,
+        "cardRootCount": 155,
+        "cardMarketCount": 159,
+        "cardConstituentCount": 20315,
+        "cardCandidateCount": 2370,
+        "cardTransientExcludedCount": 1,
+        "sealedSetCount": 167,
+        "sealedConstituentCount": 1377,
+        "sealedCurrentEndpointCount": 1321,
+        "sealedBaselineCoveredCount": 1341,
+        "sealedCandidateCount": 419,
+        "sealedTransientExcludedCount": 1,
+        "publishedCount": 3,
+        "publishedCardCount": 2,
+        "publishedSealedCount": 1,
+        "movements": [
+            {
+                "asset": "cards",
+                "canonicalCardId": "card-a",
+                "cardVariantId": "variant-a",
+                "conditionId": "nm",
+                "name": "Card A",
+                "movementScore": 200,
+                "changeAmount": 150,
+                "changePercent": 20,
+            },
+            {
+                "asset": "sealed",
+                "sealedProductId": "product-a",
+                "instrumentId": "product-a",
+                "id": "product-a",
+                "name": "Booster Box A",
+                "movementScore": 180,
+                "changeAmount": 130,
+                "changePercent": 5,
+            },
+            {
+                "asset": "cards",
+                "canonicalCardId": "card-b",
+                "cardVariantId": "variant-b",
+                "conditionId": "nm",
+                "name": "Card B",
+                "movementScore": -170,
+                "changeAmount": -120,
+                "changePercent": -25,
+            },
+        ],
+    }
+
+
+def test_mixed_snapshot_preserves_authoritative_cross_asset_order_and_counts():
+    row = build_global_mixed_movers_row(
+        mixed_authority(), target_market_date="2026-09-29"
+    )
+    movers = row["payload_json"]["marketMovers"]["all"]
+    assert [item["asset"] for item in movers] == ["cards", "sealed", "cards"]
+    assert movers[1]["sealedProductId"] == "product-a"
+    coverage = row["payload_json"]["meta"]["coverage"]
+    assert coverage["cardConstituentCount"] == 20315
+    assert coverage["sealedConstituentCount"] == 1377
+    assert coverage["candidateInstrumentCount"] == 2789
+    assert coverage["publishedCardCount"] == 2
+    assert coverage["publishedSealedCount"] == 1
+    assert coverage["publishedInstrumentCount"] == 3
+    assert row["card_count"] == 3
+    assert row["eligible_set_count"] == 208
+    assert row["payload_json"]["meta"]["builder"] == "pokemon_mixed_market_seven_day_movers_v3"
+
+
+@pytest.mark.parametrize(
+    "authority",
+    [
+        mixed_authority(market_date="2026-09-28"),
+        mixed_authority(universe="cards_only"),
+        {**mixed_authority(), "sealedCandidateCount": 0},
+        {**mixed_authority(), "publishedSealedCount": 2},
+    ],
+)
+def test_mixed_snapshot_fails_closed_on_incoherent_cross_asset_authority(authority):
+    with pytest.raises(ExploreCardMoversUnavailable):
+        build_global_mixed_movers_row(
             authority, target_market_date="2026-09-29"
         )
