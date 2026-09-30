@@ -2,4 +2,4 @@
 # Runs only after the C daily panel health window; the Python coordinator also
 # refuses unless the same Phoenix date has an exact healthy 207-card C run.
 CRON_TZ=America/Phoenix
-30 22 * * * /home/ubuntu/state/market_microstructure_b4/runtime/infra/oracle/run_market_microstructure_bucket_b4.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_microstructure_b4.log 2>&1
+30 22 * * * /bin/bash /home/ubuntu/state/market_microstructure_b4/runtime/infra/oracle/run_market_microstructure_bucket_b4.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_microstructure_b4.log 2>&1
