@@ -33,6 +33,7 @@ jobs:
             "active-supply-vm: hostkeys") OP=hostkeys ;;
             "active-supply-vm: credential-status") OP=credential-status ;;
             "active-supply-vm: db-target-status") OP=db-target-status ;;
+            "active-supply-vm: db-schema-status") OP=db-schema-status ;;
             "active-supply-vm: install-credential") OP=install-credential ;;
             "active-supply-vm: installer-verify") OP=installer-verify ;;
             "active-supply-vm: installer-apply") OP=installer-apply ;;
@@ -183,6 +184,72 @@ jobs:
               columns = [row[0] for row in cur.fetchall()]
               print("typed_columns_present=" + ",".join(columns))
               print("typed_column_count=" + str(len(columns)))
+          PY
+              ;;
+
+            db-schema-status)
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              "$REPO/.venv/bin/python" - <<'PY'
+          import os
+          import psycopg
+
+          dsn = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL") or ""
+          if not dsn:
+              raise SystemExit("database dsn missing")
+
+          expected = {
+              "landed_price",
+              "listing_updated_at",
+              "provider_snapshot_at",
+              "seller_rating",
+              "seller_sales_count",
+          }
+
+          with psycopg.connect(dsn, connect_timeout=10) as conn, conn.cursor() as cur:
+              cur.execute("select current_user, session_user, current_setting('is_superuser', true)")
+              current_user, session_user, is_superuser = cur.fetchone()
+              print("current_user=" + str(current_user))
+              print("session_user=" + str(session_user))
+              print("is_superuser=" + str(is_superuser))
+
+              cur.execute("select to_regclass('public.market_active_supply_listing_observations_v1')")
+              print("table_regclass=" + str(cur.fetchone()[0]))
+
+              cur.execute("""
+                  select attname
+                  from pg_catalog.pg_attribute
+                  where attrelid='public.market_active_supply_listing_observations_v1'::regclass
+                    and attnum > 0
+                    and not attisdropped
+                  order by attnum
+              """)
+              catalog_columns = [row[0] for row in cur.fetchall()]
+              print("pg_attribute_expected_present=" + ",".join(sorted(expected & set(catalog_columns))))
+              print("pg_attribute_expected_count=" + str(len(expected & set(catalog_columns))))
+
+              cur.execute("""
+                  select column_name
+                  from information_schema.columns
+                  where table_schema='public'
+                    and table_name='market_active_supply_listing_observations_v1'
+                  order by ordinal_position
+              """)
+              info_columns = [row[0] for row in cur.fetchall()]
+              print("information_schema_column_count=" + str(len(info_columns)))
+              print("information_schema_expected_count=" + str(len(expected & set(info_columns))))
+
+              cur.execute("""
+                  select
+                    has_table_privilege(current_user,'public.market_active_supply_listing_observations_v1','SELECT'),
+                    has_table_privilege(current_user,'public.market_active_supply_listing_observations_v1','INSERT'),
+                    has_table_privilege(current_user,'public.market_active_supply_listing_observations_v1','UPDATE')
+              """)
+              select_ok, insert_ok, update_ok = cur.fetchone()
+              print("current_user_select=" + str(select_ok).lower())
+              print("current_user_insert=" + str(insert_ok).lower())
+              print("current_user_update=" + str(update_ok).lower())
           PY
               ;;
 
