@@ -7,7 +7,7 @@ Status: **FIXTURE-BACKED / NOT LIVE API**
 - Starting SHA: `8e86b6b3ab83422d95299107a66510a56ae5c336`
 - Final implementation SHA: `f63ba48da6b88a96116af9da6902d9b0e69a90a0` (the following handoff-only commit adds this document)
 - Branch: `fma3-focused-market-activity-ui`
-- PR: recorded after push in the PR description
+- PR: https://github.com/BeBoop-Beep/EVRCalculator/pull/495
 - Contract: `market_activity_v1.1`
 - Domain: `market_activity_domain_v1.1.0`
 - Fixture set: `market_activity_v1_fixtures_2`
