@@ -32,6 +32,7 @@ jobs:
             "active-supply-vm: noop") OP=noop ;;
             "active-supply-vm: hostkeys") OP=hostkeys ;;
             "active-supply-vm: credential-status") OP=credential-status ;;
+            "active-supply-vm: db-target-status") OP=db-target-status ;;
             "active-supply-vm: install-credential") OP=install-credential ;;
             "active-supply-vm: installer-verify") OP=installer-verify ;;
             "active-supply-vm: installer-apply") OP=installer-apply ;;
@@ -114,6 +115,74 @@ jobs:
           else:
               print("runtime_release_pin_present=false")
               print("runtime_release_pin_matches_reviewed=false")
+          PY
+              ;;
+
+            db-target-status)
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              "$REPO/.venv/bin/python" - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          import psycopg
+          from psycopg.conninfo import conninfo_to_dict
+
+          supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or ""
+          dsn = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL") or ""
+
+          if supabase_url:
+              parsed_url = urlparse(supabase_url)
+              host = parsed_url.hostname or ""
+              ref = host.split(".")[0] if host.endswith(".supabase.co") else "unknown"
+              print("rest_host=" + host)
+              print("rest_project_ref=" + ref)
+          else:
+              print("rest_host=MISSING")
+              print("rest_project_ref=MISSING")
+
+          if not dsn:
+              print("db_dsn=MISSING")
+              raise SystemExit(2)
+
+          info = conninfo_to_dict(dsn)
+          db_host = info.get("host") or ""
+          db_user = info.get("user") or ""
+          db_name = info.get("dbname") or ""
+          db_port = str(info.get("port") or "")
+          if "." in db_user:
+              db_ref = db_user.split(".")[-1]
+          elif db_host.startswith("db.") and db_host.endswith(".supabase.co"):
+              db_ref = db_host.split(".")[1]
+          else:
+              db_ref = "unknown"
+          print("db_host=" + db_host)
+          print("db_port=" + db_port)
+          print("db_user_kind=" + ("pooled_project_user" if "." in db_user else "direct_or_other"))
+          print("db_project_ref=" + db_ref)
+          print("db_name=" + db_name)
+
+          with psycopg.connect(dsn, connect_timeout=10) as conn, conn.cursor() as cur:
+              cur.execute("select current_database(), current_user, current_setting('server_version')")
+              database, user, version = cur.fetchone()
+              print("db_connected=true")
+              print("db_current_database=" + str(database))
+              print("db_current_user_kind=" + ("pooled_project_user" if "." in str(user) else "direct_or_other"))
+              print("db_server_version=" + str(version))
+              cur.execute("""
+                  select column_name
+                  from information_schema.columns
+                  where table_schema='public'
+                    and table_name='market_active_supply_listing_observations_v1'
+                    and column_name in (
+                      'landed_price','listing_updated_at','provider_snapshot_at',
+                      'seller_rating','seller_sales_count'
+                    )
+                  order by column_name
+              """)
+              columns = [row[0] for row in cur.fetchall()]
+              print("typed_columns_present=" + ",".join(columns))
+              print("typed_column_count=" + str(len(columns)))
           PY
               ;;
 
