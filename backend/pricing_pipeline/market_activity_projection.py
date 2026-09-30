@@ -93,9 +93,14 @@ class MarketActivityProjectionBuilder:
                 return self._reject(generation_id, metrics, resume_errors, True, started)
         elif not dry_run:
             self.sink.create_generation(generation); metrics.rows_written += 1
+            revision_kind = roster["revision"]["kind"]
+            roster_type = ("PREPARED_GENERATION" if revision_kind == "SURFACE_V2_GENERATION"
+                           else revision_kind)
+            if roster_type not in ("PREPARED_GENERATION", "QUERY_CACHE_PUBLISHED_REVISION"):
+                raise ValueError(f"unsupported roster revision kind: {revision_kind}")
             self.sink.write_batch("market_activity_rosters_v1", [{
                 "activity_generation_id": generation_id, "market_key": market_key,
-                "roster_type": roster["revision"]["kind"], "roster_revision": roster["revision"],
+                "roster_type": roster_type, "roster_revision": roster["revision"],
                 "roster_as_of": roster["asOf"], "roster_denominator": len(members)}])
             metrics.rows_written += 1
         detail_inputs: list[tuple[dict[str, Any], dict[str, Any]]] = []
