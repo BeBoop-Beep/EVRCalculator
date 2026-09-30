@@ -41,8 +41,9 @@ SOURCE_PROVIDER = "pkmnprices_tcgplayer"
 SELECTOR_VERSION = "market_microstructure_core_panel_phase1_v1"
 PAGE_SIZE = 20
 MAX_ROWS_PER_CARD_DAY = 80
-DAILY_B_CREDIT_CAP = 8000
-PROVIDER_REMAINING_FLOOR = 6000
+ACCOUNT_DAILY_CREDIT_LIMIT = 75000
+DAILY_B_CREDIT_CAP = 55000
+ACCOUNT_RESERVE_CREDITS = ACCOUNT_DAILY_CREDIT_LIMIT - DAILY_B_CREDIT_CAP
 IDENTITY_LOOKUP_WORST_CASE = 5
 CALIBRATED_MEAN_READY_ROWS = 419.8
 EXPECTED_PANEL_COUNT = 207
@@ -50,6 +51,93 @@ EXPECTED_PANEL_COUNT = 207
 
 def phoenix_date() -> str:
     return datetime.now(ZoneInfo("America/Phoenix")).date().isoformat()
+
+
+def provider_credit_day_utc() -> str:
+    # PkmnPrices resets at midnight UTC, so the provider credit day is exactly
+    # the current UTC calendar date.
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _daily_b4_credits_used(db: Any, credit_day: str) -> int:
+    start = datetime.fromisoformat(credit_day + "T00:00:00+00:00")
+    end = start + timedelta(days=1)
+    rows = (
+        db.table("pkmnprices_sold_runs_v1")
+        .select("credits_used,metadata,started_at")
+        .gte("started_at", start.isoformat())
+        .lt("started_at", end.isoformat())
+        .execute()
+        .data
+        or []
+    )
+    return sum(
+        int(row.get("credits_used") or 0)
+        for row in rows
+        if dict(row.get("metadata") or {}).get("mode")
+        == "bucket_b4_phase1_breadth_180d"
+    )
+
+
+def _scrape_batch_state(db: Any, expected_date: str) -> dict[str, Any] | None:
+    rows = (
+        db.table("pokemon_scrape_batches")
+        .select(
+            "id,market_date,status,expected_set_count,queued_set_count,"
+            "succeeded_set_count,failed_set_count,missing_set_count,"
+            "started_at,completed_at,promoted_at"
+        )
+        .eq("market_date", expected_date)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    return dict(rows[0]) if rows else None
+
+
+def operational_pause_reason(
+    db: Any,
+    *,
+    now_local: datetime | None = None,
+) -> dict[str, Any] | None:
+    now_local = now_local or datetime.now(ZoneInfo("America/Phoenix"))
+    local_time = now_local.time()
+    expected_date = now_local.date().isoformat()
+
+    # Give the C continuity panel an uncontested window around its 21:10
+    # primary, 21:40 retry and 22:10 health run.
+    if (local_time.hour == 20 and local_time.minute >= 55) or (
+        21 <= local_time.hour < 22
+    ) or (local_time.hour == 22 and local_time.minute < 25):
+        return {
+            "reason": "C_CONTINUITY_WINDOW",
+            "expected_date": expected_date,
+        }
+
+    # The daily TCGPlayer scrape owns the machine beginning just before the
+    # 01:05 batch creation. Once that window begins, B4 remains paused until
+    # the current Phoenix-date batch is authoritatively complete.
+    after_scrape_window_start = (
+        local_time.hour > 0
+        or (local_time.hour == 0 and local_time.minute >= 55)
+    )
+    if after_scrape_window_start:
+        batch = _scrape_batch_state(db, expected_date)
+        if not batch:
+            return {
+                "reason": "SCRAPE_BATCH_NOT_READY",
+                "expected_date": expected_date,
+            }
+        if str(batch.get("status") or "").casefold() != "complete":
+            return {
+                "reason": "SCRAPE_BATCH_ACTIVE",
+                "expected_date": expected_date,
+                "batch_id": batch.get("id"),
+                "batch_status": batch.get("status"),
+            }
+    return None
 
 
 def c_daily_gate(db: Any, expected_date: str) -> dict[str, Any]:
@@ -334,8 +422,12 @@ def _breadth_order(states: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def preflight(db: Any, *, expected_date: str, credit_cap: int) -> dict[str, Any]:
     if not 1 <= credit_cap <= DAILY_B_CREDIT_CAP:
-        raise ValueError("credit_cap must be between 1 and 8000")
+        raise ValueError("credit_cap must be between 1 and 55000")
     gate = c_daily_gate(db, expected_date)
+    credit_day = provider_credit_day_utc()
+    prior_b4_credits = _daily_b4_credits_used(db, credit_day)
+    remaining_b4_credits = max(0, credit_cap - prior_b4_credits)
+    pause = operational_pause_reason(db)
     states = panel_states(db)
     ready = [row for row in states if row["phase1_ready"]]
     pending = [row for row in states if not row["phase1_ready"]]
@@ -349,6 +441,12 @@ def preflight(db: Any, *, expected_date: str, credit_cap: int) -> dict[str, Any]
         "horizon_days": HORIZON_DAYS,
         "horizon_cutoff": HORIZON_CUTOFF.isoformat(),
         "c_gate": gate,
+        "operational_pause": pause,
+        "provider_credit_day_utc": credit_day,
+        "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+        "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
+        "prior_b4_credits_today": prior_b4_credits,
+        "remaining_b4_credits_today": remaining_b4_credits,
         "phase1_ready_count": len(ready),
         "phase1_remaining_count": len(pending),
         "identity_resolved_count": sum(row["identity"] is not None for row in states),
@@ -371,12 +469,8 @@ def preflight(db: Any, *, expected_date: str, credit_cap: int) -> dict[str, Any]
     }
 
 
-def _can_spend(provider: PkmnPricesClient, *, local_remaining: int, requested: int) -> bool:
-    if local_remaining < requested:
-        return False
-    if provider.rate_remaining is not None:
-        return int(provider.rate_remaining) - requested >= PROVIDER_REMAINING_FLOOR
-    return True
+def _can_spend(*, local_remaining: int, requested: int) -> bool:
+    return requested > 0 and local_remaining >= requested
 
 
 def _resolve_identity(
@@ -477,14 +571,34 @@ def run_phase1(
     credit_cap: int,
 ) -> dict[str, Any]:
     if not 1 <= credit_cap <= DAILY_B_CREDIT_CAP:
-        raise ValueError("credit_cap must be between 1 and 8000")
+        raise ValueError("credit_cap must be between 1 and 55000")
 
     gate = c_daily_gate(db, expected_date)
-    if not gate["ready"]:
+    credit_day = provider_credit_day_utc()
+    prior_b4_credits = _daily_b4_credits_used(db, credit_day)
+    invocation_credit_cap = max(0, credit_cap - prior_b4_credits)
+    pause = operational_pause_reason(db)
+    if pause:
         return {
             "status": "BLOCKED",
-            "reason": gate["reason"],
+            "reason": pause["reason"],
+            "operational_pause": pause,
             "c_gate": gate,
+            "provider_credit_day_utc": credit_day,
+            "prior_b4_credits_today": prior_b4_credits,
+            "remaining_b4_credits_today": invocation_credit_cap,
+            "provider_credits_used": 0,
+            "database_writes": 0,
+            "phase2_lifetime_archival": False,
+        }
+    if invocation_credit_cap <= 0:
+        return {
+            "status": "COMPLETE",
+            "reason": "B4_DAILY_BUDGET_EXHAUSTED",
+            "c_gate": gate,
+            "provider_credit_day_utc": credit_day,
+            "prior_b4_credits_today": prior_b4_credits,
+            "remaining_b4_credits_today": 0,
             "provider_credits_used": 0,
             "database_writes": 0,
             "phase2_lifetime_archival": False,
@@ -520,7 +634,7 @@ def run_phase1(
         "selector_version": SELECTOR_VERSION,
         "collector_version": COLLECTOR_VERSION,
         "target_count": EXPECTED_PANEL_COUNT,
-        "item_credit_cap": credit_cap,
+        "item_credit_cap": invocation_credit_cap,
         "api_request_count": 0,
         "credits_used": 0,
         "provider_card_lookup_count": 0,
@@ -539,6 +653,12 @@ def run_phase1(
             "page_size": PAGE_SIZE,
             "phase2_lifetime_archival": False,
             "c_gate_run_id": gate.get("run_id"),
+            "provider_credit_day_utc": credit_day,
+            "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+            "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
+            "daily_b4_credit_cap": credit_cap,
+            "prior_b4_credits_today": prior_b4_credits,
+            "invocation_credit_cap": invocation_credit_cap,
         },
     })
 
@@ -548,7 +668,7 @@ def run_phase1(
     write_seconds = 0.0
 
     for initial in pending:
-        if provider.credits_charged >= credit_cap:
+        if provider.credits_charged >= invocation_credit_cap:
             break
 
         target = initial["target"]
@@ -557,8 +677,7 @@ def run_phase1(
         try:
             if identity is None:
                 if not _can_spend(
-                    provider,
-                    local_remaining=credit_cap - provider.credits_charged,
+                    local_remaining=invocation_credit_cap - provider.credits_charged,
                     requested=IDENTITY_LOOKUP_WORST_CASE,
                 ):
                     totals["stopped_for_budget_or_reserve"] += 1
@@ -570,7 +689,7 @@ def run_phase1(
                     target=target,
                 )
                 identity_lookup_credits = provider.credits_charged - before
-                if provider.credits_charged > credit_cap:
+                if provider.credits_charged > invocation_credit_cap:
                     raise RuntimeError("PHASE1_DAILY_CREDIT_CAP_EXCEEDED")
                 totals["provider_card_lookup_count"] += 1
 
@@ -608,15 +727,20 @@ def run_phase1(
             ready_reason: str | None = None
 
             while rows_this_card < MAX_ROWS_PER_CARD_DAY and not ready:
-                remaining_local = credit_cap - provider.credits_charged
+                remaining_local = invocation_credit_cap - provider.credits_charged
                 remaining_card = MAX_ROWS_PER_CARD_DAY - rows_this_card
                 requested = min(PAGE_SIZE, remaining_local, remaining_card)
                 if requested <= 0 or not _can_spend(
-                    provider,
                     local_remaining=remaining_local,
                     requested=requested,
                 ):
                     totals["stopped_for_budget_or_reserve"] += 1
+                    break
+
+                pause = operational_pause_reason(db)
+                if pause:
+                    totals["paused_for_operational_work"] += 1
+                    totals["pause_reason_" + pause["reason"].lower()] += 1
                     break
 
                 before_credits = provider.credits_charged
@@ -723,7 +847,7 @@ def run_phase1(
                 "phase1_ready_reason": ready_reason,
             })
 
-            if totals["stopped_for_budget_or_reserve"]:
+            if totals["stopped_for_budget_or_reserve"] or totals["paused_for_operational_work"]:
                 break
         except Exception as exc:
             totals["targets_failed"] += 1
@@ -747,9 +871,14 @@ def run_phase1(
         if not row["phase1_ready"]
     )
     projected_days = math.ceil(estimated_remaining_credits / DAILY_B_CREDIT_CAP) if remaining_count else 0
+    pause_at_finish = operational_pause_reason(db)
 
     finished_at = datetime.now(timezone.utc).isoformat()
-    status = "COMPLETE" if not failures else "PARTIAL"
+    status = (
+        "PARTIAL"
+        if failures or totals["paused_for_operational_work"]
+        else "COMPLETE"
+    )
     store.update_run(run_id, {
         "finished_at": finished_at,
         "status": status,
@@ -777,7 +906,16 @@ def run_phase1(
                 estimated_remaining_credits, 1
             ),
             "projected_remaining_b_days_mean_calibration": projected_days,
-            "provider_rate_remaining": provider.rate_remaining,
+            "provider_rate_remaining_requests": provider.rate_remaining,
+            "provider_credits_limit": provider.credits_limit,
+            "provider_credit_day_utc": credit_day,
+            "prior_b4_credits_today": prior_b4_credits,
+            "b4_credits_after_run": prior_b4_credits + provider.credits_charged,
+            "b4_credits_remaining_today": max(
+                0, credit_cap - prior_b4_credits - provider.credits_charged
+            ),
+            "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
+            "operational_pause_at_finish": pause_at_finish,
             "phase2_lifetime_archival": False,
             "db_insert_and_state_write_seconds": round(write_seconds, 6),
         },
@@ -790,7 +928,17 @@ def run_phase1(
         "c_gate": gate,
         "credits_used": provider.credits_charged,
         "credit_cap": credit_cap,
-        "provider_rate_remaining": provider.rate_remaining,
+        "invocation_credit_cap": invocation_credit_cap,
+        "provider_credits_limit": provider.credits_limit,
+        "provider_rate_remaining_requests": provider.rate_remaining,
+        "provider_credit_day_utc": credit_day,
+        "prior_b4_credits_today": prior_b4_credits,
+        "b4_credits_after_run": prior_b4_credits + provider.credits_charged,
+        "b4_credits_remaining_today": max(
+            0, credit_cap - prior_b4_credits - provider.credits_charged
+        ),
+        "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
+        "operational_pause_at_finish": pause_at_finish,
         "summary_init_writes": summary_init_writes,
         **dict(totals),
         "failures": failures,
@@ -828,7 +976,7 @@ def main() -> int:
         result = run_phase1(
             db=db,
             provider=PkmnPricesClient(
-                credentials.api_key, min_request_interval=1.1
+                credentials.api_key, min_request_interval=0.55
             ),
             expected_date=args.expected_date,
             credit_cap=args.credit_cap,
