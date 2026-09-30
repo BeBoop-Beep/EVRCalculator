@@ -3,13 +3,21 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import MoversTickerViewport from "./MoversTickerViewport";
 import { selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 
-const identity = (card) => [card?.canonicalCardId || card?.cardId || card?.id, card?.cardVariantId || "", card?.conditionId || ""].join(":");
-const hrefFor = (card) => buildPokemonCardDetailHref(card);
+const identity = (item) => item?.asset === "sealed"
+  ? ["sealed", item?.sealedProductId || item?.instrumentId || item?.id].join(":")
+  : [item?.canonicalCardId || item?.cardId || item?.id, item?.cardVariantId || "", item?.conditionId || ""].join(":");
+const hrefFor = (item) => item?.asset === "sealed"
+  ? buildSealedProductHref(item)
+  : buildPokemonCardDetailHref(item);
 
 function marketSetLabel(card) {
   const setName = card?.setName || "Unknown set";
+  if (card?.asset === "sealed") {
+    return `${setName} · ${card?.productFamilyLabel || "Sealed Product"}`;
+  }
   const scope = String(card?.marketScope || card?.market_scope || "standard").toLowerCase();
   if (scope === "first_edition") return `${setName} · 1st Edition`;
   if (scope === "unlimited") return `${setName} · Unlimited`;
@@ -19,7 +27,7 @@ function marketSetLabel(card) {
 
 function Item({ card, movement, href, hidden, crossSet, thumbnailSize }) {
   const image = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl, CARD_THUMBNAIL_WIDTH);
-  const name = card?.name || "Unknown card";
+  const name = card?.name || "Unknown market item";
   const price = Number(card?.marketPrice ?? card?.currentPrice);
   const thumbnailSizeClass = thumbnailSize === "medium"
     ? "h-12 w-[2.1rem] max-desk:h-11 max-desk:w-[1.925rem]"
