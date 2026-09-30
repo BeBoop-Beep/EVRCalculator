@@ -212,5 +212,25 @@
   "longitudinal_questions_status": "NEEDS_MORE_HISTORY",
   "no_composite_score": true,
   "fair_value_fit_performed": false,
-  "canonical_price_mutation": false
+  "canonical_price_mutation": false,
+  "post_selection_combined_diagnostic": {
+    "note": "Secondary post-selection diagnostic only; not used to choose supported primitives.",
+    "selected_primitives": [
+      "log_sales_30",
+      "relative_iqr_180",
+      "graded_share_180"
+    ],
+    "residual_target_variance_explained_r2": 0.6249,
+    "unique_delta_r2_when_dropped": {
+      "log_sales_30": 0.0309,
+      "relative_iqr_180": 0.0344,
+      "graded_share_180": 0.2743
+    },
+    "within_set_pair_correlations": {
+      "log_sales_30__graded_share_180": 0.5646,
+      "log_sales_30__relative_iqr_180": -0.4867,
+      "graded_share_180__relative_iqr_180": -0.619
+    },
+    "interpretation": "All three retain nonzero unique information in the combined diagnostic; graded/raw market mix is the dominant unique contributor. This remains contemporaneous association, not causal or predictive evidence."
+  }
 }
