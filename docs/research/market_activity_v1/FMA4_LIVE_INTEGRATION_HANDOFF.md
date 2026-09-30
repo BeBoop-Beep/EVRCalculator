@@ -1,15 +1,14 @@
 # FMA-4 — Live frontend integration handoff
 
-Status: **IMPLEMENTATION COMPLETE / PR CREATION BLOCKED BY LOCAL GITHUB AUTHORITY**
+Status: **RECONCILIATION COMPLETE / READY FOR REVIEW**
 
 ## Delivery identity
 
-- Starting SHA: `0689a04de41379da670fc8f1787d6548a11d6f12`
-- Implementation SHA: `30c1a58d6022718aea74dc1f956743ef0e34aed9`
+- Rebased `origin/develop` SHA: `28dd2736`
+- Reconciliation implementation SHA: `a04db9232da761de754184170dd75f4d8a018c53`
 - Branch: `fma4-live-market-activity-integration`
 - Remote branch: `origin/fma4-live-market-activity-integration`
-- PR: not opened; this environment has no `gh` executable and no `GITHUB_TOKEN`/`GH_TOKEN`
-- Compare/open-PR URL: `https://github.com/BeBoop-Beep/EVRCalculator/compare/develop...fma4-live-market-activity-integration?expand=1`
+- PR: `#500`
 - Contract: `market_activity_v1.1`
 - Domain: `market_activity_domain_v1.1.0`
 - Fixture set: `market_activity_v1_fixtures_2`
@@ -36,7 +35,7 @@ Proxy route files are under `frontend/app/api/market/explorer/activity/`. Shared
 
 Stale batches are aborted and sequence-guarded. The cache is cleared on logout, identity change, or plan downgrade. Removing/adding a market or changing its prepared generation changes the exact batch key. Basic has no capability request, and sealed/graded Explorer assets are excluded. The backend remains the entitlement authority.
 
-Prepared V2 markets derive `SURFACE_V2_GENERATION` only from the series' backend-published `generationId` and canonical key. Custom markets require an explicit published `revisionId` and use `QUERY_CACHE_PUBLISHED_REVISION`. A query fingerprint alone never enables Activity. Current custom query responses do not publish such an immutable revision, so custom Market Activity remains unavailable.
+Prepared V2 markets derive `SURFACE_V2_GENERATION` only from the series' backend-published `generationId` and canonical key. Custom markets require the backend-published canonical Activity market key plus the exact `{ kind, queryFingerprint, revisionId, computedThrough }` roster; workspace IDs are not sent. A query fingerprint alone never enables Activity, and capability normalization rejects a returned roster mismatch.
 
 ## Live group Activity
 
@@ -48,7 +47,7 @@ Live mode contains descriptive source/methodology copy. “Fixture-backed / not 
 
 ## Constituent Activity and instrument drilldown
 
-Constituents defaults to Performance. Activity is a local card-only view and is shown only with an exact capability. Pages use the server cursor and server roster order; there is no client-page sort. Canonical display metadata joins only by exact `cardVariantId`, and the raw `instrumentKey` must match that same variant. A mismatch is withheld rather than borrowing another variant's metadata.
+Constituents defaults to Performance. Activity is a local card-only view and is shown only with an exact capability. Pages use the server cursor and server roster order; there is no client-page sort. Each Load more action advances canonical display and Activity pages together, preserving exact joins after row 50. Canonical display metadata joins only by exact `cardVariantId`, and the raw `instrumentKey` must match that same variant. A mismatch is withheld rather than borrowing another variant's metadata.
 
 Desktop columns are Card, Observed Sales, Proven Sales, Median Sale, Ask State/Lowest Ask, and Coverage. Missing values render as unavailable, never zero. Mobile uses compact cards.
 
@@ -68,14 +67,20 @@ The first-page constituent request is in-flight deduplicated so React developmen
 
 ## Verification
 
-- Focused contract/regression run: 45 passed, 0 failed.
+- Reconciliation contract/regression run: 21 passed, 0 failed, including endpoint authority, 100-row/two-page joins, all four sales windows, FastAPI error envelopes, and concurrent market generations.
 - Wider Explorer React run: 105 passed, 34 intentional skips, 0 failed after the one source-layout reconciliation assertion was restored.
 - All 19 accepted Activity fixtures passed manifest, fixture fingerprint, contract, and request-pin validation.
-- Production build: compiled, lint/type checked, and generated successfully with local required URL environment values. Existing unrelated repository warnings remain; FMA-4 introduced no remaining hook warning.
-- Fixture browser acceptance: 2 passed at 1440×900, 1366×768, and 390×844, covering Sales, Offered Supply, shared inspection, sparse alignment, and zero hover requests.
+- Production build: compiled, lint/type checked, and generated successfully with local required URL environment values. Existing unrelated repository warnings remain.
+- Fixture browser acceptance: 3 passed at 1440×900, 1366×768, and 390×844, covering product-default isolation, Sales, Offered Supply, shared inspection, sparse alignment, and zero hover requests.
 - Live proxy browser acceptance: 2 passed, covering Plus capability/group, constituent Activity, exact instrument drawer, Basic locked state, mobile, non-fixture copy, and exact 1/1/1/1 request counts.
 - Accessibility checks: semantic tablists/tabs, status/alert live regions, dialog labelling, keyboard-reachable buttons, minimum mobile control sizing, explicit unavailable text, and retained canonical chart keyboard inspection.
 - `agent-browser` was unavailable on PATH; repository Playwright was used for real-browser acceptance.
+
+The repository-wide frontend run completed with all FMA-4 tests passing, but its aggregate result remains red from the rebased `develop` baseline: 3,132 passed, 323 unrelated source-layout contract failures, 34 intentional skips.
+
+## FMA-2 cross-lane reconciliation
+
+Reconciled against `origin/fma2-market-activity-api` at `7efaca62`. The frontend preserves FastAPI `detail` envelopes for 400/401/403 and top-level proxy/503 envelopes, uses endpoint-specific fingerprint authority, and sends the frozen v1.1 request shapes. No backend Python was copied or changed on this branch.
 
 ## Browser evidence
 
@@ -95,12 +100,11 @@ The first-page constituent request is in-flight deduplicated so React developmen
 
 ## FMA-5 release requirements
 
-1. Open the PR from the pushed branch and obtain review; do not merge until FMA-2/FMA-4 reconciliation is complete.
-2. Reconcile response/error details against the final FMA-2 route implementation without weakening the frozen v1.1 pins.
-3. Run authenticated staging acceptance for Basic, Plus, and Premium against a real promoted Activity generation.
-4. Verify logout/downgrade and expired-generation behavior with real auth/cache boundaries.
-5. Confirm production observability for proxy 503s, backend 401/403/400, generation expiry, and roster mismatch.
-6. Re-run 1440×900, 1366×768, and 390 px acceptance and retain network-count evidence.
-7. Complete security/accessibility review, release approval, generation promotion, and deployment as separate authorized work.
+1. Obtain review on PR #500; do not merge until separately authorized.
+2. Run authenticated staging acceptance for Basic, Plus, and Premium against a real promoted Activity generation.
+3. Verify logout/downgrade and expired-generation behavior with real auth/cache boundaries.
+4. Confirm production observability for proxy 503s, backend 401/403/400, generation expiry, and roster mismatch.
+5. Re-run 1440×900, 1366×768, and 390 px acceptance and retain network-count evidence.
+6. Complete security/accessibility review, release approval, generation promotion, and deployment as separate authorized work.
 
-FMA4_BLOCKED
+FMA4_RECONCILIATION_READY
