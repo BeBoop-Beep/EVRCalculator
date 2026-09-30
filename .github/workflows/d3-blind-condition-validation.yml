@@ -8,6 +8,8 @@ on:
       - "backend/scripts/validate_sold_condition_classifier_live_v1.py"
       - "docs/research/grading_population/condition_validation_live_blind_sample_v1.json"
       - "docs/research/grading_population/condition_validation_live_blind_labels_v1.json"
+      - "backend/pricing_pipeline/sold_condition_classifier_v2.py"
+      - "backend/tests/unit/pricing_pipeline/test_sold_condition_classifier_v2.py"
       - ".github/workflows/d3-blind-condition-validation.yml"
 
 permissions:
@@ -36,3 +38,6 @@ jobs:
           cd "$WT"
           "$PY" -m py_compile backend/scripts/validate_sold_condition_classifier_live_v1.py
           "$PY" -m backend.scripts.validate_sold_condition_classifier_live_v1
+          "$PY" -m pytest -q \
+            backend/tests/unit/pricing_pipeline/test_grading_population_and_condition.py \
+            backend/tests/unit/pricing_pipeline/test_sold_condition_classifier_v2.py
