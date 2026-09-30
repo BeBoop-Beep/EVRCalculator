@@ -175,16 +175,33 @@ def test_pack_economics_preserves_multi_sku_best_open_and_stale_date():
         "eraId": "e1", "eraName": "Era", "productSkuCount": 2, "productFamilyCount": 1,
         "averageCostPerPack": 10, "averageModelBreakEvenPerPack": 4, "modeledReturnOnSpend": .4,
         "chanceToRecoverCost": .1, "averageEntertainmentCostPerPack": 6,
-        "familyEconomics": [{"family": "box", "productSkuCount": 2, "averageCostPerPack": 10,
+        "familyEconomics": [{"family": "elite_trainer_box", "productSkuCount": 2, "averageCostPerPack": 10,
             "averageModelBreakEvenPerPack": 4, "modeledReturnOnSpend": .4,
             "chanceToRecoverCost": .1, "averageEntertainmentCostPerPack": 6}]}]}}
-    best = [{"snapshot_id": "b1", "sealed_product_id": key, "set_id": "s1", "product_family": "box",
-             "current_market_price": 100, "status": "resolved", "best_open_price": 80,
-             "price_gap_dollars": 20, "price_gap_percent": .2} for key in ("p1", "p2")]
+    best = [
+        {"snapshot_id": "b1", "sealed_product_id": "p1", "set_id": "s1", "product_family": "elite_trainer_box",
+         "source_calculation_run_id": "run1", "current_market_price": 100, "current_quantity": 2,
+         "current_actual_committed_capital": 200, "status": "resolved", "best_open_price": 80,
+         "price_gap_dollars": 20, "price_gap_percent": .2},
+        {"snapshot_id": "b1", "sealed_product_id": "p2", "set_id": "s1", "product_family": "elite_trainer_box",
+         "source_calculation_run_id": "run2", "current_market_price": 120, "current_quantity": 1,
+         "current_actual_committed_capital": 120, "status": "resolved", "best_open_price": 91,
+         "price_gap_dollars": 29, "price_gap_percent": .2417},
+    ]
+    exact = [
+        {"calculation_run_id": "run1", "sealed_product_id": "p1", "set_id": "s1", "product_family": "elite_trainer_box",
+         "pack_count": 8, "random_pack_count": 8, "product_market_cost": 100, "price_as_of": "2026-09-08",
+         "expected_value": 40, "chance_to_recover_cost": .10},
+        {"calculation_run_id": "run2", "sealed_product_id": "p2", "set_id": "s1", "product_family": "elite_trainer_box",
+         "pack_count": 11, "random_pack_count": 11, "product_market_cost": 120, "price_as_of": "2026-09-09",
+         "expected_value": 66, "chance_to_recover_cost": .22},
+    ]
     client = Client({"pokemon_rip_stats_snapshot_latest": [{"market_date": "2026-09-28", "payload_json": opening}],
-        "budget_product_best_open_price_latest": [{"snapshot_id": "b1", "source_market_date": "2026-09-08"}],
+        "budget_product_best_open_price_latest": [{"snapshot_id": "b1", "source_budget_snapshot_id": "rank1", "source_market_date": "2026-09-08"}],
         "budget_product_best_open_price_rows": best,
-        "sealed_products": [{"id": "p1", "name": "Box A"}, {"id": "p2", "name": "Box B"}],
+        "simulation_sealed_product_results": exact,
+        "sealed_products": [{"id": "p1", "set_id": "s1", "name": "Standard ETB"},
+                            {"id": "p2", "set_id": "s1", "name": "Pokémon Center ETB"}],
         "sets": [{"id": "s1", "logo_image_url": "logo.png", "symbol_image_url": "symbol.png"}]})
     result = read_pack_economics(client)
     family = result["sets"][0]["families"][0]
@@ -192,7 +209,53 @@ def test_pack_economics_preserves_multi_sku_best_open_and_stale_date():
     assert family["bestOpenDisplayMode"] == "multiple" and len(family["products"]) == 2
     assert result["sets"][0]["logoImageUrl"] == "logo.png"
     assert client.calls.count("sets") == 1
+    products = result["sets"][0]["products"]
+    assert [row["sealedProductId"] for row in products] == ["p2", "p1"]
+    by_id = {row["sealedProductId"]: row for row in products}
+    assert by_id["p1"]["packCount"] == 8 and by_id["p2"]["packCount"] == 11
+    assert by_id["p1"]["averagePackCostPerPack"] == 12.5
+    assert by_id["p2"]["averagePackCostPerPack"] == 120 / 11
+    assert by_id["p1"]["expectedValuePerPack"] == 5
+    assert by_id["p2"]["expectedValuePerPack"] == 6
+    assert by_id["p1"]["modeledReturnOnSpend"] == .4 and by_id["p2"]["modeledReturnOnSpend"] == .55
+    assert by_id["p1"]["chanceToRecoverCost"] == .10 and by_id["p2"]["chanceToRecoverCost"] == .22
+    assert by_id["p1"]["bestOpenPrice"] == 80 and by_id["p2"]["bestOpenPrice"] == 91
+    assert by_id["p1"]["entertainmentCostPerPack"] == 7.5
+    assert round(by_id["p2"]["entertainmentCostPerPack"], 12) == round((120 - 66) / 11, 12)
+    assert by_id["p1"]["economicsSourceMarketDate"] == "2026-09-08"
+    assert by_id["p2"]["economicsSourceMarketDate"] == "2026-09-09"
+    assert result["sets"][0]["averagePackCostPerPack"] == 10
+    assert result["sets"][0]["expectedValuePerPack"] == 4
+    assert result["sets"][0]["modeledReturnOnSpend"] == .4
+    assert result["sets"][0]["chanceToRecoverCost"] == .1
+    assert result["sets"][0]["entertainmentCostPerPack"] == 6
+    assert len(client.calls) == 6
     assert "typicalRetention" not in result["sets"][0] and "typicalOpening" not in family
+
+
+def test_pack_economics_never_substitutes_family_means_when_exact_evidence_is_unavailable():
+    opening = {"openingEconomics": {"sets": [{"setId": "s1", "setName": "Set", "productSkuCount": 1,
+        "averageCostPerPack": 10, "averageModelBreakEvenPerPack": 4, "modeledReturnOnSpend": .4,
+        "chanceToRecoverCost": .1, "averageEntertainmentCostPerPack": 6,
+        "familyEconomics": [{"family": "elite_trainer_box", "productSkuCount": 1,
+            "averageCostPerPack": 99, "averageModelBreakEvenPerPack": 88,
+            "modeledReturnOnSpend": .89, "chanceToRecoverCost": .77,
+            "averageEntertainmentCostPerPack": 11}]}]}}
+    client = Client({
+        "pokemon_rip_stats_snapshot_latest": [{"market_date": "2026-09-28", "payload_json": opening}],
+        "sets": [{"id": "s1"}],
+        "budget_product_best_open_price_latest": [{"snapshot_id": "b1", "source_market_date": "2026-09-08"}],
+        "budget_product_best_open_price_rows": [{"snapshot_id": "b1", "sealed_product_id": "p1", "set_id": "s1",
+            "product_family": "elite_trainer_box", "current_market_price": 100, "status": "resolved",
+            "best_open_price": 80, "price_gap_dollars": 20, "price_gap_percent": .2}],
+        "sealed_products": [{"id": "p1", "set_id": "s1", "name": "ETB"}],
+    })
+    product = read_pack_economics(client)["sets"][0]["products"][0]
+    assert product["economicsAvailabilityStatus"] == "unavailable"
+    assert product["unitPrice"] == 100
+    assert all(product[key] is None for key in ("packCount", "averagePackCostPerPack",
+        "expectedValuePerPack", "modeledReturnOnSpend", "chanceToRecoverCost", "entertainmentCostPerPack"))
+    assert product["bestOpenPrice"] == 80
 
 
 def test_paid_set_scorecards_project_artwork_in_one_bounded_identity_read():

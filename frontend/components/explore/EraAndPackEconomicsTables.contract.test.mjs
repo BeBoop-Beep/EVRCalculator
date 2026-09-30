@@ -49,14 +49,14 @@ test("EraRankings uses the Rankings table shell and fails closed without rows", 
   for (const label of ["Rank", "Era", "Era Set Strength", "Tier", "Sets", "Strongest Set", "Set Strength Range"]) assert.ok(eraRankings.includes(label));
 });
 
-test("Set Pack Economics expansion uses sibling family and product rows in the parent grid", () => {
+test("Set Pack Economics expansion uses exact product rows in the parent grid", () => {
   assert.ok(setPack.includes("expandedSetId"));
   assert.ok(setPack.includes("<Fragment key={row.setId}>") );
-  assert.ok(setPack.includes("<FamilyRow"));
   assert.ok(setPack.includes("<ProductRow"));
+  assert.ok(!setPack.includes("<FamilyRow"));
   assert.ok(!setPack.includes("colSpan"));
   assert.ok(setPack.includes("aria-expanded={expanded}"));
-  assert.ok(setPack.includes("`pack-families-${row.setId}`"));
+  assert.ok(setPack.includes("`pack-products-${row.setId}`"));
   assert.ok(!setPack.includes("<details"));
 });
 
@@ -68,17 +68,19 @@ test("Set Pack Economics has an explicit fixed-layout width contract", () => {
   assert.ok(!setPack.includes('className="min-w-52"'));
 });
 
-test("Pitch Black's six represented families are ordered and never truncated", () => {
+test("family classification remains available internally while Set expansion is exact-SKU only", () => {
   const families = ["booster_box", "booster_bundle", "elite_trainer_box", "loose_booster_pack", "pokemon_center_elite_trainer_box", "sleeved_booster_pack"];
   const fixture = families.map((family) => ({ family, productSkuCount: 1 }));
   const rendered = orderSetPackFamilies(fixture);
   assert.equal(rendered.length, 6);
   assert.deepEqual(rendered.map((row) => row.family), ["loose_booster_pack", "sleeved_booster_pack", "booster_bundle", "elite_trainer_box", "pokemon_center_elite_trainer_box", "booster_box"]);
   assert.deepEqual(rendered.map((row) => displaySetPackFamily(row.family)), ["Loose Booster Pack", "Sleeved Booster Pack", "Booster Bundle", "Elite Trainer Box", "Pokémon Center ETB", "Booster Box"]);
-  assert.ok(setPack.includes("(row.families || []).map((family"));
+  assert.ok(setPack.includes("(row.products || []).map((product"));
   assert.ok(!/\.slice\(\s*0\s*,/.test(setPack));
-  assert.ok(setPack.includes("data-pack-family-row={family.familyKey}"));
-  assert.ok(setPack.includes("data-pack-family-mobile={family.familyKey}"));
+  assert.ok(setPack.includes("data-pack-product-row={product.sealedProductId}"));
+  assert.ok(setPack.includes("data-pack-product-mobile={product.sealedProductId}"));
+  assert.ok(!setPack.includes("data-pack-family-row"));
+  assert.ok(!setPack.includes("data-pack-family-mobile"));
 });
 
 test("Pack Economics keeps canonical aggregates, search, sorting and explicit Set RIP authority", () => {

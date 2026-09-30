@@ -179,23 +179,59 @@ def read_pack_economics(client: Any) -> dict[str, Any]:
     set_artwork = {str(row["id"]): row for row in _rows(client.table("sets").select(
         "id,logo_image_url,symbol_image_url"
     ).in_("id", opening_set_ids).execute())} if opening_set_ids else {}
-    best_pointer = _rows(client.table("budget_product_best_open_price_latest").select("snapshot_id,source_market_date").limit(1).execute())
+    best_pointer = _rows(client.table("budget_product_best_open_price_latest").select(
+        "snapshot_id,source_budget_snapshot_id,source_market_date"
+    ).limit(1).execute())
     best_date = _day(best_pointer[0].get("source_market_date")) if best_pointer else None
     best_rows = _rows(client.table("budget_product_best_open_price_rows").select(
-        "sealed_product_id,set_id,product_family,current_market_price,status,best_open_price,price_gap_dollars,price_gap_percent"
+        "sealed_product_id,set_id,product_family,source_calculation_run_id,current_market_price,current_quantity,"
+        "current_actual_committed_capital,status,best_open_price,price_gap_dollars,price_gap_percent"
     ).eq("snapshot_id", best_pointer[0]["snapshot_id"]).execute()) if best_pointer else []
     product_ids = sorted({str(row["sealed_product_id"]) for row in best_rows})
-    products = {str(row["id"]): row for row in _rows(client.table("sealed_products").select("id,name")
+    products = {str(row["id"]): row for row in _rows(client.table("sealed_products").select("id,set_id,name")
                 .in_("id", product_ids).execute())} if product_ids else {}
+    source_run_ids = sorted({str(row["source_calculation_run_id"]) for row in best_rows
+                             if row.get("source_calculation_run_id")})
+    exact_economics_rows = _rows(client.table("simulation_sealed_product_results").select(
+        "calculation_run_id,sealed_product_id,set_id,product_family,pack_count,random_pack_count,"
+        "product_market_cost,price_as_of,expected_value,chance_to_recover_cost"
+    ).in_("sealed_product_id", product_ids).in_("calculation_run_id", source_run_ids).execute()
+    ) if product_ids and source_run_ids else []
+    exact_economics = {(str(row["sealed_product_id"]), str(row["calculation_run_id"])): row
+                       for row in exact_economics_rows}
     best_by_set_family: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    products_by_set: dict[str, list[dict[str, Any]]] = {}
     for row in best_rows:
         product_id = str(row["sealed_product_id"])
+        run_id = str(row.get("source_calculation_run_id") or "")
+        exact = exact_economics.get((product_id, run_id), {})
+        pack_count = _number(exact.get("random_pack_count") if exact.get("random_pack_count") is not None
+                             else exact.get("pack_count"))
+        unit_price = _number(exact.get("product_market_cost") if exact else row.get("current_market_price"))
+        expected_value = _number(exact.get("expected_value"))
+        average_cost = unit_price / pack_count if unit_price is not None and pack_count else None
+        expected_per_pack = expected_value / pack_count if expected_value is not None and pack_count else None
         item = {"sealedProductId": product_id, "productName": products.get(product_id, {}).get("name"),
+                "setId": str(row.get("set_id")), "familyKey": row.get("product_family"),
+                "familyName": row.get("product_family"), "packCount": pack_count,
+                "purchaseQuantity": _number(row.get("current_quantity")),
+                "actualCommittedCapital": _number(row.get("current_actual_committed_capital")),
+                "unitPrice": unit_price, "averagePackCostPerPack": average_cost,
+                "expectedValuePerPack": expected_per_pack,
+                "modeledReturnOnSpend": (expected_value / unit_price
+                                          if expected_value is not None and unit_price else None),
+                "chanceToRecoverCost": _number(exact.get("chance_to_recover_cost")),
+                "entertainmentCostPerPack": (average_cost - expected_per_pack
+                                              if average_cost is not None and expected_per_pack is not None else None),
+                "economicsAvailabilityStatus": "available" if exact else "unavailable",
+                "economicsSourceMarketDate": _day(exact.get("price_as_of")),
+                "sourceCalculationRunId": run_id or None,
                 "marketPrice": _number(row.get("current_market_price")), "bestOpenPrice": _number(row.get("best_open_price")),
                 "bestOpenStatus": row.get("status"), "bestOpenPriceGapDollars": _number(row.get("price_gap_dollars")),
                 "bestOpenPriceGapPercent": _number(row.get("price_gap_percent")), "bestOpenSourceMarketDate": best_date,
                 "bestOpenFreshnessStatus": _freshness(best_date, opening_date)}
         best_by_set_family.setdefault((str(row["set_id"]), str(row.get("product_family") or "")), []).append(item)
+        products_by_set.setdefault(str(row["set_id"]), []).append(item)
     def econ(source: Mapping[str, Any]) -> dict[str, Any]:
         return {"averagePackCostPerPack": _number(source.get("averageCostPerPack")),
                 "expectedValuePerPack": _number(source.get("averageModelBreakEvenPerPack")),
@@ -219,7 +255,10 @@ def read_pack_economics(client: Any) -> dict[str, Any]:
                                "era": {"eraId": row.get("eraId"), "eraName": row.get("eraName")},
                                "productFamilyCount": row.get("productFamilyCount") or len(families),
                                "productCount": row.get("productCount") or row.get("productSkuCount"), **econ(row), "openingEconomicsMarketDate": opening_date,
-                               "families": families})
+                               "families": families,
+                               "products": sorted(products_by_set.get(set_id, []),
+                                                  key=lambda product: ((product.get("productName") or "").casefold(),
+                                                                       product["sealedProductId"]))})
     return {"contractVersion": "rankings-pack-economics-v1", "status": "available",
             "openingEconomicsMarketDate": opening_date, "bestOpenSourceMarketDate": best_date,
             "bestOpenFreshnessStatus": _freshness(best_date, opening_date), "sets": projected_sets}
