@@ -1,0 +1,42 @@
+name: Bucket B5 VM Scheduler Validation
+
+on:
+  push:
+    branches:
+      - ops/b5-targeted-vm-scheduler-20260930
+    paths:
+      - "infra/oracle/run_market_microstructure_bucket_b5.sh"
+      - "infra/oracle/market-microstructure-b5.crontab"
+      - "infra/oracle/install_market_microstructure_bucket_b5_cron.sh"
+      - ".github/workflows/bucket-b5-vm-scheduler.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  vm-validate:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 15
+    steps:
+      - name: Validate scheduler branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-b5-scheduler-validate
+          PY="$REPO/.venv/bin/python"
+          SHA="${{ github.sha }}"
+          git -C "$REPO" fetch origin "$SHA" --quiet || git -C "$REPO" fetch origin ops/b5-targeted-vm-scheduler-20260930 --quiet
+          if [ -e "$WT" ]; then
+            git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+          fi
+          git -C "$REPO" worktree add --detach "$WT" "$SHA"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT" >/dev/null 2>&1 || true' EXIT
+          bash -n "$WT/infra/oracle/run_market_microstructure_bucket_b5.sh"
+          bash -n "$WT/infra/oracle/install_market_microstructure_bucket_b5_cron.sh"
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          export PYTHONPATH="$WT"
+          cd "$WT"
+          "$PY" -m backend.scripts.run_market_microstructure_bucket_b5 --preflight
