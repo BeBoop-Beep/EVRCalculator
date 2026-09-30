@@ -18,12 +18,15 @@ def evaluate(rows: list[dict[str, Any]], *, expected_date: str, expected_targets
                 "expected_targets": expected_targets, "observed_targets": 0, "coverage": 0.0}
     run = matching[0]
     observed = int(run.get("observed_target_count") or 0)
-    target_count = int(run.get("target_count") or expected_targets)
-    coverage = observed / target_count if target_count else 0.0
-    return {"healthy": run.get("status") == "COMPLETE" and observed == target_count,
-            "state": run.get("status"), "expected_date": expected_date,
-            "expected_targets": target_count, "observed_targets": observed,
-            "coverage": round(coverage, 6), "run_id": run.get("run_id")}
+    target_count = int(run.get("target_count") or 0)
+    coverage = observed / expected_targets if expected_targets else 0.0
+    exact_panel = target_count == expected_targets
+    healthy = run.get("status") == "COMPLETE" and exact_panel and observed == expected_targets
+    state = run.get("status") if exact_panel else "INCOMPATIBLE_TARGET_COUNT"
+    return {"healthy": healthy, "state": state, "expected_date": expected_date,
+            "expected_targets": expected_targets, "run_target_count": target_count,
+            "observed_targets": observed, "coverage": round(coverage, 6),
+            "run_id": run.get("run_id")}
 
 
 def main() -> int:
