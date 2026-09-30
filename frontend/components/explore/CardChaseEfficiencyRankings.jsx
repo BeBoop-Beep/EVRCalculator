@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import { canonicalCardQueryKey } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
@@ -121,6 +121,10 @@ export default function CardChaseEfficiencyRankings({
   const [result, setResult] = useState({ status: "idle", payload: null });
   const [facets, setFacets] = useState(null);
   const [facetError, setFacetError] = useState("");
+  const [facetRetry, setFacetRetry] = useState(0);
+  const [retry, setRetry] = useState(0);
+  const forceRetry = useRef(false);
+  const requestGeneration = useRef(0);
   const sets = useMemo(
     () =>
       new Map(
@@ -150,23 +154,29 @@ export default function CardChaseEfficiencyRankings({
     let active = true;
     const key = "cards:facets:chase";
     const load = () => fetchCardRankingFacets("chase");
-    (sessionCache ? sessionCache.request(key, load) : load())
-      .then((payload) => { if (active) setFacets(payload); })
+    (sessionCache ? sessionCache.request(key, load, { force: facetRetry > 0 }) : load())
+      .then((payload) => { if (active) { setFacets(payload); setFacetError(""); } })
       .catch((error) => { if (active) setFacetError(error.message); });
     return () => { active = false; };
-  }, [authStatus, entitled, sessionCache]);
+  }, [authStatus, entitled, sessionCache, facetRetry]);
   useEffect(() => {
     if (authStatus === "resolving") return undefined;
     if (!entitled) {
+      requestGeneration.current += 1;
       setResult({ status: "idle", payload: null });
+      setFacets(null);
+      setFacetError("");
       return undefined;
     }
     let active = true;
+    const generation = ++requestGeneration.current;
+    const forced = forceRetry.current;
+    forceRetry.current = false;
     const timer = setTimeout(
       () => {
         const params = buildCardRowsParams({ page, filters });
         const cacheKey = canonicalCardQueryKey(params);
-        const cached = sessionCache?.peek(cacheKey);
+        const cached = !forced && sessionCache?.peek(cacheKey);
         if (cached) {
           markRankingsLens("cards", "render-ready");
           setResult({ status: "ready", payload: cached });
@@ -176,11 +186,11 @@ export default function CardChaseEfficiencyRankings({
         markRankingsLens("cards", "request-start");
         const load = () => fetchChaseRows(params);
         const request = sessionCache
-          ? sessionCache.request(cacheKey, load)
+          ? sessionCache.request(cacheKey, load, { force: forced })
           : load();
         request
           .then((payload) => {
-            if (active) {
+            if (active && generation === requestGeneration.current) {
               markRankingsLens("cards", "response-received");
               setResult({ status: "ready", payload });
               requestAnimationFrame(() =>
@@ -189,7 +199,7 @@ export default function CardChaseEfficiencyRankings({
             }
           })
           .catch((error) => {
-            if (active && error.name !== "AbortError")
+            if (active && generation === requestGeneration.current && error.name !== "AbortError")
               setResult((current) => ({
                 status: "error",
                 error: error.message,
@@ -217,9 +227,11 @@ export default function CardChaseEfficiencyRankings({
     direction,
     filters,
     sessionCache,
+    retry,
   ]);
   if (!entitled) return <LockedCards />;
   const update = (key, next) => {
+    setResult({ status: "loading", payload: null });
     setFilters((current) => {
       const changed = { ...current, [key]: next };
       if (key === "era" && current.set) {
@@ -245,10 +257,10 @@ export default function CardChaseEfficiencyRankings({
           pack-equivalent cost.
         </p>
       </header>
-      <CardRankingsFilterBar filters={filters} facets={facets} onChange={update} onClear={() => { setFilters({ search: "", era: "", set: "", rarity: "", min_price: "", max_price: "", sort: "rank", direction: "asc" }); setPage(1); }} />
-      {facetError ? <p className="px-5 pt-4 text-sm text-rose-300">{facetError}</p> : null}
+      <CardRankingsFilterBar filters={filters} facets={facets} onChange={update} onClear={() => { setResult({ status: "loading", payload: null }); setFilters({ search: "", era: "", set: "", rarity: "", min_price: "", max_price: "", sort: "rank", direction: "asc" }); setPage(1); }} />
+      {facetError ? <p className="px-5 pt-4 text-sm text-rose-300">Filters could not be refreshed. <button type="button" className="underline" onClick={() => setFacetRetry((value) => value + 1)}>Retry filters</button></p> : null}
       {result.status === "error" ? (
-        <p className="p-6 text-sm text-rose-300">{result.error}</p>
+        <p className="p-6 text-sm text-rose-300">{result.payload ? "Refresh failed; showing the last successful result. " : `${result.error} `}<button type="button" className="underline" onClick={() => { forceRetry.current = true; setRetry((value) => value + 1); }}>Retry</button></p>
       ) : null}
       <div className="hidden overflow-x-auto desk:block">
         <table className="w-full text-left text-xs">
@@ -392,7 +404,7 @@ export default function CardChaseEfficiencyRankings({
           <button
             type="button"
             disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => { setResult({ status: "loading", payload: null }); setPage((p) => Math.max(1, p - 1)); }}
             className="rounded border border-[var(--border-subtle)] px-3 py-2 disabled:opacity-40"
           >
             Previous
@@ -403,7 +415,7 @@ export default function CardChaseEfficiencyRankings({
           <button
             type="button"
             disabled={page >= (result.payload?.totalPages || 1)}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => { setResult({ status: "loading", payload: null }); setPage((p) => p + 1); }}
             className="rounded border border-[var(--border-subtle)] px-3 py-2 disabled:opacity-40"
           >
             Next
