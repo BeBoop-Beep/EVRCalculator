@@ -28,13 +28,21 @@ jobs:
             echo "REFUSING: invalid fixed operation"; exit 2;
           }
           REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-pkmnprices-limit-probe
           PY="$REPO/.venv/bin/python"
+          git -C "$REPO" fetch origin "$GITHUB_SHA" --quiet || git -C "$REPO" fetch origin develop --quiet
+          if [ -e "$WT" ]; then
+            git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+          fi
+          git -C "$REPO" worktree add --detach "$WT" "$GITHUB_SHA"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT" >/dev/null 2>&1 || true' EXIT
           exec 8>/tmp/pkmnprices-api.lock
           /usr/bin/flock -n 8 || { echo "PKMNPRICES_PROVIDER_BUSY"; exit 75; }
           set -a
           . "$REPO/backend/.env"
           set +a
-          cd "$REPO"
+          export PYTHONPATH="$WT"
+          cd "$WT"
           "$PY" - <<'PY'
           from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
           from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
