@@ -403,9 +403,12 @@ def _state(
             "ready_reason": meta.get("b5_ready_reason"),
             "rows_seen": int(sync.get("rows_seen") or 0),
             "oldest": meta.get("b5_oldest_sold_at"),
+            "needs_scope_reconciliation": False,
         }
 
-    # Existing non-B5 evidence is reused, but never rewritten.
+    # Existing non-B5/v1 evidence is reused, but readiness is recomputed under
+    # the exact target-variant scope. This invalidates the former provider-card
+    # age shortcut without deleting any raw evidence.
     summary = _evidence_summary(
         db,
         int(identity["provider_card_id"]),
@@ -427,7 +430,48 @@ def _state(
         "ready_reason": "PROVIDER_DRAINED" if drained else ("HORIZON_180D" if ready else None),
         "rows_seen": int(sync.get("rows_seen") or 0),
         "oldest": oldest,
+        "needs_scope_reconciliation": True,
     }
+
+
+def _persist_scope_reconciliation(
+    store: PkmnPricesStore,
+    target: dict[str, Any],
+    state: dict[str, Any],
+    *,
+    reference: date,
+    cutoff: date,
+) -> None:
+    sync = state.get("sync")
+    identity = state.get("identity")
+    if not sync or not identity:
+        return
+    meta = dict(sync.get("metadata") or {})
+    store.upsert_sync_state({
+        "provider_card_id": int(identity["provider_card_id"]),
+        "canonical_card_id": target["canonical_card_id"],
+        "last_ingested_at": sync.get("last_ingested_at"),
+        "last_sold_at": sync.get("last_sold_at"),
+        "last_attempt_at": sync.get("last_attempt_at"),
+        "last_success_at": sync.get("last_success_at"),
+        "status": sync.get("status"),
+        "consecutive_failures": int(sync.get("consecutive_failures") or 0),
+        "rows_seen": int(sync.get("rows_seen") or 0),
+        "rows_inserted": int(sync.get("rows_inserted") or 0),
+        "last_error_code": sync.get("last_error_code"),
+        "metadata": {
+            **meta,
+            "b5_scope_version": B5_SCOPE_VERSION,
+            "b5_reference_date": reference.isoformat(),
+            "b5_horizon_cutoff": cutoff.isoformat(),
+            "b5_oldest_sold_at": state.get("oldest"),
+            "b5_ready": bool(state.get("ready")),
+            "b5_ready_reason": state.get("ready_reason"),
+            "b5_priority_tier": target["priority_tier"],
+            "b5_priority_reason": target["priority_reason"],
+            "b5_selector_version": SELECTOR_VERSION,
+        },
+    })
 
 
 def _upsert_state(
@@ -597,6 +641,15 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             cid: _state(db, store, target, reference=reference, cutoff=cutoff)
             for cid, target in by_id.items()
         }
+        for cid, state in states.items():
+            if state.get("needs_scope_reconciliation"):
+                _persist_scope_reconciliation(
+                    store,
+                    by_id[cid],
+                    state,
+                    reference=reference,
+                    cutoff=cutoff,
+                )
         unresolved_t1 = [
             by_id[cid] for cid, state in states.items()
             if by_id[cid]["priority_tier"] == 1 and not state["ready"] and cid not in blocked
@@ -795,6 +848,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "blocked_count": len(blocked),
             "pause": pause,
             "receipts": list(receipts.values()),
+            "b5_scope_version": B5_SCOPE_VERSION,
             "canonical_price_mutation": False,
         },
     })
