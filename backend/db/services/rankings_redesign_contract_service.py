@@ -174,6 +174,11 @@ def read_pack_economics(client: Any) -> dict[str, Any]:
         return {"contractVersion": "rankings-pack-economics-v1", "status": "unavailable", "sets": []}
     opening_date = _day(latest[0].get("market_date"))
     economics = (latest[0].get("payload_json") or {}).get("openingEconomics") or {}
+    opening_sets = economics.get("sets") or []
+    opening_set_ids = sorted({str(row.get("setId")) for row in opening_sets if row.get("setId")})
+    set_artwork = {str(row["id"]): row for row in _rows(client.table("sets").select(
+        "id,logo_image_url,symbol_image_url"
+    ).in_("id", opening_set_ids).execute())} if opening_set_ids else {}
     best_pointer = _rows(client.table("budget_product_best_open_price_latest").select("snapshot_id,source_market_date").limit(1).execute())
     best_date = _day(best_pointer[0].get("source_market_date")) if best_pointer else None
     best_rows = _rows(client.table("budget_product_best_open_price_rows").select(
@@ -199,8 +204,9 @@ def read_pack_economics(client: Any) -> dict[str, Any]:
                 "entertainmentCostPerPack": _number(source.get("entertainmentCostPerPack") if source.get("entertainmentCostPerPack") is not None
                                                      else source.get("averageEntertainmentCostPerPack"))}
     projected_sets = []
-    for row in economics.get("sets") or []:
+    for row in opening_sets:
         set_id = str(row.get("setId")); families = []
+        artwork = set_artwork.get(set_id, {})
         for family in row.get("familyEconomics") or row.get("families") or row.get("productFamilies") or []:
             family_key = str(family.get("familyKey") or family.get("productFamily") or family.get("family") or "")
             family_products = best_by_set_family.get((set_id, family_key), [])
@@ -209,6 +215,7 @@ def read_pack_economics(client: Any) -> dict[str, Any]:
                              "bestOpenDisplayMode": "single" if len(family_products) == 1 else "multiple",
                              "products": family_products})
         projected_sets.append({"setId": set_id, "setName": row.get("setName"), "canonicalKey": row.get("setCanonicalKey"),
+                               "logoImageUrl": artwork.get("logo_image_url"), "symbolImageUrl": artwork.get("symbol_image_url"),
                                "era": {"eraId": row.get("eraId"), "eraName": row.get("eraName")},
                                "productFamilyCount": row.get("productFamilyCount") or len(families),
                                "productCount": row.get("productCount") or row.get("productSkuCount"), **econ(row), "openingEconomicsMarketDate": opening_date,
@@ -370,7 +377,7 @@ def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,
                  .in_("metric_key", ["overall", "financial", "collector", "chase"]).execute())
     ids = sorted({str(row["entity_id"]) for row in rows})
     identities = _rows(client.table("sets" if entity_type == "set" else "eras")
-                       .select("id,name,canonical_key" + (",era_id" if entity_type == "set" else ""))
+                       .select("id,name,canonical_key" + (",era_id,logo_image_url,symbol_image_url" if entity_type == "set" else ""))
                        .in_("id", ids).execute()) if ids else []
     names = {str(row["id"]): row for row in identities}
     era_names: dict[str, dict[str, Any]] = {}
@@ -396,6 +403,8 @@ def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,
             era = era_names.get(str(identity.get("era_id")), {})
             base["era"] = {"eraId": str(identity.get("era_id")), "eraName": era.get("name"),
                            "canonicalKey": era.get("canonical_key")}
+            base["logoImageUrl"] = identity.get("logo_image_url")
+            base["symbolImageUrl"] = identity.get("symbol_image_url")
         else:
             base["modeledSetCount"] = modeled_counts.get(entity_id, 0)
         item = grouped.setdefault(entity_id, base)
@@ -480,10 +489,17 @@ def read_overview_v2(client: Any, *, legacy_headlines: Mapping[str, Any]) -> dic
         return {**{key: item.get(key) for key in ("entityId", "name", "canonicalKey") if key in item},
                 "score": benchmark_presentation(item.get("benchmarkScore"), rank=item.get("rank"), cohort_size=item.get("cohortSize"))}
     top_era = headline(legacy_headlines.get("topEra"))
+    top_set = headline(legacy_headlines.get("topSet"))
+    if top_set and top_set.get("entityId"):
+        identity_rows = _rows(client.table("sets").select("id,logo_image_url,symbol_image_url")
+                              .eq("id", top_set["entityId"]).limit(1).execute())
+        if identity_rows:
+            top_set["logoImageUrl"] = identity_rows[0].get("logo_image_url")
+            top_set["symbolImageUrl"] = identity_rows[0].get("symbol_image_url")
     if top_era:
         top_era["modeledSetCount"] = sum(1 for row in set_rows if str(row.get("eraId")) == str(top_era.get("entityId")))
     return {"contractVersion": "rankings-overview-v2", "status": legacy_headlines.get("status"),
-            "marketDate": legacy_headlines.get("marketDate"), "topSet": headline(legacy_headlines.get("topSet")),
+            "marketDate": legacy_headlines.get("marketDate"), "topSet": top_set,
             "topEra": top_era,
             "lowestAveragePackCost": None if not lowest else {"setId": lowest.get("setId"), "setName": lowest.get("setName"),
                 "canonicalKey": lowest.get("setCanonicalKey"), "averagePackCost": _number(lowest.get("averageCostPerPack"))},

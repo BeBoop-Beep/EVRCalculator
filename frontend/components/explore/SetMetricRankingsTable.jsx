@@ -24,6 +24,6 @@ export default function SetMetricRankingsTable({ kind, scorecards = null, eraFil
   }), [scorecards, config.metric, query, eraFilter]);
   return <section className={`${styles.surface} set-glass-surface overflow-hidden`} data-set-metric-ranking={kind}>
     <header className="border-b border-[var(--border-subtle)] px-3 py-4 sm:px-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-semibold">{config.title}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Benchmark-centered Set scores ordered by canonical backend rank.</p></div><span className="text-xs tabular-nums text-[var(--text-secondary)]">As of {scorecards?.marketDate || "—"}</span></div><RankingsSearchInput value={query} onChange={(event) => setQuery(event.target.value)} entity="Sets" className="mt-3" /></header>
-    <RankingsScoreTable rows={rows} entityLabel="Set" scoreLabel={config.label} renderIdentity={(item, index, mobile) => <SetIdentity target={item.target} variant={mobile ? "mobileRanking" : "compact"} eager={index < (mobile ? 4 : 6)} />} />
+    <RankingsScoreTable rows={rows} entityLabel="Set" scoreLabel={config.label} presentation="neutral" renderIdentity={(item, index, mobile) => <SetIdentity target={item.target} variant={mobile ? "mobileRanking" : "compact"} eager={index < (mobile ? 4 : 6)} />} />
   </section>;
 }

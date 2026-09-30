@@ -171,7 +171,7 @@ export default function RankingsLazyClient({
       <SegmentedControl
         className="mb-3 inline-block"
         ariaLabel="Ranking view"
-        variant="primary"
+        variant="rankingsPrimary"
         value={lens}
         onChange={changeLens}
         mobileScroll

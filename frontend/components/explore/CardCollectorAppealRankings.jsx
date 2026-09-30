@@ -95,7 +95,7 @@ export default function CardCollectorAppealRankings({ entitled, authStatus = "re
     <header className="border-b border-[var(--border-subtle)] p-4 sm:p-5">
       <div className="flex items-center gap-2"><h2 className="font-semibold">Card Collector Appeal</h2><InfoPopover text={lens === "overall" ? "Overall Collector Appeal combines multiple card subject types under the current production model. Cross-domain calibration is still under evaluation." : "Ranks are global within the selected Collector component."} /></div>
       <p className="mt-1 text-xs text-[var(--text-secondary)]">Component tabs rank only cards with that component available. Ranks stay global within the component even when you filter by Era, Set, rarity, or search.</p>
-      <SegmentedControl options={COLLECTOR_LENSES} value={lens} onChange={(value) => { setLens(value); setPage(1); }} ariaLabel="Collector component" compact mobileScroll className="mt-3" />
+      <SegmentedControl options={COLLECTOR_LENSES} value={lens} onChange={(value) => { setLens(value); setPage(1); }} ariaLabel="Collector component" variant="rankings" compact mobileScroll className="mt-3" />
     </header>
     <CardRankingsFilterBar filters={filters} facets={facets} onChange={update} onClear={() => { setFilters(INITIAL_FILTERS); setPage(1); }} />
     {facetError ? <p className="px-5 pt-4 text-sm text-rose-300">{facetError}</p> : null}

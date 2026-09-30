@@ -14,10 +14,10 @@ test("Product Scores and Economics expose the exact split column contracts", () 
   assert.doesNotMatch(source, /Typical Opening|Typical Retention|typicalOpening|typicalRetention/);
 });
 
-test("Product RIP uses the octagonal Benchmark-10 primitive without row prose", () => {
-  assert.ok(badge.includes("numeric.toFixed(1)"), "Benchmark-10 scores, including 7.38, format to one decimal (7.4)");
-  assert.ok(source.includes("<RankingsRipScoreBadge"));
-  assert.ok(source.includes('benchmarkLabel="Full Market 5.0 reference"'));
+test("Product RIP stays an absolute score while its /10 reference is pending", () => {
+  assert.ok(source.includes("metric(row.ripScore?.score)"));
+  assert.ok(!source.includes("<RankingsRipScoreBadge"));
+  assert.ok(!source.includes('Full Market 5.0 reference'));
   assert.doesNotMatch(source, /Above Full Market benchmark|Below family benchmark|Above Pokémon benchmark/);
   assert.doesNotMatch(source, /`#\$\{row\.rank[^`]*Full Market/);
 });

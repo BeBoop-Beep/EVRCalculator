@@ -32,7 +32,7 @@ test("scorecard fetches are entitlement-gated before cache or network access", (
     assert.ok(loader.indexOf('if (!canViewRankingsIntelligence)') < loader.indexOf("sessionCache.peek"));
     assert.ok(loader.indexOf('authStatus !== "resolved" && authStatus !== "degraded"') < loader.indexOf("sessionCache.peek"));
   }
-  assert.equal((lazy.match(/readRankingsScorecards\("set"/g) || []).length, 1);
-  assert.equal((lazy.match(/readRankingsScorecards\("era"/g) || []).length, 1);
+  assert.equal((lazy.match(/readPublicRankingsHeadlines\("set"/g) || []).length, 1);
+  assert.equal((lazy.match(/readPublicRankingsHeadlines\("era"/g) || []).length, 1);
   assert.doesNotMatch(lazy, /readCurrentBenchmark/);
 });

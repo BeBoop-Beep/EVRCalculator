@@ -7,25 +7,24 @@ const primitives = read("./RankingsScorePrimitives.jsx");
 const badge = read("./RipScoreBadge.jsx");
 const overview = read("./RankingsOverviewHighlights.jsx");
 
-test("Rankings RIP scores reuse the canonical tier-colored octagonal /10 badge", () => {
+test("Rankings RIP scores use the canonical purple octagonal /10 badge", () => {
   assert.ok(primitives.includes("<RipScoreBadge"));
   assert.ok(primitives.includes("metric?.score"));
   assert.ok(primitives.includes("metric?.tier"));
   assert.ok(primitives.includes("metric?.rank"));
   assert.ok(primitives.includes("metric?.cohortSize"));
   assert.ok(primitives.includes("RIP_SCORE_SCALE_BENCHMARK_10"));
+  assert.ok(primitives.includes('accentColor="rgba(192,132,252,0.96)"'));
   assert.ok(badge.includes("getTierTone(tier)"));
   assert.ok(badge.includes("<polygon"));
   assert.ok(badge.includes('points="10,1 62,1 71,11 71,49 62,59 10,59 1,49 1,11"'));
   assert.ok(badge.includes("/ 10"));
 });
 
-test("benchmark positions use compact directional indicators with delta-aware accessible text", () => {
-  for (const position of ["above", "below", "at"]) assert.ok(primitives.includes(`${position}:`));
-  assert.ok(primitives.includes("aria-label={aria}"));
-  assert.ok(primitives.includes("points ${position.word} ${benchmarkLabel}"));
-  assert.ok(primitives.includes('benchmarkLabel = "Pokémon Overall Average"'));
-  assert.ok(primitives.includes("deltaVsBenchmark"));
+test("Rankings badges omit decorative benchmark-position indicators", () => {
+  assert.ok(!primitives.includes("BenchmarkPositionIndicator"));
+  assert.ok(!primitives.includes("data-benchmark-position"));
+  assert.ok(!primitives.includes("deltaVsBenchmark"));
 });
 
 test("the muted Overall Average is a reference with score 5.0 and no rank", () => {

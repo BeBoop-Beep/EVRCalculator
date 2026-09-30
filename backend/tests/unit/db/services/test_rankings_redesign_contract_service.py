@@ -4,7 +4,7 @@ from backend.db.services.rankings_redesign_contract_service import (
     benchmark_presentation, benchmark_reference, project_product_contract,
     read_card_facets, read_financial_history_page, read_overview_v2, read_pack_economics,
     read_product_best_open_map,
-    read_public_headlines, read_public_pack_economics_preview, read_public_product_catalogue,
+    read_public_headlines, read_public_pack_economics_preview, read_public_product_catalogue, read_scorecards,
 )
 
 
@@ -156,6 +156,7 @@ def test_overview_v2_contains_absolute_financial_and_clean_economics_headlines()
                    "averageEntertainmentCostPerPack": 10.7},
         "sets": [{"setId": "s1", "setName": "Cheap", "setCanonicalKey": "cheap", "eraId": "e1", "averageCostPerPack": 7.1}]}}
     client = Client({"pokemon_rip_stats_snapshot_latest": [{"market_date": "2026-09-28", "payload_json": payload}],
+        "sets": [{"id": "s1", "logo_image_url": "logo.png", "symbol_image_url": "symbol.png"}],
         "pokemon_financial_rip_history_publications_v1": [{"market_date": "2026-09-28",
             "overall_financial_rip_reference": 30.36, "financial_model_version": "financial-v4"}]})
     result = read_overview_v2(client, legacy_headlines={"status": "available", "marketDate": "2026-09-28",
@@ -165,6 +166,7 @@ def test_overview_v2_contains_absolute_financial_and_clean_economics_headlines()
     assert result["lowestAveragePackCost"]["averagePackCost"] == 7.1
     assert result["modeledCoverage"] == {"setCount": 22, "productCount": 138, "productFamilyCount": 8}
     assert result["openingEconomics"]["overallExpectedValuePerPack"] == 6.7
+    assert result["topSet"]["logoImageUrl"] == "logo.png"
     assert "typicalRetention" not in result["openingEconomics"] and "typicalOpening" not in result["openingEconomics"]
 
 
@@ -182,12 +184,32 @@ def test_pack_economics_preserves_multi_sku_best_open_and_stale_date():
     client = Client({"pokemon_rip_stats_snapshot_latest": [{"market_date": "2026-09-28", "payload_json": opening}],
         "budget_product_best_open_price_latest": [{"snapshot_id": "b1", "source_market_date": "2026-09-08"}],
         "budget_product_best_open_price_rows": best,
-        "sealed_products": [{"id": "p1", "name": "Box A"}, {"id": "p2", "name": "Box B"}]})
+        "sealed_products": [{"id": "p1", "name": "Box A"}, {"id": "p2", "name": "Box B"}],
+        "sets": [{"id": "s1", "logo_image_url": "logo.png", "symbol_image_url": "symbol.png"}]})
     result = read_pack_economics(client)
     family = result["sets"][0]["families"][0]
     assert result["bestOpenFreshnessStatus"] == "older"
     assert family["bestOpenDisplayMode"] == "multiple" and len(family["products"]) == 2
+    assert result["sets"][0]["logoImageUrl"] == "logo.png"
+    assert client.calls.count("sets") == 1
     assert "typicalRetention" not in result["sets"][0] and "typicalOpening" not in family
+
+
+def test_paid_set_scorecards_project_artwork_in_one_bounded_identity_read():
+    client = Client({
+        "pokemon_rip_benchmark_publications_v1": [{"id": "pub", "market_date": "2026-09-28",
+            "benchmark_key": "pokemon", "calibration_version": "v1", "overall_model_version": "overall-v12",
+            "publication_status": "published"}],
+        "pokemon_rip_benchmark_rows_v1": [{"publication_id": "pub", "entity_type": "set", "entity_id": "s1",
+            "metric_key": "financial", "benchmark_score": 6.2, "rank": 1, "cohort_size": 1, "benchmark_status": "available"}],
+        "sets": [{"id": "s1", "name": "Set", "canonical_key": "set", "era_id": "e1",
+                  "logo_image_url": "logo.png", "symbol_image_url": "symbol.png"}],
+        "eras": [{"id": "e1", "name": "Era", "canonical_key": "era"}],
+    })
+    result = read_scorecards(client, entity_type="set", benchmark_key="pokemon", calibration_version="v1")
+    assert result["rows"][0]["logoImageUrl"] == "logo.png"
+    assert result["rows"][0]["symbolImageUrl"] == "symbol.png"
+    assert client.calls.count("sets") == 1
 
 
 def test_public_headlines_are_overall_only_and_keep_set_artwork():
