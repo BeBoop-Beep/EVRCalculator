@@ -36,7 +36,7 @@ export const getExploreMarketMovers = cache(async function getExploreMarketMover
       });
       if (!response.ok) return unavailable(cached?.data);
       const data = await response.json();
-      const normalized = { marketMovers: { ...(data?.marketMovers || {}), all: Array.isArray(data?.marketMovers?.all) ? data.marketMovers.all.slice(0, 30) : [] }, meta: data?.meta || {} };
+      const normalized = { marketMovers: { ...(data?.marketMovers || {}), all: Array.isArray(data?.marketMovers?.all) ? data.marketMovers.all.slice(0, 50) : [] }, meta: data?.meta || {} };
       processCache.set(CACHE_KEY, { data: normalized, expiresAt: Date.now() + TTL });
       return normalized;
     } catch {
