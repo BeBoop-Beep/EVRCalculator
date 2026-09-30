@@ -1,9 +1,18 @@
 # FMA V1 — schema decision (proposed for FMA-1, not applied)
 
-Status: **proposal**. This bucket (FMA-0) creates no migration and applies
-nothing. FMA-1 owns the DDL. It must keep the identity keys, generation rules
-and reader shapes below, because the frozen fixtures and schemas depend on
-them.
+Status: **proposal**, corrected by FMA-0.1 (`FMA0_REVIEW_CLOSURE.md`). This
+bucket (FMA-0/0.1) creates no migration and applies nothing.
+
+**Ownership.**
+- **FMA-1** owns the database: DDL, projections/builders and RPCs.
+- **FMA-2** owns the public API: structured POST read routes, auth and
+  entitlement, transport and serialization.
+- **FMA-3** owns the fixture-backed UI.
+
+FMA-1 must keep the identity keys, generation rules and stored shapes below,
+and FMA-2 must keep the reader shapes, because the frozen fixtures and schemas
+(fixture set `market_activity_v1_fixtures_2`, contract `market_activity_v1.1`)
+depend on them.
 
 ## Decision summary
 
@@ -87,8 +96,15 @@ pokemon_market_explorer_query_cache_revision_members_v1
 
 **Generation rule.** Revision rows are written *inside*
 `publish_pokemon_market_explorer_query_cache_build`, in the same transaction
-that flips `status` to `ready`. They are insert-only. A reader stores
-`revision_id` in its page cursor.
+that flips `status` to `ready`. They are insert-only.
+
+**Custom-market mapping.**
+- A custom market is requested as `marketKey = custom:{query_fingerprint}` with
+  `rosterRef = {kind: QUERY_CACHE_PUBLISHED_REVISION, queryFingerprint,
+  revisionId, computedThrough}`.
+- The reader resolves members from `..._revision_members_v1` by
+  `revision_id`. It never invokes `run_market_explorer_query`.
+- The page cursor binds the SHA-256 of that `rosterRef` (CONTRACT §8).
 
 **Indexes.** Only the two keys above. The PK serves rank pagination. The
 unique key serves `INSTRUMENT_NOT_IN_ROSTER` checks and prevents duplicate
@@ -104,8 +120,11 @@ market_activity_generations_v1
   activity_generation_id  uuid primary key default gen_random_uuid()
   as_of                   date not null
   surface_generation_id   uuid null references pokemon_market_explorer_surface_generations_v2
-  contract_version        text not null   -- 'market_activity_v1'
-  domain_version          text not null   -- 'market_activity_domain_v1.0.0'
+  query_revision_id       uuid null references pokemon_market_explorer_query_cache_revisions_v1
+  roster_ref              jsonb not null  -- the exact rosterRef readers must echo
+  contract_version        text not null   -- 'market_activity_v1.1'
+  domain_version          text not null   -- 'market_activity_domain_v1.1.0'
+  serving_state           text not null check (serving_state in ('SERVING','RETAINED','RETIRED'))
   policy                  jsonb not null  -- DisplayPolicy.as_contract()
   fixture_manifest_sha256 text not null check (fixture_manifest_sha256 ~ '^[0-9a-f]{64}$')
   sold_evidence_through   timestamptz     -- max reconciled right edge used
@@ -121,9 +140,20 @@ market_activity_serving_v1
   promoted_at timestamptz
 ```
 
-**Promotion rule.** Promotion is a single-row update of the singleton,
+**Promotion rule.** Promotion is a single-row update of the singleton. It is
 guarded so that only a `VALIDATED` generation whose `surface_generation_id`
 equals the currently served V2 generation can be promoted.
+
+**Pins and expiry (activity generation versus market generation).**
+- An activity refresh creates a new `activity_generation_id` even when the
+  surface/market generation is unchanged. The activity pin is therefore
+  independent of `generationId`.
+- On promotion the previous generation becomes `RETAINED`. Readers keep
+  serving pages for a `RETAINED` generation so that in-flight pagination
+  completes on one generation.
+- A later job marks old generations `RETIRED`. Reads pinned to them return
+  `ACTIVITY_GENERATION_EXPIRED`.
+- A cursor from one activity generation is `CURSOR_MISMATCH` under another.
 
 ### C. Rosters
 
@@ -147,8 +177,11 @@ market_activity_roster_members_v1
   foreign key (activity_generation_id, market_key) references market_activity_rosters_v1
 ```
 
-**Validation.** `count(*)` per roster must equal `roster_denominator`, and
-ranks must be contiguous. The same invariant is enforced in the V2 surface.
+**Validation.** `count(*)` per roster must equal `roster_denominator`. Ranks
+must be unique and contiguous (`1..N`), and variants and instrument keys must
+be unique. The same invariant is enforced in the V2 surface and by
+`validate_members` (`ROSTER_INTEGRITY_VIOLATION`). Group aggregation reads the
+full roster, never one 100-row page.
 
 ### D. Per-instrument facts
 
@@ -160,42 +193,102 @@ market_activity_instrument_windows_v1
   card_variant_id        uuid not null
   tier                   text not null           -- 'RAW' | 'GRADED:PSA:10:-' ...
   start_date, end_date   date not null
+  observation_state      text not null check (observation_state in ('OBSERVED','NOT_COLLECTED'))
+  observation_basis      text check (observation_basis in ('WALK_RECEIPT','COLLECTION_RECORD','STORED_ROWS'))
   readiness_state        text not null check (readiness_state in ('PROVEN','PARTIAL','UNPROVEN','NOT_COLLECTED'))
   readiness_reasons      text[] not null default '{}'
   proven_lower_bound_date date, exhausted boolean not null, reconciled_through timestamptz
   observed_count         integer check (observed_count >= 0)
   proven_count           integer check (proven_count >= 0)
   summary_state          text check (summary_state in ('AVAILABLE','THIN','NO_RECORDS'))
+  summary_basis          text check (summary_basis in ('PROVEN_WINDOW','OBSERVED_ONLY'))
   price_record_count     integer, median_price numeric(12,2), low_price numeric(12,2), high_price numeric(12,2)
   excluded_record_counts jsonb not null default '{}'
-  evidence_fingerprint   text not null
+  evidence_fingerprint   text not null check (evidence_fingerprint ~ '^[0-9a-f]{64}$')  -- SHA-256
   primary key (activity_generation_id, instrument_key, window_days)
   check (proven_count is null or readiness_state = 'PROVEN')
-  check (readiness_state <> 'NOT_COLLECTED' or (observed_count is null and proven_count is null))
+  check ((observation_state = 'NOT_COLLECTED') = (observed_count is null))
+  check (observation_state = 'OBSERVED' or proven_count is null)
 
 market_activity_instrument_asks_v1
   activity_generation_id uuid not null references market_activity_generations_v1 on delete cascade
   card_variant_id        uuid not null
   supply_snapshot_id     uuid references market_active_supply_snapshots_v1   -- null when NOT_COLLECTED
-  ask_state              text not null check (ask_state in ('NOT_COLLECTED','COLLECTION_FAILED','CONFIRMATION_MISSING','CONFIRMATION_INVALID','STALE','FRESH','ZERO_PROVEN','ZERO_UNPROVEN'))
+  ask_state              text not null check (ask_state in ('NOT_COLLECTED','COLLECTION_FAILED','CONFIRMATION_MISSING','CONFIRMATION_INVALID','STALE','PARTIALLY_CONFIRMED','FRESH','ZERO_PROVEN','ZERO_UNPROVEN'))
   ask_reasons            text[] not null default '{}'
   provider_confirmed_at  timestamptz, collected_at timestamptz
-  captured_listing_count integer, captured_quantity integer, quantity_provenance text
-  depth                  text check (depth in ('LOWER_BOUND','COMPLETE_AT_SOURCE'))
+  current_until          timestamptz      -- confirmation + policy age; readers re-evaluate against it
+  offer_qualification    text not null check (offer_qualification in ('CURRENT','NOT_CURRENT'))
+  captured_listing_count integer, captured_quantity integer, quantity_provenance text   -- confirmed offers only
+  depth                  text check (depth in ('LOWER_BOUND','COMPLETE_AT_SOURCE','UNKNOWN'))
   lowest_ask_basis       text check (lowest_ask_basis in ('LANDED_PROVEN','ITEM_ONLY','ITEM_ONLY_LEGACY_UNVERIFIED'))
-  lowest_ask_amount      numeric(12,2)
+  lowest_ask_amount      numeric(12,2)    -- confirmed offers only
+  unconfirmed_offers     jsonb            -- {count, futureCount, capturedQuantity, lowestAsk, reasons}; never current
   primary key (activity_generation_id, card_variant_id)
+  check (current_until is null or ask_state in ('FRESH','ZERO_PROVEN'))
 
 market_activity_peer_ranks_v1
   activity_generation_id uuid not null references market_activity_generations_v1 on delete cascade
   instrument_key         text not null
   window_days            smallint not null
-  population_key         text not null
+  population_key         text not null    -- {start}..{end}|source|currency|tier|PROVEN|{kind}:{scopeId}@{cohortRevision}
+  scope_kind             text not null check (scope_kind in ('RESEARCH_PANEL','MARKET_ROSTER'))
+  scope_id               text not null
+  cohort_revision        text not null
   state                  text not null
-  eligible_other_peer_count integer not null
+  eligible_other_peer_count integer not null   -- UNIQUE peer instruments
+  quarantined_peer_count integer not null default 0
+  duplicate_peer_row_count integer not null default 0
   activity_percentile    numeric(4,1), strict_below_pct numeric(4,1), tie_count integer
   primary key (activity_generation_id, instrument_key, window_days)
 ```
+
+### E. Sparse daily activity projection (the chart series)
+
+```
+market_activity_daily_v1                   -- sold observations, one row per observed date
+  activity_generation_id uuid not null references market_activity_generations_v1 on delete cascade
+  instrument_key         text not null
+  activity_date          date not null
+  observed_count         integer not null check (observed_count >= 1)   -- sparse: never a zero row
+  proof_state            text not null check (proof_state in ('PROVEN','OBSERVED_ONLY'))
+  first_ingested_at, last_ingested_at timestamptz
+  ingested_after_reconciliation boolean
+  record_count           integer not null, low_price numeric(12,2) not null,
+  median_price           numeric(12,2) not null, high_price numeric(12,2) not null
+  primary key (activity_generation_id, instrument_key, activity_date)
+
+market_activity_supply_daily_v1            -- offered supply, one row per provider-confirmation date
+  activity_generation_id uuid not null references market_activity_generations_v1 on delete cascade
+  card_variant_id        uuid not null
+  activity_date          date not null     -- date of provider_confirmed_at, never of collection
+  provider_confirmed_at  timestamptz not null
+  first_collected_at, last_collected_at timestamptz not null
+  collection_count       integer not null check (collection_count >= 1)   -- repeated confirmations
+  confirmations_on_date  integer not null check (confirmations_on_date >= 1)
+  state_at_collection    text not null, depth text
+  listing_count          integer not null, listed_quantity integer not null, quantity_provenance text not null
+  lowest_ask_basis       text, lowest_ask_amount numeric(12,2)
+  primary key (activity_generation_id, card_variant_id, activity_date)
+
+market_activity_instrument_series_meta_v1  -- per-instrument series envelope
+  activity_generation_id uuid not null, instrument_key text not null
+  proven_span_start, proven_span_end date   -- null unless a window is PROVEN
+  reconciled_through     timestamptz
+  excluded_supply_snapshots jsonb not null default '{}'
+  primary key (activity_generation_id, instrument_key)
+```
+
+**Zero versus missing (storage rule).**
+- No zero rows are ever stored.
+- A date without a row is zero only inside the stored proven span. Otherwise
+  it is missing.
+- Dates outside `[as_of − 179, as_of]` are `NOT_COLLECTED`.
+- Supply dates without a row are missing and never carried forward. A proven
+  empty snapshot is stored as an explicit row with `listing_count = 0`.
+- Group series are aggregated from these rows over the full roster at build
+  time, or by the reader over a primary-key prefix scan. They never repeat
+  window totals onto dates.
 
 **Indexes.** Every reader query is a primary-key prefix scan:
 
@@ -230,9 +323,13 @@ Add a reviewed index only if FMA-1 `EXPLAIN` output shows a need.
    - `fixture_manifest_sha256` equals the committed manifest.
 
    A failed validation marks the generation `REJECTED`.
-4. Promote through the singleton. The serving pointer never mixes generations.
-   Readers echo `activity_generation_id` in `evidenceFingerprint` and in the
-   page cursor.
+4. Promote through the singleton. The serving pointer never mixes
+   generations.
+   - Readers echo `activity_generation_id` in the response field
+     `activityGenerationId`, and bind it inside the opaque page cursor.
+   - `evidenceFingerprint` stays the SHA-256 of the canonical evidence
+     inputs, stored per row as `evidence_fingerprint`. It is never an
+     activity UUID.
 5. Rows are never updated after `VALIDATED`. A fix means a new generation.
 
 ## Reader shapes
@@ -245,15 +342,24 @@ The reader output must equal the JSON Schemas in `contracts/`:
 FMA-1 must pass every fixture in `fixtures/manifest.json` through its API
 serializer, feeding stored rows that match each fixture's `expected` block.
 
-## How FMA-1 and FMA-3 proceed independently
+## How FMA-1, FMA-2 and FMA-3 proceed independently
 
-- **FMA-1 (database/API)** implements the tables above, the builder and the
-  three endpoints. Its acceptance test: the serializer reproduces every
-  fixture's `expected` document and validates against the schemas with
-  `SchemaRegistry`.
-- **FMA-3 (frontend)** builds against the committed fixtures only, served by a
-  mock route or a static loader. The schemas fix every field, null behaviour,
-  reason code and label. The frontend therefore needs no database, and it must
-  render each availability state that the fixtures cover.
-- **Handshake.** Both sides pin `contractVersion=market_activity_v1` and the
-  manifest fingerprint. A contract change requires a new fixture set version.
+- **FMA-1 (database/projections/RPCs)** implements the tables above
+  (including §E), the builder and read RPCs keyed by
+  `activity_generation_id`. Its acceptance test: the stored rows round-trip
+  every fixture's `expected` document.
+- **FMA-2 (public API/auth/transport)** implements the three structured POST
+  reads (CONTRACT §2), auth and entitlement, pin validation, cursor handling
+  and capability re-evaluation at read time (`reevaluate_capabilities`). Its
+  acceptance test: the serializer reproduces every fixture's `expected`
+  document and validates against the schemas with `SchemaRegistry`.
+- **FMA-3 (UI)** builds against the committed fixtures only, served by a mock
+  route or a static loader.
+  - The schemas fix every field, null behaviour, reason code, label and series
+    axis. The UI therefore needs no database.
+  - It must render each availability state that the fixtures cover.
+  - It must follow the series zero-versus-missing and hover rules
+    (CONTRACT §10).
+- **Handshake.** All three pin `contractVersion=market_activity_v1.1`, fixture
+  set `market_activity_v1_fixtures_2` and the manifest fingerprint. A contract
+  change requires a new fixture set version.

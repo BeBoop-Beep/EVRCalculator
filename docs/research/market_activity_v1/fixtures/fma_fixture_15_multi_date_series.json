@@ -1,79 +1,59 @@
 {
   "assembler": "instrument_detail",
-  "description": "Asks collected today but provider-confirmed days earlier; legacy shipping/quantity.",
+  "description": "FMA-0.1 F4: sparse daily series with missing dates, late ingestion, repeated source confirmations, a proven-zero supply date and a 365-day canonical range longer than the 180-day activity range.",
   "expected": {
     "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
     "asks": {
-      "capturedListingCount": 2,
+      "capturedListingCount": 3,
       "capturedQuantity": {
-        "provenance": "LEGACY_UNVERIFIED",
-        "value": 2
+        "provenance": "PROVEN",
+        "value": 4
       },
-      "collectedAt": "2026-09-29T22:08:05Z",
+      "collectedAt": "2026-09-30T09:00:00Z",
       "conditionBasis": "NEAR_MINT_LISTED",
-      "confirmationAgeHours": "159.8",
-      "currentUntil": null,
+      "confirmationAgeHours": "4.0",
+      "currentUntil": "2026-10-01T08:00:00Z",
       "depth": "LOWER_BOUND",
       "lowestAsk": {
-        "basis": "ITEM_ONLY_LEGACY_UNVERIFIED",
+        "basis": "LANDED_PROVEN",
         "price": {
-          "amount": "41.00",
+          "amount": "44.00",
           "currency": "USD"
         }
       },
-      "offerQualification": "NOT_CURRENT",
-      "providerConfirmedAt": "2026-09-23T20:12:49Z",
+      "offerQualification": "CURRENT",
+      "providerConfirmedAt": "2026-09-30T08:00:00Z",
       "reasons": [
-        "SOURCE_CONFIRMATION_MIXED",
-        "SOURCE_CONFIRMATION_REPEATED",
-        "ASKS_STALE",
-        "DEPTH_TRUNCATED",
-        "SHIPPING_LEGACY_UNVERIFIED",
-        "QUANTITY_LEGACY_UNVERIFIED"
+        "DEPTH_TRUNCATED"
       ],
       "source": "pkmnprices_tcgplayer_listings",
-      "state": "STALE",
+      "state": "FRESH",
       "unconfirmedOffers": null
     },
     "availability": {
       "reasons": [
-        "SOURCE_CONFIRMATION_MIXED",
-        "SOURCE_CONFIRMATION_REPEATED",
-        "ASKS_STALE",
-        "DEPTH_TRUNCATED",
-        "SHIPPING_LEGACY_UNVERIFIED",
-        "QUANTITY_LEGACY_UNVERIFIED"
+        "LATE_INGESTION_AFTER_RECONCILIATION",
+        "WINDOW_NOT_PROVEN"
       ],
       "state": "PARTIAL"
     },
     "capabilities": {
       "activityPercentile": {
-        "available": true,
-        "reasons": []
+        "available": false,
+        "reasons": [
+          "LATE_INGESTION_AFTER_RECONCILIATION",
+          "WINDOW_NOT_PROVEN"
+        ]
       },
       "askDepth": {
-        "available": false,
-        "expiresAt": null,
-        "reasons": [
-          "SOURCE_CONFIRMATION_MIXED",
-          "SOURCE_CONFIRMATION_REPEATED",
-          "ASKS_STALE",
-          "DEPTH_TRUNCATED",
-          "SHIPPING_LEGACY_UNVERIFIED",
-          "QUANTITY_LEGACY_UNVERIFIED"
-        ]
+        "available": true,
+        "expiresAt": "2026-10-01T08:00:00Z",
+        "reasons": []
       },
       "currentAsks": {
-        "available": false,
-        "expiresAt": null,
-        "reasons": [
-          "SOURCE_CONFIRMATION_MIXED",
-          "SOURCE_CONFIRMATION_REPEATED",
-          "ASKS_STALE",
-          "DEPTH_TRUNCATED",
-          "SHIPPING_LEGACY_UNVERIFIED",
-          "QUANTITY_LEGACY_UNVERIFIED"
-        ]
+        "available": true,
+        "expiresAt": "2026-10-01T08:00:00Z",
+        "reasons": []
       },
       "inferredSalesFromListings": {
         "available": false,
@@ -82,27 +62,27 @@
         ]
       },
       "landedAsk": {
-        "available": false,
-        "expiresAt": null,
-        "reasons": [
-          "SOURCE_CONFIRMATION_MIXED",
-          "SOURCE_CONFIRMATION_REPEATED",
-          "ASKS_STALE",
-          "SHIPPING_LEGACY_UNVERIFIED",
-          "QUANTITY_LEGACY_UNVERIFIED"
-        ]
+        "available": true,
+        "expiresAt": "2026-10-01T08:00:00Z",
+        "reasons": []
       },
       "observedSales": {
         "available": true,
         "reasons": []
       },
       "saleCount": {
-        "available": true,
-        "reasons": []
+        "available": false,
+        "reasons": [
+          "LATE_INGESTION_AFTER_RECONCILIATION",
+          "WINDOW_NOT_PROVEN"
+        ]
       },
       "salePriceSummary": {
-        "available": true,
-        "reasons": []
+        "available": false,
+        "reasons": [
+          "LATE_INGESTION_AFTER_RECONCILIATION",
+          "WINDOW_NOT_PROVEN"
+        ]
       },
       "supplyTurnover": {
         "available": false,
@@ -113,7 +93,7 @@
     },
     "contractVersion": "market_activity_v1.1",
     "evaluatedAt": "2026-09-30T12:00:00Z",
-    "evidenceFingerprint": "158ce9389230afac638b31b9b543838711ac40a2a2065424c5601dfa24590f01",
+    "evidenceFingerprint": "0a39a33ce10f02e216ab789127e944fc944fe8df2e1631cfed28610fc31f38e8",
     "instrument": {
       "asset": "cards",
       "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
@@ -130,28 +110,7 @@
       "tier": "RAW"
     },
     "kind": "instrumentDetail",
-    "peers": {
-      "activityPercentile": "57.1",
-      "claimsAllPokemon": false,
-      "duplicatePeerRowCount": 1,
-      "eligibleOtherPeerCount": 35,
-      "label": "Activity percentile",
-      "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-      "quarantinedPeerCount": 0,
-      "reasons": [],
-      "scope": {
-        "claimsAllPokemon": false,
-        "cohortRevision": "core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-        "kind": "RESEARCH_PANEL",
-        "scopeId": "market_microstructure_core_panel_v1",
-        "scopeLabel": "Core Panel V1 research panel (modern, price-balanced)"
-      },
-      "scopeLabel": "Core Panel V1 research panel (modern, price-balanced)",
-      "state": "AVAILABLE",
-      "strictBelowPct": "54.3",
-      "tieCount": 2,
-      "tiePolicy": "midrank_v1"
-    },
+    "peers": null,
     "policy": {
       "askConfirmationMaxAgeHours": 24,
       "futureTimestampSkewSeconds": 300,
@@ -164,7 +123,10 @@
     "request": {
       "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
       "asOf": "2026-09-29",
-      "chartRange": null,
+      "chartRange": {
+        "endDate": "2026-09-29",
+        "startDate": "2025-09-30"
+      },
       "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
       "marketKey": "set:fixture-modern-set",
       "rosterRef": {
@@ -207,19 +169,26 @@
         {
           "days": 7,
           "endDate": "2026-09-29",
-          "observedCount": 4,
+          "observedCount": 5,
           "priceSummary": {
             "basis": "PROVEN_WINDOW",
-            "high": null,
-            "low": null,
-            "median": null,
-            "reasons": [
-              "THIN_RECORDS"
-            ],
-            "recordCount": 4,
-            "state": "THIN"
+            "high": {
+              "amount": "42.25",
+              "currency": "USD"
+            },
+            "low": {
+              "amount": "39.50",
+              "currency": "USD"
+            },
+            "median": {
+              "amount": "40.25",
+              "currency": "USD"
+            },
+            "reasons": [],
+            "recordCount": 5,
+            "state": "AVAILABLE"
           },
-          "provenCount": 4,
+          "provenCount": 5,
           "readiness": {
             "exhausted": false,
             "provenLowerBoundDate": "2026-03-02",
@@ -232,9 +201,9 @@
         {
           "days": 30,
           "endDate": "2026-09-29",
-          "observedCount": 8,
+          "observedCount": 10,
           "priceSummary": {
-            "basis": "PROVEN_WINDOW",
+            "basis": "OBSERVED_ONLY",
             "high": {
               "amount": "43.10",
               "currency": "USD"
@@ -244,29 +213,31 @@
               "currency": "USD"
             },
             "median": {
-              "amount": "40.25",
+              "amount": "40.12",
               "currency": "USD"
             },
             "reasons": [],
-            "recordCount": 8,
+            "recordCount": 10,
             "state": "AVAILABLE"
           },
-          "provenCount": 8,
+          "provenCount": null,
           "readiness": {
             "exhausted": false,
             "provenLowerBoundDate": "2026-03-02",
-            "reasons": [],
+            "reasons": [
+              "LATE_INGESTION_AFTER_RECONCILIATION"
+            ],
             "reconciledThrough": "2026-09-30T06:00:00Z",
-            "state": "PROVEN"
+            "state": "PARTIAL"
           },
           "startDate": "2026-08-31"
         },
         {
           "days": 90,
           "endDate": "2026-09-29",
-          "observedCount": 11,
+          "observedCount": 13,
           "priceSummary": {
-            "basis": "PROVEN_WINDOW",
+            "basis": "OBSERVED_ONLY",
             "high": {
               "amount": "43.10",
               "currency": "USD"
@@ -280,25 +251,27 @@
               "currency": "USD"
             },
             "reasons": [],
-            "recordCount": 11,
+            "recordCount": 13,
             "state": "AVAILABLE"
           },
-          "provenCount": 11,
+          "provenCount": null,
           "readiness": {
             "exhausted": false,
             "provenLowerBoundDate": "2026-03-02",
-            "reasons": [],
+            "reasons": [
+              "LATE_INGESTION_AFTER_RECONCILIATION"
+            ],
             "reconciledThrough": "2026-09-30T06:00:00Z",
-            "state": "PROVEN"
+            "state": "PARTIAL"
           },
           "startDate": "2026-07-02"
         },
         {
           "days": 180,
           "endDate": "2026-09-29",
-          "observedCount": 12,
+          "observedCount": 14,
           "priceSummary": {
-            "basis": "PROVEN_WINDOW",
+            "basis": "OBSERVED_ONLY",
             "high": {
               "amount": "43.10",
               "currency": "USD"
@@ -308,20 +281,22 @@
               "currency": "USD"
             },
             "median": {
-              "amount": "39.12",
+              "amount": "39.38",
               "currency": "USD"
             },
             "reasons": [],
-            "recordCount": 12,
+            "recordCount": 14,
             "state": "AVAILABLE"
           },
-          "provenCount": 12,
+          "provenCount": null,
           "readiness": {
             "exhausted": false,
             "provenLowerBoundDate": "2026-03-02",
-            "reasons": [],
+            "reasons": [
+              "LATE_INGESTION_AFTER_RECONCILIATION"
+            ],
             "reconciledThrough": "2026-09-30T06:00:00Z",
-            "state": "PROVEN"
+            "state": "PARTIAL"
           },
           "startDate": "2026-04-03"
         }
@@ -333,7 +308,10 @@
         "startDate": "2026-04-03"
       },
       "asOf": "2026-09-29",
-      "canonicalRange": null,
+      "canonicalRange": {
+        "endDate": "2026-09-29",
+        "startDate": "2025-09-30"
+      },
       "outsideActivityRange": "NOT_COLLECTED",
       "sales": {
         "conditionBasis": "UNKNOWN_CONDITION",
@@ -345,7 +323,7 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-05-02T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-07-15",
@@ -353,7 +331,7 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-07-16T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-08-01",
@@ -361,7 +339,7 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-08-02T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-08-20",
@@ -369,7 +347,7 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-08-21T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-02",
@@ -377,7 +355,15 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-09-03T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
+            },
+            {
+              "date": "2026-09-05",
+              "firstIngestedAt": "2026-09-30T09:00:00Z",
+              "ingestedAfterReconciliation": true,
+              "lastIngestedAt": "2026-09-30T09:00:00Z",
+              "observedCount": 1,
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-10",
@@ -385,7 +371,7 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-09-11T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-15",
@@ -393,7 +379,7 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-09-16T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-20",
@@ -401,7 +387,7 @@
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-09-21T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-24",
@@ -432,7 +418,7 @@
               "firstIngestedAt": "2026-09-29T01:00:00Z",
               "ingestedAfterReconciliation": false,
               "lastIngestedAt": "2026-09-29T01:00:00Z",
-              "observedCount": 1,
+              "observedCount": 2,
               "proofState": "PROVEN"
             }
           ],
@@ -523,6 +509,22 @@
               "recordCount": 1
             },
             {
+              "date": "2026-09-05",
+              "high": {
+                "amount": "39.25",
+                "currency": "USD"
+              },
+              "low": {
+                "amount": "39.25",
+                "currency": "USD"
+              },
+              "median": {
+                "amount": "39.25",
+                "currency": "USD"
+              },
+              "recordCount": 1
+            },
+            {
               "date": "2026-09-10",
               "high": {
                 "amount": "40.50",
@@ -625,21 +627,21 @@
                 "currency": "USD"
               },
               "low": {
-                "amount": "41.00",
+                "amount": "40.25",
                 "currency": "USD"
               },
               "median": {
-                "amount": "41.00",
+                "amount": "40.62",
                 "currency": "USD"
               },
-              "recordCount": 1
+              "recordCount": 2
             }
           ],
           "unit": "USD"
         },
         "provenSpan": {
           "endDate": "2026-09-29",
-          "startDate": "2026-04-03"
+          "startDate": "2026-09-23"
         },
         "reconciledThrough": "2026-09-30T06:00:00Z",
         "source": "pkmnprices_ebay_sold",
@@ -649,21 +651,45 @@
       "supply": {
         "conditionBasis": "NEAR_MINT_LISTED",
         "excludedSnapshots": {
-          "byStateAtCollection": {},
-          "outsideActivityRange": 0
+          "byStateAtCollection": {
+            "CONFIRMATION_MISSING": 1
+          },
+          "outsideActivityRange": 2
         },
         "listings": {
           "points": [
             {
+              "collectionCount": 2,
+              "confirmationsOnDate": 1,
+              "date": "2026-09-20",
+              "depth": "LOWER_BOUND",
+              "firstCollectedAt": "2026-09-20T09:00:00Z",
+              "lastCollectedAt": "2026-09-21T09:00:00Z",
+              "providerConfirmedAt": "2026-09-20T08:00:00Z",
+              "stateAtCollection": "FRESH",
+              "value": 3
+            },
+            {
               "collectionCount": 1,
               "confirmationsOnDate": 1,
-              "date": "2026-09-23",
-              "depth": "LOWER_BOUND",
-              "firstCollectedAt": "2026-09-29T22:08:05Z",
-              "lastCollectedAt": "2026-09-29T22:08:05Z",
-              "providerConfirmedAt": "2026-09-23T20:12:49Z",
-              "stateAtCollection": "STALE",
+              "date": "2026-09-25",
+              "depth": "COMPLETE_AT_SOURCE",
+              "firstCollectedAt": "2026-09-25T08:00:00Z",
+              "lastCollectedAt": "2026-09-25T08:00:00Z",
+              "providerConfirmedAt": "2026-09-25T07:00:00Z",
+              "stateAtCollection": "FRESH",
               "value": 2
+            },
+            {
+              "collectionCount": 1,
+              "confirmationsOnDate": 1,
+              "date": "2026-09-28",
+              "depth": "COMPLETE_AT_SOURCE",
+              "firstCollectedAt": "2026-09-28T07:00:00Z",
+              "lastCollectedAt": "2026-09-28T07:00:00Z",
+              "providerConfirmedAt": "2026-09-28T06:00:00Z",
+              "stateAtCollection": "ZERO_PROVEN",
+              "value": 0
             }
           ],
           "unit": "LISTING_COUNT"
@@ -671,13 +697,22 @@
         "lowestAsk": {
           "points": [
             {
-              "basis": "ITEM_ONLY_LEGACY_UNVERIFIED",
-              "date": "2026-09-23",
+              "basis": "LANDED_PROVEN",
+              "date": "2026-09-20",
               "price": {
-                "amount": "41.00",
+                "amount": "40.00",
                 "currency": "USD"
               },
-              "providerConfirmedAt": "2026-09-23T20:12:49Z"
+              "providerConfirmedAt": "2026-09-20T08:00:00Z"
+            },
+            {
+              "basis": "ITEM_ONLY",
+              "date": "2026-09-25",
+              "price": {
+                "amount": "39.00",
+                "currency": "USD"
+              },
+              "providerConfirmedAt": "2026-09-25T07:00:00Z"
             }
           ],
           "unit": "USD"
@@ -685,10 +720,22 @@
         "quantity": {
           "points": [
             {
-              "date": "2026-09-23",
-              "provenance": "LEGACY_UNVERIFIED",
-              "providerConfirmedAt": "2026-09-23T20:12:49Z",
+              "date": "2026-09-20",
+              "provenance": "PROVEN",
+              "providerConfirmedAt": "2026-09-20T08:00:00Z",
+              "value": 4
+            },
+            {
+              "date": "2026-09-25",
+              "provenance": "DEFAULTED_LOWER_BOUND",
+              "providerConfirmedAt": "2026-09-25T07:00:00Z",
               "value": 2
+            },
+            {
+              "date": "2026-09-28",
+              "provenance": "EXPLICIT",
+              "providerConfirmedAt": "2026-09-28T06:00:00Z",
+              "value": 0
             }
           ],
           "unit": "LISTED_QUANTITY"
@@ -714,7 +761,7 @@
       "windowReadiness": "fma_window_readiness_v2"
     }
   },
-  "fixtureId": "fma_fixture_03",
+  "fixtureId": "fma_fixture_15",
   "inputs": {
     "activityGeneration": {
       "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
@@ -725,25 +772,182 @@
       },
       "state": "SERVING"
     },
-    "askHistory": [],
+    "askHistory": [
+      {
+        "hasMore": false,
+        "observationState": "OBSERVED",
+        "observedAt": "2026-03-01T10:00:00Z",
+        "offers": [
+          {
+            "itemPrice": "30.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-03-01T09:00:00Z",
+            "quantity": 1,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "0.00",
+            "shippingProvenance": "EXPLICIT"
+          }
+        ],
+        "requestedDepth": 19,
+        "sourceConfirmedAt": null
+      },
+      {
+        "hasMore": true,
+        "observationState": "OBSERVED",
+        "observedAt": "2026-09-20T09:00:00Z",
+        "offers": [
+          {
+            "itemPrice": "40.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-20T08:00:00Z",
+            "quantity": 1,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "0.00",
+            "shippingProvenance": "EXPLICIT"
+          },
+          {
+            "itemPrice": "41.50",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-20T08:00:00Z",
+            "quantity": 2,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "1.50",
+            "shippingProvenance": "EXPLICIT"
+          },
+          {
+            "itemPrice": "43.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-20T08:00:00Z",
+            "quantity": 1,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "0.00",
+            "shippingProvenance": "EXPLICIT"
+          }
+        ],
+        "requestedDepth": 19,
+        "sourceConfirmedAt": null
+      },
+      {
+        "hasMore": true,
+        "observationState": "OBSERVED",
+        "observedAt": "2026-09-21T09:00:00Z",
+        "offers": [
+          {
+            "itemPrice": "40.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-20T08:00:00Z",
+            "quantity": 1,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "0.00",
+            "shippingProvenance": "EXPLICIT"
+          },
+          {
+            "itemPrice": "41.50",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-20T08:00:00Z",
+            "quantity": 2,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "1.50",
+            "shippingProvenance": "EXPLICIT"
+          },
+          {
+            "itemPrice": "43.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-20T08:00:00Z",
+            "quantity": 1,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "0.00",
+            "shippingProvenance": "EXPLICIT"
+          }
+        ],
+        "requestedDepth": 19,
+        "sourceConfirmedAt": null
+      },
+      {
+        "hasMore": false,
+        "observationState": "OBSERVED",
+        "observedAt": "2026-09-25T08:00:00Z",
+        "offers": [
+          {
+            "itemPrice": "39.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-25T07:00:00Z",
+            "quantity": 1,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": null,
+            "shippingProvenance": "UNKNOWN"
+          },
+          {
+            "itemPrice": "42.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": "2026-09-25T07:00:00Z",
+            "quantity": 1,
+            "quantityProvenance": "DEFAULTED",
+            "shippingPrice": "0.00",
+            "shippingProvenance": "EXPLICIT"
+          }
+        ],
+        "requestedDepth": 19,
+        "sourceConfirmedAt": null
+      },
+      {
+        "hasMore": false,
+        "observationState": "OBSERVED",
+        "observedAt": "2026-09-27T08:00:00Z",
+        "offers": [
+          {
+            "itemPrice": "38.00",
+            "listingUpdatedAt": null,
+            "providerSnapshotAt": null,
+            "quantity": 1,
+            "quantityProvenance": "EXPLICIT",
+            "shippingPrice": "0.00",
+            "shippingProvenance": "EXPLICIT"
+          }
+        ],
+        "requestedDepth": 19,
+        "sourceConfirmedAt": null
+      },
+      {
+        "hasMore": false,
+        "observationState": "OBSERVED",
+        "observedAt": "2026-09-28T07:00:00Z",
+        "offers": [],
+        "requestedDepth": 19,
+        "sourceConfirmedAt": "2026-09-28T06:00:00Z"
+      }
+    ],
     "asks": {
       "hasMore": true,
       "observationState": "OBSERVED",
-      "observedAt": "2026-09-29T22:08:05Z",
+      "observedAt": "2026-09-30T09:00:00Z",
       "offers": [
         {
-          "itemPrice": "41.00",
-          "listingUpdatedAt": "2026-09-24T02:06:10Z",
-          "providerSnapshotAt": "2026-09-24T02:06:10Z",
-          "quantity": 1,
-          "shippingPrice": "0.00"
+          "itemPrice": "44.00",
+          "listingUpdatedAt": "2026-09-20T00:00:00Z",
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
+          "quantity": 2,
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "0.00",
+          "shippingProvenance": "EXPLICIT"
         },
         {
-          "itemPrice": "43.00",
-          "listingUpdatedAt": "2026-07-22T23:27:16Z",
-          "providerSnapshotAt": "2026-09-23T20:12:49Z",
+          "itemPrice": "42.00",
+          "listingUpdatedAt": "2026-09-29T00:00:00Z",
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
           "quantity": 1,
-          "shippingPrice": "0.00"
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "4.99",
+          "shippingProvenance": "EXPLICIT"
+        },
+        {
+          "itemPrice": "45.50",
+          "listingUpdatedAt": null,
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
+          "quantity": 1,
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "1.00",
+          "shippingProvenance": "EXPLICIT"
         }
       ],
       "requestedDepth": 19,
@@ -752,215 +956,15 @@
     "asset": "cards",
     "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
     "evaluatedAt": "2026-09-30T12:00:00Z",
-    "peers": {
-      "scope": {
-        "cohortRevision": "core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-        "kind": "RESEARCH_PANEL",
-        "panelId": "market_microstructure_core_panel_v1"
-      },
-      "values": [
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000000:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 0
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000001:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 7
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000002:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 14
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000003:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 6
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000004:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 13
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000005:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 5
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000006:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 12
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000007:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 4
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000008:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 11
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000009:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 3
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000010:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 10
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000011:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 2
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000012:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 9
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000013:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 1
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000014:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 8
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000015:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 0
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000016:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 7
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000017:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 14
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000018:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 6
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000019:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 13
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000020:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 5
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000021:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 12
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000022:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 4
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000023:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 11
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000024:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 3
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000025:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 10
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000026:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 2
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000027:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 9
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000028:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 1
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000029:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 8
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000030:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 0
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000031:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 7
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000032:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 14
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000033:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 6
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000034:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 13
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 9
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-999999999999:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|UNPROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 3
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-000000000000:raw",
-          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 0
-        },
-        {
-          "instrumentKey": "card:00000000-0000-4000-8000-888888888888:raw",
-          "populationKey": "2026-06-01..2026-06-30|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
-          "value": 4
-        }
-      ]
-    },
-    "previousAskConfirmation": "2026-09-23T20:12:49Z",
+    "peers": null,
+    "previousAskConfirmation": null,
     "request": {
       "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
       "asOf": "2026-09-29",
-      "chartRange": null,
+      "chartRange": {
+        "endDate": "2026-09-29",
+        "startDate": "2025-09-30"
+      },
       "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
       "marketKey": "set:fixture-modern-set",
       "rosterRef": {
@@ -1270,6 +1274,54 @@
           "providerVariant": "Holofoil",
           "soldAt": "2026-09-23",
           "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-30T09:00:00Z",
+          "listingId": "700016",
+          "price": "39.25",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-05",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-29T01:00:00Z",
+          "listingId": "700017",
+          "price": "40.25",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-28",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-02-16T01:00:00Z",
+          "listingId": "700018",
+          "price": "28.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-02-15",
+          "source": "pkmnprices_ebay_sold"
         }
       ],
       "walks": [
@@ -1327,5 +1379,5 @@
   },
   "requestSchema": "instrument_detail_request.schema.json",
   "responseSchema": "instrument_detail_response.schema.json",
-  "scenario": "stale_asks"
+  "scenario": "multi_date_series"
 }

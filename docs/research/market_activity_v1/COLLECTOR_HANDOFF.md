@@ -46,13 +46,29 @@ pkmnprices_sold_walk_pages_v1
   min_ingested_at timestamptz, max_ingested_at timestamptz, fetched_at timestamptz,
   primary key (walk_id, page_index)
 pkmnprices_sold_right_edge_receipts_v1
-  provider_card_id bigint, stream text, head_walk_id uuid, reconciled_through timestamptz,
-  completed boolean, primary key (provider_card_id, stream, reconciled_through)
+  provider_card_id bigint, stream text, grader_filter text, grade_filter text,
+  filter_fingerprint text not null, head_walk_id uuid not null, collection_run_id uuid not null,
+  committed boolean not null, reconciled_through timestamptz not null, completed boolean not null,
+  primary key (provider_card_id, stream, reconciled_through)
 ```
 
-**Receipt rules.**
-- Write receipts in the same unit of work as the evidence insert.
+Also add `collection_run_id uuid not null` and `committed boolean not null` to
+`pkmnprices_sold_walk_receipts_v1`.
+
+**Receipt rules.** Window readiness v2 fails closed on every rule below.
+- Write receipts in the same unit of work as the evidence insert, and mark
+  `committed` only when that unit of work commits.
 - Store cursor values only as hashes. This matches the Bucket B2 practice.
+- `has_more` must be stored as a real boolean on every page. A NULL is unknown
+  pagination (`WALK_PAGINATION_UNKNOWN`) and is never read as exhaustion.
+- `row_count` must be a non-negative integer. A page with rows must carry
+  valid, ordered, non-future `min_sold_at`/`max_sold_at`, and a zero-row page
+  carries neither.
+- A right-edge receipt must name the same provider card, stream, filter
+  fingerprint, grader/grade filter, head walk and collection run as the walk
+  it closes (`RIGHT_EDGE_BINDING_MISMATCH` otherwise). Its
+  `reconciled_through` must not lie in the future (`RIGHT_EDGE_IN_FUTURE`).
+- These rules do not change any collector watermark; see §2.
 
 **Resumed walks.** A resumed walk that did not start from the head is still
 useful for the lower-boundary proof. It must be linked, through

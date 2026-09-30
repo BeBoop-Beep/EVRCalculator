@@ -3,11 +3,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "activityGenerationId": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/Uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "availability": {
       "$ref": "common.schema.json#/$defs/Availability"
     },
     "contractVersion": {
-      "const": "market_activity_v1"
+      "const": "market_activity_v1.1"
     },
     "evaluatedAt": {
       "$ref": "common.schema.json#/$defs/DateTime"
@@ -33,10 +43,13 @@
               "type": "integer"
             },
             "nextCursor": {
-              "minimum": 1,
-              "type": [
-                "integer",
-                "null"
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/Cursor"
+                },
+                {
+                  "type": "null"
+                }
               ]
             },
             "totalCount": {
@@ -87,6 +100,9 @@
             "additionalProperties": false,
             "properties": {
               "currentAsks": {
+                "$ref": "common.schema.json#/$defs/ExpiringCapability"
+              },
+              "observedSales": {
                 "$ref": "common.schema.json#/$defs/Capability"
               },
               "saleCount": {
@@ -98,6 +114,7 @@
             },
             "required": [
               "saleCount",
+              "observedSales",
               "salePriceSummary",
               "currentAsks"
             ],
@@ -121,6 +138,12 @@
           },
           "medianPrice": {
             "$ref": "common.schema.json#/$defs/NullableMoney"
+          },
+          "observationState": {
+            "enum": [
+              "OBSERVED",
+              "NOT_COLLECTED"
+            ]
           },
           "observedCount": {
             "$ref": "common.schema.json#/$defs/NullableCount"
@@ -146,6 +169,7 @@
           "instrumentKey",
           "cardVariantId",
           "availability",
+          "observationState",
           "windowReadiness",
           "observedCount",
           "provenCount",
@@ -170,6 +194,7 @@
     "policy",
     "request",
     "evaluatedAt",
+    "activityGenerationId",
     "availability",
     "evidenceFingerprint",
     "roster",

@@ -1,0 +1,2757 @@
+{
+  "assembler": "group_activity",
+  "description": "FMA-0.1 F6: a 101-member roster (larger than one 100-row page) aggregated in full, members supplied in shuffled order.",
+  "expected": {
+    "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+    "availability": {
+      "reasons": [
+        "WINDOW_NOT_PROVEN"
+      ],
+      "state": "PARTIAL"
+    },
+    "contractVersion": "market_activity_v1.1",
+    "coverage": {
+      "notCollected": 96,
+      "rosterDenominator": 101,
+      "unavailable": 0,
+      "windowPartial": 0,
+      "windowProven": 0,
+      "windowUnproven": 5
+    },
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "evidenceFingerprint": "96b4484eabe82ada6cca15b761dacf71fa3022296a43a531d848fdb2c6e0a247",
+    "kind": "groupActivity",
+    "label": "Activity for current constituents",
+    "policy": {
+      "askConfirmationMaxAgeHours": 24,
+      "futureTimestampSkewSeconds": 300,
+      "percentileMinOtherPeers": 30,
+      "priceSummaryMinRecords": 5,
+      "soldHeadReceiptMaxAgeHours": 36,
+      "tiePolicy": "midrank_v1",
+      "version": "fma_display_policy_v1"
+    },
+    "request": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "asOf": "2026-09-29",
+      "chartRange": null,
+      "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "windowDays": 30
+    },
+    "roster": {
+      "label": "Activity for current constituents",
+      "membershipContractVersion": "fma_membership_v2",
+      "membershipMode": "CURRENT_ROSTER_RETROSPECTIVE",
+      "rosterAsOf": "2026-09-29",
+      "rosterDenominator": 101,
+      "rosterRevision": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      }
+    },
+    "series": {
+      "activityRange": {
+        "endDate": "2026-09-29",
+        "startDate": "2026-04-03"
+      },
+      "asOf": "2026-09-29",
+      "canonicalRange": null,
+      "outsideActivityRange": "NOT_COLLECTED",
+      "rosterDenominator": 101,
+      "sales": {
+        "conditionBasis": "UNKNOWN_CONDITION",
+        "counts": {
+          "points": [
+            {
+              "contributingConstituents": 5,
+              "date": "2026-09-18",
+              "observedCount": 5,
+              "proofState": "OBSERVED_ONLY",
+              "provenConstituents": 0
+            },
+            {
+              "contributingConstituents": 5,
+              "date": "2026-09-21",
+              "observedCount": 5,
+              "proofState": "OBSERVED_ONLY",
+              "provenConstituents": 0
+            }
+          ],
+          "unit": "SALE_COUNT"
+        },
+        "provenSpan": null,
+        "source": "pkmnprices_ebay_sold",
+        "tier": "RAW"
+      },
+      "storage": "SPARSE_DAILY",
+      "supply": {
+        "aggregation": "LOWER_BOUND_SUM_OF_CONFIRMED_CONSTITUENT_SNAPSHOTS",
+        "conditionBasis": "NEAR_MINT_LISTED",
+        "listings": {
+          "points": [],
+          "unit": "LISTING_COUNT"
+        },
+        "quantity": {
+          "points": [],
+          "unit": "LISTED_QUANTITY"
+        },
+        "source": "pkmnprices_tcgplayer_listings"
+      },
+      "version": "fma_activity_series_v1",
+      "zeroRule": "ABSENT_DATE_IS_ZERO_ONLY_INSIDE_PROVEN_SPAN"
+    },
+    "totals": {
+      "observedConstituentCount": 5,
+      "observedSaleCountLowerBound": 10,
+      "provenConstituentCount": 0,
+      "provenSaleCount": null,
+      "windowDays": 30
+    },
+    "versions": {
+      "contract": "market_activity_v1.1",
+      "cursor": "fma_cursor_v1",
+      "domain": "market_activity_domain_v1.1.0",
+      "grading": "fma_grading_identity_v1",
+      "identity": "fma_exact_identity_v1",
+      "membership": "fma_membership_v2",
+      "observation": "fma_sold_observation_v1",
+      "peerPopulation": "fma_peer_population_v2",
+      "qualifierRegistry": "fma_qualifier_registry_v1",
+      "series": "fma_activity_series_v1",
+      "supplyProvenance": "fma_supply_provenance_v2",
+      "tiePolicy": "midrank_v1",
+      "windowReadiness": "fma_window_readiness_v2"
+    }
+  },
+  "fixtureId": "fma_fixture_19",
+  "inputs": {
+    "activityGeneration": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "state": "SERVING"
+    },
+    "asset": "cards",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "members": [
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000001",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000001",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800001",
+            "records": [
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-22T01:00:00Z",
+                "listingId": "L1-1",
+                "price": "3.00",
+                "providerCardId": "800001",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-21",
+                "source": "pkmnprices_ebay_sold"
+              },
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-19T01:00:00Z",
+                "listingId": "L1-2",
+                "price": "3.10",
+                "providerCardId": "800001",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-18",
+                "source": "pkmnprices_ebay_sold"
+              }
+            ],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000001:raw",
+        "rank": 1
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000072",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000072",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800072",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000072:raw",
+        "rank": 72
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000042",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000042",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800042",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000042:raw",
+        "rank": 42
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000012",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000012",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800012",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000012:raw",
+        "rank": 12
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000083",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000083",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800083",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000083:raw",
+        "rank": 83
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000053",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000053",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800053",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000053:raw",
+        "rank": 53
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000023",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000023",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800023",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000023:raw",
+        "rank": 23
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000094",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000094",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800094",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000094:raw",
+        "rank": 94
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000064",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000064",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800064",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000064:raw",
+        "rank": 64
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000034",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000034",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800034",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000034:raw",
+        "rank": 34
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000004",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000004",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800004",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000004:raw",
+        "rank": 4
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000075",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000075",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800075",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000075:raw",
+        "rank": 75
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000045",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000045",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800045",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000045:raw",
+        "rank": 45
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000015",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000015",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800015",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000015:raw",
+        "rank": 15
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000086",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000086",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800086",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000086:raw",
+        "rank": 86
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000056",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000056",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800056",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000056:raw",
+        "rank": 56
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000026",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000026",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800026",
+            "records": [
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-22T01:00:00Z",
+                "listingId": "L26-1",
+                "price": "3.00",
+                "providerCardId": "800026",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-21",
+                "source": "pkmnprices_ebay_sold"
+              },
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-19T01:00:00Z",
+                "listingId": "L26-2",
+                "price": "3.10",
+                "providerCardId": "800026",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-18",
+                "source": "pkmnprices_ebay_sold"
+              }
+            ],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000026:raw",
+        "rank": 26
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000097",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000097",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800097",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000097:raw",
+        "rank": 97
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000067",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000067",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800067",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000067:raw",
+        "rank": 67
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000037",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000037",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800037",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000037:raw",
+        "rank": 37
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000007",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000007",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800007",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000007:raw",
+        "rank": 7
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000078",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000078",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800078",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000078:raw",
+        "rank": 78
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000048",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000048",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800048",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000048:raw",
+        "rank": 48
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000018",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000018",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800018",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000018:raw",
+        "rank": 18
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000089",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000089",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800089",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000089:raw",
+        "rank": 89
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000059",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000059",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800059",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000059:raw",
+        "rank": 59
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000029",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000029",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800029",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000029:raw",
+        "rank": 29
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000100",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000100",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800100",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000100:raw",
+        "rank": 100
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000070",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000070",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800070",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000070:raw",
+        "rank": 70
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000040",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000040",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800040",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000040:raw",
+        "rank": 40
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000010",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000010",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800010",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000010:raw",
+        "rank": 10
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000081",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000081",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800081",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000081:raw",
+        "rank": 81
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000051",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000051",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800051",
+            "records": [
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-22T01:00:00Z",
+                "listingId": "L51-1",
+                "price": "3.00",
+                "providerCardId": "800051",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-21",
+                "source": "pkmnprices_ebay_sold"
+              },
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-19T01:00:00Z",
+                "listingId": "L51-2",
+                "price": "3.10",
+                "providerCardId": "800051",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-18",
+                "source": "pkmnprices_ebay_sold"
+              }
+            ],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000051:raw",
+        "rank": 51
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000021",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000021",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800021",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000021:raw",
+        "rank": 21
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000092",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000092",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800092",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000092:raw",
+        "rank": 92
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000062",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000062",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800062",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000062:raw",
+        "rank": 62
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000032",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000032",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800032",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000032:raw",
+        "rank": 32
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000002",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000002",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800002",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000002:raw",
+        "rank": 2
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000073",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000073",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800073",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000073:raw",
+        "rank": 73
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000043",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000043",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800043",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000043:raw",
+        "rank": 43
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000013",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000013",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800013",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000013:raw",
+        "rank": 13
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000084",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000084",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800084",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000084:raw",
+        "rank": 84
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000054",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000054",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800054",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000054:raw",
+        "rank": 54
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000024",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000024",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800024",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000024:raw",
+        "rank": 24
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000095",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000095",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800095",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000095:raw",
+        "rank": 95
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000065",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000065",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800065",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000065:raw",
+        "rank": 65
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000035",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000035",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800035",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000035:raw",
+        "rank": 35
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000005",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000005",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800005",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000005:raw",
+        "rank": 5
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000076",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000076",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800076",
+            "records": [
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-22T01:00:00Z",
+                "listingId": "L76-1",
+                "price": "3.00",
+                "providerCardId": "800076",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-21",
+                "source": "pkmnprices_ebay_sold"
+              },
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-19T01:00:00Z",
+                "listingId": "L76-2",
+                "price": "3.10",
+                "providerCardId": "800076",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-18",
+                "source": "pkmnprices_ebay_sold"
+              }
+            ],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000076:raw",
+        "rank": 76
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000046",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000046",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800046",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000046:raw",
+        "rank": 46
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000016",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000016",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800016",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000016:raw",
+        "rank": 16
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000087",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000087",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800087",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000087:raw",
+        "rank": 87
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000057",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000057",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800057",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000057:raw",
+        "rank": 57
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000027",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000027",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800027",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000027:raw",
+        "rank": 27
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000098",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000098",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800098",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000098:raw",
+        "rank": 98
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000068",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000068",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800068",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000068:raw",
+        "rank": 68
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000038",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000038",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800038",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000038:raw",
+        "rank": 38
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000008",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000008",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800008",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000008:raw",
+        "rank": 8
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000079",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000079",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800079",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000079:raw",
+        "rank": 79
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000049",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000049",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800049",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000049:raw",
+        "rank": 49
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000019",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000019",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800019",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000019:raw",
+        "rank": 19
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000090",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000090",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800090",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000090:raw",
+        "rank": 90
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000060",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000060",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800060",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000060:raw",
+        "rank": 60
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000030",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000030",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800030",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000030:raw",
+        "rank": 30
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000101",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000101",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800101",
+            "records": [
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-22T01:00:00Z",
+                "listingId": "L101-1",
+                "price": "3.00",
+                "providerCardId": "800101",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-21",
+                "source": "pkmnprices_ebay_sold"
+              },
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-19T01:00:00Z",
+                "listingId": "L101-2",
+                "price": "3.10",
+                "providerCardId": "800101",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-18",
+                "source": "pkmnprices_ebay_sold"
+              }
+            ],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000101:raw",
+        "rank": 101
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000071",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000071",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800071",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000071:raw",
+        "rank": 71
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000041",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000041",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800041",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000041:raw",
+        "rank": 41
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000011",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000011",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800011",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000011:raw",
+        "rank": 11
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000082",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000082",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800082",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000082:raw",
+        "rank": 82
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000052",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000052",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800052",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000052:raw",
+        "rank": 52
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000022",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000022",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800022",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000022:raw",
+        "rank": 22
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000093",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000093",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800093",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000093:raw",
+        "rank": 93
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000063",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000063",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800063",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000063:raw",
+        "rank": 63
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000033",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000033",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800033",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000033:raw",
+        "rank": 33
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000003",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000003",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800003",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000003:raw",
+        "rank": 3
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000074",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000074",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800074",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000074:raw",
+        "rank": 74
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000044",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000044",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800044",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000044:raw",
+        "rank": 44
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000014",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000014",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800014",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000014:raw",
+        "rank": 14
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000085",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000085",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800085",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000085:raw",
+        "rank": 85
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000055",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000055",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800055",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000055:raw",
+        "rank": 55
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000025",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000025",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800025",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000025:raw",
+        "rank": 25
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000096",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000096",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800096",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000096:raw",
+        "rank": 96
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000066",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000066",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800066",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000066:raw",
+        "rank": 66
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000036",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000036",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800036",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000036:raw",
+        "rank": 36
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000006",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000006",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800006",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000006:raw",
+        "rank": 6
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000077",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000077",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800077",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000077:raw",
+        "rank": 77
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000047",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000047",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800047",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000047:raw",
+        "rank": 47
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000017",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000017",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800017",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000017:raw",
+        "rank": 17
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000088",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000088",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800088",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000088:raw",
+        "rank": 88
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000058",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000058",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800058",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000058:raw",
+        "rank": 58
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000028",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000028",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800028",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000028:raw",
+        "rank": 28
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000099",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000099",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800099",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000099:raw",
+        "rank": 99
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000069",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000069",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800069",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000069:raw",
+        "rank": 69
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000039",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000039",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800039",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000039:raw",
+        "rank": 39
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000009",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000009",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800009",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000009:raw",
+        "rank": 9
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000080",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000080",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800080",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000080:raw",
+        "rank": 80
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000050",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000050",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800050",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000050:raw",
+        "rank": 50
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000020",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000020",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800020",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000020:raw",
+        "rank": 20
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000091",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000091",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800091",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000091:raw",
+        "rank": 91
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000061",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000061",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800061",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000061:raw",
+        "rank": 61
+      },
+      {
+        "cardVariantId": "00000000-0000-4000-8000-000000000031",
+        "detailInputs": {
+          "asks": null,
+          "canonicalCardId": null,
+          "peers": null,
+          "sold": {
+            "candidateScope": "FULL_CARD_VARIANT_SET",
+            "candidates": [
+              {
+                "edition": null,
+                "id": "00000000-0000-4000-8000-000000000031",
+                "printingType": "holo"
+              }
+            ],
+            "collectionRecord": null,
+            "providerCardId": "800031",
+            "records": [],
+            "walks": []
+          }
+        },
+        "instrumentKey": "card:00000000-0000-4000-8000-000000000031:raw",
+        "rank": 31
+      }
+    ],
+    "request": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "asOf": "2026-09-29",
+      "chartRange": null,
+      "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "windowDays": 30
+    },
+    "roster": {
+      "asOf": "2026-09-29",
+      "denominator": 101
+    },
+    "servedGenerationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10"
+  },
+  "requestSchema": "activity_request.schema.json",
+  "responseSchema": "activity_response.schema.json",
+  "scenario": "group_roster_101"
+}

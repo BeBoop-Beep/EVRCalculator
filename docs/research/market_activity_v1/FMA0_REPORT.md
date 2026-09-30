@@ -1,5 +1,15 @@
 # FMA-0 report — Explorer Focused Market Activity V1 contracts and evidence readiness
 
+> **Superseded in part by FMA-0.1.** Review closure
+> (`FMA0_REVIEW_CLOSURE.md`) corrected six finding groups. Build against:
+> - contract `market_activity_v1.1`;
+> - domain `market_activity_domain_v1.1.0`;
+> - fixture set `market_activity_v1_fixtures_2`.
+>
+> Where this historical report quotes the older behaviour, `CONTRACT.md` wins.
+> That older behaviour includes `GET` routes, a bare-integer `nextCursor`,
+> null observed counts without receipts, and 100-member group aggregation.
+
 Terminal state: **FMA0_CONTRACT_READY**. The executable rules, schemas,
 fixtures and handoffs are committed on branch `fma0-explorer-focused-activity`.
 
@@ -166,8 +176,10 @@ eligible for publication.
 
 ## Next buckets
 
-- **FMA-1:** implement `SCHEMA_DECISION.md`, meaning the tables, the builder,
-  the three read endpoints, and a serializer that reproduces every fixture.
-- **FMA-3:** build the frontend against the committed fixtures only.
+- **FMA-1:** implement `SCHEMA_DECISION.md`: the database tables, the
+  projections/builder and the read RPCs.
+- **FMA-2:** own the public API: the structured POST reads, auth/entitlement,
+  transport, and a serializer that reproduces every fixture.
+- **FMA-3:** build the UI against the committed fixtures only.
 - **Collector workstream (#480 and successors):** adopt the receipts and the
   identity and provenance fixes listed in `COLLECTOR_HANDOFF.md`.

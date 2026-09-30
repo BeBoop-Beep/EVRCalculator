@@ -3,6 +3,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "activityGenerationId": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/Uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "asks": {
       "$ref": "common.schema.json#/$defs/Asks"
     },
@@ -13,7 +23,7 @@
       "$ref": "common.schema.json#/$defs/Capabilities"
     },
     "contractVersion": {
-      "const": "market_activity_v1"
+      "const": "market_activity_v1.1"
     },
     "evaluatedAt": {
       "$ref": "common.schema.json#/$defs/DateTime"
@@ -107,6 +117,9 @@
               },
               "type": "object"
             },
+            "observation": {
+              "$ref": "common.schema.json#/$defs/Observation"
+            },
             "source": {
               "const": "pkmnprices_ebay_sold"
             },
@@ -127,10 +140,21 @@
             "currency",
             "conditionBasis",
             "tier",
+            "observation",
             "windows",
             "excludedRecordCounts"
           ],
           "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "series": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/InstrumentSeries"
         },
         {
           "type": "null"
@@ -148,6 +172,7 @@
     "policy",
     "request",
     "evaluatedAt",
+    "activityGenerationId",
     "availability",
     "evidenceFingerprint",
     "instrument",
@@ -155,6 +180,7 @@
     "sales",
     "asks",
     "peers",
+    "series",
     "capabilities"
   ],
   "title": "instrument_detail_response",

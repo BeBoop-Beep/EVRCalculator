@@ -294,17 +294,24 @@ def _page(i, hi, lo, rows=20, more=True, fp="f1"):
 
 
 def _walk(pages, stream="COMBINED", reconciled="2026-09-30T06:00:00Z", **extra):
-    walk = {"stream": stream, "combinedSemanticsVerified": True, "sort": "date_desc", "startedFromHead": True,
-            "filterFingerprint": "f1", "pages": pages,
-            "rightEdge": {"completed": reconciled is not None, "reconciledThrough": reconciled}}
+    # FMA-0.1 (window readiness v2): receipts are bound to a provider card and a
+    # committed collection run, and the right edge is bound to the same walk.
+    walk = {"walkId": "w1", "providerCardId": "1", "collectionRunId": "r1", "committed": True,
+            "stream": stream, "combinedSemanticsVerified": True, "graderFilter": None, "gradeFilter": None,
+            "sort": "date_desc", "startedFromHead": True, "filterFingerprint": "f1", "pages": pages}
     walk.update(extra)
+    walk["rightEdge"] = None if reconciled is None else {
+        "completed": True, "reconciledThrough": reconciled, "providerCardId": walk["providerCardId"],
+        "stream": walk["stream"], "filterFingerprint": walk["filterFingerprint"],
+        "graderFilter": walk["graderFilter"], "gradeFilter": walk["gradeFilter"], "headWalkId": walk["walkId"],
+        "collectionRunId": walk["collectionRunId"], "committed": True}
     return walk
 
 
 def _eval(walk, days=30, grading=RAW, ingested=(), now=NOW):
     start, end = ma.closed_window("2026-09-29", days)
     return ma.evaluate_walk_for_window(walk, window_start=start, window_end=end, grading=grading,
-                                       evaluated_at=now, window_ingested_ats=list(ingested))
+                                       evaluated_at=now, provider_card_id="1", window_ingested_ats=list(ingested))
 
 
 def test_closed_windows_have_explicit_inclusive_dates():
@@ -392,7 +399,8 @@ def test_best_readiness_prefers_proof_deterministically():
     good = _walk([_page(0, "2026-09-29", "2026-08-01")])
     bad = _walk([_page(0, "2026-09-29", "2026-09-20")])
     start, end = ma.closed_window("2026-09-29", 30)
-    best = ma.best_window_readiness([bad, good], window_start=start, window_end=end, grading=RAW, evaluated_at=NOW)
+    best = ma.best_window_readiness([bad, good], window_start=start, window_end=end, grading=RAW, evaluated_at=NOW,
+                                    provider_card_id="1")
     assert best.state == "PROVEN"
     assert ma.best_window_readiness([], window_start=start, window_end=end, grading=RAW,
                                     evaluated_at=NOW).state == "NOT_COLLECTED"
@@ -453,7 +461,12 @@ def test_null_future_mixed_and_repeated_confirmations():
     assert mixed["providerConfirmedAt"] == "2026-09-29T08:00:00Z"   # oldest valid wins
     assert {"SOURCE_CONFIRMATION_MIXED", "SOURCE_CONFIRMATION_MISSING",
             "SOURCE_CONFIRMATION_IN_FUTURE"} <= set(mixed["reasons"])
-    assert mixed["capturedListingCount"] == 3                      # future offer excluded
+    # FMA-0.1 F3 (supply v2): the FMA-0 expectation here was 3, which counted
+    # the null-confirmation offer toward depth -- the reviewed defect. Only the
+    # two confirmed offers count; the null and future offers are reported
+    # separately and never set current depth.
+    assert mixed["capturedListingCount"] == 2
+    assert mixed["unconfirmedOffers"]["count"] == 1 and mixed["unconfirmedOffers"]["futureCount"] == 1
     repeated = ma.evaluate_supply_snapshot(_snap([_offer()]), evaluated_at=NOW,
                                            previous_confirmation="2026-09-30T08:00:00Z")
     assert "SOURCE_CONFIRMATION_REPEATED" in repeated["reasons"]
@@ -558,7 +571,9 @@ def test_price_summary_thresholds_and_even_median():
     assert even["low"]["amount"] == "1.00" and even["high"]["amount"] == "6.01"
 
 
-KEY = ma.peer_population_key(window_days=30, source=ma.SOLD_SOURCE, currency="USD", tier="RAW", coverage="PROVEN")
+KEY = ma.peer_population_key(window_start="2026-08-31", window_end="2026-09-29", source=ma.SOLD_SOURCE,
+                             currency="USD", tier="RAW", coverage="PROVEN",
+                             scope_key=f"RESEARCH_PANEL:{ma.RESEARCH_PANEL_ID}@fixture-cohort")
 
 
 def _peer_rows(values, key=KEY):

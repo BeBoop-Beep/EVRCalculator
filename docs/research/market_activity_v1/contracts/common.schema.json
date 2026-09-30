@@ -1,5 +1,29 @@
 {
   "$defs": {
+    "AskPricePoint": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/LowestAskBasis"
+        },
+        "date": {
+          "$ref": "#/$defs/Date"
+        },
+        "price": {
+          "$ref": "#/$defs/Money"
+        },
+        "providerConfirmedAt": {
+          "$ref": "#/$defs/DateTime"
+        }
+      },
+      "required": [
+        "date",
+        "providerConfirmedAt",
+        "basis",
+        "price"
+      ],
+      "type": "object"
+    },
     "AskState": {
       "enum": [
         "NOT_COLLECTED",
@@ -7,6 +31,7 @@
         "CONFIRMATION_MISSING",
         "CONFIRMATION_INVALID",
         "STALE",
+        "PARTIALLY_CONFIRMED",
         "FRESH",
         "ZERO_PROVEN",
         "ZERO_UNPROVEN"
@@ -23,26 +48,7 @@
             "capturedQuantity": {
               "anyOf": [
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "provenance": {
-                      "enum": [
-                        "PROVEN",
-                        "EXPLICIT",
-                        "DEFAULTED_LOWER_BOUND",
-                        "LEGACY_UNVERIFIED"
-                      ]
-                    },
-                    "value": {
-                      "minimum": 0,
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "value",
-                    "provenance"
-                  ],
-                  "type": "object"
+                  "$ref": "#/$defs/CapturedQuantity"
                 },
                 {
                   "type": "null"
@@ -72,15 +78,25 @@
                 }
               ]
             },
+            "currentUntil": {
+              "$ref": "#/$defs/NullableDateTime"
+            },
             "depth": {
               "enum": [
                 "LOWER_BOUND",
                 "COMPLETE_AT_SOURCE",
+                "UNKNOWN",
                 null
               ]
             },
             "lowestAsk": {
               "$ref": "#/$defs/LowestAsk"
+            },
+            "offerQualification": {
+              "enum": [
+                "CURRENT",
+                "NOT_CURRENT"
+              ]
             },
             "providerConfirmedAt": {
               "anyOf": [
@@ -100,6 +116,43 @@
             },
             "state": {
               "$ref": "#/$defs/AskState"
+            },
+            "unconfirmedOffers": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capturedQuantity": {
+                      "$ref": "#/$defs/CapturedQuantity"
+                    },
+                    "count": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "futureCount": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "lowestAsk": {
+                      "$ref": "#/$defs/LowestAsk"
+                    },
+                    "reasons": {
+                      "$ref": "#/$defs/ReasonList"
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "futureCount",
+                    "capturedQuantity",
+                    "lowestAsk",
+                    "reasons"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
@@ -109,11 +162,14 @@
             "reasons",
             "providerConfirmedAt",
             "confirmationAgeHours",
+            "currentUntil",
             "collectedAt",
+            "offerQualification",
             "capturedListingCount",
             "capturedQuantity",
             "depth",
-            "lowestAsk"
+            "lowestAsk",
+            "unconfirmedOffers"
           ],
           "type": "object"
         },
@@ -149,15 +205,18 @@
           "$ref": "#/$defs/Capability"
         },
         "askDepth": {
-          "$ref": "#/$defs/Capability"
+          "$ref": "#/$defs/ExpiringCapability"
         },
         "currentAsks": {
-          "$ref": "#/$defs/Capability"
+          "$ref": "#/$defs/ExpiringCapability"
         },
         "inferredSalesFromListings": {
           "$ref": "#/$defs/Capability"
         },
         "landedAsk": {
+          "$ref": "#/$defs/ExpiringCapability"
+        },
+        "observedSales": {
           "$ref": "#/$defs/Capability"
         },
         "saleCount": {
@@ -172,6 +231,7 @@
       },
       "required": [
         "saleCount",
+        "observedSales",
         "salePriceSummary",
         "activityPercentile",
         "currentAsks",
@@ -198,9 +258,51 @@
       ],
       "type": "object"
     },
+    "CapturedQuantity": {
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "enum": [
+            "PROVEN",
+            "EXPLICIT",
+            "DEFAULTED_LOWER_BOUND",
+            "LEGACY_UNVERIFIED"
+          ]
+        },
+        "value": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "value",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "Cursor": {
+      "pattern": "^fmac1\\.[0-9a-f]+\\.[0-9a-f]{16}$",
+      "type": "string"
+    },
     "Date": {
       "format": "date",
       "type": "string"
+    },
+    "DateRange": {
+      "additionalProperties": false,
+      "properties": {
+        "endDate": {
+          "$ref": "#/$defs/Date"
+        },
+        "startDate": {
+          "$ref": "#/$defs/Date"
+        }
+      },
+      "required": [
+        "startDate",
+        "endDate"
+      ],
+      "type": "object"
     },
     "DateTime": {
       "format": "date-time",
@@ -209,6 +311,26 @@
     "DecimalString": {
       "pattern": "^-?\\d+\\.\\d$",
       "type": "string"
+    },
+    "ExpiringCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/NullableDateTime"
+        },
+        "reasons": {
+          "$ref": "#/$defs/ReasonList"
+        }
+      },
+      "required": [
+        "available",
+        "reasons",
+        "expiresAt"
+      ],
+      "type": "object"
     },
     "Fingerprint": {
       "pattern": "^[0-9a-f]{64}$",
@@ -257,9 +379,431 @@
       ],
       "type": "object"
     },
+    "GroupSaleCountPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "contributingConstituents": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "date": {
+          "$ref": "#/$defs/Date"
+        },
+        "observedCount": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "proofState": {
+          "$ref": "#/$defs/ProofState"
+        },
+        "provenConstituents": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "date",
+        "observedCount",
+        "contributingConstituents",
+        "provenConstituents",
+        "proofState"
+      ],
+      "type": "object"
+    },
+    "GroupSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "activityRange": {
+          "$ref": "#/$defs/DateRange"
+        },
+        "asOf": {
+          "$ref": "#/$defs/Date"
+        },
+        "canonicalRange": {
+          "$ref": "#/$defs/NullableDateRange"
+        },
+        "outsideActivityRange": {
+          "const": "NOT_COLLECTED"
+        },
+        "rosterDenominator": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sales": {
+          "additionalProperties": false,
+          "properties": {
+            "conditionBasis": {
+              "const": "UNKNOWN_CONDITION"
+            },
+            "counts": {
+              "additionalProperties": false,
+              "properties": {
+                "points": {
+                  "items": {
+                    "$ref": "#/$defs/GroupSaleCountPoint"
+                  },
+                  "type": "array"
+                },
+                "unit": {
+                  "const": "SALE_COUNT"
+                }
+              },
+              "required": [
+                "unit",
+                "points"
+              ],
+              "type": "object"
+            },
+            "provenSpan": {
+              "$ref": "#/$defs/NullableDateRange"
+            },
+            "source": {
+              "const": "pkmnprices_ebay_sold"
+            },
+            "tier": {
+              "const": "RAW"
+            }
+          },
+          "required": [
+            "source",
+            "conditionBasis",
+            "tier",
+            "provenSpan",
+            "counts"
+          ],
+          "type": "object"
+        },
+        "storage": {
+          "const": "SPARSE_DAILY"
+        },
+        "supply": {
+          "additionalProperties": false,
+          "properties": {
+            "aggregation": {
+              "const": "LOWER_BOUND_SUM_OF_CONFIRMED_CONSTITUENT_SNAPSHOTS"
+            },
+            "conditionBasis": {
+              "const": "NEAR_MINT_LISTED"
+            },
+            "listings": {
+              "additionalProperties": false,
+              "properties": {
+                "points": {
+                  "items": {
+                    "$ref": "#/$defs/GroupSupplyPoint"
+                  },
+                  "type": "array"
+                },
+                "unit": {
+                  "const": "LISTING_COUNT"
+                }
+              },
+              "required": [
+                "unit",
+                "points"
+              ],
+              "type": "object"
+            },
+            "quantity": {
+              "additionalProperties": false,
+              "properties": {
+                "points": {
+                  "items": {
+                    "$ref": "#/$defs/GroupSupplyPoint"
+                  },
+                  "type": "array"
+                },
+                "unit": {
+                  "const": "LISTED_QUANTITY"
+                }
+              },
+              "required": [
+                "unit",
+                "points"
+              ],
+              "type": "object"
+            },
+            "source": {
+              "const": "pkmnprices_tcgplayer_listings"
+            }
+          },
+          "required": [
+            "source",
+            "conditionBasis",
+            "aggregation",
+            "listings",
+            "quantity"
+          ],
+          "type": "object"
+        },
+        "version": {
+          "const": "fma_activity_series_v1"
+        },
+        "zeroRule": {
+          "const": "ABSENT_DATE_IS_ZERO_ONLY_INSIDE_PROVEN_SPAN"
+        }
+      },
+      "required": [
+        "version",
+        "storage",
+        "asOf",
+        "zeroRule",
+        "outsideActivityRange",
+        "canonicalRange",
+        "activityRange",
+        "rosterDenominator",
+        "sales",
+        "supply"
+      ],
+      "type": "object"
+    },
+    "GroupSupplyPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "contributingConstituents": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "date": {
+          "$ref": "#/$defs/Date"
+        },
+        "value": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "date",
+        "value",
+        "contributingConstituents"
+      ],
+      "type": "object"
+    },
     "InstrumentKey": {
       "pattern": "^card:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:(raw|graded:[A-Z]+:[A-Za-z0-9.%]+:[A-Za-z0-9.%-]+)$",
       "type": "string"
+    },
+    "InstrumentSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "activityRange": {
+          "$ref": "#/$defs/DateRange"
+        },
+        "asOf": {
+          "$ref": "#/$defs/Date"
+        },
+        "canonicalRange": {
+          "$ref": "#/$defs/NullableDateRange"
+        },
+        "outsideActivityRange": {
+          "const": "NOT_COLLECTED"
+        },
+        "sales": {
+          "additionalProperties": false,
+          "properties": {
+            "conditionBasis": {
+              "const": "UNKNOWN_CONDITION"
+            },
+            "counts": {
+              "additionalProperties": false,
+              "properties": {
+                "points": {
+                  "items": {
+                    "$ref": "#/$defs/SaleCountPoint"
+                  },
+                  "type": "array"
+                },
+                "unit": {
+                  "const": "SALE_COUNT"
+                }
+              },
+              "required": [
+                "unit",
+                "points"
+              ],
+              "type": "object"
+            },
+            "currency": {
+              "const": "USD"
+            },
+            "observationState": {
+              "enum": [
+                "OBSERVED",
+                "NOT_COLLECTED"
+              ]
+            },
+            "prices": {
+              "additionalProperties": false,
+              "properties": {
+                "points": {
+                  "items": {
+                    "$ref": "#/$defs/SalePricePoint"
+                  },
+                  "type": "array"
+                },
+                "unit": {
+                  "const": "USD"
+                }
+              },
+              "required": [
+                "unit",
+                "points"
+              ],
+              "type": "object"
+            },
+            "provenSpan": {
+              "$ref": "#/$defs/NullableDateRange"
+            },
+            "reconciledThrough": {
+              "$ref": "#/$defs/NullableDateTime"
+            },
+            "source": {
+              "const": "pkmnprices_ebay_sold"
+            },
+            "tier": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source",
+            "conditionBasis",
+            "currency",
+            "tier",
+            "observationState",
+            "provenSpan",
+            "reconciledThrough",
+            "counts",
+            "prices"
+          ],
+          "type": "object"
+        },
+        "storage": {
+          "const": "SPARSE_DAILY"
+        },
+        "supply": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "conditionBasis": {
+                  "const": "NEAR_MINT_LISTED"
+                },
+                "excludedSnapshots": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "byStateAtCollection": {
+                      "additionalProperties": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "type": "object"
+                    },
+                    "outsideActivityRange": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "byStateAtCollection",
+                    "outsideActivityRange"
+                  ],
+                  "type": "object"
+                },
+                "listings": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "points": {
+                      "items": {
+                        "$ref": "#/$defs/SupplyListingPoint"
+                      },
+                      "type": "array"
+                    },
+                    "unit": {
+                      "const": "LISTING_COUNT"
+                    }
+                  },
+                  "required": [
+                    "unit",
+                    "points"
+                  ],
+                  "type": "object"
+                },
+                "lowestAsk": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "points": {
+                      "items": {
+                        "$ref": "#/$defs/AskPricePoint"
+                      },
+                      "type": "array"
+                    },
+                    "unit": {
+                      "const": "USD"
+                    }
+                  },
+                  "required": [
+                    "unit",
+                    "points"
+                  ],
+                  "type": "object"
+                },
+                "quantity": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "points": {
+                      "items": {
+                        "$ref": "#/$defs/SupplyQuantityPoint"
+                      },
+                      "type": "array"
+                    },
+                    "unit": {
+                      "const": "LISTED_QUANTITY"
+                    }
+                  },
+                  "required": [
+                    "unit",
+                    "points"
+                  ],
+                  "type": "object"
+                },
+                "source": {
+                  "const": "pkmnprices_tcgplayer_listings"
+                }
+              },
+              "required": [
+                "source",
+                "conditionBasis",
+                "excludedSnapshots",
+                "listings",
+                "quantity",
+                "lowestAsk"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "const": "fma_activity_series_v1"
+        },
+        "zeroRule": {
+          "const": "ABSENT_DATE_IS_ZERO_ONLY_INSIDE_PROVEN_SPAN"
+        }
+      },
+      "required": [
+        "version",
+        "storage",
+        "asOf",
+        "zeroRule",
+        "outsideActivityRange",
+        "canonicalRange",
+        "activityRange",
+        "sales",
+        "supply"
+      ],
+      "type": "object"
     },
     "LowestAsk": {
       "anyOf": [
@@ -267,11 +811,7 @@
           "additionalProperties": false,
           "properties": {
             "basis": {
-              "enum": [
-                "LANDED_PROVEN",
-                "ITEM_ONLY",
-                "ITEM_ONLY_LEGACY_UNVERIFIED"
-              ]
+              "$ref": "#/$defs/LowestAskBasis"
             },
             "price": {
               "$ref": "#/$defs/Money"
@@ -286,6 +826,13 @@
         {
           "type": "null"
         }
+      ]
+    },
+    "LowestAskBasis": {
+      "enum": [
+        "LANDED_PROVEN",
+        "ITEM_ONLY",
+        "ITEM_ONLY_LEGACY_UNVERIFIED"
       ]
     },
     "Money": {
@@ -312,6 +859,26 @@
         "null"
       ]
     },
+    "NullableDateRange": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DateRange"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "NullableDateTime": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DateTime"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "NullableMoney": {
       "anyOf": [
         {
@@ -321,6 +888,70 @@
           "type": "null"
         }
       ]
+    },
+    "Observation": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "enum": [
+            "WALK_RECEIPT",
+            "COLLECTION_RECORD",
+            "STORED_ROWS",
+            null
+          ]
+        },
+        "reasons": {
+          "$ref": "#/$defs/ReasonList"
+        },
+        "state": {
+          "enum": [
+            "OBSERVED",
+            "NOT_COLLECTED"
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "basis",
+        "reasons"
+      ],
+      "type": "object"
+    },
+    "PeerScope": {
+      "additionalProperties": false,
+      "properties": {
+        "claimsAllPokemon": {
+          "const": false
+        },
+        "cohortRevision": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "RESEARCH_PANEL",
+            "MARKET_ROSTER"
+          ]
+        },
+        "scopeId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "scopeLabel": {
+          "enum": [
+            "Core Panel V1 research panel (modern, price-balanced)",
+            "Current constituents of this market"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "scopeId",
+        "scopeLabel",
+        "cohortRevision",
+        "claimsAllPokemon"
+      ],
+      "type": "object"
     },
     "Peers": {
       "anyOf": [
@@ -340,6 +971,10 @@
             "claimsAllPokemon": {
               "const": false
             },
+            "duplicatePeerRowCount": {
+              "minimum": 0,
+              "type": "integer"
+            },
             "eligibleOtherPeerCount": {
               "minimum": 0,
               "type": "integer"
@@ -350,11 +985,28 @@
             "populationKey": {
               "type": "string"
             },
+            "quarantinedPeerCount": {
+              "minimum": 0,
+              "type": "integer"
+            },
             "reasons": {
               "$ref": "#/$defs/ReasonList"
             },
+            "scope": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PeerScope"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "scopeLabel": {
-              "const": "Core Panel V1 research panel (modern, price-balanced)"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "state": {
               "enum": [
@@ -390,9 +1042,12 @@
             "state",
             "reasons",
             "eligibleOtherPeerCount",
+            "quarantinedPeerCount",
+            "duplicatePeerRowCount",
             "activityPercentile",
             "strictBelowPct",
             "tieCount",
+            "scope",
             "scopeLabel",
             "claimsAllPokemon"
           ],
@@ -449,6 +1104,12 @@
         {
           "additionalProperties": false,
           "properties": {
+            "basis": {
+              "enum": [
+                "PROVEN_WINDOW",
+                "OBSERVED_ONLY"
+              ]
+            },
             "high": {
               "$ref": "#/$defs/NullableMoney"
             },
@@ -475,6 +1136,7 @@
           },
           "required": [
             "state",
+            "basis",
             "reasons",
             "recordCount",
             "median",
@@ -488,12 +1150,24 @@
         }
       ]
     },
+    "ProofState": {
+      "enum": [
+        "PROVEN",
+        "OBSERVED_ONLY"
+      ]
+    },
     "ReasonCode": {
       "enum": [
         "UNSUPPORTED_ASSET",
         "GENERATION_MISMATCH",
+        "ACTIVITY_GENERATION_MISMATCH",
+        "ACTIVITY_GENERATION_EXPIRED",
         "ROSTER_REVISION_UNSTABLE",
         "QUERY_FINGERPRINT_IS_NOT_A_REVISION",
+        "ROSTER_REVISION_MISMATCH",
+        "ROSTER_INTEGRITY_VIOLATION",
+        "CURSOR_INVALID",
+        "CURSOR_MISMATCH",
         "INSTRUMENT_NOT_IN_ROSTER",
         "INVALID_INSTRUMENT_KEY",
         "ATTRIBUTION_MISSING",
@@ -517,7 +1191,11 @@
         "EVIDENCE_CONFLICT",
         "INVALID_EVIDENCE_ROW",
         "NOT_COLLECTED",
+        "COMPLETENESS_RECEIPT_MISSING",
         "SYNC_STATUS_NOT_PROOF",
+        "WALK_RECEIPT_MALFORMED",
+        "WALK_PAGINATION_UNKNOWN",
+        "WALK_BINDING_MISMATCH",
         "WALK_SORT_NOT_DATE_DESC",
         "WALK_HEAD_UNKNOWN",
         "WALK_CURSOR_CHAIN_BROKEN",
@@ -528,6 +1206,9 @@
         "LOWER_BOUNDARY_NOT_REACHED",
         "BOUNDARY_DATE_PARTIALLY_FETCHED",
         "RIGHT_EDGE_UNRECONCILED",
+        "RIGHT_EDGE_INVALID",
+        "RIGHT_EDGE_IN_FUTURE",
+        "RIGHT_EDGE_BINDING_MISMATCH",
         "RIGHT_EDGE_DAY_OPEN",
         "RIGHT_EDGE_STALE",
         "LATE_INGESTION_AFTER_RECONCILIATION",
@@ -538,8 +1219,11 @@
         "SOURCE_CONFIRMATION_IN_FUTURE",
         "SOURCE_CONFIRMATION_MIXED",
         "SOURCE_CONFIRMATION_REPEATED",
+        "UNCONFIRMED_OFFERS_EXCLUDED",
         "ASKS_STALE",
         "EMPTY_WITHOUT_SOURCE_FRESHNESS",
+        "SUPPLY_PAGINATION_UNKNOWN",
+        "SUPPLY_PAGINATION_CONTRADICTORY",
         "DEPTH_TRUNCATED",
         "SHIPPING_UNKNOWN",
         "SHIPPING_LEGACY_UNVERIFIED",
@@ -573,7 +1257,7 @@
               "const": "Activity for current constituents"
             },
             "membershipContractVersion": {
-              "const": "fma_membership_v1"
+              "const": "fma_membership_v2"
             },
             "membershipMode": {
               "const": "CURRENT_ROSTER_RETROSPECTIVE"
@@ -654,6 +1338,71 @@
         }
       ]
     },
+    "SaleCountPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "$ref": "#/$defs/Date"
+        },
+        "firstIngestedAt": {
+          "$ref": "#/$defs/NullableDateTime"
+        },
+        "ingestedAfterReconciliation": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "lastIngestedAt": {
+          "$ref": "#/$defs/NullableDateTime"
+        },
+        "observedCount": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "proofState": {
+          "$ref": "#/$defs/ProofState"
+        }
+      },
+      "required": [
+        "date",
+        "observedCount",
+        "proofState",
+        "firstIngestedAt",
+        "lastIngestedAt",
+        "ingestedAfterReconciliation"
+      ],
+      "type": "object"
+    },
+    "SalePricePoint": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "$ref": "#/$defs/Date"
+        },
+        "high": {
+          "$ref": "#/$defs/Money"
+        },
+        "low": {
+          "$ref": "#/$defs/Money"
+        },
+        "median": {
+          "$ref": "#/$defs/Money"
+        },
+        "recordCount": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "date",
+        "recordCount",
+        "low",
+        "median",
+        "high"
+      ],
+      "type": "object"
+    },
     "SalesWindow": {
       "additionalProperties": false,
       "properties": {
@@ -690,6 +1439,88 @@
       ],
       "type": "object"
     },
+    "SupplyListingPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "collectionCount": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "confirmationsOnDate": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "date": {
+          "$ref": "#/$defs/Date"
+        },
+        "depth": {
+          "enum": [
+            "LOWER_BOUND",
+            "COMPLETE_AT_SOURCE",
+            "UNKNOWN",
+            null
+          ]
+        },
+        "firstCollectedAt": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "lastCollectedAt": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "providerConfirmedAt": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "stateAtCollection": {
+          "$ref": "#/$defs/AskState"
+        },
+        "value": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "date",
+        "providerConfirmedAt",
+        "firstCollectedAt",
+        "lastCollectedAt",
+        "collectionCount",
+        "confirmationsOnDate",
+        "stateAtCollection",
+        "depth",
+        "value"
+      ],
+      "type": "object"
+    },
+    "SupplyQuantityPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "$ref": "#/$defs/Date"
+        },
+        "provenance": {
+          "enum": [
+            "PROVEN",
+            "EXPLICIT",
+            "DEFAULTED_LOWER_BOUND",
+            "LEGACY_UNVERIFIED"
+          ]
+        },
+        "providerConfirmedAt": {
+          "$ref": "#/$defs/DateTime"
+        },
+        "value": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "date",
+        "providerConfirmedAt",
+        "provenance",
+        "value"
+      ],
+      "type": "object"
+    },
     "Uuid": {
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "type": "string"
@@ -698,6 +1529,9 @@
       "additionalProperties": false,
       "properties": {
         "contract": {
+          "type": "string"
+        },
+        "cursor": {
           "type": "string"
         },
         "domain": {
@@ -712,7 +1546,16 @@
         "membership": {
           "type": "string"
         },
+        "observation": {
+          "type": "string"
+        },
+        "peerPopulation": {
+          "type": "string"
+        },
         "qualifierRegistry": {
+          "type": "string"
+        },
+        "series": {
           "type": "string"
         },
         "supplyProvenance": {
@@ -731,10 +1574,14 @@
         "identity",
         "grading",
         "qualifierRegistry",
+        "observation",
         "windowReadiness",
         "supplyProvenance",
+        "series",
         "tiePolicy",
-        "membership"
+        "peerPopulation",
+        "membership",
+        "cursor"
       ],
       "type": "object"
     },

@@ -3,11 +3,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "activityGenerationId": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/Uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "availability": {
       "$ref": "common.schema.json#/$defs/Availability"
     },
     "contractVersion": {
-      "const": "market_activity_v1"
+      "const": "market_activity_v1.1"
     },
     "coverage": {
       "anyOf": [
@@ -75,6 +85,16 @@
     "roster": {
       "$ref": "common.schema.json#/$defs/Roster"
     },
+    "series": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/GroupSeries"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "totals": {
       "anyOf": [
         {
@@ -123,12 +143,14 @@
     "policy",
     "request",
     "evaluatedAt",
+    "activityGenerationId",
     "availability",
     "evidenceFingerprint",
     "label",
     "roster",
     "coverage",
-    "totals"
+    "totals",
+    "series"
   ],
   "title": "activity_response",
   "type": "object"

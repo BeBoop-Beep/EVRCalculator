@@ -1,19 +1,20 @@
 {
   "assembler": "constituent_page",
-  "description": "Rank-ordered page over the full 3-member roster, limit 2, with a next cursor.",
+  "description": "Rank-ordered first page over the full 3-member roster, limit 2, opaque next cursor.",
   "expected": {
+    "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
     "availability": {
       "reasons": [],
       "state": "AVAILABLE"
     },
-    "contractVersion": "market_activity_v1",
+    "contractVersion": "market_activity_v1.1",
     "evaluatedAt": "2026-09-30T12:00:00Z",
-    "evidenceFingerprint": "2a58058808c9830e7594b33fbcc27ae5ed876512902272b703117569f1362477",
+    "evidenceFingerprint": "a45c1d751aea30a11a7797a796427e4e5f1638fa3b54a559b7432fee2e42da46",
     "kind": "constituentActivityPage",
     "page": {
       "afterRank": 0,
       "limit": 2,
-      "nextCursor": 2,
+      "nextCursor": "fmac1.7b2261223a2237633164326533662d346135622d346336642d386537662d306131623263336434653566222c2264223a22323032362d30392d3239222c226b223a322c226d223a227365743a666978747572652d6d6f6465726e2d736574222c2272223a2239623066663938326137666230643362653461366263303432356534613830343431643863363936623236623235376565323534666230633263356634326563222c2276223a22666d615f637572736f725f7631222c2277223a33307d.05340c20f1e5f5da",
       "totalCount": 3
     },
     "policy": {
@@ -26,16 +27,21 @@
       "version": "fma_display_policy_v1"
     },
     "request": {
-      "afterRank": 0,
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
       "asOf": "2026-09-29",
-      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "cursor": null,
       "limit": 2,
       "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
       "windowDays": 30
     },
     "roster": {
       "label": "Activity for current constituents",
-      "membershipContractVersion": "fma_membership_v1",
+      "membershipContractVersion": "fma_membership_v2",
       "membershipMode": "CURRENT_ROSTER_RETROSPECTIVE",
       "rosterAsOf": "2026-09-29",
       "rosterDenominator": 3,
@@ -54,6 +60,11 @@
         },
         "capabilities": {
           "currentAsks": {
+            "available": true,
+            "expiresAt": "2026-10-01T08:00:00Z",
+            "reasons": []
+          },
+          "observedSales": {
             "available": true,
             "reasons": []
           },
@@ -79,6 +90,7 @@
           "amount": "40.25",
           "currency": "USD"
         },
+        "observationState": "OBSERVED",
         "observedCount": 8,
         "provenCount": 8,
         "rank": 1,
@@ -97,9 +109,14 @@
         "capabilities": {
           "currentAsks": {
             "available": false,
+            "expiresAt": null,
             "reasons": [
               "NOT_COLLECTED"
             ]
+          },
+          "observedSales": {
+            "available": true,
+            "reasons": []
           },
           "saleCount": {
             "available": false,
@@ -120,6 +137,7 @@
         "instrumentKey": "card:00000000-0000-4000-8000-0000000000b1:raw",
         "lowestAsk": null,
         "medianPrice": null,
+        "observationState": "OBSERVED",
         "observedCount": 2,
         "provenCount": null,
         "rank": 2,
@@ -127,25 +145,139 @@
       }
     ],
     "versions": {
-      "contract": "market_activity_v1",
-      "domain": "market_activity_domain_v1.0.0",
+      "contract": "market_activity_v1.1",
+      "cursor": "fma_cursor_v1",
+      "domain": "market_activity_domain_v1.1.0",
       "grading": "fma_grading_identity_v1",
       "identity": "fma_exact_identity_v1",
-      "membership": "fma_membership_v1",
+      "membership": "fma_membership_v2",
+      "observation": "fma_sold_observation_v1",
+      "peerPopulation": "fma_peer_population_v2",
       "qualifierRegistry": "fma_qualifier_registry_v1",
-      "supplyProvenance": "fma_supply_provenance_v1",
+      "series": "fma_activity_series_v1",
+      "supplyProvenance": "fma_supply_provenance_v2",
       "tiePolicy": "midrank_v1",
-      "windowReadiness": "fma_window_readiness_v1"
+      "windowReadiness": "fma_window_readiness_v2"
     }
   },
   "fixtureId": "fma_fixture_10",
   "inputs": {
+    "activityGeneration": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "state": "SERVING"
+    },
     "asset": "cards",
     "evaluatedAt": "2026-09-30T12:00:00Z",
     "members": [
       {
         "cardVariantId": "00000000-0000-4000-8000-0000000000a1",
         "detailInputs": {
+          "askHistory": [
+            {
+              "hasMore": true,
+              "observationState": "OBSERVED",
+              "observedAt": "2026-09-20T09:00:00Z",
+              "offers": [
+                {
+                  "itemPrice": "40.00",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-20T08:00:00Z",
+                  "quantity": 1,
+                  "quantityProvenance": "EXPLICIT",
+                  "shippingPrice": "0.00",
+                  "shippingProvenance": "EXPLICIT"
+                },
+                {
+                  "itemPrice": "41.50",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-20T08:00:00Z",
+                  "quantity": 2,
+                  "quantityProvenance": "EXPLICIT",
+                  "shippingPrice": "1.50",
+                  "shippingProvenance": "EXPLICIT"
+                },
+                {
+                  "itemPrice": "43.00",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-20T08:00:00Z",
+                  "quantity": 1,
+                  "quantityProvenance": "EXPLICIT",
+                  "shippingPrice": "0.00",
+                  "shippingProvenance": "EXPLICIT"
+                }
+              ],
+              "requestedDepth": 19,
+              "sourceConfirmedAt": null
+            },
+            {
+              "hasMore": true,
+              "observationState": "OBSERVED",
+              "observedAt": "2026-09-21T09:00:00Z",
+              "offers": [
+                {
+                  "itemPrice": "40.00",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-20T08:00:00Z",
+                  "quantity": 1,
+                  "quantityProvenance": "EXPLICIT",
+                  "shippingPrice": "0.00",
+                  "shippingProvenance": "EXPLICIT"
+                },
+                {
+                  "itemPrice": "41.50",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-20T08:00:00Z",
+                  "quantity": 2,
+                  "quantityProvenance": "EXPLICIT",
+                  "shippingPrice": "1.50",
+                  "shippingProvenance": "EXPLICIT"
+                },
+                {
+                  "itemPrice": "43.00",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-20T08:00:00Z",
+                  "quantity": 1,
+                  "quantityProvenance": "EXPLICIT",
+                  "shippingPrice": "0.00",
+                  "shippingProvenance": "EXPLICIT"
+                }
+              ],
+              "requestedDepth": 19,
+              "sourceConfirmedAt": null
+            },
+            {
+              "hasMore": false,
+              "observationState": "OBSERVED",
+              "observedAt": "2026-09-25T08:00:00Z",
+              "offers": [
+                {
+                  "itemPrice": "39.00",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-25T07:00:00Z",
+                  "quantity": 1,
+                  "quantityProvenance": "EXPLICIT",
+                  "shippingPrice": null,
+                  "shippingProvenance": "UNKNOWN"
+                },
+                {
+                  "itemPrice": "42.00",
+                  "listingUpdatedAt": null,
+                  "providerSnapshotAt": "2026-09-25T07:00:00Z",
+                  "quantity": 1,
+                  "quantityProvenance": "DEFAULTED",
+                  "shippingPrice": "0.00",
+                  "shippingProvenance": "EXPLICIT"
+                }
+              ],
+              "requestedDepth": 19,
+              "sourceConfirmedAt": null
+            }
+          ],
           "asks": {
             "hasMore": true,
             "observationState": "OBSERVED",
@@ -200,6 +332,8 @@
                 "specialType": null
               }
             ],
+            "collectionRecord": null,
+            "providerCardId": "900001",
             "records": [
               {
                 "attribution": "exact",
@@ -456,12 +590,32 @@
                 "providerVariant": null,
                 "soldAt": "2026-09-22",
                 "source": "pkmnprices_ebay_sold"
+              },
+              {
+                "attribution": "exact",
+                "collectedAt": "2026-09-30T05:00:00Z",
+                "currency": "USD",
+                "grade": null,
+                "gradeQualifier": null,
+                "graded": false,
+                "grader": null,
+                "ingestedAt": "2026-09-24T01:00:00Z",
+                "listingId": "700015",
+                "price": "not-a-price",
+                "providerCardId": "900001",
+                "providerVariant": "Holofoil",
+                "soldAt": "2026-09-23",
+                "source": "pkmnprices_ebay_sold"
               }
             ],
             "walks": [
               {
+                "collectionRunId": "run-fixture-20260930",
                 "combinedSemanticsVerified": true,
+                "committed": true,
                 "filterFingerprint": "f-combined",
+                "gradeFilter": null,
+                "graderFilter": null,
                 "pages": [
                   {
                     "fetchedAt": "2026-09-30T05:00:00Z",
@@ -486,13 +640,23 @@
                     "rowCount": 20
                   }
                 ],
+                "providerCardId": "900001",
                 "rightEdge": {
+                  "collectionRunId": "run-fixture-20260930",
+                  "committed": true,
                   "completed": true,
-                  "reconciledThrough": "2026-09-30T06:00:00Z"
+                  "filterFingerprint": "f-combined",
+                  "gradeFilter": null,
+                  "graderFilter": null,
+                  "headWalkId": "walk-900001-full",
+                  "providerCardId": "900001",
+                  "reconciledThrough": "2026-09-30T06:00:00Z",
+                  "stream": "COMBINED"
                 },
                 "sort": "date_desc",
                 "startedFromHead": true,
-                "stream": "COMBINED"
+                "stream": "COMBINED",
+                "walkId": "walk-900001-full"
               }
             ]
           }
@@ -515,6 +679,8 @@
                 "printingType": "holo"
               }
             ],
+            "collectionRecord": null,
+            "providerCardId": "900002",
             "records": [
               {
                 "attribution": "exact",
@@ -527,7 +693,7 @@
                 "ingestedAt": "2026-09-21T01:00:00Z",
                 "listingId": "700300",
                 "price": "5.00",
-                "providerCardId": "900001",
+                "providerCardId": "900002",
                 "providerVariant": "Holofoil",
                 "soldAt": "2026-09-20",
                 "source": "pkmnprices_ebay_sold"
@@ -543,7 +709,7 @@
                 "ingestedAt": "2026-09-13T01:00:00Z",
                 "listingId": "700301",
                 "price": "5.25",
-                "providerCardId": "900001",
+                "providerCardId": "900002",
                 "providerVariant": "Holofoil",
                 "soldAt": "2026-09-12",
                 "source": "pkmnprices_ebay_sold"
@@ -551,8 +717,12 @@
             ],
             "walks": [
               {
+                "collectionRunId": "run-fixture-20260930",
                 "combinedSemanticsVerified": true,
+                "committed": true,
                 "filterFingerprint": "f-combined",
+                "gradeFilter": null,
+                "graderFilter": null,
                 "pages": [
                   {
                     "fetchedAt": "2026-09-30T05:00:00Z",
@@ -566,13 +736,23 @@
                     "rowCount": 20
                   }
                 ],
+                "providerCardId": "900002",
                 "rightEdge": {
+                  "collectionRunId": "run-fixture-20260930",
+                  "committed": true,
                   "completed": true,
-                  "reconciledThrough": "2026-09-30T06:00:00Z"
+                  "filterFingerprint": "f-combined",
+                  "gradeFilter": null,
+                  "graderFilter": null,
+                  "headWalkId": "walk-900002-head",
+                  "providerCardId": "900002",
+                  "reconciledThrough": "2026-09-30T06:00:00Z",
+                  "stream": "COMBINED"
                 },
                 "sort": "date_desc",
                 "startedFromHead": true,
-                "stream": "COMBINED"
+                "stream": "COMBINED",
+                "walkId": "walk-900002-head"
               }
             ]
           }
@@ -589,6 +769,8 @@
           "sold": {
             "candidateScope": "FULL_CARD_VARIANT_SET",
             "candidates": [],
+            "collectionRecord": null,
+            "providerCardId": "900003",
             "records": [],
             "walks": []
           }
@@ -598,21 +780,21 @@
       }
     ],
     "request": {
-      "afterRank": 0,
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
       "asOf": "2026-09-29",
-      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "cursor": null,
       "limit": 2,
       "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
       "windowDays": 30
     },
     "roster": {
       "asOf": "2026-09-29",
-      "denominator": 3,
-      "revision": {
-        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
-        "kind": "SURFACE_V2_GENERATION",
-        "marketKey": "set:fixture-modern-set"
-      }
+      "denominator": 3
     },
     "servedGenerationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10"
   },

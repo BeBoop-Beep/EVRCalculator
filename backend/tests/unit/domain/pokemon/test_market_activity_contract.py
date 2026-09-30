@@ -48,7 +48,8 @@ def _fixture(entry):
 
 
 def test_contract_documents_exist():
-    for name in ("CONTRACT.md", "SCHEMA_DECISION.md", "COLLECTOR_HANDOFF.md", "FMA0_REPORT.md"):
+    for name in ("CONTRACT.md", "SCHEMA_DECISION.md", "COLLECTOR_HANDOFF.md", "FMA0_REPORT.md",
+                 "FMA0_REVIEW_CLOSURE.md"):
         assert (OUT / name).is_file(), name
 
 
@@ -73,6 +74,7 @@ def test_manifest_fingerprints_match_committed_files():
 @pytest.mark.parametrize("entry", MANIFEST["fixtures"], ids=lambda e: e["scenario"])
 def test_fixture_validates_and_is_reproduced_by_the_domain(entry, registry):
     fixture = _fixture(entry)
+    assert fixture["requestSchema"] == entry["requestSchema"]
     assert registry.validate(fixture["inputs"]["request"], entry["requestSchema"]) == []
     assert registry.validate(fixture["expected"], entry["responseSchema"]) == []
     assembler = gen.ASSEMBLERS[entry["assembler"]][0]
@@ -144,8 +146,36 @@ def test_fixture_states_match_their_scenarios():
     assert by["generation_mismatch"]["availability"]["reasons"] == ["GENERATION_MISMATCH"]
     assert by["generation_mismatch"]["sales"] is None
     page = by["constituent_page"]
-    assert page["page"] == {"afterRank": 0, "limit": 2, "totalCount": 3, "nextCursor": 2}
+    # FMA-0.1 F5: the FMA-0 expectation was ``"nextCursor": 2`` -- a bare rank
+    # integer, which is the reviewed defect (not revision-bound). The cursor is
+    # now opaque and bound to activity generation, roster ref, market, asOf
+    # and window.
+    assert {k: v for k, v in page["page"].items() if k != "nextCursor"} == {"afterRank": 0, "limit": 2,
+                                                                           "totalCount": 3}
+    assert ma.decode_cursor(page["page"]["nextCursor"])["k"] == 2
+    assert [r["rank"] for r in page["rows"]] == [1, 2]
     group = by["group_activity"]
     assert group["label"] == "Activity for current constituents"
     assert group["coverage"]["rosterDenominator"] == 3
     assert group["totals"]["provenSaleCount"] == 8
+    # FMA-0.1 fixtures
+    legacy = by["legacy_no_receipts"]
+    assert [w["observedCount"] for w in legacy["sales"]["windows"]] == [4, 8, 11, 12]
+    assert all(w["provenCount"] is None for w in legacy["sales"]["windows"])
+    assert legacy["capabilities"]["observedSales"]["available"] is True
+    assert legacy["capabilities"]["saleCount"]["available"] is False
+    assert legacy["peers"]["state"] == "UNAVAILABLE"
+    assert all(w["readiness"]["state"] != "PROVEN" for w in by["future_right_edge"]["sales"]["windows"])
+    mixed = by["mixed_unconfirmed_asks"]
+    assert mixed["asks"]["state"] == "PARTIALLY_CONFIRMED"
+    assert mixed["asks"]["lowestAsk"]["price"]["amount"] != "1.00"
+    assert mixed["capabilities"]["currentAsks"]["available"] is False
+    series = by["multi_date_series"]["series"]
+    assert series["canonicalRange"]["startDate"] < series["activityRange"]["startDate"]
+    assert any(p["ingestedAfterReconciliation"] for p in series["sales"]["counts"]["points"])
+    assert any(p["collectionCount"] > 1 for p in series["supply"]["listings"]["points"])
+    assert by["constituent_page_cursor"]["rows"][0]["rank"] == 3
+    assert by["constituent_page_cursor"]["page"]["nextCursor"] is None
+    assert by["cursor_mismatch"]["availability"]["reasons"] == ["CURSOR_MISMATCH"]
+    assert by["activity_generation_expired"]["availability"]["reasons"] == ["ACTIVITY_GENERATION_EXPIRED"]
+    assert by["group_roster_101"]["coverage"]["rosterDenominator"] == 101

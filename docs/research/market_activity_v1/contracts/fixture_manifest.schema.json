@@ -4,7 +4,7 @@
   "additionalProperties": false,
   "properties": {
     "contractVersion": {
-      "const": "market_activity_v1"
+      "const": "market_activity_v1.1"
     },
     "fixtures": {
       "items": {
@@ -59,7 +59,7 @@
       "type": "array"
     },
     "manifestVersion": {
-      "const": "market_activity_v1_fixtures_1"
+      "const": "market_activity_v1_fixtures_2"
     },
     "policy": {
       "$ref": "common.schema.json#/$defs/Policy"

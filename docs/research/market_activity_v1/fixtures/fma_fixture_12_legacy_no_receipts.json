@@ -1,79 +1,59 @@
 {
   "assembler": "instrument_detail",
-  "description": "Asks collected today but provider-confirmed days earlier; legacy shipping/quantity.",
+  "description": "FMA-0.1 F1: persisted legacy sales, no walk receipt: exact observed counts and dated observations stand; proven counts, saleCount and peer ranks stay unavailable.",
   "expected": {
     "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
     "asks": {
-      "capturedListingCount": 2,
+      "capturedListingCount": 3,
       "capturedQuantity": {
-        "provenance": "LEGACY_UNVERIFIED",
-        "value": 2
+        "provenance": "PROVEN",
+        "value": 4
       },
-      "collectedAt": "2026-09-29T22:08:05Z",
+      "collectedAt": "2026-09-30T09:00:00Z",
       "conditionBasis": "NEAR_MINT_LISTED",
-      "confirmationAgeHours": "159.8",
-      "currentUntil": null,
+      "confirmationAgeHours": "4.0",
+      "currentUntil": "2026-10-01T08:00:00Z",
       "depth": "LOWER_BOUND",
       "lowestAsk": {
-        "basis": "ITEM_ONLY_LEGACY_UNVERIFIED",
+        "basis": "LANDED_PROVEN",
         "price": {
-          "amount": "41.00",
+          "amount": "44.00",
           "currency": "USD"
         }
       },
-      "offerQualification": "NOT_CURRENT",
-      "providerConfirmedAt": "2026-09-23T20:12:49Z",
+      "offerQualification": "CURRENT",
+      "providerConfirmedAt": "2026-09-30T08:00:00Z",
       "reasons": [
-        "SOURCE_CONFIRMATION_MIXED",
-        "SOURCE_CONFIRMATION_REPEATED",
-        "ASKS_STALE",
-        "DEPTH_TRUNCATED",
-        "SHIPPING_LEGACY_UNVERIFIED",
-        "QUANTITY_LEGACY_UNVERIFIED"
+        "DEPTH_TRUNCATED"
       ],
       "source": "pkmnprices_tcgplayer_listings",
-      "state": "STALE",
+      "state": "FRESH",
       "unconfirmedOffers": null
     },
     "availability": {
       "reasons": [
-        "SOURCE_CONFIRMATION_MIXED",
-        "SOURCE_CONFIRMATION_REPEATED",
-        "ASKS_STALE",
-        "DEPTH_TRUNCATED",
-        "SHIPPING_LEGACY_UNVERIFIED",
-        "QUANTITY_LEGACY_UNVERIFIED"
+        "COMPLETENESS_RECEIPT_MISSING",
+        "WINDOW_NOT_PROVEN"
       ],
       "state": "PARTIAL"
     },
     "capabilities": {
       "activityPercentile": {
-        "available": true,
-        "reasons": []
+        "available": false,
+        "reasons": [
+          "COMPLETENESS_RECEIPT_MISSING",
+          "WINDOW_NOT_PROVEN"
+        ]
       },
       "askDepth": {
-        "available": false,
-        "expiresAt": null,
-        "reasons": [
-          "SOURCE_CONFIRMATION_MIXED",
-          "SOURCE_CONFIRMATION_REPEATED",
-          "ASKS_STALE",
-          "DEPTH_TRUNCATED",
-          "SHIPPING_LEGACY_UNVERIFIED",
-          "QUANTITY_LEGACY_UNVERIFIED"
-        ]
+        "available": true,
+        "expiresAt": "2026-10-01T08:00:00Z",
+        "reasons": []
       },
       "currentAsks": {
-        "available": false,
-        "expiresAt": null,
-        "reasons": [
-          "SOURCE_CONFIRMATION_MIXED",
-          "SOURCE_CONFIRMATION_REPEATED",
-          "ASKS_STALE",
-          "DEPTH_TRUNCATED",
-          "SHIPPING_LEGACY_UNVERIFIED",
-          "QUANTITY_LEGACY_UNVERIFIED"
-        ]
+        "available": true,
+        "expiresAt": "2026-10-01T08:00:00Z",
+        "reasons": []
       },
       "inferredSalesFromListings": {
         "available": false,
@@ -82,27 +62,27 @@
         ]
       },
       "landedAsk": {
-        "available": false,
-        "expiresAt": null,
-        "reasons": [
-          "SOURCE_CONFIRMATION_MIXED",
-          "SOURCE_CONFIRMATION_REPEATED",
-          "ASKS_STALE",
-          "SHIPPING_LEGACY_UNVERIFIED",
-          "QUANTITY_LEGACY_UNVERIFIED"
-        ]
+        "available": true,
+        "expiresAt": "2026-10-01T08:00:00Z",
+        "reasons": []
       },
       "observedSales": {
         "available": true,
         "reasons": []
       },
       "saleCount": {
-        "available": true,
-        "reasons": []
+        "available": false,
+        "reasons": [
+          "COMPLETENESS_RECEIPT_MISSING",
+          "WINDOW_NOT_PROVEN"
+        ]
       },
       "salePriceSummary": {
-        "available": true,
-        "reasons": []
+        "available": false,
+        "reasons": [
+          "COMPLETENESS_RECEIPT_MISSING",
+          "WINDOW_NOT_PROVEN"
+        ]
       },
       "supplyTurnover": {
         "available": false,
@@ -113,7 +93,7 @@
     },
     "contractVersion": "market_activity_v1.1",
     "evaluatedAt": "2026-09-30T12:00:00Z",
-    "evidenceFingerprint": "158ce9389230afac638b31b9b543838711ac40a2a2065424c5601dfa24590f01",
+    "evidenceFingerprint": "33779a7655c8c7058cc78790daa93bf771f74a2cc09c6de47e99948c63960c47",
     "instrument": {
       "asset": "cards",
       "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
@@ -131,14 +111,16 @@
     },
     "kind": "instrumentDetail",
     "peers": {
-      "activityPercentile": "57.1",
+      "activityPercentile": null,
       "claimsAllPokemon": false,
       "duplicatePeerRowCount": 1,
       "eligibleOtherPeerCount": 35,
       "label": "Activity percentile",
       "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
       "quarantinedPeerCount": 0,
-      "reasons": [],
+      "reasons": [
+        "WINDOW_NOT_PROVEN"
+      ],
       "scope": {
         "claimsAllPokemon": false,
         "cohortRevision": "core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
@@ -147,9 +129,9 @@
         "scopeLabel": "Core Panel V1 research panel (modern, price-balanced)"
       },
       "scopeLabel": "Core Panel V1 research panel (modern, price-balanced)",
-      "state": "AVAILABLE",
-      "strictBelowPct": "54.3",
-      "tieCount": 2,
+      "state": "UNAVAILABLE",
+      "strictBelowPct": null,
+      "tieCount": null,
       "tiePolicy": "midrank_v1"
     },
     "policy": {
@@ -197,8 +179,10 @@
         "TIER_MISMATCH": 1
       },
       "observation": {
-        "basis": "WALK_RECEIPT",
-        "reasons": [],
+        "basis": "STORED_ROWS",
+        "reasons": [
+          "COMPLETENESS_RECEIPT_MISSING"
+        ],
         "state": "OBSERVED"
       },
       "source": "pkmnprices_ebay_sold",
@@ -209,7 +193,7 @@
           "endDate": "2026-09-29",
           "observedCount": 4,
           "priceSummary": {
-            "basis": "PROVEN_WINDOW",
+            "basis": "OBSERVED_ONLY",
             "high": null,
             "low": null,
             "median": null,
@@ -219,13 +203,15 @@
             "recordCount": 4,
             "state": "THIN"
           },
-          "provenCount": 4,
+          "provenCount": null,
           "readiness": {
             "exhausted": false,
-            "provenLowerBoundDate": "2026-03-02",
-            "reasons": [],
-            "reconciledThrough": "2026-09-30T06:00:00Z",
-            "state": "PROVEN"
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "COMPLETENESS_RECEIPT_MISSING"
+            ],
+            "reconciledThrough": null,
+            "state": "UNPROVEN"
           },
           "startDate": "2026-09-23"
         },
@@ -234,7 +220,7 @@
           "endDate": "2026-09-29",
           "observedCount": 8,
           "priceSummary": {
-            "basis": "PROVEN_WINDOW",
+            "basis": "OBSERVED_ONLY",
             "high": {
               "amount": "43.10",
               "currency": "USD"
@@ -251,13 +237,15 @@
             "recordCount": 8,
             "state": "AVAILABLE"
           },
-          "provenCount": 8,
+          "provenCount": null,
           "readiness": {
             "exhausted": false,
-            "provenLowerBoundDate": "2026-03-02",
-            "reasons": [],
-            "reconciledThrough": "2026-09-30T06:00:00Z",
-            "state": "PROVEN"
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "COMPLETENESS_RECEIPT_MISSING"
+            ],
+            "reconciledThrough": null,
+            "state": "UNPROVEN"
           },
           "startDate": "2026-08-31"
         },
@@ -266,7 +254,7 @@
           "endDate": "2026-09-29",
           "observedCount": 11,
           "priceSummary": {
-            "basis": "PROVEN_WINDOW",
+            "basis": "OBSERVED_ONLY",
             "high": {
               "amount": "43.10",
               "currency": "USD"
@@ -283,13 +271,15 @@
             "recordCount": 11,
             "state": "AVAILABLE"
           },
-          "provenCount": 11,
+          "provenCount": null,
           "readiness": {
             "exhausted": false,
-            "provenLowerBoundDate": "2026-03-02",
-            "reasons": [],
-            "reconciledThrough": "2026-09-30T06:00:00Z",
-            "state": "PROVEN"
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "COMPLETENESS_RECEIPT_MISSING"
+            ],
+            "reconciledThrough": null,
+            "state": "UNPROVEN"
           },
           "startDate": "2026-07-02"
         },
@@ -298,7 +288,7 @@
           "endDate": "2026-09-29",
           "observedCount": 12,
           "priceSummary": {
-            "basis": "PROVEN_WINDOW",
+            "basis": "OBSERVED_ONLY",
             "high": {
               "amount": "43.10",
               "currency": "USD"
@@ -315,13 +305,15 @@
             "recordCount": 12,
             "state": "AVAILABLE"
           },
-          "provenCount": 12,
+          "provenCount": null,
           "readiness": {
             "exhausted": false,
-            "provenLowerBoundDate": "2026-03-02",
-            "reasons": [],
-            "reconciledThrough": "2026-09-30T06:00:00Z",
-            "state": "PROVEN"
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "COMPLETENESS_RECEIPT_MISSING"
+            ],
+            "reconciledThrough": null,
+            "state": "UNPROVEN"
           },
           "startDate": "2026-04-03"
         }
@@ -342,98 +334,98 @@
             {
               "date": "2026-05-01",
               "firstIngestedAt": "2026-05-02T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-05-02T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-07-15",
               "firstIngestedAt": "2026-07-16T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-07-16T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-08-01",
               "firstIngestedAt": "2026-08-02T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-08-02T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-08-20",
               "firstIngestedAt": "2026-08-21T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-08-21T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-02",
               "firstIngestedAt": "2026-09-03T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-03T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-10",
               "firstIngestedAt": "2026-09-11T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-11T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-15",
               "firstIngestedAt": "2026-09-16T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-16T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-20",
               "firstIngestedAt": "2026-09-21T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-21T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-24",
               "firstIngestedAt": "2026-09-25T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-25T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-25",
               "firstIngestedAt": "2026-09-26T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-26T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-27",
               "firstIngestedAt": "2026-09-28T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-28T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             },
             {
               "date": "2026-09-28",
               "firstIngestedAt": "2026-09-29T01:00:00Z",
-              "ingestedAfterReconciliation": false,
+              "ingestedAfterReconciliation": null,
               "lastIngestedAt": "2026-09-29T01:00:00Z",
               "observedCount": 1,
-              "proofState": "PROVEN"
+              "proofState": "OBSERVED_ONLY"
             }
           ],
           "unit": "SALE_COUNT"
@@ -637,11 +629,8 @@
           ],
           "unit": "USD"
         },
-        "provenSpan": {
-          "endDate": "2026-09-29",
-          "startDate": "2026-04-03"
-        },
-        "reconciledThrough": "2026-09-30T06:00:00Z",
+        "provenSpan": null,
+        "reconciledThrough": null,
         "source": "pkmnprices_ebay_sold",
         "tier": "RAW"
       },
@@ -650,47 +639,18 @@
         "conditionBasis": "NEAR_MINT_LISTED",
         "excludedSnapshots": {
           "byStateAtCollection": {},
-          "outsideActivityRange": 0
+          "outsideActivityRange": 1
         },
         "listings": {
-          "points": [
-            {
-              "collectionCount": 1,
-              "confirmationsOnDate": 1,
-              "date": "2026-09-23",
-              "depth": "LOWER_BOUND",
-              "firstCollectedAt": "2026-09-29T22:08:05Z",
-              "lastCollectedAt": "2026-09-29T22:08:05Z",
-              "providerConfirmedAt": "2026-09-23T20:12:49Z",
-              "stateAtCollection": "STALE",
-              "value": 2
-            }
-          ],
+          "points": [],
           "unit": "LISTING_COUNT"
         },
         "lowestAsk": {
-          "points": [
-            {
-              "basis": "ITEM_ONLY_LEGACY_UNVERIFIED",
-              "date": "2026-09-23",
-              "price": {
-                "amount": "41.00",
-                "currency": "USD"
-              },
-              "providerConfirmedAt": "2026-09-23T20:12:49Z"
-            }
-          ],
+          "points": [],
           "unit": "USD"
         },
         "quantity": {
-          "points": [
-            {
-              "date": "2026-09-23",
-              "provenance": "LEGACY_UNVERIFIED",
-              "providerConfirmedAt": "2026-09-23T20:12:49Z",
-              "value": 2
-            }
-          ],
+          "points": [],
           "unit": "LISTED_QUANTITY"
         },
         "source": "pkmnprices_tcgplayer_listings"
@@ -714,7 +674,7 @@
       "windowReadiness": "fma_window_readiness_v2"
     }
   },
-  "fixtureId": "fma_fixture_03",
+  "fixtureId": "fma_fixture_12",
   "inputs": {
     "activityGeneration": {
       "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
@@ -729,21 +689,34 @@
     "asks": {
       "hasMore": true,
       "observationState": "OBSERVED",
-      "observedAt": "2026-09-29T22:08:05Z",
+      "observedAt": "2026-09-30T09:00:00Z",
       "offers": [
         {
-          "itemPrice": "41.00",
-          "listingUpdatedAt": "2026-09-24T02:06:10Z",
-          "providerSnapshotAt": "2026-09-24T02:06:10Z",
-          "quantity": 1,
-          "shippingPrice": "0.00"
+          "itemPrice": "44.00",
+          "listingUpdatedAt": "2026-09-20T00:00:00Z",
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
+          "quantity": 2,
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "0.00",
+          "shippingProvenance": "EXPLICIT"
         },
         {
-          "itemPrice": "43.00",
-          "listingUpdatedAt": "2026-07-22T23:27:16Z",
-          "providerSnapshotAt": "2026-09-23T20:12:49Z",
+          "itemPrice": "42.00",
+          "listingUpdatedAt": "2026-09-29T00:00:00Z",
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
           "quantity": 1,
-          "shippingPrice": "0.00"
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "4.99",
+          "shippingProvenance": "EXPLICIT"
+        },
+        {
+          "itemPrice": "45.50",
+          "listingUpdatedAt": null,
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
+          "quantity": 1,
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "1.00",
+          "shippingProvenance": "EXPLICIT"
         }
       ],
       "requestedDepth": 19,
@@ -956,7 +929,7 @@
         }
       ]
     },
-    "previousAskConfirmation": "2026-09-23T20:12:49Z",
+    "previousAskConfirmation": null,
     "request": {
       "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
       "asOf": "2026-09-29",
@@ -1272,60 +1245,10 @@
           "source": "pkmnprices_ebay_sold"
         }
       ],
-      "walks": [
-        {
-          "collectionRunId": "run-fixture-20260930",
-          "combinedSemanticsVerified": true,
-          "committed": true,
-          "filterFingerprint": "f-combined",
-          "gradeFilter": null,
-          "graderFilter": null,
-          "pages": [
-            {
-              "fetchedAt": "2026-09-30T05:00:00Z",
-              "filterFingerprint": "f-combined",
-              "hasMore": true,
-              "inputCursorHash": null,
-              "maxSoldAt": "2026-09-29",
-              "minSoldAt": "2026-08-20",
-              "outputCursorHash": "c000",
-              "pageIndex": 0,
-              "rowCount": 20
-            },
-            {
-              "fetchedAt": "2026-09-30T05:00:00Z",
-              "filterFingerprint": "f-combined",
-              "hasMore": true,
-              "inputCursorHash": "c000",
-              "maxSoldAt": "2026-08-20",
-              "minSoldAt": "2026-03-01",
-              "outputCursorHash": "c001",
-              "pageIndex": 1,
-              "rowCount": 20
-            }
-          ],
-          "providerCardId": "900001",
-          "rightEdge": {
-            "collectionRunId": "run-fixture-20260930",
-            "committed": true,
-            "completed": true,
-            "filterFingerprint": "f-combined",
-            "gradeFilter": null,
-            "graderFilter": null,
-            "headWalkId": "walk-900001-full",
-            "providerCardId": "900001",
-            "reconciledThrough": "2026-09-30T06:00:00Z",
-            "stream": "COMBINED"
-          },
-          "sort": "date_desc",
-          "startedFromHead": true,
-          "stream": "COMBINED",
-          "walkId": "walk-900001-full"
-        }
-      ]
+      "walks": []
     }
   },
   "requestSchema": "instrument_detail_request.schema.json",
   "responseSchema": "instrument_detail_response.schema.json",
-  "scenario": "stale_asks"
+  "scenario": "legacy_no_receipts"
 }

@@ -2,6 +2,7 @@
   "assembler": "instrument_detail",
   "description": "Exhausted walk + reconciled right edge prove zero sales; empty asks with source freshness.",
   "expected": {
+    "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
     "asks": {
       "capturedListingCount": 0,
       "capturedQuantity": {
@@ -11,12 +12,15 @@
       "collectedAt": "2026-09-30T09:00:00Z",
       "conditionBasis": "NEAR_MINT_LISTED",
       "confirmationAgeHours": "4.5",
+      "currentUntil": "2026-10-01T07:30:00Z",
       "depth": "COMPLETE_AT_SOURCE",
       "lowestAsk": null,
+      "offerQualification": "CURRENT",
       "providerConfirmedAt": "2026-09-30T07:30:00Z",
       "reasons": [],
       "source": "pkmnprices_tcgplayer_listings",
-      "state": "ZERO_PROVEN"
+      "state": "ZERO_PROVEN",
+      "unconfirmedOffers": null
     },
     "availability": {
       "reasons": [],
@@ -31,10 +35,12 @@
       },
       "askDepth": {
         "available": true,
+        "expiresAt": "2026-10-01T07:30:00Z",
         "reasons": []
       },
       "currentAsks": {
         "available": true,
+        "expiresAt": "2026-10-01T07:30:00Z",
         "reasons": []
       },
       "inferredSalesFromListings": {
@@ -45,9 +51,14 @@
       },
       "landedAsk": {
         "available": false,
+        "expiresAt": null,
         "reasons": [
           "NOT_COLLECTED"
         ]
+      },
+      "observedSales": {
+        "available": true,
+        "reasons": []
       },
       "saleCount": {
         "available": true,
@@ -66,9 +77,9 @@
         ]
       }
     },
-    "contractVersion": "market_activity_v1",
+    "contractVersion": "market_activity_v1.1",
     "evaluatedAt": "2026-09-30T12:00:00Z",
-    "evidenceFingerprint": "fb95e120c37af75dbd0b483d358c80f825e6f8ace7a7330d0b6c5c345853a58f",
+    "evidenceFingerprint": "cd41ef8164710a0aba5477838c3f92873b4d52fbfc0bcf436c0d57346ee4564a",
     "instrument": {
       "asset": "cards",
       "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
@@ -88,12 +99,21 @@
     "peers": {
       "activityPercentile": null,
       "claimsAllPokemon": false,
+      "duplicatePeerRowCount": 1,
       "eligibleOtherPeerCount": 35,
       "label": "Activity percentile",
-      "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+      "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+      "quarantinedPeerCount": 0,
       "reasons": [
         "ALL_ZERO"
       ],
+      "scope": {
+        "claimsAllPokemon": false,
+        "cohortRevision": "core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+        "kind": "RESEARCH_PANEL",
+        "scopeId": "market_microstructure_core_panel_v1",
+        "scopeLabel": "Core Panel V1 research panel (modern, price-balanced)"
+      },
       "scopeLabel": "Core Panel V1 research panel (modern, price-balanced)",
       "state": "ALL_ZERO",
       "strictBelowPct": null,
@@ -110,15 +130,21 @@
       "version": "fma_display_policy_v1"
     },
     "request": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
       "asOf": "2026-09-29",
-      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "chartRange": null,
       "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
       "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
       "windowDays": 30
     },
     "roster": {
       "label": "Activity for current constituents",
-      "membershipContractVersion": "fma_membership_v1",
+      "membershipContractVersion": "fma_membership_v2",
       "membershipMode": "CURRENT_ROSTER_RETROSPECTIVE",
       "rosterAsOf": "2026-09-29",
       "rosterDenominator": 3,
@@ -132,6 +158,11 @@
       "conditionBasis": "UNKNOWN_CONDITION",
       "currency": "USD",
       "excludedRecordCounts": {},
+      "observation": {
+        "basis": "WALK_RECEIPT",
+        "reasons": [],
+        "state": "OBSERVED"
+      },
       "source": "pkmnprices_ebay_sold",
       "tier": "RAW",
       "windows": [
@@ -140,6 +171,7 @@
           "endDate": "2026-09-29",
           "observedCount": 0,
           "priceSummary": {
+            "basis": "PROVEN_WINDOW",
             "high": null,
             "low": null,
             "median": null,
@@ -164,6 +196,7 @@
           "endDate": "2026-09-29",
           "observedCount": 0,
           "priceSummary": {
+            "basis": "PROVEN_WINDOW",
             "high": null,
             "low": null,
             "median": null,
@@ -188,6 +221,7 @@
           "endDate": "2026-09-29",
           "observedCount": 0,
           "priceSummary": {
+            "basis": "PROVEN_WINDOW",
             "high": null,
             "low": null,
             "median": null,
@@ -212,6 +246,7 @@
           "endDate": "2026-09-29",
           "observedCount": 0,
           "priceSummary": {
+            "basis": "PROVEN_WINDOW",
             "high": null,
             "low": null,
             "median": null,
@@ -233,20 +268,86 @@
         }
       ]
     },
+    "series": {
+      "activityRange": {
+        "endDate": "2026-09-29",
+        "startDate": "2026-04-03"
+      },
+      "asOf": "2026-09-29",
+      "canonicalRange": null,
+      "outsideActivityRange": "NOT_COLLECTED",
+      "sales": {
+        "conditionBasis": "UNKNOWN_CONDITION",
+        "counts": {
+          "points": [],
+          "unit": "SALE_COUNT"
+        },
+        "currency": "USD",
+        "observationState": "OBSERVED",
+        "prices": {
+          "points": [],
+          "unit": "USD"
+        },
+        "provenSpan": {
+          "endDate": "2026-09-29",
+          "startDate": "2026-04-03"
+        },
+        "reconciledThrough": "2026-09-30T06:00:00Z",
+        "source": "pkmnprices_ebay_sold",
+        "tier": "RAW"
+      },
+      "storage": "SPARSE_DAILY",
+      "supply": {
+        "conditionBasis": "NEAR_MINT_LISTED",
+        "excludedSnapshots": {
+          "byStateAtCollection": {},
+          "outsideActivityRange": 1
+        },
+        "listings": {
+          "points": [],
+          "unit": "LISTING_COUNT"
+        },
+        "lowestAsk": {
+          "points": [],
+          "unit": "USD"
+        },
+        "quantity": {
+          "points": [],
+          "unit": "LISTED_QUANTITY"
+        },
+        "source": "pkmnprices_tcgplayer_listings"
+      },
+      "version": "fma_activity_series_v1",
+      "zeroRule": "ABSENT_DATE_IS_ZERO_ONLY_INSIDE_PROVEN_SPAN"
+    },
     "versions": {
-      "contract": "market_activity_v1",
-      "domain": "market_activity_domain_v1.0.0",
+      "contract": "market_activity_v1.1",
+      "cursor": "fma_cursor_v1",
+      "domain": "market_activity_domain_v1.1.0",
       "grading": "fma_grading_identity_v1",
       "identity": "fma_exact_identity_v1",
-      "membership": "fma_membership_v1",
+      "membership": "fma_membership_v2",
+      "observation": "fma_sold_observation_v1",
+      "peerPopulation": "fma_peer_population_v2",
       "qualifierRegistry": "fma_qualifier_registry_v1",
-      "supplyProvenance": "fma_supply_provenance_v1",
+      "series": "fma_activity_series_v1",
+      "supplyProvenance": "fma_supply_provenance_v2",
       "tiePolicy": "midrank_v1",
-      "windowReadiness": "fma_window_readiness_v1"
+      "windowReadiness": "fma_window_readiness_v2"
     }
   },
   "fixtureId": "fma_fixture_04",
   "inputs": {
+    "activityGeneration": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "state": "SERVING"
+    },
+    "askHistory": [],
     "asks": {
       "hasMore": false,
       "observationState": "OBSERVED",
@@ -259,201 +360,221 @@
     "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
     "evaluatedAt": "2026-09-30T12:00:00Z",
     "peers": {
-      "panelId": "market_microstructure_core_panel_v1",
+      "scope": {
+        "cohortRevision": "core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+        "kind": "RESEARCH_PANEL",
+        "panelId": "market_microstructure_core_panel_v1"
+      },
       "values": [
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000000:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000001:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000002:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000003:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000004:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000005:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000006:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000007:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000008:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000009:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000010:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000011:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000012:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000013:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000014:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000015:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000016:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000017:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000018:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000019:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000020:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000021:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000022:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000023:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000024:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000025:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000026:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000027:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000028:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000029:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000030:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000031:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000032:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000033:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-000000000034:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 0
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 9
         },
         {
           "instrumentKey": "card:00000000-0000-4000-8000-999999999999:raw",
-          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|UNPROVEN",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|UNPROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
           "value": 3
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000000:raw",
+          "populationKey": "2026-08-31..2026-09-29|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-888888888888:raw",
+          "populationKey": "2026-06-01..2026-06-30|pkmnprices_ebay_sold|USD|RAW|PROVEN|RESEARCH_PANEL:market_microstructure_core_panel_v1@core_panel_v1:9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+          "value": 4
         }
       ]
     },
     "previousAskConfirmation": null,
     "request": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
       "asOf": "2026-09-29",
-      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "chartRange": null,
       "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
       "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
       "windowDays": 30
     },
     "roster": {
@@ -463,12 +584,7 @@
         "00000000-0000-4000-8000-0000000000a1",
         "00000000-0000-4000-8000-0000000000b1",
         "00000000-0000-4000-8000-0000000000c1"
-      ],
-      "revision": {
-        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
-        "kind": "SURFACE_V2_GENERATION",
-        "marketKey": "set:fixture-modern-set"
-      }
+      ]
     },
     "servedGenerationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
     "sold": {
@@ -487,6 +603,8 @@
           "specialType": null
         }
       ],
+      "collectionRecord": null,
+      "providerCardId": "900001",
       "records": [
         {
           "attribution": "exact",
@@ -539,8 +657,12 @@
       ],
       "walks": [
         {
+          "collectionRunId": "run-fixture-20260930",
           "combinedSemanticsVerified": true,
+          "committed": true,
           "filterFingerprint": "f-combined",
+          "gradeFilter": null,
+          "graderFilter": null,
           "pages": [
             {
               "fetchedAt": "2026-09-30T05:00:00Z",
@@ -554,13 +676,23 @@
               "rowCount": 3
             }
           ],
+          "providerCardId": "900001",
           "rightEdge": {
+            "collectionRunId": "run-fixture-20260930",
+            "committed": true,
             "completed": true,
-            "reconciledThrough": "2026-09-30T06:00:00Z"
+            "filterFingerprint": "f-combined",
+            "gradeFilter": null,
+            "graderFilter": null,
+            "headWalkId": "walk-900001-zero",
+            "providerCardId": "900001",
+            "reconciledThrough": "2026-09-30T06:00:00Z",
+            "stream": "COMBINED"
           },
           "sort": "date_desc",
           "startedFromHead": true,
-          "stream": "COMBINED"
+          "stream": "COMBINED",
+          "walkId": "walk-900001-zero"
         }
       ]
     }
