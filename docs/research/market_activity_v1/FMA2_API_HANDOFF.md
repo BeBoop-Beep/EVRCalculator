@@ -147,6 +147,12 @@ ms; group 0.122 ms; constituent page 0.225 ms. These are isolated correctness
 and access-path receipts, not production latency claims.
 The byte-identical follow-up migration mirrors have canonical local SHA-256
 `90a8186af30a9ff1441c73136ad502bb2ee7b947c33f8c91554e2ac03f163fc1`.
+GitHub Actions PostgreSQL 16 run
+https://github.com/BeBoop-Beep/EVRCalculator/actions/runs/36673160788 also
+completed successfully for reconciliation implementation SHA
+`79c433b6634fcd74b0b0a49cd99700acd8956cda`, including mirror verification,
+the fresh migration chain, and the full publication/RLS/read/EXPLAIN/rollback
+validation job.
 
 ## Known data limitations and FMA-4 instructions
 
