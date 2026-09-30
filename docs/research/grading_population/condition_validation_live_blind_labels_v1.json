@@ -1,0 +1,1823 @@
+{
+  "version": "pkmnprices_sold_title_condition_live_blind_labels_v1",
+  "sample_version": "pkmnprices_sold_title_condition_live_blind_sample_v1",
+  "sample_fingerprint_md5": "47848a164f1173ef5454ef34b352ca3d",
+  "classifier_frozen": {
+    "version": "pkmnprices_sold_title_condition_v1",
+    "blob_sha": "5aee06986d67d293f77e6c22cbc59fb64248e38b"
+  },
+  "predictions_seen_before_label_lock": false,
+  "reviewer": "independent semantic review in ChatGPT; not a human annotator",
+  "human_review_requirement_satisfied": false,
+  "review_policy": "Expected labels must be assigned from listing title semantics without consulting classifier predictions. Conservative high-precision labels: explicit condition language only; marketing language alone is UNLABELED; genuinely conflicting condition claims are AMBIGUOUS.",
+  "label_counts": {
+    "UNLABELED": 105,
+    "NM": 70,
+    "LP": 35,
+    "AMBIGUOUS": 35,
+    "MP": 25,
+    "DAMAGED": 30
+  },
+  "rows": [
+    {
+      "review_index": 1,
+      "evidence_id": "acebcc54-2dd9-4fda-a61b-f2e37e5fa658",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 2,
+      "evidence_id": "4906af17-69ff-427b-823d-335be9e2eecb",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 3,
+      "evidence_id": "cfa79b58-94d8-44f5-aafc-c4f71b84a05d",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 4,
+      "evidence_id": "c4e0b640-1ba6-4c70-8caf-677c82408c6d",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 5,
+      "evidence_id": "10e30aae-94af-447f-ab1d-367486057192",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 6,
+      "evidence_id": "a0bd141b-291b-4f32-bec7-fdb7fc7580bc",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 7,
+      "evidence_id": "a2030314-9e95-47b1-a2b8-bf492fbc849a",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 8,
+      "evidence_id": "5632534a-db6a-46cb-b514-b9fc57096926",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 9,
+      "evidence_id": "0ef385e5-bb54-49b9-aece-2a6b289a8904",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 10,
+      "evidence_id": "0755f01a-7a08-4ef4-b0da-a740c5ac4b9f",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 11,
+      "evidence_id": "388923ba-d771-47d3-9551-a4d0aaee588f",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 12,
+      "evidence_id": "71c6e307-475b-4983-b9dc-6a29276c3e9f",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 13,
+      "evidence_id": "9daa305f-df66-403e-8f4b-a9e0edc18b99",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 14,
+      "evidence_id": "5f300c3c-d4da-408b-9665-c9be0b5badda",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 15,
+      "evidence_id": "c4a8e572-db8e-4acb-8903-592febce8d2a",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 16,
+      "evidence_id": "79fe764f-7f91-45d4-9319-c76065167455",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 17,
+      "evidence_id": "8c1bb365-80cb-4a25-9f12-16e22e85be44",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 18,
+      "evidence_id": "36ba6eb3-3d6f-407a-b2bb-240d11fe5cc6",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 19,
+      "evidence_id": "d1ea3497-ed58-4a91-a122-206f56b1c007",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 20,
+      "evidence_id": "48ee2fd6-5c7a-4482-a96a-d9a5cfbfba10",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 21,
+      "evidence_id": "e4045182-d4c3-421e-b0ad-7bbc5ef15362",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 22,
+      "evidence_id": "edb27356-1738-4550-a933-55ce67362a56",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 23,
+      "evidence_id": "8d742a40-40eb-474f-89c7-df125804d86a",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 24,
+      "evidence_id": "39921291-c264-420d-bf46-eedbb52e0811",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 25,
+      "evidence_id": "8c356f3e-b254-4ccb-b5d8-f4ef6ae582fd",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 26,
+      "evidence_id": "c39a8585-08f5-4820-8bf4-0807aca779d5",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 27,
+      "evidence_id": "c803983d-031f-49e2-90bf-c6fc9f958f14",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 28,
+      "evidence_id": "0dd016ef-ab09-428d-a9c0-b8127387769d",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 29,
+      "evidence_id": "b9e30914-ab27-4ebd-a91b-64d35f630ed8",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 30,
+      "evidence_id": "7465d116-1ecd-4c33-8e41-79ba99eedbee",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 31,
+      "evidence_id": "4bf12a4f-e34f-46bd-ae76-2cbd706ef3b0",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 32,
+      "evidence_id": "1abb4c53-c11a-4206-a7ea-dc94914dbee2",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 33,
+      "evidence_id": "20c1bd3f-fa26-4105-bfdb-38e32a54230d",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 34,
+      "evidence_id": "406e333c-1896-433c-8a39-2ea1f170f122",
+      "expected": "UNLABELED",
+      "review_reason": "MARKETING_OR_NON_TAXONOMY_MINT_LANGUAGE"
+    },
+    {
+      "review_index": 35,
+      "evidence_id": "6d222e42-c292-4e60-9335-bb786926c0cd",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 36,
+      "evidence_id": "d71730ad-4593-4010-b3b6-8292d24ace85",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 37,
+      "evidence_id": "49a33cfa-a391-493e-82d7-22771ed8706a",
+      "expected": "UNLABELED",
+      "review_reason": "MARKETING_OR_NON_TAXONOMY_MINT_LANGUAGE"
+    },
+    {
+      "review_index": 38,
+      "evidence_id": "bc4963d1-d429-45fb-a2cf-d5999ec47ead",
+      "expected": "UNLABELED",
+      "review_reason": "MARKETING_OR_NON_TAXONOMY_MINT_LANGUAGE"
+    },
+    {
+      "review_index": 39,
+      "evidence_id": "47c0ab49-4ebf-46b9-b702-42093bf83292",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 40,
+      "evidence_id": "52d64a3c-362e-42ab-b37d-5957c24a1f5f",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 41,
+      "evidence_id": "0a69062f-4d72-4baf-a5f0-3652635a8ce7",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 42,
+      "evidence_id": "03eabe86-8b19-46ab-9d13-eb689fb87494",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 43,
+      "evidence_id": "b3d96c52-9def-4926-b63e-c4f30d0bc14b",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 44,
+      "evidence_id": "9b484140-6b64-425d-a3c1-3f44cf2a6b68",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 45,
+      "evidence_id": "d6546967-f2e9-4da4-b26f-e26cd0b03c1f",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 46,
+      "evidence_id": "d247caeb-3a24-4acd-8030-41166336ab0c",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 47,
+      "evidence_id": "37aa01c1-67ad-4d6d-b71f-a0183017e9e0",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 48,
+      "evidence_id": "018121d2-16dc-4fc6-b37b-c6fe667fa46a",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 49,
+      "evidence_id": "8eda06bb-f20c-437e-be64-9d8f94a89fc4",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 50,
+      "evidence_id": "3ebe9df6-91c9-4ea9-bc05-51026bb2312f",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 51,
+      "evidence_id": "8630ef7d-3782-4c1d-b446-be4074ede3c6",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 52,
+      "evidence_id": "6c4c3051-8740-40ac-8f88-b8ed68da9c13",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 53,
+      "evidence_id": "62ecd929-3598-42a0-9efb-1d4be88c2428",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 54,
+      "evidence_id": "3a42a2f2-3331-4e10-9975-0ad68cc2f775",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 55,
+      "evidence_id": "1cc14830-036a-42a0-8b03-ec161aa919ad",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 56,
+      "evidence_id": "2b09cf6a-8b7b-4fa5-9ebd-bb5f6ab27d52",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 57,
+      "evidence_id": "86404c67-3e4f-4109-aae3-f7ac09d2d77b",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 58,
+      "evidence_id": "a8261e4b-8277-4d6f-b4b8-bda2d7c655bf",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 59,
+      "evidence_id": "03d2c643-9ffe-4620-939d-d01a59278e10",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 60,
+      "evidence_id": "923adb89-bff8-4479-bdb9-c421a5909268",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 61,
+      "evidence_id": "03bf1818-6790-4aa5-88ca-71975dd07629",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 62,
+      "evidence_id": "071a1ad1-4f25-4454-ad31-8720477abb8c",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 63,
+      "evidence_id": "58924960-c178-41f1-a2a3-eea92cbeb8e1",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 64,
+      "evidence_id": "5f45cd82-4b54-4559-a36d-d9cff3fd4fbf",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 65,
+      "evidence_id": "1f57fb83-0b9c-421f-9028-52373f7eda4c",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 66,
+      "evidence_id": "0adc7717-c6d9-4c9c-93b7-376da1489da6",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 67,
+      "evidence_id": "642c63b5-1e92-40c4-b26b-1f43166d8abd",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 68,
+      "evidence_id": "6e9701f4-3a1f-4f7f-a547-f5e8b212b5fa",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 69,
+      "evidence_id": "51f69ede-d96a-4433-8433-373e443bc660",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 70,
+      "evidence_id": "4c834941-7ac0-47f0-b4f6-cf1a26544803",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 71,
+      "evidence_id": "9c782c76-15b0-4179-9fc9-fb020304f305",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 72,
+      "evidence_id": "3e71830e-c314-4500-aa92-6b753592bd49",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 73,
+      "evidence_id": "20e7ab73-0cf3-483d-96aa-6fcb9fc67df8",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 74,
+      "evidence_id": "e34cecdd-39eb-4bb2-a861-0d78ea412d24",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 75,
+      "evidence_id": "bca33531-08eb-4d8c-94dd-fcc3fd77f2a0",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 76,
+      "evidence_id": "335bdd0d-20ec-4a5d-8a99-7ac51d271e4e",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 77,
+      "evidence_id": "80bab8c9-31bc-4c28-aa44-64325788e9f8",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 78,
+      "evidence_id": "34e31316-c268-402f-934c-bd5d0e394322",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 79,
+      "evidence_id": "45da4cca-8348-4bdb-a5ef-736ca269edb1",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 80,
+      "evidence_id": "01a8ee90-9cef-48b1-9491-be9374ec974a",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 81,
+      "evidence_id": "5a09816b-3e66-46a7-a159-1e51cfee6afd",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 82,
+      "evidence_id": "853752c8-8efb-4c0e-a553-2ed7f3236001",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 83,
+      "evidence_id": "e9b97301-1d93-43ab-890f-bba6d40c6ca6",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 84,
+      "evidence_id": "5a20a54a-0812-4313-bc14-9bf12c616602",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 85,
+      "evidence_id": "a537698e-7d1e-4c1b-9fa2-6e91ffbda6d4",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 86,
+      "evidence_id": "0642077f-2fdb-49e8-b655-86c9dd4c68fa",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 87,
+      "evidence_id": "8f3606c6-f3da-4086-9f8a-50745ec48661",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 88,
+      "evidence_id": "476d4905-f3e5-4f77-8170-0c017951bfb2",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 89,
+      "evidence_id": "9b9f15ee-d04a-485a-b8db-73c2aacc89dc",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 90,
+      "evidence_id": "64dd56ce-821d-4372-bf83-530314ba254e",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 91,
+      "evidence_id": "8f921158-7a59-458d-94f0-ecd150ec02ed",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 92,
+      "evidence_id": "970a03c0-3b86-4add-bf27-eb8b89b7fae3",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 93,
+      "evidence_id": "01f194f8-d60f-4d0d-a921-35dcf02e3de3",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 94,
+      "evidence_id": "311e1a6f-ee45-4e2a-960f-f602f042e3d5",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 95,
+      "evidence_id": "47ebcb82-f816-4016-8e6e-bc011be5d2fd",
+      "expected": "UNLABELED",
+      "review_reason": "MARKETING_OR_NON_TAXONOMY_MINT_LANGUAGE"
+    },
+    {
+      "review_index": 96,
+      "evidence_id": "23b1d321-156c-4f2f-9fd4-023c1cc20a52",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 97,
+      "evidence_id": "cbb50dcb-f7dc-473b-bced-ff155227a17d",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 98,
+      "evidence_id": "0415905f-618e-409e-a489-4f9fb1a45b0a",
+      "expected": "UNLABELED",
+      "review_reason": "MARKETING_OR_NON_TAXONOMY_MINT_LANGUAGE"
+    },
+    {
+      "review_index": 99,
+      "evidence_id": "5f2e3e4f-353d-49bf-b93f-5cdaa0660c2e",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 100,
+      "evidence_id": "53f68050-8067-4ca7-9291-3c19716f4b74",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 101,
+      "evidence_id": "b1aa8ab5-bc6c-4b5d-85dd-6c16b4f5d04f",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 102,
+      "evidence_id": "ee9713ba-f405-4141-8738-dd1fbf28330c",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 103,
+      "evidence_id": "ee88058c-8ade-4cbc-8a0a-8b708d9b28ee",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 104,
+      "evidence_id": "04adb0d1-0012-4b88-af28-8caac492cb4b",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 105,
+      "evidence_id": "2b6b9be5-9108-4035-8379-e39babdcb308",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 106,
+      "evidence_id": "bfb56487-e8fd-4e79-816b-f1d741003977",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 107,
+      "evidence_id": "46cb433b-e85c-42bd-8a05-10befe5ab4b3",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 108,
+      "evidence_id": "03e63588-d166-4c6e-871f-53dfed9823e0",
+      "expected": "UNLABELED",
+      "review_reason": "NO_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 109,
+      "evidence_id": "bd71bfcc-f057-44f5-9354-48435f942aea",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 110,
+      "evidence_id": "0f904318-cda3-43ca-a84b-13f7230645f1",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 111,
+      "evidence_id": "da458794-a270-4dfa-803c-e6b42686eb32",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 112,
+      "evidence_id": "0c8b7ded-627c-422f-9467-d6979fb3c1c3",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 113,
+      "evidence_id": "10b855ee-511c-432e-ac59-07f506a93043",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 114,
+      "evidence_id": "0fd0327a-067c-4ff1-a84d-9cad65ffb58c",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 115,
+      "evidence_id": "11ad8dee-454e-45d2-b327-56322e607e47",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 116,
+      "evidence_id": "68c823e7-147f-4eed-934a-c87e5b20c128",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 117,
+      "evidence_id": "817eba44-aa65-44dd-a977-6157717b70df",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 118,
+      "evidence_id": "11c03104-eea8-422f-877f-223d6953283d",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 119,
+      "evidence_id": "0a42cca7-6f51-4124-a4f9-a28ad6f61628",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 120,
+      "evidence_id": "feabe059-97cc-48cb-82bd-2b86b162ae64",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 121,
+      "evidence_id": "c1b64bde-9714-4d8f-956a-6acf8d51b3a2",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 122,
+      "evidence_id": "059cb4bf-25fb-4862-abca-92e6fb626791",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 123,
+      "evidence_id": "a901ccb3-85d3-4eef-a4d3-89b59cd0ef18",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 124,
+      "evidence_id": "42a77fef-ebb6-4bb3-981a-3d1f1effcb38",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 125,
+      "evidence_id": "57d16b85-bb4e-4a65-8864-1d75a06d0d08",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 126,
+      "evidence_id": "78ea8fa0-84eb-4192-b7a0-2261176e4331",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 127,
+      "evidence_id": "4cd8fb3f-0de4-4821-924a-b3e5e55a2d6e",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 128,
+      "evidence_id": "f086e980-8b37-4e11-b9b7-21599490fb46",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 129,
+      "evidence_id": "a3c237eb-6f87-428e-959f-db8cee430c8a",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 130,
+      "evidence_id": "be72e675-8661-442c-9dac-3a2181602f34",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 131,
+      "evidence_id": "32a057c5-2e5e-4d71-88c3-ee96d99d5451",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 132,
+      "evidence_id": "6943dc91-c2a8-4bd8-9243-4b4807e2a138",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 133,
+      "evidence_id": "9afc12cb-af71-4cba-9ee2-368acae75959",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 134,
+      "evidence_id": "e6b5904d-9b75-4bf8-8ef1-0ebf4ba1c6d5",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 135,
+      "evidence_id": "a48bfa21-3497-4ed9-b537-106e74babbc3",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 136,
+      "evidence_id": "5d852d3b-c65e-4b52-a520-ef425f68032e",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 137,
+      "evidence_id": "fd37030a-ac63-4bfb-930c-5f6a43535dee",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 138,
+      "evidence_id": "2d9bb376-8e8f-4275-9a59-c708d920dda0",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 139,
+      "evidence_id": "6bc04a69-ed35-476d-8e2b-5327097f6981",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 140,
+      "evidence_id": "7e73b225-d69e-4514-858c-c23c2a08ac76",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 141,
+      "evidence_id": "5cfaebd1-7f2b-4b52-99f4-397278c482d4",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 142,
+      "evidence_id": "9eea9956-34eb-4966-af9b-5b51e150801b",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 143,
+      "evidence_id": "ed7f162e-da07-44d7-a2d9-f479949c6003",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 144,
+      "evidence_id": "acab1990-61f3-41bc-be4f-cf7a59cce6dc",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 145,
+      "evidence_id": "2bd5fc6e-6d63-42f5-914c-95f52809b181",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 146,
+      "evidence_id": "f6772734-25fa-4532-a462-8ae5afa99a6d",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 147,
+      "evidence_id": "36406936-271d-488f-9d01-f2d6e9468820",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 148,
+      "evidence_id": "93f841c0-8dea-4d3b-8fa1-995be7e9a255",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 149,
+      "evidence_id": "9e1a6fbc-3305-44d1-88b8-2466022ccc75",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 150,
+      "evidence_id": "93f16e8e-ddae-4f5e-a148-0595c36c2d39",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 151,
+      "evidence_id": "e4bfb584-8612-4e14-ae02-8147010b2bd6",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 152,
+      "evidence_id": "18f2f833-26b2-4106-bb4b-ba152d674cc3",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 153,
+      "evidence_id": "9d43be62-ebb8-4283-81b8-ecf24aee727d",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 154,
+      "evidence_id": "08ee9b53-8422-4690-96ae-c27e0bd84d20",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 155,
+      "evidence_id": "d91e72bd-33fb-4217-9c37-39188ad4d183",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 156,
+      "evidence_id": "8d6ffb3a-ba9e-464d-b41f-f022cc269c54",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 157,
+      "evidence_id": "504b2c46-9a7f-4891-a3c6-15f745e2c699",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 158,
+      "evidence_id": "2795ff8b-a1a9-4b23-8d92-aef910316620",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 159,
+      "evidence_id": "1fe27ac3-2a31-4aae-b976-e059a5c9f5c9",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 160,
+      "evidence_id": "622720de-254d-4533-b7e6-d95695a03455",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 161,
+      "evidence_id": "b55acc29-6c53-4f9a-ad30-220de92b4097",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 162,
+      "evidence_id": "f1c061b4-334b-430c-aeb5-da0c5af402c8",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 163,
+      "evidence_id": "382f6f42-3d2a-4c3c-a01e-4d52be8b8c8c",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 164,
+      "evidence_id": "c46c8e37-38e6-4e12-a3e7-6d8995f679b7",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 165,
+      "evidence_id": "4fe2e429-98f6-4d2e-9692-f845d41477ce",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 166,
+      "evidence_id": "5e1c472e-01b9-4300-8c53-c391e8b0a292",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 167,
+      "evidence_id": "8442a4fb-2b1e-414b-8369-efe78278385e",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 168,
+      "evidence_id": "7de8fbd5-5925-4cb8-95f9-94b0e0a17b11",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 169,
+      "evidence_id": "5203adf5-e5ab-42cf-8226-940c018e4163",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 170,
+      "evidence_id": "03bfd6fd-f060-4c0a-b5cc-7fe0eb78bec6",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 171,
+      "evidence_id": "c8e026fe-5c69-499e-a1e7-13d9982eec9d",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 172,
+      "evidence_id": "7f470d37-cf83-48c4-8d7f-757507b7e555",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 173,
+      "evidence_id": "5c4b6f8c-6086-4829-bd3d-3685de2f6350",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 174,
+      "evidence_id": "24c25cd2-edab-4ac9-9c9a-f080e1e70e69",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 175,
+      "evidence_id": "ea29be31-6a7f-43e2-86be-1a00aa937b0a",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 176,
+      "evidence_id": "83d65569-c06b-4df2-875f-7301f5cccdb2",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 177,
+      "evidence_id": "074b5f29-d8e8-4d3a-8f40-ab236448eb54",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 178,
+      "evidence_id": "75337e8b-db11-42a5-9c94-57b2d17d4208",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 179,
+      "evidence_id": "4e9cacd1-08aa-4b0c-8450-bb334621ffc6",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 180,
+      "evidence_id": "06bf40df-aae1-4ce4-afe0-ad6ea2d181bc",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 181,
+      "evidence_id": "2de7c773-16ec-45a9-b16a-597c34e94eb5",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 182,
+      "evidence_id": "f2a95fa9-87d8-456b-bd8e-33c089cc274a",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 183,
+      "evidence_id": "3631243b-32e9-4363-a9c7-69f6566b91e5",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 184,
+      "evidence_id": "34ddb83b-66d2-4e2f-96f8-fbc8345f335b",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 185,
+      "evidence_id": "6f9c697c-2d4e-4d77-9af2-84c81c00626a",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 186,
+      "evidence_id": "39a37c6c-4fcf-4edf-92cb-510afe2e6d20",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 187,
+      "evidence_id": "85c1bf2b-b195-4f6b-a405-a7fa12501559",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 188,
+      "evidence_id": "c2723bfe-d4ba-4e1a-9876-91ff924c261b",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 189,
+      "evidence_id": "09173fce-476f-4a1c-9a56-f30059dfa71e",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 190,
+      "evidence_id": "09e1e43b-b426-44d5-b7cd-685329de35c9",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 191,
+      "evidence_id": "0c6ca10d-0557-413f-84ea-e5db5495ed2b",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 192,
+      "evidence_id": "521245a5-2fe8-4b15-baf6-2f8e4e7f34fc",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 193,
+      "evidence_id": "5198e642-5fba-43af-9469-e3d705840140",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 194,
+      "evidence_id": "98135af4-b80c-4f03-b0a7-b12fde0ddccb",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 195,
+      "evidence_id": "c05e973a-7a0e-46d6-914a-47c255e431ee",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 196,
+      "evidence_id": "76ba394d-4605-4dd9-b59a-f2ca9f3c9530",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 197,
+      "evidence_id": "a95b05cf-d616-42cf-bbb5-49fadcdfec99",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 198,
+      "evidence_id": "ccec2264-1005-47cb-a08f-8b9c947ec236",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 199,
+      "evidence_id": "1d3a592a-a9bd-401e-8117-6cd62f887c46",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 200,
+      "evidence_id": "14c48abd-78c5-40ae-a653-287558ecedfd",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 201,
+      "evidence_id": "d4819991-d28d-487e-be6d-978544d81807",
+      "expected": "UNLABELED",
+      "review_reason": "HP_STAT_NOT_CONDITION"
+    },
+    {
+      "review_index": 202,
+      "evidence_id": "3393171a-2a9b-4ea5-b52e-2095afbf67e6",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 203,
+      "evidence_id": "37547ae8-243a-4de1-a218-3d925cf999e5",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 204,
+      "evidence_id": "b4d44b0a-474d-4aba-9cb5-f04469efc645",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 205,
+      "evidence_id": "0c8718c4-42af-4f6a-95c9-5cbe74205c40",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 206,
+      "evidence_id": "9c16742b-4645-4255-a3bf-1fd9f6abba2c",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 207,
+      "evidence_id": "6d27d2dd-de2a-44f9-917b-e3ee4ba40ed1",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 208,
+      "evidence_id": "df2a933b-126c-4778-a036-31b9b3c95d74",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 209,
+      "evidence_id": "2e80c3c7-c150-48d7-910f-c502ed7c9775",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 210,
+      "evidence_id": "954a319a-f06d-439d-885b-0ba478ee565e",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 211,
+      "evidence_id": "5eec8a48-1b33-462c-bd61-c8847d77c5ac",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 212,
+      "evidence_id": "2c6de9ca-e46a-47c7-a0ba-e22c04e48b28",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 213,
+      "evidence_id": "ac58573e-17af-46d7-a306-a9e250c7202c",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 214,
+      "evidence_id": "8cae16c2-988c-4be0-b6f5-617f8b2bd66d",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 215,
+      "evidence_id": "f03ecfdf-b9a6-4de8-8190-20df89c52727",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 216,
+      "evidence_id": "c9ca5e44-5f2d-4f1f-8279-d05bb114bf15",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 217,
+      "evidence_id": "c2ef643f-364b-45c0-b4a2-268ef39b8d03",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 218,
+      "evidence_id": "67f1285d-a3e1-4e5d-8594-605f6d47c2e9",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 219,
+      "evidence_id": "360de5fa-3999-403f-a9d8-4671f343b506",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 220,
+      "evidence_id": "16837755-680a-4fd7-9d71-0056bf754012",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 221,
+      "evidence_id": "00b81be3-b5d7-49aa-b76b-04fa36209d2b",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 222,
+      "evidence_id": "d18a0e8d-16b1-40e4-a343-2ef5699e196f",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 223,
+      "evidence_id": "d9b79e3b-9f8e-4099-9331-a510aba81370",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 224,
+      "evidence_id": "cbd2dad8-7c8e-4b3c-887b-0915d70aac45",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 225,
+      "evidence_id": "39c2fd3c-6e84-4bb9-b077-d058ab3e72d1",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 226,
+      "evidence_id": "270d78eb-544f-4745-a3a7-da1b45ed5d08",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 227,
+      "evidence_id": "0ca775f7-9b47-40ad-99ca-a9cca338c0a0",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 228,
+      "evidence_id": "05c954cb-6b0c-4473-96c9-e3f377c1e2dd",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 229,
+      "evidence_id": "82045828-b94a-47f8-a90a-6ed304accd34",
+      "expected": "LP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 230,
+      "evidence_id": "2c650875-e48a-4d32-90ec-4efed7e0070b",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 231,
+      "evidence_id": "db7003f1-c5aa-4cad-8209-36781d2aba29",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 232,
+      "evidence_id": "d0e1779f-3c18-4afd-9f52-b2c6857c23ba",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 233,
+      "evidence_id": "f4de0760-e695-498d-be79-68e6fc96c860",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 234,
+      "evidence_id": "f529aba5-a546-4b5c-b1ee-c815db368e97",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 235,
+      "evidence_id": "e8a71a9e-22a8-4ca1-a5b4-f7682fc63e95",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 236,
+      "evidence_id": "d9fb7f4f-28fc-4ca7-b530-3849eaae8dcc",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 237,
+      "evidence_id": "753006df-5afd-4f3a-8318-0ba29f301a16",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 238,
+      "evidence_id": "199c04cb-c574-492c-8dab-a385ddfbd9e6",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 239,
+      "evidence_id": "2de69d9e-6839-4a26-84da-8a89c813a7f0",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 240,
+      "evidence_id": "63cd96b0-9519-4a22-8870-f56e60ab3c70",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 241,
+      "evidence_id": "d388063b-afd9-48a8-82d5-22e1e5148836",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 242,
+      "evidence_id": "d389eb9e-9906-4fd5-a7ef-fb7222706267",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 243,
+      "evidence_id": "44dd8da0-95fc-4ff6-94e4-270f39204407",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 244,
+      "evidence_id": "343f0203-031a-438c-92de-edf186bfce51",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 245,
+      "evidence_id": "0716c33a-d282-4356-8e5b-3875705937f0",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 246,
+      "evidence_id": "89619fa3-76dd-46e6-a270-e3037625ebf8",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 247,
+      "evidence_id": "67647010-4519-4546-8ec1-7d5faff4347c",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 248,
+      "evidence_id": "5ff10f41-3570-4c1c-8134-57b067404d17",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 249,
+      "evidence_id": "04a6b647-6867-42a2-aa50-8c91eb44ed57",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 250,
+      "evidence_id": "f83f94e1-fab4-4aaf-83d0-b95b58c68cc8",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 251,
+      "evidence_id": "ae7e2bbd-0026-4371-bf65-2ec1c3e83000",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 252,
+      "evidence_id": "f915acfd-497c-499d-8cdc-e1baf288f9cd",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 253,
+      "evidence_id": "148d23c7-66f1-4f3d-80e4-7d5aaed6c120",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 254,
+      "evidence_id": "57715347-2e5a-4f60-818d-1f2804bbbec2",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 255,
+      "evidence_id": "aeeb9bb4-84db-40c0-861a-be37c011b1bc",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 256,
+      "evidence_id": "dbabcc8a-4cdf-4eb8-8114-9eb94a4091fe",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 257,
+      "evidence_id": "25a80632-bffb-4f39-8ef4-ee7fbd65d40f",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 258,
+      "evidence_id": "9ac958a2-13c7-40cf-9cce-7656c694cb33",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 259,
+      "evidence_id": "5c471f6e-2c0f-42a0-a66c-7e2b55e9d229",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 260,
+      "evidence_id": "af1afd26-e84b-475a-96c1-8326ca41d74c",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 261,
+      "evidence_id": "4b016670-1bb3-4536-b5eb-e284bdcbb57b",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 262,
+      "evidence_id": "64183634-5fc2-4722-bb3d-5be052ab44b0",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 263,
+      "evidence_id": "bc6b1e4c-de9c-4b67-8d07-63ffbd35dec7",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 264,
+      "evidence_id": "61f97baf-25bd-44c6-8845-687fba5da8e3",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 265,
+      "evidence_id": "f8a83c37-377b-4055-8087-3882b6bdda62",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 266,
+      "evidence_id": "a4c878b5-8a87-4b67-b7e8-124ecdf83654",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 267,
+      "evidence_id": "4979b1e8-d710-4832-8204-80371739781c",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 268,
+      "evidence_id": "1d3dbee0-bed0-4379-a251-5346b8272b8b",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 269,
+      "evidence_id": "6492cfd2-8dc8-4476-89c2-4c0e00618a27",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 270,
+      "evidence_id": "cb9287fb-f33c-40e3-8e5a-4ccd1d9f1ef4",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 271,
+      "evidence_id": "62b3dd26-69f7-4f95-a84b-4d05f2412468",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 272,
+      "evidence_id": "d38be7fb-b42d-4feb-ae0c-a15203b35d48",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 273,
+      "evidence_id": "cc08be3f-f954-45b0-97b0-40135a36f551",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 274,
+      "evidence_id": "4c07d489-ebc0-4464-9a4d-21d398d07d40",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 275,
+      "evidence_id": "33879ff0-4be8-4e7d-b617-9234229f31d7",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 276,
+      "evidence_id": "1b8f73d5-14c6-4882-9c1a-85dd400a4d6b",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 277,
+      "evidence_id": "f47dc258-f82a-4a4d-a9c5-ebb403e76b90",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 278,
+      "evidence_id": "238845b1-8448-4137-bfbe-f43aba302b84",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 279,
+      "evidence_id": "a2bd01f0-8968-40bc-89ea-e83d36198d68",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 280,
+      "evidence_id": "eaaa3f8a-aa4b-4cbc-b4cf-b88b0b0ebd2b",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 281,
+      "evidence_id": "1e7205da-c4cc-40ff-8df1-19d9a0e1c3d2",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 282,
+      "evidence_id": "ff854c60-d436-44ac-8cef-e3413925b493",
+      "expected": "NM",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 283,
+      "evidence_id": "3d7f4547-8da5-4555-8784-3ff3d6722cd3",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 284,
+      "evidence_id": "5d11cdbb-bd8d-4fb1-9deb-e237e36f96d0",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 285,
+      "evidence_id": "2fcacb0c-ec67-4756-b828-5c25ec725b18",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 286,
+      "evidence_id": "ec42c902-0668-46a8-874c-4c9d12e526d2",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 287,
+      "evidence_id": "9bcafdfd-c349-4a7b-b1b9-a2a913e7efe0",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 288,
+      "evidence_id": "98c7b28d-438d-4e03-821f-45de2c03e16c",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 289,
+      "evidence_id": "370bc30a-d606-4f48-b149-8dae0cb4db24",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 290,
+      "evidence_id": "cae0cf11-4ce1-4923-88d0-90c091170ed8",
+      "expected": "AMBIGUOUS",
+      "review_reason": "CONFLICTING_SUPPORTED_CONDITION_SIGNALS"
+    },
+    {
+      "review_index": 291,
+      "evidence_id": "43e7efef-67ec-414e-b273-81908097d681",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 292,
+      "evidence_id": "403ecb71-1683-43c9-aeb4-f67f057e18d9",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 293,
+      "evidence_id": "8b335b7f-c159-4eb9-b786-2d81caefaa66",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 294,
+      "evidence_id": "f79a780e-f4a5-4c05-857e-c6c0ad4953eb",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 295,
+      "evidence_id": "1e86b585-1277-4c78-b17d-2eb839cf4881",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 296,
+      "evidence_id": "91574154-d9b0-40fd-b688-005eb16065aa",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 297,
+      "evidence_id": "c44470dc-6de1-4cfa-bf17-62e73570dbf3",
+      "expected": "DAMAGED",
+      "review_reason": "EXPLICIT_DAMAGE_SIGNAL"
+    },
+    {
+      "review_index": 298,
+      "evidence_id": "4be750d0-11a2-4367-a467-bffc13b32b12",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 299,
+      "evidence_id": "033d12f1-eb82-468b-b44e-ccce925d2b8c",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    },
+    {
+      "review_index": 300,
+      "evidence_id": "61a34403-9848-4d54-9f21-2054f0d9a03e",
+      "expected": "MP",
+      "review_reason": "EXPLICIT_SUPPORTED_CONDITION_SIGNAL"
+    }
+  ]
+}
