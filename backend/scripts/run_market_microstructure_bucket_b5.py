@@ -19,10 +19,10 @@ from typing import Any, Iterable
 from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
 from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
 from backend.pricing_pipeline.pkmnprices_store import PkmnPricesStore
+from backend.pricing_pipeline.pkmnprices_sold import normalize_sold_listing
 from backend.scripts.run_market_microstructure_bucket_b import (
     COLLECTOR_VERSION,
     PANEL_FINGERPRINT,
-    _normalize,
 )
 from backend.scripts.run_market_microstructure_bucket_b4 import (
     operational_pause_reason,
@@ -33,7 +33,10 @@ MODE = "bucket_b5_targeted_sold_history_v1"
 SELECTOR_VERSION = "bucket_b5_gap_then_governed_7d_movers_v1"
 PAGE_SIZE = 20
 MAX_ROWS_PER_TARGET_ROUND = 80
-DAILY_B5_CREDIT_CAP = 8000
+ACCOUNT_DAILY_CREDIT_LIMIT = 75000
+DAILY_B5_CREDIT_CAP = 55000
+ACCOUNT_RESERVE_CREDITS = ACCOUNT_DAILY_CREDIT_LIMIT - DAILY_B5_CREDIT_CAP
+EXPANDED_B5_ACTIVATION_CREDIT_DAY = "2026-10-01"
 HORIZON_DAYS = 180
 EXPECTED_CORE_PANEL_READY = 207
 MOVER_TABLE = "pokemon_explore_card_movers_snapshot_latest"
@@ -94,6 +97,20 @@ def _gap_targets(db: Any) -> list[dict[str, Any]]:
     if not missing:
         return []
     missing_by = {str(row["canonical_card_id"]): row for row in missing}
+    canonical_by: dict[str, dict[str, Any]] = {}
+    missing_ids = list(missing_by)
+    for chunk in _chunks(missing_ids, 150):
+        rows = (
+            db.table("pokemon_canonical_cards")
+            .select(
+                "id,name,number,printed_number,pokemon_tcg_api_card_id,"
+                "source_payload,set_id,rarity"
+            )
+            .in_("id", chunk)
+            .execute().data or []
+        )
+        for row in rows:
+            canonical_by[str(row["id"])] = dict(row)
     links: list[dict[str, Any]] = []
     for chunk in _chunks(list(missing_by), 150):
         links.extend(
@@ -136,6 +153,7 @@ def _gap_targets(db: Any) -> list[dict[str, Any]]:
         pairs.setdefault(cid, []).append((variant, str(ext["external_product_id"])))
 
     targets: list[dict[str, Any]] = []
+    exact_variant_cids: set[str] = set()
     for cid, rows in sorted(pairs.items()):
         unique = {
             (str(variant["id"]), product_id)
@@ -145,10 +163,20 @@ def _gap_targets(db: Any) -> list[dict[str, Any]]:
             continue
         variant, product_id = rows[0]
         card = missing_by[cid]
+        exact_variant_cids.add(cid)
         targets.append({
             "canonical_card_id": cid,
             "card_variant_id": str(variant["id"]),
+            "internal_variants": [{
+                "id": str(variant["id"]),
+                "edition": variant.get("edition"),
+                "printing_type": variant.get("printing_type"),
+            }],
             "tcgplayer_product_id": product_id,
+            "provider_identity_strategy": "exact_tcgplayer_product_id",
+            "provider_search_name": None,
+            "provider_search_number": None,
+            "provider_search_set_name": None,
             "card_name": card.get("name"),
             "set_name": card.get("set_name"),
             "rarity": card.get("rarity"),
@@ -160,7 +188,60 @@ def _gap_targets(db: Any) -> list[dict[str, Any]]:
             "movement_rank": None,
             "change_percent": None,
         })
+
+    # Broader exact provider-search cohort. These cards have native Pokémon TCG
+    # source metadata, including exact set/name/number, but our internal variant
+    # mapping is incomplete. Evidence collected here stays card-level unless the
+    # provider variant string resolves unambiguously to an internal variant.
+    for cid, card in sorted(canonical_by.items()):
+        if cid in exact_variant_cids:
+            continue
+        payload = dict(card.get("source_payload") or {})
+        source_set = dict(payload.get("set") or {})
+        if not isinstance(payload.get("tcgplayer"), dict):
+            continue
+        name = str(card.get("name") or "").strip()
+        number = str(card.get("number") or card.get("printed_number") or "").strip()
+        set_name = str(source_set.get("name") or "").strip()
+        if not (name and number and set_name):
+            continue
+
+        internal_variants = []
+        for legacy_id in [
+            str(row["legacy_card_id"])
+            for row in links
+            if str(row["canonical_card_id"]) == cid
+        ]:
+            for variant in variants:
+                if str(variant.get("card_id")) == legacy_id:
+                    internal_variants.append({
+                        "id": str(variant["id"]),
+                        "edition": variant.get("edition"),
+                        "printing_type": variant.get("printing_type"),
+                    })
+
+        targets.append({
+            "canonical_card_id": cid,
+            "card_variant_id": None,
+            "internal_variants": internal_variants,
+            "tcgplayer_product_id": None,
+            "provider_identity_strategy": "exact_set_name_card_name_number",
+            "provider_search_name": name,
+            "provider_search_number": number,
+            "provider_search_set_name": set_name,
+            "card_name": name,
+            "set_name": set_name,
+            "rarity": card.get("rarity"),
+            "edition": None,
+            "printing_type": None,
+            "special_type": None,
+            "priority_tier": 1,
+            "priority_reason": "MISSING_PRICE_EXACT_PROVIDER_SEARCH",
+            "movement_rank": None,
+            "change_percent": None,
+        })
     return targets
+
 
 
 def _mover_targets(db: Any, *, exclude: set[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -213,7 +294,16 @@ def _mover_targets(db: Any, *, exclude: set[str]) -> tuple[list[dict[str, Any]],
         targets.append({
             "canonical_card_id": cid,
             "card_variant_id": vid,
+            "internal_variants": [{
+                "id": vid,
+                "edition": movement.get("edition"),
+                "printing_type": movement.get("printingType") or movement.get("printing_type"),
+            }],
             "tcgplayer_product_id": product_ids[0],
+            "provider_identity_strategy": "exact_tcgplayer_product_id",
+            "provider_search_name": None,
+            "provider_search_number": None,
+            "provider_search_set_name": None,
             "card_name": movement.get("name") or movement.get("cardName"),
             "set_name": movement.get("setName"),
             "rarity": movement.get("rarity"),
@@ -258,7 +348,8 @@ def select_targets(db: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         {
             "canonical_card_id": row["canonical_card_id"],
             "card_variant_id": row["card_variant_id"],
-            "tcgplayer_product_id": row["tcgplayer_product_id"],
+            "tcgplayer_product_id": row.get("tcgplayer_product_id"),
+            "provider_identity_strategy": row.get("provider_identity_strategy"),
             "priority_tier": row["priority_tier"],
             "priority_reason": row["priority_reason"],
             "movement_rank": row["movement_rank"],
@@ -328,9 +419,13 @@ def _identity_row(target: dict[str, Any], provider_card: dict[str, Any]) -> dict
     return {
         "provider_card_id": int(provider_id),
         "canonical_card_id": target["canonical_card_id"],
-        "tcgplayer_product_id": str(target["tcgplayer_product_id"]),
+        "tcgplayer_product_id": str(
+            target.get("tcgplayer_product_id")
+            or provider_card.get("tcg_player_id")
+            or ""
+        ),
         "language": "English",
-        "match_basis": "b5_exact_tcgplayer_product_id",
+        "match_basis": "b5_" + str(target.get("provider_identity_strategy") or "unknown"),
         "provider_name": provider_card.get("name"),
         "provider_set_id": str(provider_set.get("id")) if provider_set.get("id") is not None else None,
         "metadata": {
@@ -346,18 +441,62 @@ def _ensure_identity(
     store: PkmnPricesStore,
     provider: PkmnPricesClient,
     target: dict[str, Any],
+    *,
+    set_cache: dict[str, int],
 ) -> tuple[dict[str, Any], int]:
     cached = store.get_identity_by_canonical(target["canonical_card_id"])
     if cached:
-        if str(cached.get("tcgplayer_product_id")) != str(target["tcgplayer_product_id"]):
+        expected = target.get("tcgplayer_product_id")
+        if expected and str(cached.get("tcgplayer_product_id")) != str(expected):
             raise RuntimeError("B5_CACHED_IDENTITY_DRIFT")
         return cached, 0
+
     before = provider.credits_charged
-    rows = provider.cards_by_tcgplayer_id(target["tcgplayer_product_id"], language="English", per_page=5)
-    exact = [
-        row for row in rows
-        if str(row.get("tcg_player_id") or "") == str(target["tcgplayer_product_id"])
-    ]
+    strategy = target.get("provider_identity_strategy")
+    if strategy == "exact_tcgplayer_product_id":
+        rows = provider.cards_by_tcgplayer_id(
+            target["tcgplayer_product_id"], language="English", per_page=5
+        )
+        exact = [
+            row for row in rows
+            if str(row.get("tcg_player_id") or "") == str(target["tcgplayer_product_id"])
+        ]
+    elif strategy == "exact_set_name_card_name_number":
+        set_name = str(target["provider_search_set_name"])
+        cache_key = set_name.casefold()
+        provider_set_id = set_cache.get(cache_key)
+        if provider_set_id is None:
+            set_rows = provider.sets_by_name(
+                set_name, language="English", per_page=20
+            )
+            exact_sets = [
+                row for row in set_rows
+                if str(row.get("name") or "").strip().casefold() == cache_key
+                and str(row.get("language") or "English").casefold() == "english"
+            ]
+            if len(exact_sets) != 1:
+                raise RuntimeError(f"B5_PROVIDER_SET_COUNT_{len(exact_sets)}")
+            provider_set_id = int(exact_sets[0]["id"])
+            set_cache[cache_key] = provider_set_id
+
+        rows = provider.cards_by_identity(
+            name=str(target["provider_search_name"]),
+            number=str(target["provider_search_number"]),
+            set_id=provider_set_id,
+            language="English",
+            per_page=20,
+        )
+        exact = [
+            row for row in rows
+            if str(row.get("name") or "").strip().casefold()
+                == str(target["provider_search_name"]).strip().casefold()
+            and str(row.get("number") or "").strip().casefold()
+                == str(target["provider_search_number"]).strip().casefold()
+            and str((row.get("set") or {}).get("id") or "") == str(provider_set_id)
+        ]
+    else:
+        raise RuntimeError("B5_PROVIDER_IDENTITY_STRATEGY_UNSUPPORTED")
+
     if len(exact) != 1:
         raise RuntimeError(f"B5_PROVIDER_IDENTITY_COUNT_{len(exact)}")
     identity = _identity_row(target, exact[0])
@@ -485,6 +624,7 @@ def preflight(db: Any) -> dict[str, Any]:
     reference, cutoff = _horizon()
     credit_day = _credit_day()
     prior = _daily_credits_used(db, credit_day)
+    activation_ready = credit_day >= EXPANDED_B5_ACTIVATION_CREDIT_DAY
     return {
         "status": "PREFLIGHT_OK",
         "core_panel_ready_count": ready_core,
@@ -496,14 +636,19 @@ def preflight(db: Any) -> dict[str, Any]:
         "mover_snapshot": meta["mover_snapshot"],
         "reference_date": reference.isoformat(),
         "horizon_cutoff": cutoff.isoformat(),
+        "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+        "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
         "daily_credit_cap": DAILY_B5_CREDIT_CAP,
+        "activation_credit_day": EXPANDED_B5_ACTIVATION_CREDIT_DAY,
+        "activation_ready": activation_ready,
         "prior_b5_credits_today": prior,
         "remaining_b5_credits_today": max(0, DAILY_B5_CREDIT_CAP - prior),
         "operational_pause": operational_pause_reason(db),
         "targets": [
             {
                 "canonical_card_id": row["canonical_card_id"],
-                "tcgplayer_product_id": row["tcgplayer_product_id"],
+                "tcgplayer_product_id": row.get("tcgplayer_product_id"),
+                "provider_identity_strategy": row.get("provider_identity_strategy"),
                 "priority_tier": row["priority_tier"],
                 "priority_reason": row["priority_reason"],
                 "movement_rank": row["movement_rank"],
@@ -521,6 +666,12 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
     plan = preflight(db)
     if not plan["core_panel_gate_ready"]:
         return {**plan, "status": "BLOCKED", "reason": "CORE_PANEL_NOT_COMPLETE"}
+    if not plan["activation_ready"]:
+        return {
+            **plan,
+            "status": "BLOCKED",
+            "reason": "B5_EXPANDED_ACTIVATION_PENDING",
+        }
     if plan["operational_pause"]:
         return {**plan, "status": "BLOCKED", "reason": plan["operational_pause"]["reason"]}
     invocation_cap = int(plan["remaining_b5_credits_today"])
@@ -556,7 +707,10 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "mover_target_count": selector_meta["mover_target_count"],
             "reference_date": reference.isoformat(),
             "horizon_cutoff": cutoff.isoformat(),
+            "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+            "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
             "daily_credit_cap": DAILY_B5_CREDIT_CAP,
+            "activation_credit_day": EXPANDED_B5_ACTIVATION_CREDIT_DAY,
             "prior_b5_credits_today": plan["prior_b5_credits_today"],
             "invocation_credit_cap": invocation_cap,
             "canonical_price_mutation": False,
@@ -565,6 +719,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
 
     by_id = {row["canonical_card_id"]: row for row in targets}
     blocked: set[str] = set()
+    set_cache: dict[str, int] = {}
     totals = Counter()
     receipts: dict[str, dict[str, Any]] = {}
     pause = None
@@ -607,7 +762,9 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
                 break
             cid = target["canonical_card_id"]
             try:
-                identity, lookup_credits = _ensure_identity(store, provider, target)
+                identity, lookup_credits = _ensure_identity(
+                    store, provider, target, set_cache=set_cache
+                )
                 totals["identity_lookup_credits"] += lookup_credits
                 if lookup_credits:
                     totals["provider_card_lookup_count"] += 1
@@ -660,10 +817,17 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
                         raise RuntimeError("B5_CURSOR_DID_NOT_ADVANCE")
 
                     collected_at = datetime.now(timezone.utc).isoformat()
-                    normalized = [
-                        _normalize(raw, target, int(identity["provider_card_id"]), run_id, collected_at)
-                        for raw in raw_rows
-                    ]
+                    normalized = []
+                    for raw in raw_rows:
+                        item = normalize_sold_listing(
+                            raw,
+                            provider_card_id=int(identity["provider_card_id"]),
+                            canonical_card_id=target["canonical_card_id"],
+                            internal_variants=target.get("internal_variants") or [],
+                            collected_at=collected_at,
+                        )
+                        item["run_id"] = run_id
+                        normalized.append(item)
                     page_oldest = min(
                         [str(row["sold_at"])[:10] for row in normalized if row.get("sold_at")],
                         default=None,
@@ -759,7 +923,10 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "mover_target_count": selector_meta["mover_target_count"],
             "reference_date": reference.isoformat(),
             "horizon_cutoff": cutoff.isoformat(),
+            "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+            "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
             "daily_credit_cap": DAILY_B5_CREDIT_CAP,
+            "activation_credit_day": EXPANDED_B5_ACTIVATION_CREDIT_DAY,
             "prior_b5_credits_today": plan["prior_b5_credits_today"],
             "invocation_credit_cap": invocation_cap,
             "gap_ready_count": tier1_ready,

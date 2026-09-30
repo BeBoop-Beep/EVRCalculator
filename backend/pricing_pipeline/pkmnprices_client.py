@@ -128,6 +128,52 @@ class PkmnPricesClient:
             self._sleep(float(2 ** attempt))
         raise RuntimeError("unreachable")
 
+    def sets_by_name(
+        self,
+        name: str,
+        *,
+        language: str = "English",
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        payload = self.get(
+            "/v1/sets",
+            {
+                "name": str(name),
+                "language": language,
+                "per_page": max(1, min(int(per_page), 100)),
+                "page": 1,
+            },
+        )
+        rows = payload.get("data") or []
+        if not isinstance(rows, list):
+            raise PkmnPricesAPIError(200, "invalid_payload", "sets data is not an array")
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def cards_by_identity(
+        self,
+        *,
+        name: str,
+        number: str,
+        set_id: str | int,
+        language: str = "English",
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        payload = self.get(
+            "/v1/cards",
+            {
+                "name": str(name),
+                "number": str(number),
+                "set_id": str(set_id),
+                "language": language,
+                "per_page": max(1, min(int(per_page), 100)),
+                "page": 1,
+            },
+        )
+        rows = payload.get("data") or []
+        if not isinstance(rows, list):
+            raise PkmnPricesAPIError(200, "invalid_payload", "cards data is not an array")
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
     def cards_by_tcgplayer_id(
         self,
         tcgplayer_product_id: str | int,
