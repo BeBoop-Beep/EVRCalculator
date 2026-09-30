@@ -16,7 +16,6 @@ from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
-from backend.db.services.pokemon_set_market_service import canonical_card_movement_sort_key
 from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
 from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
 from backend.pricing_pipeline.pkmnprices_store import PkmnPricesStore
@@ -179,8 +178,10 @@ def _mover_targets(db: Any, *, exclude: set[str]) -> tuple[list[dict[str, Any]],
     snapshot = dict(rows[0])
     payload = dict(snapshot.get("payload_json") or {})
     movements = list((payload.get("marketMovers") or {}).get("all") or [])
+    # The published Explore snapshot is already ordered by the governed
+    # canonical movement sort. Preserve that authority exactly; do not
+    # recompute or reinterpret movement ranking here.
     movements = [dict(row) for row in movements if isinstance(row, dict)]
-    movements.sort(key=canonical_card_movement_sort_key)
 
     variant_ids = [
         str(row.get("cardVariantId") or row.get("card_variant_id"))
