@@ -25,7 +25,7 @@ test("each exact Product binds its own economics and Best-Open columns", () => {
     assert.match(source, new RegExp(`formatPackEconomicsValue\\(key, product\\[key\\]\\)`));
   }
   assert.match(source, /product\.bestOpenPrice/);
-  assert.match(source, /product\.marketPrice/);
+  assert.match(source, /<BestOpenDetailsPopover row=\{product\}/);
   assert.equal(formatPackEconomicsValue("bestOpenPrice", 54.31), "$54.31");
   assert.equal(formatPackEconomicsValue("bestOpenPrice", 55.29), "$55.29");
 });

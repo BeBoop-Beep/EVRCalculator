@@ -19,7 +19,7 @@ test("exact Product rows align authoritative economics and route by sealedProduc
   assert.match(pack, /buildSealedProductHref\(product\)/);
   assert.match(pack, /ECONOMIC_KEYS\.map\(\(key\).*product\[key\]/s);
   assert.match(pack, /product\.bestOpenPrice/);
-  assert.match(pack, /product\.marketPrice/);
+  assert.match(pack, /<BestOpenDetailsPopover row=\{product\}/);
   assert.match(pack, /product\.packCount/);
 });
 

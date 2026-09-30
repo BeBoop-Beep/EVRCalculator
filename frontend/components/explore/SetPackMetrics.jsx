@@ -6,6 +6,7 @@ import InfoPopover from "@/components/ui/InfoPopover";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes.mjs";
 import AnalyticsTableShell from "./AnalyticsTableShell";
+import BestOpenDetailsPopover from "./BestOpenDetailsPopover";
 import SetIdentity from "./SetIdentity";
 import { ECONOMIC_KEYS, SET_PACK_COLUMNS, filterPackEconomicsSets, formatPackEconomicsValue, sortPackEconomicsSets } from "./setPackMetricsSelector.mjs";
 import styles from "./explore.module.css";
@@ -47,12 +48,12 @@ function ProductRow({ product, first, setId }) {
     <th scope="row" className="px-2 py-2 text-left text-xs font-normal"><Link href={buildSealedProductHref(product) || "#"} className="ml-10 inline-flex hover:underline">{product.productName || "Exact Product"}</Link><span className="sr-only">Exact Product</span>{product.packCount ? <span className="ml-10 block text-[10px]">{product.packCount} packs · {product.familyKey || "Product"}</span> : null}</th>
     <Numeric><span className="text-[var(--text-secondary)]">—</span></Numeric><Numeric>1</Numeric>
     {ECONOMIC_KEYS.map((key) => <Numeric key={key}>{formatPackEconomicsValue(key, product[key]) || <span className="text-[var(--text-secondary)]">—</span>}</Numeric>)}
-    <Numeric><strong className="text-[var(--text-primary)]">{formatPackEconomicsValue("bestOpenPrice", product.bestOpenPrice) || "—"}</strong>{product.marketPrice != null ? <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">Market {formatPackEconomicsValue("marketPrice", product.marketPrice)}</span> : null}</Numeric>
+    <Numeric><BestOpenDetailsPopover row={product} /></Numeric>
   </tr>;
 }
 
-function MetricList({ source, includeBestOpen = false, bestOpen = null, entitled = true }) {
-  return <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">{ECONOMIC_KEYS.map((key) => <div key={key}><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">{SET_PACK_COLUMNS.find(([column]) => column === key)?.[1]}</dt><dd className="tabular-nums">{entitled || key === "averagePackCostPerPack" ? formatPackEconomicsValue(key, source?.[key]) || "—" : <LockedMetric />}</dd></div>)}{includeBestOpen ? <div><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">Best-Open Price</dt><dd className="font-semibold tabular-nums">{entitled ? bestOpen || "—" : <LockedMetric />}</dd></div> : null}</dl>;
+function MetricList({ source, includeBestOpen = false, entitled = true }) {
+  return <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">{ECONOMIC_KEYS.map((key) => <div key={key}><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">{SET_PACK_COLUMNS.find(([column]) => column === key)?.[1]}</dt><dd className="tabular-nums">{entitled || key === "averagePackCostPerPack" ? formatPackEconomicsValue(key, source?.[key]) || "—" : <LockedMetric />}</dd></div>)}{includeBestOpen ? <div><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">Best-Open Price</dt><dd className="font-semibold tabular-nums">{entitled ? <BestOpenDetailsPopover row={source} /> : <LockedMetric />}</dd></div> : null}</dl>;
 }
 
 function MobileSet({ row, expanded, toggle, entitled }) {

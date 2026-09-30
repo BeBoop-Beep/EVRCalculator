@@ -229,6 +229,7 @@ def read_pack_economics(client: Any) -> dict[str, Any]:
                 "marketPrice": _number(row.get("current_market_price")), "bestOpenPrice": _number(row.get("best_open_price")),
                 "bestOpenStatus": row.get("status"), "bestOpenPriceGapDollars": _number(row.get("price_gap_dollars")),
                 "bestOpenPriceGapPercent": _number(row.get("price_gap_percent")), "bestOpenSourceMarketDate": best_date,
+                "bestOpenMarketSourceDate": best_date,
                 "bestOpenFreshnessStatus": _freshness(best_date, opening_date)}
         best_by_set_family.setdefault((str(row["set_id"]), str(row.get("product_family") or "")), []).append(item)
         products_by_set.setdefault(str(row["set_id"]), []).append(item)
@@ -336,13 +337,31 @@ def read_public_product_catalogue(client: Any) -> dict[str, Any]:
 
 
 def project_product_contract(payload: Mapping[str, Any], *, view: str,
-                             best_open_products: Optional[Mapping[str, Mapping[str, Any]]] = None) -> dict[str, Any]:
+                             best_open_products: Optional[Mapping[str, Mapping[str, Any]]] = None,
+                             product_benchmark: Optional[Mapping[str, Any]] = None) -> dict[str, Any]:
     """Split the existing single prepared Product read without another DB pass."""
     if view not in {"scores", "economics"}:
         raise ValueError("view must be scores or economics")
     best_meta = payload.get("bestOpenPrice") or {}
     source_date = _day(best_meta.get("sourceMarketDate"))
     market_date = _day(payload.get("marketDate") or (payload.get("authority") or {}).get("marketDate"))
+    authority = payload.get("authority") or {}
+    benchmark_available = bool(product_benchmark and product_benchmark.get("status") == "available")
+    benchmark_rows = {str(row.get("sealedProductId")): row for row in
+                      (product_benchmark or {}).get("rows") or []} if benchmark_available else {}
+    score_contract = ({
+        "scoreKind": "benchmark", "scoreScale": "0-10",
+        "metricVersion": product_benchmark.get("metricVersion"), "benchmarkAvailable": True,
+        "publicationId": product_benchmark.get("publicationId"),
+        "calibrationVersion": product_benchmark.get("calibrationVersion"),
+        "overallReference": product_benchmark.get("overallReference"),
+    } if benchmark_available else {
+        "scoreKind": "absolute", "scoreScale": "0-100",
+        "metricVersion": authority.get("overallRipVersion"), "benchmarkAvailable": False,
+        "publicationId": None, "calibrationVersion": None,
+        "overallReference": {"status": "unavailable", "value": None,
+                             "reason": "product_benchmark_publication_pending"},
+    })
     projected = []
     for row in payload.get("rows") or []:
         identity = {"sealedProductId": row.get("sealedProductId"), "productName": row.get("productName"),
@@ -350,10 +369,22 @@ def project_product_contract(payload: Mapping[str, Any], *, view: str,
                     "setCanonicalKey": row.get("setCanonicalKey"), "familyKey": row.get("productFamily"),
                     "familyName": row.get("productFamilyLabel"), "packCount": row.get("packCount")}
         if view == "scores":
-            item = {**identity, "rank": row.get("budgetRank"), "rankScope": "full_market",
-                    "cohortSize": row.get("budgetCohortSize"),
-                    "ripScore": benchmark_presentation(row.get("overallRipScore"), rank=row.get("budgetRank"),
-                                                       cohort_size=row.get("budgetCohortSize"), tier=row.get("publicTier")),
+            benchmark_row = benchmark_rows.get(str(row.get("sealedProductId")), {})
+            score_value = (_number(benchmark_row.get("benchmarkScore")) if benchmark_available
+                           else _number(row.get("overallRipScore")))
+            item = {**identity,
+                    "rank": benchmark_row.get("rank") if benchmark_available else row.get("budgetRank"),
+                    "rankScope": "benchmark" if benchmark_available else "full_market",
+                    "cohortSize": benchmark_row.get("cohortSize") if benchmark_available else row.get("budgetCohortSize"),
+                    "ripScore": {"scoreKind": score_contract["scoreKind"], "scoreScale": score_contract["scoreScale"],
+                                 "scoreValue": score_value, "metricVersion": score_contract["metricVersion"],
+                                 "benchmarkAvailable": benchmark_available,
+                                 "benchmarkValue": score_value if benchmark_available else None,
+                                 "benchmarkReference": score_contract["overallReference"] if benchmark_available else None,
+                                 "benchmarkRank": benchmark_row.get("rank") if benchmark_available else None,
+                                 "benchmarkCohortSize": benchmark_row.get("cohortSize") if benchmark_available else None,
+                                 "publicationId": score_contract["publicationId"],
+                                 "calibrationVersion": score_contract["calibrationVersion"]},
                     "financialRip": row.get("financialRipScore"),
                     "setChaseAccessibility": row.get("chaseAccessibility"),
                     "parentSetCollector": row.get("collectorAppealScore")}
@@ -367,6 +398,8 @@ def project_product_contract(payload: Mapping[str, Any], *, view: str,
             exact_date = _day(exact_best.get("bestOpenSourceMarketDate")) or source_date
             item = {**identity, "unitPrice": unit_price,
                     "bestOpenPrice": _number(exact_best.get("bestOpenPrice") if exact_best else row.get("bestOpenPrice")),
+                    "bestOpenMarketPrice": _number(exact_best.get("bestOpenMarketPrice")) if exact_best else None,
+                    "bestOpenMarketSourceDate": _day(exact_best.get("bestOpenMarketSourceDate")) if exact_best else None,
                     "bestOpenStatus": exact_best.get("bestOpenStatus") if exact_best else row.get("bestOpenPriceStatus"),
                     "bestOpenPriceGapDollars": _number(exact_best.get("bestOpenPriceGapDollars")) if exact_best else None,
                     "bestOpenPriceGapPercent": _number(exact_best.get("bestOpenPriceGapPercent")) if exact_best else None,
@@ -377,8 +410,11 @@ def project_product_contract(payload: Mapping[str, Any], *, view: str,
                                             else expected / (unit_price * quantity) if expected is not None and unit_price else None,
                     "chanceToRecoverCost": _number(row.get("chanceToRecoverCost"))}
         projected.append(item)
-    return {"contractVersion": f"rankings-products-{view}-v1", "status": "available" if payload.get("available") else "unavailable",
-            "marketDate": market_date, "view": view, "rows": projected}
+    result = {"contractVersion": f"rankings-products-{view}-v2", "status": "available" if payload.get("available") else "unavailable",
+              "marketDate": market_date, "view": view, "rows": projected}
+    if view == "scores":
+        result["scoreContract"] = score_contract
+    return result
 
 
 def read_product_best_open_map(client: Any, *, reference_date: Optional[str] = None) -> dict[str, dict[str, Any]]:
@@ -392,7 +428,9 @@ def read_product_best_open_map(client: Any, *, reference_date: Optional[str] = N
         "sealed_product_id,current_market_price,status,best_open_price,price_gap_dollars,price_gap_percent"
     ).eq("snapshot_id", pointer[0]["snapshot_id"]).execute())
     return {str(row["sealed_product_id"]): {
-        "bestOpenPrice": _number(row.get("best_open_price")), "bestOpenStatus": row.get("status"),
+        "bestOpenPrice": _number(row.get("best_open_price")),
+        "bestOpenMarketPrice": _number(row.get("current_market_price")),
+        "bestOpenMarketSourceDate": source_date, "bestOpenStatus": row.get("status"),
         "bestOpenPriceGapDollars": _number(row.get("price_gap_dollars")),
         "bestOpenPriceGapPercent": _number(row.get("price_gap_percent")),
         "bestOpenSourceMarketDate": source_date,

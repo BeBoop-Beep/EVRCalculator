@@ -125,26 +125,56 @@ def test_card_facets_are_one_prepared_pointer_bound_read():
 
 
 def test_products_split_keeps_rank_scope_and_separates_units():
-    payload = {"available": True, "marketDate": "2026-09-28", "bestOpenPrice": {"sourceMarketDate": "2026-09-08"},
+    payload = {"available": True, "marketDate": "2026-09-28", "authority": {"overallRipVersion": "overall-rip-v12"},
+               "bestOpenPrice": {"sourceMarketDate": "2026-09-08"},
                "rows": [{"sealedProductId": "p1", "productName": "Pack", "budgetRank": 1, "budgetCohortSize": 138,
                          "overallRipScore": 8, "publicTier": "A", "financialRipScore": 31,
                          "unitPrice": 10, "bestOpenPrice": 8, "expectedValue": 4, "chanceToRecoverCost": .1}]}
     scores = project_product_contract(payload, view="scores")["rows"][0]
     economics = project_product_contract(payload, view="economics")["rows"][0]
     assert scores["rank"] == 1 and scores["rankScope"] == "full_market"
+    assert scores["ripScore"]["scoreValue"] == 8
+    assert scores["ripScore"]["scoreKind"] == "absolute" and scores["ripScore"]["scoreScale"] == "0-100"
+    assert scores["ripScore"]["benchmarkReference"] is None
     assert economics["modeledReturnOnSpend"] == .4
     assert economics["bestOpenFreshnessStatus"] == "older"
     assert "unitPrice" not in scores and "ripScore" not in economics
+
+
+def test_product_score_contract_never_converts_absolute_and_activates_only_explicit_benchmark():
+    payload = {"available": True, "marketDate": "2026-09-29",
+               "authority": {"overallRipVersion": "overall-rip-v12"},
+               "rows": [{"sealedProductId": "p1", "overallRipScore": 53.073,
+                         "budgetRank": 1, "budgetCohortSize": 138}]}
+    absolute = project_product_contract(payload, view="scores")
+    assert absolute["rows"][0]["ripScore"]["scoreValue"] == 53.073
+    assert absolute["scoreContract"] == {
+        "scoreKind": "absolute", "scoreScale": "0-100", "metricVersion": "overall-rip-v12",
+        "benchmarkAvailable": False, "publicationId": None, "calibrationVersion": None,
+        "overallReference": {"status": "unavailable", "value": None,
+                             "reason": "product_benchmark_publication_pending"},
+    }
+    benchmark = project_product_contract(payload, view="scores", product_benchmark={
+        "status": "available", "metricVersion": "product-benchmark-v1", "publicationId": "pub1",
+        "calibrationVersion": "cal1", "overallReference": {"status": "available", "value": 5.0},
+        "rows": [{"sealedProductId": "p1", "benchmarkScore": 7.25, "rank": 2, "cohortSize": 10}],
+    })
+    score = benchmark["rows"][0]["ripScore"]
+    assert (score["scoreKind"], score["scoreScale"], score["scoreValue"]) == ("benchmark", "0-10", 7.25)
+    assert score["benchmarkReference"]["value"] == 5.0 and score["publicationId"] == "pub1"
 
 
 def test_product_best_open_reads_direct_rows_without_pack_hierarchy():
     client = Client({
         "budget_product_best_open_price_latest": [{"snapshot_id": "snap", "source_market_date": "2026-09-08"}],
         "budget_product_best_open_price_rows": [{"snapshot_id": "snap", "sealed_product_id": "p1",
-            "status": "available", "best_open_price": 42, "price_gap_dollars": 3, "price_gap_percent": .07}],
+            "current_market_price": 45, "status": "available", "best_open_price": 42,
+            "price_gap_dollars": 3, "price_gap_percent": .07}],
     })
     result = read_product_best_open_map(client, reference_date="2026-09-28")
     assert result["p1"]["bestOpenPrice"] == 42
+    assert result["p1"]["bestOpenMarketPrice"] == 45
+    assert result["p1"]["bestOpenMarketSourceDate"] == "2026-09-08"
     assert result["p1"]["bestOpenFreshnessStatus"] == "older"
     assert client.calls == ["budget_product_best_open_price_latest", "budget_product_best_open_price_rows"]
 
