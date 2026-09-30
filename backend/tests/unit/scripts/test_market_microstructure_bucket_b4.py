@@ -108,3 +108,21 @@ def test_b4_batches_identity_and_sync_state_reads():
     assert '"pkmnprices_sold_sync_state_v1"' in text
     assert "phase1_reference_date" in text
     assert "phase1_oldest_sold_at" in text
+
+
+def test_b4_vm_schedule_yields_to_c_and_uses_shared_locks():
+    root = Path(__file__).resolve().parents[4]
+    cron = (root / "infra/oracle/market-microstructure-b4.crontab").read_text(encoding="utf-8")
+    runner = (root / "infra/oracle/run_market_microstructure_bucket_b4.sh").read_text(encoding="utf-8")
+    installer = (root / "infra/oracle/install_market_microstructure_bucket_b4_cron.sh").read_text(encoding="utf-8")
+
+    assert "CRON_TZ=America/Phoenix" in cron
+    assert "30 22 * * *" in cron
+    assert "/bin/bash" in cron
+    assert "/tmp/active-supply-panel.lock" in runner
+    assert "/tmp/pkmnprices-api.lock" in runner
+    assert "/tmp/pokemon-post-scrape-publication.lock" in runner
+    assert "/home/ubuntu/state/db-safety/hold.json" in runner
+    assert "--credit-cap 8000" in runner
+    assert "worktree add --detach" in installer
+    assert "VERIFY ONLY" in installer
