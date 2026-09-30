@@ -400,18 +400,27 @@ function installClientFetch() {
   return calls;
 }
 
-async function mountClient() {
+async function mountClient(props = {}) {
   let renderer;
   const initialState = resolveInitialExplorerState(overview, { market: "raw,sealedMarket" }, [], []);
   await act(async () => {
     renderer = TestRenderer.create(React.createElement(MarketExplorerClient, {
       overview, sealedSegments: [], cardSegments: [], initialState,
       user: { id: "u", index_plan: "premium" }, preparedDirectory: DIRECTORY,
+      ...props,
     }), { createNodeMock: () => ({ focus() {}, showModal() {}, close() {}, querySelector: () => null, querySelectorAll: () => [], matches: () => true, getBoundingClientRect: () => ({ left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 }) }) });
   });
   await flush();
   return renderer;
 }
+
+test("MarketExplorerClient defaults Market Activity to unavailable without capability authority", async () => {
+  installClientFetch();
+  const renderer = await mountClient();
+  click(renderer, "data-market-explorer-active-focus", "raw"); await flush();
+  assert.equal(one(renderer, "data-market-explorer-focus-tool", "market-activity").props["data-focus-tool-state"], "unavailable");
+  assert.equal(find(renderer, "data-market-activity-pane").length, 0);
+});
 async function addFossil(renderer) {
   click(renderer, "data-market-directory-category", "sets"); await flush();
   // PRIMARY ROW ACTION = open this market (the per-row compare button no longer exists).

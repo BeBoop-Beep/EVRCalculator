@@ -9,7 +9,19 @@ import {
   MARKET_ACTIVITY_MANIFEST_SHA256,
   loadMarketActivityFixture,
 } from "./marketActivityFixtures.mjs";
-import { activityPointAtDate, capabilityIsCurrent, createActivityRequestOwner } from "./marketActivityState.mjs";
+import { activityDateGeometry, activityPointAtDate, capabilityIsCurrent, createActivityRequestOwner, validateActivityResponseScope } from "./marketActivityState.mjs";
+
+const SCOPE = Object.freeze({
+  focusMarketKey: "focus:A", marketKey: "market:A", activityGenerationId: "generation-A",
+  rosterRef: Object.freeze({ kind: "SURFACE_V2_GENERATION", marketKey: "market:A", generationId: "roster-A" }),
+  evidenceFingerprint: "evidence-A", asOf: "2026-09-29", windowDays: 30, tier: "RAW",
+});
+const scopedPayload = (overrides = {}) => ({
+  contractVersion: "market_activity_v1.1", activityGenerationId: SCOPE.activityGenerationId,
+  evidenceFingerprint: SCOPE.evidenceFingerprint, availability: { state: "AVAILABLE", reasons: [] },
+  request: { marketKey: SCOPE.marketKey, activityGenerationId: SCOPE.activityGenerationId, rosterRef: SCOPE.rosterRef, asOf: SCOPE.asOf, windowDays: SCOPE.windowDays },
+  series: { sales: { tier: "RAW" } }, ...overrides,
+});
 
 test("all 19 accepted fixtures pass manifest, fixture fingerprint, and contract validation", async () => {
   assert.equal(MARKET_ACTIVITY_CONTRACT_VERSION, "market_activity_v1.1");
@@ -24,17 +36,33 @@ test("all 19 accepted fixtures pass manifest, fixture fingerprint, and contract 
 
 test("request owner rejects A-to-B races and cancellation while in flight", async () => {
   const resolvers = new Map();
-  const owner = createActivityRequestOwner(({ marketKey }) => new Promise((resolve) => resolvers.set(marketKey, resolve)));
-  const a = owner.request({ marketKey: "A" });
-  const b = owner.request({ marketKey: "B" });
-  resolvers.get("A")({ value: "old" });
+  const owner = createActivityRequestOwner(({ focusMarketKey }) => new Promise((resolve) => resolvers.set(focusMarketKey, resolve)));
+  const aScope = { ...SCOPE, focusMarketKey: "focus:A" };
+  const bScope = { ...SCOPE, focusMarketKey: "focus:B" };
+  const a = owner.request(aScope);
+  const b = owner.request(bScope);
+  resolvers.get("focus:A")({ value: "old" });
   assert.deepEqual(await a, { stale: true });
-  resolvers.get("B")({ value: "current" });
-  assert.equal((await b).data.value, "current");
-  const c = owner.request({ marketKey: "C" });
+  resolvers.get("focus:B")(scopedPayload());
+  assert.equal((await b).data.request.marketKey, "market:A");
+  const c = owner.request({ ...SCOPE, focusMarketKey: "focus:C" });
   owner.cancel();
-  resolvers.get("C")({ value: "disabled" });
+  resolvers.get("focus:C")({ value: "disabled" });
   assert.deepEqual(await c, { stale: true });
+});
+
+test("response scope must exactly match market, generation, roster, as-of, window, tier, and evidence", () => {
+  assert.equal(validateActivityResponseScope(scopedPayload(), SCOPE).request.marketKey, "market:A");
+  const cases = [
+    scopedPayload({ request: { ...scopedPayload().request, marketKey: "market:B" } }),
+    scopedPayload({ activityGenerationId: "generation-B" }),
+    scopedPayload({ request: { ...scopedPayload().request, rosterRef: { ...SCOPE.rosterRef, generationId: "roster-B" } } }),
+    scopedPayload({ request: { ...scopedPayload().request, asOf: "2026-09-28" } }),
+    scopedPayload({ request: { ...scopedPayload().request, windowDays: 90 } }),
+    scopedPayload({ series: { sales: { tier: "GRADED" } } }),
+    scopedPayload({ evidenceFingerprint: "evidence-B" }),
+  ];
+  for (const payload of cases) assert.throws(() => validateActivityResponseScope(payload, SCOPE), /does not match/);
 });
 
 test("sparse dates stay unknown while absence inside a proven sales span is explicit zero", () => {
@@ -48,6 +76,13 @@ test("current ask capability expires against evaluation time", () => {
   const capability = { available: true, expiresAt: "2026-10-01T08:00:00Z" };
   assert.equal(capabilityIsCurrent(capability, Date.parse("2026-10-01T07:59:59Z")), true);
   assert.equal(capabilityIsCurrent(capability, Date.parse("2026-10-01T08:00:00Z")), false);
+});
+
+test("sparse points use canonical x positions and preserve gaps", () => {
+  const geometry = activityDateGeometry([{ date: "2026-09-20", value: 3 }, { date: "2026-09-25", value: 2 }, { date: "2026-09-28", value: 0 }],
+    ["2026-09-20", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27", "2026-09-28"]);
+  assert.deepEqual(geometry.map((point) => point.canonicalIndex), [0, 5, 8]);
+  assert.deepEqual(geometry.map((point) => point.xPercent), [2, 62, 98]);
 });
 
 test("Activity remains a companion pane with one tooltip owner and no production route", async () => {

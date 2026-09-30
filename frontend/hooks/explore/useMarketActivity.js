@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createActivityRequestOwner, ACTIVITY_STATUS, activityScopeKey } from "@/lib/explore/marketActivityState.mjs";
-import { loadMarketActivityFixture } from "@/lib/explore/marketActivityFixtures.mjs";
 
-export default function useMarketActivity({ enabled, scope, fixtureId, identityKey }) {
-  const owner = useMemo(() => createActivityRequestOwner(({ signal }) => loadMarketActivityFixture({ fixtureId, signal })), [fixtureId]);
+export default function useMarketActivity({ enabled, scope, transport, identityKey }) {
+  const owner = useMemo(() => createActivityRequestOwner(transport || (() => Promise.reject(new Error("Activity transport unavailable.")))), [transport]);
   const [state, setState] = useState({ status: ACTIVITY_STATUS.idle, data: null, error: null, scopeKey: null });
   const scopeKey = activityScopeKey(scope);
   useEffect(() => {

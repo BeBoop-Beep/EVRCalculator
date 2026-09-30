@@ -38,7 +38,7 @@ import useMarketExplorerSelection from "@/hooks/explore/useMarketExplorerSelecti
 import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { useAuth } from "@/components/AuthContext";
 import {
-  FOCUS_TOOL_STATE, FIXTURE_BACKED_ACTIVITY_CAPABILITIES, countActiveMarkets, evaluateActiveMarketAdd, resolveFocusToolStates,
+  FOCUS_TOOL_STATE, NO_BACKEND_CAPABILITIES, countActiveMarkets, evaluateActiveMarketAdd, resolveFocusToolStates,
 } from "@/lib/explore/marketExplorerAccess.mjs";
 import { buildFocusTools } from "./MarketExplorerFocusTools";
 import useMarketActivity from "@/hooks/explore/useMarketActivity";
@@ -93,8 +93,12 @@ export default function MarketExplorerClient({
   preparedDirectory = [],
   preparedDirectoryStatus = "ready",
   initialPreparedKey = null,
-  /** Focus-tool authority. Activity defaults to the explicitly labelled fixture adapter in FMA-3. */
-  marketCapabilities = FIXTURE_BACKED_ACTIVITY_CAPABILITIES,
+  /** Server-published focus-tool authority. Product default is fail-closed. */
+  marketCapabilities = NO_BACKEND_CAPABILITIES,
+  /** Explicit injectable transport seam for tests and FMA-4. */
+  activityTransport = null,
+  /** Explicit local/e2e fixture payload only; null in normal product rendering. */
+  activityFixturePayload = null,
 }) {
   const auth = useAuth();
   // An unresolved/null client context must not erase the server-resolved paid
@@ -405,6 +409,8 @@ export default function MarketExplorerClient({
   const focusedSeriesKey = workspaceView.focused && allSeriesKeys.includes(workspaceView.focused)
     && !hiddenSeriesKeys.has(workspaceView.focused) ? workspaceView.focused : null;
   const focusedSeries = selectedSeries.find((series) => series.key === focusedSeriesKey) || null;
+  const activityFocusKey = focusedSeries && !["sealed", "graded"].includes(focusedSeries.asset)
+    && !/sealed|graded/i.test(focusedSeriesKey) ? focusedSeriesKey : null;
   useEffect(() => {
     dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reconcile, activeKeys: allSeriesKeys });
   }, [allSeriesKeys]);
@@ -412,9 +418,8 @@ export default function MarketExplorerClient({
   // (default none). Fair Value, when explicitly available, defaults ON on entering
   // focus; the user may toggle it off/on for that focus session.
   const focusToolStates = useMemo(
-    () => resolveFocusToolStates(indexPlan, focusedSeries && !["sealed", "graded"].includes(focusedSeries.asset)
-      && !/sealed|graded/i.test(focusedSeriesKey) ? focusedSeriesKey : null, marketCapabilities),
-    [indexPlan, focusedSeriesKey, focusedSeries?.asset, marketCapabilities]);
+    () => resolveFocusToolStates(indexPlan, activityFocusKey, marketCapabilities),
+    [indexPlan, activityFocusKey, marketCapabilities]);
   const [focusToolToggles, setFocusToolToggles] = useState({});
   useEffect(() => { setFocusToolToggles({}); }, [focusedSeriesKey]);
   const fairValueOn = focusToolStates.fairValue.state === FOCUS_TOOL_STATE.available
@@ -436,18 +441,27 @@ export default function MarketExplorerClient({
   }, [fairValueOn, marketCapabilities, focusedSeriesKey]);
   const activityCapability = focusedSeriesKey ? marketCapabilities?.activity?.[focusedSeriesKey] || marketCapabilities?.activity?.["*"] : null;
   const activityScope = useMemo(() => activityOn && focusedSeriesKey ? {
-    marketKey: focusedSeriesKey,
-    activityGenerationId: activityCapability?.activityGenerationId || "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
-    rosterRef: activityCapability?.rosterRef || { kind: "SURFACE_V2_GENERATION", marketKey: focusedSeriesKey, generationId: "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10" },
-    evidenceFingerprint: activityCapability?.evidenceFingerprint || "fixture",
-    asOf: activityCapability?.asOf || "2026-09-29",
-    windowDays: activityCapability?.windowDays || 30,
-    grade: activityCapability?.grade || "raw",
+    focusMarketKey: focusedSeriesKey,
+    marketKey: activityCapability.marketKey,
+    activityGenerationId: activityCapability.activityGenerationId,
+    rosterRef: activityCapability.rosterRef,
+    evidenceFingerprint: activityCapability.evidenceFingerprint,
+    asOf: activityCapability.asOf,
+    windowDays: activityCapability.windowDays,
+    tier: activityCapability.tier || activityCapability.grade,
   } : null, [activityOn, focusedSeriesKey, activityCapability]);
+  const resolvedActivityTransport = useMemo(() => {
+    if (activityTransport) return activityTransport;
+    if (!activityFixturePayload) return null;
+    return async ({ signal }) => {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      return activityFixturePayload;
+    };
+  }, [activityTransport, activityFixturePayload]);
   const activityState = useMarketActivity({
-    enabled: activityOn,
+    enabled: activityOn && Boolean(resolvedActivityTransport),
     scope: activityScope,
-    fixtureId: activityCapability?.fixtureId || "fma_fixture_11",
+    transport: resolvedActivityTransport,
     identityKey: isAuthenticated ? `${liveUser?.id || liveUser?.email || "user"}:${indexPlan}` : null,
   });
   // The workspace has nothing to show once the last active market is gone.

@@ -169,7 +169,7 @@ export default function MarketExplorerChart({
           )}
       </div>
 
-      {activityState ? <MarketActivityPane state={activityState} inspectedDate={inspectedDate} /> : null}
+      {activityState ? <MarketActivityPane state={activityState} inspectedDate={inspectedDate} canonicalDates={visibleModel?.dates || []} /> : null}
 
       {/* BOTTOM-CENTER ANALYSIS ACTION. Lives inside the chart pane directly under
           the x-axis dates, so it is part of the chart workspace (visible without

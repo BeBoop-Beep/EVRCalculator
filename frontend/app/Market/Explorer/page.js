@@ -17,6 +17,7 @@ import {
 import { buildCoverageSummary, resolveMarketOverview } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import styles from "@/components/explore/explore.module.css";
+import { FMA3_FIXTURE_CAPABILITIES, FMA3_FIXTURE_ID } from "@/lib/explore/marketActivityFixtureHarness.mjs";
 
 // Market Explorer — the deep-dive research destination.
 //
@@ -37,6 +38,11 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function MarketExplorerPage({ searchParams }) {
+  const activityFixtureMode = process.env.MARKET_ACTIVITY_FIXTURE_MODE === "1";
+  const activityFixturePayload = activityFixtureMode
+    ? await import("@/lib/explore/marketActivityFixtures.mjs")
+      .then(({ loadMarketActivityFixture }) => loadMarketActivityFixture({ fixtureId: FMA3_FIXTURE_ID }))
+    : null;
   const [resolvedSearchParams, payload, auth, preparedDirectoryResult] = await Promise.all([
     Promise.resolve(searchParams).catch(() => null),
     getExploreSetValueMarket().catch(() => null),
@@ -103,6 +109,8 @@ export default async function MarketExplorerPage({ searchParams }) {
           preparedDirectory={preparedDirectory}
           preparedDirectoryStatus={preparedDirectoryResult.status}
           initialPreparedKey={initialPreparedKey}
+          marketCapabilities={activityFixtureMode ? FMA3_FIXTURE_CAPABILITIES : undefined}
+          activityFixturePayload={activityFixturePayload}
         />
       </MarketExplorerAccessGate>
     </div>

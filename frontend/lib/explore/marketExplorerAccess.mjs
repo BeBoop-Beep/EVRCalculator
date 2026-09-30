@@ -23,6 +23,7 @@ import {
   hasIndexPremiumAccess,
   normalizeIndexPlan,
 } from "../access/indexPlanAccess.mjs";
+import { hasExactActivityCapability } from "./marketActivityState.mjs";
 
 export const MARKET_EXPLORER_PLAN_TIER = Object.freeze({ basic: "basic", plus: "plus", premium: "premium" });
 
@@ -86,10 +87,6 @@ export const MARKET_ACTIVITY_UNAVAILABLE_COPY = "Market Activity fixture data is
  * Absent or non-explicit => UNAVAILABLE. Nothing is ever synthesised client-side.
  */
 export const NO_BACKEND_CAPABILITIES = Object.freeze({ demandPressure: Object.freeze({}), fairValue: Object.freeze({}), activity: Object.freeze({}) });
-export const FIXTURE_BACKED_ACTIVITY_CAPABILITIES = Object.freeze({
-  demandPressure: Object.freeze({}), fairValue: Object.freeze({}),
-  activity: Object.freeze({ "*": Object.freeze({ available: true, fixtureId: "fma_fixture_11" }) }),
-});
 
 const explicitlyAvailable = (map, key) => Boolean(map && key && (map[key]?.available === true || map["*"]?.available === true));
 
@@ -113,9 +110,9 @@ export function resolveFocusToolStates(plan, marketKey, backendCapabilities = NO
     },
     activity: {
       state: !activityEntitled ? FOCUS_TOOL_STATE.locked
-        : explicitlyAvailable(caps.activity, marketKey) ? FOCUS_TOOL_STATE.available : FOCUS_TOOL_STATE.unavailable,
+        : hasExactActivityCapability(caps.activity?.[marketKey] || caps.activity?.["*"]) ? FOCUS_TOOL_STATE.available : FOCUS_TOOL_STATE.unavailable,
       requiredPlan: "plus",
-      reason: !activityEntitled ? "Market Activity requires Index+." : explicitlyAvailable(caps.activity, marketKey) ? null : MARKET_ACTIVITY_UNAVAILABLE_COPY,
+      reason: !activityEntitled ? "Market Activity requires Index+." : hasExactActivityCapability(caps.activity?.[marketKey] || caps.activity?.["*"]) ? null : MARKET_ACTIVITY_UNAVAILABLE_COPY,
     },
   };
 }

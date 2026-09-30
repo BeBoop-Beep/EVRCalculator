@@ -75,6 +75,17 @@ test("Fair Value states: locked (Basic and Index+) / unavailable (Premium) / ava
   assert.deepEqual(NO_BACKEND_CAPABILITIES.fairValue, {});
 });
 
+test("Market Activity is unavailable by default and requires every exact authority pin", () => {
+  assert.equal(resolveFocusToolStates("plus", "m").activity.state, FOCUS_TOOL_STATE.unavailable);
+  const incomplete = { activity: { m: { available: true } } };
+  assert.equal(resolveFocusToolStates("plus", "m", incomplete).activity.state, FOCUS_TOOL_STATE.unavailable);
+  const exact = { activity: { m: { available: true, marketKey: "m", activityGenerationId: "ag",
+    rosterRef: { kind: "SURFACE_V2_GENERATION", marketKey: "m", generationId: "rg" },
+    evidenceFingerprint: "e", asOf: "2026-09-29", windowDays: 30, tier: "RAW" } } };
+  assert.equal(resolveFocusToolStates("plus", "m", exact).activity.state, FOCUS_TOOL_STATE.available);
+  assert.equal(resolveFocusToolStates(null, "m", exact).activity.state, FOCUS_TOOL_STATE.locked);
+});
+
 test("capability map exposes entitlement and limit for each tier", () => {
   assert.deepEqual(resolveMarketExplorerCapabilities(null), { tier: "basic", activeMarketLimit: 1, canUseDemandPressure: false, canUseFairValue: false });
   assert.deepEqual(resolveMarketExplorerCapabilities("plus"), { tier: "plus", activeMarketLimit: 3, canUseDemandPressure: true, canUseFairValue: false });

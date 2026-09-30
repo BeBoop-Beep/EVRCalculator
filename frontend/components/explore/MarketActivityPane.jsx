@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { activityPointAtDate, capabilityIsCurrent } from "@/lib/explore/marketActivityState.mjs";
+import { activityDateGeometry, activityPointAtDate, capabilityIsCurrent } from "@/lib/explore/marketActivityState.mjs";
 
 const labelState = (value) => String(value || "unknown").replaceAll("_", " ").toLowerCase();
 const formatDate = (value) => value ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)) : "Move across the price chart to inspect a date";
 
-export default function MarketActivityPane({ state, inspectedDate }) {
+export default function MarketActivityPane({ state, inspectedDate, canonicalDates = [] }) {
   const [view, setView] = useState("sales");
   const [evaluationTime, setEvaluationTime] = useState(() => Date.now());
   useEffect(() => {
@@ -14,7 +14,17 @@ export default function MarketActivityPane({ state, inspectedDate }) {
     return () => window.clearInterval(timer);
   }, []);
   const payload = state.data;
-  const points = view === "sales" ? payload?.series?.sales?.counts?.points || [] : payload?.series?.supply?.listings?.points || [];
+  const sparsePoints = useMemo(() => view === "sales"
+    ? payload?.series?.sales?.counts?.points || []
+    : payload?.series?.supply?.listings?.points || [], [payload, view]);
+  const points = useMemo(() => {
+    if (view !== "sales" || !payload?.series?.sales?.provenSpan) return sparsePoints;
+    const existing = new Set(sparsePoints.map((point) => point.date));
+    const { startDate, endDate } = payload.series.sales.provenSpan;
+    return [...sparsePoints, ...canonicalDates.filter((date) => date >= startDate && date <= endDate && !existing.has(date))
+      .map((date) => ({ date, observedCount: 0, proofState: "PROVEN", explicitZero: true }))];
+  }, [canonicalDates, payload?.series?.sales?.provenSpan, sparsePoints, view]);
+  const positionedPoints = useMemo(() => activityDateGeometry(points, canonicalDates), [points, canonicalDates]);
   const maximum = Math.max(1, ...points.map((point) => point.observedCount ?? point.value ?? 0));
   const inspected = useMemo(() => activityPointAtDate(payload, view, inspectedDate), [payload, view, inspectedDate]);
   const currentAsks = capabilityIsCurrent(payload?.capabilities?.currentAsks, evaluationTime);
@@ -45,12 +55,12 @@ export default function MarketActivityPane({ state, inspectedDate }) {
             <span>Activity <strong className="text-slate-100">{payload.series.activityRange.startDate}–{payload.series.activityRange.endDate}</strong></span>
             <span>Price chart <strong className="text-slate-100">{payload.series.canonicalRange ? `${payload.series.canonicalRange.startDate}–${payload.series.canonicalRange.endDate}` : 'selected interval'}</strong></span>
           </div>
-          <div data-market-activity-series={view} className="mt-2 flex h-12 items-end gap-1 border-b border-slate-600/50" aria-label={`${view === 'sales' ? 'Observed sale records' : 'Captured offered supply'}; sparse dated series`}>
-            {points.length ? points.map((point) => {
+          <div data-market-activity-series={view} className="relative mt-2 h-12 border-b border-slate-600/50" aria-label={`${view === 'sales' ? 'Observed sale records' : 'Captured offered supply'}; sparse dated series aligned to the canonical chart dates`}>
+            {positionedPoints.length ? positionedPoints.map((point) => {
               const value = point.observedCount ?? point.value ?? 0;
               const selected = inspectedDate === point.date;
-              return <span key={point.date} title={`${point.date}: ${value}`} data-activity-date={point.date} data-proof-state={point.proofState || point.depth || point.stateAtCollection || 'OBSERVED'} className={`min-w-1 flex-1 rounded-t ${selected ? 'bg-sky-200 ring-2 ring-white' : point.proofState === 'PROVEN' || value === 0 ? 'bg-sky-400' : 'bg-amber-400/75'}`} style={{ height: value === 0 ? 2 : `${Math.max(12, (value / maximum) * 100)}%` }} />;
-            }) : <span className="self-center text-[10px] text-slate-400">No dated {view === 'sales' ? 'sale observations' : 'provider-confirmed supply snapshots'} in this fixture.</span>}
+              return <span key={point.date} title={`${point.date}: ${value}`} data-activity-date={point.date} data-activity-canonical-index={point.canonicalIndex} data-activity-x-percent={point.xPercent.toFixed(4)} data-proof-state={point.proofState || point.depth || point.stateAtCollection || 'OBSERVED'} className={`absolute bottom-0 w-1.5 -translate-x-1/2 rounded-t ${point.explicitZero ? 'border-t-2 border-sky-300 bg-transparent' : selected ? 'bg-sky-200 ring-2 ring-white' : point.proofState === 'PROVEN' || value === 0 ? 'bg-sky-400' : 'bg-amber-400/75'}`} style={{ left: `${point.xPercent}%`, height: value === 0 ? 2 : `${Math.max(12, (value / maximum) * 100)}%` }} />;
+            }) : <span className="absolute inset-0 flex items-center text-[10px] text-slate-400">No dated {view === 'sales' ? 'sale observations' : 'provider-confirmed supply snapshots'} in the visible canonical date range.</span>}
           </div>
           <div data-market-activity-inspection className="mt-1.5 flex flex-wrap justify-between gap-2 text-[10px] text-slate-300">
             <span><strong className="text-slate-100">{formatDate(inspectedDate)}</strong> · {inspected.state === 'UNKNOWN' ? 'Activity unknown — missing is not zero' : inspected.state === 'PROVEN_ZERO' ? 'Proven zero' : `${inspected.point?.observedCount ?? inspected.point?.value} ${view === 'sales' ? 'observed sale record(s)' : 'captured listing(s)'}`}</span>
