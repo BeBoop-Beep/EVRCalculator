@@ -119,49 +119,35 @@ def read_constituent_activity_page(client: Any, request: Mapping[str, Any]) -> d
             after_rank = int(decode_cursor(request["cursor"])["k"])
         except (ValueError, KeyError, TypeError):
             return _unavailable("constituentActivityPage", request, "CURSOR_INVALID")
-    # Fetch the complete roster (bounded batches) because cursor validation is
-    # defined against its immutable denominator, not only the requested page.
-    members: list[dict[str, Any]] = []
-    offset = 0
-    while offset < int(roster["roster_denominator"]):
-        batch = _rows(client.table(MEMBER_TABLE).select("rank,instrument_key,card_variant_id").eq(
-            "activity_generation_id", generation["activity_generation_id"]).eq(
-            "market_key", request["marketKey"]).order("rank").range(offset, offset + 499).execute())
-        members.extend(batch)
-        if len(batch) < 500:
-            break
-        offset += len(batch)
-    details: dict[str, Any] = {}
-    for member in members:
-        row = _one(client.table(DETAIL_TABLE).select("payload").eq(
-            "activity_generation_id", generation["activity_generation_id"]).eq(
-            "instrument_key", member["instrument_key"]).limit(1))
-        details[member["instrument_key"]] = (row or {}).get("payload") or {}
+    total = int(roster["roster_denominator"])
     expected_cursor = {"v": "fma_cursor_v1", "a": str(request["activityGenerationId"]).lower(),
                        "r": fingerprint(request["rosterRef"]), "m": request["marketKey"],
                        "d": str(request["asOf"])[:10], "w": int(request.get("windowDays") or 30),
                        "k": after_rank}
     if request.get("cursor") and decode_cursor(request["cursor"]) != expected_cursor:
         return _unavailable("constituentActivityPage", request, "CURSOR_MISMATCH")
-    if after_rank < 0 or after_rank >= len(members):
+    if after_rank < 0 or after_rank >= total:
         return _unavailable("constituentActivityPage", request, "CURSOR_INVALID")
-    selected = [m for m in members if m["rank"] > after_rank][:limit]
-    rows = [_constituent_row(m["rank"], details[m["instrument_key"]], int(request.get("windowDays") or 30))
-            for m in selected]
+    page_rows = _rows(client.rpc("get_market_activity_constituent_page_v1", {
+        "p_activity_generation_id": generation["activity_generation_id"], "p_market_key": request["marketKey"],
+        "p_after_rank": after_rank, "p_limit": limit}).execute())
+    rows = [_constituent_row(row["rank"], row["payload"], int(request.get("windowDays") or 30))
+            for row in page_rows]
     last = rows[-1]["rank"] if rows else after_rank
-    next_cursor = encode_cursor({**expected_cursor, "k": last}) if rows and last < len(members) else None
+    next_cursor = encode_cursor({**expected_cursor, "k": last}) if rows and last < total else None
     evaluated = generation.get("validated_at") or generation["evidence_cutoff"]
     return {"kind": "constituentActivityPage", "contractVersion": CONTRACT_VERSION,
-            "versions": next(iter(details.values())).get("versions", {}) if details else {},
+            "versions": (page_rows[0]["payload"].get("versions", {}) if page_rows else {}),
             "policy": generation["policy"], "request": dict(request), "evaluatedAt": evaluated,
             "activityGenerationId": generation["activity_generation_id"],
             "availability": {"state": "AVAILABLE", "reasons": []},
             "evidenceFingerprint": fingerprint({"generation": generation["activity_generation_id"],
-                                                "members": members, "windowDays": expected_cursor["w"]}),
+                                                "rosterRef": roster["roster_revision"],
+                                                "afterRank": after_rank, "windowDays": expected_cursor["w"]}),
             "roster": roster_contract(revision=roster["roster_revision"],
                                       roster_as_of=roster["roster_as_of"],
                                       roster_denominator=roster["roster_denominator"]),
-            "page": {"afterRank": after_rank, "limit": limit, "totalCount": len(members),
+            "page": {"afterRank": after_rank, "limit": limit, "totalCount": total,
                      "nextCursor": next_cursor}, "rows": rows}
 
 

@@ -23,8 +23,11 @@ class ProjectionSource(Protocol):
 
 
 class ProjectionSink(Protocol):
+    def load_generation(self, generation_id: str) -> Mapping[str, Any] | None: ...
+    def validate_resume(self, generation_id: str, market_key: str, resume_after_rank: int) -> Sequence[str]: ...
     def create_generation(self, row: Mapping[str, Any]) -> None: ...
     def write_batch(self, table: str, rows: Sequence[Mapping[str, Any]]) -> None: ...
+    def reconcile_generation(self, generation_id: str, market_key: str, denominator: int) -> Mapping[str, Any]: ...
     def finish_generation(self, generation_id: str, state: str, diagnostics: Mapping[str, Any]) -> None: ...
 
 
@@ -74,7 +77,21 @@ class MarketActivityProjectionBuilder:
             "evidence_provenance": {"snapshotRule": "committed-and-first-seen-at-or-before-cutoff-v1"},
             "state": "BUILDING", "serving_state": "RETAINED",
         }
-        if not dry_run:
+        if resume_after_rank and dry_run:
+            return self._reject(generation_id, metrics, ["dry-run cannot resume persisted state"], dry_run, started)
+        if resume_after_rank:
+            existing = self.sink.load_generation(generation_id)
+            resume_errors = []
+            if not existing:
+                resume_errors.append("resume requires an existing generation")
+            else:
+                if existing.get("state") != "BUILDING": resume_errors.append("resume generation is not BUILDING")
+                if str(existing.get("evidence_cutoff")) != cutoff: resume_errors.append("resume evidence cutoff mismatch")
+                if existing.get("roster_ref") != roster["revision"]: resume_errors.append("resume roster ref mismatch")
+                resume_errors.extend(self.sink.validate_resume(generation_id, market_key, resume_after_rank))
+            if resume_errors:
+                return self._reject(generation_id, metrics, resume_errors, True, started)
+        elif not dry_run:
             self.sink.create_generation(generation); metrics.rows_written += 1
             self.sink.write_batch("market_activity_rosters_v1", [{
                 "activity_generation_id": generation_id, "market_key": market_key,
@@ -137,7 +154,12 @@ class MarketActivityProjectionBuilder:
         except Exception as exc:
             return self._reject(generation_id, metrics, [f"{type(exc).__name__}: {exc}"], dry_run, started)
         metrics.elapsed_seconds = round(perf_counter() - started, 6)
-        diagnostics = {**metrics.__dict__, "rosterFingerprint": fingerprint(members), "dryRun": dry_run}
+        reconciliation = ({"dryRun": True} if dry_run else
+                          dict(self.sink.reconcile_generation(generation_id, market_key, len(members))))
+        if not dry_run and not reconciliation.get("valid"):
+            return self._reject(generation_id, metrics, reconciliation.get("errors") or ["persisted reconciliation failed"], False, started)
+        diagnostics = {**metrics.__dict__, "rosterFingerprint": fingerprint(members),
+                       "reconciliation": reconciliation, "dryRun": dry_run}
         if not dry_run:
             self.sink.finish_generation(generation_id, "VALIDATED", diagnostics)
         return {"generationId": generation_id, "state": "VALIDATED", "diagnostics": diagnostics}

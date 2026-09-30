@@ -31,3 +31,9 @@ def test_readers_are_service_only_and_bounded():
                "get_market_activity_constituent_page_v1"):
         assert f"revoke all on function public.{fn}" in sql
         assert f"grant execute on function public.{fn}" in sql
+
+
+def test_group_and_instrument_rpc_fail_closed_on_generation_state():
+    sql = BACKEND.read_text().lower()
+    assert sql.count("g.state='validated' and g.serving_state in ('serving','retained')") >= 2
+    assert sql.count("activity_generation_expired") >= 2

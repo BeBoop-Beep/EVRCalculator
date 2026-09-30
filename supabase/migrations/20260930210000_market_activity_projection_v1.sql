@@ -250,13 +250,19 @@ end $$;
 -- touch provider or canonical query code.
 create or replace function public.get_market_activity_group_v1(p_activity_generation_id uuid,p_market_key text,p_window_days smallint)
 returns jsonb language sql stable security definer set search_path=public,pg_temp as $$
- select case when g.state='RETIRED' then jsonb_build_object('unavailableReason','ACTIVITY_GENERATION_EXPIRED') else p.payload end
+ select case when g.state='RETIRED' or g.serving_state='RETIRED'
+             then jsonb_build_object('unavailableReason','ACTIVITY_GENERATION_EXPIRED')
+             when g.state='VALIDATED' and g.serving_state in ('SERVING','RETAINED') then p.payload
+             else null end
  from public.market_activity_generations_v1 g left join public.market_activity_group_payloads_v1 p using(activity_generation_id)
  where g.activity_generation_id=p_activity_generation_id and p.market_key=p_market_key and p.window_days=p_window_days
 $$;
 create or replace function public.get_market_activity_instrument_v1(p_activity_generation_id uuid,p_instrument_key text)
 returns jsonb language sql stable security definer set search_path=public,pg_temp as $$
- select case when g.state='RETIRED' then jsonb_build_object('unavailableReason','ACTIVITY_GENERATION_EXPIRED') else p.payload end
+ select case when g.state='RETIRED' or g.serving_state='RETIRED'
+             then jsonb_build_object('unavailableReason','ACTIVITY_GENERATION_EXPIRED')
+             when g.state='VALIDATED' and g.serving_state in ('SERVING','RETAINED') then p.payload
+             else null end
  from public.market_activity_generations_v1 g left join public.market_activity_instrument_payloads_v1 p using(activity_generation_id)
  where g.activity_generation_id=p_activity_generation_id and p.instrument_key=p_instrument_key
 $$;
