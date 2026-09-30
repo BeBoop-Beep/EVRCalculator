@@ -1,0 +1,157 @@
+name: FMA-5 Prismatic Activity Stage V2
+
+on:
+  push:
+    branches:
+      - ops/fma5-market-activity-prismatic-stage-v2-20260930
+    paths:
+      - ".github/workflows/fma5-market-activity-prismatic-stage-v2.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fma5-prismatic-activity-stage-v2
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      MARKET_KEY: set:7a3dd188-4375-41af-94de-c5247fe0b1a6
+      MARKET_AS_OF: "2026-09-29"
+      ACTIVITY_GENERATION_ID: f5a50000-0002-4a29-8c01-202609300002
+      STAGE_OUT: /tmp/fma5-prismatic-stage-v2.json
+      UMBREON_VARIANT: 9874f528-8009-43af-bd45-74095b43410f
+      CERULEDGE_VARIANT: 556f46c4-690f-4301-90c0-a3dc44d62f1c
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install focused runtime
+        run: |
+          python -m pip install --disable-pip-version-check -q             supabase==2.28.3 python-dotenv==1.2.2
+
+      - name: Fail closed if target changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python - <<'PY'
+          import json, os
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          gid=os.environ["ACTIVITY_GENERATION_ID"]
+          existing=list(c.table("market_activity_generations_v1").select("activity_generation_id").eq("activity_generation_id",gid).limit(1).execute().data or [])
+          if existing: raise RuntimeError("fixed V2 activation generation already exists")
+          serving=list(c.table("pokemon_market_explorer_surface_serving_v2").select("generation_id").eq("singleton",1).limit(1).execute().data or [])
+          if not serving: raise RuntimeError("no Explorer V2 serving generation")
+          surface=str(serving[0]["generation_id"])
+          generation=list(c.table("pokemon_market_explorer_surface_generations_v2").select("market_date").eq("generation_id",surface).limit(1).execute().data or [])
+          total=list(c.table("pokemon_market_explorer_surface_constituent_totals_v2").select("total_count,asset").eq("generation_id",surface).eq("market_key",os.environ["MARKET_KEY"]).limit(1).execute().data or [])
+          if not generation or str(generation[0]["market_date"]) != os.environ["MARKET_AS_OF"]:
+              raise RuntimeError(f"surface date moved: {generation}")
+          if not total or total[0].get("asset")!="cards" or int(total[0].get("total_count") or 0)!=174:
+              raise RuntimeError(f"Prismatic target changed: {total}")
+          print(json.dumps({"surfaceGenerationId":surface,"marketDate":generation[0]["market_date"],"rosterCount":174},sort_keys=True))
+          PY
+
+      - name: Stage corrected Prismatic Activity generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python -m backend.scripts.build_market_activity_projection             --stage             --confirm-stage FMA1_STAGE             --market-key "$MARKET_KEY"             --as-of "$MARKET_AS_OF"             --generation-id "$ACTIVITY_GENERATION_ID" | tee "$STAGE_OUT"
+          grep -q '"state": "VALIDATED"' "$STAGE_OUT"
+          grep -q '"promoted": false' "$STAGE_OUT"
+          grep -q '"providerCalls": 0' "$STAGE_OUT"
+
+      - name: Verify real sales and supply facts before promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" python - <<'PY'
+          import json, os
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          gid=os.environ["ACTIVITY_GENERATION_ID"]
+          market=os.environ["MARKET_KEY"]
+          def rows(q): return list(q.execute().data or [])
+          generation=rows(c.table("market_activity_generations_v1").select("state,serving_state,surface_generation_id,as_of,evidence_cutoff").eq("activity_generation_id",gid).limit(1))
+          roster=rows(c.table("market_activity_rosters_v1").select("roster_denominator,roster_type,roster_revision").eq("activity_generation_id",gid).eq("market_key",market).limit(1))
+          members=rows(c.table("market_activity_roster_members_v1").select("rank",count="exact").eq("activity_generation_id",gid).eq("market_key",market))
+          payloads=rows(c.table("market_activity_instrument_payloads_v1").select("instrument_key",count="exact").eq("activity_generation_id",gid))
+          windows=rows(c.table("market_activity_instrument_windows_v1").select("instrument_key,window_days",count="exact").eq("activity_generation_id",gid))
+          sale_days=rows(c.table("market_activity_daily_v1").select("instrument_key",count="exact").eq("activity_generation_id",gid))
+          supply_days=rows(c.table("market_activity_supply_daily_v1").select("card_variant_id",count="exact").eq("activity_generation_id",gid))
+          groups=rows(c.table("market_activity_group_payloads_v1").select("window_days,payload").eq("activity_generation_id",gid).eq("market_key",market))
+          served=rows(c.table("market_activity_market_serving_v1").select("activity_generation_id").eq("market_key",market).limit(1))
+
+          if not generation or generation[0]["state"]!="VALIDATED" or generation[0]["serving_state"]!="RETAINED":
+              raise RuntimeError(f"generation state invalid: {generation}")
+          if not roster or int(roster[0]["roster_denominator"])!=174 or roster[0]["roster_type"]!="PREPARED_GENERATION":
+              raise RuntimeError(f"roster invalid: {roster}")
+          if len(members)!=174 or len(payloads)!=174 or len(windows)!=696:
+              raise RuntimeError(f"projection counts invalid members={len(members)} payloads={len(payloads)} windows={len(windows)}")
+          if not sale_days:
+              raise RuntimeError("corrected generation still has zero sparse sale days")
+          if not supply_days:
+              raise RuntimeError("corrected generation still has zero sparse supply days")
+          if sorted(int(row["window_days"]) for row in groups)!=[7,30,90,180]:
+              raise RuntimeError("group windows missing")
+          if served:
+              raise RuntimeError("stage unexpectedly changed serving authority")
+
+          umb_key=f"card:{os.environ['UMBREON_VARIANT']}:raw"
+          umb=rows(c.table("market_activity_instrument_payloads_v1").select("payload").eq("activity_generation_id",gid).eq("instrument_key",umb_key).limit(1))
+          if not umb: raise RuntimeError("Umbreon payload missing")
+          umb_payload=umb[0]["payload"]
+          umb_30=next((w for w in umb_payload["sales"]["windows"] if int(w["days"])==30),None)
+          umb_points=((umb_payload.get("series") or {}).get("sales") or {}).get("counts",{}).get("points",[])
+          if not umb_30 or int(umb_30.get("observedCount") or 0)<=0 or not umb_points:
+              raise RuntimeError(f"Umbreon observed sales missing: {umb_30}")
+
+          cer_key=f"card:{os.environ['CERULEDGE_VARIANT']}:raw"
+          cer=rows(c.table("market_activity_instrument_payloads_v1").select("payload").eq("activity_generation_id",gid).eq("instrument_key",cer_key).limit(1))
+          if not cer: raise RuntimeError("Ceruledge payload missing")
+          cer_payload=cer[0]["payload"]
+          supply_points=((cer_payload.get("series") or {}).get("supply") or {}).get("listings",{}).get("points",[])
+          if not supply_points:
+              raise RuntimeError(f"Ceruledge supply series missing; asks={cer_payload.get('asks')}")
+
+          group30=next(row["payload"] for row in groups if int(row["window_days"])==30)
+          observed=(group30.get("totals") or {}).get("observedSaleCountLowerBound")
+          if observed is None or int(observed)<=0:
+              raise RuntimeError(f"group 30D observed sales missing: {observed}")
+
+          print(json.dumps({
+              "generationId":gid,
+              "memberCount":len(members),
+              "payloadCount":len(payloads),
+              "windowCount":len(windows),
+              "sparseSaleRows":len(sale_days),
+              "sparseSupplyRows":len(supply_days),
+              "group30ObservedSalesLowerBound":observed,
+              "umbreon30Observed":umb_30["observedCount"],
+              "umbreonSaleDates":len(umb_points),
+              "ceruledgeAskState":(cer_payload.get("asks") or {}).get("state"),
+              "ceruledgeSupplyDates":len(supply_points),
+              "served":False
+          },sort_keys=True))
+          PY
+          echo "FMA5_PRISMATIC_STAGE_V2_OK"
+
+      - name: Upload stage receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fma5-prismatic-activity-stage-v2
+          path: /tmp/fma5-prismatic-stage-v2.json
+          if-no-files-found: warn
+          retention-days: 14
