@@ -1,1 +1,1 @@
-preflight
+installer-verify
