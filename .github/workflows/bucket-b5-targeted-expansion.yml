@@ -1,0 +1,40 @@
+name: Bucket B5 Targeted Expansion
+
+on:
+  push:
+    branches:
+      - feat/b5-targeted-expansion-20260930
+    paths:
+      - "backend/pricing_pipeline/pkmnprices_client.py"
+      - "backend/scripts/run_market_microstructure_bucket_b5.py"
+      - ".github/workflows/bucket-b5-targeted-expansion.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  vm-preflight:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 15
+    steps:
+      - name: Validate B5 in detached worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-b5-preflight
+          PY="$REPO/.venv/bin/python"
+          SHA="${{ github.sha }}"
+          git -C "$REPO" fetch origin "$SHA" --quiet || git -C "$REPO" fetch origin feat/b5-targeted-expansion-20260930 --quiet
+          if [ -e "$WT" ]; then
+            git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+          fi
+          git -C "$REPO" worktree add --detach "$WT" "$SHA"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT" >/dev/null 2>&1 || true' EXIT
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          export PYTHONPATH="$WT"
+          cd "$WT"
+          "$PY" -m py_compile backend/pricing_pipeline/pkmnprices_client.py backend/scripts/run_market_microstructure_bucket_b5.py
+          "$PY" -m backend.scripts.run_market_microstructure_bucket_b5 --preflight
