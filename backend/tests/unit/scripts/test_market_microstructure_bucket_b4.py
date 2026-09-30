@@ -8,6 +8,7 @@ from backend.scripts.run_market_microstructure_bucket_b4 import (
     EXPECTED_PANEL_COUNT,
     HORIZON_CUTOFF,
     HORIZON_DAYS,
+    FIRST_FULL_C_DATE,
     IDENTITY_LOOKUP_WORST_CASE,
     MAX_ROWS_PER_CARD_DAY,
     PAGE_SIZE,
@@ -128,8 +129,12 @@ def test_b4_vm_schedule_yields_to_c_and_uses_shared_locks():
 
 
 def test_b4_pause_windows_prioritize_c_and_daily_scraper(monkeypatch):
+    assert FIRST_FULL_C_DATE == date(2026, 9, 30)
     assert operational_pause_reason(
-        object(), now_local=datetime(2026, 9, 29, 20, 55)
+        object(), now_local=datetime(2026, 9, 29, 21, 43)
+    ) is None
+    assert operational_pause_reason(
+        object(), now_local=datetime(2026, 9, 30, 20, 55)
     )["reason"] == "C_CONTINUITY_WINDOW"
 
     # Before the scrape window begins, no batch is required.
