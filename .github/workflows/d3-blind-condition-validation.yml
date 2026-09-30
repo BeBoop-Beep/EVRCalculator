@@ -1,0 +1,38 @@
+name: D3 Blind Condition Validation
+
+on:
+  push:
+    branches:
+      - research/d3-blind-condition-validation-20260930
+    paths:
+      - "backend/scripts/validate_sold_condition_classifier_live_v1.py"
+      - "docs/research/grading_population/condition_validation_live_blind_sample_v1.json"
+      - "docs/research/grading_population/condition_validation_live_blind_labels_v1.json"
+      - ".github/workflows/d3-blind-condition-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  score:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 10
+    steps:
+      - name: Score locked holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-d3-blind-score
+          PY="$REPO/.venv/bin/python"
+          SHA="${{ github.sha }}"
+          git -C "$REPO" fetch origin "$SHA" --quiet || git -C "$REPO" fetch origin research/d3-blind-condition-validation-20260930 --quiet
+          if [ -e "$WT" ]; then
+            git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+          fi
+          git -C "$REPO" worktree add --detach "$WT" "$SHA"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT" >/dev/null 2>&1 || true' EXIT
+          export PYTHONPATH="$WT"
+          cd "$WT"
+          "$PY" -m py_compile backend/scripts/validate_sold_condition_classifier_live_v1.py
+          "$PY" -m backend.scripts.validate_sold_condition_classifier_live_v1
