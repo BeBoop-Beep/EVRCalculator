@@ -459,17 +459,24 @@ def main() -> int:
                 expected_date=observation_date,
             )
             if existing and existing.get("status") == "COMPLETE":
-                result = {
-                    "mode": "full_panel_noop",
-                    "reason": "date_already_complete",
-                    "observation_date": observation_date,
-                    **existing,
-                    "provider_requests_this_attempt": 0,
-                    "provider_credits_used_this_attempt": 0,
-                    "database_writes": 0,
-                }
-                print(json.dumps(result, indent=2, sort_keys=True, default=str))
-                return 0
+                metadata = dict(existing.get("metadata") or {})
+                if (int(existing.get("target_count") or 0) == FULL_PANEL_TARGETS
+                        and metadata.get("full_panel_daily") is True):
+                    result = {
+                        "mode": "full_panel_noop",
+                        "reason": "date_already_complete",
+                        "observation_date": observation_date,
+                        **existing,
+                        "provider_requests_this_attempt": 0,
+                        "provider_credits_used_this_attempt": 0,
+                        "database_writes": 0,
+                    }
+                    print(json.dumps(result, indent=2, sort_keys=True, default=str))
+                    return 0
+                raise SystemExit(
+                    "expected date is occupied by a non-full-panel calibration run; "
+                    "continuity starts on the next clean date"
+                )
             if existing and existing.get("status") == "MISSING":
                 raise SystemExit("expected date is already marked MISSING; refusing late mutation")
         result = collect(
