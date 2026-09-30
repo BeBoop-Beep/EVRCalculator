@@ -1,1 +1,1 @@
-db-target-status
+db-schema-status
