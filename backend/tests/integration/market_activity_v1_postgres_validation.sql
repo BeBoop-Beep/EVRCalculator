@@ -44,7 +44,7 @@ insert into public.market_activity_group_payloads_v1 values(
 
 do $$ begin
  if public.get_market_activity_instrument_v1('30000000-0000-4000-8000-000000000001','card:00000000-0000-0000-0000-000000000001:raw') is null then raise exception 'validated instrument hidden'; end if;
- if public.get_market_activity_group_v1('30000000-0000-4000-8000-000000000001','quick:test',30) is null then raise exception 'validated group hidden'; end if;
+ if public.get_market_activity_group_v1('30000000-0000-4000-8000-000000000001','quick:test',30::smallint) is null then raise exception 'validated group hidden'; end if;
  if public.get_market_activity_instrument_v1('30000000-0000-4000-8000-000000000002','card:00000000-0000-0000-0000-000000000001:raw') is not null then raise exception 'building leak'; end if;
  if public.get_market_activity_instrument_v1('30000000-0000-4000-8000-000000000003','card:00000000-0000-0000-0000-000000000001:raw') is not null then raise exception 'rejected leak'; end if;
  if not public.promote_market_activity_generation_v1('30000000-0000-4000-8000-000000000001') then raise exception 'promotion failed'; end if;
@@ -85,7 +85,7 @@ explain (analyze,buffers) select public.get_market_activity_instrument_v1(
  '30000000-0000-4000-8000-000000000001','card:00000000-0000-0000-0000-000000000001:raw');
 \echo 'EXPLAIN group'
 explain (analyze,buffers) select public.get_market_activity_group_v1(
- '30000000-0000-4000-8000-000000000001','quick:test',30);
+ '30000000-0000-4000-8000-000000000001','quick:test',30::smallint);
 \echo 'EXPLAIN page'
 explain (analyze,buffers) select * from public.get_market_activity_constituent_page_v1(
  '30000000-0000-4000-8000-000000000001','quick:test',0,50);

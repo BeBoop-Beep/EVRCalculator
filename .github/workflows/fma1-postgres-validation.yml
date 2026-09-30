@@ -35,7 +35,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f backend/tests/integration/market_activity_v1_postgres_baseline.sql
           psql -v ON_ERROR_STOP=1 -f backend/db/migrations/20260930210000_market_activity_projection_v1.sql
       - name: Validate publication, RLS, RPCs, promotion, EXPLAIN, rollback
-        run: psql -f backend/tests/integration/market_activity_v1_postgres_validation.sql | tee fma1-postgres-validation.txt
+        run: |
+          set -o pipefail
+          psql -f backend/tests/integration/market_activity_v1_postgres_validation.sql 2>&1 | tee fma1-postgres-validation.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
