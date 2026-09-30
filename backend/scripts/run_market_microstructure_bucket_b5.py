@@ -240,8 +240,6 @@ def _gap_targets(db: Any) -> list[dict[str, Any]]:
     return targets
 
 
-eturn targets
-
 
 def _mover_targets(db: Any, *, exclude: set[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     rows = (
