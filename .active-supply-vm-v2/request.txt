@@ -1,1 +1,1 @@
-installer-apply
+status
