@@ -25,6 +25,73 @@ def _page(query_factory: Any, size: int = 500) -> list[dict[str, Any]]:
         offset += len(batch)
 
 
+def _sold_record_contract(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Translate one persisted sold row into the frozen FMA domain shape."""
+    return {
+        "source": "pkmnprices_ebay_sold",
+        "providerCardId": str(row["provider_card_id"]),
+        "listingId": str(row["provider_listing_id"]),
+        "price": str(row["price"]),
+        "currency": row["currency"],
+        "soldAt": row["sold_at"],
+        "ingestedAt": row.get("ingested_at"),
+        "collectedAt": row["collected_at"],
+        "providerVariant": row.get("provider_variant"),
+        "attribution": row.get("attribution"),
+        "grader": row.get("grader"),
+        "grade": row.get("grade"),
+        "gradeQualifier": row.get("grade_qualifier"),
+        "graded": row.get("graded"),
+    }
+
+
+def _candidate_contract(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Translate a full sibling variant into fma_exact_identity_v1 fields."""
+    return {
+        "id": str(row["id"]),
+        "edition": row.get("edition"),
+        "printingType": row.get("printing_type"),
+        "specialType": row.get("special_type"),
+    }
+
+
+def _collection_record_contract(sync: Mapping[str, Any] | None, provider_card_id: Any) -> dict[str, Any] | None:
+    """A successful sync is collection evidence, never completeness proof."""
+    if not sync or not sync.get("last_success_at") or provider_card_id is None:
+        return None
+    return {
+        "collected": True,
+        "providerCardId": str(provider_card_id),
+        "lastSuccessAt": sync.get("last_success_at"),
+    }
+
+
+def _offer_contract(row: Mapping[str, Any], observed_at: Any) -> dict[str, Any]:
+    return {
+        "itemPrice": str(row["item_price"]),
+        "shippingPrice": None if row.get("shipping_price") is None else str(row["shipping_price"]),
+        "quantity": row.get("quantity"),
+        "providerSnapshotAt": row.get("provider_snapshot_at"),
+        "listingUpdatedAt": row.get("listing_updated_at"),
+        "observedAt": observed_at,
+    }
+
+
+def _snapshot_contract(snapshot: Mapping[str, Any], run_status: Any,
+                       offers: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Translate persisted supply evidence without inventing provenance."""
+    source_payload = snapshot.get("source_payload") or {}
+    return {
+        "snapshotId": snapshot["id"],
+        "runStatus": run_status,
+        "observationState": snapshot.get("observation_state"),
+        "observedAt": snapshot.get("observed_at"),
+        "hasMore": snapshot.get("has_more"),
+        "sourceConfirmedAt": source_payload.get("provider_snapshot_at"),
+        "offers": [_offer_contract(row, snapshot.get("observed_at")) for row in offers],
+    }
+
+
 class SupabaseMarketActivitySource:
     """Read-only source over a service-role Supabase/PostgREST client."""
     def __init__(self, client: Any, *, custom_revision_id: str | None = None):
@@ -107,12 +174,7 @@ class SupabaseMarketActivitySource:
             sync_rows = _rows(self.c.table("pkmnprices_sold_sync_state_v1").select("*")
                               .eq("provider_card_id", provider_card_id).lte("last_attempt_at", cutoff).limit(1).execute())
             sync = sync_rows[0] if sync_rows else None
-        records = [{"source": "pkmnprices_ebay_sold", "providerCardId": str(r["provider_card_id"]),
-                    "listingId": str(r["provider_listing_id"]), "price": str(r["price"]), "currency": r["currency"],
-                    "soldAt": r["sold_at"], "ingestedAt": r.get("ingested_at"), "collectedAt": r["collected_at"],
-                    "providerVariant": r.get("provider_variant"), "attribution": r.get("attribution"),
-                    "grader": r.get("grader"), "grade": r.get("grade"), "qualifier": r.get("grade_qualifier"),
-                    "graded": r.get("graded")} for r in sold_rows]
+        records = [_sold_record_contract(r) for r in sold_rows]
         snapshots = _page(lambda: self.c.table("market_active_supply_snapshots_v1").select("*")
                           .eq("card_variant_id", card_variant_id).lte("created_at", cutoff).order("created_at", desc=True))
         completed = []
@@ -122,19 +184,13 @@ class SupabaseMarketActivitySource:
             if not runs: continue
             offers = _rows(self.c.table("market_active_supply_listing_observations_v1").select("*")
                            .eq("snapshot_id", snap["id"]).lte("created_at", cutoff).order("source_rank").execute())
-            completed.append({"snapshotId": snap["id"], "runStatus": runs[0]["status"],
-                              "observedAt": snap.get("observed_at"), "hasMore": snap.get("has_more"),
-                              "sourceConfirmedAt": (snap.get("source_payload") or {}).get("provider_snapshot_at"),
-                              "offers": [{"itemPrice": str(o["item_price"]), "shippingPrice": None if o.get("shipping_price") is None else str(o["shipping_price"]),
-                                          "quantity": o.get("quantity"), "providerSnapshotAt": o.get("provider_snapshot_at"),
-                                          "listingUpdatedAt": o.get("listing_updated_at"), "observedAt": snap.get("observed_at")} for o in offers]})
+            completed.append(_snapshot_contract(snap, runs[0]["status"], offers))
         latest = completed[0] if completed else None
         return {"asset": "cards", "canonicalCardId": canonical_id,
                 "sold": {"providerCardId": provider_card_id, "records": records,
                          "walks": self._optional_receipts(provider_card_id, cutoff) if provider_card_id else [],
-                         "collectionRecord": sync,
-                         "candidates": [{"cardVariantId": str(v["id"]), "edition": v.get("edition"),
-                                         "printing": v.get("printing_type"), "specialType": v.get("special_type")} for v in siblings],
+                         "collectionRecord": _collection_record_contract(sync, provider_card_id),
+                         "candidates": [_candidate_contract(v) for v in siblings],
                          "candidateScope": "FULL_CARD_VARIANT_SET"},
                 "asks": latest, "askHistory": completed[1:], "peers": None,
                 "_rowsRead": len(sold_rows) + len(snapshots) + sum(len(s.get("offers") or []) for s in completed)}
