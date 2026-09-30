@@ -401,6 +401,29 @@ def _reference_series(prices, *, set_ids, card_ids, mode, top_n):
     return svc.build_query_series(rows, metadata, mode=mode, top_n=top_n)
 
 
+def test_query_built_rarity_preserves_all_seven_constituent_windows():
+    dates = (
+        "2025-09-29", "2026-03-29", "2026-07-01", "2026-08-30",
+        "2026-09-22", "2026-09-28", "2026-09-29",
+    )
+    rows = [{
+        "card_variant_id": "variant-rarity", "canonical_card_id": "rarity-card",
+        "market_date": market_date, "market_price": 10.0,
+    } for market_date in dates]
+    series = svc.build_query_series(
+        rows,
+        {"variant-rarity": {
+            "canonicalCardId": "rarity-card", "setId": "set-rarity",
+            "cardName": "Rarity Card", "rarity": "Amazing Rare",
+        }},
+        mode=MODE_ALL, top_n=None,
+    )
+    expected = {"1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"}
+    assert set(series["movementWindows"]) == expected
+    assert set(series["currentConstituents"][0]["changes"]) == expected
+    assert series["currentConstituents"][0]["changes"]["3M"] == 0.0
+
+
 SV_SIR_CARD_IDS = [card["id"] for card in CARDS
                    if card["set_id"] in {"set-ah", "set-pe"}
                    and card["rarity"] == "Special Illustration Rare"]

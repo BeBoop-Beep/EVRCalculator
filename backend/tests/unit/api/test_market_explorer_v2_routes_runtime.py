@@ -149,19 +149,22 @@ def _rarity_options(key="thin", *, state="CUSTOM_BUILD_AVAILABLE", selectable=Tr
 
 
 @pytest.mark.parametrize("plan,state", [
-    ("plus", "PREPARED"),
+    (None, "PREPARED"),
+    ("basic", "CUSTOM_BUILD_AVAILABLE"),
     ("plus", "CUSTOM_BUILD_AVAILABLE"),
     ("premium", "CUSTOM_BUILD_AVAILABLE"),
 ])
-def test_canonical_selectable_rarity_allows_paid_research_tiers(monkeypatch, api, plan, state):
+def test_canonical_selectable_rarity_is_public_for_every_tier(monkeypatch, api, plan, state):
     api(Fake(options=_rarity_options(state=state)))
     monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: plan)
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **_: pytest.fail("canonical preset required auth"))
     assert main._require_market_explorer_query_access(
         _rarity_spec(), authorization="Bearer token", token_cookie=None,
-    ) == "user-1"
+        allow_public_canonical_rarity=True,
+    ) == "public-canonical-rarity:thin"
 
 
-def test_canonical_rarity_authenticates_before_registry_lookup(monkeypatch, api):
+def test_anonymous_canonical_rarity_uses_registry_before_auth(monkeypatch, api):
     fake = Fake(options=_rarity_options())
     api(fake)
 
@@ -169,24 +172,21 @@ def test_canonical_rarity_authenticates_before_registry_lookup(monkeypatch, api)
         raise HTTPException(status_code=401, detail="auth")
 
     monkeypatch.setattr(main, "_require_authenticated_user_id", deny)
-    with pytest.raises(HTTPException) as exc:
-        main._require_market_explorer_query_access(
-            _rarity_spec(), authorization=None, token_cookie=None,
-        )
-    assert exc.value.status_code == 401
-    assert v2.ASSET_OPTIONS_RPC_V2 not in fake.calls
+    assert main._require_market_explorer_query_access(
+        _rarity_spec(), authorization=None, token_cookie=None,
+        allow_public_canonical_rarity=True,
+    ) == "public-canonical-rarity:thin"
+    assert v2.ASSET_OPTIONS_RPC_V2 in fake.calls
 
 
 @pytest.mark.parametrize("plan", [None, "basic"])
-def test_basic_canonical_rarity_remains_denied(monkeypatch, api, plan):
+def test_basic_canonical_rarity_is_allowed(monkeypatch, api, plan):
     api(Fake(options=_rarity_options()))
     monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: plan)
-    with pytest.raises(HTTPException) as exc:
-        main._require_market_explorer_query_access(
-            _rarity_spec(), authorization="Bearer token", token_cookie=None,
-        )
-    assert exc.value.status_code == 403
-    assert exc.value.detail["requiredPlan"] == "plus"
+    assert main._require_market_explorer_query_access(
+        _rarity_spec(), authorization="Bearer token", token_cookie=None,
+        allow_public_canonical_rarity=True,
+    ).startswith("public-canonical-rarity:")
 
 
 @pytest.mark.parametrize("options,key", [
@@ -199,6 +199,7 @@ def test_plus_unknown_or_db_unavailable_rarity_fails_closed(monkeypatch, api, op
     with pytest.raises(HTTPException) as exc:
         main._require_market_explorer_query_access(
             _rarity_spec(key), authorization="Bearer token", token_cookie=None,
+            allow_public_canonical_rarity=True,
         )
     assert exc.value.status_code == 403
 
@@ -209,12 +210,49 @@ def test_plus_registry_failure_fails_closed_but_premium_keeps_builder_access(mon
     with pytest.raises(HTTPException) as exc:
         main._require_market_explorer_query_access(
             _rarity_spec(), authorization="Bearer token", token_cookie=None,
+            allow_public_canonical_rarity=True,
         )
     assert exc.value.status_code == 403
     monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: "premium")
     assert main._require_market_explorer_query_access(
         _rarity_spec(), authorization="Bearer token", token_cookie=None,
+        allow_public_canonical_rarity=True,
     ) == "user-1"
+
+
+@pytest.mark.parametrize("plan", [None, "basic"])
+def test_query_route_executes_public_canonical_rarity_without_auth(monkeypatch, api, plan):
+    client = api(Fake(options=_rarity_options("amazingRare")))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: plan)
+    monkeypatch.setattr(
+        main, "_require_authenticated_user_id",
+        lambda **_: pytest.fail("public canonical rarity required authentication"),
+    )
+    monkeypatch.setattr(
+        main.GLOBAL_MARKET_EXPLORER_PLANNER, "execute",
+        lambda **_: SimpleNamespace(payload={"asOf": "2026-09-29", "currentConstituents": []}),
+    )
+    response = client.post("/market/explorer/query", json={
+        "asset": "cards", "mode": "all", "membershipMode": "filters",
+        "segmentIds": ["amazingRare"],
+    })
+    assert response.status_code == 200
+    assert response.json()["comparisonAsOf"] == "2026-09-29"
+
+
+def test_fake_canonical_flag_and_unknown_rarity_fail_closed(monkeypatch, api):
+    client = api(Fake(options=_rarity_options("known")))
+    monkeypatch.setattr(
+        main, "_require_authenticated_user_id",
+        lambda **_: (_ for _ in ()).throw(HTTPException(status_code=401, detail="auth")),
+    )
+    response = client.post("/market/explorer/query", json={
+        "asset": "cards", "mode": "all", "membershipMode": "filters",
+        "segmentIds": ["unknown"], "isCanonical": True,
+    })
+    # Unknown client fields are rejected before access evaluation, so a caller
+    # cannot manufacture the server-owned canonical classification.
+    assert response.status_code == 400
 
 
 @pytest.mark.parametrize("updates", [
@@ -304,13 +342,20 @@ def test_v2_card_page_gets_accepted_movement_and_sealed_never_calls_it(monkeypat
 
     def fake_enrich(client, page):
         seen.append(page["as_of"])
-        return {"items": [{**r, "changes": {"7D": 1.5}} for r in page["items"]], "movement_windows": {"7D": {}}}
+        changes = {"1D": 0.0, "7D": 1.5, "30D": None, "3M": 2.0,
+                   "6M": None, "1Y": None, "SinceTracking": 4.0}
+        return {"items": [{**r, "changes": changes} for r in page["items"]],
+                "movement_windows": {key: {} for key in changes}}
     monkeypatch.setattr(mv, "enrich_card_constituent_page", fake_enrich)
     card = {"marketKey": "set:a", "generationId": GEN, "availability": "available", "totalCount": 1,
             "rows": [{"cardVariantId": "v1", "marketPrice": 2, "priceAsOf": "2026-09-24"}]}
     r = api(Fake(directory=[drow("set:a")], page=card)).get("/market/explorer/prepared-constituents", params={"marketKey": "set:a", "generationId": GEN})
     assert r.status_code == 200 and r.json()["movementAvailable"] is True and seen == ["2026-09-24"]
-    assert r.json()["rows"][0]["changes"] == {"7D": 1.5}
+    assert set(r.json()["rows"][0]["changes"]) == {
+        "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking",
+    }
+    assert r.json()["rows"][0]["changes"]["1D"] == 0.0
+    assert r.json()["rows"][0]["changes"]["6M"] is None
     seen.clear()
     sealed = {"marketKey": "sealed-type:x", "generationId": GEN, "availability": "available", "totalCount": 1,
               "rows": [{"sealedProductId": "p", "marketPrice": 2, "priceAsOf": "2026-09-24"}]}
@@ -430,11 +475,31 @@ def test_leaf_search_validation_and_failures_are_browser_safe(api):
     assert failed.status_code == 503 and "secret" not in failed.text
 
 
-def test_single_market_is_anonymous_but_comparison_is_not(monkeypatch, api):
-    client = api(Fake(directory=[drow("set:a"), drow("set:b")]))
+@pytest.mark.parametrize("row", [
+    drow("set:a", scope="set"),
+    drow("era:a", scope="era"),
+    drow("quick:a", scope="curated"),
+    drow("sealed-type:box", scope="type", asset="sealed"),
+])
+def test_single_prepared_market_is_public_for_every_supported_scope(monkeypatch, api, row):
+    client = api(Fake(directory=[row]))
     monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **k: pytest.fail("single market required auth"))
     monkeypatch.setattr(main, "_resolve_index_plan", lambda *a: pytest.fail("single market consulted plan"))
-    assert client.post("/market/explorer/prepared-comparison", json={"marketKeys": ["set:a"]}).status_code == 200
+    assert client.post("/market/explorer/prepared-comparison", json={"marketKeys": [row["market_key"]]}).status_code == 200
+
+
+def test_canonical_rarity_does_not_open_constituent_endpoint(monkeypatch, api):
+    client = api(Fake(options=_rarity_options("amazingRare")))
+
+    def deny(**_kwargs):
+        raise HTTPException(status_code=401, detail="auth")
+
+    monkeypatch.setattr(main, "_require_authenticated_user_id", deny)
+    response = client.post("/market/explorer/query/constituents", json={
+        "asset": "cards", "mode": "all", "membershipMode": "filters",
+        "segmentIds": ["amazingRare"],
+    })
+    assert response.status_code == 401
 
 
 @pytest.mark.parametrize("asset,instrument_id", [("cards", "card-1"), ("sealed", "sealed-1")])
@@ -485,15 +550,22 @@ def test_exact_one_item_rejects_anonymous(monkeypatch, api):
     assert response.status_code == 401
 
 
-def test_prepared_screen_registry_validation_and_payload(api):
+def test_prepared_screen_registry_validation_and_payload(monkeypatch, api):
     rows = [{"rank": 1, "market_key": "set:a", "label": "A", "asset": "cards",
-             "market_type": "set", "metric_value": 3.2, "comparison_as_of": "2026-09-25",
-             "generation_id": GEN, "generated_at": "2026-09-25T01:00:00Z", "private": "drop"}]
+              "market_type": "set", "metric_value": 3.2, "comparison_as_of": "2026-09-25",
+              "generation_id": GEN, "generated_at": "2026-09-25T01:00:00Z", "private": "drop"},
+            {"rank": 2, "market_key": "sealed-type:box", "label": "Box", "asset": "sealed",
+              "market_type": "type", "metric_value": 2.1, "comparison_as_of": "2026-09-25",
+              "generation_id": GEN, "generated_at": "2026-09-25T01:00:00Z"}]
     client = api(Fake(screen=rows))
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **_: pytest.fail("screen required auth"))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *_: pytest.fail("screen consulted plan"))
     for key in sorted(v1.PREPARED_SCREEN_KEYS):
-        response = client.get("/market/explorer/prepared-screen", params={"screen": key, "asset": "cards", "limit": 25})
+        response = client.get("/market/explorer/prepared-screen", params={"screen": key, "limit": 10})
         assert response.status_code == 200 and "private" not in response.text
+        assert {row["asset"] for row in response.json()["results"]} == {"cards", "sealed"}
     assert client.get("/market/explorer/prepared-screen", params={"screen": "unknown", "asset": "cards"}).status_code == 400
     graded = client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "graded"})
     assert graded.status_code == 200
-    assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "cards", "limit": 26}).status_code == 422
+    assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "weapons"}).status_code == 400
+    assert client.get("/market/explorer/prepared-screen", params={"screen": "top-performers", "asset": "cards", "limit": 11}).status_code == 422

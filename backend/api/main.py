@@ -972,34 +972,30 @@ def _resolve_index_plan(authorization: Optional[str], token_cookie: Optional[str
 
 
 def _require_market_explorer_query_access(
-    spec: Dict[str, Any], *, authorization: Optional[str], token_cookie: Optional[str]
+    spec: Dict[str, Any], *, authorization: Optional[str], token_cookie: Optional[str],
+    allow_public_canonical_rarity: bool = False,
+    public_identity: Optional[str] = None,
 ) -> str:
-    """Authenticate and authorize the normalized definition before any query work."""
+    """Authorize one normalized definition before any query/cache work.
+
+    The sole unauthenticated seam is an exact canonical-rarity preset verified
+    against the current DB registry. Callers must opt into that seam; constituent
+    paging deliberately does not, so constituent entitlement remains Index+.
+    """
+    if allow_public_canonical_rarity and is_canonical_rarity_query_shape(spec):
+        try:
+            options = read_asset_options(service_read_client, "cards")
+        except (SurfaceV2Error, ValueError):
+            options = None
+        rarity_key = str((spec.get("segmentIds") or ("",))[0])
+        if is_selectable_canonical_rarity(options, rarity_key):
+            return public_identity or f"public-canonical-rarity:{rarity_key}"
+
     user_id = _require_authenticated_user_id(
         authorization=authorization, token_cookie=token_cookie
     )
     plan = _resolve_index_plan(authorization, token_cookie)
     decision = evaluate_market_query_access(plan, spec)
-    if not decision["allowed"] and is_canonical_rarity_query_shape(spec):
-        # A canonical Rarity Market is part of prepared/research comparison
-        # packaging even when CUSTOM_BUILD_AVAILABLE execution reuses the
-        # generic planner. The exception is granted only from current DB
-        # authority; no request flag or Python rarity list can establish it.
-        try:
-            options = read_asset_options(service_read_client, "cards")
-        except SurfaceV2Error:
-            options = None
-        rarity_key = str((spec.get("segmentIds") or ("",))[0])
-        if is_selectable_canonical_rarity(options, rarity_key):
-            if has_index_feature_access(plan, FEATURE_MARKET_EXPLORER_PREPARED_COMPARE):
-                return user_id
-            decision = {
-                "allowed": False,
-                "requiredPlan": "plus",
-                "capability": FEATURE_MARKET_EXPLORER_PREPARED_COMPARE,
-                "reason": "canonical Rarity Markets require Index Plus",
-                "activeFilterAxes": ["segment"],
-            }
     if not decision["allowed"]:
         emit_security_event("entitlement_denied", route="market_explorer", policy_class=POLICY_CUSTOM_QUERY,
                             user_id=user_id, required_capability=decision["capability"],
@@ -2387,11 +2383,8 @@ def get_market_explorer_prepared_constituents(
 
 @app.get("/market/explorer/prepared-screen")
 def get_market_explorer_prepared_screen(screen: str, asset: Optional[str] = None,
-    limit: int = Query(default=10, ge=1, le=25), authorization: Optional[str] = Header(default=None, alias="authorization"),
-    token_cookie: Optional[str] = Cookie(default=None, alias="token")):
-    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
-    if not has_index_plus_access(_resolve_index_plan(authorization, token_cookie)):
-        raise HTTPException(status_code=403, detail={"message": "Screens require Index+.", "requiredPlan": "plus"})
+    limit: int = Query(default=10, ge=1, le=10)):
+    """Public prepared discovery metadata; comparison entitlement is separate."""
     try:
         return {"results": read_prepared_screen(service_read_client, screen, asset, limit)}
     except ValueError as exc:
@@ -2616,9 +2609,16 @@ def post_market_explorer_query(
             instruments=[item.model_dump() for item in payload.instruments],
         )
         user_id = _require_market_explorer_query_access(
-            normalized, authorization=authorization, token_cookie=token_cookie
+            normalized, authorization=authorization, token_cookie=token_cookie,
+            allow_public_canonical_rarity=True,
+            public_identity="public-canonical-rarity:" + (
+                str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+                or (request.client.host if request.client else "unknown")
+            ),
         )
-        _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+        public_canonical = user_id.startswith("public-canonical-rarity:")
+        _enforce_paid_abuse(request, user_id=user_id,
+                            policy_class=POLICY_SITE_SEARCH if public_canonical else POLICY_CUSTOM_QUERY,
                             route="/market/explorer/query")
         is_exact_v2 = bool(normalized.get("instruments"))
         runner = (run_exact_basket_v2 if is_exact_v2 else
@@ -2710,9 +2710,16 @@ def post_market_explorer_query_preflight(
             release_age_cohort_ids=payload.releaseAgeCohortIds,
         )
         user_id = _require_market_explorer_query_access(
-            normalized, authorization=authorization, token_cookie=token_cookie
+            normalized, authorization=authorization, token_cookie=token_cookie,
+            allow_public_canonical_rarity=True,
+            public_identity="public-canonical-rarity:" + (
+                str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
+                or (request.client.host if request.client else "unknown")
+            ),
         )
-        _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_CUSTOM_QUERY,
+        public_canonical = user_id.startswith("public-canonical-rarity:")
+        _enforce_paid_abuse(request, user_id=user_id,
+                            policy_class=POLICY_SITE_SEARCH if public_canonical else POLICY_CUSTOM_QUERY,
                             route="/market/explorer/query/preflight")
         resolved_set_ids = resolve_scope_set_ids(
             service_read_client, normalized["eraIds"], normalized["setIds"],

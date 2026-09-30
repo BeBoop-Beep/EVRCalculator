@@ -206,7 +206,7 @@ def test_market_explorer_ladder_has_three_levels():
         "accessMode": "basic",
         "canBrowsePreparedMarkets": True,
         "canComparePreparedMarkets": False,
-        "canUseAnalyticalScreens": False,
+        "canUseAnalyticalScreens": True,
         "canUseAdvancedMarketRanking": False,
         "canUsePreparedMarketIntelligence": False,
         "canBuildCustomMarkets": False,

@@ -178,6 +178,11 @@ def test_sealed_page_uses_one_rpc_for_100_products_and_maps_identity_and_nulls()
     assert result["items"][1]["changes"]["30D"] is None
     assert result["items"][1]["changes"]["3M"] is None
     assert result["items"][1]["changeBaselines"]["7D"] == "2026-09-21"
+    assert result["items"][0]["changeBaselines"] == {
+        "1D": "2026-09-26", "7D": "2026-09-20", "30D": "2026-08-29",
+        "3M": "2026-06-29", "6M": "2026-03-31", "1Y": None,
+        "SinceTracking": "2025-11-01",
+    }
     assert result["items"][99]["changes"] == {
         "1D": None, "7D": None, "30D": None, "3M": None,
         "6M": None, "1Y": None, "SinceTracking": None,
