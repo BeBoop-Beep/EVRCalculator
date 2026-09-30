@@ -720,14 +720,22 @@ export default function MarketExplorerClient({
     : null;
   const activityChartRange = useMemo(() => {
     if (!activityOn) return null;
-    if (activityFixtureMode) return activityFixturePayload?.request?.chartRange || null;
+    if (activityFixtureMode)
+      return activityFixturePayload?.request?.chartRange || null;
     if (!timeframe) return null;
     const model = buildExplorerChartModel(overview, visibleSeries, timeframe);
     const dates = model?.dates || [];
     return dates.length
       ? { startDate: dates[0], endDate: dates[dates.length - 1] }
       : null;
-  }, [activityOn, activityFixtureMode, activityFixturePayload, overview, visibleSeries, timeframe]);
+  }, [
+    activityOn,
+    activityFixtureMode,
+    activityFixturePayload,
+    overview,
+    visibleSeries,
+    timeframe,
+  ]);
   const activityScope = useMemo(
     () =>
       activityOn && focusedSeriesKey
@@ -1325,6 +1333,7 @@ export default function MarketExplorerClient({
                       activeDetailSeriesId
                     ] || null
                   }
+                  activityChartRange={activityChartRange}
                   activityFixtureMode={activityFixtureMode}
                 />
                 {activeDetailMarket?.marketType === "set" ? (

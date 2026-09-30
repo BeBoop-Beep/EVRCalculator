@@ -46,11 +46,14 @@ test("prepared markets derive exact published generation refs; unsupported asset
       asset: "cards",
       queryFingerprint: "f",
       revisionId: "r1",
+      computedThrough: "2026-09-29",
+      activityMarketKey: "query-market:f",
     }),
     {
       kind: "QUERY_CACHE_PUBLISHED_REVISION",
-      marketKey: "query:f",
+      queryFingerprint: "f",
       revisionId: "r1",
+      computedThrough: "2026-09-29",
     },
   );
 });
@@ -93,5 +96,35 @@ test("capability response keeps explicit unavailable values and ignores unreques
       markets,
     ),
     { "set:a": unavailable },
+  );
+});
+
+test("capability normalization rejects a roster mismatch and generations coexist independently", () => {
+  const markets = eligibleActivityMarkets([
+    { key: "set:a", asset: "cards", generationId: "g1" },
+    { key: "set:b", asset: "cards", generationId: "g2" },
+    { key: "set:c", asset: "cards", generationId: "g3" },
+  ]);
+  const capability = (marketKey, generationId) => ({
+    available: true,
+    marketKey,
+    rosterRef: { kind: "SURFACE_V2_GENERATION", marketKey, generationId },
+  });
+  assert.deepEqual(
+    normalizeCapabilityResponse(
+      {
+        contractVersion: "market_activity_v1.1",
+        capabilities: {
+          "set:a": capability("set:a", "g1"),
+          "set:b": capability("set:b", "wrong"),
+          "set:c": capability("set:c", "g3"),
+        },
+      },
+      markets,
+    ),
+    {
+      "set:a": capability("set:a", "g1"),
+      "set:c": capability("set:c", "g3"),
+    },
   );
 });

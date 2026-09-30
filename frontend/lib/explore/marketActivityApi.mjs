@@ -57,11 +57,15 @@ async function post(path, body, { signal, fetchImpl } = {}) {
     },
   );
   if (!response.ok) {
+    const detail = payload?.detail;
     throw new MarketActivityApiError(
-      payload?.message || "Market Activity is temporarily unavailable",
+      payload?.message ||
+        detail?.message ||
+        (typeof detail === "string" ? detail : null) ||
+        "Market Activity is temporarily unavailable",
       {
         status: response.status,
-        code: payload?.code,
+        code: payload?.code || detail?.code,
         payload,
       },
     );

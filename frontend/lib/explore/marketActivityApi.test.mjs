@@ -77,24 +77,60 @@ test("live transports use credentials, exact paths, pins, chart range, cursor, a
   assert.equal(calls[3].body.instrumentKey, "card:v:raw");
 });
 
-for (const [status, kind, retryable] of [
-  [401, "auth", false],
-  [403, "entitlement", false],
-  [400, "invalid", false],
-  [503, "unavailable", true],
+for (const [
+  status,
+  kind,
+  retryable,
+  payload,
+  expectedMessage,
+  expectedCode,
+] of [
+  [
+    401,
+    "auth",
+    false,
+    { detail: "sign in required" },
+    "sign in required",
+    "MARKET_ACTIVITY_UNAVAILABLE",
+  ],
+  [
+    403,
+    "entitlement",
+    false,
+    { detail: { code: "PLAN_REQUIRED", message: "upgrade required" } },
+    "upgrade required",
+    "PLAN_REQUIRED",
+  ],
+  [
+    400,
+    "invalid",
+    false,
+    { detail: { code: "BAD_SCOPE", message: "scope invalid" } },
+    "scope invalid",
+    "BAD_SCOPE",
+  ],
+  [
+    503,
+    "unavailable",
+    true,
+    { code: "SOURCE_DOWN", message: "try later" },
+    "try later",
+    "SOURCE_DOWN",
+  ],
 ]) {
   test(`transport preserves ${status} as ${kind}`, async () => {
     await assert.rejects(
       fetchMarketActivityGroup({
         ...SCOPE,
-        fetchImpl: async () =>
-          response(status, { code: `E${status}`, message: "no" }),
+        fetchImpl: async () => response(status, payload),
       }),
       (error) =>
         error instanceof MarketActivityApiError &&
         error.status === status &&
         error.kind === kind &&
-        error.retryable === retryable,
+        error.retryable === retryable &&
+        error.message === expectedMessage &&
+        error.code === expectedCode,
     );
   });
 }

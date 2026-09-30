@@ -1,11 +1,16 @@
+import { sameActivityRosterRef } from "./marketActivityState.mjs";
+
 const stableRoster = (rosterRef) =>
-  rosterRef
-    ? [
-        rosterRef.kind,
-        rosterRef.marketKey,
-        rosterRef.generationId || rosterRef.revisionId,
-      ].join(":")
-    : "";
+  rosterRef?.kind === "SURFACE_V2_GENERATION"
+    ? [rosterRef.kind, rosterRef.marketKey, rosterRef.generationId].join(":")
+    : rosterRef?.kind === "QUERY_CACHE_PUBLISHED_REVISION"
+      ? [
+          rosterRef.kind,
+          rosterRef.queryFingerprint,
+          rosterRef.revisionId,
+          rosterRef.computedThrough,
+        ].join(":")
+      : "";
 
 export function activityRosterRefForSeries(series) {
   if (!series || series.asset === "sealed" || series.asset === "graded")
@@ -16,11 +21,20 @@ export function activityRosterRefForSeries(series) {
       series.queryRevisionId ||
       series.publishedRevisionId ||
       series.rosterRef?.revisionId;
-    return revisionId
+    const computedThrough =
+      series.computedThrough ||
+      series.queryComputedThrough ||
+      series.rosterRef?.computedThrough;
+    const marketKey =
+      series.activityMarketKey ||
+      series.marketActivityKey ||
+      series.rosterRef?.marketKey;
+    return revisionId && computedThrough && marketKey
       ? {
           kind: "QUERY_CACHE_PUBLISHED_REVISION",
+          queryFingerprint: series.queryFingerprint,
           revisionId,
-          marketKey: series.marketKey || series.key,
+          computedThrough,
         }
       : null;
   }
@@ -36,11 +50,16 @@ export function eligibleActivityMarkets(series = []) {
   return series
     .flatMap((entry) => {
       const rosterRef = activityRosterRefForSeries(entry);
+      const marketKey = entry.queryFingerprint
+        ? entry.activityMarketKey ||
+          entry.marketActivityKey ||
+          entry.rosterRef?.marketKey
+        : entry.marketKey || entry.key;
       return rosterRef
         ? [
             {
               focusKey: entry.key,
-              marketKey: entry.marketKey || entry.key,
+              marketKey,
               rosterRef,
             },
           ]
@@ -68,7 +87,13 @@ export function normalizeCapabilityResponse(payload, requestedMarkets) {
   const capabilities = {};
   for (const [focusKey, capability] of Object.entries(payload.capabilities)) {
     const request = requested.get(focusKey);
-    if (!request || capability?.marketKey !== request.marketKey) continue;
+    if (
+      !request ||
+      capability?.marketKey !== request.marketKey ||
+      (capability?.available === true &&
+        !sameActivityRosterRef(capability?.rosterRef, request.rosterRef))
+    )
+      continue;
     capabilities[focusKey] = capability;
   }
   return capabilities;

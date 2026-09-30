@@ -6,6 +6,12 @@ import {
   fetchMarketActivityConstituents,
   fetchMarketActivityInstrument,
 } from "@/lib/explore/marketActivityApi.mjs";
+import {
+  validateActivityConstituentResponse,
+  validateActivityInstrumentResponse,
+} from "@/lib/explore/marketActivityState.mjs";
+
+const ACTIVITY_PAGE_LIMIT = 50;
 
 const formatMoney = (money) =>
   money?.amount
@@ -50,31 +56,32 @@ function useActivityPage({ scope, enabled, fixtureMode }) {
         error: null,
       }));
       try {
-      const requestKey = JSON.stringify({ ...scope, cursor, limit: 50, fixtureMode });
-      let request = inFlightActivityPages.get(requestKey);
-      if (!request) {
-        request = fixtureMode
-          ? import("@/lib/explore/marketActivityFixtures.mjs").then(
-            ({ loadMarketActivityFixture }) =>
-              loadMarketActivityFixture({
-                fixtureId: cursor ? "fma_fixture_16" : "fma_fixture_10",
-              }),
-          )
-          : fetchMarketActivityConstituents({ ...scope, cursor, limit: 50 });
-        inFlightActivityPages.set(requestKey, request);
-        request.finally(() => inFlightActivityPages.delete(requestKey));
-      }
-      const payload = await request;
+        const limit = fixtureMode ? 2 : ACTIVITY_PAGE_LIMIT;
+        const requestKey = JSON.stringify({
+          ...scope,
+          cursor,
+          limit,
+          fixtureMode,
+        });
+        let request = inFlightActivityPages.get(requestKey);
+        if (!request) {
+          request = fixtureMode
+            ? import("@/lib/explore/marketActivityFixtures.mjs").then(
+                ({ loadMarketActivityFixture }) =>
+                  loadMarketActivityFixture({
+                    fixtureId: cursor ? "fma_fixture_16" : "fma_fixture_10",
+                  }),
+              )
+            : fetchMarketActivityConstituents({ ...scope, cursor, limit });
+          inFlightActivityPages.set(requestKey, request);
+          request.finally(() => inFlightActivityPages.delete(requestKey));
+        }
+        const payload = validateActivityConstituentResponse(
+          await request,
+          scope,
+          { cursor, limit },
+        );
         if (requestSequence !== sequence.current) return;
-        if (
-          payload.contractVersion !== "market_activity_v1.1" ||
-          payload.request?.marketKey !== scope.marketKey ||
-          payload.request?.activityGenerationId !==
-            scope.activityGenerationId ||
-          payload.request?.asOf !== scope.asOf ||
-          payload.request?.windowDays !== scope.windowDays
-        )
-          throw new Error("Activity constituent page scope mismatch.");
         if (payload.availability?.state === "UNAVAILABLE") {
           setState({
             status: "unavailable",
@@ -120,7 +127,7 @@ function useActivityPage({ scope, enabled, fixtureMode }) {
   };
 }
 
-function InstrumentDrawer({ row, scope, fixtureMode, onClose }) {
+function InstrumentDrawer({ row, scope, chartRange, fixtureMode, onClose }) {
   const [state, setState] = useState({
     status: "loading",
     data: null,
@@ -128,6 +135,7 @@ function InstrumentDrawer({ row, scope, fixtureMode, onClose }) {
   });
   useEffect(() => {
     const controller = new AbortController();
+    const requestedChartRange = fixtureMode ? null : chartRange;
     const request = fixtureMode
       ? import("@/lib/explore/marketActivityFixtures.mjs").then(
           ({ loadMarketActivityFixture }) =>
@@ -139,17 +147,18 @@ function InstrumentDrawer({ row, scope, fixtureMode, onClose }) {
       : fetchMarketActivityInstrument({
           ...scope,
           instrumentKey: row.instrumentKey,
-          chartRange: null,
+          chartRange: requestedChartRange,
           signal: controller.signal,
         });
     request
-      .then((data) => {
+      .then((payload) => {
         if (controller.signal.aborted) return;
-        if (
-          data.request?.instrumentKey !== row.instrumentKey ||
-          data.instrument?.cardVariantId !== row.cardVariantId
-        )
-          throw new Error("Instrument identity mismatch.");
+        const data = validateActivityInstrumentResponse(payload, scope, {
+          instrumentKey: row.instrumentKey,
+          cardVariantId: row.cardVariantId,
+          chartRange: requestedChartRange,
+          tier: scope.tier,
+        });
         setState({ status: "ready", data, error: null });
       })
       .catch((error) => {
@@ -157,12 +166,10 @@ function InstrumentDrawer({ row, scope, fixtureMode, onClose }) {
           setState({ status: "error", data: null, error });
       });
     return () => controller.abort();
-  }, [row.instrumentKey, row.cardVariantId, scope, fixtureMode]);
+  }, [row.instrumentKey, row.cardVariantId, scope, chartRange, fixtureMode]);
   const data = state.data;
   const windowRows = data?.sales?.windows || [];
-  const selected =
-    windowRows.find((entry) => entry.windowDays === scope.windowDays) ||
-    windowRows[0];
+  const selected = selectSalesWindow(windowRows, scope.windowDays);
   return (
     <div
       data-market-activity-instrument
@@ -235,10 +242,10 @@ function InstrumentDrawer({ row, scope, fixtureMode, onClose }) {
             <div className="grid grid-cols-2 gap-2 text-xs">
               {windowRows.map((window) => (
                 <div
-                  key={window.windowDays}
+                  key={window.days}
                   className="rounded border border-slate-700 p-2"
                 >
-                  <strong>{window.windowDays}D</strong>
+                  <strong>{window.days}D</strong>
                   <br />
                   Observed {fact(window.observedCount)} · Proven{" "}
                   {fact(window.provenCount)}
@@ -300,6 +307,7 @@ export default function MarketActivityConstituents({
   capability,
   identity,
   pageCache,
+  chartRange = null,
   fixtureMode = false,
 }) {
   const canonical = useMarketExplorerConstituentPage(identity, {
@@ -315,6 +323,7 @@ export default function MarketActivityConstituents({
             rosterRef: capability.rosterRef,
             asOf: capability.asOf,
             windowDays: capability.windowDays,
+            tier: capability.tier || capability.grade,
           }
         : null,
     [capability],
@@ -443,12 +452,17 @@ export default function MarketActivityConstituents({
           </li>
         ))}
       </ul>
-      {activity.cursor ? (
+      {activity.cursor && canonical.hasMore ? (
         <button
           type="button"
           data-market-activity-load-more
-          disabled={activity.status === "loadingMore"}
-          onClick={activity.loadMore}
+          disabled={
+            activity.status === "loadingMore" || canonical.isLoadingMore
+          }
+          onClick={() => {
+            canonical.loadMore();
+            activity.loadMore();
+          }}
           className="mx-3 mb-4 rounded border border-slate-600 px-3 py-1.5 text-xs"
         >
           {activity.status === "loadingMore" ? "Loading…" : "Load more"}
@@ -458,6 +472,7 @@ export default function MarketActivityConstituents({
         <InstrumentDrawer
           row={opened}
           scope={scope}
+          chartRange={chartRange}
           fixtureMode={fixtureMode}
           onClose={() => setOpened(null)}
         />
@@ -467,3 +482,6 @@ export default function MarketActivityConstituents({
 }
 
 export { exactJoin };
+export function selectSalesWindow(windows, days) {
+  return windows.find((entry) => entry.days === days) || null;
+}

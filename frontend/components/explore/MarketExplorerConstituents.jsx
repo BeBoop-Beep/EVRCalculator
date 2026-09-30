@@ -611,6 +611,7 @@ export default function MarketExplorerConstituents({
   focusedSeriesKey = null,
   pageCache = null,
   activityCapability = null,
+  activityChartRange = null,
   activityFixtureMode = false,
 }) {
   // Local, unpersisted: which window you are reading is a posture, not
@@ -667,8 +668,8 @@ export default function MarketExplorerConstituents({
       : null;
   const activityAvailable = Boolean(
     active &&
-      resolveSeriesAsset(active) === "cards" &&
-      activityCapability?.available === true,
+    resolveSeriesAsset(active) === "cards" &&
+    activityCapability?.available === true,
   );
   useEffect(() => {
     setLocalView("performance");
@@ -841,6 +842,7 @@ export default function MarketExplorerConstituents({
           capability={activityCapability}
           identity={pagedIdentity}
           pageCache={pageCache}
+          chartRange={activityChartRange}
           fixtureMode={activityFixtureMode}
         />
       ) : isPaged ? (
