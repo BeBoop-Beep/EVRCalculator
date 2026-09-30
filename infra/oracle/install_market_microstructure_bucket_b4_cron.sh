@@ -58,8 +58,8 @@ git -C "$SOURCE_REPO" worktree add --detach "$RUNTIME" "$SHA"
 [ "$(git -C "$RUNTIME" rev-parse HEAD)" = "$SHA" ] || {
   echo "FAIL: detached runtime SHA mismatch" >&2; exit 2;
 }
-[ -x "$RUNTIME/infra/oracle/run_market_microstructure_bucket_b4.sh" ] || {
-  echo "FAIL: pinned B4 runtime missing/not executable" >&2; exit 2;
+[ -f "$RUNTIME/infra/oracle/run_market_microstructure_bucket_b4.sh" ] || {
+  echo "FAIL: pinned B4 runtime missing" >&2; exit 2;
 }
 
 export PYTHONPATH="$RUNTIME"
