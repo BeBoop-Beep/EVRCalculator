@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
 import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
+import MarketActivityPane from "./MarketActivityPane";
 import { MARKET_CHART_VIEW_INDEX, MARKET_CHART_VIEW_PERFORMANCE } from "./marketPerformanceDomain.mjs";
 import {
   describeUnavailableWindow,
@@ -53,6 +54,7 @@ export default function MarketExplorerChart({
   // Server-published overlay series ({ id, label, values } aligned to the chart
   // dates). Empty by default; nothing is ever derived client-side.
   overlays = [],
+  activityState = null,
   methodologyOpen = false,
   methodologyTriggerRef,
   onToggleMethodology,
@@ -62,6 +64,9 @@ export default function MarketExplorerChart({
   openCanvas = true,
 }) {
   const [viewMode, setViewMode] = useState(MARKET_CHART_VIEW_INDEX);
+  // MarketPerformanceChart remains the single tooltip/crosshair owner. Activity
+  // receives only its inspected date and never installs a competing pointer layer.
+  const [inspectedDate, setInspectedDate] = useState(null);
   const visibleModel = useMemo(
     () => (timeframe ? buildExplorerChartModel(overview, selectedSeries, timeframe) : null),
     [overview, selectedSeries, timeframe]
@@ -154,6 +159,7 @@ export default function MarketExplorerChart({
               minimal={openCanvas}
               focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
               overlays={overlays}
+              onInspectedDateChange={activityState ? setInspectedDate : undefined}
             />
           )
           : (
@@ -162,6 +168,8 @@ export default function MarketExplorerChart({
             </p>
           )}
       </div>
+
+      {activityState ? <MarketActivityPane state={activityState} inspectedDate={inspectedDate} /> : null}
 
       {/* BOTTOM-CENTER ANALYSIS ACTION. Lives inside the chart pane directly under
           the x-axis dates, so it is part of the chart workspace (visible without
