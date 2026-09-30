@@ -6,6 +6,7 @@ import logging
 import os
 import time
 from datetime import date
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
@@ -63,6 +64,13 @@ from backend.db.services.frontend_proxy_service import (
     update_customer_profile,
     update_profile,
 )
+from backend.db.services.market_activity_v1 import (
+    discover_activity_capabilities,
+    read_constituent_activity_page,
+    read_group_activity,
+    read_instrument_activity,
+)
+from backend.domain.pokemon.market_activity_contract import SchemaRegistry
 from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_CARD_COLLECTOR_APPEAL,
@@ -786,8 +794,9 @@ _DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
 async def authenticated_response_cache_boundary(request: Request, call_next):
     """Never place an identity/entitlement-sensitive response in a public cache."""
     response = await call_next(request)
-    if request.headers.get("authorization") or request.cookies.get("token"):
-        response.headers["Cache-Control"] = "no-store"
+    activity_read = request.url.path.startswith("/market/explorer/activity")
+    if activity_read or request.headers.get("authorization") or request.cookies.get("token"):
+        response.headers["Cache-Control"] = "private, no-store" if activity_read else "no-store"
         vary = {item.strip() for item in response.headers.get("Vary", "").split(",") if item.strip()}
         vary.update({"Cookie", "Authorization"})
         response.headers["Vary"] = ", ".join(sorted(vary))
@@ -1176,6 +1185,125 @@ def _require_authenticated_user_id(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return authenticated_user_id
+
+
+_MARKET_ACTIVITY_SCHEMA_REGISTRY = SchemaRegistry(
+    Path(__file__).resolve().parents[2] / "docs" / "research" / "market_activity_v1" / "contracts"
+)
+
+
+def _require_market_activity_access(
+    payload: Any, *, authorization: Optional[str], token_cookie: Optional[str],
+) -> str:
+    """Authenticate, resolve the canonical profile plan, then enforce Activity access."""
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    plan = _resolve_index_plan(authorization, token_cookie)
+    market_keys: list[str] = []
+    if isinstance(payload, dict):
+        if isinstance(payload.get("marketKey"), str):
+            market_keys.append(payload["marketKey"])
+        for item in payload.get("markets", []) if isinstance(payload.get("markets"), list) else []:
+            if isinstance(item, dict) and isinstance(item.get("marketKey"), str):
+                market_keys.append(item["marketKey"])
+    custom = any(key.startswith("custom:") for key in market_keys)
+    allowed = has_index_premium_access(plan) if custom else has_index_plus_access(plan)
+    if not allowed:
+        raise HTTPException(status_code=403, detail={
+            "message": "Custom Market Activity requires Index Premium." if custom
+                       else "Market Activity requires Index Plus.",
+            "code": "MARKET_ACTIVITY_PLAN_REQUIRED",
+            "requiredPlan": "premium" if custom else "plus",
+        })
+    return str(plan)
+
+
+def _market_activity_request(payload: Any, schema_name: str) -> Dict[str, Any]:
+    errors = _MARKET_ACTIVITY_SCHEMA_REGISTRY.validate(payload, schema_name)
+    if errors:
+        raise HTTPException(status_code=400, detail={
+            "message": "Invalid Market Activity request.",
+            "code": "MARKET_ACTIVITY_REQUEST_INVALID", "errors": errors[:8],
+        })
+    return dict(payload)
+
+
+def _market_activity_response(payload: Dict[str, Any], schema_name: str) -> JSONResponse:
+    errors = _MARKET_ACTIVITY_SCHEMA_REGISTRY.validate(payload, schema_name)
+    if errors:
+        logger.error("market_activity.contract_violation schema=%s errors=%s",
+                     schema_name, errors[:3])
+        return JSONResponse(status_code=500, headers={"Cache-Control": "private, no-store"}, content={
+            "message": "Market Activity response contract violation.",
+            "code": "MARKET_ACTIVITY_CONTRACT_VIOLATION",
+        })
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
+def _market_activity_capability_request(payload: Any, plan: str) -> tuple[list[Dict[str, Any]], int]:
+    errors: list[str] = []
+    if not isinstance(payload, dict) or set(payload) != {"markets", "windowDays"}:
+        errors.append("$: expected exactly markets and windowDays")
+    markets = payload.get("markets") if isinstance(payload, dict) else None
+    window_days = payload.get("windowDays") if isinstance(payload, dict) else None
+    if not isinstance(markets, list) or not 1 <= len(markets) <= 10:
+        errors.append("$.markets: expected 1..10 items")
+        markets = []
+    limit = market_explorer_active_market_limit(plan)
+    if len(markets) > limit:
+        errors.append(f"$.markets: plan permits at most {limit} active markets")
+    if window_days not in (7, 30, 90, 180) or isinstance(window_days, bool):
+        errors.append("$.windowDays: expected one of 7, 30, 90, 180")
+    focus_keys: list[str] = []
+    market_keys: list[str] = []
+    for index, item in enumerate(markets):
+        if not isinstance(item, dict) or set(item) != {"focusKey", "marketKey", "rosterRef"}:
+            errors.append(f"$.markets[{index}]: invalid fields")
+            continue
+        if not isinstance(item.get("focusKey"), str) or not item["focusKey"]:
+            errors.append(f"$.markets[{index}].focusKey: expected non-empty string")
+        if not isinstance(item.get("marketKey"), str) or not item["marketKey"]:
+            errors.append(f"$.markets[{index}].marketKey: expected non-empty string")
+        if not isinstance(item.get("rosterRef"), dict):
+            errors.append(f"$.markets[{index}].rosterRef: expected object")
+        else:
+            roster_ref = item["rosterRef"]
+            if roster_ref.get("kind") == "SURFACE_V2_GENERATION":
+                if set(roster_ref) != {"kind", "generationId", "marketKey"}:
+                    errors.append(f"$.markets[{index}].rosterRef: invalid prepared reference")
+                try:
+                    UUID(str(roster_ref.get("generationId")))
+                except (TypeError, ValueError):
+                    errors.append(f"$.markets[{index}].rosterRef.generationId: invalid UUID")
+                if roster_ref.get("marketKey") != item.get("marketKey"):
+                    errors.append(f"$.markets[{index}].rosterRef.marketKey: mismatch")
+            elif roster_ref.get("kind") == "QUERY_CACHE_PUBLISHED_REVISION":
+                # A bare fingerprint is syntactically accepted so discovery can
+                # fail closed as unavailable instead of guessing a revision.
+                full = {"kind", "queryFingerprint", "revisionId", "computedThrough"}
+                if set(roster_ref) != full and set(roster_ref) != {"kind", "queryFingerprint"}:
+                    errors.append(f"$.markets[{index}].rosterRef: invalid custom reference")
+                if not isinstance(roster_ref.get("queryFingerprint"), str) or not roster_ref["queryFingerprint"]:
+                    errors.append(f"$.markets[{index}].rosterRef.queryFingerprint: invalid")
+                if set(roster_ref) == full:
+                    try:
+                        UUID(str(roster_ref.get("revisionId")))
+                        date.fromisoformat(str(roster_ref.get("computedThrough")))
+                    except (TypeError, ValueError):
+                        errors.append(f"$.markets[{index}].rosterRef: invalid immutable revision")
+            else:
+                errors.append(f"$.markets[{index}].rosterRef.kind: unsupported")
+        focus_keys.append(item.get("focusKey"))
+        market_keys.append(item.get("marketKey"))
+    if len(set(focus_keys)) != len(focus_keys):
+        errors.append("$.markets: duplicate focusKey")
+    if len(set(market_keys)) != len(market_keys):
+        errors.append("$.markets: duplicate marketKey")
+    if errors:
+        raise HTTPException(status_code=400, detail={
+            "message": "Invalid Market Activity request.",
+            "code": "MARKET_ACTIVITY_REQUEST_INVALID", "errors": errors[:8],
+        })
+    return [dict(item) for item in markets], int(window_days)
 
 
 def _get_authenticated_user_id_if_present(
@@ -2074,6 +2202,86 @@ def get_market_explorer_snapshot(
     except Exception:
         logger.exception("/market/explorer/snapshot unexpected error")
         return JSONResponse(content={"message": "Unable to load Market Explorer snapshot", "code": "MARKET_EXPLORER_SNAPSHOT_FAILED"}, status_code=500)
+
+
+@app.post("/market/explorer/activity/capabilities")
+def post_market_explorer_activity_capabilities(
+    payload: Any = Body(...),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    plan = _require_market_activity_access(
+        payload, authorization=authorization, token_cookie=token_cookie,
+    )
+    markets, window_days = _market_activity_capability_request(payload, plan)
+    try:
+        response = discover_activity_capabilities(service_read_client, markets, window_days)
+    except Exception:
+        logger.exception("market_activity.capability_read_failed market_count=%s window_days=%s",
+                         len(markets), window_days)
+        return JSONResponse(status_code=500, headers={"Cache-Control": "private, no-store"}, content={
+            "message": "Market Activity capability discovery failed.",
+            "code": "MARKET_ACTIVITY_READ_FAILED",
+        })
+    return JSONResponse(content=response, headers={"Cache-Control": "private, no-store"})
+
+
+def _post_market_activity_read(
+    payload: Any, *, request_schema: str, response_schema: str, reader: Any,
+    authorization: Optional[str], token_cookie: Optional[str],
+) -> JSONResponse:
+    _require_market_activity_access(payload, authorization=authorization, token_cookie=token_cookie)
+    validated = _market_activity_request(payload, request_schema)
+    try:
+        response = reader(service_read_client, validated)
+    except Exception:
+        logger.exception("market_activity.read_failed schema=%s market=%s generation=%s",
+                         request_schema, validated.get("marketKey"),
+                         validated.get("activityGenerationId"))
+        return JSONResponse(status_code=500, headers={"Cache-Control": "private, no-store"}, content={
+            "message": "Market Activity read failed.", "code": "MARKET_ACTIVITY_READ_FAILED",
+        })
+    return _market_activity_response(response, response_schema)
+
+
+@app.post("/market/explorer/activity")
+def post_market_explorer_activity(
+    payload: Any = Body(...),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    return _post_market_activity_read(
+        payload, request_schema="activity_request.schema.json",
+        response_schema="activity_response.schema.json", reader=read_group_activity,
+        authorization=authorization, token_cookie=token_cookie,
+    )
+
+
+@app.post("/market/explorer/activity/constituents")
+def post_market_explorer_activity_constituents(
+    payload: Any = Body(...),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    return _post_market_activity_read(
+        payload, request_schema="constituent_page_request.schema.json",
+        response_schema="constituent_page_response.schema.json",
+        reader=read_constituent_activity_page,
+        authorization=authorization, token_cookie=token_cookie,
+    )
+
+
+@app.post("/market/explorer/activity/instrument")
+def post_market_explorer_activity_instrument(
+    payload: Any = Body(...),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    return _post_market_activity_read(
+        payload, request_schema="instrument_detail_request.schema.json",
+        response_schema="instrument_detail_response.schema.json", reader=read_instrument_activity,
+        authorization=authorization, token_cookie=token_cookie,
+    )
 
 
 @app.get("/market/explorer/prepared-directory")
