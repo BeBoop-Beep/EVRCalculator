@@ -41,6 +41,7 @@ import {
   FOCUS_TOOL_STATE, NO_BACKEND_CAPABILITIES, countActiveMarkets, evaluateActiveMarketAdd, resolveFocusToolStates,
 } from "@/lib/explore/marketExplorerAccess.mjs";
 import { buildFocusTools } from "./MarketExplorerFocusTools";
+import useMarketActivity from "@/hooks/explore/useMarketActivity";
 
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
@@ -92,8 +93,12 @@ export default function MarketExplorerClient({
   preparedDirectory = [],
   preparedDirectoryStatus = "ready",
   initialPreparedKey = null,
-  /** Server-published focus-tool authority (Demand Pressure / Fair Value). Default: none. */
+  /** Server-published focus-tool authority. Product default is fail-closed. */
   marketCapabilities = NO_BACKEND_CAPABILITIES,
+  /** Explicit injectable transport seam for tests and FMA-4. */
+  activityTransport = null,
+  /** Explicit local/e2e fixture payload only; null in normal product rendering. */
+  activityFixturePayload = null,
 }) {
   const auth = useAuth();
   // An unresolved/null client context must not erase the server-resolved paid
@@ -403,6 +408,9 @@ export default function MarketExplorerClient({
   // market can never leave a stale focus behind.
   const focusedSeriesKey = workspaceView.focused && allSeriesKeys.includes(workspaceView.focused)
     && !hiddenSeriesKeys.has(workspaceView.focused) ? workspaceView.focused : null;
+  const focusedSeries = selectedSeries.find((series) => series.key === focusedSeriesKey) || null;
+  const activityFocusKey = focusedSeries && !["sealed", "graded"].includes(focusedSeries.asset)
+    && !/sealed|graded/i.test(focusedSeriesKey) ? focusedSeriesKey : null;
   useEffect(() => {
     dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reconcile, activeKeys: allSeriesKeys });
   }, [allSeriesKeys]);
@@ -410,25 +418,52 @@ export default function MarketExplorerClient({
   // (default none). Fair Value, when explicitly available, defaults ON on entering
   // focus; the user may toggle it off/on for that focus session.
   const focusToolStates = useMemo(
-    () => resolveFocusToolStates(indexPlan, focusedSeriesKey, marketCapabilities),
-    [indexPlan, focusedSeriesKey, marketCapabilities]);
+    () => resolveFocusToolStates(indexPlan, activityFocusKey, marketCapabilities),
+    [indexPlan, activityFocusKey, marketCapabilities]);
   const [focusToolToggles, setFocusToolToggles] = useState({});
   useEffect(() => { setFocusToolToggles({}); }, [focusedSeriesKey]);
   const fairValueOn = focusToolStates.fairValue.state === FOCUS_TOOL_STATE.available
     && (focusToolToggles["fair-value"] ?? true);
   const demandPressureOn = focusToolStates.demandPressure.state === FOCUS_TOOL_STATE.available
     && (focusToolToggles["demand-pressure"] ?? false);
+  const activityOn = focusToolStates.activity.state === FOCUS_TOOL_STATE.available
+    && (focusToolToggles["market-activity"] ?? false);
   const toggleFocusTool = useCallback((id) => setFocusToolToggles((current) => ({
     ...current, [id]: !(current[id] ?? (id === "fair-value")),
   })), []);
   const focusTools = useMemo(
-    () => buildFocusTools({ states: focusToolStates, fairValueOn, demandPressureOn, onToggle: toggleFocusTool }),
-    [focusToolStates, fairValueOn, demandPressureOn, toggleFocusTool]);
+    () => buildFocusTools({ states: focusToolStates, fairValueOn, demandPressureOn, activityOn, onToggle: toggleFocusTool }),
+    [focusToolStates, fairValueOn, demandPressureOn, activityOn, toggleFocusTool]);
   const chartOverlays = useMemo(() => {
     const published = fairValueOn ? marketCapabilities?.fairValue?.[focusedSeriesKey] : null;
     return published && Array.isArray(published.values)
       ? [{ id: `fair-value:${focusedSeriesKey}`, label: "inDex Fair Value", values: published.values }] : [];
   }, [fairValueOn, marketCapabilities, focusedSeriesKey]);
+  const activityCapability = focusedSeriesKey ? marketCapabilities?.activity?.[focusedSeriesKey] || marketCapabilities?.activity?.["*"] : null;
+  const activityScope = useMemo(() => activityOn && focusedSeriesKey ? {
+    focusMarketKey: focusedSeriesKey,
+    marketKey: activityCapability.marketKey,
+    activityGenerationId: activityCapability.activityGenerationId,
+    rosterRef: activityCapability.rosterRef,
+    evidenceFingerprint: activityCapability.evidenceFingerprint,
+    asOf: activityCapability.asOf,
+    windowDays: activityCapability.windowDays,
+    tier: activityCapability.tier || activityCapability.grade,
+  } : null, [activityOn, focusedSeriesKey, activityCapability]);
+  const resolvedActivityTransport = useMemo(() => {
+    if (activityTransport) return activityTransport;
+    if (!activityFixturePayload) return null;
+    return async ({ signal }) => {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      return activityFixturePayload;
+    };
+  }, [activityTransport, activityFixturePayload]);
+  const activityState = useMarketActivity({
+    enabled: activityOn && Boolean(resolvedActivityTransport),
+    scope: activityScope,
+    transport: resolvedActivityTransport,
+    identityKey: isAuthenticated ? `${liveUser?.id || liveUser?.email || "user"}:${indexPlan}` : null,
+  });
   // The workspace has nothing to show once the last active market is gone.
   const hasActiveMarkets = selectedSeries.length > 0;
   useEffect(() => {
@@ -646,6 +681,7 @@ export default function MarketExplorerClient({
             onClearFocus={clearFocus}
             focusTools={focusTools}
             overlays={chartOverlays}
+            activityState={activityOn ? activityState : null}
             methodologyOpen={methodologyOpen}
             methodologyTriggerRef={methodologyTriggerRef}
             onToggleMethodology={() => {

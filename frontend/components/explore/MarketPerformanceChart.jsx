@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import {
@@ -49,7 +49,7 @@ export function resolveAreaOpacity(seriesCount) {
   return Math.max(0.03, (BASE_AREA_OPACITY * AREA_OPACITY_FULL_AT) / count);
 }
 
-export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]", minimal = false, focusedSeriesKey = null, overlays = [] }) {
+export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]", minimal = false, focusedSeriesKey = null, overlays = [], onInspectedDateChange }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipAnchor, setTooltipAnchor] = useState(null);
   const [tooltipSize, setTooltipSize] = useState({ width: 248, height: 160 });
@@ -59,7 +59,10 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
   const gestureRef = useRef(null);
   const chartId = useId().replace(/:/g, "");
 
-  const dates = Array.isArray(model?.dates) ? model.dates : [];
+  const dates = useMemo(() => Array.isArray(model?.dates) ? model.dates : [], [model?.dates]);
+  useEffect(() => {
+    onInspectedDateChange?.(activeIndex === null ? null : dates[activeIndex] || null);
+  }, [activeIndex, dates, onInspectedDateChange]);
   const rawSeries = Array.isArray(model?.series) ? model.series : [];
   const isIndexView = viewMode === MARKET_CHART_VIEW_INDEX;
   const series = rawSeries.map((entry) => ({

@@ -23,6 +23,7 @@ import {
   hasIndexPremiumAccess,
   normalizeIndexPlan,
 } from "../access/indexPlanAccess.mjs";
+import { hasExactActivityCapability } from "./marketActivityState.mjs";
 
 export const MARKET_EXPLORER_PLAN_TIER = Object.freeze({ basic: "basic", plus: "plus", premium: "premium" });
 
@@ -77,6 +78,7 @@ export const FOCUS_TOOL_STATE = Object.freeze({ locked: "locked", unavailable: "
 
 export const DEMAND_PRESSURE_UNAVAILABLE_COPY = "Demand Pressure data is not available for this market yet.";
 export const FAIR_VALUE_UNAVAILABLE_COPY = "inDex Fair Value is not available for this market yet.";
+export const MARKET_ACTIVITY_UNAVAILABLE_COPY = "Market Activity fixture data is not available for this market yet.";
 
 /**
  * Backend capability shape (DEFAULT: nothing available). A future endpoint publishes
@@ -84,13 +86,14 @@ export const FAIR_VALUE_UNAVAILABLE_COPY = "inDex Fair Value is not available fo
  *     fairValue:      { [marketKey]: { available: true, series: [...] } } }
  * Absent or non-explicit => UNAVAILABLE. Nothing is ever synthesised client-side.
  */
-export const NO_BACKEND_CAPABILITIES = Object.freeze({ demandPressure: Object.freeze({}), fairValue: Object.freeze({}) });
+export const NO_BACKEND_CAPABILITIES = Object.freeze({ demandPressure: Object.freeze({}), fairValue: Object.freeze({}), activity: Object.freeze({}) });
 
-const explicitlyAvailable = (map, key) => Boolean(map && key && map[key] && map[key].available === true);
+const explicitlyAvailable = (map, key) => Boolean(map && key && (map[key]?.available === true || map["*"]?.available === true));
 
 export function resolveFocusToolStates(plan, marketKey, backendCapabilities = NO_BACKEND_CAPABILITIES) {
   const demandEntitled = hasIndexFeatureAccess(plan, FEATURE_MARKET_EXPLORER_DEMAND_PRESSURE);
   const fairEntitled = hasIndexFeatureAccess(plan, FEATURE_MARKET_EXPLORER_FAIR_VALUE);
+  const activityEntitled = hasIndexPlusAccess(plan);
   const caps = backendCapabilities || NO_BACKEND_CAPABILITIES;
   return {
     demandPressure: {
@@ -104,6 +107,12 @@ export function resolveFocusToolStates(plan, marketKey, backendCapabilities = NO
         : explicitlyAvailable(caps.fairValue, marketKey) ? FOCUS_TOOL_STATE.available : FOCUS_TOOL_STATE.unavailable,
       requiredPlan: "premium",
       reason: !fairEntitled ? "inDex Fair Value is a Premium feature." : explicitlyAvailable(caps.fairValue, marketKey) ? null : FAIR_VALUE_UNAVAILABLE_COPY,
+    },
+    activity: {
+      state: !activityEntitled ? FOCUS_TOOL_STATE.locked
+        : hasExactActivityCapability(caps.activity?.[marketKey] || caps.activity?.["*"]) ? FOCUS_TOOL_STATE.available : FOCUS_TOOL_STATE.unavailable,
+      requiredPlan: "plus",
+      reason: !activityEntitled ? "Market Activity requires Index+." : hasExactActivityCapability(caps.activity?.[marketKey] || caps.activity?.["*"]) ? null : MARKET_ACTIVITY_UNAVAILABLE_COPY,
     },
   };
 }
