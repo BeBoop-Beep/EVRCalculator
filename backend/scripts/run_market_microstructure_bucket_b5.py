@@ -33,7 +33,10 @@ MODE = "bucket_b5_targeted_sold_history_v1"
 SELECTOR_VERSION = "bucket_b5_gap_then_governed_7d_movers_v1"
 PAGE_SIZE = 20
 MAX_ROWS_PER_TARGET_ROUND = 80
-DAILY_B5_CREDIT_CAP = 8000
+ACCOUNT_DAILY_CREDIT_LIMIT = 75000
+DAILY_B5_CREDIT_CAP = 55000
+ACCOUNT_RESERVE_CREDITS = ACCOUNT_DAILY_CREDIT_LIMIT - DAILY_B5_CREDIT_CAP
+EXPANDED_B5_ACTIVATION_CREDIT_DAY = "2026-10-01"
 HORIZON_DAYS = 180
 EXPECTED_CORE_PANEL_READY = 207
 MOVER_TABLE = "pokemon_explore_card_movers_snapshot_latest"
@@ -621,6 +624,7 @@ def preflight(db: Any) -> dict[str, Any]:
     reference, cutoff = _horizon()
     credit_day = _credit_day()
     prior = _daily_credits_used(db, credit_day)
+    activation_ready = credit_day >= EXPANDED_B5_ACTIVATION_CREDIT_DAY
     return {
         "status": "PREFLIGHT_OK",
         "core_panel_ready_count": ready_core,
@@ -632,7 +636,11 @@ def preflight(db: Any) -> dict[str, Any]:
         "mover_snapshot": meta["mover_snapshot"],
         "reference_date": reference.isoformat(),
         "horizon_cutoff": cutoff.isoformat(),
+        "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+        "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
         "daily_credit_cap": DAILY_B5_CREDIT_CAP,
+        "activation_credit_day": EXPANDED_B5_ACTIVATION_CREDIT_DAY,
+        "activation_ready": activation_ready,
         "prior_b5_credits_today": prior,
         "remaining_b5_credits_today": max(0, DAILY_B5_CREDIT_CAP - prior),
         "operational_pause": operational_pause_reason(db),
@@ -658,6 +666,12 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
     plan = preflight(db)
     if not plan["core_panel_gate_ready"]:
         return {**plan, "status": "BLOCKED", "reason": "CORE_PANEL_NOT_COMPLETE"}
+    if not plan["activation_ready"]:
+        return {
+            **plan,
+            "status": "BLOCKED",
+            "reason": "B5_EXPANDED_ACTIVATION_PENDING",
+        }
     if plan["operational_pause"]:
         return {**plan, "status": "BLOCKED", "reason": plan["operational_pause"]["reason"]}
     invocation_cap = int(plan["remaining_b5_credits_today"])
@@ -693,7 +707,10 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "mover_target_count": selector_meta["mover_target_count"],
             "reference_date": reference.isoformat(),
             "horizon_cutoff": cutoff.isoformat(),
+            "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+            "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
             "daily_credit_cap": DAILY_B5_CREDIT_CAP,
+            "activation_credit_day": EXPANDED_B5_ACTIVATION_CREDIT_DAY,
             "prior_b5_credits_today": plan["prior_b5_credits_today"],
             "invocation_credit_cap": invocation_cap,
             "canonical_price_mutation": False,
@@ -906,7 +923,10 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "mover_target_count": selector_meta["mover_target_count"],
             "reference_date": reference.isoformat(),
             "horizon_cutoff": cutoff.isoformat(),
+            "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
+            "account_reserve_credits": ACCOUNT_RESERVE_CREDITS,
             "daily_credit_cap": DAILY_B5_CREDIT_CAP,
+            "activation_credit_day": EXPANDED_B5_ACTIVATION_CREDIT_DAY,
             "prior_b5_credits_today": plan["prior_b5_credits_today"],
             "invocation_credit_cap": invocation_cap,
             "gap_ready_count": tier1_ready,
