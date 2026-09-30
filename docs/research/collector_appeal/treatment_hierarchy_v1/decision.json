@@ -1,0 +1,38 @@
+{
+  "studyId": "treatment_hierarchy_v1",
+  "decisionToken": "SET_RELATIVE_TREATMENT_NOT_SUPPORTED",
+  "decidedAt": "2026-09-29",
+  "gateReached": "Phase 1 (authority/coverage audit) stop rule",
+  "reason": "Preregistered stop rule triggered: only 5 of 15,989 exact Set-treatment matched-identity ladders are panel-ready (1 STRONG, 4 MODERATE) per the newest available Treatment evidence (Round 24, dated after Round 22). 15,984 cells (99.97%) are HISTORY_BLOCKED, METADATA_BLOCKED, or otherwise unsupported. This is too few to populate even one era-level comparison with 2 independent Sets sharing a treatment family, which the preregistration required before proceeding to Phase 2+.",
+  "phasesExecuted": ["Phase 0 preregistration", "Phase 1 authority + coverage audit (reused Round 24 ledger)"],
+  "phasesNotExecuted": [
+    "Phase 2 PURE_TREATMENT / TREATMENT_PACKAGE estimation",
+    "Phase 3 within-Set identification",
+    "Phase 4 within-era hierarchy",
+    "Phase 5 cross-era hierarchy",
+    "Phase 6 temporal validation",
+    "Phase 7 falsification cases",
+    "Phase 8 treatment authority candidate",
+    "Phase 9 Collector Appeal shadow impact"
+  ],
+  "phasesNotExecutedReason": "Preregistered stop rule (PREREGISTRATION.md Section 6) explicitly forbids fabricating these phases on data assessed as insufficient at Phase 1.",
+  "subDecisions": {
+    "treatmentTaxonomyValidity": "REUSED_UNCHANGED_FROM_PRIOR_ROUNDS",
+    "setLocalIdentificationValidity": "NOT_TESTABLE_INSUFFICIENT_PANELS",
+    "scarcitySeparability": "NOT_TESTABLE_INSUFFICIENT_PANELS",
+    "eraHierarchyValidity": "NOT_REACHED",
+    "crossEraComparability": "NOT_REACHED",
+    "temporalValidity": "NOT_REACHED",
+    "collectorShadowUsefulness": "NOT_REACHED"
+  },
+  "productionImpact": {
+    "collectorAppealMutated": false,
+    "overallRipMutated": false,
+    "rankingsMutated": false,
+    "setPagesPublished": false,
+    "productionRowsWritten": 0
+  },
+  "recommendedNextAction": "Same as Round 24's own recommendation: do not build an estimator. Repair authoritative vintage edition and modern special-treatment metadata, and execute the grouped exact-date query through an approved read-only SQL endpoint for a representative preregistered ladder sample, before any future Treatment Hierarchy study attempts Phase 2+.",
+  "supersedes": null,
+  "supersededBy": null
+}

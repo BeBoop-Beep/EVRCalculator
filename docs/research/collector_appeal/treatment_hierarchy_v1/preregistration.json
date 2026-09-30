@@ -1,0 +1,60 @@
+{
+  "studyId": "treatment_hierarchy_v1",
+  "branch": "research/collector-v9-set-relative-treatment-v1-20260929",
+  "developBaseSha": "8e86b6b3ab83422d95299107a66510a56ae5c336",
+  "frozenAt": "2026-09-29",
+  "priorEvidenceInherited": {
+    "latestTreatmentRound": "round24",
+    "supersedesRound22": true,
+    "sourceDoc": "docs/research/TREATMENT_MARKET_PRESTIGE_V3_ROUND24_RESULTS.md",
+    "panelReadinessCounts": {
+      "PANEL_READY_STRONG": 1,
+      "PANEL_READY_MODERATE": 4,
+      "METADATA_BLOCKED": 935,
+      "HISTORY_BLOCKED": 15049,
+      "NO_TRUE_LADDER": 0,
+      "denominatorExactPairs": 15989
+    },
+    "round24Recommendation": "Do not build an estimator.",
+    "round24ProductionPause": true,
+    "round24RowsPersisted": 0
+  },
+  "frozenAuthorities": {
+    "pricing": "Price Storage V2 canonical historical NM lineage",
+    "subjectAppeal": "docs/research/collector_appeal/final_collector_appeal_control_manifest.json (frozen, unmodified)",
+    "artist": "current frozen Artist authority (unmodified)",
+    "playability": "current frozen Playability authority (unmodified)",
+    "exactPullScarcity": "22 simulation-supported Sets, Round 2 exact_pull_cohort lineage",
+    "collectorAppealProduction": "read-only reference for Phase 9 shadow only"
+  },
+  "treatmentCellIdentity": {
+    "keyTemplate": "era_id|set_id|rarity_designation|printing_finish|special_treatment|edition_status",
+    "compositional": true,
+    "excludesMechanicForm": true,
+    "noMonotonicOrderingAssumed": true,
+    "promoResolved": false
+  },
+  "supportClasses": ["GOLD_SCARCITY_CONTROLLED", "DIAGNOSTIC_PACKAGE_ONLY", "UNSUPPORTED"],
+  "decisionGates": {
+    "G1_matchedIdentityMin": 2,
+    "G2_supportClassNotUnsupported": true,
+    "G3_graphComponentMin": 2,
+    "G4_singleCardVeto": true,
+    "eraProgressionMinIndependentSets": 2,
+    "crossEraProgressionMinEras": 2
+  },
+  "stopRule": "If fewer than 2 Sets per era clear G1-G4 for any shared treatment family, terminate at Phase 1/3 with a NOT_SUPPORTED or DIAGNOSTIC_ONLY token; do not fabricate Phases 4-9.",
+  "bootstrap": { "resamples": 2000, "method": "percentile_ci_matched_identity_contrasts" },
+  "temporalFolds": { "splitRule": "chronological_median_per_cell_panel", "frozenBeforeExecution": true },
+  "normalizationCandidates": ["empirical_percentile_ecdf", "robust_z_0_100", "anchored_robust_effect_size"],
+  "normalizationSelectionCriteria": ["reproducibility", "temporal_stability", "interpretability"],
+  "prohibited": [
+    "write pokemon_collector_appeal_current",
+    "mutate Overall RIP",
+    "mutate Rankings",
+    "publish Set pages",
+    "introduce ANCHOR25",
+    "force monotonic rarity ordering",
+    "assign fallback score to UNSUPPORTED cell"
+  ]
+}
