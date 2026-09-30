@@ -30,7 +30,6 @@ def test_b5_source_uses_governed_movers_and_exact_tcgplayer_identity():
     assert "published Explore snapshot is already ordered" in source
     assert "pokemon_explore_card_movers_snapshot_latest" in source
     assert "card_variant_external_identities" in source
-    assert '"provider", "tcgplayer"' not in source  # no accidental tuple misuse
     assert '.eq("provider", "tcgplayer")' in source
     assert "cards_by_tcgplayer_id" in source
     assert "B5_PROVIDER_IDENTITY_COUNT_" in source
