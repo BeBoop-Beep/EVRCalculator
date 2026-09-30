@@ -127,3 +127,14 @@ def test_resume_existing_building_generation_reconciles_full_roster():
         "quick:core", as_of="2026-09-29", evidence_cutoff="2026-09-30T12:00:00Z",
         generation_id=generation_id, resume_after_rank=75)
     assert resumed["state"] == "VALIDATED"
+
+
+def test_prepared_surface_revision_maps_to_database_roster_type():
+    sink = Sink()
+    result = MarketActivityProjectionBuilder(Source(3), sink).build(
+        "set:test", as_of="2026-09-29", evidence_cutoff="2026-09-30T12:00:00Z")
+    assert result["state"] == "VALIDATED"
+    rows = [row for table, batch in sink.writes if table == "market_activity_rosters_v1" for row in batch]
+    assert len(rows) == 1
+    assert rows[0]["roster_type"] == "PREPARED_GENERATION"
+    assert rows[0]["roster_revision"]["kind"] == "SURFACE_V2_GENERATION"
