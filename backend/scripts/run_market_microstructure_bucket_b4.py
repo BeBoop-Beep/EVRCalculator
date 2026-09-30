@@ -43,6 +43,7 @@ PAGE_SIZE = 20
 MAX_ROWS_PER_CARD_DAY = 80
 DAILY_B_CREDIT_CAP = 8000
 PROVIDER_REMAINING_FLOOR = 6000
+IDENTITY_LOOKUP_WORST_CASE = 5
 CALIBRATED_MEAN_READY_ROWS = 419.8
 EXPECTED_PANEL_COUNT = 207
 
@@ -128,14 +129,31 @@ def _horizon_ready(oldest_sold_at: str | None, *, drained: bool) -> tuple[bool, 
     return False, None
 
 
+def _paged_rows(db: Any, table: str, columns: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    start = 0
+    while True:
+        page = (
+            db.table(table)
+            .select(columns)
+            .range(start, start + 999)
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(dict(row) for row in page)
+        if len(page) < 1000:
+            return rows
+        start += 1000
+
+
 def _sync_phase1(
     *,
     db: Any,
-    store: PkmnPricesStore,
     target: dict[str, Any],
-    allow_legacy_scan: bool,
+    identity: dict[str, Any] | None,
+    sync: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    identity = store.get_identity_by_canonical(target["canonical_card_id"])
     if not identity:
         return {
             "target": target,
@@ -154,7 +172,6 @@ def _sync_phase1(
         raise RuntimeError("PHASE1_CACHED_IDENTITY_MISMATCH")
 
     provider_id = int(identity["provider_card_id"])
-    sync = store.get_sync_state(provider_id)
     if not sync:
         return {
             "target": target,
@@ -198,13 +215,7 @@ def _sync_phase1(
             "needs_metadata_init": False,
         }
 
-    if not allow_legacy_scan:
-        # Preflight is still read-only, but it is allowed to inspect historical
-        # evidence. "allow_legacy_scan" only controls whether callers intend to
-        # persist the derived summary afterwards.
-        summary = _evidence_summary(db, provider_id)
-    else:
-        summary = _evidence_summary(db, provider_id)
+    summary = _evidence_summary(db, provider_id)
     oldest = summary["oldest_sold_at"]
     ready, reason = _horizon_ready(oldest, drained=drained)
     return {
@@ -260,30 +271,75 @@ def _persist_phase1_summary(
     })
 
 
-def panel_states(db: Any, *, allow_legacy_scan: bool) -> list[dict[str, Any]]:
+def panel_states(db: Any) -> list[dict[str, Any]]:
     panel = load_panel()
-    store = PkmnPricesStore(db)
+    panel_ids = {str(row["canonical_card_id"]) for row in panel["rows"]}
+
+    identity_rows = _paged_rows(
+        db,
+        "pkmnprices_card_identity_v1",
+        "provider_card_id,canonical_card_id,tcgplayer_product_id,language",
+    )
+    identity_by_canonical = {
+        str(row["canonical_card_id"]): row
+        for row in identity_rows
+        if str(row.get("canonical_card_id")) in panel_ids
+        and str(row.get("language") or "") == "English"
+    }
+
+    provider_ids = {
+        int(row["provider_card_id"])
+        for row in identity_by_canonical.values()
+        if row.get("provider_card_id") is not None
+    }
+    sync_rows = _paged_rows(
+        db,
+        "pkmnprices_sold_sync_state_v1",
+        "provider_card_id,canonical_card_id,last_ingested_at,last_sold_at,"
+        "last_attempt_at,last_success_at,status,consecutive_failures,"
+        "rows_seen,rows_inserted,last_error_code,metadata",
+    )
+    sync_by_provider = {
+        int(row["provider_card_id"]): row
+        for row in sync_rows
+        if row.get("provider_card_id") is not None
+        and int(row["provider_card_id"]) in provider_ids
+    }
+
     states: list[dict[str, Any]] = []
     for index, target in enumerate(panel["rows"]):
+        identity = identity_by_canonical.get(str(target["canonical_card_id"]))
+        sync = (
+            sync_by_provider.get(int(identity["provider_card_id"]))
+            if identity and identity.get("provider_card_id") is not None
+            else None
+        )
         state = _sync_phase1(
             db=db,
-            store=store,
             target=target,
-            allow_legacy_scan=allow_legacy_scan,
+            identity=identity,
+            sync=sync,
         )
         state["panel_index"] = index
         states.append(state)
     return states
 
 
+def _breadth_order(states: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        [row for row in states if not row["phase1_ready"]],
+        key=lambda row: (row["rows_seen"], row["panel_index"]),
+    )
+
+
 def preflight(db: Any, *, expected_date: str, credit_cap: int) -> dict[str, Any]:
     if not 1 <= credit_cap <= DAILY_B_CREDIT_CAP:
         raise ValueError("credit_cap must be between 1 and 8000")
     gate = c_daily_gate(db, expected_date)
-    states = panel_states(db, allow_legacy_scan=False)
+    states = panel_states(db)
     ready = [row for row in states if row["phase1_ready"]]
     pending = [row for row in states if not row["phase1_ready"]]
-    ordered = sorted(pending, key=lambda row: (row["rows_seen"], row["panel_index"]))
+    ordered = _breadth_order(states)
     return {
         "status": "PREFLIGHT_OK",
         "panel_fingerprint": PANEL_FINGERPRINT,
@@ -373,7 +429,20 @@ def _update_sync_after_page(
         "provider_card_id": provider_card_id,
         "canonical_card_id": target["canonical_card_id"],
         "last_ingested_at": last_ingested,
-        "last_sold_at": (previous_sync or {}).get("last_sold_at"),
+        "last_sold_at": max(
+            [
+                str(value)
+                for value in [
+                    (previous_sync or {}).get("last_sold_at"),
+                    max(
+                        [row.get("sold_at") for row in normalized if row.get("sold_at")],
+                        default=None,
+                    ),
+                ]
+                if value
+            ],
+            default=None,
+        ),
         "last_attempt_at": collected_at,
         "last_success_at": collected_at,
         "status": "PARTIAL" if has_more else "CURRENT",
@@ -422,7 +491,7 @@ def run_phase1(
         }
 
     store = PkmnPricesStore(db)
-    states = panel_states(db, allow_legacy_scan=True)
+    states = panel_states(db)
 
     # Persist one-time phase summary metadata for pre-B4 sync rows. This avoids
     # rescanning their full evidence ledger on every future daily run.
@@ -439,10 +508,7 @@ def run_phase1(
             )
             summary_init_writes += 1
 
-    pending = sorted(
-        [row for row in states if not row["phase1_ready"]],
-        key=lambda row: (row["rows_seen"], row["panel_index"]),
-    )
+    pending = _breadth_order(states)
 
     run_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
@@ -493,7 +559,7 @@ def run_phase1(
                 if not _can_spend(
                     provider,
                     local_remaining=credit_cap - provider.credits_charged,
-                    requested=1,
+                    requested=IDENTITY_LOOKUP_WORST_CASE,
                 ):
                     totals["stopped_for_budget_or_reserve"] += 1
                     break
@@ -504,6 +570,8 @@ def run_phase1(
                     target=target,
                 )
                 identity_lookup_credits = provider.credits_charged - before
+                if provider.credits_charged > credit_cap:
+                    raise RuntimeError("PHASE1_DAILY_CREDIT_CAP_EXCEEDED")
                 totals["provider_card_lookup_count"] += 1
 
             provider_id = int(identity["provider_card_id"])
@@ -669,7 +737,7 @@ def run_phase1(
 
     # Recompute only from sync metadata/evidence-absent rows; the one-time legacy
     # summaries above have already been persisted.
-    final_states = panel_states(db, allow_legacy_scan=False)
+    final_states = panel_states(db)
     ready_count = sum(row["phase1_ready"] for row in final_states)
     remaining_count = EXPECTED_PANEL_COUNT - ready_count
     estimated_remaining_credits = sum(
