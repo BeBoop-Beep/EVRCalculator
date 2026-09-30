@@ -10,6 +10,7 @@ import {
   validateActivityConstituentResponse,
   validateActivityInstrumentResponse,
 } from "@/lib/explore/marketActivityState.mjs";
+import { retryFailedActivityPages } from "@/lib/explore/marketActivityPaging.mjs";
 
 const ACTIVITY_PAGE_LIMIT = 50;
 
@@ -371,7 +372,7 @@ export default function MarketActivityConstituents({
         </p>
         <button
           type="button"
-          onClick={activity.retry}
+          onClick={() => retryFailedActivityPages(canonical, activity)}
           className="mt-2 rounded border border-slate-600 px-2 py-1 text-xs"
         >
           Retry

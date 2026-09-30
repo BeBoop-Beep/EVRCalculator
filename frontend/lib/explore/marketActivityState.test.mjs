@@ -28,7 +28,7 @@ const SCOPE = Object.freeze({
     marketKey: "market:A",
     generationId: "roster-A",
   }),
-  evidenceFingerprint: "evidence-A",
+  evidenceFingerprint: "a".repeat(64),
   asOf: "2026-09-29",
   windowDays: 30,
   tier: "RAW",
@@ -117,7 +117,7 @@ test("response scope must exactly match market, generation, roster, as-of, windo
     }),
     scopedPayload({ request: { ...scopedPayload().request, windowDays: 90 } }),
     scopedPayload({ series: { sales: { tier: "GRADED" } } }),
-    scopedPayload({ evidenceFingerprint: "evidence-B" }),
+    scopedPayload({ evidenceFingerprint: "b".repeat(64) }),
   ];
   for (const payload of cases)
     assert.throws(
@@ -128,7 +128,7 @@ test("response scope must exactly match market, generation, roster, as-of, windo
 
 test("constituent responses own their fingerprint and exactly echo roster, generation, cursor, and limit", () => {
   const payload = scopedPayload({
-    evidenceFingerprint: "a".repeat(64),
+    evidenceFingerprint: "c".repeat(64),
     request: { ...scopedPayload().request, cursor: "next-50", limit: 50 },
   });
   assert.equal(
@@ -140,7 +140,7 @@ test("constituent responses own their fingerprint and exactly echo roster, gener
   );
   assert.notEqual(payload.evidenceFingerprint, SCOPE.evidenceFingerprint);
   for (const invalid of [
-    { ...payload, evidenceFingerprint: SCOPE.evidenceFingerprint },
+    { ...payload, evidenceFingerprint: "not-a-sha256" },
     { ...payload, activityGenerationId: "generation-B" },
     { ...payload, request: { ...payload.request, cursor: "wrong" } },
     { ...payload, request: { ...payload.request, limit: 100 } },
@@ -190,6 +190,88 @@ test("instrument responses own their fingerprint and exactly echo request and re
       SCOPE,
       options,
     ),
+  );
+});
+
+const unavailablePayload = (kind, reason, requestOverrides = {}) => ({
+  kind,
+  contractVersion: "market_activity_v1.1",
+  activityGenerationId: null,
+  evidenceFingerprint: "f".repeat(64),
+  availability: { state: "UNAVAILABLE", reasons: [reason] },
+  request: { ...scopedPayload().request, ...requestOverrides },
+});
+
+test("FMA-2 ACTIVITY_GENERATION_EXPIRED group is accepted as domain-unavailable data", async () => {
+  const payload = {
+    ...unavailablePayload("groupActivity", "ACTIVITY_GENERATION_EXPIRED", {
+      chartRange: null,
+    }),
+    roster: null,
+    coverage: null,
+    totals: null,
+    series: null,
+  };
+  assert.equal(validateActivityResponseScope(payload, SCOPE), payload);
+  const result = await createActivityRequestOwner(async () => payload).request(
+    SCOPE,
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.data.availability.state, "UNAVAILABLE");
+});
+
+test("FMA-2 ROSTER_REVISION_MISMATCH constituent page keeps exact request pins", () => {
+  const payload = {
+    ...unavailablePayload(
+      "constituentActivityPage",
+      "ROSTER_REVISION_MISMATCH",
+      {
+        cursor: "page-2",
+        limit: 50,
+      },
+    ),
+    roster: null,
+    page: null,
+    rows: [],
+  };
+  assert.equal(
+    validateActivityConstituentResponse(payload, SCOPE, {
+      cursor: "page-2",
+      limit: 50,
+    }),
+    payload,
+  );
+  assert.throws(() =>
+    validateActivityConstituentResponse(
+      { ...payload, request: { ...payload.request, marketKey: "market:B" } },
+      SCOPE,
+      { cursor: "page-2", limit: 50 },
+    ),
+  );
+});
+
+test("FMA-2 INSTRUMENT_NOT_IN_ROSTER detail accepts null instrument", () => {
+  const instrumentKey = "card:variant-a:raw";
+  const payload = {
+    ...unavailablePayload("instrumentDetail", "INSTRUMENT_NOT_IN_ROSTER", {
+      instrumentKey,
+      chartRange: null,
+    }),
+    instrument: null,
+    roster: null,
+    sales: null,
+    asks: null,
+    peers: null,
+    series: null,
+  };
+  assert.equal(
+    validateActivityInstrumentResponse(payload, SCOPE, {
+      instrumentKey,
+      cardVariantId: "variant-a",
+      chartRange: null,
+      tier: "RAW",
+    }),
+    payload,
   );
 });
 
@@ -271,6 +353,10 @@ test("Activity remains a companion pane with one tooltip owner and no production
   ]);
   assert.match(chart, /data-market-performance-tooltip/);
   assert.doesNotMatch(pane, /Tooltip|createPortal/);
+  assert.match(
+    pane,
+    /state\.status === "ready" &&[\s\S]*availability\?\.state === "UNAVAILABLE"/,
+  );
   assert.match(client, /activityState=\{activityOn \? activityState : null\}/);
   assert.match(
     client,

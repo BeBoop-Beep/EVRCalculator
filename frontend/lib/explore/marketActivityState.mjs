@@ -54,10 +54,7 @@ function validateCommonResponseScope(payload, scope) {
     throw new Error(
       "Activity response market does not match the request scope.",
     );
-  if (
-    payload.request?.activityGenerationId !== scope.activityGenerationId ||
-    payload.activityGenerationId !== scope.activityGenerationId
-  ) {
+  if (payload.request?.activityGenerationId !== scope.activityGenerationId) {
     throw new Error(
       "Activity response generation does not match the request scope.",
     );
@@ -74,6 +71,33 @@ function validateCommonResponseScope(payload, scope) {
     throw new Error(
       "Activity response window does not match the request scope.",
     );
+}
+
+const isUnavailableActivityResponse = (payload) =>
+  payload?.availability?.state === "UNAVAILABLE";
+
+function validateResponseAuthority(payload, scope, { group = false } = {}) {
+  const unavailable = isUnavailableActivityResponse(payload);
+  if (
+    (!unavailable &&
+      payload.activityGenerationId !== scope.activityGenerationId) ||
+    (unavailable && payload.activityGenerationId !== null)
+  )
+    throw new Error(
+      "Activity response generation does not match the request scope.",
+    );
+  if (!isActivitySha256(payload.evidenceFingerprint))
+    throw new Error("Activity response fingerprint is invalid.");
+  if (
+    group &&
+    !unavailable &&
+    scope.evidenceFingerprint &&
+    payload.evidenceFingerprint !== scope.evidenceFingerprint
+  )
+    throw new Error(
+      "Activity response evidence fingerprint does not match the request scope.",
+    );
+  return unavailable;
 }
 
 export function hasExactActivityCapability(capability) {
@@ -99,6 +123,9 @@ export function hasExactActivityCapability(capability) {
 
 export function validateActivityResponseScope(payload, scope) {
   validateCommonResponseScope(payload, scope);
+  const unavailable = validateResponseAuthority(payload, scope, {
+    group: true,
+  });
   if (
     JSON.stringify(payload.request?.chartRange ?? null) !==
     JSON.stringify(scope.chartRange ?? null)
@@ -111,15 +138,12 @@ export function validateActivityResponseScope(payload, scope) {
     payload.series?.sales?.tier ||
     payload.sales?.tier ||
     null;
-  if (responseTier && responseTier !== (scope.tier || scope.grade))
-    throw new Error("Activity response tier does not match the request scope.");
   if (
-    scope.evidenceFingerprint &&
-    payload.evidenceFingerprint !== scope.evidenceFingerprint
+    !unavailable &&
+    responseTier &&
+    responseTier !== (scope.tier || scope.grade)
   )
-    throw new Error(
-      "Activity response evidence fingerprint does not match the request scope.",
-    );
+    throw new Error("Activity response tier does not match the request scope.");
   return payload;
 }
 
@@ -129,6 +153,7 @@ export function validateActivityConstituentResponse(
   { cursor = null, limit } = {},
 ) {
   validateCommonResponseScope(payload, scope);
+  validateResponseAuthority(payload, scope);
   if ((payload.request?.cursor ?? null) !== cursor)
     throw new Error(
       "Activity constituent cursor does not match the request scope.",
@@ -137,8 +162,6 @@ export function validateActivityConstituentResponse(
     throw new Error(
       "Activity constituent limit does not match the request scope.",
     );
-  if (!isActivitySha256(payload.evidenceFingerprint))
-    throw new Error("Activity constituent fingerprint is invalid.");
   return payload;
 }
 
@@ -148,10 +171,8 @@ export function validateActivityInstrumentResponse(
   { instrumentKey, cardVariantId, chartRange = null, tier = "RAW" } = {},
 ) {
   validateCommonResponseScope(payload, scope);
-  if (
-    payload.request?.instrumentKey !== instrumentKey ||
-    payload.instrument?.instrumentKey !== instrumentKey
-  )
+  const unavailable = validateResponseAuthority(payload, scope);
+  if (payload.request?.instrumentKey !== instrumentKey)
     throw new Error(
       "Activity instrument key does not match the request scope.",
     );
@@ -161,6 +182,11 @@ export function validateActivityInstrumentResponse(
   )
     throw new Error(
       "Activity instrument chart range does not match the request scope.",
+    );
+  if (unavailable) return payload;
+  if (payload.instrument?.instrumentKey !== instrumentKey)
+    throw new Error(
+      "Activity instrument key does not match the request scope.",
     );
   if (payload.instrument?.cardVariantId !== cardVariantId)
     throw new Error(
@@ -178,8 +204,6 @@ export function validateActivityInstrumentResponse(
     !instrumentKey.startsWith(`card:${cardVariantId}:graded:`)
   )
     throw new Error("Activity graded instrument identity is invalid.");
-  if (!isActivitySha256(payload.evidenceFingerprint))
-    throw new Error("Activity instrument fingerprint is invalid.");
   return payload;
 }
 
