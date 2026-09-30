@@ -264,3 +264,37 @@ test("market-wide Raw movers preserve separate exact variants of one canonical c
     ["unlimited-variant", "first-edition-variant"]
   );
 });
+
+
+test("mixed authoritative movers keep sealed products distinct from cards and can expose fifty items", () => {
+  const mixed = [
+    card("card-1", 12, 100, {
+      asset: "cards",
+      canonicalCardId: "card-1",
+      cardVariantId: "variant-1",
+      conditionId: "nm",
+    }),
+    {
+      id: "product-1",
+      asset: "sealed",
+      sealedProductId: "product-1",
+      name: "Booster Box",
+      change7dPercent: 8,
+      change7dAmount: 80,
+    },
+    ...Array.from({ length: 48 }, (_, index) =>
+      card(`card-${index + 2}`, index + 1, index + 1, {
+        asset: "cards",
+        canonicalCardId: `canonical-${index + 2}`,
+        cardVariantId: `variant-${index + 2}`,
+        conditionId: "nm",
+      })
+    ),
+  ];
+
+  const result = selectMoversTickerItems({ all: mixed }, { maxItems: 50 });
+
+  assert.equal(result.length, 50);
+  assert.equal(result[1].card.asset, "sealed");
+  assert.equal(result[1].card.sealedProductId, "product-1");
+});
