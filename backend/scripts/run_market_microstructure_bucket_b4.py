@@ -47,6 +47,7 @@ ACCOUNT_RESERVE_CREDITS = ACCOUNT_DAILY_CREDIT_LIMIT - DAILY_B_CREDIT_CAP
 IDENTITY_LOOKUP_WORST_CASE = 5
 CALIBRATED_MEAN_READY_ROWS = 419.8
 EXPECTED_PANEL_COUNT = 207
+FIRST_FULL_C_DATE = date(2026, 9, 30)
 
 
 def phoenix_date() -> str:
@@ -108,9 +109,11 @@ def operational_pause_reason(
 
     # Give the C continuity panel an uncontested window around its 21:10
     # primary, 21:40 retry and 22:10 health run.
-    if (local_time.hour == 20 and local_time.minute >= 55) or (
-        21 <= local_time.hour < 22
-    ) or (local_time.hour == 22 and local_time.minute < 25):
+    if now_local.date() >= FIRST_FULL_C_DATE and (
+        (local_time.hour == 20 and local_time.minute >= 55)
+        or (21 <= local_time.hour < 22)
+        or (local_time.hour == 22 and local_time.minute < 25)
+    ):
         return {
             "reason": "C_CONTINUITY_WINDOW",
             "expected_date": expected_date,
