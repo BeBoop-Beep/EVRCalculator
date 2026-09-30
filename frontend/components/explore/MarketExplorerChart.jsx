@@ -59,9 +59,6 @@ export default function MarketExplorerChart({
   overlays = [],
   activityState = null,
   activityFixtureMode = false,
-  methodologyOpen = false,
-  methodologyTriggerRef,
-  onToggleMethodology,
   // The Explorer chart is an OPEN CANVAS by default: no enclosing card, no plot
   // border, no interior background. /Market keeps the card surface because it
   // never passes `minimal`.
@@ -93,13 +90,13 @@ export default function MarketExplorerChart({
       className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col"
       aria-labelledby="market-explorer-chart-heading"
     >
-      <div className="px-2 pb-1 pt-2 sm:px-3">
+      <div className="px-2 pb-1 pt-2 sm:px-3 [@media(max-height:500px)]:py-1">
         <h2 id="market-explorer-chart-heading" className="sr-only">
           Market performance chart
         </h2>
         <div
           data-market-explorer-chart-toolbar
-          className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4"
+          className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:items-center [@media(max-height:500px)]:justify-between [@media(max-height:500px)]:gap-2"
         >
           <div className="flex flex-wrap items-center gap-2">
             <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
@@ -116,7 +113,7 @@ export default function MarketExplorerChart({
               </div>
             ) : null}
           </div>
-          <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
+          <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0 [@media(max-height:500px)]:ml-auto [@media(max-height:500px)]:pb-0">
             <MarketExplorerTimeframeSelector
               options={timeframeOptions}
               value={timeframe}
@@ -125,7 +122,7 @@ export default function MarketExplorerChart({
             />
           </div>
         </div>
-        <div className="mt-1 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-1.5">
+        <div className="mt-1 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-1.5 [@media(max-height:500px)]:hidden">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] text-[var(--text-secondary)]">
               {viewMode === MARKET_CHART_VIEW_INDEX
@@ -207,8 +204,8 @@ export default function MarketExplorerChart({
             model={visibleModel}
             timeframe={timeframe}
             viewMode={viewMode}
-            className="desk:flex desk:h-full desk:min-h-0 desk:flex-col"
-            plotClassName="h-[20rem] tab:h-[26rem] desk:h-auto desk:min-h-[12rem] desk:flex-1"
+            className="flex h-full min-h-0 flex-col"
+            plotClassName="min-h-[4rem] flex-1 desk:min-h-[12rem] [@media(max-height:500px)]:min-h-0"
             minimal={openCanvas}
             focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
             overlays={overlays}
@@ -241,17 +238,7 @@ export default function MarketExplorerChart({
           scrolling, centred on the plot) rather than the toolbar or a page section.
           It opens the in-place takeover overlay; violet marks it as an analysis
           action, distinct from performance green/red and selected-teal controls. */}
-      <div data-market-explorer-chart-bottom-actions className="flex flex-none flex-col gap-2 px-2 pb-2 pt-1.5 sm:flex-row sm:items-center sm:justify-between sm:px-3">
-        <button
-          ref={methodologyTriggerRef}
-          type="button"
-          data-market-explorer-methodology-trigger
-          aria-expanded={methodologyOpen}
-          onClick={onToggleMethodology}
-          className="min-h-10 rounded-lg border border-violet-400/45 bg-violet-500/[.08] px-4 text-xs font-semibold text-violet-200 transition-colors hover:border-violet-300/75 hover:bg-violet-500/[.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80"
-        >
-          Methodology
-        </button>
+      <div data-market-explorer-chart-bottom-actions className="hidden flex-none justify-center px-2 pb-2 pt-1.5 sm:px-3 desk:flex">
         {constituentsAvailable ? (
           <button
             type="button"

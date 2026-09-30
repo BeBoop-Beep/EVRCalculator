@@ -768,7 +768,9 @@ def resolve_market_explorer_plan_access(user: Mapping[str, Any] | None) -> dict[
         "accessMode": plan or "basic",
         "canBrowsePreparedMarkets": True,
         "canComparePreparedMarkets": can_compare,
-        "canUseAnalyticalScreens": can_compare,
+        # Prepared Screens are public discovery metadata. Using their rows in a
+        # multi-market comparison remains governed by canComparePreparedMarkets.
+        "canUseAnalyticalScreens": True,
         "canUseAdvancedMarketRanking": can_compare,
         "canUsePreparedMarketIntelligence": can_compare,
         "canBuildCustomMarkets": can_build,

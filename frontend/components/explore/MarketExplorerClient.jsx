@@ -62,6 +62,15 @@ import useMarketActivity from "@/hooks/explore/useMarketActivity";
 import useMarketActivityCapabilities from "@/hooks/explore/useMarketActivityCapabilities";
 import { fetchMarketActivityGroup } from "@/lib/explore/marketActivityApi.mjs";
 
+function PreparedMarketStatus({ pendingKeys, failedKeys, failures, labels, series, loader }) {
+  if (!pendingKeys.length && !failedKeys.length && !series.some((entry) => entry.trend.length < 2)) return null;
+  return <div data-market-explorer-selection-status className="space-y-1 px-3 pb-2 sm:px-4">
+    {pendingKeys.map((key) => <div key={`pending:${key}`} role="status" data-market-explorer-prepared-pending={key} className="flex items-center justify-between gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[10px] text-[var(--text-secondary)]"><span>○ {labels.get(key) || "Market"} · Adding…</span><button type="button" data-market-explorer-prepared-cancel={key} onClick={() => loader.remove(key)} className="rounded border border-[var(--border-subtle)] px-2 py-0.5 font-semibold">Cancel</button></div>)}
+    {failedKeys.map((key) => { const failure = failures[key]; return <div key={`failed:${key}`} role="alert" data-market-explorer-prepared-error={key} data-market-explorer-prepared-error-kind={failure?.kind} className="flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-1 text-[10px] text-[rgb(248,113,113)]"><span>{describePreparedFailure(labels.get(key), failure)}{series.length ? " Your other markets are still shown." : ""}</span><span className="flex flex-none gap-1.5">{failure?.retryable ? <button type="button" data-market-explorer-prepared-retry={key} onClick={() => loader.retry(key)} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-0.5 font-semibold">Retry</button> : null}{failure?.kind === PREPARED_FAILURE.entitlement ? <a href="/pricing" className="rounded border border-[rgba(248,113,113,.45)] px-2 py-0.5 font-semibold">Upgrade</a> : null}<button type="button" data-market-explorer-prepared-dismiss={key} onClick={() => loader.dismissFailure(key)} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-0.5 font-semibold">Dismiss</button></span></div>; })}
+    {series.filter((entry) => entry.trend.length < 2).map((entry) => <p key={`nohistory:${entry.key}`} role="status" data-market-explorer-prepared-no-history={entry.key} className="rounded-md border border-[var(--border-subtle)] px-3 py-1 text-[10px] text-[var(--text-secondary)]">{entry.label} has no published price history to chart yet.</p>)}
+  </div>;
+}
+
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
 //
@@ -172,6 +181,7 @@ export default function MarketExplorerClient({
   // Builder default asset). It is deliberately NOT the chart selection: switching it
   // never adds or removes an active market.
   const [activeBrowseAsset, setActiveBrowseAsset] = useState("cards");
+  const [sidebarDisclosure, setSidebarDisclosure] = useState(null);
   const [basketSeed, setBasketSeed] = useState(null);
   const [sessionResetKey, setSessionResetKey] = useState(0);
   const cardOptionStates = useAssetOptions("cards", {
@@ -190,6 +200,33 @@ export default function MarketExplorerClient({
   const methodologyRestoreFocusRef = useRef(null);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const mobileToolsTriggerRef = useRef(null);
+  const mobileToolsSurfaceRef = useRef(null);
+  useEffect(() => {
+    if (!mobileToolsOpen || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const trigger = mobileToolsTriggerRef.current;
+    document.body.style.overflow = "hidden";
+    const surface = mobileToolsSurfaceRef.current;
+    const focusable = () => [...(surface?.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])];
+    const focusFrame = requestAnimationFrame(() => surface?.querySelector("[data-market-explorer-close-controls]")?.focus());
+    const keydown = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); setMobileToolsOpen(false); return; }
+      if (event.key !== "Tab") return;
+      const nodes = focusable();
+      if (!nodes.length) return;
+      const first = nodes[0]; const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", keydown);
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => trigger?.focus());
+    };
+  }, [mobileToolsOpen]);
   useEffect(() => {
     if (!methodologyOpen || typeof document === "undefined") return undefined;
     const methodologyTrigger = methodologyTriggerRef.current;
@@ -313,6 +350,17 @@ export default function MarketExplorerClient({
     },
     [addQueryUnlimited, requestActiveSlot],
   );
+  const selectCanonicalRarity = useCallback(
+    async (spec) => {
+      if (canComparePreparedMarkets) return addQuery(spec);
+      clearAllSelection();
+      clearAllQueries();
+      preparedLoader.clear();
+      dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reset });
+      return addQueryUnlimited(spec);
+    },
+    [addQuery, addQueryUnlimited, canComparePreparedMarkets, clearAllQueries, clearAllSelection, preparedLoader],
+  );
   const [editingSeriesId, setEditingSeriesId] = useState(null);
   // ACTIVE != VISIBLE != TARGET != FOCUSED. A hidden series is still an Active
   // Market (still counted, still inspectable in Constituents; un-hiding never
@@ -378,6 +426,7 @@ export default function MarketExplorerClient({
     setBuilderMode("exact");
     setBasketSeed(null);
     setActiveBrowseAsset("cards");
+    setSidebarDisclosure(null);
     setMethodologyOpen(false);
     setMobileToolsOpen(false);
     setFocusToolToggles({});
@@ -769,6 +818,15 @@ export default function MarketExplorerClient({
   });
   // The workspace has nothing to show once the last active market is gone.
   const hasActiveMarkets = selectedSeries.length > 0;
+  const openMethodology = () => {
+    if (methodologyOpen) {
+      setMethodologyOpen(false);
+      return;
+    }
+    methodologyRestoreFocusRef.current =
+      typeof document !== "undefined" ? document.activeElement : methodologyTriggerRef.current;
+    setMethodologyOpen(true);
+  };
   useEffect(() => {
     if (!hasActiveMarkets) setDetailsOpen(false);
   }, [hasActiveMarkets]);
@@ -818,7 +876,7 @@ export default function MarketExplorerClient({
       data-market-explorer-comparison-as-of={comparisonAsOf || ""}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-access-mode={accessMode}
-      className="grid min-w-0 gap-3 desk:h-[calc(100dvh-15.5rem)] desk:min-h-[26rem] desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-stretch desk:gap-3 desk:overflow-hidden"
+      className="grid h-[calc(100dvh-var(--app-header-offset,64px)-5.25rem-env(safe-area-inset-bottom)-1.5rem)] min-h-0 min-w-0 gap-3 overflow-hidden desk:h-[calc(100dvh-var(--app-header-offset,64px)-2rem)] desk:min-h-[26rem] desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-stretch desk:gap-3"
     >
       {compareUpgradeVisible ? (
         <section
@@ -867,20 +925,34 @@ export default function MarketExplorerClient({
         </section>
       ) : null}
       <button
+        ref={mobileToolsTriggerRef}
         type="button"
         data-market-explorer-mobile-tools
         aria-expanded={mobileToolsOpen}
+        aria-controls="explorer-controls"
+        aria-label={mobileToolsOpen ? "Close Market controls" : "Open Market controls"}
+        title="Market controls"
         onClick={() => setMobileToolsOpen((open) => !open)}
-        className="order-1 flex min-h-11 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 text-sm font-semibold text-[var(--text-primary)] desk:hidden"
+        className="fixed right-4 top-[calc(var(--app-header-offset,64px)+0.75rem)] z-[80] grid h-12 w-12 place-items-center rounded-full border border-violet-300/60 bg-[rgba(76,29,149,.94)] text-violet-50 shadow-[0_10px_30px_rgba(15,23,42,.55),0_0_18px_rgba(139,92,246,.35)] backdrop-blur transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 desk:hidden"
       >
-        Markets / Tools{" "}
-        <span aria-hidden="true">{mobileToolsOpen ? "−" : "+"}</span>
+        <span aria-hidden="true" className="text-lg leading-none">{mobileToolsOpen ? "×" : "☷"}</span>
       </button>
+      {mobileToolsOpen ? (
+        <button type="button" tabIndex={-1} aria-label="Close Market controls" data-market-explorer-controls-backdrop onClick={() => setMobileToolsOpen(false)} className="fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] top-[var(--app-header-offset,64px)] z-[65] cursor-default bg-slate-950/55 backdrop-blur-[2px] desk:hidden" />
+      ) : null}
       <aside
+        ref={mobileToolsSurfaceRef}
         id="explorer-controls"
+        role={mobileToolsOpen ? "dialog" : undefined}
+        aria-modal={mobileToolsOpen ? "true" : undefined}
+        aria-label="Market controls"
         data-market-explorer-sidebar
-        className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:block desk:h-full desk:overflow-y-auto`}
+        className={`${mobileToolsOpen ? "fixed" : "hidden"} inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] top-[var(--app-header-offset,64px)] z-[70] min-w-0 overflow-y-auto overscroll-contain bg-[rgba(2,6,23,.98)] p-3 shadow-2xl tab:bottom-[calc(5.75rem+env(safe-area-inset-bottom))] tab:left-4 tab:right-auto tab:top-[calc(var(--app-header-offset,64px)+1rem)] tab:w-[min(24rem,calc(100vw-2rem))] tab:rounded-2xl tab:border tab:border-violet-400/30 desk:static desk:order-none desk:col-start-1 desk:block desk:h-full desk:w-auto desk:space-y-3 desk:overflow-y-auto desk:border-0 desk:bg-transparent desk:p-0 desk:shadow-none`}
       >
+        <div className="sticky top-0 z-20 -mx-3 -mt-3 mb-3 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[rgba(2,6,23,.96)] px-4 py-3 backdrop-blur desk:hidden">
+          <h2 id="market-controls-title" className="text-sm font-semibold text-violet-100">Market Controls</h2>
+          <button type="button" data-market-explorer-close-controls onClick={() => setMobileToolsOpen(false)} className="min-h-10 rounded-lg border border-violet-400/50 bg-violet-500/[.12] px-3 text-xs font-semibold text-violet-100">Close</button>
+        </div>
         <section
           data-market-explorer-zone="explore"
           className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`}
@@ -910,6 +982,12 @@ export default function MarketExplorerClient({
             assetLayer={activeBrowseAsset}
             onAssetLayerChange={setActiveBrowseAsset}
             resetKey={sessionResetKey}
+            disclosureOpen={
+              ["search", "sets", "eras", "quick"].includes(sidebarDisclosure)
+                ? sidebarDisclosure
+                : null
+            }
+            onDisclosureChange={setSidebarDisclosure}
             gradedReason={gradedOptionStates.data?.reason || null}
             onAddToBasket={(item) => {
               setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 });
@@ -923,7 +1001,7 @@ export default function MarketExplorerClient({
           />
           <div
             data-market-explorer-sidebar-section="asset-markets"
-            className="px-3 pb-3"
+            className="relative z-[70] px-3 pb-3"
           >
             {activeBrowseAsset === "cards" ? (
               <MarketExplorerRarityMarkets
@@ -937,11 +1015,13 @@ export default function MarketExplorerClient({
                 activeKeys={preparedActiveKeys}
                 pendingKeys={preparedPendingKeys}
                 activeSeries={querySeries}
-                canUse={canComparePreparedMarkets}
-                onUpgrade={() => setCompareUpgradeVisible(true)}
+                canCompare={canComparePreparedMarkets}
                 onSelect={selectPrepared}
                 onAddQuery={addQuery}
+                onAddCanonicalRarity={selectCanonicalRarity}
                 onRemoveQuery={removeQuery}
+                disclosureOpen={sidebarDisclosure === "rarities"}
+                onDisclosureChange={(open) => setSidebarDisclosure(open ? "rarities" : null)}
               />
             ) : null}
             {activeBrowseAsset === "sealed" ? (
@@ -962,11 +1042,10 @@ export default function MarketExplorerClient({
                 activeKeys={preparedActiveKeys}
                 pendingKeys={preparedPendingKeys}
                 activeSeries={querySeries}
-                canBuild={canBuildCustomMarkets}
-                onUpgrade={() => setCompareUpgradeVisible(true)}
+                canCompare={canComparePreparedMarkets}
                 onSelect={selectPrepared}
-                onAddQuery={addQuery}
-                onRemoveQuery={removeQuery}
+                disclosureOpen={sidebarDisclosure === "sealed-types"}
+                onDisclosureChange={(open) => setSidebarDisclosure(open ? "sealed-types" : null)}
               />
             ) : null}
           </div>
@@ -975,14 +1054,23 @@ export default function MarketExplorerClient({
             className="border-t-2 border-white/40 px-3 py-3"
           >
             <MarketExplorerScreens
-              canUse={canComparePreparedMarkets}
+              canCompare={canComparePreparedMarkets}
               activeKeys={preparedActiveKeys}
               pendingKeys={preparedPendingKeys}
-              onUpgrade={() => setCompareUpgradeVisible(true)}
               onSelect={selectPrepared}
             />
           </div>
         </section>
+        <button
+          ref={methodologyTriggerRef}
+          type="button"
+          data-market-explorer-methodology-trigger
+          aria-expanded={methodologyOpen}
+          onClick={openMethodology}
+          className="hidden min-h-10 w-full rounded-lg border border-violet-400/45 bg-violet-500/[.08] px-4 text-xs font-semibold text-violet-200 transition-colors hover:border-violet-300/75 hover:bg-violet-500/[.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 desk:block"
+        >
+          Methodology
+        </button>
       </aside>
       <dialog
         ref={builderDialogRef}
@@ -1094,7 +1182,9 @@ export default function MarketExplorerClient({
       <section
         data-market-explorer-analysis
         data-market-explorer-zone="compare"
-        className="order-2 flex min-w-0 flex-col desk:order-none desk:col-start-2 desk:h-full desk:min-h-0"
+        aria-hidden={mobileToolsOpen ? "true" : undefined}
+        inert={mobileToolsOpen ? true : undefined}
+        className="order-2 flex h-full min-h-0 min-w-0 flex-col desk:order-none desk:col-start-2"
         aria-labelledby="compare-markets-zone-heading"
       >
         <div className="sr-only">
@@ -1112,7 +1202,7 @@ export default function MarketExplorerClient({
         </div>
         <div
           data-market-explorer-active-strip
-          className="order-1 min-w-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20"
+          className="order-1 min-w-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20 pr-16 desk:pr-0"
         >
           <MarketExplorerActiveMarkets
             series={selectedSeries}
@@ -1148,6 +1238,14 @@ export default function MarketExplorerClient({
             onFocus={focusSeries}
             timeframe={timeframe}
           />
+          <PreparedMarketStatus
+            pendingKeys={preparedPendingKeys}
+            failedKeys={preparedFailedKeys}
+            failures={preparedFailures}
+            labels={preparedLabels}
+            series={loadedPreparedSeries}
+            loader={preparedLoader}
+          />
         </div>
         <div
           data-market-explorer-chart-workspace
@@ -1163,92 +1261,6 @@ export default function MarketExplorerClient({
                 : "flex h-full min-h-0 min-w-0 flex-1"
             }
           >
-            <div
-              data-market-explorer-workspace-notices
-              data-market-explorer-workspace-overlay="notices"
-              className="pointer-events-none absolute left-3 right-3 top-3 z-30 space-y-2 [&_button]:pointer-events-auto [&_a]:pointer-events-auto"
-            >
-              {preparedPendingKeys.map((key) => (
-                <div
-                  key={`pending:${key}`}
-                  role="status"
-                  data-market-explorer-prepared-pending={key}
-                  className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]"
-                >
-                  <span>Adding {preparedLabels.get(key) || "market"}…</span>
-                  <button
-                    type="button"
-                    data-market-explorer-prepared-cancel={key}
-                    onClick={() => preparedLoader.remove(key)}
-                    className="rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ))}
-              {preparedFailedKeys.map((key) => {
-                const failure = preparedFailures[key];
-                return (
-                  <div
-                    key={`failed:${key}`}
-                    role="alert"
-                    data-market-explorer-prepared-error={key}
-                    data-market-explorer-prepared-error-kind={failure?.kind}
-                    className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-2 text-xs text-[rgb(248,113,113)]"
-                  >
-                    <span>
-                      {describePreparedFailure(
-                        preparedLabels.get(key),
-                        failure,
-                      )}
-                      {selectedSeries.length
-                        ? " Your other markets are still shown."
-                        : ""}
-                    </span>
-                    <span className="flex flex-none gap-1.5">
-                      {failure?.retryable ? (
-                        <button
-                          type="button"
-                          data-market-explorer-prepared-retry={key}
-                          onClick={() => preparedLoader.retry(key)}
-                          className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold"
-                        >
-                          Retry
-                        </button>
-                      ) : null}
-                      {failure?.kind === PREPARED_FAILURE.entitlement ? (
-                        <a
-                          href="/pricing"
-                          className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold"
-                        >
-                          Upgrade
-                        </a>
-                      ) : null}
-                      <button
-                        type="button"
-                        data-market-explorer-prepared-dismiss={key}
-                        onClick={() => preparedLoader.dismissFailure(key)}
-                        className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold"
-                      >
-                        Dismiss
-                      </button>
-                    </span>
-                  </div>
-                );
-              })}
-              {loadedPreparedSeries
-                .filter((series) => series.trend.length < 2)
-                .map((series) => (
-                  <p
-                    key={`nohistory:${series.key}`}
-                    role="status"
-                    data-market-explorer-prepared-no-history={series.key}
-                    className="mb-2 rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]"
-                  >
-                    {series.label} has no published price history to chart yet.
-                  </p>
-                ))}
-            </div>
             <MarketExplorerChart
               overview={overview}
               selectedSeries={visibleSeries}
@@ -1266,19 +1278,6 @@ export default function MarketExplorerClient({
               overlays={chartOverlays}
               activityState={activityOn ? activityState : null}
               activityFixtureMode={activityFixtureMode}
-              methodologyOpen={methodologyOpen}
-              methodologyTriggerRef={methodologyTriggerRef}
-              onToggleMethodology={() => {
-                if (methodologyOpen) {
-                  setMethodologyOpen(false);
-                  return;
-                }
-                methodologyRestoreFocusRef.current =
-                  typeof document !== "undefined"
-                    ? document.activeElement
-                    : methodologyTriggerRef.current;
-                setMethodologyOpen(true);
-              }}
             />
           </div>
           {detailsOpen ? (
@@ -1370,6 +1369,10 @@ export default function MarketExplorerClient({
               </div>
             </div>
           ) : null}
+        </div>
+        <div data-market-explorer-mobile-analysis-actions className="order-3 grid flex-none grid-cols-2 gap-2 pt-2 desk:hidden">
+          <button type="button" data-market-explorer-mobile-methodology aria-label="Open Market Explorer methodology" aria-expanded={methodologyOpen} onClick={openMethodology} className="min-h-10 rounded-lg border border-violet-400/55 bg-violet-500/[.1] px-3 text-xs font-semibold text-violet-100">Methodology</button>
+          <button type="button" data-market-explorer-mobile-constituents aria-label="View Constituents and Comparison" aria-expanded={detailsOpen} disabled={!hasActiveMarkets} onClick={() => setDetailsOpen(true)} className="min-h-10 rounded-lg border border-violet-400/55 bg-violet-500/[.1] px-3 text-xs font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-45">Constituents</button>
         </div>
       </section>
     </div>

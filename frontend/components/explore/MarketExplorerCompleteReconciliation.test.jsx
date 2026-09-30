@@ -140,11 +140,10 @@ test("V1 Sealed Types control exposes published V1 sealed formats without Browse
   let renderer;
   await act(async () => { renderer = TestRenderer.create(<MarketExplorerSealedTypes v2Mode={false} formatMarkets={v1Sealed} status="unavailable" onSelect={(key) => selected.push(key)} />); });
   await act(async () => renderer.root.findByProps({ "data-sealed-types-trigger": true }).props.onClick());
-  const list = renderer.root.findByProps({ "data-sealed-v1-formats": true });
-  assert.equal(list.findAll((n) => n.type === "button" && n.props["data-prepared-market"]).length, 3);
+  const list = renderer.root.findByProps({ "data-market-asset-selector-popover": "sealed-types" });
+  assert.equal(list.findAll((n) => n.props["data-sealed-type"]).length, 3);
   assert.doesNotMatch(texts(renderer), /temporarily unavailable/, "V1 must not show the V2 asset-options failure");
-  assert.match(texts(renderer), /Further Sealed Types/);
-  await act(async () => list.findAll((n) => n.type === "button")[0].props.onClick());
+  await act(async () => list.findByProps({ "data-sealed-type": "sealed-format:boosterBox" }).props.onClick());
   assert.deepEqual(selected, ["sealed-format:boosterBox"]);
 });
 
@@ -227,8 +226,7 @@ test("View and Hide Constituents share the violet analysis treatment (structure 
   const violet = /border-violet-400\/60 bg-violet-500\/\[\.12\] .*shadow-\[0_0_16px_rgba\(139,92,246,0\.35\)\]/;
   assert.match(chart.slice(chart.indexOf("data-market-explorer-view-details")), violet);
   assert.match(client.slice(client.indexOf("data-market-explorer-hide-details")), violet);
-  assert.match(chart, /data-market-explorer-chart-bottom-actions className="flex flex-none flex-col gap-2/);
-  assert.match(chart, /sm:justify-between/);
+  assert.match(chart, /data-market-explorer-chart-bottom-actions className="hidden flex-none justify-center[^"]*desk:flex/);
   assert.match(client, /relative flex flex-none flex-col gap-2 border-b/);
   // One workspace Clear All; no Clear Graph label.
   assert.doesNotMatch(client + read("components/explore/MarketExplorerActiveMarkets.jsx"), />\s*Clear Graph\s*</);

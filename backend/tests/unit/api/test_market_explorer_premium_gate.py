@@ -41,11 +41,11 @@ def test_query_gate_delegates_to_the_canonical_spec_evaluator():
     assert "status_code=403" in gate
 
 
-def test_the_gate_authenticates_first_then_checks_entitlement():
+def test_the_gate_allows_only_db_verified_canonical_rarity_before_auth():
     gate = _function_source("_require_market_explorer_query_access")
-    assert gate.index("_require_authenticated_user_id") < gate.index("evaluate_market_query_access"), (
-        "an anonymous caller must get 401, not 403"
-    )
+    assert gate.index("is_canonical_rarity_query_shape") < gate.index("_require_authenticated_user_id")
+    assert gate.index("is_selectable_canonical_rarity") < gate.index("_require_authenticated_user_id")
+    assert gate.index("_require_authenticated_user_id") < gate.index("evaluate_market_query_access")
 
 
 def test_a_client_supplied_plan_is_never_accepted():

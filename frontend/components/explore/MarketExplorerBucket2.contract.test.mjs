@@ -9,7 +9,7 @@ test("Bucket 2 sidebar keeps Browse and Analyze while Custom Filters live in Bui
   const picker = await read("./MarketExplorerExactItemPicker.jsx");
   const explore = client.indexOf('data-market-explorer-zone="explore"');
   const browse = client.indexOf("<MarketExplorerBrowse", explore);
-  const analyze = client.indexOf('data-market-explorer-sidebar-section="analyze"', browse);
+  const analyze = client.indexOf('data-market-explorer-sidebar-section="asset-markets"', browse);
   const rarity = client.indexOf("<MarketExplorerRarityMarkets", analyze);
   const screens = client.indexOf("<MarketExplorerScreens", rarity);
   const sidebarEnd = client.indexOf("</aside>", screens);
@@ -28,22 +28,22 @@ test("Bucket 2 sidebar keeps Browse and Analyze while Custom Filters live in Bui
 
 test("Rarity Markets uses every prepared rarity dynamically with search and compare/remove", async () => {
   const rarity = await read("./MarketExplorerRarityMarkets.jsx");
+  const selector = await read("./MarketExplorerAssetMarketSelector.jsx");
   assert.match(rarity, /market_type === "prepared_rarity"/);
-  assert.match(rarity, /data-rarity-market-search/);
-  assert.match(rarity, /role="listbox"/);
-  assert.match(rarity, /role="option"/);
-  assert.match(rarity, /aria-selected={state\.active}/);
+  assert.match(selector, /data-rarity-market-search/);
+  assert.match(selector, /role="listbox"/);
+  assert.match(selector, /role="option"/);
   assert.match(rarity, /onSelect\?\.\(state\.prepared\.market_key\)/);
-  assert.match(rarity, /state\.active \? "Remove"/);
+  assert.match(selector, /option\.active \? "Remove"/);
   // No parallel fetch here: the custom-query fallback goes through the one bounded hook.
   assert.doesNotMatch(rarity, /RARITY_LABELS|fetch\s*\(|preflight/i);
 });
 
-test("Screens are independently gated prepared discovery with local result state", async () => {
+test("Screens are public prepared discovery with local result state", async () => {
   const client = await read("./MarketExplorerClient.jsx");
   const screens = await read("./MarketExplorerScreens.jsx");
   assert.match(screens, /MARKET_EXPLORER_SCREENS[\s\S]*\.map/);
-  assert.match(screens, /aria-disabled=\{!canUse\}/);
+  assert.doesNotMatch(screens, /Locked|canUse|onUpgrade/);
   assert.match(screens, /aria-pressed=\{active\}/);
   assert.match(screens, /new Map\(\)/);
   assert.match(screens, /cache\.current\.has\(screen\.id\)/);
@@ -67,7 +67,7 @@ test("Build modal unifies exact Cards/Products and Custom Filters", async () => 
   assert.match(picker, /Cards/);
   assert.match(picker, /Products/);
   assert.match(build, /Custom Filters/);
-  assert.match(client, /setBuilderMode\(series\.spec\?\.membershipMode === "explicit" \? "exact" : "filters"\)/);
+  assert.match(client, /setBuilderMode\([\s\S]*series\.spec\?\.membershipMode === "explicit"[\s\S]*"exact"[\s\S]*"filters"/);
   assert.match(client, /setBuilderOpen\(true\)/);
   assert.match(query, /presentation === "sidebar"/);
 });

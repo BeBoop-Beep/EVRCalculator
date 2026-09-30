@@ -15,7 +15,7 @@ V2_DAILY_TABLE = "pokemon_market_explorer_card_daily_states_v2_shadow"
 V2_INTERVAL_TABLE = "pokemon_market_price_intervals_v2_shadow"
 QUALITY_TABLE = "pokemon_market_date_quality"
 WINDOWS = CONSTITUENT_MOVEMENT_WINDOWS
-SEALED_MOVEMENT_RPC = "get_pokemon_market_explorer_sealed_constituent_movement_v1"
+SEALED_MOVEMENT_RPC = "get_pokemon_market_explorer_sealed_constituent_movement_v2"
 SEALED_MOVEMENT_MAX_IDS = 100
 
 
@@ -172,6 +172,9 @@ def enrich_sealed_constituent_page(client: Any, page: Mapping[str, Any]) -> dict
         "7D": ("movement_7d_pct", "baseline_7d_date"),
         "30D": ("movement_30d_pct", "baseline_30d_date"),
         "3M": ("movement_3m_pct", "baseline_3m_date"),
+        "6M": ("movement_6m_pct", "baseline_6m_date"),
+        "1Y": ("movement_1y_pct", "baseline_1y_date"),
+        "SinceTracking": ("movement_since_tracking_pct", "baseline_since_tracking_date"),
     }
     for item in items:
         movement_row = by_id.get(str(item.get("sealedProductId") or ""), {})

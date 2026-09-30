@@ -110,7 +110,7 @@ export default async function MarketExplorerPage({ searchParams }) {
     // 118rem is close to full width with real gutters, and the class is on THIS
     // page's wrapper — /Market and every other route are untouched.
     <div
-      className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[124rem] px-3 pb-20 pt-3 sm:px-4 desk:px-4 desk:pt-4 lg:px-4 2xl:px-5`}
+      className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[124rem] px-3 pb-20 pt-3 sm:px-4 desk:px-4 desk:pb-4 desk:pt-4 lg:px-4 2xl:px-5`}
     >
       <PageArtworkAtmosphere
         src={getExploreBackground("pokemon")}

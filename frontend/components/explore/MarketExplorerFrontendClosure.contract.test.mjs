@@ -24,11 +24,12 @@ test("mixed Screen rows use backend asset identity and an inline action region",
 
 test("Sealed Types is a compact searchable DB-driven disclosure", async () => {
   const source = await read("./MarketExplorerSealedTypes.jsx");
-  assert.match(source, /data-sealed-types-trigger/);
-  assert.match(source, /aria-expanded=\{open\}/);
+  const shared = await read("./MarketExplorerAssetMarketSelector.jsx");
+  assert.match(shared, /data-sealed-types-trigger/);
+  assert.match(shared, /aria-expanded=\{open\}/);
   assert.match(source, /normalizeSealedTypeOptions\(options\)/);
-  assert.match(source, /data-sealed-type-search/);
-  assert.match(source, /aria-disabled="true"/);
+  assert.match(shared, /data-sealed-type-search/);
+  assert.match(shared, /aria-disabled=\{option\.unavailable \|\| option\.pending\}/);
   for (const forbidden of ["booster_box", "elite_trainer_box", "pokemon_center_elite_trainer_box"]) {
     assert.doesNotMatch(source, new RegExp(forbidden));
   }
@@ -57,5 +58,5 @@ test("V2 Browse layers use exact backend asset identity", async () => {
 test("paged mobile constituents render their own selected-window ChangeCell", async () => {
   const source = await read("./MarketExplorerConstituents.jsx");
   const pagedMobile = source.slice(source.indexOf("data-market-constituents-cards"), source.indexOf("data-market-constituents-movement-unavailable"));
-  assert.match(pagedMobile, /<ChangeCell row=\{row\} window=\{movementWindow\}/);
+  assert.match(pagedMobile, /<ChangeCell[\s\S]*row=\{row\}[\s\S]*window=\{movementWindow\}/);
 });
