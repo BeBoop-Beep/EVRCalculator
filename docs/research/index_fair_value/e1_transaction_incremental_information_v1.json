@@ -1,0 +1,216 @@
+{
+  "version": "e1_transaction_incremental_information_v1",
+  "created_date": "2026-09-30",
+  "panel": {
+    "row_count": 207,
+    "panel_fingerprint": "9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+    "root_set_groups": 22,
+    "current_price_date": "2026-09-30",
+    "collector_appeal_present": 207,
+    "pull_probability_present": 206
+  },
+  "collector_authority": {
+    "model_version": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+    "model_run_id": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+    "as_of_date": "2026-09-11"
+  },
+  "target": "log(current canonical market price)",
+  "primary_controls": [
+    "root/set fixed effects via within-set demeaning",
+    "Collector Appeal",
+    "modeled pull probability"
+  ],
+  "secondary_controls": [
+    "root/set fixed effects via within-set demeaning",
+    "Collector Appeal"
+  ],
+  "interpretation": "Cross-sectional contemporaneous incremental-information study only; no causal or future-return claim.",
+  "results": [
+    {
+      "primitive": "graded_share_180",
+      "primary_r": 0.7473,
+      "partial_r2": 0.5585,
+      "secondary_r": 0.7956,
+      "loo_min": 0.7226,
+      "loo_max": 0.7665,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.0247,
+      "decision": "SUPPORTED",
+      "role": "market_mix",
+      "note": "Very strong stable association; interpret as graded/raw market composition, not turnover or causality."
+    },
+    {
+      "primitive": "relative_iqr_180",
+      "primary_r": -0.4878,
+      "partial_r2": 0.2379,
+      "secondary_r": -0.6891,
+      "loo_min": -0.5394,
+      "loo_max": -0.4486,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.0517,
+      "decision": "SUPPORTED",
+      "role": "transaction_quality",
+      "note": "Higher-priced cards show lower relative IQR after controls; robust LOO. Retain IQR as the primary relative-dispersion primitive."
+    },
+    {
+      "primitive": "relative_mad_180",
+      "primary_r": -0.466,
+      "partial_r2": 0.2172,
+      "secondary_r": -0.6635,
+      "loo_min": -0.5327,
+      "loo_max": -0.4199,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.0667,
+      "decision": "DIAGNOSTIC_ONLY",
+      "role": "transaction_quality",
+      "note": "Passes materiality/stability but is strongly redundant with relative IQR (within-set r=0.8292)."
+    },
+    {
+      "primitive": "log_sales_30",
+      "primary_r": 0.4042,
+      "partial_r2": 0.1634,
+      "secondary_r": 0.6383,
+      "loo_min": 0.3712,
+      "loo_max": 0.4311,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.033,
+      "decision": "SUPPORTED",
+      "role": "turnover",
+      "note": "Strongest of the highly correlated sales-count windows; retain as primary turnover-count primitive."
+    },
+    {
+      "primitive": "log_sales_90",
+      "primary_r": 0.3879,
+      "partial_r2": 0.1505,
+      "secondary_r": 0.694,
+      "loo_min": 0.3403,
+      "loo_max": 0.4228,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.0476,
+      "decision": "DIAGNOSTIC_ONLY",
+      "role": "turnover",
+      "note": "Material and stable but highly redundant with 180d (r=0.9731) and 30d (r=0.8651)."
+    },
+    {
+      "primitive": "log_sales_180",
+      "primary_r": 0.3615,
+      "partial_r2": 0.1307,
+      "secondary_r": 0.6271,
+      "loo_min": 0.3145,
+      "loo_max": 0.3947,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.047,
+      "decision": "DIAGNOSTIC_ONLY",
+      "role": "turnover",
+      "note": "Material and stable but highly redundant with 90d/30d counts."
+    },
+    {
+      "primitive": "txn_day_frequency_180",
+      "primary_r": 0.289,
+      "partial_r2": 0.0835,
+      "secondary_r": 0.5012,
+      "loo_min": 0.2537,
+      "loo_max": 0.3472,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.0582,
+      "decision": "DIAGNOSTIC_ONLY",
+      "role": "turnover",
+      "note": "Stable overall, but correlated with sales counts and price-band diagnostics are heterogeneous; retain as cadence diagnostic."
+    },
+    {
+      "primitive": "log_median_gap_days",
+      "primary_r": -0.2523,
+      "partial_r2": 0.0637,
+      "secondary_r": -0.6468,
+      "loo_min": -0.2866,
+      "loo_max": -0.1937,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.0586,
+      "decision": "DIAGNOSTIC_ONLY",
+      "role": "turnover",
+      "note": "Material overall but strongly inverse-redundant with sales counts and heterogeneous by price band."
+    },
+    {
+      "primitive": "exact_share_180",
+      "primary_r": 0.0688,
+      "partial_r2": 0.0047,
+      "secondary_r": -0.1314,
+      "loo_min": 0.0375,
+      "loo_max": 0.1034,
+      "sign_consistency": 1,
+      "max_abs_delta": 0.0346,
+      "decision": "NOT_SUPPORTED",
+      "role": "transaction_quality",
+      "note": "No material incremental association with current price under the primary controls; secondary specification changes direction."
+    },
+    {
+      "primitive": "log_recency_days",
+      "primary_r": 0.0124,
+      "partial_r2": 0.0002,
+      "secondary_r": -0.1033,
+      "loo_min": -0.0158,
+      "loo_max": 0.0578,
+      "sign_consistency": 0.8182,
+      "max_abs_delta": 0.0455,
+      "decision": "NOT_SUPPORTED",
+      "role": "transaction_quality",
+      "note": "No cross-sectional incremental price association. Keep recency as a descriptive freshness field; predictive use needs longitudinal history."
+    }
+  ],
+  "notable_within_set_redundancy": [
+    {
+      "a": "log_sales_180",
+      "b": "log_sales_90",
+      "r": 0.9731
+    },
+    {
+      "a": "log_sales_30",
+      "b": "log_sales_90",
+      "r": 0.8651
+    },
+    {
+      "a": "log_sales_180",
+      "b": "log_sales_30",
+      "r": 0.8589
+    },
+    {
+      "a": "log_median_gap_days",
+      "b": "log_sales_90",
+      "r": -0.8537
+    },
+    {
+      "a": "relative_iqr_180",
+      "b": "relative_mad_180",
+      "r": 0.8292
+    },
+    {
+      "a": "log_sales_180",
+      "b": "txn_day_frequency_180",
+      "r": 0.8133
+    },
+    {
+      "a": "log_sales_90",
+      "b": "txn_day_frequency_180",
+      "r": 0.7771
+    },
+    {
+      "a": "log_sales_30",
+      "b": "txn_day_frequency_180",
+      "r": 0.746
+    },
+    {
+      "a": "graded_share_180",
+      "b": "log_sales_90",
+      "r": 0.6476
+    }
+  ],
+  "supported_primary_primitives": [
+    "log_sales_30",
+    "relative_iqr_180",
+    "graded_share_180"
+  ],
+  "longitudinal_questions_status": "NEEDS_MORE_HISTORY",
+  "no_composite_score": true,
+  "fair_value_fit_performed": false,
+  "canonical_price_mutation": false
+}
