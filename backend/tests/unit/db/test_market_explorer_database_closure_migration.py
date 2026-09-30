@@ -9,6 +9,7 @@ MIGRATIONS = (
     "20260928031746_market_explorer_surface_health_and_sealed_parity_v1.sql",
     "20260928032222_market_explorer_sealed_authority_function_sync_v1.sql",
     "20260928032613_market_explorer_v2_bounded_roster_convergence_v1.sql",
+    "20260930180000_market_explorer_sealed_constituent_movement_v2.sql",
 )
 
 
@@ -110,3 +111,17 @@ def test_v2_publisher_converges_frozen_rosters_in_bounded_ticks():
     assert "'readyRoots',coalesce(v_ready_roots,0)" in sql
     assert "'expectedRoots',coalesce(v_expected_roots,0)" in sql
     assert "CURRENT_V2_RAW_ROOT_COUNT_MISMATCH" in sql
+
+
+def test_sealed_movement_v2_is_additive_bounded_and_canonical():
+    sql = _sql(MIGRATIONS[7])
+    assert "get_pokemon_market_explorer_sealed_constituent_movement_v2" in sql
+    assert "cardinality(p_sealed_product_ids)>100" in sql
+    assert "p_as_of-180+1" in sql
+    assert "p_as_of-365+1" in sql
+    assert "baseline_since_tracking_date" in sql
+    assert "order by o.captured_at::date asc,o.captured_at desc,o.id desc" in sql
+    assert "coalesce((e.end_price/" not in sql
+    assert "o.market_price>0" in sql
+    assert "upper(pg_catalog.btrim(coalesce(o.currency,'USD')))='USD'" in sql
+    assert "o.captured_at<(p_as_of+1)::timestamptz" in sql

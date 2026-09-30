@@ -46,10 +46,9 @@ from backend.domain.pokemon.market_index import resolve_window_baselines
 
 CONSTITUENT_MOVEMENT_CONTRACT_VERSION = "pokemon-constituent-movement-v2"
 
-#: The compact windows the table offers. Deliberately four, not the full
-#: ``WINDOWS`` tuple: the table shows ONE at a time behind a local selector, and
-#: publishing 6M/1Y/SinceTracking as well would double the payload for controls
-#: that do not exist.
+#: The canonical windows the constituent table may offer. This deliberately
+#: reuses the graph/window keys; consumers may label ``SinceTracking`` as LT,
+#: but must not invent a different transport key or derive a browser-side value.
 CONSTITUENT_MOVEMENT_WINDOWS = (
     "1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking",
 )

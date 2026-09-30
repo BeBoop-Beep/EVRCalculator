@@ -151,12 +151,18 @@ def test_sealed_page_uses_one_rpc_for_100_products_and_maps_identity_and_nulls()
          "movement_1d_pct": -2, "baseline_1d_date": "2026-09-26",
          "movement_7d_pct": 7.5, "baseline_7d_date": "2026-09-21",
          "movement_30d_pct": None, "baseline_30d_date": None,
-         "movement_3m_pct": None, "baseline_3m_date": None},
+         "movement_3m_pct": None, "baseline_3m_date": None,
+         "movement_6m_pct": None, "baseline_6m_date": None,
+         "movement_1y_pct": None, "baseline_1y_date": None,
+         "movement_since_tracking_pct": 4, "baseline_since_tracking_date": "2026-01-01"},
         {"sealed_product_id": items[0]["sealedProductId"], "as_of": "2026-09-27",
          "movement_1d_pct": 1, "baseline_1d_date": "2026-09-26",
          "movement_7d_pct": 3, "baseline_7d_date": "2026-09-20",
          "movement_30d_pct": 5, "baseline_30d_date": "2026-08-29",
-         "movement_3m_pct": 8, "baseline_3m_date": "2026-06-29"},
+         "movement_3m_pct": 8, "baseline_3m_date": "2026-06-29",
+         "movement_6m_pct": 10, "baseline_6m_date": "2026-03-31",
+         "movement_1y_pct": None, "baseline_1y_date": None,
+         "movement_since_tracking_pct": 12, "baseline_since_tracking_date": "2025-11-01"},
     ])
     result = movement.enrich_sealed_constituent_page(
         client, {"as_of": "2026-09-27", "items": items})
@@ -165,11 +171,17 @@ def test_sealed_page_uses_one_rpc_for_100_products_and_maps_identity_and_nulls()
         "p_sealed_product_ids": [item["sealedProductId"] for item in items],
         "p_as_of": "2026-09-27",
     })
-    assert result["items"][0]["changes"] == {"1D": 1.0, "7D": 3.0, "30D": 5.0, "3M": 8.0}
+    assert result["items"][0]["changes"] == {
+        "1D": 1.0, "7D": 3.0, "30D": 5.0, "3M": 8.0,
+        "6M": 10.0, "1Y": None, "SinceTracking": 12.0,
+    }
     assert result["items"][1]["changes"]["30D"] is None
     assert result["items"][1]["changes"]["3M"] is None
     assert result["items"][1]["changeBaselines"]["7D"] == "2026-09-21"
-    assert result["items"][99]["changes"] == {"1D": None, "7D": None, "30D": None, "3M": None}
+    assert result["items"][99]["changes"] == {
+        "1D": None, "7D": None, "30D": None, "3M": None,
+        "6M": None, "1Y": None, "SinceTracking": None,
+    }
 
 
 def test_sealed_movement_preserves_civil_date_and_declines_invalid_or_oversized_pages():
