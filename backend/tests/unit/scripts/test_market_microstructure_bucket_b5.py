@@ -27,7 +27,7 @@ def test_b5_source_uses_governed_movers_and_exact_tcgplayer_identity():
         / "scripts"
         / "run_market_microstructure_bucket_b5.py"
     ).read_text(encoding="utf-8")
-    assert "canonical_card_movement_sort_key" in source
+    assert "published Explore snapshot is already ordered" in source
     assert "pokemon_explore_card_movers_snapshot_latest" in source
     assert "card_variant_external_identities" in source
     assert '"provider", "tcgplayer"' not in source  # no accidental tuple misuse
