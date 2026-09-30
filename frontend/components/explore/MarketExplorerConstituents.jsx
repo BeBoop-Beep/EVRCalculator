@@ -164,7 +164,7 @@ function MovementWindowSelector({ value, onChange }) {
       data-market-constituents-window-selector
       role="group"
       aria-label="Constituent movement window"
-      className="flex flex-none items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-0.5"
+      className="flex flex-none flex-wrap items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-0.5"
     >
       {CONSTITUENT_MOVEMENT_WINDOWS.map((window) => {
         const isActive = window === value;
@@ -533,7 +533,7 @@ function QueryConstituentSection({
                   aria-hidden="true"
                   className="ml-1 font-normal text-[var(--text-secondary)]"
                 >
-                  {movementWindow}
+                  {constituentMovementWindowLabel(movementWindow)}
                 </span>
               </span>
             </span>
@@ -1006,7 +1006,7 @@ export default function MarketExplorerConstituents({
                       aria-hidden="true"
                       className="ml-1 font-normal text-[var(--text-secondary)]"
                     >
-                      {model.movementWindow}
+                      {constituentMovementWindowLabel(model.movementWindow)}
                     </span>
                   </span>
                 </span>

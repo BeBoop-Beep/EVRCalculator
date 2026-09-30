@@ -59,9 +59,6 @@ export default function MarketExplorerChart({
   overlays = [],
   activityState = null,
   activityFixtureMode = false,
-  methodologyOpen = false,
-  methodologyTriggerRef,
-  onToggleMethodology,
   // The Explorer chart is an OPEN CANVAS by default: no enclosing card, no plot
   // border, no interior background. /Market keeps the card surface because it
   // never passes `minimal`.
@@ -241,17 +238,7 @@ export default function MarketExplorerChart({
           scrolling, centred on the plot) rather than the toolbar or a page section.
           It opens the in-place takeover overlay; violet marks it as an analysis
           action, distinct from performance green/red and selected-teal controls. */}
-      <div data-market-explorer-chart-bottom-actions className="flex flex-none flex-col gap-2 px-2 pb-2 pt-1.5 sm:flex-row sm:items-center sm:justify-between sm:px-3">
-        <button
-          ref={methodologyTriggerRef}
-          type="button"
-          data-market-explorer-methodology-trigger
-          aria-expanded={methodologyOpen}
-          onClick={onToggleMethodology}
-          className="min-h-10 rounded-lg border border-violet-400/45 bg-violet-500/[.08] px-4 text-xs font-semibold text-violet-200 transition-colors hover:border-violet-300/75 hover:bg-violet-500/[.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80"
-        >
-          Methodology
-        </button>
+      <div data-market-explorer-chart-bottom-actions className="flex flex-none justify-center px-2 pb-2 pt-1.5 sm:px-3">
         {constituentsAvailable ? (
           <button
             type="button"

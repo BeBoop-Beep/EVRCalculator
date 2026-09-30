@@ -163,18 +163,18 @@ const FAMILIES = ["booster_box", "half_booster_box", "enhanced_booster_box", "el
 test("Sealed Types renders whatever the DB publishes with truthful actions; Cases are bulk containers, not 'invalid'", async () => {
   const types = FAMILIES.map((family, i) => ({
     key: family, label: family.replace(/_/g, " "),
-    eligibilityState: i % 3 === 0 ? "PREPARED" : i % 3 === 1 ? "SEARCHABLE_BUILDABLE" : "INSUFFICIENT_HISTORY",
-    preparedMarketAvailable: i % 3 === 0, preparedMarketKey: i % 3 === 0 ? `sealed-type:${family}` : null,
+    eligibilityState: i < 16 ? "PREPARED" : "INSUFFICIENT_HISTORY",
+    preparedMarketAvailable: i < 16, preparedMarketKey: i < 16 ? `sealed-type:${family}` : null,
     bulkContainer: family === "case" || family === "display", parentMembership: family !== "case" && family !== "display",
   }));
-  const selected = []; const built = [];
+  const selected = [];
   let renderer;
-  await act(async () => { renderer = TestRenderer.create(<MarketExplorerSealedTypes options={{ types }} canBuild onSelect={(k) => selected.push(k)} onAddQuery={async (s) => { built.push(s); return "added"; }} onRemoveQuery={noop} />); });
+  await act(async () => { renderer = TestRenderer.create(<MarketExplorerSealedTypes options={{ types }} onSelect={(k) => selected.push(k)} />); });
   await act(async () => renderer.root.findByProps({ "data-sealed-types-trigger": true }).props.onClick());
   assert.equal(renderer.root.findAll((n) => n.props?.["data-sealed-type"]).length, FAMILIES.length);
   for (const type of types) {
     const li = renderer.root.findByProps({ "data-sealed-type": type.key });
-    const expected = type.eligibilityState === "PREPARED" ? "prepared" : type.eligibilityState === "SEARCHABLE_BUILDABLE" ? "build" : "none";
+    const expected = type.eligibilityState === "PREPARED" ? "prepared" : "none";
     assert.equal(li.props["data-sealed-type-action"], expected, type.key);
     if (expected === "none") assert.ok(li.findAllByProps({ "data-sealed-type-reason": true }).length === 1, `${type.key} explains itself`);
   }
@@ -184,9 +184,7 @@ test("Sealed Types renders whatever the DB publishes with truthful actions; Case
   assert.equal(renderer.root.findByProps({ "data-sealed-type": "booster_box" }).findAllByProps({ "data-sealed-type-note": true }).length, 0);
   await act(async () => renderer.root.findByProps({ "data-sealed-type-action-button": "booster_box" }).props.onClick());
   assert.deepEqual(selected, ["sealed-type:booster_box"]);
-  await act(async () => renderer.root.findByProps({ "data-sealed-type-action-button": "half_booster_box" }).props.onClick());
-  assert.equal(built[0].asset, "sealed");
-  assert.deepEqual(built[0].segmentIds, ["half_booster_box"]);
+  assert.equal(renderer.root.findAllByProps({ "data-sealed-type-action-button": "fun_pack" }).length, 0);
   renderer.unmount();
 });
 
@@ -318,9 +316,9 @@ test("Client: activeBrowseAsset is browsing state, never fed to the chart select
   // one identity per visible market
   assert.match(client, /unifySeriesByKey\(\[/);
   // Rarity only for Cards; Sealed Types/Quick only for Sealed; Graded gets neither
-  assert.match(client, /activeBrowseAsset === "cards" \? <MarketExplorerRarityMarkets/);
+  assert.match(client, /activeBrowseAsset === "cards" \? \([\s\S]*<MarketExplorerRarityMarkets/);
   // Sealed Types occupies the Analyze position corresponding to Rarity Markets.
-  assert.match(client, /activeBrowseAsset === "sealed" \? <MarketExplorerSealedTypes/);
+  assert.match(client, /activeBrowseAsset === "sealed" \? \([\s\S]*<MarketExplorerSealedTypes/);
   assert.equal((client.match(/<MarketExplorerSealedTypes/g) || []).length, 1);
   assert.doesNotMatch(client, /<MarketExplorerSealedQuickMarkets/);
   // interaction foundation (e3d85bc1) still present

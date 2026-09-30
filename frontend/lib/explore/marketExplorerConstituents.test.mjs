@@ -82,7 +82,7 @@ test("the movement column follows the selected window", () => {
     const column = model.columns.at(-1);
     assert.equal(column.change, true);
     assert.equal(column.window, window);
-    assert.equal(column.label, `${window === "SinceTracking" ? "Since Tracking" : window} Change`);
+    assert.equal(column.label, `${window === "SinceTracking" ? "LT" : window} Change`);
     assert.equal(column.align, "right");
   }
 });
@@ -150,8 +150,8 @@ test("prepared and dynamic markets expose one identical movement contract", () =
   assert.equal(getConstituentChange(dynamicModel.rows[0], "7D"), 4.8);
 });
 
-test("the constituent UI exposes the four accepted per-row movement windows", () => {
-  assert.deepEqual([...CONSTITUENT_MOVEMENT_WINDOWS], ["1D", "7D", "30D", "3M"]);
+test("the constituent UI exposes all seven accepted per-row movement windows", () => {
+  assert.deepEqual([...CONSTITUENT_MOVEMENT_WINDOWS], ["1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"]);
 });
 
 test("the sealed PARENT's roster resolves as sealed, not as cards", () => {

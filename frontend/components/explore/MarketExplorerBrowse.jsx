@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { groupPreparedDirectory } from "@/lib/explore/marketExplorerPrepared.mjs";
 import { NO_APPROVED_SEALED_QUICK_COPY } from "@/lib/explore/marketExplorerAssetOptions.mjs";
 import MarketExplorerContextualSearch from "./MarketExplorerContextualSearch";
@@ -41,8 +41,14 @@ const displayMarket = (market) => {
   return { label: copy?.[0] || market.label, description: copy?.[1] || null };
 };
 
-export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, enableContextualSearch = true, resetKey = 0 }) {
-  const [open, setOpen] = useState(null);
+export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, enableContextualSearch = true, resetKey = 0, disclosureOpen, onDisclosureChange }) {
+  const [internalOpen, setInternalOpen] = useState(null);
+  const open = disclosureOpen === undefined ? internalOpen : disclosureOpen;
+  const setOpen = useCallback((next) => {
+    const resolved = typeof next === "function" ? next(open) : next;
+    if (disclosureOpen === undefined) setInternalOpen(resolved);
+    onDisclosureChange?.(resolved);
+  }, [disclosureOpen, onDisclosureChange, open]);
   const [search, setSearch] = useState("");
   // activeBrowseAsset: what the directory/search/builder default LIST. It never
   // touches the chart's active markets. Controlled when the parent owns it.
@@ -83,7 +89,7 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, []);
+  }, [setOpen]);
   const close = (restoreFocus = false) => {
     const trigger = triggerRefs.current.get(open);
     setOpen(null); setSearch(""); setHighlightedIndex(NO_HIGHLIGHT);

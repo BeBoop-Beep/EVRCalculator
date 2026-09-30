@@ -62,6 +62,15 @@ import useMarketActivity from "@/hooks/explore/useMarketActivity";
 import useMarketActivityCapabilities from "@/hooks/explore/useMarketActivityCapabilities";
 import { fetchMarketActivityGroup } from "@/lib/explore/marketActivityApi.mjs";
 
+function PreparedMarketStatus({ pendingKeys, failedKeys, failures, labels, series, loader }) {
+  if (!pendingKeys.length && !failedKeys.length && !series.some((entry) => entry.trend.length < 2)) return null;
+  return <div data-market-explorer-selection-status className="space-y-1 px-3 pb-2 sm:px-4">
+    {pendingKeys.map((key) => <div key={`pending:${key}`} role="status" data-market-explorer-prepared-pending={key} className="flex items-center justify-between gap-2 rounded-full border border-[var(--border-subtle)] px-3 py-1 text-[10px] text-[var(--text-secondary)]"><span>○ {labels.get(key) || "Market"} · Adding…</span><button type="button" data-market-explorer-prepared-cancel={key} onClick={() => loader.remove(key)} className="rounded border border-[var(--border-subtle)] px-2 py-0.5 font-semibold">Cancel</button></div>)}
+    {failedKeys.map((key) => { const failure = failures[key]; return <div key={`failed:${key}`} role="alert" data-market-explorer-prepared-error={key} data-market-explorer-prepared-error-kind={failure?.kind} className="flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-1 text-[10px] text-[rgb(248,113,113)]"><span>{describePreparedFailure(labels.get(key), failure)}{series.length ? " Your other markets are still shown." : ""}</span><span className="flex flex-none gap-1.5">{failure?.retryable ? <button type="button" data-market-explorer-prepared-retry={key} onClick={() => loader.retry(key)} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-0.5 font-semibold">Retry</button> : null}{failure?.kind === PREPARED_FAILURE.entitlement ? <a href="/pricing" className="rounded border border-[rgba(248,113,113,.45)] px-2 py-0.5 font-semibold">Upgrade</a> : null}<button type="button" data-market-explorer-prepared-dismiss={key} onClick={() => loader.dismissFailure(key)} className="rounded border border-[rgba(248,113,113,.45)] px-2 py-0.5 font-semibold">Dismiss</button></span></div>; })}
+    {series.filter((entry) => entry.trend.length < 2).map((entry) => <p key={`nohistory:${entry.key}`} role="status" data-market-explorer-prepared-no-history={entry.key} className="rounded-md border border-[var(--border-subtle)] px-3 py-1 text-[10px] text-[var(--text-secondary)]">{entry.label} has no published price history to chart yet.</p>)}
+  </div>;
+}
+
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
 //
@@ -172,6 +181,7 @@ export default function MarketExplorerClient({
   // Builder default asset). It is deliberately NOT the chart selection: switching it
   // never adds or removes an active market.
   const [activeBrowseAsset, setActiveBrowseAsset] = useState("cards");
+  const [sidebarDisclosure, setSidebarDisclosure] = useState(null);
   const [basketSeed, setBasketSeed] = useState(null);
   const [sessionResetKey, setSessionResetKey] = useState(0);
   const cardOptionStates = useAssetOptions("cards", {
@@ -313,6 +323,17 @@ export default function MarketExplorerClient({
     },
     [addQueryUnlimited, requestActiveSlot],
   );
+  const selectCanonicalRarity = useCallback(
+    async (spec) => {
+      if (canComparePreparedMarkets) return addQuery(spec);
+      clearAllSelection();
+      clearAllQueries();
+      preparedLoader.clear();
+      dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reset });
+      return addQueryUnlimited(spec);
+    },
+    [addQuery, addQueryUnlimited, canComparePreparedMarkets, clearAllQueries, clearAllSelection, preparedLoader],
+  );
   const [editingSeriesId, setEditingSeriesId] = useState(null);
   // ACTIVE != VISIBLE != TARGET != FOCUSED. A hidden series is still an Active
   // Market (still counted, still inspectable in Constituents; un-hiding never
@@ -378,6 +399,7 @@ export default function MarketExplorerClient({
     setBuilderMode("exact");
     setBasketSeed(null);
     setActiveBrowseAsset("cards");
+    setSidebarDisclosure(null);
     setMethodologyOpen(false);
     setMobileToolsOpen(false);
     setFocusToolToggles({});
@@ -769,6 +791,15 @@ export default function MarketExplorerClient({
   });
   // The workspace has nothing to show once the last active market is gone.
   const hasActiveMarkets = selectedSeries.length > 0;
+  const openMethodology = () => {
+    if (methodologyOpen) {
+      setMethodologyOpen(false);
+      return;
+    }
+    methodologyRestoreFocusRef.current =
+      typeof document !== "undefined" ? document.activeElement : methodologyTriggerRef.current;
+    setMethodologyOpen(true);
+  };
   useEffect(() => {
     if (!hasActiveMarkets) setDetailsOpen(false);
   }, [hasActiveMarkets]);
@@ -818,7 +849,7 @@ export default function MarketExplorerClient({
       data-market-explorer-comparison-as-of={comparisonAsOf || ""}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-access-mode={accessMode}
-      className="grid min-w-0 gap-3 desk:h-[calc(100dvh-15.5rem)] desk:min-h-[26rem] desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-stretch desk:gap-3 desk:overflow-hidden"
+      className="grid min-w-0 gap-3 desk:h-[calc(100dvh-var(--app-header-offset,64px)-2rem)] desk:min-h-[26rem] desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-stretch desk:gap-3 desk:overflow-hidden"
     >
       {compareUpgradeVisible ? (
         <section
@@ -910,6 +941,12 @@ export default function MarketExplorerClient({
             assetLayer={activeBrowseAsset}
             onAssetLayerChange={setActiveBrowseAsset}
             resetKey={sessionResetKey}
+            disclosureOpen={
+              ["search", "sets", "eras", "quick"].includes(sidebarDisclosure)
+                ? sidebarDisclosure
+                : null
+            }
+            onDisclosureChange={setSidebarDisclosure}
             gradedReason={gradedOptionStates.data?.reason || null}
             onAddToBasket={(item) => {
               setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 });
@@ -923,7 +960,7 @@ export default function MarketExplorerClient({
           />
           <div
             data-market-explorer-sidebar-section="asset-markets"
-            className="px-3 pb-3"
+            className="relative z-[70] px-3 pb-3"
           >
             {activeBrowseAsset === "cards" ? (
               <MarketExplorerRarityMarkets
@@ -937,11 +974,13 @@ export default function MarketExplorerClient({
                 activeKeys={preparedActiveKeys}
                 pendingKeys={preparedPendingKeys}
                 activeSeries={querySeries}
-                canUse={canComparePreparedMarkets}
-                onUpgrade={() => setCompareUpgradeVisible(true)}
+                canCompare={canComparePreparedMarkets}
                 onSelect={selectPrepared}
                 onAddQuery={addQuery}
+                onAddCanonicalRarity={selectCanonicalRarity}
                 onRemoveQuery={removeQuery}
+                disclosureOpen={sidebarDisclosure === "rarities"}
+                onDisclosureChange={(open) => setSidebarDisclosure(open ? "rarities" : null)}
               />
             ) : null}
             {activeBrowseAsset === "sealed" ? (
@@ -962,11 +1001,10 @@ export default function MarketExplorerClient({
                 activeKeys={preparedActiveKeys}
                 pendingKeys={preparedPendingKeys}
                 activeSeries={querySeries}
-                canBuild={canBuildCustomMarkets}
-                onUpgrade={() => setCompareUpgradeVisible(true)}
+                canCompare={canComparePreparedMarkets}
                 onSelect={selectPrepared}
-                onAddQuery={addQuery}
-                onRemoveQuery={removeQuery}
+                disclosureOpen={sidebarDisclosure === "sealed-types"}
+                onDisclosureChange={(open) => setSidebarDisclosure(open ? "sealed-types" : null)}
               />
             ) : null}
           </div>
@@ -975,14 +1013,23 @@ export default function MarketExplorerClient({
             className="border-t-2 border-white/40 px-3 py-3"
           >
             <MarketExplorerScreens
-              canUse={canComparePreparedMarkets}
+              canCompare={canComparePreparedMarkets}
               activeKeys={preparedActiveKeys}
               pendingKeys={preparedPendingKeys}
-              onUpgrade={() => setCompareUpgradeVisible(true)}
               onSelect={selectPrepared}
             />
           </div>
         </section>
+        <button
+          ref={methodologyTriggerRef}
+          type="button"
+          data-market-explorer-methodology-trigger
+          aria-expanded={methodologyOpen}
+          onClick={openMethodology}
+          className="min-h-10 w-full rounded-lg border border-violet-400/45 bg-violet-500/[.08] px-4 text-xs font-semibold text-violet-200 transition-colors hover:border-violet-300/75 hover:bg-violet-500/[.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80"
+        >
+          Methodology
+        </button>
       </aside>
       <dialog
         ref={builderDialogRef}
@@ -1148,6 +1195,14 @@ export default function MarketExplorerClient({
             onFocus={focusSeries}
             timeframe={timeframe}
           />
+          <PreparedMarketStatus
+            pendingKeys={preparedPendingKeys}
+            failedKeys={preparedFailedKeys}
+            failures={preparedFailures}
+            labels={preparedLabels}
+            series={loadedPreparedSeries}
+            loader={preparedLoader}
+          />
         </div>
         <div
           data-market-explorer-chart-workspace
@@ -1163,92 +1218,6 @@ export default function MarketExplorerClient({
                 : "flex h-full min-h-0 min-w-0 flex-1"
             }
           >
-            <div
-              data-market-explorer-workspace-notices
-              data-market-explorer-workspace-overlay="notices"
-              className="pointer-events-none absolute left-3 right-3 top-3 z-30 space-y-2 [&_button]:pointer-events-auto [&_a]:pointer-events-auto"
-            >
-              {preparedPendingKeys.map((key) => (
-                <div
-                  key={`pending:${key}`}
-                  role="status"
-                  data-market-explorer-prepared-pending={key}
-                  className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]"
-                >
-                  <span>Adding {preparedLabels.get(key) || "market"}…</span>
-                  <button
-                    type="button"
-                    data-market-explorer-prepared-cancel={key}
-                    onClick={() => preparedLoader.remove(key)}
-                    className="rounded border border-[var(--border-subtle)] px-2 py-1 font-semibold"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ))}
-              {preparedFailedKeys.map((key) => {
-                const failure = preparedFailures[key];
-                return (
-                  <div
-                    key={`failed:${key}`}
-                    role="alert"
-                    data-market-explorer-prepared-error={key}
-                    data-market-explorer-prepared-error-kind={failure?.kind}
-                    className="mb-2 flex items-center justify-between gap-2 rounded-md border border-[rgba(248,113,113,.4)] bg-[rgba(248,113,113,.08)] px-3 py-2 text-xs text-[rgb(248,113,113)]"
-                  >
-                    <span>
-                      {describePreparedFailure(
-                        preparedLabels.get(key),
-                        failure,
-                      )}
-                      {selectedSeries.length
-                        ? " Your other markets are still shown."
-                        : ""}
-                    </span>
-                    <span className="flex flex-none gap-1.5">
-                      {failure?.retryable ? (
-                        <button
-                          type="button"
-                          data-market-explorer-prepared-retry={key}
-                          onClick={() => preparedLoader.retry(key)}
-                          className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold"
-                        >
-                          Retry
-                        </button>
-                      ) : null}
-                      {failure?.kind === PREPARED_FAILURE.entitlement ? (
-                        <a
-                          href="/pricing"
-                          className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold"
-                        >
-                          Upgrade
-                        </a>
-                      ) : null}
-                      <button
-                        type="button"
-                        data-market-explorer-prepared-dismiss={key}
-                        onClick={() => preparedLoader.dismissFailure(key)}
-                        className="rounded border border-[rgba(248,113,113,.45)] px-2 py-1 font-semibold"
-                      >
-                        Dismiss
-                      </button>
-                    </span>
-                  </div>
-                );
-              })}
-              {loadedPreparedSeries
-                .filter((series) => series.trend.length < 2)
-                .map((series) => (
-                  <p
-                    key={`nohistory:${series.key}`}
-                    role="status"
-                    data-market-explorer-prepared-no-history={series.key}
-                    className="mb-2 rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)]"
-                  >
-                    {series.label} has no published price history to chart yet.
-                  </p>
-                ))}
-            </div>
             <MarketExplorerChart
               overview={overview}
               selectedSeries={visibleSeries}
@@ -1266,19 +1235,6 @@ export default function MarketExplorerClient({
               overlays={chartOverlays}
               activityState={activityOn ? activityState : null}
               activityFixtureMode={activityFixtureMode}
-              methodologyOpen={methodologyOpen}
-              methodologyTriggerRef={methodologyTriggerRef}
-              onToggleMethodology={() => {
-                if (methodologyOpen) {
-                  setMethodologyOpen(false);
-                  return;
-                }
-                methodologyRestoreFocusRef.current =
-                  typeof document !== "undefined"
-                    ? document.activeElement
-                    : methodologyTriggerRef.current;
-                setMethodologyOpen(true);
-              }}
             />
           </div>
           {detailsOpen ? (
