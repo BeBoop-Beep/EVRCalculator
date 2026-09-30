@@ -30,6 +30,7 @@ jobs:
           case "$VM_REQUEST_MESSAGE" in
             "bucket-b4-ramp: noop") OP=noop ;;
             "bucket-b4-ramp: apply") OP=apply ;;
+            "bucket-b4-ramp: repin") OP=repin ;;
             "bucket-b4-ramp: run") OP=run ;;
             "bucket-b4-ramp: status") OP=status ;;
             *) echo "REFUSING: invalid fixed operation"; exit 2 ;;
@@ -78,6 +79,30 @@ jobs:
             apply)
               prepare_release
               MARKET_B4_ENV_REPO="$REPO"                 /bin/bash "$WT/infra/oracle/install_market_microstructure_bucket_b4_cron.sh" --apply
+              ;;
+
+            repin)
+              prepare_release
+              exec 6>/tmp/active-supply-panel.lock
+              /usr/bin/flock -n 6 || { echo "REFUSING: active-supply busy"; exit 75; }
+              exec 8>/tmp/pkmnprices-api.lock
+              /usr/bin/flock -n 8 || { echo "REFUSING: provider busy"; exit 75; }
+              exec 9>/tmp/pokemon-post-scrape-publication.lock
+              /usr/bin/flock -n 9 || { echo "REFUSING: publication busy"; exit 75; }
+
+              RUNTIME="$STATE/runtime"
+              git -C "$REPO" worktree prune
+              if [ -e "$RUNTIME" ]; then
+                git -C "$REPO" worktree remove --force "$RUNTIME" >/dev/null 2>&1 || rm -rf "$RUNTIME"
+              fi
+              git -C "$REPO" worktree add --detach "$RUNTIME" "$RELEASE_SHA"
+              [ "$(git -C "$RUNTIME" rev-parse HEAD)" = "$RELEASE_SHA" ] || {
+                echo "REFUSING: detached runtime SHA mismatch"; exit 2;
+              }
+              printf '%s\n' "$RELEASE_SHA" > "$STATE/release.sha.tmp"
+              chmod 600 "$STATE/release.sha.tmp"
+              mv "$STATE/release.sha.tmp" "$STATE/release.sha"
+              echo "BUCKET_B4_RUNTIME_REPINNED source_sha=$RELEASE_SHA runtime=$RUNTIME"
               ;;
 
             run)
