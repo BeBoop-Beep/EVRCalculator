@@ -27,6 +27,10 @@ export PYTHONPATH="$RUNTIME"
 exec 6>/tmp/active-supply-panel.lock
 /usr/bin/flock -n 6 || { echo "BUCKET_B4_ACTIVE_SUPPLY_BUSY"; exit 75; }
 
+/usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c true || {
+  echo "BUCKET_B4_SCRAPE_DISPATCHER_BUSY"; exit 75;
+}
+
 exec 8>/tmp/pkmnprices-api.lock
 /usr/bin/flock -n 8 || { echo "BUCKET_B4_PROVIDER_BUSY"; exit 75; }
 
@@ -36,4 +40,4 @@ exec 9>/tmp/pokemon-post-scrape-publication.lock
 [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "BUCKET_B4_DB_SAFETY_HOLD"; exit 75; }
 
 cd "$RUNTIME"
-exec "$PY" -m backend.scripts.run_market_microstructure_bucket_b4   --commit-phase1   --credit-cap 8000
+exec "$PY" -m backend.scripts.run_market_microstructure_bucket_b4   --commit-phase1   --credit-cap 55000
