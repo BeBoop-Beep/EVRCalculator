@@ -48,12 +48,22 @@ def inspect_postgres(dsn: str) -> dict[str, Any]:
         cur.execute("""select indexname from pg_indexes where schemaname='public'
                        and tablename in ('market_active_supply_snapshots_v1','pkmnprices_card_identity_v1')""")
         indexes = {row[0] for row in cur.fetchall()}
-        cur.execute("""select column_name from information_schema.columns
-                       where table_schema='public' and table_name='market_active_supply_listing_observations_v1'""")
+        # information_schema is privilege-filtered. The VM's direct DSN uses a
+        # restricted operational role, so prove physical schema from pg_catalog
+        # without granting that role access to research tables.
+        cur.execute("""select attname
+                       from pg_catalog.pg_attribute
+                       where attrelid='public.market_active_supply_listing_observations_v1'::regclass
+                         and attnum > 0
+                         and not attisdropped""")
         columns = {row[0] for row in cur.fetchall()}
     missing_indexes = sorted(REQUIRED_INDEXES - indexes)
     required_columns = {"landed_price", "listing_updated_at", "provider_snapshot_at", "seller_rating", "seller_sales_count"}
-    return {"missing_indexes": missing_indexes, "missing_typed_columns": sorted(required_columns - columns)}
+    return {
+        "missing_indexes": missing_indexes,
+        "missing_typed_columns": sorted(required_columns - columns),
+        "schema_probe": "pg_catalog_privilege_independent",
+    }
 
 
 def run_preflight(db: Any, *, dsn: str, source_commit_sha: str) -> dict[str, Any]:

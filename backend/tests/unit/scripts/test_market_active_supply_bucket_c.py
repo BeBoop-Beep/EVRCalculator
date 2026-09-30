@@ -28,11 +28,19 @@ def test_launch_bounds_fail_closed(targets, offers, credits):
 def test_health_distinguishes_missing_run_from_zero_supply():
     missing = evaluate([], expected_date="2026-09-29")
     assert missing["state"] == "RUN_MISSING" and missing["healthy"] is False
-    empty_but_observed = evaluate([{
-        "run_id": "r", "expected_observation_date": "2026-09-29",
-        "status": "COMPLETE", "target_count": 1, "observed_target_count": 1,
+    exact_full = evaluate([{
+        "run_id": "r", "expected_observation_date": "2026-09-30",
+        "status": "COMPLETE", "target_count": 207, "observed_target_count": 207,
+    }], expected_date="2026-09-30")
+    assert exact_full["healthy"] is True
+    launch_smoke = evaluate([{
+        "run_id": "smoke", "expected_observation_date": "2026-09-29",
+        "status": "COMPLETE", "target_count": 10, "observed_target_count": 10,
     }], expected_date="2026-09-29")
-    assert empty_but_observed["healthy"] is True
+    assert launch_smoke["healthy"] is False
+    assert launch_smoke["state"] == "INCOMPATIBLE_TARGET_COUNT"
+    assert launch_smoke["expected_targets"] == 207
+    assert launch_smoke["run_target_count"] == 10
 
 
 def test_migration_is_mirrored_and_enforces_hashed_sellers():
@@ -154,3 +162,21 @@ def test_installers_keep_reviewed_code_separate_from_vm_env_repo():
     assert 'CODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"' in credential_installer
     assert 'ENV_REPO="${ACTIVE_SUPPLY_ENV_REPO:-/home/ubuntu/repos/EVRCalculator}"' in credential_installer
     assert 'ENV_FILE="$ENV_REPO/backend/.env"' in credential_installer
+
+
+def test_activation_preflight_uses_privilege_independent_catalog_probe():
+    preflight_script = (
+        ROOT / "backend/scripts/preflight_market_active_supply_panel.py"
+    ).read_text(encoding="utf-8")
+    assert "pg_catalog.pg_attribute" in preflight_script
+    assert "information_schema.columns" not in preflight_script
+    assert "pg_catalog_privilege_independent" in preflight_script
+
+
+def test_smoke_date_cannot_satisfy_full_panel_noop():
+    collector = (
+        ROOT / "backend/scripts/run_market_active_supply_snapshot.py"
+    ).read_text(encoding="utf-8")
+    assert "non-full-panel calibration run" in collector
+    assert "FULL_PANEL_TARGETS" in collector
+    assert 'metadata.get("full_panel_daily") is True' in collector
