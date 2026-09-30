@@ -1,0 +1,230 @@
+{
+  "contractVersion": "market_activity_v1.1",
+  "fixtures": [
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_01_fresh_complete.json",
+      "fixtureId": "fma_fixture_01",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "fresh_complete",
+      "sha256": "041ed2a30dae9886a2c4b7b113d85e1da4d8c8a995cdbc8316911817fdd39256"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_02_partial_sales.json",
+      "fixtureId": "fma_fixture_02",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "partial_sales",
+      "sha256": "67c722e3f682e1a8445ade8836c38b7316372598efb486bf80fa29ab3fec0922"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_03_stale_asks.json",
+      "fixtureId": "fma_fixture_03",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "stale_asks",
+      "sha256": "2ea73b06f3d51a001df1e1d6ccdb50dfebca3548cdb4e2add3cd08228203622c"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_04_zero_with_proof.json",
+      "fixtureId": "fma_fixture_04",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "zero_with_proof",
+      "sha256": "47540c6eb9d5fe91ad7cd6685f05dff5611790f5d42858395cb58cda67abb0f7"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_05_not_collected.json",
+      "fixtureId": "fma_fixture_05",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "not_collected",
+      "sha256": "f66912540d7b0f38f1f635ac0de021d92a42292b57e0312a1c55ea5834f0dc07"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_06_missing_grade.json",
+      "fixtureId": "fma_fixture_06",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "missing_grade",
+      "sha256": "9f8d20dd60b66012da50b1dbf2ec14c6b4fdef65f6e3a959a58fb88f410d5ad7"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_07_insufficient_peers.json",
+      "fixtureId": "fma_fixture_07",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "insufficient_peers",
+      "sha256": "1918a1fb2d945a7df587f0f0bd424e9f703c53b39c0966d107d3da008e7740d0"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "UNAVAILABLE",
+      "file": "fma_fixture_08_unsupported_asset.json",
+      "fixtureId": "fma_fixture_08",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "unsupported_asset",
+      "sha256": "2bd9ade27329f80c6ee41e87776ac999204846b041b8baa689216a0bcb45d80b"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "UNAVAILABLE",
+      "file": "fma_fixture_09_generation_mismatch.json",
+      "fixtureId": "fma_fixture_09",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "generation_mismatch",
+      "sha256": "97382ec20edc3f5e109ee0a63daa9e624a17f9491652f67bd44565d3cf61f8d7"
+    },
+    {
+      "assembler": "constituent_page",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_10_constituent_page.json",
+      "fixtureId": "fma_fixture_10",
+      "requestSchema": "constituent_page_request.schema.json",
+      "responseSchema": "constituent_page_response.schema.json",
+      "scenario": "constituent_page",
+      "sha256": "8879d72b3c45ac7b4c65f06af47cc15979d38cac3ec32c16d3644fdb2707107c"
+    },
+    {
+      "assembler": "group_activity",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_11_group_activity.json",
+      "fixtureId": "fma_fixture_11",
+      "requestSchema": "activity_request.schema.json",
+      "responseSchema": "activity_response.schema.json",
+      "scenario": "group_activity",
+      "sha256": "70825aa7ccffbcc9f91f0858821421d8ae00ab0071a2e86222aabc763c338852"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_12_legacy_no_receipts.json",
+      "fixtureId": "fma_fixture_12",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "legacy_no_receipts",
+      "sha256": "ad3d317ec914515582d7e99c6e2b64acd789e9546470a8baab6a77a75de23422"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_13_future_right_edge.json",
+      "fixtureId": "fma_fixture_13",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "future_right_edge",
+      "sha256": "2f20610f757990a86d72ee44ed32d8cd44660a2926365d3dd3482c9fb9769ab9"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_14_mixed_unconfirmed_asks.json",
+      "fixtureId": "fma_fixture_14",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "mixed_unconfirmed_asks",
+      "sha256": "7e2be58a9ec8b5ba432b8d4266087fce2174dc8bb9ec853c5d6cd450d7ca5198"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_15_multi_date_series.json",
+      "fixtureId": "fma_fixture_15",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "multi_date_series",
+      "sha256": "6779dabd48e92c25606434209ffc63da73d41b1091213c3d08b73a04909acb99"
+    },
+    {
+      "assembler": "constituent_page",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_16_constituent_page_cursor.json",
+      "fixtureId": "fma_fixture_16",
+      "requestSchema": "constituent_page_request.schema.json",
+      "responseSchema": "constituent_page_response.schema.json",
+      "scenario": "constituent_page_cursor",
+      "sha256": "9bc24b81636b5800699698c8732b6e90fab55da74594942efacd417aadf94fbc"
+    },
+    {
+      "assembler": "constituent_page",
+      "expectedAvailability": "UNAVAILABLE",
+      "file": "fma_fixture_17_cursor_mismatch.json",
+      "fixtureId": "fma_fixture_17",
+      "requestSchema": "constituent_page_request.schema.json",
+      "responseSchema": "constituent_page_response.schema.json",
+      "scenario": "cursor_mismatch",
+      "sha256": "0d4c0033820cccf243726b70af86b29895012c9e1ecc92fcb527f8c1c0cb6d0b"
+    },
+    {
+      "assembler": "constituent_page",
+      "expectedAvailability": "UNAVAILABLE",
+      "file": "fma_fixture_18_activity_generation_expired.json",
+      "fixtureId": "fma_fixture_18",
+      "requestSchema": "constituent_page_request.schema.json",
+      "responseSchema": "constituent_page_response.schema.json",
+      "scenario": "activity_generation_expired",
+      "sha256": "3dd8cb81280b56cc4f2a71585c456f38894cbd035775a82e0b4a7dc3c75d2f52"
+    },
+    {
+      "assembler": "group_activity",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_19_group_roster_101.json",
+      "fixtureId": "fma_fixture_19",
+      "requestSchema": "activity_request.schema.json",
+      "responseSchema": "activity_response.schema.json",
+      "scenario": "group_roster_101",
+      "sha256": "b58d4f2c4327344e9abf2787c9f8bdd53ad16c8193250c6ec0aea1291408ee37"
+    }
+  ],
+  "manifestVersion": "market_activity_v1_fixtures_2",
+  "policy": {
+    "askConfirmationMaxAgeHours": 24,
+    "futureTimestampSkewSeconds": 300,
+    "percentileMinOtherPeers": 30,
+    "priceSummaryMinRecords": 5,
+    "soldHeadReceiptMaxAgeHours": 36,
+    "tiePolicy": "midrank_v1",
+    "version": "fma_display_policy_v1"
+  },
+  "schemas": {
+    "activity_request.schema.json": "612ae2d6a1fd7a1445c7d6d2e4f14dc37e6c8bfeeaa285f3e58a0f069d6cd0ea",
+    "activity_response.schema.json": "91647a272ae78a72bf20c4165801e2873337d55b8855f4e5651c047aa934d41b",
+    "common.schema.json": "321a4e2ee83f35f3d30dcd9d6a91fd57d21ebbc4d07bd5fb5822f16b8723e4eb",
+    "constituent_page_request.schema.json": "caa050c153b0f6cca817907434245b0580ace02e0bf380194ce873a63733b09d",
+    "constituent_page_response.schema.json": "4535a9dd8560497f9874f4d7d6baa321b4004181ed2cacb680424811f98b8595",
+    "fixture_manifest.schema.json": "a300ae15c1c2aa1f8c34563a2f5d4ad22e3f5d1cb6c8f9c6dbd40c26e6084347",
+    "instrument_detail_request.schema.json": "c5838530e0061743db046628144118b2e0bb10bf996a2b54ca724b955a5a1f32",
+    "instrument_detail_response.schema.json": "b3abfc3a7f781d45bc0b759ffc1bff15cec934d95c38c8407c18f8e9afe17dbf"
+  },
+  "versions": {
+    "contract": "market_activity_v1.1",
+    "cursor": "fma_cursor_v1",
+    "domain": "market_activity_domain_v1.1.0",
+    "grading": "fma_grading_identity_v1",
+    "identity": "fma_exact_identity_v1",
+    "membership": "fma_membership_v2",
+    "observation": "fma_sold_observation_v1",
+    "peerPopulation": "fma_peer_population_v2",
+    "qualifierRegistry": "fma_qualifier_registry_v1",
+    "series": "fma_activity_series_v1",
+    "supplyProvenance": "fma_supply_provenance_v2",
+    "tiePolicy": "midrank_v1",
+    "windowReadiness": "fma_window_readiness_v2"
+  }
+}

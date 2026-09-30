@@ -1,0 +1,188 @@
+{
+  "$id": "instrument_detail_response.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activityGenerationId": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/Uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "asks": {
+      "$ref": "common.schema.json#/$defs/Asks"
+    },
+    "availability": {
+      "$ref": "common.schema.json#/$defs/Availability"
+    },
+    "capabilities": {
+      "$ref": "common.schema.json#/$defs/Capabilities"
+    },
+    "contractVersion": {
+      "const": "market_activity_v1.1"
+    },
+    "evaluatedAt": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "evidenceFingerprint": {
+      "$ref": "common.schema.json#/$defs/Fingerprint"
+    },
+    "instrument": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "asset": {
+              "const": "cards"
+            },
+            "canonicalCardId": {
+              "anyOf": [
+                {
+                  "$ref": "common.schema.json#/$defs/Uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cardVariantId": {
+              "$ref": "common.schema.json#/$defs/Uuid"
+            },
+            "grading": {
+              "$ref": "common.schema.json#/$defs/Grading"
+            },
+            "instrumentKey": {
+              "$ref": "common.schema.json#/$defs/InstrumentKey"
+            },
+            "stream": {
+              "enum": [
+                "RAW",
+                "GRADED"
+              ]
+            },
+            "tier": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "instrumentKey",
+            "asset",
+            "cardVariantId",
+            "canonicalCardId",
+            "stream",
+            "tier",
+            "grading"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "kind": {
+      "const": "instrumentDetail"
+    },
+    "peers": {
+      "$ref": "common.schema.json#/$defs/Peers"
+    },
+    "policy": {
+      "$ref": "common.schema.json#/$defs/Policy"
+    },
+    "request": {
+      "$ref": "instrument_detail_request.schema.json#"
+    },
+    "roster": {
+      "$ref": "common.schema.json#/$defs/Roster"
+    },
+    "sales": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "conditionBasis": {
+              "const": "UNKNOWN_CONDITION"
+            },
+            "currency": {
+              "const": "USD"
+            },
+            "excludedRecordCounts": {
+              "additionalProperties": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "observation": {
+              "$ref": "common.schema.json#/$defs/Observation"
+            },
+            "source": {
+              "const": "pkmnprices_ebay_sold"
+            },
+            "tier": {
+              "type": "string"
+            },
+            "windows": {
+              "items": {
+                "$ref": "common.schema.json#/$defs/SalesWindow"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            }
+          },
+          "required": [
+            "source",
+            "currency",
+            "conditionBasis",
+            "tier",
+            "observation",
+            "windows",
+            "excludedRecordCounts"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "series": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/InstrumentSeries"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "versions": {
+      "$ref": "common.schema.json#/$defs/Versions"
+    }
+  },
+  "required": [
+    "kind",
+    "contractVersion",
+    "versions",
+    "policy",
+    "request",
+    "evaluatedAt",
+    "activityGenerationId",
+    "availability",
+    "evidenceFingerprint",
+    "instrument",
+    "roster",
+    "sales",
+    "asks",
+    "peers",
+    "series",
+    "capabilities"
+  ],
+  "title": "instrument_detail_response",
+  "type": "object"
+}

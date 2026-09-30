@@ -1,0 +1,157 @@
+{
+  "$id": "activity_response.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activityGenerationId": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/Uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "availability": {
+      "$ref": "common.schema.json#/$defs/Availability"
+    },
+    "contractVersion": {
+      "const": "market_activity_v1.1"
+    },
+    "coverage": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "notCollected": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "rosterDenominator": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unavailable": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "windowPartial": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "windowProven": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "windowUnproven": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "rosterDenominator",
+            "windowProven",
+            "windowPartial",
+            "windowUnproven",
+            "notCollected",
+            "unavailable"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluatedAt": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "evidenceFingerprint": {
+      "$ref": "common.schema.json#/$defs/Fingerprint"
+    },
+    "kind": {
+      "const": "groupActivity"
+    },
+    "label": {
+      "const": "Activity for current constituents"
+    },
+    "policy": {
+      "$ref": "common.schema.json#/$defs/Policy"
+    },
+    "request": {
+      "$ref": "activity_request.schema.json#"
+    },
+    "roster": {
+      "$ref": "common.schema.json#/$defs/Roster"
+    },
+    "series": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/GroupSeries"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "totals": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "observedConstituentCount": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observedSaleCountLowerBound": {
+              "$ref": "common.schema.json#/$defs/NullableCount"
+            },
+            "provenConstituentCount": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "provenSaleCount": {
+              "$ref": "common.schema.json#/$defs/NullableCount"
+            },
+            "windowDays": {
+              "$ref": "common.schema.json#/$defs/WindowDays"
+            }
+          },
+          "required": [
+            "windowDays",
+            "provenSaleCount",
+            "provenConstituentCount",
+            "observedSaleCountLowerBound",
+            "observedConstituentCount"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "versions": {
+      "$ref": "common.schema.json#/$defs/Versions"
+    }
+  },
+  "required": [
+    "kind",
+    "contractVersion",
+    "versions",
+    "policy",
+    "request",
+    "evaluatedAt",
+    "activityGenerationId",
+    "availability",
+    "evidenceFingerprint",
+    "label",
+    "roster",
+    "coverage",
+    "totals",
+    "series"
+  ],
+  "title": "activity_response",
+  "type": "object"
+}

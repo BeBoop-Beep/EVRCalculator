@@ -1,0 +1,358 @@
+{
+  "assembler": "instrument_detail",
+  "description": "No sold evidence, no receipt, no collection record, no supply snapshot: every count is null, never zero.",
+  "expected": {
+    "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+    "asks": {
+      "capturedListingCount": null,
+      "capturedQuantity": null,
+      "collectedAt": null,
+      "conditionBasis": "NEAR_MINT_LISTED",
+      "confirmationAgeHours": null,
+      "currentUntil": null,
+      "depth": null,
+      "lowestAsk": null,
+      "offerQualification": "NOT_CURRENT",
+      "providerConfirmedAt": null,
+      "reasons": [
+        "NOT_COLLECTED"
+      ],
+      "source": "pkmnprices_tcgplayer_listings",
+      "state": "NOT_COLLECTED",
+      "unconfirmedOffers": null
+    },
+    "availability": {
+      "reasons": [
+        "NOT_COLLECTED"
+      ],
+      "state": "PARTIAL"
+    },
+    "capabilities": {
+      "activityPercentile": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "askDepth": {
+        "available": false,
+        "expiresAt": null,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "currentAsks": {
+        "available": false,
+        "expiresAt": null,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "inferredSalesFromListings": {
+        "available": false,
+        "reasons": [
+          "FEATURE_DISABLED_V1"
+        ]
+      },
+      "landedAsk": {
+        "available": false,
+        "expiresAt": null,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "observedSales": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "saleCount": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "salePriceSummary": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "supplyTurnover": {
+        "available": false,
+        "reasons": [
+          "FEATURE_DISABLED_V1"
+        ]
+      }
+    },
+    "contractVersion": "market_activity_v1.1",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "evidenceFingerprint": "42bbdb8ea6eb274a952a091fb80f02048e52664f9fc01106a83a0f119f0a67db",
+    "instrument": {
+      "asset": "cards",
+      "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
+      "cardVariantId": "00000000-0000-4000-8000-0000000000a1",
+      "grading": {
+        "grade": null,
+        "grader": null,
+        "qualifier": null,
+        "reasons": [],
+        "state": "RAW"
+      },
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "stream": "RAW",
+      "tier": "RAW"
+    },
+    "kind": "instrumentDetail",
+    "peers": null,
+    "policy": {
+      "askConfirmationMaxAgeHours": 24,
+      "futureTimestampSkewSeconds": 300,
+      "percentileMinOtherPeers": 30,
+      "priceSummaryMinRecords": 5,
+      "soldHeadReceiptMaxAgeHours": 36,
+      "tiePolicy": "midrank_v1",
+      "version": "fma_display_policy_v1"
+    },
+    "request": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "asOf": "2026-09-29",
+      "chartRange": null,
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "windowDays": 30
+    },
+    "roster": {
+      "label": "Activity for current constituents",
+      "membershipContractVersion": "fma_membership_v2",
+      "membershipMode": "CURRENT_ROSTER_RETROSPECTIVE",
+      "rosterAsOf": "2026-09-29",
+      "rosterDenominator": 3,
+      "rosterRevision": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      }
+    },
+    "sales": {
+      "conditionBasis": "UNKNOWN_CONDITION",
+      "currency": "USD",
+      "excludedRecordCounts": {},
+      "observation": {
+        "basis": null,
+        "reasons": [
+          "NOT_COLLECTED"
+        ],
+        "state": "NOT_COLLECTED"
+      },
+      "source": "pkmnprices_ebay_sold",
+      "tier": "RAW",
+      "windows": [
+        {
+          "days": 7,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-09-23"
+        },
+        {
+          "days": 30,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-08-31"
+        },
+        {
+          "days": 90,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-07-02"
+        },
+        {
+          "days": 180,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-04-03"
+        }
+      ]
+    },
+    "series": {
+      "activityRange": {
+        "endDate": "2026-09-29",
+        "startDate": "2026-04-03"
+      },
+      "asOf": "2026-09-29",
+      "canonicalRange": null,
+      "outsideActivityRange": "NOT_COLLECTED",
+      "sales": {
+        "conditionBasis": "UNKNOWN_CONDITION",
+        "counts": {
+          "points": [],
+          "unit": "SALE_COUNT"
+        },
+        "currency": "USD",
+        "observationState": "NOT_COLLECTED",
+        "prices": {
+          "points": [],
+          "unit": "USD"
+        },
+        "provenSpan": null,
+        "reconciledThrough": null,
+        "source": "pkmnprices_ebay_sold",
+        "tier": "RAW"
+      },
+      "storage": "SPARSE_DAILY",
+      "supply": {
+        "conditionBasis": "NEAR_MINT_LISTED",
+        "excludedSnapshots": {
+          "byStateAtCollection": {},
+          "outsideActivityRange": 0
+        },
+        "listings": {
+          "points": [],
+          "unit": "LISTING_COUNT"
+        },
+        "lowestAsk": {
+          "points": [],
+          "unit": "USD"
+        },
+        "quantity": {
+          "points": [],
+          "unit": "LISTED_QUANTITY"
+        },
+        "source": "pkmnprices_tcgplayer_listings"
+      },
+      "version": "fma_activity_series_v1",
+      "zeroRule": "ABSENT_DATE_IS_ZERO_ONLY_INSIDE_PROVEN_SPAN"
+    },
+    "versions": {
+      "contract": "market_activity_v1.1",
+      "cursor": "fma_cursor_v1",
+      "domain": "market_activity_domain_v1.1.0",
+      "grading": "fma_grading_identity_v1",
+      "identity": "fma_exact_identity_v1",
+      "membership": "fma_membership_v2",
+      "observation": "fma_sold_observation_v1",
+      "peerPopulation": "fma_peer_population_v2",
+      "qualifierRegistry": "fma_qualifier_registry_v1",
+      "series": "fma_activity_series_v1",
+      "supplyProvenance": "fma_supply_provenance_v2",
+      "tiePolicy": "midrank_v1",
+      "windowReadiness": "fma_window_readiness_v2"
+    }
+  },
+  "fixtureId": "fma_fixture_05",
+  "inputs": {
+    "activityGeneration": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "state": "SERVING"
+    },
+    "askHistory": [],
+    "asks": null,
+    "asset": "cards",
+    "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "peers": null,
+    "previousAskConfirmation": null,
+    "request": {
+      "activityGenerationId": "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+      "asOf": "2026-09-29",
+      "chartRange": null,
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "rosterRef": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      },
+      "windowDays": 30
+    },
+    "roster": {
+      "asOf": "2026-09-29",
+      "denominator": 3,
+      "memberVariantIds": [
+        "00000000-0000-4000-8000-0000000000a1",
+        "00000000-0000-4000-8000-0000000000b1",
+        "00000000-0000-4000-8000-0000000000c1"
+      ]
+    },
+    "servedGenerationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+    "sold": {
+      "candidateScope": "FULL_CARD_VARIANT_SET",
+      "candidates": [
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a1",
+          "printingType": "holo",
+          "specialType": null
+        },
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a2",
+          "printingType": "reverse-holo",
+          "specialType": null
+        }
+      ],
+      "collectionRecord": null,
+      "providerCardId": "900001",
+      "records": [],
+      "walks": []
+    }
+  },
+  "requestSchema": "instrument_detail_request.schema.json",
+  "responseSchema": "instrument_detail_response.schema.json",
+  "scenario": "not_collected"
+}

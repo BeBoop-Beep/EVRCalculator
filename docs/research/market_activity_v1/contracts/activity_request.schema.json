@@ -1,0 +1,36 @@
+{
+  "$id": "activity_request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activityGenerationId": {
+      "$ref": "common.schema.json#/$defs/Uuid"
+    },
+    "asOf": {
+      "$ref": "common.schema.json#/$defs/Date"
+    },
+    "chartRange": {
+      "$ref": "common.schema.json#/$defs/NullableDateRange"
+    },
+    "marketKey": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "rosterRef": {
+      "$ref": "common.schema.json#/$defs/RosterRevision"
+    },
+    "windowDays": {
+      "$ref": "common.schema.json#/$defs/WindowDays"
+    }
+  },
+  "required": [
+    "marketKey",
+    "activityGenerationId",
+    "rosterRef",
+    "asOf",
+    "windowDays",
+    "chartRange"
+  ],
+  "title": "activity_request",
+  "type": "object"
+}

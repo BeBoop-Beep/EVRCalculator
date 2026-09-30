@@ -1,0 +1,87 @@
+{
+  "$id": "fixture_manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": {
+      "const": "market_activity_v1.1"
+    },
+    "fixtures": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "assembler": {
+            "enum": [
+              "instrument_detail",
+              "constituent_page",
+              "group_activity"
+            ]
+          },
+          "expectedAvailability": {
+            "enum": [
+              "AVAILABLE",
+              "PARTIAL",
+              "UNAVAILABLE"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "fixtureId": {
+            "type": "string"
+          },
+          "requestSchema": {
+            "type": "string"
+          },
+          "responseSchema": {
+            "type": "string"
+          },
+          "scenario": {
+            "type": "string"
+          },
+          "sha256": {
+            "$ref": "common.schema.json#/$defs/Fingerprint"
+          }
+        },
+        "required": [
+          "fixtureId",
+          "scenario",
+          "file",
+          "assembler",
+          "requestSchema",
+          "responseSchema",
+          "sha256",
+          "expectedAvailability"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "manifestVersion": {
+      "const": "market_activity_v1_fixtures_2"
+    },
+    "policy": {
+      "$ref": "common.schema.json#/$defs/Policy"
+    },
+    "schemas": {
+      "additionalProperties": {
+        "$ref": "common.schema.json#/$defs/Fingerprint"
+      },
+      "type": "object"
+    },
+    "versions": {
+      "$ref": "common.schema.json#/$defs/Versions"
+    }
+  },
+  "required": [
+    "manifestVersion",
+    "contractVersion",
+    "versions",
+    "policy",
+    "schemas",
+    "fixtures"
+  ],
+  "title": "fixture_manifest",
+  "type": "object"
+}
