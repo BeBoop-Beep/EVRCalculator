@@ -164,7 +164,7 @@ function MovementWindowSelector({ value, onChange }) {
       data-market-constituents-window-selector
       role="group"
       aria-label="Constituent movement window"
-      className="flex flex-none flex-wrap items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-0.5"
+      className="flex max-w-full flex-none items-center gap-0.5 overflow-x-auto rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-0.5"
     >
       {CONSTITUENT_MOVEMENT_WINDOWS.map((window) => {
         const isActive = window === value;
@@ -177,7 +177,7 @@ function MovementWindowSelector({ value, onChange }) {
             aria-pressed={isActive}
             onClick={() => onChange(window)}
             className={[
-              "min-h-9 rounded px-2 text-[10px] font-semibold tabular-nums transition-colors desk:min-h-0 desk:py-1",
+              "min-h-9 shrink-0 rounded px-2 text-[10px] font-semibold tabular-nums transition-colors desk:min-h-0 desk:py-1",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
               isActive
                 ? "bg-[rgba(45,212,191,0.14)] text-[rgb(45,212,191)]"

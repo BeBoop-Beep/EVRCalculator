@@ -200,6 +200,33 @@ export default function MarketExplorerClient({
   const methodologyRestoreFocusRef = useRef(null);
   const builderDialogRef = useRef(null);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const mobileToolsTriggerRef = useRef(null);
+  const mobileToolsSurfaceRef = useRef(null);
+  useEffect(() => {
+    if (!mobileToolsOpen || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const trigger = mobileToolsTriggerRef.current;
+    document.body.style.overflow = "hidden";
+    const surface = mobileToolsSurfaceRef.current;
+    const focusable = () => [...(surface?.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])];
+    const focusFrame = requestAnimationFrame(() => surface?.querySelector("[data-market-explorer-close-controls]")?.focus());
+    const keydown = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); setMobileToolsOpen(false); return; }
+      if (event.key !== "Tab") return;
+      const nodes = focusable();
+      if (!nodes.length) return;
+      const first = nodes[0]; const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", keydown);
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => trigger?.focus());
+    };
+  }, [mobileToolsOpen]);
   useEffect(() => {
     if (!methodologyOpen || typeof document === "undefined") return undefined;
     const methodologyTrigger = methodologyTriggerRef.current;
@@ -898,20 +925,34 @@ export default function MarketExplorerClient({
         </section>
       ) : null}
       <button
+        ref={mobileToolsTriggerRef}
         type="button"
         data-market-explorer-mobile-tools
         aria-expanded={mobileToolsOpen}
+        aria-controls="explorer-controls"
+        aria-label={mobileToolsOpen ? "Close Market controls" : "Open Market controls"}
+        title="Market controls"
         onClick={() => setMobileToolsOpen((open) => !open)}
-        className="order-1 flex min-h-11 items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 text-sm font-semibold text-[var(--text-primary)] desk:hidden"
+        className="fixed bottom-[calc(10.25rem+env(safe-area-inset-bottom))] right-4 z-[80] grid h-12 w-12 place-items-center rounded-full border border-violet-300/60 bg-[rgba(76,29,149,.94)] text-violet-50 shadow-[0_10px_30px_rgba(15,23,42,.55),0_0_18px_rgba(139,92,246,.35)] backdrop-blur transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 desk:hidden"
       >
-        Markets / Tools{" "}
-        <span aria-hidden="true">{mobileToolsOpen ? "−" : "+"}</span>
+        <span aria-hidden="true" className="text-lg leading-none">{mobileToolsOpen ? "×" : "☷"}</span>
       </button>
+      {mobileToolsOpen ? (
+        <button type="button" tabIndex={-1} aria-label="Close Market controls" data-market-explorer-controls-backdrop onClick={() => setMobileToolsOpen(false)} className="fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] top-[var(--app-header-offset,64px)] z-[65] cursor-default bg-slate-950/55 backdrop-blur-[2px] desk:hidden" />
+      ) : null}
       <aside
+        ref={mobileToolsSurfaceRef}
         id="explorer-controls"
+        role={mobileToolsOpen ? "dialog" : undefined}
+        aria-modal={mobileToolsOpen ? "true" : undefined}
+        aria-label="Market controls"
         data-market-explorer-sidebar
-        className={`${mobileToolsOpen ? "block" : "hidden"} order-3 min-w-0 space-y-3 desk:order-none desk:col-start-1 desk:block desk:h-full desk:overflow-y-auto`}
+        className={`${mobileToolsOpen ? "fixed" : "hidden"} inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] top-[var(--app-header-offset,64px)] z-[70] min-w-0 overflow-y-auto overscroll-contain bg-[rgba(2,6,23,.98)] p-3 shadow-2xl tab:bottom-[calc(5.75rem+env(safe-area-inset-bottom))] tab:left-4 tab:right-auto tab:top-[calc(var(--app-header-offset,64px)+1rem)] tab:w-[min(24rem,calc(100vw-2rem))] tab:rounded-2xl tab:border tab:border-violet-400/30 desk:static desk:order-none desk:col-start-1 desk:block desk:h-full desk:w-auto desk:space-y-3 desk:overflow-y-auto desk:border-0 desk:bg-transparent desk:p-0 desk:shadow-none`}
       >
+        <div className="sticky top-0 z-20 -mx-3 -mt-3 mb-3 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[rgba(2,6,23,.96)] px-4 py-3 backdrop-blur desk:hidden">
+          <h2 id="market-controls-title" className="text-sm font-semibold text-violet-100">Market Controls</h2>
+          <button type="button" data-market-explorer-close-controls onClick={() => setMobileToolsOpen(false)} className="min-h-10 rounded-lg border border-violet-400/50 bg-violet-500/[.12] px-3 text-xs font-semibold text-violet-100">Close</button>
+        </div>
         <section
           data-market-explorer-zone="explore"
           className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface`}
@@ -1026,7 +1067,7 @@ export default function MarketExplorerClient({
           data-market-explorer-methodology-trigger
           aria-expanded={methodologyOpen}
           onClick={openMethodology}
-          className="min-h-10 w-full rounded-lg border border-violet-400/45 bg-violet-500/[.08] px-4 text-xs font-semibold text-violet-200 transition-colors hover:border-violet-300/75 hover:bg-violet-500/[.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80"
+          className="hidden min-h-10 w-full rounded-lg border border-violet-400/45 bg-violet-500/[.08] px-4 text-xs font-semibold text-violet-200 transition-colors hover:border-violet-300/75 hover:bg-violet-500/[.18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 desk:block"
         >
           Methodology
         </button>
@@ -1141,7 +1182,9 @@ export default function MarketExplorerClient({
       <section
         data-market-explorer-analysis
         data-market-explorer-zone="compare"
-        className="order-2 flex min-w-0 flex-col desk:order-none desk:col-start-2 desk:h-full desk:min-h-0"
+        aria-hidden={mobileToolsOpen ? "true" : undefined}
+        inert={mobileToolsOpen ? true : undefined}
+        className="order-2 flex min-h-[32rem] min-w-0 flex-col tab:min-h-[calc(100dvh-var(--app-header-offset,64px)-7rem)] desk:order-none desk:col-start-2 desk:h-full desk:min-h-0"
         aria-labelledby="compare-markets-zone-heading"
       >
         <div className="sr-only">
@@ -1326,6 +1369,10 @@ export default function MarketExplorerClient({
               </div>
             </div>
           ) : null}
+        </div>
+        <div data-market-explorer-mobile-analysis-actions className="order-3 grid grid-cols-2 gap-2 pt-2 desk:hidden">
+          <button type="button" data-market-explorer-mobile-methodology aria-label="Open Market Explorer methodology" aria-expanded={methodologyOpen} onClick={openMethodology} className="min-h-10 rounded-lg border border-violet-400/55 bg-violet-500/[.1] px-3 text-xs font-semibold text-violet-100">Methodology</button>
+          <button type="button" data-market-explorer-mobile-constituents aria-label="View Constituents and Comparison" aria-expanded={detailsOpen} disabled={!hasActiveMarkets} onClick={() => setDetailsOpen(true)} className="min-h-10 rounded-lg border border-violet-400/55 bg-violet-500/[.1] px-3 text-xs font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-45">Constituents</button>
         </div>
       </section>
     </div>
