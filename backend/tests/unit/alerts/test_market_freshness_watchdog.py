@@ -5,14 +5,19 @@ import backend.alerts.market_freshness_watchdog as watchdog
 
 NOW = datetime(2026, 8, 30, 15, 0, tzinfo=timezone.utc)  # 08:00 America/Phoenix
 HEALTHY_MOVERS_CONTRACT = {
-    "builder": "pokemon_raw_market_seven_day_movers_v2",
-    "universe_contract": "serving_raw_exact_variant_v1",
+    "builder": "pokemon_mixed_market_seven_day_movers_v3",
+    "universe_contract": "serving_cards_and_sealed_exact_instruments_v1",
     "baseline_guard": "target_baseline_reversion_guard_v1",
-    "raw_constituent_count": 20315,
-    "candidate_card_count": 2370,
-    "published_card_count": 30,
-    "card_count": 30,
-    "eligible_set_count": 155,
+    "card_constituent_count": 20315,
+    "sealed_constituent_count": 1377,
+    "card_candidate_count": 2370,
+    "sealed_candidate_count": 419,
+    "candidate_instrument_count": 2789,
+    "published_card_count": 36,
+    "published_sealed_count": 14,
+    "published_instrument_count": 50,
+    "card_count": 50,
+    "eligible_set_count": 208,
 }
 
 FRESH_DATES = {
@@ -157,17 +162,22 @@ class _ContractClient:
                     "tcg": "pokemon",
                     "scope": "explore",
                     "window_key": "7D",
-                    "card_count": 30,
-                    "eligible_set_count": 155,
+                    "card_count": 50,
+                    "eligible_set_count": 208,
                     "payload_json": {
                         "meta": {
-                            "builder": "pokemon_raw_market_seven_day_movers_v2",
-                            "universeContractVersion": "serving_raw_exact_variant_v1",
+                            "builder": "pokemon_mixed_market_seven_day_movers_v3",
+                            "universeContractVersion": "serving_cards_and_sealed_exact_instruments_v1",
                             "baselineQualityGuardVersion": "target_baseline_reversion_guard_v1",
                             "coverage": {
-                                "rawConstituentCount": 20315,
-                                "candidateCardCount": 2370,
-                                "publishedCardCount": 30,
+                                "cardConstituentCount": 20315,
+                                "sealedConstituentCount": 1377,
+                                "cardCandidateCount": 2370,
+                                "sealedCandidateCount": 419,
+                                "candidateInstrumentCount": 2789,
+                                "publishedCardCount": 36,
+                                "publishedSealedCount": 14,
+                                "publishedInstrumentCount": 50,
                             },
                         }
                     },
@@ -245,15 +255,18 @@ def test_fresh_healthy_state_has_no_failures():
     assert watchdog.evaluate_watchdog_state(_state({"status": "complete"}), now=NOW) == []
 
 
-def test_current_by_date_but_legacy_top_chase_movers_fail_semantics():
+def test_current_by_date_but_cards_only_or_thirty_item_movers_fail_semantics():
     legacy = dict(
         HEALTHY_MOVERS_CONTRACT,
-        builder="pokemon_explore_top_chase_seven_day_movers",
-        universe_contract=None,
-        baseline_guard=None,
-        raw_constituent_count=0,
-        candidate_card_count=180,
-        eligible_set_count=22,
+        builder="pokemon_raw_market_seven_day_movers_v2",
+        universe_contract="serving_raw_exact_variant_v1",
+        sealed_constituent_count=0,
+        sealed_candidate_count=0,
+        published_card_count=30,
+        published_sealed_count=0,
+        published_instrument_count=30,
+        card_count=30,
+        eligible_set_count=155,
     )
     failures = watchdog.evaluate_watchdog_state(
         _state({"status": "complete"}, movers_contract=legacy), now=NOW
@@ -263,7 +276,24 @@ def test_current_by_date_but_legacy_top_chase_movers_fail_semantics():
         if row["alert_type"] == "market_snapshot_semantics_invalid"
     )
     assert failure["failure_class"] == "explore_card_movers_universe_contract"
-    assert failure["expected_contract"]["universe_contract"] == "serving_raw_exact_variant_v1"
+    assert failure["expected_contract"]["universe_contract"] == "serving_cards_and_sealed_exact_instruments_v1"
+
+
+def test_mixed_movers_fail_if_candidates_support_fifty_but_only_thirty_publish():
+    short = dict(
+        HEALTHY_MOVERS_CONTRACT,
+        published_card_count=22,
+        published_sealed_count=8,
+        published_instrument_count=30,
+        card_count=30,
+    )
+    failures = watchdog.evaluate_watchdog_state(
+        _state({"status": "complete"}, movers_contract=short), now=NOW
+    )
+    assert any(
+        row.get("failure_class") == "explore_card_movers_universe_contract"
+        for row in failures
+    )
 
 
 def test_phoenix_rollover_does_not_use_utc_date(monkeypatch):
