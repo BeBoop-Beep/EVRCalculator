@@ -1,0 +1,668 @@
+{
+  "assembler": "instrument_detail",
+  "description": "Sealed markets are not supported by activity V1.",
+  "expected": {
+    "asks": null,
+    "availability": {
+      "reasons": [
+        "UNSUPPORTED_ASSET"
+      ],
+      "state": "UNAVAILABLE"
+    },
+    "capabilities": {
+      "activityPercentile": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      },
+      "askDepth": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      },
+      "currentAsks": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      },
+      "inferredSalesFromListings": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      },
+      "landedAsk": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      },
+      "saleCount": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      },
+      "salePriceSummary": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      },
+      "supplyTurnover": {
+        "available": false,
+        "reasons": [
+          "UNSUPPORTED_ASSET"
+        ]
+      }
+    },
+    "contractVersion": "market_activity_v1",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "evidenceFingerprint": "0365bbaff46b6edf9079bb257dfb1ddbc2ca039ab507fe4f0481494199108cb9",
+    "instrument": null,
+    "kind": "instrumentDetail",
+    "peers": null,
+    "policy": {
+      "askConfirmationMaxAgeHours": 24,
+      "futureTimestampSkewSeconds": 300,
+      "percentileMinOtherPeers": 30,
+      "priceSummaryMinRecords": 5,
+      "soldHeadReceiptMaxAgeHours": 36,
+      "tiePolicy": "midrank_v1",
+      "version": "fma_display_policy_v1"
+    },
+    "request": {
+      "asOf": "2026-09-29",
+      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "windowDays": 30
+    },
+    "roster": null,
+    "sales": null,
+    "versions": {
+      "contract": "market_activity_v1",
+      "domain": "market_activity_domain_v1.0.0",
+      "grading": "fma_grading_identity_v1",
+      "identity": "fma_exact_identity_v1",
+      "membership": "fma_membership_v1",
+      "qualifierRegistry": "fma_qualifier_registry_v1",
+      "supplyProvenance": "fma_supply_provenance_v1",
+      "tiePolicy": "midrank_v1",
+      "windowReadiness": "fma_window_readiness_v1"
+    }
+  },
+  "fixtureId": "fma_fixture_08",
+  "inputs": {
+    "asks": {
+      "hasMore": true,
+      "observationState": "OBSERVED",
+      "observedAt": "2026-09-30T09:00:00Z",
+      "offers": [
+        {
+          "itemPrice": "44.00",
+          "listingUpdatedAt": "2026-09-20T00:00:00Z",
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
+          "quantity": 2,
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "0.00",
+          "shippingProvenance": "EXPLICIT"
+        },
+        {
+          "itemPrice": "42.00",
+          "listingUpdatedAt": "2026-09-29T00:00:00Z",
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
+          "quantity": 1,
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "4.99",
+          "shippingProvenance": "EXPLICIT"
+        },
+        {
+          "itemPrice": "45.50",
+          "listingUpdatedAt": null,
+          "providerSnapshotAt": "2026-09-30T08:00:00Z",
+          "quantity": 1,
+          "quantityProvenance": "EXPLICIT",
+          "shippingPrice": "1.00",
+          "shippingProvenance": "EXPLICIT"
+        }
+      ],
+      "requestedDepth": 19,
+      "sourceConfirmedAt": null
+    },
+    "asset": "sealed",
+    "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "peers": {
+      "panelId": "market_microstructure_core_panel_v1",
+      "values": [
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000000:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000001:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 7
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000002:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 14
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000003:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 6
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000004:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 13
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000005:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 5
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000006:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 12
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000007:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 4
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000008:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 11
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000009:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 3
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000010:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 10
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000011:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 2
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000012:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 9
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000013:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 1
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000014:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 8
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000015:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000016:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 7
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000017:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 14
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000018:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 6
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000019:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 13
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000020:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 5
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000021:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 12
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000022:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 4
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000023:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 11
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000024:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 3
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000025:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 10
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000026:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 2
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000027:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 9
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000028:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 1
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000029:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 8
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000030:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000031:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 7
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000032:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 14
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000033:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 6
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000034:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 13
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 9
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-999999999999:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|UNPROVEN",
+          "value": 3
+        }
+      ]
+    },
+    "previousAskConfirmation": null,
+    "request": {
+      "asOf": "2026-09-29",
+      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "windowDays": 30
+    },
+    "roster": {
+      "asOf": "2026-09-29",
+      "denominator": 3,
+      "memberVariantIds": [
+        "00000000-0000-4000-8000-0000000000a1",
+        "00000000-0000-4000-8000-0000000000b1",
+        "00000000-0000-4000-8000-0000000000c1"
+      ],
+      "revision": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      }
+    },
+    "servedGenerationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+    "sold": {
+      "candidateScope": "FULL_CARD_VARIANT_SET",
+      "candidates": [
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a1",
+          "printingType": "holo",
+          "specialType": null
+        },
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a2",
+          "printingType": "reverse-holo",
+          "specialType": null
+        }
+      ],
+      "records": [
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-29T01:00:00Z",
+          "listingId": "700000",
+          "price": "41.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-28",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-28T01:00:00Z",
+          "listingId": "700001",
+          "price": "39.50",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-27",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-26T01:00:00Z",
+          "listingId": "700002",
+          "price": "42.25",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-25",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-25T01:00:00Z",
+          "listingId": "700003",
+          "price": "40.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-24",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-21T01:00:00Z",
+          "listingId": "700004",
+          "price": "38.75",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-20",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-16T01:00:00Z",
+          "listingId": "700005",
+          "price": "43.10",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-15",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-11T01:00:00Z",
+          "listingId": "700006",
+          "price": "40.50",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-10",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-03T01:00:00Z",
+          "listingId": "700007",
+          "price": "37.99",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-02",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-08-21T01:00:00Z",
+          "listingId": "700008",
+          "price": "36.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-08-20",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-08-02T01:00:00Z",
+          "listingId": "700009",
+          "price": "35.50",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-08-01",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-07-16T01:00:00Z",
+          "listingId": "700010",
+          "price": "33.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-07-15",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-05-02T01:00:00Z",
+          "listingId": "700011",
+          "price": "30.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-05-01",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "shared",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-27T01:00:00Z",
+          "listingId": "700012",
+          "price": "44.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-26",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": "10",
+          "gradeQualifier": null,
+          "graded": true,
+          "grader": "PSA",
+          "ingestedAt": "2026-09-27T01:00:00Z",
+          "listingId": "700013",
+          "price": "120.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-26",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-29T01:00:00Z",
+          "listingId": "700000",
+          "price": "41.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-09-28",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "unknown",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-09-23T01:00:00Z",
+          "listingId": "700014",
+          "price": "45.00",
+          "providerCardId": "900001",
+          "providerVariant": null,
+          "soldAt": "2026-09-22",
+          "source": "pkmnprices_ebay_sold"
+        }
+      ],
+      "walks": [
+        {
+          "combinedSemanticsVerified": true,
+          "filterFingerprint": "f-combined",
+          "pages": [
+            {
+              "fetchedAt": "2026-09-30T05:00:00Z",
+              "filterFingerprint": "f-combined",
+              "hasMore": true,
+              "inputCursorHash": null,
+              "maxSoldAt": "2026-09-29",
+              "minSoldAt": "2026-08-20",
+              "outputCursorHash": "c000",
+              "pageIndex": 0,
+              "rowCount": 20
+            },
+            {
+              "fetchedAt": "2026-09-30T05:00:00Z",
+              "filterFingerprint": "f-combined",
+              "hasMore": true,
+              "inputCursorHash": "c000",
+              "maxSoldAt": "2026-08-20",
+              "minSoldAt": "2026-03-01",
+              "outputCursorHash": "c001",
+              "pageIndex": 1,
+              "rowCount": 20
+            }
+          ],
+          "rightEdge": {
+            "completed": true,
+            "reconciledThrough": "2026-09-30T06:00:00Z"
+          },
+          "sort": "date_desc",
+          "startedFromHead": true,
+          "stream": "COMBINED"
+        }
+      ]
+    }
+  },
+  "requestSchema": "instrument_detail_request.schema.json",
+  "responseSchema": "instrument_detail_response.schema.json",
+  "scenario": "unsupported_asset"
+}

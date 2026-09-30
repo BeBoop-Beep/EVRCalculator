@@ -1,0 +1,39 @@
+{
+  "$id": "constituent_page_request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "afterRank": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "asOf": {
+      "$ref": "common.schema.json#/$defs/Date"
+    },
+    "generationId": {
+      "$ref": "common.schema.json#/$defs/Uuid"
+    },
+    "limit": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "marketKey": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "windowDays": {
+      "$ref": "common.schema.json#/$defs/WindowDays"
+    }
+  },
+  "required": [
+    "marketKey",
+    "generationId",
+    "asOf",
+    "windowDays",
+    "afterRank",
+    "limit"
+  ],
+  "title": "constituent_page_request",
+  "type": "object"
+}

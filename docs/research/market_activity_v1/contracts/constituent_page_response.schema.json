@@ -1,0 +1,181 @@
+{
+  "$id": "constituent_page_response.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "availability": {
+      "$ref": "common.schema.json#/$defs/Availability"
+    },
+    "contractVersion": {
+      "const": "market_activity_v1"
+    },
+    "evaluatedAt": {
+      "$ref": "common.schema.json#/$defs/DateTime"
+    },
+    "evidenceFingerprint": {
+      "$ref": "common.schema.json#/$defs/Fingerprint"
+    },
+    "kind": {
+      "const": "constituentActivityPage"
+    },
+    "page": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "afterRank": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "limit": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "nextCursor": {
+              "minimum": 1,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "totalCount": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "afterRank",
+            "limit",
+            "totalCount",
+            "nextCursor"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policy": {
+      "$ref": "common.schema.json#/$defs/Policy"
+    },
+    "request": {
+      "$ref": "constituent_page_request.schema.json#"
+    },
+    "roster": {
+      "$ref": "common.schema.json#/$defs/Roster"
+    },
+    "rows": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "askState": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/AskState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "availability": {
+            "$ref": "common.schema.json#/$defs/Availability"
+          },
+          "capabilities": {
+            "additionalProperties": false,
+            "properties": {
+              "currentAsks": {
+                "$ref": "common.schema.json#/$defs/Capability"
+              },
+              "saleCount": {
+                "$ref": "common.schema.json#/$defs/Capability"
+              },
+              "salePriceSummary": {
+                "$ref": "common.schema.json#/$defs/Capability"
+              }
+            },
+            "required": [
+              "saleCount",
+              "salePriceSummary",
+              "currentAsks"
+            ],
+            "type": "object"
+          },
+          "cardVariantId": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "instrumentKey": {
+            "type": "string"
+          },
+          "lowestAsk": {
+            "$ref": "common.schema.json#/$defs/LowestAsk"
+          },
+          "medianPrice": {
+            "$ref": "common.schema.json#/$defs/NullableMoney"
+          },
+          "observedCount": {
+            "$ref": "common.schema.json#/$defs/NullableCount"
+          },
+          "provenCount": {
+            "$ref": "common.schema.json#/$defs/NullableCount"
+          },
+          "rank": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "windowReadiness": {
+            "enum": [
+              "PROVEN",
+              "PARTIAL",
+              "UNPROVEN",
+              "NOT_COLLECTED"
+            ]
+          }
+        },
+        "required": [
+          "rank",
+          "instrumentKey",
+          "cardVariantId",
+          "availability",
+          "windowReadiness",
+          "observedCount",
+          "provenCount",
+          "medianPrice",
+          "askState",
+          "lowestAsk",
+          "capabilities"
+        ],
+        "type": "object"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "versions": {
+      "$ref": "common.schema.json#/$defs/Versions"
+    }
+  },
+  "required": [
+    "kind",
+    "contractVersion",
+    "versions",
+    "policy",
+    "request",
+    "evaluatedAt",
+    "availability",
+    "evidenceFingerprint",
+    "roster",
+    "page",
+    "rows"
+  ],
+  "title": "constituent_page_response",
+  "type": "object"
+}

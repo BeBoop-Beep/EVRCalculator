@@ -1,0 +1,266 @@
+{
+  "assembler": "instrument_detail",
+  "description": "No sold walk and no supply snapshot: every count is null, never zero.",
+  "expected": {
+    "asks": {
+      "capturedListingCount": null,
+      "capturedQuantity": null,
+      "collectedAt": null,
+      "conditionBasis": "NEAR_MINT_LISTED",
+      "confirmationAgeHours": null,
+      "depth": null,
+      "lowestAsk": null,
+      "providerConfirmedAt": null,
+      "reasons": [
+        "NOT_COLLECTED"
+      ],
+      "source": "pkmnprices_tcgplayer_listings",
+      "state": "NOT_COLLECTED"
+    },
+    "availability": {
+      "reasons": [
+        "NOT_COLLECTED"
+      ],
+      "state": "PARTIAL"
+    },
+    "capabilities": {
+      "activityPercentile": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "askDepth": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "currentAsks": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "inferredSalesFromListings": {
+        "available": false,
+        "reasons": [
+          "FEATURE_DISABLED_V1"
+        ]
+      },
+      "landedAsk": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "saleCount": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "salePriceSummary": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "supplyTurnover": {
+        "available": false,
+        "reasons": [
+          "FEATURE_DISABLED_V1"
+        ]
+      }
+    },
+    "contractVersion": "market_activity_v1",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "evidenceFingerprint": "1c08bfe61d630b8ff3821cbe5f572febdb12d048756de848509f2fc8cdf2f4c4",
+    "instrument": {
+      "asset": "cards",
+      "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
+      "cardVariantId": "00000000-0000-4000-8000-0000000000a1",
+      "grading": {
+        "grade": null,
+        "grader": null,
+        "qualifier": null,
+        "reasons": [],
+        "state": "RAW"
+      },
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "stream": "RAW",
+      "tier": "RAW"
+    },
+    "kind": "instrumentDetail",
+    "peers": null,
+    "policy": {
+      "askConfirmationMaxAgeHours": 24,
+      "futureTimestampSkewSeconds": 300,
+      "percentileMinOtherPeers": 30,
+      "priceSummaryMinRecords": 5,
+      "soldHeadReceiptMaxAgeHours": 36,
+      "tiePolicy": "midrank_v1",
+      "version": "fma_display_policy_v1"
+    },
+    "request": {
+      "asOf": "2026-09-29",
+      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "windowDays": 30
+    },
+    "roster": {
+      "label": "Activity for current constituents",
+      "membershipContractVersion": "fma_membership_v1",
+      "membershipMode": "CURRENT_ROSTER_RETROSPECTIVE",
+      "rosterAsOf": "2026-09-29",
+      "rosterDenominator": 3,
+      "rosterRevision": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      }
+    },
+    "sales": {
+      "conditionBasis": "UNKNOWN_CONDITION",
+      "currency": "USD",
+      "excludedRecordCounts": {},
+      "source": "pkmnprices_ebay_sold",
+      "tier": "RAW",
+      "windows": [
+        {
+          "days": 7,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-09-23"
+        },
+        {
+          "days": 30,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-08-31"
+        },
+        {
+          "days": 90,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-07-02"
+        },
+        {
+          "days": 180,
+          "endDate": "2026-09-29",
+          "observedCount": null,
+          "priceSummary": null,
+          "provenCount": null,
+          "readiness": {
+            "exhausted": false,
+            "provenLowerBoundDate": null,
+            "reasons": [
+              "NOT_COLLECTED"
+            ],
+            "reconciledThrough": null,
+            "state": "NOT_COLLECTED"
+          },
+          "startDate": "2026-04-03"
+        }
+      ]
+    },
+    "versions": {
+      "contract": "market_activity_v1",
+      "domain": "market_activity_domain_v1.0.0",
+      "grading": "fma_grading_identity_v1",
+      "identity": "fma_exact_identity_v1",
+      "membership": "fma_membership_v1",
+      "qualifierRegistry": "fma_qualifier_registry_v1",
+      "supplyProvenance": "fma_supply_provenance_v1",
+      "tiePolicy": "midrank_v1",
+      "windowReadiness": "fma_window_readiness_v1"
+    }
+  },
+  "fixtureId": "fma_fixture_05",
+  "inputs": {
+    "asks": null,
+    "asset": "cards",
+    "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "peers": null,
+    "previousAskConfirmation": null,
+    "request": {
+      "asOf": "2026-09-29",
+      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "windowDays": 30
+    },
+    "roster": {
+      "asOf": "2026-09-29",
+      "denominator": 3,
+      "memberVariantIds": [
+        "00000000-0000-4000-8000-0000000000a1",
+        "00000000-0000-4000-8000-0000000000b1",
+        "00000000-0000-4000-8000-0000000000c1"
+      ],
+      "revision": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      }
+    },
+    "servedGenerationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+    "sold": {
+      "candidateScope": "FULL_CARD_VARIANT_SET",
+      "candidates": [
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a1",
+          "printingType": "holo",
+          "specialType": null
+        },
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a2",
+          "printingType": "reverse-holo",
+          "specialType": null
+        }
+      ],
+      "records": [],
+      "walks": []
+    }
+  },
+  "requestSchema": "instrument_detail_request.schema.json",
+  "responseSchema": "instrument_detail_response.schema.json",
+  "scenario": "not_collected"
+}

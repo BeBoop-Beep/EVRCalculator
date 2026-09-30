@@ -1,0 +1,571 @@
+{
+  "assembler": "instrument_detail",
+  "description": "Exhausted walk + reconciled right edge prove zero sales; empty asks with source freshness.",
+  "expected": {
+    "asks": {
+      "capturedListingCount": 0,
+      "capturedQuantity": {
+        "provenance": "EXPLICIT",
+        "value": 0
+      },
+      "collectedAt": "2026-09-30T09:00:00Z",
+      "conditionBasis": "NEAR_MINT_LISTED",
+      "confirmationAgeHours": "4.5",
+      "depth": "COMPLETE_AT_SOURCE",
+      "lowestAsk": null,
+      "providerConfirmedAt": "2026-09-30T07:30:00Z",
+      "reasons": [],
+      "source": "pkmnprices_tcgplayer_listings",
+      "state": "ZERO_PROVEN"
+    },
+    "availability": {
+      "reasons": [],
+      "state": "AVAILABLE"
+    },
+    "capabilities": {
+      "activityPercentile": {
+        "available": false,
+        "reasons": [
+          "ALL_ZERO"
+        ]
+      },
+      "askDepth": {
+        "available": true,
+        "reasons": []
+      },
+      "currentAsks": {
+        "available": true,
+        "reasons": []
+      },
+      "inferredSalesFromListings": {
+        "available": false,
+        "reasons": [
+          "FEATURE_DISABLED_V1"
+        ]
+      },
+      "landedAsk": {
+        "available": false,
+        "reasons": [
+          "NOT_COLLECTED"
+        ]
+      },
+      "saleCount": {
+        "available": true,
+        "reasons": []
+      },
+      "salePriceSummary": {
+        "available": false,
+        "reasons": [
+          "NO_RECORDS"
+        ]
+      },
+      "supplyTurnover": {
+        "available": false,
+        "reasons": [
+          "FEATURE_DISABLED_V1"
+        ]
+      }
+    },
+    "contractVersion": "market_activity_v1",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "evidenceFingerprint": "fb95e120c37af75dbd0b483d358c80f825e6f8ace7a7330d0b6c5c345853a58f",
+    "instrument": {
+      "asset": "cards",
+      "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
+      "cardVariantId": "00000000-0000-4000-8000-0000000000a1",
+      "grading": {
+        "grade": null,
+        "grader": null,
+        "qualifier": null,
+        "reasons": [],
+        "state": "RAW"
+      },
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "stream": "RAW",
+      "tier": "RAW"
+    },
+    "kind": "instrumentDetail",
+    "peers": {
+      "activityPercentile": null,
+      "claimsAllPokemon": false,
+      "eligibleOtherPeerCount": 35,
+      "label": "Activity percentile",
+      "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+      "reasons": [
+        "ALL_ZERO"
+      ],
+      "scopeLabel": "Core Panel V1 research panel (modern, price-balanced)",
+      "state": "ALL_ZERO",
+      "strictBelowPct": null,
+      "tieCount": 35,
+      "tiePolicy": "midrank_v1"
+    },
+    "policy": {
+      "askConfirmationMaxAgeHours": 24,
+      "futureTimestampSkewSeconds": 300,
+      "percentileMinOtherPeers": 30,
+      "priceSummaryMinRecords": 5,
+      "soldHeadReceiptMaxAgeHours": 36,
+      "tiePolicy": "midrank_v1",
+      "version": "fma_display_policy_v1"
+    },
+    "request": {
+      "asOf": "2026-09-29",
+      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "windowDays": 30
+    },
+    "roster": {
+      "label": "Activity for current constituents",
+      "membershipContractVersion": "fma_membership_v1",
+      "membershipMode": "CURRENT_ROSTER_RETROSPECTIVE",
+      "rosterAsOf": "2026-09-29",
+      "rosterDenominator": 3,
+      "rosterRevision": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      }
+    },
+    "sales": {
+      "conditionBasis": "UNKNOWN_CONDITION",
+      "currency": "USD",
+      "excludedRecordCounts": {},
+      "source": "pkmnprices_ebay_sold",
+      "tier": "RAW",
+      "windows": [
+        {
+          "days": 7,
+          "endDate": "2026-09-29",
+          "observedCount": 0,
+          "priceSummary": {
+            "high": null,
+            "low": null,
+            "median": null,
+            "reasons": [
+              "NO_RECORDS"
+            ],
+            "recordCount": 0,
+            "state": "NO_RECORDS"
+          },
+          "provenCount": 0,
+          "readiness": {
+            "exhausted": true,
+            "provenLowerBoundDate": null,
+            "reasons": [],
+            "reconciledThrough": "2026-09-30T06:00:00Z",
+            "state": "PROVEN"
+          },
+          "startDate": "2026-09-23"
+        },
+        {
+          "days": 30,
+          "endDate": "2026-09-29",
+          "observedCount": 0,
+          "priceSummary": {
+            "high": null,
+            "low": null,
+            "median": null,
+            "reasons": [
+              "NO_RECORDS"
+            ],
+            "recordCount": 0,
+            "state": "NO_RECORDS"
+          },
+          "provenCount": 0,
+          "readiness": {
+            "exhausted": true,
+            "provenLowerBoundDate": null,
+            "reasons": [],
+            "reconciledThrough": "2026-09-30T06:00:00Z",
+            "state": "PROVEN"
+          },
+          "startDate": "2026-08-31"
+        },
+        {
+          "days": 90,
+          "endDate": "2026-09-29",
+          "observedCount": 0,
+          "priceSummary": {
+            "high": null,
+            "low": null,
+            "median": null,
+            "reasons": [
+              "NO_RECORDS"
+            ],
+            "recordCount": 0,
+            "state": "NO_RECORDS"
+          },
+          "provenCount": 0,
+          "readiness": {
+            "exhausted": true,
+            "provenLowerBoundDate": null,
+            "reasons": [],
+            "reconciledThrough": "2026-09-30T06:00:00Z",
+            "state": "PROVEN"
+          },
+          "startDate": "2026-07-02"
+        },
+        {
+          "days": 180,
+          "endDate": "2026-09-29",
+          "observedCount": 0,
+          "priceSummary": {
+            "high": null,
+            "low": null,
+            "median": null,
+            "reasons": [
+              "NO_RECORDS"
+            ],
+            "recordCount": 0,
+            "state": "NO_RECORDS"
+          },
+          "provenCount": 0,
+          "readiness": {
+            "exhausted": true,
+            "provenLowerBoundDate": null,
+            "reasons": [],
+            "reconciledThrough": "2026-09-30T06:00:00Z",
+            "state": "PROVEN"
+          },
+          "startDate": "2026-04-03"
+        }
+      ]
+    },
+    "versions": {
+      "contract": "market_activity_v1",
+      "domain": "market_activity_domain_v1.0.0",
+      "grading": "fma_grading_identity_v1",
+      "identity": "fma_exact_identity_v1",
+      "membership": "fma_membership_v1",
+      "qualifierRegistry": "fma_qualifier_registry_v1",
+      "supplyProvenance": "fma_supply_provenance_v1",
+      "tiePolicy": "midrank_v1",
+      "windowReadiness": "fma_window_readiness_v1"
+    }
+  },
+  "fixtureId": "fma_fixture_04",
+  "inputs": {
+    "asks": {
+      "hasMore": false,
+      "observationState": "OBSERVED",
+      "observedAt": "2026-09-30T09:00:00Z",
+      "offers": [],
+      "requestedDepth": 19,
+      "sourceConfirmedAt": "2026-09-30T07:30:00Z"
+    },
+    "asset": "cards",
+    "canonicalCardId": "10000000-0000-4000-8000-0000000000a0",
+    "evaluatedAt": "2026-09-30T12:00:00Z",
+    "peers": {
+      "panelId": "market_microstructure_core_panel_v1",
+      "values": [
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000000:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000001:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000002:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000003:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000004:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000005:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000006:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000007:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000008:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000009:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000010:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000011:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000012:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000013:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000014:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000015:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000016:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000017:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000018:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000019:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000020:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000021:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000022:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000023:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000024:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000025:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000026:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000027:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000028:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000029:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000030:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000031:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000032:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000033:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-000000000034:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 0
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|PROVEN",
+          "value": 9
+        },
+        {
+          "instrumentKey": "card:00000000-0000-4000-8000-999999999999:raw",
+          "populationKey": "30d|pkmnprices_ebay_sold|USD|RAW|UNPROVEN",
+          "value": 3
+        }
+      ]
+    },
+    "previousAskConfirmation": null,
+    "request": {
+      "asOf": "2026-09-29",
+      "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+      "instrumentKey": "card:00000000-0000-4000-8000-0000000000a1:raw",
+      "marketKey": "set:fixture-modern-set",
+      "windowDays": 30
+    },
+    "roster": {
+      "asOf": "2026-09-29",
+      "denominator": 3,
+      "memberVariantIds": [
+        "00000000-0000-4000-8000-0000000000a1",
+        "00000000-0000-4000-8000-0000000000b1",
+        "00000000-0000-4000-8000-0000000000c1"
+      ],
+      "revision": {
+        "generationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+        "kind": "SURFACE_V2_GENERATION",
+        "marketKey": "set:fixture-modern-set"
+      }
+    },
+    "servedGenerationId": "5f0c7a52-3b1e-4b8e-9a51-2d7c1f0e9a10",
+    "sold": {
+      "candidateScope": "FULL_CARD_VARIANT_SET",
+      "candidates": [
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a1",
+          "printingType": "holo",
+          "specialType": null
+        },
+        {
+          "edition": null,
+          "id": "00000000-0000-4000-8000-0000000000a2",
+          "printingType": "reverse-holo",
+          "specialType": null
+        }
+      ],
+      "records": [
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-02-11T01:00:00Z",
+          "listingId": "700200",
+          "price": "12.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-02-10",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-01-21T01:00:00Z",
+          "listingId": "700201",
+          "price": "11.50",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-01-20",
+          "source": "pkmnprices_ebay_sold"
+        },
+        {
+          "attribution": "exact",
+          "collectedAt": "2026-09-30T05:00:00Z",
+          "currency": "USD",
+          "grade": null,
+          "gradeQualifier": null,
+          "graded": false,
+          "grader": null,
+          "ingestedAt": "2026-01-06T01:00:00Z",
+          "listingId": "700202",
+          "price": "11.00",
+          "providerCardId": "900001",
+          "providerVariant": "Holofoil",
+          "soldAt": "2026-01-05",
+          "source": "pkmnprices_ebay_sold"
+        }
+      ],
+      "walks": [
+        {
+          "combinedSemanticsVerified": true,
+          "filterFingerprint": "f-combined",
+          "pages": [
+            {
+              "fetchedAt": "2026-09-30T05:00:00Z",
+              "filterFingerprint": "f-combined",
+              "hasMore": false,
+              "inputCursorHash": null,
+              "maxSoldAt": "2026-02-10",
+              "minSoldAt": "2026-01-05",
+              "outputCursorHash": null,
+              "pageIndex": 0,
+              "rowCount": 3
+            }
+          ],
+          "rightEdge": {
+            "completed": true,
+            "reconciledThrough": "2026-09-30T06:00:00Z"
+          },
+          "sort": "date_desc",
+          "startedFromHead": true,
+          "stream": "COMBINED"
+        }
+      ]
+    }
+  },
+  "requestSchema": "instrument_detail_request.schema.json",
+  "responseSchema": "instrument_detail_response.schema.json",
+  "scenario": "zero_with_proof"
+}

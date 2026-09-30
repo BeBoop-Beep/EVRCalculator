@@ -1,0 +1,146 @@
+{
+  "contractVersion": "market_activity_v1",
+  "fixtures": [
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_01_fresh_complete.json",
+      "fixtureId": "fma_fixture_01",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "fresh_complete",
+      "sha256": "b560bd0c8dbe602b19a58b45d475eb9ffa9bacf2dfef93d00923b79457c4e63b"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_02_partial_sales.json",
+      "fixtureId": "fma_fixture_02",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "partial_sales",
+      "sha256": "a037e8fbb5312ba2abba8eb6792fe23216ba6a9365d459aa04a69df35fbdb3b8"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_03_stale_asks.json",
+      "fixtureId": "fma_fixture_03",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "stale_asks",
+      "sha256": "1844df7652922c35d13a1c59b0bf11899de99ed15815fc8d14885e0ee5583adb"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_04_zero_with_proof.json",
+      "fixtureId": "fma_fixture_04",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "zero_with_proof",
+      "sha256": "b529f6127773931d91dbbe30c6c6e95a0018195b0dd22157198468681c1bb1e4"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_05_not_collected.json",
+      "fixtureId": "fma_fixture_05",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "not_collected",
+      "sha256": "f21acb0d8486e23eecab35556c5b3698b15e156d99800ea13fd509c72ed9325a"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_06_missing_grade.json",
+      "fixtureId": "fma_fixture_06",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "missing_grade",
+      "sha256": "303b57e5030387412ab817c87131bae6f428a12d9911a110c978315da8f8598d"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_07_insufficient_peers.json",
+      "fixtureId": "fma_fixture_07",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "insufficient_peers",
+      "sha256": "08bc8bb8dcdf6eddf1bac1965f31e3cba48b28b13df4f8785d77045fc23363b2"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "UNAVAILABLE",
+      "file": "fma_fixture_08_unsupported_asset.json",
+      "fixtureId": "fma_fixture_08",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "unsupported_asset",
+      "sha256": "87657a50675dd72d46a385758a96495c11cffc173b35666f11587a5dd274b2f0"
+    },
+    {
+      "assembler": "instrument_detail",
+      "expectedAvailability": "UNAVAILABLE",
+      "file": "fma_fixture_09_generation_mismatch.json",
+      "fixtureId": "fma_fixture_09",
+      "requestSchema": "instrument_detail_request.schema.json",
+      "responseSchema": "instrument_detail_response.schema.json",
+      "scenario": "generation_mismatch",
+      "sha256": "1e4cda27595d50b4af46cf88e95f9da3aa5b4d901ade27c2b73bc0184e3332ab"
+    },
+    {
+      "assembler": "constituent_page",
+      "expectedAvailability": "AVAILABLE",
+      "file": "fma_fixture_10_constituent_page.json",
+      "fixtureId": "fma_fixture_10",
+      "requestSchema": "constituent_page_request.schema.json",
+      "responseSchema": "constituent_page_response.schema.json",
+      "scenario": "constituent_page",
+      "sha256": "6ef685aa52ed7206358ec8d5f6852e78468c5e22f88d1ba8bbd2e7ca64e5e239"
+    },
+    {
+      "assembler": "group_activity",
+      "expectedAvailability": "PARTIAL",
+      "file": "fma_fixture_11_group_activity.json",
+      "fixtureId": "fma_fixture_11",
+      "requestSchema": "activity_request.schema.json",
+      "responseSchema": "activity_response.schema.json",
+      "scenario": "group_activity",
+      "sha256": "c4d8ef5ae7b314503bbbd04674bc2fa9f6ad0a859353295dd86d6061eebeee8c"
+    }
+  ],
+  "manifestVersion": "market_activity_v1_fixtures_1",
+  "policy": {
+    "askConfirmationMaxAgeHours": 24,
+    "futureTimestampSkewSeconds": 300,
+    "percentileMinOtherPeers": 30,
+    "priceSummaryMinRecords": 5,
+    "soldHeadReceiptMaxAgeHours": 36,
+    "tiePolicy": "midrank_v1",
+    "version": "fma_display_policy_v1"
+  },
+  "schemas": {
+    "activity_request.schema.json": "cf2e403f06d21147a210f5a6f6ff19f72662e338fff5d5eb07318e5372ec8564",
+    "activity_response.schema.json": "2694129834d60606944dc47b136e9e730c9dc0068ad9a146480c50e62e5669b7",
+    "common.schema.json": "60cdfb2c484de507a793211246e1b98302bac77117d1b8ef6e5777f66758fb55",
+    "constituent_page_request.schema.json": "40fcaebdb031a319154c908639549eb0aa3a28cf9c42c6e8ed48a925eda3e3d5",
+    "constituent_page_response.schema.json": "da6e715ffe6899ad89a599d20e44b0cf3e7cab7cc545d9bfceb9cb29e0957f63",
+    "fixture_manifest.schema.json": "e197da6bb46c71319897ff8a9f132ee7a20b608af8a5bb146c21692ce98584cb",
+    "instrument_detail_request.schema.json": "eb17f3a06f711bddc799fffe320a80fef7211ea6f07cd2c40fe60305689da301",
+    "instrument_detail_response.schema.json": "7bc513476cd038278bb37419cfbcc07a433b9fb527c8a80f0cc7785e83e502bf"
+  },
+  "versions": {
+    "contract": "market_activity_v1",
+    "domain": "market_activity_domain_v1.0.0",
+    "grading": "fma_grading_identity_v1",
+    "identity": "fma_exact_identity_v1",
+    "membership": "fma_membership_v1",
+    "qualifierRegistry": "fma_qualifier_registry_v1",
+    "supplyProvenance": "fma_supply_provenance_v1",
+    "tiePolicy": "midrank_v1",
+    "windowReadiness": "fma_window_readiness_v1"
+  }
+}

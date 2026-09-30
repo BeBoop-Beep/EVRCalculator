@@ -1,0 +1,33 @@
+{
+  "$id": "instrument_detail_request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "asOf": {
+      "$ref": "common.schema.json#/$defs/Date"
+    },
+    "generationId": {
+      "$ref": "common.schema.json#/$defs/Uuid"
+    },
+    "instrumentKey": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "marketKey": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "windowDays": {
+      "$ref": "common.schema.json#/$defs/WindowDays"
+    }
+  },
+  "required": [
+    "marketKey",
+    "generationId",
+    "asOf",
+    "windowDays",
+    "instrumentKey"
+  ],
+  "title": "instrument_detail_request",
+  "type": "object"
+}

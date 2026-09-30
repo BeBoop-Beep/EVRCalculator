@@ -1,0 +1,801 @@
+{
+  "$defs": {
+    "AskState": {
+      "enum": [
+        "NOT_COLLECTED",
+        "COLLECTION_FAILED",
+        "CONFIRMATION_MISSING",
+        "CONFIRMATION_INVALID",
+        "STALE",
+        "FRESH",
+        "ZERO_PROVEN",
+        "ZERO_UNPROVEN"
+      ]
+    },
+    "Asks": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "capturedListingCount": {
+              "$ref": "#/$defs/NullableCount"
+            },
+            "capturedQuantity": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "provenance": {
+                      "enum": [
+                        "PROVEN",
+                        "EXPLICIT",
+                        "DEFAULTED_LOWER_BOUND",
+                        "LEGACY_UNVERIFIED"
+                      ]
+                    },
+                    "value": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "provenance"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "collectedAt": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DateTime"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "conditionBasis": {
+              "const": "NEAR_MINT_LISTED"
+            },
+            "confirmationAgeHours": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DecimalString"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "depth": {
+              "enum": [
+                "LOWER_BOUND",
+                "COMPLETE_AT_SOURCE",
+                null
+              ]
+            },
+            "lowestAsk": {
+              "$ref": "#/$defs/LowestAsk"
+            },
+            "providerConfirmedAt": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DateTime"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reasons": {
+              "$ref": "#/$defs/ReasonList"
+            },
+            "source": {
+              "const": "pkmnprices_tcgplayer_listings"
+            },
+            "state": {
+              "$ref": "#/$defs/AskState"
+            }
+          },
+          "required": [
+            "source",
+            "conditionBasis",
+            "state",
+            "reasons",
+            "providerConfirmedAt",
+            "confirmationAgeHours",
+            "collectedAt",
+            "capturedListingCount",
+            "capturedQuantity",
+            "depth",
+            "lowestAsk"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Availability": {
+      "additionalProperties": false,
+      "properties": {
+        "reasons": {
+          "$ref": "#/$defs/ReasonList"
+        },
+        "state": {
+          "enum": [
+            "AVAILABLE",
+            "PARTIAL",
+            "UNAVAILABLE"
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "reasons"
+      ],
+      "type": "object"
+    },
+    "Capabilities": {
+      "additionalProperties": false,
+      "properties": {
+        "activityPercentile": {
+          "$ref": "#/$defs/Capability"
+        },
+        "askDepth": {
+          "$ref": "#/$defs/Capability"
+        },
+        "currentAsks": {
+          "$ref": "#/$defs/Capability"
+        },
+        "inferredSalesFromListings": {
+          "$ref": "#/$defs/Capability"
+        },
+        "landedAsk": {
+          "$ref": "#/$defs/Capability"
+        },
+        "saleCount": {
+          "$ref": "#/$defs/Capability"
+        },
+        "salePriceSummary": {
+          "$ref": "#/$defs/Capability"
+        },
+        "supplyTurnover": {
+          "$ref": "#/$defs/Capability"
+        }
+      },
+      "required": [
+        "saleCount",
+        "salePriceSummary",
+        "activityPercentile",
+        "currentAsks",
+        "askDepth",
+        "landedAsk",
+        "supplyTurnover",
+        "inferredSalesFromListings"
+      ],
+      "type": "object"
+    },
+    "Capability": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "$ref": "#/$defs/ReasonList"
+        }
+      },
+      "required": [
+        "available",
+        "reasons"
+      ],
+      "type": "object"
+    },
+    "Date": {
+      "format": "date",
+      "type": "string"
+    },
+    "DateTime": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "DecimalString": {
+      "pattern": "^-?\\d+\\.\\d$",
+      "type": "string"
+    },
+    "Fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "Grading": {
+      "additionalProperties": false,
+      "properties": {
+        "grade": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "grader": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "qualifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasons": {
+          "$ref": "#/$defs/ReasonList"
+        },
+        "state": {
+          "enum": [
+            "RAW",
+            "GRADED",
+            "GRADED_QUALIFIED",
+            "INCOMPLETE",
+            "UNRECOGNIZED"
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "grader",
+        "grade",
+        "qualifier",
+        "reasons"
+      ],
+      "type": "object"
+    },
+    "InstrumentKey": {
+      "pattern": "^card:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:(raw|graded:[A-Z]+:[A-Za-z0-9.%]+:[A-Za-z0-9.%-]+)$",
+      "type": "string"
+    },
+    "LowestAsk": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "basis": {
+              "enum": [
+                "LANDED_PROVEN",
+                "ITEM_ONLY",
+                "ITEM_ONLY_LEGACY_UNVERIFIED"
+              ]
+            },
+            "price": {
+              "$ref": "#/$defs/Money"
+            }
+          },
+          "required": [
+            "basis",
+            "price"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Money": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "pattern": "^\\d+\\.\\d{2}$",
+          "type": "string"
+        },
+        "currency": {
+          "const": "USD"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "type": "object"
+    },
+    "NullableCount": {
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "NullableMoney": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Money"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Peers": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "activityPercentile": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DecimalString"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "claimsAllPokemon": {
+              "const": false
+            },
+            "eligibleOtherPeerCount": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "label": {
+              "const": "Activity percentile"
+            },
+            "populationKey": {
+              "type": "string"
+            },
+            "reasons": {
+              "$ref": "#/$defs/ReasonList"
+            },
+            "scopeLabel": {
+              "const": "Core Panel V1 research panel (modern, price-balanced)"
+            },
+            "state": {
+              "enum": [
+                "AVAILABLE",
+                "UNAVAILABLE",
+                "NO_PEERS",
+                "INSUFFICIENT_PEERS",
+                "ALL_ZERO",
+                "ALL_TIED"
+              ]
+            },
+            "strictBelowPct": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DecimalString"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tieCount": {
+              "$ref": "#/$defs/NullableCount"
+            },
+            "tiePolicy": {
+              "const": "midrank_v1"
+            }
+          },
+          "required": [
+            "label",
+            "tiePolicy",
+            "populationKey",
+            "state",
+            "reasons",
+            "eligibleOtherPeerCount",
+            "activityPercentile",
+            "strictBelowPct",
+            "tieCount",
+            "scopeLabel",
+            "claimsAllPokemon"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "askConfirmationMaxAgeHours": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "futureTimestampSkewSeconds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "percentileMinOtherPeers": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "priceSummaryMinRecords": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "soldHeadReceiptMaxAgeHours": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tiePolicy": {
+          "const": "midrank_v1"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "askConfirmationMaxAgeHours",
+        "soldHeadReceiptMaxAgeHours",
+        "priceSummaryMinRecords",
+        "percentileMinOtherPeers",
+        "futureTimestampSkewSeconds",
+        "tiePolicy"
+      ],
+      "type": "object"
+    },
+    "PriceSummary": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "high": {
+              "$ref": "#/$defs/NullableMoney"
+            },
+            "low": {
+              "$ref": "#/$defs/NullableMoney"
+            },
+            "median": {
+              "$ref": "#/$defs/NullableMoney"
+            },
+            "reasons": {
+              "$ref": "#/$defs/ReasonList"
+            },
+            "recordCount": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "state": {
+              "enum": [
+                "AVAILABLE",
+                "THIN",
+                "NO_RECORDS"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "reasons",
+            "recordCount",
+            "median",
+            "low",
+            "high"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ReasonCode": {
+      "enum": [
+        "UNSUPPORTED_ASSET",
+        "GENERATION_MISMATCH",
+        "ROSTER_REVISION_UNSTABLE",
+        "QUERY_FINGERPRINT_IS_NOT_A_REVISION",
+        "INSTRUMENT_NOT_IN_ROSTER",
+        "INVALID_INSTRUMENT_KEY",
+        "ATTRIBUTION_MISSING",
+        "ATTRIBUTION_SHARED",
+        "ATTRIBUTION_UNKNOWN",
+        "PROVIDER_VARIANT_MISSING",
+        "PROVIDER_VARIANT_UNPARSED_TOKENS",
+        "CANDIDATE_SET_INCOMPLETE",
+        "IDENTITY_EDITION_UNPROVEN",
+        "IDENTITY_PRINTING_UNPROVEN",
+        "IDENTITY_SPECIAL_TYPE_UNSUPPORTED",
+        "IDENTITY_NO_MATCH",
+        "IDENTITY_AMBIGUOUS",
+        "CURRENCY_UNSUPPORTED",
+        "GRADING_INCOMPLETE",
+        "GRADER_UNRECOGNIZED",
+        "GRADE_UNRECOGNIZED",
+        "QUALIFIER_UNRECOGNIZED",
+        "TIER_MISMATCH",
+        "EVIDENCE_DUPLICATE",
+        "EVIDENCE_CONFLICT",
+        "INVALID_EVIDENCE_ROW",
+        "NOT_COLLECTED",
+        "SYNC_STATUS_NOT_PROOF",
+        "WALK_SORT_NOT_DATE_DESC",
+        "WALK_HEAD_UNKNOWN",
+        "WALK_CURSOR_CHAIN_BROKEN",
+        "WALK_FILTER_UNSTABLE",
+        "WALK_NOT_DATE_DESCENDING",
+        "STREAM_DOES_NOT_COVER_TIER",
+        "COMBINED_STREAM_SEMANTICS_UNPROVEN",
+        "LOWER_BOUNDARY_NOT_REACHED",
+        "BOUNDARY_DATE_PARTIALLY_FETCHED",
+        "RIGHT_EDGE_UNRECONCILED",
+        "RIGHT_EDGE_DAY_OPEN",
+        "RIGHT_EDGE_STALE",
+        "LATE_INGESTION_AFTER_RECONCILIATION",
+        "CHECKPOINT_PAGES_PENDING",
+        "SAME_INGESTION_TIMESTAMP_UNDRAINED",
+        "SUPPLY_COLLECTION_FAILED",
+        "SOURCE_CONFIRMATION_MISSING",
+        "SOURCE_CONFIRMATION_IN_FUTURE",
+        "SOURCE_CONFIRMATION_MIXED",
+        "SOURCE_CONFIRMATION_REPEATED",
+        "ASKS_STALE",
+        "EMPTY_WITHOUT_SOURCE_FRESHNESS",
+        "DEPTH_TRUNCATED",
+        "SHIPPING_UNKNOWN",
+        "SHIPPING_LEGACY_UNVERIFIED",
+        "QUANTITY_DEFAULTED",
+        "QUANTITY_LEGACY_UNVERIFIED",
+        "THIN_RECORDS",
+        "NO_RECORDS",
+        "NO_PEERS",
+        "INSUFFICIENT_PEERS",
+        "ALL_ZERO",
+        "ALL_PEERS_TIED",
+        "ZERO_BASELINE",
+        "BASELINE_MISSING",
+        "WINDOW_NOT_PROVEN",
+        "FEATURE_DISABLED_V1"
+      ],
+      "type": "string"
+    },
+    "ReasonList": {
+      "items": {
+        "$ref": "#/$defs/ReasonCode"
+      },
+      "type": "array"
+    },
+    "Roster": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "label": {
+              "const": "Activity for current constituents"
+            },
+            "membershipContractVersion": {
+              "const": "fma_membership_v1"
+            },
+            "membershipMode": {
+              "const": "CURRENT_ROSTER_RETROSPECTIVE"
+            },
+            "rosterAsOf": {
+              "$ref": "#/$defs/Date"
+            },
+            "rosterDenominator": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "rosterRevision": {
+              "$ref": "#/$defs/RosterRevision"
+            }
+          },
+          "required": [
+            "membershipMode",
+            "label",
+            "membershipContractVersion",
+            "rosterAsOf",
+            "rosterRevision",
+            "rosterDenominator"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "RosterRevision": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "generationId": {
+              "$ref": "#/$defs/Uuid"
+            },
+            "kind": {
+              "const": "SURFACE_V2_GENERATION"
+            },
+            "marketKey": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "generationId",
+            "marketKey"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "computedThrough": {
+              "$ref": "#/$defs/Date"
+            },
+            "kind": {
+              "const": "QUERY_CACHE_PUBLISHED_REVISION"
+            },
+            "queryFingerprint": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "revisionId": {
+              "$ref": "#/$defs/Uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "queryFingerprint",
+            "revisionId",
+            "computedThrough"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "SalesWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "days": {
+          "$ref": "#/$defs/WindowDays"
+        },
+        "endDate": {
+          "$ref": "#/$defs/Date"
+        },
+        "observedCount": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "priceSummary": {
+          "$ref": "#/$defs/PriceSummary"
+        },
+        "provenCount": {
+          "$ref": "#/$defs/NullableCount"
+        },
+        "readiness": {
+          "$ref": "#/$defs/WindowReadiness"
+        },
+        "startDate": {
+          "$ref": "#/$defs/Date"
+        }
+      },
+      "required": [
+        "days",
+        "startDate",
+        "endDate",
+        "readiness",
+        "observedCount",
+        "provenCount",
+        "priceSummary"
+      ],
+      "type": "object"
+    },
+    "Uuid": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "Versions": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "grading": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "membership": {
+          "type": "string"
+        },
+        "qualifierRegistry": {
+          "type": "string"
+        },
+        "supplyProvenance": {
+          "type": "string"
+        },
+        "tiePolicy": {
+          "type": "string"
+        },
+        "windowReadiness": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract",
+        "domain",
+        "identity",
+        "grading",
+        "qualifierRegistry",
+        "windowReadiness",
+        "supplyProvenance",
+        "tiePolicy",
+        "membership"
+      ],
+      "type": "object"
+    },
+    "WindowDays": {
+      "enum": [
+        7,
+        30,
+        90,
+        180
+      ],
+      "type": "integer"
+    },
+    "WindowReadiness": {
+      "additionalProperties": false,
+      "properties": {
+        "exhausted": {
+          "type": "boolean"
+        },
+        "provenLowerBoundDate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasons": {
+          "$ref": "#/$defs/ReasonList"
+        },
+        "reconciledThrough": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "PROVEN",
+            "PARTIAL",
+            "UNPROVEN",
+            "NOT_COLLECTED"
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "reasons",
+        "provenLowerBoundDate",
+        "exhausted",
+        "reconciledThrough"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "common.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Focused Market Activity V1 shared definitions"
+}
