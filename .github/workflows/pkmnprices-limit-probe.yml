@@ -1,0 +1,49 @@
+name: PkmnPrices Account Limit Probe
+
+on:
+  push:
+    branches:
+      - ops/pkmnprices-limit-probe-20260929
+    paths:
+      - ".pkmnprices-limit-probe/request.txt"
+      - ".github/workflows/pkmnprices-limit-probe.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pkmnprices-limit-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 10
+    steps:
+      - name: Probe account headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ github.event.head_commit.message }}" = "pkmnprices-limit-probe: run" ] || {
+            echo "REFUSING: invalid fixed operation"; exit 2;
+          }
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          exec 8>/tmp/pkmnprices-api.lock
+          /usr/bin/flock -n 8 || { echo "PKMNPRICES_PROVIDER_BUSY"; exit 75; }
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+          cd "$REPO"
+          "$PY" - <<'PY'
+          from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
+          from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
+
+          credentials = load_pkmnprices_credentials(allow_frontend_fallback=False)
+          client = PkmnPricesClient(credentials.api_key, min_request_interval=1.1)
+          rows = client.cards_by_tcgplayer_id("610522", language="English", per_page=1)
+          print("probe_rows=" + str(len(rows)))
+          print("credits_charged=" + str(client.credits_charged))
+          print("credits_limit=" + str(client.credits_limit))
+          print("rate_remaining=" + str(client.rate_remaining))
+          PY
