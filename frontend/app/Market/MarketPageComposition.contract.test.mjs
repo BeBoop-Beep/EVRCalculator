@@ -55,7 +55,7 @@ test("7D Market Movers is the existing component, only relocated", () => {
   assert.match(movers, /SevenDayMarketMoversTicker/);
   assert.match(movers, /entry=\{payload\?\.marketMovers\}/);
   assert.match(movers, /scope="explore" thumbnailSize="medium"/);
-  assert.match(movers, /maxItems=\{30\}/);
+  assert.match(movers, /maxItems=\\{50\\}/);
   assert.match(movers, />7D Market Movers</);
   assert.match(page, /<ExploreMarketMovers payload=\{moversPayload\} \/>/);
   // The heading stands alone — no descriptive subtitle between it and the
