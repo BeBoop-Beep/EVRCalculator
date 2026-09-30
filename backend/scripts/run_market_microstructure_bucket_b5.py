@@ -37,6 +37,7 @@ DAILY_B5_CREDIT_CAP = 8000
 HORIZON_DAYS = 180
 EXPECTED_CORE_PANEL_READY = 207
 MOVER_TABLE = "pokemon_explore_card_movers_snapshot_latest"
+B5_SCOPE_VERSION = "exact_target_variant_v2"
 
 
 def _chunks(values: list[Any], size: int = 150) -> Iterable[list[Any]]:
@@ -303,21 +304,31 @@ def _horizon() -> tuple[date, date]:
     return reference, reference - timedelta(days=HORIZON_DAYS)
 
 
-def _evidence_summary(db: Any, provider_card_id: int) -> dict[str, Any]:
+def _evidence_summary(
+    db: Any,
+    provider_card_id: int,
+    card_variant_id: str,
+) -> dict[str, Any]:
+    """Exact target-variant history only; never borrow age from sibling variants."""
     rows = (
         db.table("pkmnprices_ebay_sold_evidence_v1")
         .select("sold_at")
         .eq("provider_card_id", provider_card_id)
+        .eq("card_variant_id", card_variant_id)
+        .eq("attribution", "exact")
         .order("sold_at")
         .range(0, 999)
         .execute().data or []
     )
     if len(rows) == 1000:
-        # Oldest only: order ascending means the first row is already sufficient.
+        # Ordered oldest-first; one page is enough to establish the target's floor.
         oldest = str(rows[0]["sold_at"])[:10] if rows else None
     else:
         oldest = min((str(row["sold_at"])[:10] for row in rows), default=None)
-    return {"oldest_sold_at": oldest, "transaction_count_lower_bound": len(rows)}
+    return {
+        "oldest_sold_at": oldest,
+        "exact_target_transaction_count_lower_bound": len(rows),
+    }
 
 
 def _identity_row(target: dict[str, Any], provider_card: dict[str, Any]) -> dict[str, Any]:
@@ -380,7 +391,11 @@ def _state(
     if not sync:
         return {"identity": identity, "sync": None, "ready": False, "rows_seen": 0, "oldest": None}
     meta = dict(sync.get("metadata") or {})
-    if meta.get("b5_horizon_cutoff") == cutoff.isoformat() and "b5_ready" in meta:
+    if (
+        meta.get("b5_scope_version") == B5_SCOPE_VERSION
+        and meta.get("b5_horizon_cutoff") == cutoff.isoformat()
+        and "b5_ready" in meta
+    ):
         return {
             "identity": identity,
             "sync": sync,
@@ -391,7 +406,11 @@ def _state(
         }
 
     # Existing non-B5 evidence is reused, but never rewritten.
-    summary = _evidence_summary(db, int(identity["provider_card_id"]))
+    summary = _evidence_summary(
+        db,
+        int(identity["provider_card_id"]),
+        str(target["card_variant_id"]),
+    )
     oldest = summary["oldest_sold_at"]
     drained = bool(
         sync.get("status") == "CURRENT"
@@ -466,6 +485,7 @@ def _upsert_state(
             "targeted_backfill_complete": not has_more,
             "targeted_backfill_cursor": next_cursor if has_more else None,
             "targeted_incremental_watermark": watermark,
+            "b5_scope_version": B5_SCOPE_VERSION,
             "b5_reference_date": reference.isoformat(),
             "b5_horizon_cutoff": cutoff.isoformat(),
             "b5_oldest_sold_at": oldest,
@@ -559,6 +579,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "daily_credit_cap": DAILY_B5_CREDIT_CAP,
             "prior_b5_credits_today": plan["prior_b5_credits_today"],
             "invocation_credit_cap": invocation_cap,
+            "b5_scope_version": B5_SCOPE_VERSION,
             "canonical_price_mutation": False,
         },
     })
@@ -664,8 +685,15 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
                         _normalize(raw, target, int(identity["provider_card_id"]), run_id, collected_at)
                         for raw in raw_rows
                     ]
+                    exact_target_rows = [
+                        row
+                        for row in normalized
+                        if str(row.get("card_variant_id") or "") == str(target["card_variant_id"])
+                        and row.get("attribution") == "exact"
+                        and row.get("sold_at")
+                    ]
                     page_oldest = min(
-                        [str(row["sold_at"])[:10] for row in normalized if row.get("sold_at")],
+                        [str(row["sold_at"])[:10] for row in exact_target_rows],
                         default=None,
                     )
                     if page_oldest and (oldest is None or page_oldest < oldest):
