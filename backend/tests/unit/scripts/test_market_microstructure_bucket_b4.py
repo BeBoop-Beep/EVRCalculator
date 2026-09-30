@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,10 +11,12 @@ from backend.scripts.run_market_microstructure_bucket_b4 import (
     IDENTITY_LOOKUP_WORST_CASE,
     MAX_ROWS_PER_CARD_DAY,
     PAGE_SIZE,
-    PROVIDER_REMAINING_FLOOR,
+    ACCOUNT_DAILY_CREDIT_LIMIT,
+    ACCOUNT_RESERVE_CREDITS,
     REFERENCE_DATE,
     _breadth_order,
     _can_spend,
+    operational_pause_reason,
     _horizon_ready,
 )
 
@@ -46,26 +48,22 @@ def test_breadth_order_prioritizes_least_depth_then_panel_order():
     ]
 
 
-def test_credit_and_provider_reserve_guard_is_fail_closed():
-    provider = SimpleNamespace(rate_remaining=None)
-    assert _can_spend(provider, local_remaining=20, requested=20)
-    assert not _can_spend(provider, local_remaining=19, requested=20)
-
-    provider.rate_remaining = PROVIDER_REMAINING_FLOOR + 20
-    assert _can_spend(provider, local_remaining=100, requested=20)
-    provider.rate_remaining = PROVIDER_REMAINING_FLOOR + 19
-    assert not _can_spend(provider, local_remaining=100, requested=20)
+def test_credit_guard_uses_daily_b4_budget_not_request_rate_header():
+    assert _can_spend(local_remaining=20, requested=20)
+    assert not _can_spend(local_remaining=19, requested=20)
 
 
 def test_b4_absolute_caps_and_calibration_are_frozen():
     assert PAGE_SIZE == 20
     assert MAX_ROWS_PER_CARD_DAY == 80
-    assert DAILY_B_CREDIT_CAP == 8000
+    assert ACCOUNT_DAILY_CREDIT_LIMIT == 75000
+    assert DAILY_B_CREDIT_CAP == 55000
+    assert ACCOUNT_RESERVE_CREDITS == 20000
     assert IDENTITY_LOOKUP_WORST_CASE == 5
     assert CALIBRATED_MEAN_READY_ROWS == 419.8
 
 
-def test_b4_source_requires_c_gate_and_never_collects_lifetime_phase2():
+def test_b4_never_collects_lifetime_phase2_and_observes_c_authority():
     path = (
         Path(__file__).resolve().parents[3]
         / "scripts"
@@ -75,7 +73,7 @@ def test_b4_source_requires_c_gate_and_never_collects_lifetime_phase2():
     assert '"full_panel_daily") is True' in text
     assert 'int(run.get("target_count") or 0) == EXPECTED_PANEL_COUNT' in text
     assert 'int(run.get("observed_target_count") or 0) == EXPECTED_PANEL_COUNT' in text
-    assert 'if not gate["ready"]' in text
+    assert "C_CONTINUITY_WINDOW" in text
     assert '"provider_credits_used": 0' in text
     assert '"database_writes": 0' in text
     assert '"phase2_lifetime_archival": False' in text
@@ -117,12 +115,62 @@ def test_b4_vm_schedule_yields_to_c_and_uses_shared_locks():
     installer = (root / "infra/oracle/install_market_microstructure_bucket_b4_cron.sh").read_text(encoding="utf-8")
 
     assert "CRON_TZ=America/Phoenix" in cron
-    assert "30 22 * * *" in cron
+    assert "*/15 * * * *" in cron
     assert "/bin/bash" in cron
     assert "/tmp/active-supply-panel.lock" in runner
+    assert "/tmp/pokemon-scrape-dispatcher.lock" in runner
     assert "/tmp/pkmnprices-api.lock" in runner
     assert "/tmp/pokemon-post-scrape-publication.lock" in runner
     assert "/home/ubuntu/state/db-safety/hold.json" in runner
-    assert "--credit-cap 8000" in runner
+    assert "--credit-cap 55000" in runner
     assert "worktree add --detach" in installer
     assert "VERIFY ONLY" in installer
+
+
+def test_b4_pause_windows_prioritize_c_and_daily_scraper(monkeypatch):
+    assert operational_pause_reason(
+        object(), now_local=datetime(2026, 9, 29, 20, 55)
+    )["reason"] == "C_CONTINUITY_WINDOW"
+
+    # Before the scrape window begins, no batch is required.
+    assert operational_pause_reason(
+        object(), now_local=datetime(2026, 9, 30, 0, 54)
+    ) is None
+
+    import backend.scripts.run_market_microstructure_bucket_b4 as b4
+
+    monkeypatch.setattr(b4, "_scrape_batch_state", lambda db, expected_date: None)
+    assert operational_pause_reason(
+        object(), now_local=datetime(2026, 9, 30, 0, 55)
+    )["reason"] == "SCRAPE_BATCH_NOT_READY"
+
+    monkeypatch.setattr(
+        b4,
+        "_scrape_batch_state",
+        lambda db, expected_date: {"id": 68, "status": "running"},
+    )
+    assert operational_pause_reason(
+        object(), now_local=datetime(2026, 9, 30, 1, 30)
+    )["reason"] == "SCRAPE_BATCH_ACTIVE"
+
+    monkeypatch.setattr(
+        b4,
+        "_scrape_batch_state",
+        lambda db, expected_date: {"id": 68, "status": "complete"},
+    )
+    assert operational_pause_reason(
+        object(), now_local=datetime(2026, 9, 30, 2, 30)
+    ) is None
+
+
+def test_b4_credit_day_is_shared_across_retry_invocations():
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "scripts"
+        / "run_market_microstructure_bucket_b4.py"
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "def _daily_b4_credits_used" in text
+    assert "prior_b4_credits_today" in text
+    assert "invocation_credit_cap = max(0, credit_cap - prior_b4_credits)" in text
+    assert "min_request_interval=0.55" in text
