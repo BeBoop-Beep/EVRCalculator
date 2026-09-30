@@ -11,8 +11,8 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
-    build_global_raw_card_movers_row,
-    read_raw_market_movers_authority,
+    build_global_mixed_movers_row,
+    read_mixed_market_movers_authority,
     upsert_explore_card_movers_snapshot,
 )
 from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
@@ -21,7 +21,7 @@ from backend.scripts.pokemon_snapshot_builders import get_client
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
-        description="Build the fixed 7D market-wide Raw card-movers snapshot"
+        description="Build the fixed 7D mixed card + sealed Market movers snapshot"
     )
     mode = result.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
@@ -31,11 +31,11 @@ def parser() -> argparse.ArgumentParser:
 
 
 def build(*, client, market_date: str, commit: bool) -> dict:
-    authority = read_raw_market_movers_authority(
+    authority = read_mixed_market_movers_authority(
         market_date=market_date,
         client=client,
     )
-    row = build_global_raw_card_movers_row(
+    row = build_global_mixed_movers_row(
         authority,
         target_market_date=market_date,
     )
@@ -52,7 +52,7 @@ def main() -> None:
         commit=bool(args.commit),
         market_date=args.market_date,
         override=args.force_publish,
-        entry_point="Explore card movers snapshot",
+        entry_point="Explore mixed Market movers snapshot",
     )
     if not gate.proceed:
         raise SystemExit(gate.exit_code)
