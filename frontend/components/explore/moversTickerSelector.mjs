@@ -69,6 +69,17 @@ export function getMoversTickerTrendValue(movement) {
 }
 
 function stableCardIdentity(card) {
+  if (card?.asset === "sealed") {
+    const productId = String(
+      card?.sealedProductId ??
+        card?.sealed_product_id ??
+        card?.instrumentId ??
+        card?.instrument_id ??
+        card?.id ??
+        `${card?.setName || "unknown"}:${card?.name || "sealed"}`
+    );
+    return `sealed:${productId}`;
+  }
   const canonical = String(
     card?.canonicalCardId ??
       card?.canonical_card_id ??
@@ -83,10 +94,9 @@ function stableCardIdentity(card) {
   );
   const variant = String(card?.cardVariantId ?? card?.card_variant_id ?? "");
   const condition = String(card?.conditionId ?? card?.condition_id ?? "");
-  // Global Raw markets contain economically distinct physical instruments for
-  // the same canonical card (for example Unlimited and 1st Edition). Do not
-  // collapse those exact variants back to canonical-card identity in the UI.
-  return variant ? `${canonical}:${variant}:${condition}` : canonical;
+  // Raw card markets can contain economically distinct physical instruments
+  // for the same canonical card (for example Unlimited and 1st Edition).
+  return variant ? `cards:${canonical}:${variant}:${condition}` : `cards:${canonical}`;
 }
 
 function getCandidateCards(entry) {
