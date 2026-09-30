@@ -1,11 +1,12 @@
 # FMA-4 — Live frontend integration handoff
 
-Status: **RECONCILIATION COMPLETE / READY FOR REVIEW**
+Status: **FINAL RECONCILIATION COMPLETE / READY FOR REVIEW**
 
 ## Delivery identity
 
 - Rebased `origin/develop` SHA: `28dd2736`
 - Reconciliation implementation SHA: `a04db9232da761de754184170dd75f4d8a018c53`
+- Final reconciliation implementation SHA: `57d5f2ab7bfe2a93c9182d96086196861f8d1b41`
 - Branch: `fma4-live-market-activity-integration`
 - Remote branch: `origin/fma4-live-market-activity-integration`
 - PR: `#500`
@@ -39,7 +40,7 @@ Prepared V2 markets derive `SURFACE_V2_GENERATION` only from the series' backend
 
 ## Live group Activity
 
-Normal product mode now defaults to `fetchMarketActivityGroup`; only `MARKET_ACTIVITY_FIXTURE_MODE=1` uses the fixture payload. The request includes exact capability pins and the visible canonical chart start/end dates. Response validation covers contract, market, activity generation, roster, as-of, window, tier, evidence fingerprint, and chart range before rendering.
+Normal product mode now defaults to `fetchMarketActivityGroup`; only `MARKET_ACTIVITY_FIXTURE_MODE=1` uses the fixture payload. The request includes exact capability pins and the visible canonical chart start/end dates. Response validation always enforces the exact initiating request pins. Available and partial responses additionally require the requested top-level generation and endpoint-specific evidence authority. Schema-valid unavailable responses accept a null top-level generation and their own valid SHA-256 fingerprint, so expired generations and roster mismatches render as domain-unavailable data rather than transport failures.
 
 The canonical chart remains pointer/crosshair/tooltip owner. Activity receives the inspected date. No hover-time request, forward-fill, or missing-as-zero behavior was added. A failed Activity read preserves the canonical graph and an exact-scope last-known payload. Manual Retry is available for retryable failures; there is no automatic loop. Auth, entitlement, invalid, domain-unavailable, and temporary-unavailable states have distinct copy.
 
@@ -47,7 +48,7 @@ Live mode contains descriptive source/methodology copy. “Fixture-backed / not 
 
 ## Constituent Activity and instrument drilldown
 
-Constituents defaults to Performance. Activity is a local card-only view and is shown only with an exact capability. Pages use the server cursor and server roster order; there is no client-page sort. Each Load more action advances canonical display and Activity pages together, preserving exact joins after row 50. Canonical display metadata joins only by exact `cardVariantId`, and the raw `instrumentKey` must match that same variant. A mismatch is withheld rather than borrowing another variant's metadata.
+Constituents defaults to Performance. Activity is a local card-only view and is shown only with an exact capability. Pages use the server cursor and server roster order; there is no client-page sort. Each Load more action advances canonical display and Activity pages together, preserving exact joins after row 50. Retry reissues only the failed side: a canonical page failure does not duplicate a successful Activity page, and vice versa. Canonical display metadata joins only by exact `cardVariantId`, and the raw `instrumentKey` must match that same variant. A mismatch is withheld rather than borrowing another variant's metadata.
 
 Desktop columns are Card, Observed Sales, Proven Sales, Median Sale, Ask State/Lowest Ask, and Coverage. Missing values render as unavailable, never zero. Mobile uses compact cards.
 
@@ -67,7 +68,7 @@ The first-page constituent request is in-flight deduplicated so React developmen
 
 ## Verification
 
-- Reconciliation contract/regression run: 21 passed, 0 failed, including endpoint authority, 100-row/two-page joins, all four sales windows, FastAPI error envelopes, and concurrent market generations.
+- Final reconciliation contract/regression run: 26 passed, 0 failed, including FMA-2-shaped unavailable group/constituent/instrument DTOs, domain-unavailable rendering, failure-specific page retry, endpoint authority, 100-row/two-page joins, all four sales windows, FastAPI error envelopes, and concurrent market generations.
 - Wider Explorer React run: 105 passed, 34 intentional skips, 0 failed after the one source-layout reconciliation assertion was restored.
 - All 19 accepted Activity fixtures passed manifest, fixture fingerprint, contract, and request-pin validation.
 - Production build: compiled, lint/type checked, and generated successfully with local required URL environment values. Existing unrelated repository warnings remain.
@@ -107,4 +108,4 @@ Reconciled against `origin/fma2-market-activity-api` at `7efaca62`. The frontend
 5. Re-run 1440×900, 1366×768, and 390 px acceptance and retain network-count evidence.
 6. Complete security/accessibility review, release approval, generation promotion, and deployment as separate authorized work.
 
-FMA4_RECONCILIATION_READY
+FMA4_FINAL_RECONCILIATION_READY
