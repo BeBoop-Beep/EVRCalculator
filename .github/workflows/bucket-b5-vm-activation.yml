@@ -1,0 +1,102 @@
+name: Bucket B5 VM Activation
+
+on:
+  push:
+    branches:
+      - ops/b5-vm-activation-20260930
+    paths:
+      - ".bucket-b5-vm/request.txt"
+      - ".github/workflows/bucket-b5-vm-activation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bucket-b5-vm-activation
+  cancel-in-progress: false
+
+jobs:
+  vm:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 45
+    env:
+      RELEASE_SHA: 1f0c04e6a11643e65e7511dd92a62fb071245f0e
+      VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+    steps:
+      - name: Resolve fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$VM_REQUEST_MESSAGE" in
+            "bucket-b5-activate: noop") OP=noop ;;
+            "bucket-b5-activate: apply") OP=apply ;;
+            "bucket-b5-activate: status") OP=status ;;
+            "bucket-b5-activate: run") OP=run ;;
+            *) echo "REFUSING: invalid fixed operation"; exit 2 ;;
+          esac
+          echo "OP=$OP" >> "$GITHUB_ENV"
+          echo "operation=$OP release_sha=$RELEASE_SHA"
+
+      - name: Execute fixed operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-b5-activation
+          STATE=/home/ubuntu/state/market_microstructure_b5
+          PY="$REPO/.venv/bin/python"
+
+          cleanup() {
+            if [ -d "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+              rm -rf "$WT" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+
+          prepare_release() {
+            test -d "$REPO/.git" || { echo "REFUSING: production repo missing"; exit 2; }
+            test -x "$PY" || { echo "REFUSING: shared Python runtime missing"; exit 2; }
+            git -C "$REPO" fetch origin develop --quiet
+            git -C "$REPO" cat-file -e "$RELEASE_SHA^{commit}" || {
+              echo "REFUSING: reviewed B5 release unavailable"; exit 2;
+            }
+            if [ -e "$WT" ]; then
+              git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+            fi
+            git -C "$REPO" worktree add --detach "$WT" "$RELEASE_SHA"
+            test "$(git -C "$WT" rev-parse HEAD)" = "$RELEASE_SHA" || {
+              echo "REFUSING: B5 worktree SHA mismatch"; exit 2;
+            }
+          }
+
+          case "$OP" in
+            noop)
+              echo "BUCKET_B5_ACTIVATION_NOOP=PASS"
+              ;;
+
+            apply)
+              prepare_release
+              MARKET_B5_ENV_REPO="$REPO"                 /bin/bash "$WT/infra/oracle/install_market_microstructure_bucket_b5_cron.sh" --apply
+              ;;
+
+            status)
+              echo "reviewed_release_sha=$RELEASE_SHA"
+              if [ -r "$STATE/release.sha" ]; then
+                PIN="$(tr -d '[:space:]' < "$STATE/release.sha")"
+                echo "release_pin_present=true"
+                [ "$PIN" = "$RELEASE_SHA" ] && echo "release_pin_matches_reviewed=true" || echo "release_pin_matches_reviewed=false"
+              else
+                echo "release_pin_present=false"
+                echo "release_pin_matches_reviewed=false"
+              fi
+              crontab -l 2>/dev/null | grep 'run_market_microstructure_bucket_b5.sh' || true
+              ;;
+
+            run)
+              [ -r "$STATE/release.sha" ] || { echo "REFUSING: B5 release pin missing"; exit 2; }
+              PIN="$(tr -d '[:space:]' < "$STATE/release.sha")"
+              [ "$PIN" = "$RELEASE_SHA" ] || { echo "REFUSING: B5 pin mismatch"; exit 2; }
+              /bin/bash "$STATE/runtime/infra/oracle/run_market_microstructure_bucket_b5.sh"
+              ;;
+          esac
