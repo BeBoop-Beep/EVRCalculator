@@ -1,1 +1,1 @@
-installer-verify
+db-target-status
