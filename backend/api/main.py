@@ -1199,13 +1199,20 @@ def _require_market_activity_access(
     _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
     plan = _resolve_index_plan(authorization, token_cookie)
     market_keys: list[str] = []
+    custom_roster = False
     if isinstance(payload, dict):
         if isinstance(payload.get("marketKey"), str):
             market_keys.append(payload["marketKey"])
         for item in payload.get("markets", []) if isinstance(payload.get("markets"), list) else []:
             if isinstance(item, dict) and isinstance(item.get("marketKey"), str):
                 market_keys.append(item["marketKey"])
-    custom = any(key.startswith("custom:") for key in market_keys)
+            if (isinstance(item, dict) and isinstance(item.get("rosterRef"), dict)
+                    and item["rosterRef"].get("kind") == "QUERY_CACHE_PUBLISHED_REVISION"):
+                custom_roster = True
+        if (isinstance(payload.get("rosterRef"), dict)
+                and payload["rosterRef"].get("kind") == "QUERY_CACHE_PUBLISHED_REVISION"):
+            custom_roster = True
+    custom = custom_roster or any(key.startswith("custom:") for key in market_keys)
     allowed = has_index_premium_access(plan) if custom else has_index_plus_access(plan)
     if not allowed:
         raise HTTPException(status_code=403, detail={

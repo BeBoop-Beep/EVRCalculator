@@ -5,6 +5,8 @@ on:
     paths:
       - 'backend/db/migrations/20260930210000_market_activity_projection_v1.sql'
       - 'supabase/migrations/20260930210000_market_activity_projection_v1.sql'
+      - 'backend/db/migrations/20260930220000_market_activity_per_market_serving_v1.sql'
+      - 'supabase/migrations/20260930220000_market_activity_per_market_serving_v1.sql'
       - 'backend/tests/integration/market_activity_v1_postgres_*.sql'
       - '.github/workflows/fma1-postgres-validation.yml'
   workflow_dispatch:
@@ -29,11 +31,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify mirrored migrations
-        run: cmp backend/db/migrations/20260930210000_market_activity_projection_v1.sql supabase/migrations/20260930210000_market_activity_projection_v1.sql
+        run: |
+          cmp backend/db/migrations/20260930210000_market_activity_projection_v1.sql supabase/migrations/20260930210000_market_activity_projection_v1.sql
+          cmp backend/db/migrations/20260930220000_market_activity_per_market_serving_v1.sql supabase/migrations/20260930220000_market_activity_per_market_serving_v1.sql
       - name: Apply relevant baseline and FMA-1 migration
         run: |
           psql -v ON_ERROR_STOP=1 -f backend/tests/integration/market_activity_v1_postgres_baseline.sql
           psql -v ON_ERROR_STOP=1 -f backend/db/migrations/20260930210000_market_activity_projection_v1.sql
+          psql -v ON_ERROR_STOP=1 -f backend/db/migrations/20260930220000_market_activity_per_market_serving_v1.sql
       - name: Validate publication, RLS, RPCs, promotion, EXPLAIN, rollback
         run: |
           set -o pipefail

@@ -29,7 +29,7 @@ MEMBER_TABLE = "market_activity_roster_members_v1"
 DETAIL_TABLE = "market_activity_instrument_payloads_v1"
 GROUP_TABLE = "market_activity_group_payloads_v1"
 MAX_PAGE_SIZE = 100
-SERVING_TABLE = "market_activity_serving_v1"
+SERVING_TABLE = "market_activity_market_serving_v1"
 SURFACE_SERVING_TABLE = "pokemon_market_explorer_surface_serving_v2"
 
 
@@ -104,35 +104,44 @@ def discover_activity_capabilities(
     }
     result = {str(item.get("focusKey")): unavailable(item, "ACTIVITY_GENERATION_MISMATCH")
               for item in markets}
-    serving = _one(client.table(SERVING_TABLE).select("activity_generation_id").eq("singleton", 1).limit(1))
-    generation_id = (serving or {}).get("activity_generation_id")
-    if not generation_id:
-        return {"contractVersion": CONTRACT_VERSION, "capabilities": result}
-    generation = _one(client.table(GENERATION_TABLE).select(
-        "activity_generation_id,as_of,surface_generation_id,roster_ref,state,serving_state"
-    ).eq("activity_generation_id", generation_id).limit(1))
-    if not generation or generation.get("state") != "VALIDATED" or generation.get("serving_state") != "SERVING":
-        return {"contractVersion": CONTRACT_VERSION, "capabilities": result}
-    current_surface = _one(client.table(SURFACE_SERVING_TABLE).select("generation_id").eq("singleton", 1).limit(1))
-    pinned_surface = generation.get("surface_generation_id")
-    if pinned_surface and str((current_surface or {}).get("generation_id")) != str(pinned_surface):
-        return {"contractVersion": CONTRACT_VERSION, "capabilities": result}
     keys = [str(item["marketKey"]) for item in markets]
+    serving_rows = _execute_rows(client.table(SERVING_TABLE).select(
+        "market_key,activity_generation_id"
+    ).in_("market_key", keys))
+    serving_by_key = {row["market_key"]: row.get("activity_generation_id") for row in serving_rows
+                      if row.get("activity_generation_id")}
+    generation_ids = list(dict.fromkeys(str(value) for value in serving_by_key.values()))
+    if not generation_ids:
+        return {"contractVersion": CONTRACT_VERSION, "capabilities": result}
+    generations = _execute_rows(client.table(GENERATION_TABLE).select(
+        "activity_generation_id,as_of,surface_generation_id,roster_ref,state,serving_state"
+    ).in_("activity_generation_id", generation_ids))
+    generation_by_id = {str(row["activity_generation_id"]): row for row in generations}
+    current_surface = _one(client.table(SURFACE_SERVING_TABLE).select("generation_id").eq("singleton", 1).limit(1))
     rosters = _execute_rows(client.table(ROSTER_TABLE).select(
         "activity_generation_id,market_key,roster_revision"
-    ).eq("activity_generation_id", generation_id).in_("market_key", keys))
+    ).in_("activity_generation_id", generation_ids).in_("market_key", keys))
     groups = _execute_rows(client.table(GROUP_TABLE).select(
         "activity_generation_id,market_key,window_days,payload"
-    ).eq("activity_generation_id", generation_id).eq("window_days", window_days).in_("market_key", keys))
-    roster_by_key = {row["market_key"]: row for row in rosters}
-    group_by_key = {row["market_key"]: row for row in groups}
+    ).in_("activity_generation_id", generation_ids).eq("window_days", window_days).in_("market_key", keys))
+    roster_by_scope = {(str(row["activity_generation_id"]), row["market_key"]): row for row in rosters}
+    group_by_scope = {(str(row["activity_generation_id"]), row["market_key"]): row for row in groups}
     for item in markets:
         focus_key, market_key = str(item["focusKey"]), str(item["marketKey"])
-        roster = roster_by_key.get(market_key)
+        generation_id = str(serving_by_key.get(market_key) or "")
+        generation = generation_by_id.get(generation_id)
+        if (not generation or generation.get("state") != "VALIDATED"
+                or generation.get("serving_state") != "SERVING"):
+            continue
+        pinned_surface = generation.get("surface_generation_id")
+        if pinned_surface and str((current_surface or {}).get("generation_id")) != str(pinned_surface):
+            result[focus_key] = unavailable(item, "GENERATION_MISMATCH")
+            continue
+        roster = roster_by_scope.get((generation_id, market_key))
         if not roster or roster.get("roster_revision") != item.get("rosterRef"):
             result[focus_key] = unavailable(item, "ROSTER_REVISION_MISMATCH")
             continue
-        group = group_by_key.get(market_key)
+        group = group_by_scope.get((generation_id, market_key))
         payload = (group or {}).get("payload")
         if not isinstance(payload, Mapping):
             result[focus_key] = unavailable(item, "INVALID_MARKET_KEY")

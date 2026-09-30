@@ -67,6 +67,30 @@ def test_custom_requires_premium(monkeypatch):
     assert response.status_code == 200
 
 
+def test_published_revision_requires_premium_regardless_of_market_key(monkeypatch):
+    fixture = _instrument_fixture()
+    request = deepcopy(fixture["inputs"]["request"])
+    request["marketKey"] = "innocent-looking-market"
+    request["rosterRef"] = {
+        "kind": "QUERY_CACHE_PUBLISHED_REVISION", "queryFingerprint": "a" * 64,
+        "revisionId": "44444444-4444-4444-8444-444444444444",
+        "computedThrough": "2026-09-29",
+    }
+    activity_calls = []
+    monkeypatch.setattr(main, "read_instrument_activity", lambda *_: activity_calls.append(1))
+    _auth(monkeypatch, "plus")
+    denied = CLIENT.post("/market/explorer/activity/instrument", json=request, headers=AUTH)
+    assert denied.status_code == 403
+    assert activity_calls == []
+
+    _auth(monkeypatch, "premium")
+    expected = deepcopy(fixture["expected"])
+    expected["request"] = request
+    monkeypatch.setattr(main, "read_instrument_activity", lambda *_: expected)
+    allowed = CLIENT.post("/market/explorer/activity/instrument", json=request, headers=AUTH)
+    assert allowed.status_code == 200
+
+
 def test_invalid_extra_field_is_400_before_db(monkeypatch):
     _auth(monkeypatch)
     fixture = _instrument_fixture()
