@@ -1,5 +1,7 @@
 # Core Panel V1 Phase 1 historical breadth backfill.
-# Runs only after the C daily panel health window; the Python coordinator also
-# refuses unless the same Phoenix date has an exact healthy 207-card C run.
+# Retry every 15 minutes so the worker can yield to the daily scraper/C/publication
+# windows and resume automatically when those jobs release authority.
+# The Python coordinator enforces one shared 55k B4 budget per PkmnPrices UTC
+# credit day, so repeated invocations cannot multiply the daily spend.
 CRON_TZ=America/Phoenix
-30 22 * * * /bin/bash /home/ubuntu/state/market_microstructure_b4/runtime/infra/oracle/run_market_microstructure_bucket_b4.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_microstructure_b4.log 2>&1
+*/15 * * * * /bin/bash /home/ubuntu/state/market_microstructure_b4/runtime/infra/oracle/run_market_microstructure_bucket_b4.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_microstructure_b4.log 2>&1
