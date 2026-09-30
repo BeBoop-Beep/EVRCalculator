@@ -130,6 +130,14 @@ def test_b4_vm_schedule_yields_to_c_and_uses_shared_locks():
 
 def test_b4_pause_windows_prioritize_c_and_daily_scraper(monkeypatch):
     assert FIRST_FULL_C_DATE == date(2026, 9, 30)
+
+    import backend.scripts.run_market_microstructure_bucket_b4 as b4
+
+    monkeypatch.setattr(
+        b4,
+        "_scrape_batch_state",
+        lambda db, expected_date: {"id": 67, "status": "complete"},
+    )
     assert operational_pause_reason(
         object(), now_local=datetime(2026, 9, 29, 21, 43)
     ) is None
@@ -141,8 +149,6 @@ def test_b4_pause_windows_prioritize_c_and_daily_scraper(monkeypatch):
     assert operational_pause_reason(
         object(), now_local=datetime(2026, 9, 30, 0, 54)
     ) is None
-
-    import backend.scripts.run_market_microstructure_bucket_b4 as b4
 
     monkeypatch.setattr(b4, "_scrape_batch_state", lambda db, expected_date: None)
     assert operational_pause_reason(
