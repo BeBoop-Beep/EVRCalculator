@@ -17,7 +17,7 @@ from backend.db.services.pokemon_set_market_service import canonical_card_moveme
 
 TABLE = "pokemon_explore_card_movers_snapshot_latest"
 logger = logging.getLogger("market.performance")
-LIMIT = 30
+LIMIT = 50
 class ExploreCardMoversUnavailable(Exception):
     def __init__(self, message: str, *, diagnostics: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(message)
@@ -407,6 +407,231 @@ def build_global_raw_card_movers_row(
         "market_date": target_market_date,
         "card_count": len(published),
         "eligible_set_count": diagnostics["rawRootCount"],
+        "source_updated_at": built_at,
+        "source_generation_fingerprint": fingerprint,
+        "_diagnostics": diagnostics,
+    }
+
+
+
+def market_movement_identity(row: Mapping[str, Any]) -> tuple[str, str, str]:
+    """Stable identity for a mixed card/sealed market instrument."""
+    asset = (_text(row.get("asset")) or "cards").lower()
+    if asset == "sealed":
+        instrument = _text(
+            row.get("sealedProductId")
+            or row.get("sealed_product_id")
+            or row.get("instrumentId")
+            or row.get("instrument_id")
+            or row.get("id")
+        )
+        if not instrument:
+            raise ValueError("sealed movement is missing product identity")
+        return ("sealed", instrument.lower(), "")
+    card = movement_identity(row)
+    return ("cards", f"{card[0]}:{card[1]}", card[2])
+
+
+def read_mixed_market_movers_authority(
+    *,
+    market_date: str,
+    limit: int = LIMIT,
+    client: Any,
+) -> Dict[str, Any]:
+    """Read the combined Raw-card + sealed-product 7D authority."""
+    try:
+        sanitized = max(1, min(int(limit), LIMIT))
+    except (TypeError, ValueError):
+        sanitized = LIMIT
+    result = client.rpc(
+        "get_pokemon_market_mixed_movers_v1",
+        {"p_market_date": str(market_date)[:10], "p_limit": sanitized},
+    ).execute()
+    data = getattr(result, "data", None)
+    if isinstance(data, list):
+        data = data[0] if data else None
+    if not isinstance(data, Mapping):
+        raise ExploreCardMoversUnavailable(
+            "mixed Market 7D mover authority is unavailable",
+            diagnostics={"marketDate": str(market_date)[:10]},
+        )
+    return dict(data)
+
+
+def build_global_mixed_movers_row(
+    authority: Mapping[str, Any],
+    *,
+    target_market_date: str,
+    limit: int = LIMIT,
+    built_at: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Package the combined exact-instrument card + sealed authority."""
+    status = _text(authority.get("status"))
+    authority_date = _text(authority.get("marketDate"))
+    generation_id = _text(authority.get("generationId"))
+    movement_version = _text(authority.get("movementContractVersion"))
+    convention = _text(authority.get("windowConvention"))
+    universe_version = _text(authority.get("universeContractVersion"))
+    ranking_methodology = _text(authority.get("rankingMethodology"))
+    baseline_guard = _text(authority.get("baselineQualityGuardVersion"))
+    movements = authority.get("movements")
+
+    diagnostics = {
+        "requestedTargetMarketDate": target_market_date,
+        "authorityMarketDate": authority_date,
+        "authorityStatus": status,
+        "sourceGenerationId": generation_id,
+        "marketSetCount": int(authority.get("marketSetCount") or 0),
+        "cardRootCount": int(authority.get("cardRootCount") or 0),
+        "cardMarketCount": int(authority.get("cardMarketCount") or 0),
+        "cardConstituentCount": int(authority.get("cardConstituentCount") or 0),
+        "cardCandidateCount": int(authority.get("cardCandidateCount") or 0),
+        "cardTransientExcludedCount": int(authority.get("cardTransientExcludedCount") or 0),
+        "sealedSetCount": int(authority.get("sealedSetCount") or 0),
+        "sealedConstituentCount": int(authority.get("sealedConstituentCount") or 0),
+        "sealedCurrentEndpointCount": int(authority.get("sealedCurrentEndpointCount") or 0),
+        "sealedBaselineCoveredCount": int(authority.get("sealedBaselineCoveredCount") or 0),
+        "sealedCandidateCount": int(authority.get("sealedCandidateCount") or 0),
+        "sealedTransientExcludedCount": int(authority.get("sealedTransientExcludedCount") or 0),
+        "publishedCardCount": int(authority.get("publishedCardCount") or 0),
+        "publishedSealedCount": int(authority.get("publishedSealedCount") or 0),
+        "publishedCount": int(authority.get("publishedCount") or 0),
+        "movementContractVersion": movement_version,
+        "windowConvention": convention,
+        "universeContractVersion": universe_version,
+        "rankingMethodology": ranking_methodology,
+        "baselineQualityGuardVersion": baseline_guard,
+    }
+    problems = []
+    if status != "READY":
+        problems.append("status")
+    if authority_date != target_market_date:
+        problems.append("marketDate")
+    if not generation_id:
+        problems.append("generationId")
+    if movement_version != MOVEMENT_CONTRACT_VERSION:
+        problems.append("movementContractVersion")
+    if convention != WINDOW_CONVENTION:
+        problems.append("windowConvention")
+    if universe_version != "serving_cards_and_sealed_exact_instruments_v1":
+        problems.append("universeContractVersion")
+    if ranking_methodology != "market_movement_score_v1":
+        problems.append("rankingMethodology")
+    if baseline_guard != "target_baseline_reversion_guard_v1":
+        problems.append("baselineQualityGuardVersion")
+    if not isinstance(movements, list):
+        problems.append("movements")
+    if diagnostics["cardConstituentCount"] <= 0 or diagnostics["sealedConstituentCount"] <= 0:
+        problems.append("instrumentUniverse")
+    if diagnostics["cardCandidateCount"] <= 0 or diagnostics["sealedCandidateCount"] <= 0:
+        problems.append("candidateUniverse")
+    if diagnostics["publishedCardCount"] + diagnostics["publishedSealedCount"] != diagnostics["publishedCount"]:
+        problems.append("publishedAssetCounts")
+    if problems:
+        raise ExploreCardMoversUnavailable(
+            "mixed Market 7D mover authority is incoherent",
+            diagnostics={**diagnostics, "invalidFields": problems},
+        )
+
+    sanitized = max(1, min(int(limit), LIMIT))
+    published: List[Dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for value in movements:
+        if not isinstance(value, Mapping):
+            raise ExploreCardMoversUnavailable(
+                "mixed Market 7D authority contains a malformed movement",
+                diagnostics=diagnostics,
+            )
+        movement = dict(value)
+        try:
+            identity = market_movement_identity(movement)
+        except ValueError as exc:
+            raise ExploreCardMoversUnavailable(
+                "mixed Market 7D authority is missing exact instrument identity",
+                diagnostics=diagnostics,
+            ) from exc
+        if identity in seen:
+            continue
+        seen.add(identity)
+        published.append(movement)
+        if len(published) >= sanitized:
+            break
+
+    published_card_count = sum(
+        1 for row in published if (_text(row.get("asset")) or "cards").lower() == "cards"
+    )
+    published_sealed_count = sum(
+        1 for row in published if (_text(row.get("asset")) or "").lower() == "sealed"
+    )
+    built_at = built_at or datetime.now(timezone.utc).isoformat()
+    fingerprint_input = "\n".join(
+        [
+            target_market_date,
+            generation_id,
+            movement_version or "",
+            convention or "",
+            universe_version or "",
+            ranking_methodology or "",
+            baseline_guard or "",
+            *(f"{market_movement_identity(row)}|{row.get('movementScore')}" for row in published),
+        ]
+    )
+    fingerprint = hashlib.sha256(fingerprint_input.encode("utf-8")).hexdigest()
+    payload = {
+        "marketMovers": {
+            "window": "7D",
+            "windowDays": 7,
+            "all": published,
+        },
+        "meta": {
+            "snapshot": {
+                "builtAt": built_at,
+                "marketDate": target_market_date,
+                "window": "7D",
+                "limit": LIMIT,
+                "sourceGenerationId": generation_id,
+            },
+            "coverage": {
+                "marketSetCount": diagnostics["marketSetCount"],
+                "cardRootCount": diagnostics["cardRootCount"],
+                "cardMarketCount": diagnostics["cardMarketCount"],
+                "cardConstituentCount": diagnostics["cardConstituentCount"],
+                "cardCandidateCount": diagnostics["cardCandidateCount"],
+                "cardTransientExcludedCount": diagnostics["cardTransientExcludedCount"],
+                "sealedSetCount": diagnostics["sealedSetCount"],
+                "sealedConstituentCount": diagnostics["sealedConstituentCount"],
+                "sealedCurrentEndpointCount": diagnostics["sealedCurrentEndpointCount"],
+                "sealedBaselineCoveredCount": diagnostics["sealedBaselineCoveredCount"],
+                "sealedCandidateCount": diagnostics["sealedCandidateCount"],
+                "sealedTransientExcludedCount": diagnostics["sealedTransientExcludedCount"],
+                "candidateInstrumentCount": (
+                    diagnostics["cardCandidateCount"] + diagnostics["sealedCandidateCount"]
+                ),
+                "publishedCardCount": published_card_count,
+                "publishedSealedCount": published_sealed_count,
+                "publishedInstrumentCount": len(published),
+            },
+            "movementContractVersion": movement_version,
+            "windowConvention": convention,
+            "universeContractVersion": universe_version,
+            "rankingMethodology": ranking_methodology,
+            "baselineQualityGuardVersion": baseline_guard,
+            "sourceGenerationFingerprint": fingerprint,
+            "builder": "pokemon_mixed_market_seven_day_movers_v3",
+            "warnings": [],
+        },
+    }
+    diagnostics["publishedCardCount"] = published_card_count
+    diagnostics["publishedSealedCount"] = published_sealed_count
+    diagnostics["publishedCount"] = len(published)
+    return {
+        "tcg": "pokemon",
+        "scope": "explore",
+        "window_key": "7D",
+        "payload_json": payload,
+        "market_date": target_market_date,
+        "card_count": len(published),
+        "eligible_set_count": diagnostics["marketSetCount"] or diagnostics["cardRootCount"],
         "source_updated_at": built_at,
         "source_generation_fingerprint": fingerprint,
         "_diagnostics": diagnostics,
