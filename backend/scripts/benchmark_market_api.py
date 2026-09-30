@@ -14,7 +14,7 @@ import time
 import urllib.error
 import urllib.request
 
-GLOBAL_ENDPOINTS = ("/explore/set-value-market", "/explore/card-market-movers?limit=30")
+GLOBAL_ENDPOINTS = ("/explore/set-value-market", "/explore/card-market-movers?limit=50")
 
 
 def percentile(values: list[float], fraction: float) -> float:
