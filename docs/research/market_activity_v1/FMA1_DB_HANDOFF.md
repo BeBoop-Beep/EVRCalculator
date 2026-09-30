@@ -7,9 +7,9 @@ schedule, provider request, deployment, merge, or serving promotion was run.
 
 - Starting SHA: `8e86b6b3ab83422d95299107a66510a56ae5c336`
 - Branch: `fma1-market-activity-db-projection`
-- Final SHA: the PR head is authoritative (a commit cannot embed its own SHA);
-  it is recorded in the PR description and handoff comment after push
-- PR: recorded after push
+- Implementation SHA: `2687a8996b1525a2e492ff0dbfd583f029f9072a`
+- Final SHA: the PR head is authoritative (a commit cannot embed its own SHA)
+- PR: https://github.com/BeBoop-Beep/EVRCalculator/pull/494
 - Schema: `market_activity_projection_v1`
 - Contract: `market_activity_v1.1`
 - Domain: `market_activity_domain_v1.1.0`
