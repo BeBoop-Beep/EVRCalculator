@@ -10,7 +10,7 @@ performed.
 - Branch: `fma2-market-activity-api`
 - Final SHA: the PR head is authoritative (a commit cannot embed its own SHA)
 - Implementation SHA: `66fb824393bf0f8e5983324a7f5b4a68df774207`
-- Reconciliation SHA: the final PR head is authoritative
+- Reconciliation implementation SHA: `79c433b6634fcd74b0b0a49cd99700acd8956cda`
 - PR: https://github.com/BeBoop-Beep/EVRCalculator/pull/499
 - Contract: `market_activity_v1.1`
 - Domain: `market_activity_domain_v1.1.0`
