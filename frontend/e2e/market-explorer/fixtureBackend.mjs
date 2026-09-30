@@ -21,6 +21,10 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const overview = JSON.parse(fs.readFileSync(path.join(here, "fixtures", "setValueMarket.slim.json"), "utf8"));
+const activityFixture = (name) => JSON.parse(fs.readFileSync(path.resolve(here, "../../../docs/research/market_activity_v1/fixtures", name), "utf8")).expected;
+const groupActivityFixture = activityFixture("fma_fixture_11_group_activity.json");
+const constituentActivityFixture = activityFixture("fma_fixture_10_constituent_page.json");
+const instrumentActivityFixture = activityFixture("fma_fixture_01_fresh_complete.json");
 
 const AS_OF = "2026-09-28";
 let ART_ORIGIN = "http://127.0.0.1:8201";
@@ -159,6 +163,38 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
       if (route === "/auth/me") return token && plan ? reply(200, { user: { id: "fixture-user", email: `${plan}@fixture.test`, index_plan: plan } }) : reply(401, { message: "Not authenticated" });
       if (route === "/explore/set-value-market") return reply(200, overview);
       if (route === "/market/explorer/prepared-directory") return reply(200, { markets: directory(mode) });
+      if (route.startsWith("/market/explorer/activity")) {
+        if (!token) return reply(401, { message: "Sign in required", code: "AUTH" });
+        if (!plan) return reply(403, { message: "Market Activity is included with Index+.", code: "ENTITLEMENT" });
+        if (route === "/market/explorer/activity/capabilities") {
+          const capabilities = Object.fromEntries((body?.markets || []).map((market) => [market.focusKey, {
+            available: true, marketKey: market.marketKey, activityGenerationId: "fixture-live-activity-v1", rosterRef: market.rosterRef,
+            evidenceFingerprint: groupActivityFixture.evidenceFingerprint, asOf: "2026-09-29", windowDays: body.windowDays, tier: "RAW", reasons: [],
+          }]));
+          return reply(200, { contractVersion: "market_activity_v1.1", capabilities });
+        }
+        if (route === "/market/explorer/activity") return reply(200, {
+          ...groupActivityFixture, activityGenerationId: body.activityGenerationId, request: body,
+          roster: { ...groupActivityFixture.roster, rosterRevision: body.rosterRef },
+          series: { ...groupActivityFixture.series, canonicalRange: body.chartRange },
+        });
+        if (route === "/market/explorer/activity/constituents") {
+          const canonical = constituentRows(body.marketKey, 0, body.limit || 50).rows;
+          const rows = constituentActivityFixture.rows.map((row, index) => ({ ...row,
+            rank: index + 1, cardVariantId: canonical[index].cardVariantId,
+            instrumentKey: `card:${canonical[index].cardVariantId}:raw`,
+          }));
+          return reply(200, { ...constituentActivityFixture, activityGenerationId: body.activityGenerationId, request: body,
+            roster: { ...constituentActivityFixture.roster, rosterRevision: body.rosterRef }, rows,
+            page: { afterRank: 0, limit: body.limit, nextCursor: null, totalCount: rows.length } });
+        }
+        if (route === "/market/explorer/activity/instrument") {
+          const variant = String(body.instrumentKey).replace(/^card:/, "").replace(/:raw$/, "");
+          return reply(200, { ...instrumentActivityFixture, activityGenerationId: body.activityGenerationId, request: body,
+            roster: { ...instrumentActivityFixture.roster, rosterRevision: body.rosterRef },
+            instrument: { ...instrumentActivityFixture.instrument, cardVariantId: variant, instrumentKey: body.instrumentKey } });
+        }
+      }
       if (route === "/market/explorer/prepared-comparison") {
         const keys = new Set([...(body?.marketKeys || []), ...(body?.contextMarketKeys || [])]);
         if (keys.size > 1) {

@@ -14,10 +14,16 @@ import {
   resolveSealedSegmentSeries,
   resolveTopChaseSegmentStatus,
 } from "@/lib/explore/marketExplorerSeries.mjs";
-import { buildCoverageSummary, resolveMarketOverview } from "@/lib/explore/marketOverviewPresentation.mjs";
+import {
+  buildCoverageSummary,
+  resolveMarketOverview,
+} from "@/lib/explore/marketOverviewPresentation.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import styles from "@/components/explore/explore.module.css";
-import { FMA3_FIXTURE_CAPABILITIES, FMA3_FIXTURE_ID } from "@/lib/explore/marketActivityFixtureHarness.mjs";
+import {
+  FMA3_FIXTURE_CAPABILITIES,
+  FMA3_FIXTURE_ID,
+} from "@/lib/explore/marketActivityFixtureHarness.mjs";
 
 // Market Explorer — the deep-dive research destination.
 //
@@ -40,18 +46,23 @@ export const metadata = buildRouteMetadata({
 export default async function MarketExplorerPage({ searchParams }) {
   const activityFixtureMode = process.env.MARKET_ACTIVITY_FIXTURE_MODE === "1";
   const activityFixturePayload = activityFixtureMode
-    ? await import("@/lib/explore/marketActivityFixtures.mjs")
-      .then(({ loadMarketActivityFixture }) => loadMarketActivityFixture({ fixtureId: FMA3_FIXTURE_ID }))
+    ? await import("@/lib/explore/marketActivityFixtures.mjs").then(
+        ({ loadMarketActivityFixture }) =>
+          loadMarketActivityFixture({ fixtureId: FMA3_FIXTURE_ID }),
+      )
     : null;
-  const [resolvedSearchParams, payload, auth, preparedDirectoryResult] = await Promise.all([
-    Promise.resolve(searchParams).catch(() => null),
-    getExploreSetValueMarket().catch(() => null),
-    // PLAN, NOT LOGIN, decides what this workspace offers. Resolved here so the
-    // first paint is already correct; a failure or timeout yields no user,
-    // which is basic access — the gate fails CLOSED.
-    getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({ user: null })),
-    getMarketExplorerPreparedDirectory(),
-  ]);
+  const [resolvedSearchParams, payload, auth, preparedDirectoryResult] =
+    await Promise.all([
+      Promise.resolve(searchParams).catch(() => null),
+      getExploreSetValueMarket().catch(() => null),
+      // PLAN, NOT LOGIN, decides what this workspace offers. Resolved here so the
+      // first paint is already correct; a failure or timeout yields no user,
+      // which is basic access — the gate fails CLOSED.
+      getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({
+        user: null,
+      })),
+      getMarketExplorerPreparedDirectory(),
+    ]);
   const preparedDirectory = preparedDirectoryResult.markets;
   const user = auth?.user || null;
   const planAccess = resolveMarketExplorerPlanAccess(user);
@@ -68,16 +79,27 @@ export default async function MarketExplorerPage({ searchParams }) {
   const topChaseSegmentStatus = resolveTopChaseSegmentStatus(payload);
   // ONE parser owns the URL contract; no component reads searchParams itself.
   const initialState = resolveInitialExplorerState(
-    overview, resolvedSearchParams, sealedSegments, cardSegments
+    overview,
+    resolvedSearchParams,
+    sealedSegments,
+    cardSegments,
   );
-  const requestedPreparedKey = typeof resolvedSearchParams?.prepared === "string"
-    ? resolvedSearchParams.prepared.trim() : "";
+  const requestedPreparedKey =
+    typeof resolvedSearchParams?.prepared === "string"
+      ? resolvedSearchParams.prepared.trim()
+      : "";
   // A legacy prepared key resolves to its canonical market from the alias list the
   // backend publishes on the directory row; React holds no alias table.
   const requestedPreparedRow = requestedPreparedKey
-    ? preparedDirectory.find((market) => market.market_key === requestedPreparedKey || (market.legacy_aliases || []).includes(requestedPreparedKey))
+    ? preparedDirectory.find(
+        (market) =>
+          market.market_key === requestedPreparedKey ||
+          (market.legacy_aliases || []).includes(requestedPreparedKey),
+      )
     : null;
-  const initialPreparedKey = requestedPreparedRow ? requestedPreparedRow.market_key : null;
+  const initialPreparedKey = requestedPreparedRow
+    ? requestedPreparedRow.market_key
+    : null;
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
@@ -87,8 +109,15 @@ export default async function MarketExplorerPage({ searchParams }) {
     // 1728px that shell left roughly 500px of unused viewport on either side.
     // 118rem is close to full width with real gutters, and the class is on THIS
     // page's wrapper — /Market and every other route are untouched.
-    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[124rem] px-3 pb-20 pt-3 sm:px-4 desk:px-4 desk:pt-4 lg:px-4 2xl:px-5`}>
-      <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-market-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" />
+    <div
+      className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[124rem] px-3 pb-20 pt-3 sm:px-4 desk:px-4 desk:pt-4 lg:px-4 2xl:px-5`}
+    >
+      <PageArtworkAtmosphere
+        src={getExploreBackground("pokemon")}
+        dataAttribute="data-market-ambient-artwork"
+        visibilityClassName="hidden desk:block"
+        loading="lazy"
+      />
 
       {/* The entitlement boundary. Market Explorer ITSELF is open to everyone —
           the Asset Market layer is the public market pulse, and hiding the
@@ -109,8 +138,11 @@ export default async function MarketExplorerPage({ searchParams }) {
           preparedDirectory={preparedDirectory}
           preparedDirectoryStatus={preparedDirectoryResult.status}
           initialPreparedKey={initialPreparedKey}
-          marketCapabilities={activityFixtureMode ? FMA3_FIXTURE_CAPABILITIES : undefined}
+          marketCapabilities={
+            activityFixtureMode ? FMA3_FIXTURE_CAPABILITIES : undefined
+          }
           activityFixturePayload={activityFixturePayload}
+          activityFixtureMode={activityFixtureMode}
         />
       </MarketExplorerAccessGate>
     </div>

@@ -5,10 +5,11 @@ import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
 import MarketChartViewToggle from "./MarketChartViewToggle";
 import MarketPerformanceChart from "./MarketPerformanceChart";
 import MarketActivityPane from "./MarketActivityPane";
-import { MARKET_CHART_VIEW_INDEX, MARKET_CHART_VIEW_PERFORMANCE } from "./marketPerformanceDomain.mjs";
 import {
-  describeUnavailableWindow,
-} from "@/lib/explore/marketOverviewPresentation.mjs";
+  MARKET_CHART_VIEW_INDEX,
+  MARKET_CHART_VIEW_PERFORMANCE,
+} from "./marketPerformanceDomain.mjs";
+import { describeUnavailableWindow } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs";
 
 // The Explorer's comparison chart.
@@ -27,8 +28,10 @@ import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs"
 // The legend names each ACTIVE series and its return over the selected window.
 // Series identity is the market's own color; the return's green/red is
 // performance semantics only.
-const PERFORMANCE_NOTE = "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
-const INDEX_NOTE = "Canonical Market Index. Timeframe changes which dates are shown; index levels remain based on each market's lifetime chain-linked history.";
+const PERFORMANCE_NOTE =
+  "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
+const INDEX_NOTE =
+  "Canonical Market Index. Timeframe changes which dates are shown; index levels remain based on each market's lifetime chain-linked history.";
 
 export default function MarketExplorerChart({
   overview,
@@ -55,6 +58,7 @@ export default function MarketExplorerChart({
   // dates). Empty by default; nothing is ever derived client-side.
   overlays = [],
   activityState = null,
+  activityFixtureMode = false,
   methodologyOpen = false,
   methodologyTriggerRef,
   onToggleMethodology,
@@ -68,26 +72,49 @@ export default function MarketExplorerChart({
   // receives only its inspected date and never installs a competing pointer layer.
   const [inspectedDate, setInspectedDate] = useState(null);
   const visibleModel = useMemo(
-    () => (timeframe ? buildExplorerChartModel(overview, selectedSeries, timeframe) : null),
-    [overview, selectedSeries, timeframe]
+    () =>
+      timeframe
+        ? buildExplorerChartModel(overview, selectedSeries, timeframe)
+        : null,
+    [overview, selectedSeries, timeframe],
   );
   // "All" is each series' OWN tracked history, so the spoken span label is
   // simply the selected timeframe. It is deliberately NOT the shared
   // comparable span any more — that analytic survives in the payload but is
   // never presented under a timeframe button.
   const spanLabel = timeframeLabel;
-  const focusedSeries = focusedSeriesKey ? selectedSeries.find((entry) => entry.key === focusedSeriesKey) || null : null;
+  const focusedSeries = focusedSeriesKey
+    ? selectedSeries.find((entry) => entry.key === focusedSeriesKey) || null
+    : null;
 
   return (
-    <section data-market-explorer-chart-pane className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" aria-labelledby="market-explorer-chart-heading">
+    <section
+      data-market-explorer-chart-pane
+      className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col"
+      aria-labelledby="market-explorer-chart-heading"
+    >
       <div className="px-2 pb-1 pt-2 sm:px-3">
-        <h2 id="market-explorer-chart-heading" className="sr-only">Market performance chart</h2>
-        <div data-market-explorer-chart-toolbar className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4">
+        <h2 id="market-explorer-chart-heading" className="sr-only">
+          Market performance chart
+        </h2>
+        <div
+          data-market-explorer-chart-toolbar
+          className="flex flex-col gap-2 desk:flex-row desk:items-center desk:justify-between desk:gap-4"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <MarketChartViewToggle value={viewMode} onChange={setViewMode} />
-            {focusedSeries ? <div data-market-explorer-analysis-tools className="flex flex-wrap items-center gap-1.5">
-              {focusTools.map((tool) => <Fragment key={tool.id}>{tool.render({ focusedSeries })}</Fragment>)}
-            </div> : null}
+            {focusedSeries ? (
+              <div
+                data-market-explorer-analysis-tools
+                className="flex flex-wrap items-center gap-1.5"
+              >
+                {focusTools.map((tool) => (
+                  <Fragment key={tool.id}>
+                    {tool.render({ focusedSeries })}
+                  </Fragment>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="min-w-0 overflow-x-auto pb-1 desk:ml-auto desk:overflow-visible desk:pb-0">
             <MarketExplorerTimeframeSelector
@@ -100,12 +127,20 @@ export default function MarketExplorerChart({
         </div>
         <div className="mt-1 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-1.5">
           <div className="min-w-0 flex-1">
-          <p className="text-[10px] text-[var(--text-secondary)]">{viewMode === MARKET_CHART_VIEW_INDEX ? INDEX_NOTE : PERFORMANCE_NOTE}</p>
-          {timeframe === "All" ? (
-            <p data-market-explorer-all-span-note className="mt-1 text-[11px] text-[var(--text-secondary)]">
-              All shows each selected market since its own tracking start, so lines may begin on different dates.
+            <p className="text-[10px] text-[var(--text-secondary)]">
+              {viewMode === MARKET_CHART_VIEW_INDEX
+                ? INDEX_NOTE
+                : PERFORMANCE_NOTE}
             </p>
-          ) : null}
+            {timeframe === "All" ? (
+              <p
+                data-market-explorer-all-span-note
+                className="mt-1 text-[11px] text-[var(--text-secondary)]"
+              >
+                All shows each selected market since its own tracking start, so
+                lines may begin on different dates.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -118,8 +153,14 @@ export default function MarketExplorerChart({
           data-market-explorer-workspace-overlay="focus"
           className="absolute left-3 top-[5.25rem] z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-md border border-sky-400/40 bg-[rgba(2,6,23,.94)] px-2.5 py-1.5 text-[11px] shadow-xl"
         >
-          <span data-market-explorer-focus-label className="min-w-0 truncate font-semibold text-sky-100">
-            Focused: {focusedSeries.label}{focusedSeries.asset ? ` — ${focusedSeries.asset === "sealed" ? "Sealed" : focusedSeries.asset === "graded" ? "Graded" : "Cards"}` : ""}
+          <span
+            data-market-explorer-focus-label
+            className="min-w-0 truncate font-semibold text-sky-100"
+          >
+            Focused: {focusedSeries.label}
+            {focusedSeries.asset
+              ? ` — ${focusedSeries.asset === "sealed" ? "Sealed" : focusedSeries.asset === "graded" ? "Graded" : "Cards"}`
+              : ""}
           </span>
           <button
             type="button"
@@ -133,43 +174,67 @@ export default function MarketExplorerChart({
       ) : null}
 
       {totalActiveCount === 0 ? (
-        <p role="status" data-market-explorer-no-active-markets className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3">
-          No active markets. Select a market above or build one to add a line to the chart.
+        <p
+          role="status"
+          data-market-explorer-no-active-markets
+          className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3"
+        >
+          No active markets. Select a market above or build one to add a line to
+          the chart.
         </p>
       ) : selectedSeries.length === 0 ? (
-        <p role="status" data-market-explorer-all-hidden className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3">
-          Every active market is hidden. Use &quot;Show all&quot; or toggle one on in Active Markets below.
+        <p
+          role="status"
+          data-market-explorer-all-hidden
+          className="px-2 pb-1 text-[11px] text-[var(--text-secondary)] sm:px-3"
+        >
+          Every active market is hidden. Use &quot;Show all&quot; or toggle one
+          on in Active Markets below.
         </p>
       ) : null}
 
-      <div data-market-explorer-chart-plot className="min-h-0 min-w-0 flex-1 pl-2 pr-3 sm:pl-3 sm:pr-4">
-        {visibleModel?.available
-          ? (
-            // THE PLOT IS THE PRODUCT, so it gets real height at every width.
-            // Previously 256px mobile / 416px desktop, which read as a summary
-            // widget rather than the page's central research surface. Stepped
-            // responsively rather than one large fixed height: 500px on a
-            // laptop would push the rail and the legend off-screen.
-            <MarketPerformanceChart
-              model={visibleModel}
-              timeframe={timeframe}
-              viewMode={viewMode}
-              className="desk:flex desk:h-full desk:min-h-0 desk:flex-col"
-              plotClassName="h-[20rem] tab:h-[26rem] desk:h-auto desk:min-h-[12rem] desk:flex-1"
-              minimal={openCanvas}
-              focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
-              overlays={overlays}
-              onInspectedDateChange={activityState ? setInspectedDate : undefined}
-            />
-          )
-          : (
-            <p role="status" data-market-explorer-chart-unavailable className="py-16 text-center text-sm text-[var(--text-secondary)]">
-              {spanLabel ? describeUnavailableWindow(spanLabel) : "Market performance history is unavailable."}
-            </p>
-          )}
+      <div
+        data-market-explorer-chart-plot
+        className="min-h-0 min-w-0 flex-1 pl-2 pr-3 sm:pl-3 sm:pr-4"
+      >
+        {visibleModel?.available ? (
+          // THE PLOT IS THE PRODUCT, so it gets real height at every width.
+          // Previously 256px mobile / 416px desktop, which read as a summary
+          // widget rather than the page's central research surface. Stepped
+          // responsively rather than one large fixed height: 500px on a
+          // laptop would push the rail and the legend off-screen.
+          <MarketPerformanceChart
+            model={visibleModel}
+            timeframe={timeframe}
+            viewMode={viewMode}
+            className="desk:flex desk:h-full desk:min-h-0 desk:flex-col"
+            plotClassName="h-[20rem] tab:h-[26rem] desk:h-auto desk:min-h-[12rem] desk:flex-1"
+            minimal={openCanvas}
+            focusedSeriesKey={focusedSeries ? focusedSeries.key : null}
+            overlays={overlays}
+            onInspectedDateChange={activityState ? setInspectedDate : undefined}
+          />
+        ) : (
+          <p
+            role="status"
+            data-market-explorer-chart-unavailable
+            className="py-16 text-center text-sm text-[var(--text-secondary)]"
+          >
+            {spanLabel
+              ? describeUnavailableWindow(spanLabel)
+              : "Market performance history is unavailable."}
+          </p>
+        )}
       </div>
 
-      {activityState ? <MarketActivityPane state={activityState} inspectedDate={inspectedDate} canonicalDates={visibleModel?.dates || []} /> : null}
+      {activityState ? (
+        <MarketActivityPane
+          state={activityState}
+          inspectedDate={inspectedDate}
+          canonicalDates={visibleModel?.dates || []}
+          fixtureMode={activityFixtureMode}
+        />
+      ) : null}
 
       {/* BOTTOM-CENTER ANALYSIS ACTION. Lives inside the chart pane directly under
           the x-axis dates, so it is part of the chart workspace (visible without
@@ -187,15 +252,17 @@ export default function MarketExplorerChart({
         >
           Methodology
         </button>
-        {constituentsAvailable ? <button
-          type="button"
-          data-market-explorer-view-details
-          aria-expanded={detailsOpen}
-          onClick={onToggleDetails}
-          className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200 shadow-[0_0_16px_rgba(139,92,246,0.35)] transition-colors hover:border-violet-300/85 hover:bg-violet-500/[.24] hover:text-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface-page)]"
-        >
-          View Constituents &amp; Comparison
-        </button> : null}
+        {constituentsAvailable ? (
+          <button
+            type="button"
+            data-market-explorer-view-details
+            aria-expanded={detailsOpen}
+            onClick={onToggleDetails}
+            className="min-h-10 rounded-lg border border-violet-400/60 bg-violet-500/[.12] px-4 text-xs font-semibold text-violet-200 shadow-[0_0_16px_rgba(139,92,246,0.35)] transition-colors hover:border-violet-300/85 hover:bg-violet-500/[.24] hover:text-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/80 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface-page)]"
+          >
+            View Constituents &amp; Comparison
+          </button>
+        ) : null}
       </div>
     </section>
   );
