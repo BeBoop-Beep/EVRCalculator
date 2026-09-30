@@ -9,7 +9,8 @@ performed.
 - Starting SHA: `0689a04de41379da670fc8f1787d6548a11d6f12`
 - Branch: `fma2-market-activity-api`
 - Final SHA: the PR head is authoritative (a commit cannot embed its own SHA)
-- PR: recorded on the branch/PR after publication
+- Implementation SHA: `66fb824393bf0f8e5983324a7f5b4a68df774207`
+- PR: https://github.com/BeBoop-Beep/EVRCalculator/pull/499
 - Contract: `market_activity_v1.1`
 - Domain: `market_activity_domain_v1.1.0`
 - Projection: `market_activity_projection_v1`
