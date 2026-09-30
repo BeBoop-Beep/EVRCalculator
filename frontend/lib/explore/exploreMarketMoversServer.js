@@ -31,7 +31,7 @@ export const getExploreMarketMovers = cache(async function getExploreMarketMover
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      const response = await fetch(`${getBackendApiBaseUrl()}/explore/card-market-movers`, {
+      const response = await fetch(`${getBackendApiBaseUrl()}/explore/card-market-movers?limit=50`, {
         next: { revalidate: 120 },
       });
       if (!response.ok) return unavailable(cached?.data);
