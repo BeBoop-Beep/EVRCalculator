@@ -155,7 +155,7 @@ def build_report() -> dict:
         "modern_only": True,
         "vintage_generalization_authorized": False,
         "pricing_use_authorized": False,
-        "decision": "D3_DIAGNOSTIC_ONLY",
+        "decision": "D3_NEEDS_V2",
     }
 
 
@@ -234,6 +234,12 @@ def main() -> int:
         "metrics_by_class": report["metrics_by_class"],
         "error_reason_counts": report["error_reason_counts"],
         "hp_stat_false_positive_audit": report["hp_stat_false_positive_audit"],
+        "marketing_mint_false_positive_audit": report["marketing_mint_false_positive_audit"],
+        "confidence_calibration": report["confidence_calibration"],
+        "expected_class_counts": report["expected_class_counts"],
+        "predicted_class_counts": report["predicted_class_counts"],
+        "confusion_matrix": report["confusion_matrix_expected_by_predicted"],
+        "errors": report["errors"],
     }, sort_keys=True))
     return 0
 
