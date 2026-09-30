@@ -8,6 +8,7 @@ schedule, provider request, deployment, merge, or serving promotion was run.
 - Starting SHA: `8e86b6b3ab83422d95299107a66510a56ae5c336`
 - Branch: `fma1-market-activity-db-projection`
 - Implementation SHA: `2687a8996b1525a2e492ff0dbfd583f029f9072a`
+- Reconciliation implementation SHA: `7d5359ca955c034f3031bcca33d744a9782c5a42`
 - Final SHA: the PR head is authoritative (a commit cannot embed its own SHA)
 - PR: https://github.com/BeBoop-Beep/EVRCalculator/pull/494
 - Schema: `market_activity_projection_v1`
@@ -47,6 +48,18 @@ publish together. Sealed cache publication remains unchanged and creates no
 FMA card revision. Application readers are in
 `backend/db/services/market_activity_v1.py`.
 
+The real service-role database adapters are
+`SupabaseMarketActivitySource` and `SupabaseMarketActivitySink` in
+`backend/db/services/market_activity_projection_repository.py`. The source
+pins either the served V2 generation or a published custom revision; loads the
+full sibling variant set, cutoff-bounded sold rows, sync/collection state,
+optional real receipts, and completed/partial supply snapshots; and makes no
+provider call. The sink stages generation, roster, normalized facts, and
+payload rows and performs persisted-state reconciliation before validation.
+The manual command supports `--plan` (read-only), explicitly confirmed
+`--stage --confirm-stage FMA1_STAGE`, and fixture-only `--dry-run`. It never
+promotes or schedules a generation.
+
 No new secondary evidence index was added. Instrument, page, group, and sparse
 series reads use primary-key prefixes. Builder scans use the existing sold
 variant/date and supply variant indexes identified in the accepted schema
@@ -79,9 +92,15 @@ prepared generation still matches Explorer serving authority, retains the old
 generation, and atomically swaps current/previous. Failure leaves the prior
 generation serving. Tests and dry-run never promote.
 
-The builder is bounded (`1..500` members per write batch), deterministic for a
-fixed generation/cutoff, and resumes after a committed rank while still loading
-the full pinned roster for group validation. Requests read precomputed tables;
+The builder is bounded (`1..500` members per write batch) and deterministic for
+a fixed generation/cutoff. Resume requires an existing `BUILDING` generation,
+an identical cutoff and roster reference, the same market header, contiguous
+unique ranks `1..resume_after_rank`, and complete payload/window/series-meta
+facts for that prefix. Before `VALIDATED`, the sink rereads persisted state and
+requires exactly `1..N`, the roster denominator, unique instruments/cards, one
+payload and series envelope per member, and four exact window rows per member.
+A fresh generation with a nonzero checkpoint is rejected before any write.
+Requests read precomputed tables;
 they never scan sold evidence, call PkmnPrices, or invoke the custom query
 builder. The service re-evaluates expiring ask capabilities at read time.
 
@@ -93,25 +112,36 @@ Local commands and results:
   19/19 accepted fixtures exactly reconciled and schema-validated; provider
   calls 0; production writes 0; wall time below 1 second locally.
 - accepted FMA domain/contract/review tests plus focused projection/migration
-  tests: 153 passed in 1.97 seconds.
+  and bounded-reader tests: 158 passed in 1.90 seconds.
 - adjacent sold/supply pipeline regressions: 59 passed in 3.18 seconds.
 - migration mirrors are byte-equal; `git diff --check` passes.
 
-The measured 207-member in-memory build uses 208 source queries (one roster,
-one bounded evidence input per member), five member batches at size 50, plus
-sink writes. Each service instrument/group read is two pin queries plus one
-payload query. A page uses two pin queries, bounded 500-row roster batches, and
-at most one compact payload lookup per roster member; the SQL RPC alternative
-is one bounded joined query.
+The measured 207-member in-memory build uses 208 logical source loads (one
+roster plus one bounded evidence bundle per member), five member batches at
+size 50, plus sink writes. Instrument/group application reads use three calls:
+generation pin, roster pin, and payload. Constituent pages also use exactly
+three calls: generation pin, roster header, and one bounded joined RPC. Query
+count tests measured 3 calls for 100, 207, and 990-member rosters; no full
+roster or per-member payload reads occur.
 
-PostgreSQL apply/rollback, RLS role execution, and `EXPLAIN (ANALYZE, BUFFERS)`
-are unavailable in this workstation: no `psql`, Docker, or Supabase CLI is
-installed. Consequently no invented EXPLAIN output or database timing is
-reported. These checks remain mandatory in a real test PostgreSQL environment
-before production apply. No live Supabase inspection was performed.
-The existing surface-v2 service test was also unavailable because this shell
-does not have `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`; collection fails
-closed before the test module loads.
+PostgreSQL receipt: GitHub Actions run
+https://github.com/BeBoop-Beep/EVRCalculator/actions/runs/36666290256 on an
+ephemeral PostgreSQL 16 service emitted `FMA1_POSTGRES_VALIDATION_OK`. It
+applied the relevant baseline and migration, verified byte-identical mirrors,
+executed the custom card revision publisher, tested promotion and all three
+RPCs, proved BUILDING/REJECTED payloads remain hidden, and transactionally
+parsed the disable/drop rollback before rolling it back. `service_role`
+successfully read protected tables; direct anon read/write and authenticated
+read each failed with `permission denied`.
+
+Actual `EXPLAIN (ANALYZE, BUFFERS)` results on the isolated one-row fixture:
+
+- instrument: Result, shared buffers hit 4, execution 0.163 ms;
+- group: Result, shared buffers hit 4, execution 0.161 ms;
+- page: Function Scan, shared buffers hit 6, execution 0.305 ms.
+
+These are syntax/access-path receipts, not production-scale latency claims. No
+live Supabase or production database was queried.
 
 ## Apply, disable, and rollback
 
