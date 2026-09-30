@@ -1,1 +1,1 @@
-credential-status
+install-credential
