@@ -22,5 +22,6 @@ export function scorecardSetTarget(row) {
     target_type: "set", target_id: row?.entityId, setId: row?.entityId,
     name: row?.name, canonical_key: row?.canonicalKey,
     era: row?.era?.eraName, eraId: row?.era?.eraId,
+    logo_image_url: row?.logoImageUrl, symbol_image_url: row?.symbolImageUrl,
   };
 }

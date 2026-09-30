@@ -36,14 +36,17 @@ test("Set sorting and search are local and preserve Era filtering", () => {
   assert.deepEqual(filterPackEconomicsSets(sets, "alp", "One").map((row) => row.setName), ["Alpha"]);
 });
 
-test("Pack Economics loads only on its entitled tab and retains last-good state", () => {
-  assert.match(hub, /view === "packEconomics" && canViewRankingsIntelligence/);
+test("Pack Economics selects public preview or paid detail on its tab and retains last-good state", () => {
+  assert.match(hub, /view === "packEconomics" && packState\.status === "idle"/);
   assert.match(hub, /readPackEconomics\(\{ sessionCache, force \}\)/);
+  assert.match(hub, /readPublicPackEconomicsPreview\(\{ sessionCache, force \}\)/);
   assert.match(hub, /beginLastGoodRefresh/);
   assert.match(hub, /failLastGoodRefresh/);
   const loaderStart = hub.indexOf("const loadPackEconomics");
   const loader = hub.slice(loaderStart, hub.indexOf("  useEffect(", loaderStart));
-  assert.ok(loader.indexOf("if (!canViewRankingsIntelligence) return null") < loader.indexOf("readPackEconomics"));
+  assert.match(loader, /canViewRankingsIntelligence\s*\? await readPackEconomics/);
+  assert.match(source, /key === "averagePackCostPerPack"/);
+  assert.match(source, /<LockedMetric \/>/);
 });
 
 test("independent Best-Open freshness is visible and neutral", () => {

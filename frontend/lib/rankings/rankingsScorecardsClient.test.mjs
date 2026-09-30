@@ -17,6 +17,6 @@ test("one entity payload is reused across tab reads", async () => {
   assert.equal(calls, 1);
 });
 
-test("set scorecard identity maps without deriving a score", () => {
-  assert.deepEqual(scorecardSetTarget({ entityId: "s1", name: "Set", canonicalKey: "set", era: { eraId: "e1", eraName: "Era" } }), { target_type: "set", target_id: "s1", setId: "s1", name: "Set", canonical_key: "set", era: "Era", eraId: "e1" });
+test("set scorecard identity maps artwork without deriving a score", () => {
+  assert.deepEqual(scorecardSetTarget({ entityId: "s1", name: "Set", canonicalKey: "set", logoImageUrl: "logo.png", symbolImageUrl: "symbol.png", era: { eraId: "e1", eraName: "Era" } }), { target_type: "set", target_id: "s1", setId: "s1", name: "Set", canonical_key: "set", era: "Era", eraId: "e1", logo_image_url: "logo.png", symbol_image_url: "symbol.png" });
 });

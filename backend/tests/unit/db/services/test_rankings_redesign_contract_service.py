@@ -4,6 +4,7 @@ from backend.db.services.rankings_redesign_contract_service import (
     benchmark_presentation, benchmark_reference, project_product_contract,
     read_card_facets, read_financial_history_page, read_overview_v2, read_pack_economics,
     read_product_best_open_map,
+    read_public_headlines, read_public_pack_economics_preview, read_public_product_catalogue,
 )
 
 
@@ -21,6 +22,7 @@ class Query:
     def in_(self, key, values): self.rows = [r for r in self.rows if str(r.get(key)) in {str(v) for v in values}]; return self
     def order(self, key, desc=False, **_kwargs): self.rows.sort(key=lambda r: str(r.get(key)), reverse=desc); return self
     def limit(self, value): self.rows = self.rows[:value]; return self
+    def range(self, start, end): self.rows = self.rows[start:end + 1]; return self
     def or_(self, expression):
         # The service emits the fixed keyset form: date > D OR (date = D AND id > I).
         parts = expression.split(",")
@@ -186,3 +188,57 @@ def test_pack_economics_preserves_multi_sku_best_open_and_stale_date():
     assert result["bestOpenFreshnessStatus"] == "older"
     assert family["bestOpenDisplayMode"] == "multiple" and len(family["products"]) == 2
     assert "typicalRetention" not in result["sets"][0] and "typicalOpening" not in family
+
+
+def test_public_headlines_are_overall_only_and_keep_set_artwork():
+    client = Client({
+        "pokemon_rip_benchmark_publications_v1": [{"id": "pub", "market_date": "2026-09-28",
+            "benchmark_key": "pokemon", "calibration_version": "v1", "overall_model_version": "overall-v12",
+            "publication_status": "published"}],
+        "pokemon_rip_benchmark_rows_v1": [
+            {"publication_id": "pub", "entity_type": "set", "entity_id": "s1", "metric_key": "overall",
+             "benchmark_score": 7.2, "rank": 1, "cohort_size": 22, "benchmark_status": "available"},
+            {"publication_id": "pub", "entity_type": "set", "entity_id": "s1", "metric_key": "financial",
+             "benchmark_score": 9.9, "rank": 1, "cohort_size": 22, "benchmark_status": "available"}],
+        "sets": [{"id": "s1", "name": "Set", "canonical_key": "set", "era_id": "e1",
+                  "logo_image_url": "logo.png", "symbol_image_url": "symbol.png"}],
+        "eras": [{"id": "e1", "name": "Era", "canonical_key": "era"}],
+    })
+    result = read_public_headlines(client, entity_type="set", benchmark_key="pokemon", calibration_version="v1")
+    assert len(result["rows"]) == 1 and result["rows"][0]["overall"]["score"] == 7.2
+    assert result["rows"][0]["logoImageUrl"] == "logo.png" and result["rows"][0]["symbolImageUrl"] == "symbol.png"
+    text = str(result).lower()
+    assert "financial" not in text and "collector" not in text and "chase" not in text and "lineage" not in text
+    assert client.calls.count("pokemon_rip_benchmark_rows_v1") == 1
+
+
+def test_public_pack_preview_allowlists_counts_cost_and_artwork():
+    opening = {"openingEconomics": {"sets": [{"setId": "s1", "setName": "Set", "eraId": "e1",
+        "productFamilyCount": 2, "productSkuCount": 3, "averageCostPerPack": 4.5,
+        "averageModelBreakEvenPerPack": 99, "modeledReturnOnSpend": .9, "chanceToRecoverCost": .8,
+        "entertainmentCostPerPack": 7, "familyEconomics": [{}, {}]}]}}
+    client = Client({"pokemon_rip_stats_snapshot_latest": [{"market_date": "2026-09-28", "payload_json": opening}],
+        "sets": [{"id": "s1", "name": "Set", "canonical_key": "set", "era_id": "e1",
+                  "logo_image_url": "logo.png", "symbol_image_url": "symbol.png"}],
+        "eras": [{"id": "e1", "name": "Era", "canonical_key": "era"}]})
+    result = read_public_pack_economics_preview(client)
+    row = result["sets"][0]
+    assert (row["productFamilyCount"], row["productCount"], row["averagePackCostPerPack"]) == (2, 3, 4.5)
+    assert row["logoImageUrl"] == "logo.png" and row["symbolImageUrl"] == "symbol.png"
+    assert all(key not in row for key in ("expectedValuePerPack", "modeledReturnOnSpend", "chanceToRecoverCost", "entertainmentCostPerPack", "families"))
+
+
+def test_public_product_catalogue_is_alphabetical_and_score_independent():
+    client = Client({
+        "sealed_products": [
+            {"id": "p2", "set_id": "s1", "name": "Zulu Booster Box", "product_type": "Sealed", "image_small_url": "z.png"},
+            {"id": "p1", "set_id": "s1", "name": "Alpha Elite Trainer Box", "product_type": "Sealed", "image_small_url": "a.png"}],
+        "sets": [{"id": "s1", "name": "Set", "canonical_key": "set", "era_id": "e1"}],
+        "eras": [{"id": "e1", "name": "Era", "canonical_key": "era"}],
+        "pokemon_rip_benchmark_rows_v1": [{"entity_id": "p2", "benchmark_score": 10}],
+    })
+    result = read_public_product_catalogue(client)
+    assert [row["sealedProductId"] for row in result["rows"]] == ["p1", "p2"]
+    assert result["rows"][0]["familyKey"] == "elite_trainer_box"
+    assert "pokemon_rip_benchmark_rows_v1" not in client.calls
+    assert all(not any(key in row for key in ("rank", "ripScore", "unitPrice", "bestOpenPrice")) for row in result["rows"])
