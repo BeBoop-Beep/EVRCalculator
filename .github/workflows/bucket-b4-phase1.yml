@@ -1,0 +1,40 @@
+name: Bucket B4 Phase1
+
+on:
+  push:
+    branches:
+      - issue-487-bucket-b4-phase1
+    paths:
+      - "backend/scripts/run_market_microstructure_bucket_b4.py"
+      - "backend/tests/unit/scripts/test_market_microstructure_bucket_b4.py"
+      - "infra/oracle/run_market_microstructure_bucket_b4.sh"
+      - "infra/oracle/install_market_microstructure_bucket_b4_cron.sh"
+      - "infra/oracle/market-microstructure-b4.crontab"
+      - ".github/workflows/bucket-b4-phase1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest==8.3.5
+      - name: Compile coordinator
+        run: |
+          python -m py_compile backend/scripts/run_market_microstructure_bucket_b4.py
+      - name: Shell syntax
+        run: |
+          bash -n infra/oracle/run_market_microstructure_bucket_b4.sh
+          bash -n infra/oracle/install_market_microstructure_bucket_b4_cron.sh
+      - name: Run B4 contracts
+        run: |
+          python -m pytest -q backend/tests/unit/scripts/test_market_microstructure_bucket_b4.py
