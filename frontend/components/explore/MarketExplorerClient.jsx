@@ -876,7 +876,7 @@ export default function MarketExplorerClient({
       data-market-explorer-comparison-as-of={comparisonAsOf || ""}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
       data-market-explorer-access-mode={accessMode}
-      className="grid min-w-0 gap-3 desk:h-[calc(100dvh-var(--app-header-offset,64px)-2rem)] desk:min-h-[26rem] desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-stretch desk:gap-3 desk:overflow-hidden"
+      className="grid h-[calc(100dvh-var(--app-header-offset,64px)-5.25rem-env(safe-area-inset-bottom)-1.5rem)] min-h-0 min-w-0 gap-3 overflow-hidden desk:h-[calc(100dvh-var(--app-header-offset,64px)-2rem)] desk:min-h-[26rem] desk:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)] desk:items-stretch desk:gap-3"
     >
       {compareUpgradeVisible ? (
         <section
@@ -933,7 +933,7 @@ export default function MarketExplorerClient({
         aria-label={mobileToolsOpen ? "Close Market controls" : "Open Market controls"}
         title="Market controls"
         onClick={() => setMobileToolsOpen((open) => !open)}
-        className="fixed bottom-[calc(10.25rem+env(safe-area-inset-bottom))] right-4 z-[80] grid h-12 w-12 place-items-center rounded-full border border-violet-300/60 bg-[rgba(76,29,149,.94)] text-violet-50 shadow-[0_10px_30px_rgba(15,23,42,.55),0_0_18px_rgba(139,92,246,.35)] backdrop-blur transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 desk:hidden"
+        className="fixed right-4 top-[calc(var(--app-header-offset,64px)+0.75rem)] z-[80] grid h-12 w-12 place-items-center rounded-full border border-violet-300/60 bg-[rgba(76,29,149,.94)] text-violet-50 shadow-[0_10px_30px_rgba(15,23,42,.55),0_0_18px_rgba(139,92,246,.35)] backdrop-blur transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200 desk:hidden"
       >
         <span aria-hidden="true" className="text-lg leading-none">{mobileToolsOpen ? "×" : "☷"}</span>
       </button>
@@ -1184,7 +1184,7 @@ export default function MarketExplorerClient({
         data-market-explorer-zone="compare"
         aria-hidden={mobileToolsOpen ? "true" : undefined}
         inert={mobileToolsOpen ? true : undefined}
-        className="order-2 flex min-h-[32rem] min-w-0 flex-col tab:min-h-[calc(100dvh-var(--app-header-offset,64px)-7rem)] desk:order-none desk:col-start-2 desk:h-full desk:min-h-0"
+        className="order-2 flex h-full min-h-0 min-w-0 flex-col desk:order-none desk:col-start-2"
         aria-labelledby="compare-markets-zone-heading"
       >
         <div className="sr-only">
@@ -1202,7 +1202,7 @@ export default function MarketExplorerClient({
         </div>
         <div
           data-market-explorer-active-strip
-          className="order-1 min-w-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20"
+          className="order-1 min-w-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)]/20 pr-16 desk:pr-0"
         >
           <MarketExplorerActiveMarkets
             series={selectedSeries}
@@ -1370,7 +1370,7 @@ export default function MarketExplorerClient({
             </div>
           ) : null}
         </div>
-        <div data-market-explorer-mobile-analysis-actions className="order-3 grid grid-cols-2 gap-2 pt-2 desk:hidden">
+        <div data-market-explorer-mobile-analysis-actions className="order-3 grid flex-none grid-cols-2 gap-2 pt-2 desk:hidden">
           <button type="button" data-market-explorer-mobile-methodology aria-label="Open Market Explorer methodology" aria-expanded={methodologyOpen} onClick={openMethodology} className="min-h-10 rounded-lg border border-violet-400/55 bg-violet-500/[.1] px-3 text-xs font-semibold text-violet-100">Methodology</button>
           <button type="button" data-market-explorer-mobile-constituents aria-label="View Constituents and Comparison" aria-expanded={detailsOpen} disabled={!hasActiveMarkets} onClick={() => setDetailsOpen(true)} className="min-h-10 rounded-lg border border-violet-400/55 bg-violet-500/[.1] px-3 text-xs font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-45">Constituents</button>
         </div>

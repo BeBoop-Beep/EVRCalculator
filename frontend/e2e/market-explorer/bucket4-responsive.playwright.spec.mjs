@@ -30,12 +30,46 @@ for (const [width, height] of viewports) {
       expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
       const geometry = await page.evaluate(() => {
         const rect = (selector) => document.querySelector(selector)?.getBoundingClientRect();
-        return { drawer: rect("[data-market-explorer-sidebar]"), trigger: rect("[data-market-explorer-mobile-tools]"), actions: rect("[data-market-explorer-mobile-analysis-actions]"), overflow: document.documentElement.scrollWidth - innerWidth };
+        const header = document.querySelector("header")?.getBoundingClientRect();
+        const nav = document.querySelector('nav[aria-label="Global navigation"]')?.getBoundingClientRect();
+        const safeArea = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safe-area-inset-bottom")) || 0;
+        return {
+          viewportHeight: innerHeight,
+          header,
+          nav,
+          usableBottom: nav?.top ?? innerHeight - 84 - safeArea,
+          drawer: rect("[data-market-explorer-sidebar]"),
+          chart: rect("[data-market-performance-chart]"),
+          chartWorkspace: rect("[data-market-explorer-chart-workspace]"),
+          trigger: rect("[data-market-explorer-mobile-tools]"),
+          actions: rect("[data-market-explorer-mobile-analysis-actions]"),
+          overflow: document.documentElement.scrollWidth - innerWidth,
+          scrollY,
+        };
       });
       expect(geometry.overflow).toBeLessThanOrEqual(1);
       expect(geometry.drawer.bottom).toBeLessThanOrEqual(height - 75);
-      expect(geometry.trigger.bottom).toBeLessThanOrEqual(geometry.actions.top);
-      console.log(`B4_GEOMETRY ${width}x${height} ${JSON.stringify(geometry)}`);
+      expect(geometry.actions.top).toBeGreaterThanOrEqual(geometry.header.bottom);
+      expect(geometry.actions.bottom).toBeLessThanOrEqual(geometry.usableBottom - 8);
+      expect(geometry.chart.height).toBeGreaterThanOrEqual(24);
+      expect(geometry.chart.top).toBeGreaterThanOrEqual(geometry.chartWorkspace.top);
+      expect(geometry.chart.bottom).toBeLessThanOrEqual(geometry.chartWorkspace.bottom);
+      expect(geometry.scrollY).toBe(0);
+      const triggerOverlapsActions = !(
+        geometry.trigger.right <= geometry.actions.left ||
+        geometry.trigger.left >= geometry.actions.right ||
+        geometry.trigger.bottom <= geometry.actions.top ||
+        geometry.trigger.top >= geometry.actions.bottom
+      );
+      expect(triggerOverlapsActions).toBe(false);
+      const triggerOverlapsChart = !(
+        geometry.trigger.right <= geometry.chart.left ||
+        geometry.trigger.left >= geometry.chart.right ||
+        geometry.trigger.bottom <= geometry.chart.top ||
+        geometry.trigger.top >= geometry.chart.bottom
+      );
+      expect(triggerOverlapsChart).toBe(false);
+      console.log(`B4B_GEOMETRY ${width}x${height} ${JSON.stringify(geometry)}`);
       await trigger.click();
       await expect(drawer).toBeHidden();
       await expect(trigger).toBeFocused();

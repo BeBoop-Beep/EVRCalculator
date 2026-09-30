@@ -62,13 +62,13 @@ export default function MarketExplorerActiveMarkets({
     <section
       data-market-explorer-active-markets
       data-market-explorer-active-count={series.length}
-      className="flex min-w-0 flex-col gap-2 px-3 py-3 sm:px-4"
+      className="flex min-w-0 flex-col gap-2 px-3 py-3 sm:px-4 [@media(max-height:500px)]:gap-1 [@media(max-height:500px)]:py-1"
       aria-label="Active markets"
     >
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Active Markets</h2>
-          <p className="min-w-0 text-[10px] text-[var(--text-secondary)]">
+          <p className="min-w-0 text-[10px] text-[var(--text-secondary)] [@media(max-height:500px)]:hidden">
             Select one to focus it on the chart. Constituent targets live inside Constituents &amp; Comparison.
           </p>
         </div>

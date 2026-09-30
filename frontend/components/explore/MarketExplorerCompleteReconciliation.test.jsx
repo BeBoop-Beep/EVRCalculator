@@ -226,7 +226,7 @@ test("View and Hide Constituents share the violet analysis treatment (structure 
   const violet = /border-violet-400\/60 bg-violet-500\/\[\.12\] .*shadow-\[0_0_16px_rgba\(139,92,246,0\.35\)\]/;
   assert.match(chart.slice(chart.indexOf("data-market-explorer-view-details")), violet);
   assert.match(client.slice(client.indexOf("data-market-explorer-hide-details")), violet);
-  assert.match(chart, /data-market-explorer-chart-bottom-actions className="flex flex-none justify-center/);
+  assert.match(chart, /data-market-explorer-chart-bottom-actions className="hidden flex-none justify-center[^"]*desk:flex/);
   assert.match(client, /relative flex flex-none flex-col gap-2 border-b/);
   // One workspace Clear All; no Clear Graph label.
   assert.doesNotMatch(client + read("components/explore/MarketExplorerActiveMarkets.jsx"), />\s*Clear Graph\s*</);
