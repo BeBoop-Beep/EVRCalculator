@@ -1,0 +1,54 @@
+name: B4 Sep29 Resume Fix
+
+on:
+  push:
+    branches:
+      - fix/b4-c-window-first-full-date-20260929
+    paths:
+      - "backend/scripts/run_market_microstructure_bucket_b4.py"
+      - "backend/tests/unit/scripts/test_market_microstructure_bucket_b4.py"
+      - ".github/workflows/b4-sep29-resume-fix.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest==8.3.5
+      - name: Compile
+        run: python -m py_compile backend/scripts/run_market_microstructure_bucket_b4.py
+      - name: Focused B4 tests
+        run: python -m pytest -q backend/tests/unit/scripts/test_market_microstructure_bucket_b4.py
+
+  vm-focused:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 10
+    steps:
+      - name: Run focused tests in detached worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          WT=/tmp/EVRCalculator-b4-sep29-test
+          PY="$REPO/.venv/bin/python"
+          SHA="${{ github.sha }}"
+          git -C "$REPO" fetch origin "$SHA" --quiet || git -C "$REPO" fetch origin fix/b4-c-window-first-full-date-20260929 --quiet
+          if [ -e "$WT" ]; then
+            git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+          fi
+          git -C "$REPO" worktree add --detach "$WT" "$SHA"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT" >/dev/null 2>&1 || true' EXIT
+          export PYTHONPATH="$WT"
+          cd "$WT"
+          "$PY" -m py_compile backend/scripts/run_market_microstructure_bucket_b4.py
+          "$PY" -m pytest -q backend/tests/unit/scripts/test_market_microstructure_bucket_b4.py
