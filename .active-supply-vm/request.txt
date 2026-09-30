@@ -1,1 +1,1 @@
-db-schema-status
+installer-verify
