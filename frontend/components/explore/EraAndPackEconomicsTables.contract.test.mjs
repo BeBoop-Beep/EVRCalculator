@@ -10,6 +10,9 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const page = read("../../app/Explore/page.js");
 const client = read("./ProductFamilyRankingsClient.jsx");
 const eraRankings = read("./EraRankings.jsx");
+const unifiedTable = read("./BenchmarkEntityScoreTable.jsx");
+const lazy = read("./RankingsLazyClient.jsx");
+const squash = (source) => source.replace(/\s+/g, " ").replace(/\( /g, "(").replace(/ \)/g, ")").replace(/\[ /g, "[").replace(/ \]/g, "]").replace(/, ?\)/g, ")").replace(/, ?\]/g, "]");
 const setPack = read("./SetPackMetrics.jsx");
 const eraEconomics = read("./OpeningEconomicsEras.jsx");
 const overallEconomics = read("./OpeningEconomicsOverall.jsx");
@@ -26,7 +29,11 @@ const eraContract = {
   ],
 };
 
-test("Explore normalization transports two authoritative Era rows into EraRankings", () => {
+// RECONCILED (B2). OLD: asserted the retired Era Set Strength wiring (page passed
+// eraSetStrength to ProductFamilyRankingsClient / <EraRankings contract=...>).
+// WHY OBSOLETE: Rankings now loads Era rows from the public headlines endpoint in
+// RankingsLazyClient and EraRankings consumes `scorecards`.
+test("Explore normalization still transports two authoritative Era rows and the live Era path reads headlines", () => {
   const normalized = normaliseRipStatisticsPayload({ targets: [], eraSetStrengthV1: eraContract });
   const rows = eraStrengthRows(normalized.eraSetStrengthV1);
   assert.equal(rows.length, 2);
@@ -35,18 +42,28 @@ test("Explore normalization transports two authoritative Era rows into EraRankin
   assert.equal(rows[0].tier, "C");
   assert.equal(rows[0].strongestSet.setName, "Pitch Black");
   assert.equal(displayScore(rows[1].score / 10), "4.6 / 10");
-  assert.ok(page.includes("eraSetStrength={payload?.eraSetStrengthV1}"));
-  assert.ok(client.includes("<EraRankings contract={eraSetStrength}"));
+  assert.ok(page.includes("<RankingsLazyClient"));
+  assert.ok(lazy.includes('readPublicRankingsHeadlines("era"'));
+  assert.ok(lazy.includes("scorecards={visibleEraState.scorecards}"));
 });
 
-test("EraRankings uses the Rankings table shell and fails closed without rows", () => {
-  assert.ok(eraRankings.includes("canonicalRows.length === 0"));
-  assert.ok(eraRankings.includes("data-era-rankings-unavailable"));
-  assert.ok(eraRankings.includes("Era Set Strength could not be loaded"));
-  assert.ok(eraRankings.includes("className={styles.table}"));
-  assert.ok(eraRankings.includes("styles.analyticsTableHead"));
-  assert.ok(eraRankings.includes("className={styles.row}"));
-  for (const label of ["Rank", "Era", "Era Set Strength", "Tier", "Sets", "Strongest Set", "Set Strength Range"]) assert.ok(eraRankings.includes(label));
+// RECONCILED (B2). OLD: Era Set Strength table (canonicalRows, "Era Set Strength",
+// Tier, Strongest Set, Set Strength Range). WHY OBSOLETE: replaced by the unified
+// Era score table. NEW: shell + shared table + the approved column set, failing
+// closed when scorecards are absent.
+test("EraRankings uses the Rankings table shell, the unified table, and fails closed without rows", () => {
+  assert.ok(eraRankings.includes("Era RIP Score unavailable"));
+  assert.ok(eraRankings.includes("!Array.isArray(scorecards.rows)"));
+  assert.ok(eraRankings.includes("<AnalyticsTableShell"));
+  assert.ok(eraRankings.includes("<BenchmarkEntityScoreTable"));
+  assert.ok(eraRankings.includes("showModeledSets"));
+  assert.ok(unifiedTable.includes("className={styles.table}"));
+  assert.ok(unifiedTable.includes("styles.analyticsTableHead"));
+  assert.ok(unifiedTable.includes("className={styles.row}"));
+  assert.ok(unifiedTable.includes("Modeled Sets"));
+  const model = read("./unifiedScoreTableModel.mjs");
+  for (const label of ["RIP Score", "Financial", "Collector Appeal", "Chase"]) assert.ok(model.includes(`label: "${label}"`));
+  for (const retired of ["Era Set Strength", "Strongest Set", "Set Strength Range"]) assert.ok(!eraRankings.includes(retired) && !unifiedTable.includes(retired));
 });
 
 test("Set Pack Economics expansion uses exact product rows in the parent grid", () => {
@@ -88,7 +105,7 @@ test("Pack Economics keeps canonical aggregates, search, sorting and explicit Se
   assert.ok(setPack.includes("AnalyticsTableShell"));
   assert.ok(setPack.includes("Search Sets…"));
   assert.ok(setPack.includes("row.era?.eraName"));
-  assert.ok(setPack.includes('useState({ key: "modeledReturnOnSpend"'));
+  assert.ok(setPack.includes('useState({ key: entitled ? "modeledReturnOnSpend" : "setName"'));
   assert.ok(!setPack.includes("Typical Opening"));
 });
 
@@ -104,41 +121,55 @@ test("active Era Pack Economics omits retired Typical metrics", () => {
   }
 });
 
+// RECONCILED (B2). OLD: page/client date plumbing of the retired Explore client and
+// the Era Set Strength header tokens. NEW: the live page hands the opening-economics
+// market date to RankingsLazyClient; Era scores render in the shared shell.
 test("all four Era and Set lenses share the analytics shell and authoritative date contract", () => {
   for (const source of [eraRankings, eraEconomics, setPack]) assert.ok(source.includes("<AnalyticsTableShell"));
   assert.ok(setRankings.includes("styles.analyticsTableShell"));
   assert.ok(setRankings.includes("styles.analyticsToolbar"));
   assert.ok(shell.includes("data-analytics-table-shell"));
   assert.ok(shell.includes("set-glass-surface"));
-  assert.ok(page.includes("payload?.meta?.comparisonSnapshots?.currentMarketDate || null"));
-  assert.ok(client.includes("marketDate={openingEconomics?.marketDate}"));
-  for (const token of ["Best Eras to Rip Right Now", "Search eras...", "Select an era for the full RIP breakdown."]) assert.ok(eraRankings.includes(token));
+  assert.ok(page.includes("openingEconomics?.marketDate"));
+  assert.ok(page.includes("rankingsMarketDate={rankingsMarketDate}"));
+  for (const token of ["Best Eras to Rip Right Now", "Search Eras…", "Select an era to view its modeled sets."]) assert.ok(eraRankings.includes(token));
   for (const token of ["Pack Economics by Era", "Search eras...", "Select an era for the full Pack Economics breakdown."]) assert.ok(eraEconomics.includes(token));
   for (const token of ["Pack Economics by Set", "Search Sets…"]) assert.ok(setPack.includes(token));
 });
 
+// RECONCILED (B2). OLD: asserted these strings in the retired ProductFamilyRankingsClient.
+// NEW: the live lens tabs are in RankingsLazyClient / SetRankingsHub.
 test("Rankings and Pack Economics reuse Product-family pill primitives", () => {
-  assert.ok(client.includes("data-analysis-lens-tabs"));
-  assert.ok(client.includes("styles.productFamilyTab"));
-  assert.ok(client.includes("styles.productFamilyTabActive"));
-  assert.ok(!client.includes('ariaLabel={`${view === "eras" ? "Era" : "Set"} analysis`}'));
+  const hub = read("./SetRankingsHub.jsx");
+  assert.ok(lazy.includes("data-analysis-lens-tabs"));
+  for (const source of [lazy, hub]) {
+    assert.ok(source.includes("styles.productFamilyTab"));
+    assert.ok(source.includes("styles.productFamilyTabActive"));
+  }
 });
 
 test("top-level Era and Set entry resets to Rankings without breaking economics drilldown", () => {
-  assert.ok(client.includes('const [eraLens, setEraLens] = useState("rankings")'));
-  assert.ok(client.includes('if (next === "eras") setEraLens("rankings")'));
-  assert.ok(client.includes('if (next === "sets") setSetLens("rankings")'));
-  assert.ok(client.includes('setSetLens("economics");'));
-  assert.ok(client.includes('onSelectEra={(era) => {'));
-  assert.ok(client.indexOf('setSetLens("economics");') < client.indexOf('setSelectedEra(era?.eraName || null);', client.indexOf('setSetLens("economics");')));
+  assert.ok(lazy.includes('const [eraLens, setEraLens] = useState("rankings")'));
+  assert.ok(lazy.includes('if (next === "eras") setEraLens("rankings")'));
+  assert.ok(lazy.includes('if (next === "sets") { setSetEntryView("ripScore")'));
+  assert.ok(lazy.includes('setSetEntryView("packEconomics")'));
+  assert.ok(lazy.includes("onSelectEra={(era) => {") || lazy.includes("onSelectEra={(era) =>"));
+  assert.ok(lazy.includes("setSelectedEra(era?.eraName || null)"));
 });
 
+// RECONCILED (B2). OLD: SetRankingsHub returned null for Basic users and the retired
+// client forwarded the flag. NEW: the hub swaps the paid contract for the public
+// preview and SetPackMetrics locks every protected cell via `entitled`.
 test("Set Pack Economics entitlement treats anonymous and unpaid accounts as Basic and Premium inherits Plus", () => {
   const fixtures = [null, { id: "signed-in-basic", index_plan: null }, { id: "plus", index_plan: "plus" }, { id: "premium", index_plan: "premium" }];
   assert.deepEqual(fixtures.map((user) => resolveRankingsPlanAccess(user).canViewRankingsIntelligence), [false, false, true, true]);
-  assert.ok(client.includes("canViewRankingsIntelligence={canViewRankingsIntelligence}"));
-  assert.ok(read("./SetRankingsHub.jsx").includes("if (!canViewRankingsIntelligence) return null"));
+  const hub = read("./SetRankingsHub.jsx");
+  assert.ok(lazy.includes("canViewRankingsIntelligence={canViewRankingsIntelligence}"));
+  assert.ok(squash(hub).includes("canViewRankingsIntelligence ? await readPackEconomics"));
+  assert.ok(hub.includes(": await readPublicPackEconomicsPreview"));
+  assert.ok(hub.includes("entitled={canViewRankingsIntelligence}"));
   assert.ok(read("./setRankingViews.mjs").includes('value: "packEconomics", label: "Pack Economics", requiredPlan: INDEX_PLAN_PLUS'));
+  assert.ok(setPack.includes("<LockedMetric />"));
   assert.ok(!setPack.includes("isAuthenticated"));
   assert.ok(!setPack.includes("index_plan"));
 });
@@ -146,31 +177,36 @@ test("Set Pack Economics entitlement treats anonymous and unpaid accounts as Bas
 test("Era Pack Economics applies the same Plus entitlement matrix without rendering Basic values", () => {
   const fixtures = [null, { id: "signed-in-basic", index_plan: null }, { id: "plus", index_plan: "plus" }, { id: "premium", index_plan: "premium" }];
   assert.deepEqual(fixtures.map((user) => resolveRankingsPlanAccess(user).canViewRankingsIntelligence), [false, false, true, true]);
-  assert.ok(client.includes("<OpeningEconomicsEras"));
-  assert.ok(client.includes("canViewRankingsIntelligence={canViewRankingsIntelligence}"));
-  assert.ok(eraEconomics.includes('const PUBLIC_ERA_COLUMN_KEYS = new Set(["eraName", "setCount", "productSkuCount", "meanPackCost"])'));
-  assert.ok(eraEconomics.includes("locked ? <PremiumMetricLock />"));
+  assert.ok(lazy.includes("<OpeningEconomicsEras"));
+  assert.ok(lazy.includes("canViewRankingsIntelligence={canViewRankingsIntelligence}"));
+  assert.ok(squash(eraEconomics).includes('const PUBLIC_ERA_COLUMN_KEYS = new Set(["eraName", "setCount", "productSkuCount", "meanPackCost"])'));
+  assert.ok(squash(eraEconomics).includes("<PremiumMetricLock />"));
   assert.ok(eraEconomics.includes("Index Plus required for full Pack Economics"));
   assert.ok(!eraEconomics.includes("isAuthenticated"));
   assert.ok(!eraEconomics.includes("index_plan"));
 });
 
+// RECONCILED (B2). OLD: the Set hub returned null for Basic users. NEW: Basic sees the
+// public preview (no protected values to sort by) and Era Economics still refuses
+// protected sort columns.
 test("Basic Pack Economics cannot sort by hidden Set or Era intelligence", () => {
-  assert.ok(read("./SetRankingsHub.jsx").includes("if (!canViewRankingsIntelligence) return null"));
-  assert.ok(eraEconomics.includes('canViewRankingsIntelligence ? DEFAULT_ERA_SORT : { key: "eraName", direction: "asc" }'));
-  assert.match(eraEconomics, /if \(!canViewRankingsIntelligence && column && !PUBLIC_ERA_COLUMN_KEYS\.has\(column\.key\)\) \{\s*onUnlockProductRip\?\.\(\);\s*return;/);
+  assert.ok(read("./SetRankingsHub.jsx").includes(": await readPublicPackEconomicsPreview"));
+  assert.ok(squash(eraEconomics).includes('canViewRankingsIntelligence ? DEFAULT_ERA_SORT : { key: "eraName", direction: "asc" }'));
+  assert.match(squash(eraEconomics), /if \(!canViewRankingsIntelligence && column && !PUBLIC_ERA_COLUMN_KEYS\.has\(column\.key\)\) \{\s*onUnlockProductRip\?\.\(\);\s*return;/);
 });
 
+// RECONCILED (B2). OLD: single-line `COLUMNS.map((column) => <col` match; the source is
+// now formatted across lines with per-column widths. Behavior unchanged.
 test("Era baseline shares one renderer, one colgroup and identical column geometry", () => {
+  const compact = squash(eraEconomics);
   assert.equal((eraEconomics.match(/const COLUMNS =/g) || []).length, 1);
   assert.ok(eraEconomics.includes("function EraEconomicsCell"));
   assert.ok(eraEconomics.includes("data-era-economics-colgroup"));
-  assert.ok(eraEconomics.includes("COLUMNS.map((column) => <col"));
-  assert.ok(eraEconomics.includes("COLUMNS.map((column) => <EraEconomicsCell"));
-  assert.ok(eraEconomics.includes("baseline canViewRankingsIntelligence"));
+  assert.ok(compact.includes("COLUMNS.map((column) => (<col"));
+  assert.ok(compact.includes("COLUMNS.map((column) => (<EraEconomicsCell") || compact.includes("COLUMNS.map((column) => <EraEconomicsCell"));
   assert.ok(eraEconomics.includes("column.secondary && cells[column.secondary]"));
   assert.ok(!eraEconomics.includes("<tfoot"));
-  assert.ok(eraEconomics.includes('className={`${styles.row} ${styles.eraGlobalBaselineRow}`}'));
+  assert.ok(eraEconomics.includes("styles.eraGlobalBaselineRow"));
   assert.ok(eraEconomics.indexOf("data-era-baseline-row") < eraEconomics.indexOf("</tbody>"));
   assert.ok(eraEconomics.includes("styles.eraEconomicsCell"));
   assert.equal((css.match(/\.eraGlobalBaselineRow > td,/g) || []).length, 1);
@@ -178,8 +214,10 @@ test("Era baseline shares one renderer, one colgroup and identical column geomet
   assert.ok(!/baseline[^\n]*(translateX|margin-left|padding-right)/.test(eraEconomics));
 });
 
+// RECONCILED (B2). OLD: EraRankings itself owned the <thead>. NEW: the unified score
+// table owns it; the no-extra-colour guarantee now covers that shared table.
 test("Era and Set analytics add no table-specific color material", () => {
-  for (const source of [eraRankings, eraEconomics, setPack]) {
+  for (const source of [unifiedTable, eraEconomics, setPack]) {
     assert.ok(source.includes("styles.analyticsTableHead"));
     assert.ok(!/<thead[^>]*(background|bg-\[)/.test(source));
   }

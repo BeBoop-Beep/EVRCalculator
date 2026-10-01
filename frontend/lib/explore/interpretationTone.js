@@ -144,6 +144,17 @@ function resolveToneKey({ label, rankTier, severity }) {
   return "neutral";
 }
 
+/**
+ * Rankings benchmark tiers use the explicit interpretation palette
+ * (S purple, A teal, B green, C sky/neutral, D orange, F red) rather than the
+ * RANK_CONFIG colours (which paint C yellow).  Same palette object, no new colours.
+ */
+export function getBenchmarkTierTone(rankTier) {
+  const tier = normalizeTier(rankTier);
+  if (!tier) return null;
+  return { tier, ...TONE_PALETTE[TIER_TO_TONE_KEY[tier]] };
+}
+
 export function getTierTone(rankTier) {
   const tier = normalizeTier(rankTier);
   if (!tier) {

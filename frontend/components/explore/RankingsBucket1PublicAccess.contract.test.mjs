@@ -14,9 +14,12 @@ test("anonymous Era and Set headlines use only the public client", () => {
   assert.doesNotMatch(lazy.slice(lazy.indexOf("const loadEra"), lazy.indexOf("const loadSets")), /readRankingsScorecards/);
 });
 
-test("paid Set component tabs retain a separate scorecards read", () => {
-  assert.match(sets, /readRankingsScorecards\("set"/);
-  assert.match(sets, /!canViewRankingsIntelligence \|\| !selectedView\.requiredPlan/);
+test("paid Set component cells retain a separate, entitlement-gated scorecards read", () => {
+  const leaderboard = fs.readFileSync(new URL("./SetRipScoreLeaderboard.jsx", import.meta.url), "utf8");
+  const hook = fs.readFileSync(new URL("../../lib/rankings/usePaidScorecards.js", import.meta.url), "utf8");
+  assert.match(leaderboard, /usePaidScorecards\("set"/);
+  assert.match(hook, /readRankingsScorecards\(entityType/);
+  assert.match(hook, /if \(!entitled \|\| !sessionCache\)/);
 });
 
 test("Set Pack Economics preview exposes cost and locks protected component cells", () => {
@@ -47,6 +50,7 @@ test("Product type controls and search remain backed by catalogue rows", () => {
 
 test("downgrade clears paid Product and Set state while public rows remain independent", () => {
   assert.match(products, /if \(!canViewRankingsIntelligence\) setStates/);
-  assert.match(sets, /if \(!canViewRankingsIntelligence\) \{ setPaidScorecards\(null\); setPackState/);
+  assert.match(sets, /if \(!canViewRankingsIntelligence\) setPackState/);
+  assert.match(fs.readFileSync(new URL("../../lib/rankings/paidScorecardVisibility.mjs", import.meta.url), "utf8"), /Boolean\(entitled\) && identity != null && state\?\.identity === identity/);
   assert.match(lazy, /publicScorecards=\{visibleSetsState\.scorecards\}/);
 });

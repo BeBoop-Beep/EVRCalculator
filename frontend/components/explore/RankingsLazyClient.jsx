@@ -217,7 +217,10 @@ export default function RankingsLazyClient({
         eraLens === "rankings" ? (
           visibleEraState.status === "ready" ? (
             <EraRankings
+              key={sessionCache.identity}
               scorecards={visibleEraState.scorecards}
+              sessionCache={sessionCache}
+              canViewRankingsIntelligence={canViewRankingsIntelligence}
                   onSelectEra={(era) => {
                     setSelectedEra(era?.eraName || null);
                     setSetEntryView("ripScore");

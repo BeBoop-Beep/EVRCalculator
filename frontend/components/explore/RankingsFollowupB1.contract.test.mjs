@@ -23,12 +23,13 @@ test("shared selected surface is green/teal with white text, never yellow or whi
 test("main RIP badge border resolves from the supplied tier", () => {
   const badge = primitives.slice(primitives.indexOf("export function RankingsRipScoreBadge"), primitives.indexOf("export function RankingsCompactScore"));
   assert.match(badge, /tier=\{metric\?\.tier\}/);
-  assert.doesNotMatch(badge, /accentColor|192,132,252/);
+  assert.match(badge, /accentColor=\{getBenchmarkTierTone\(metric\?\.tier\)\?\.accentColor\}/);
+  assert.doesNotMatch(badge, /192,132,252|rgba\(/);
 });
 
 test("benchmark component primitive uses its own tier, no caption and no arrow", () => {
   const prim = primitives.slice(primitives.indexOf("export function RankingsBenchmarkComponentScore"), primitives.indexOf("export function BenchmarkReferenceRow"));
-  assert.match(prim, /getTierTone\(metric\.tier\)/);
+  assert.match(prim, /getBenchmarkTierTone\(metric\?\.tier\)/);
   assert.match(prim, /borderColor: tone\?\.accentColor/);
   assert.match(prim, /aria-label=\{`\$\{label\}:/);
   assert.doesNotMatch(prim, /deltaVsBenchmark|Position|[▲▼↑↓]|<small|<caption/);
