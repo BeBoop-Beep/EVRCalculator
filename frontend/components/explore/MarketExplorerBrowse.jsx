@@ -41,7 +41,7 @@ const displayMarket = (market) => {
   return { label: copy?.[0] || market.label, description: copy?.[1] || null };
 };
 
-export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, enableContextualSearch = true, resetKey = 0, disclosureOpen, onDisclosureChange }) {
+export default function MarketExplorerBrowse({ directory = [], directoryStatus = "ready", activeKeys = [], pendingKeys = [], failedKeys = [], canCompare, onSelect, onCompare, onBuild, assetLayer: assetLayerProp, onAssetLayerChange, gradedReason = null, onAddToBasket, onDirectSelect, enableContextualSearch = true, resetKey = 0, disclosureOpen, onDisclosureChange }) {
   const [internalOpen, setInternalOpen] = useState(null);
   const open = disclosureOpen === undefined ? internalOpen : disclosureOpen;
   const setOpen = useCallback((next) => {
@@ -121,7 +121,7 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
     <div role="group" aria-label="Browse context" data-market-directory-asset-layer className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-[var(--border-subtle)] p-0.5">
       {ASSET_LAYERS.map(([id, label]) => <button key={id} type="button" data-market-directory-asset={id} aria-pressed={assetLayer === id} onClick={() => { setAssetLayer(id); setOpen(null); setSearch(""); setHighlightedIndex(NO_HIGHLIGHT); }} className={`min-h-8 rounded-md px-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 ${assetLayer === id ? "bg-sky-400/15 text-sky-200" : "text-[var(--text-primary)] hover:bg-white/[.05]"}`}>{label}</button>)}
     </div>
-    {enableContextualSearch ? <MarketExplorerContextualSearch asset={assetLayer} onAddToBasket={onAddToBasket}
+    {enableContextualSearch ? <MarketExplorerContextualSearch asset={assetLayer} onAddToBasket={onAddToBasket} onDirectSelect={onDirectSelect}
       disclosureOpen={open === "search"} onDisclosureChange={(next) => setOpen(next ? "search" : null)} resetKey={resetKey} /> : null}
     {assetLayer === "graded"
       ? <div role="status" data-market-directory-state="graded-unavailable" className="rounded-md border border-[var(--border-subtle)] px-3 py-3 text-xs text-[var(--text-secondary)]"><strong className="block text-[var(--text-primary)]">Graded markets are unavailable</strong><span data-graded-reason>{gradedReason || GRADED_FALLBACK_REASON}</span></div>

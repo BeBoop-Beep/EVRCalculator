@@ -31,6 +31,7 @@ GROUP_TABLE = "market_activity_group_payloads_v1"
 MAX_PAGE_SIZE = 100
 SERVING_TABLE = "market_activity_market_serving_v1"
 SURFACE_SERVING_TABLE = "pokemon_market_explorer_surface_serving_v2"
+SUPPORTED_WINDOWS = (7, 30, 90, 180)
 
 
 def _rows(result: Any) -> list[dict[str, Any]]:
@@ -87,6 +88,17 @@ def _execute_rows(query: Any) -> list[dict[str, Any]]:
     return _rows(query.execute())
 
 
+def _utc_contract_datetime(value: Any) -> str:
+    """Normalize database timestamptz values to the frozen UTC `Z` contract."""
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def discover_activity_capabilities(
     client: Any, markets: list[Mapping[str, Any]], window_days: int,
 ) -> dict[str, Any]:
@@ -100,7 +112,7 @@ def discover_activity_capabilities(
         "available": False, "marketKey": item.get("marketKey"),
         "activityGenerationId": None, "rosterRef": None,
         "evidenceFingerprint": None, "asOf": None, "windowDays": window_days,
-        "tier": "RAW", "reasons": [why],
+        "supportedWindows": list(SUPPORTED_WINDOWS), "tier": "RAW", "reasons": [why],
     }
     result = {str(item.get("focusKey")): unavailable(item, "ACTIVITY_GENERATION_MISMATCH")
               for item in markets}
@@ -156,7 +168,7 @@ def discover_activity_capabilities(
             "activityGenerationId": str(generation_id),
             "rosterRef": roster["roster_revision"], "evidenceFingerprint": evidence,
             "asOf": str(generation["as_of"]), "windowDays": window_days,
-            "tier": "RAW", "reasons": [],
+            "supportedWindows": list(SUPPORTED_WINDOWS), "tier": "RAW", "reasons": [],
         }
     return {"contractVersion": CONTRACT_VERSION, "capabilities": result}
 
@@ -235,7 +247,7 @@ def read_constituent_activity_page(client: Any, request: Mapping[str, Any]) -> d
             for row in page_rows]
     last = rows[-1]["rank"] if rows else after_rank
     next_cursor = encode_cursor({**expected_cursor, "k": last}) if rows and last < total else None
-    evaluated = generation.get("validated_at") or generation["evidence_cutoff"]
+    evaluated = _utc_contract_datetime(generation.get("validated_at") or generation["evidence_cutoff"])
     return {"kind": "constituentActivityPage", "contractVersion": CONTRACT_VERSION,
             "versions": (page_rows[0]["payload"].get("versions", {}) if page_rows else {}),
             "policy": generation["policy"], "request": dict(request), "evaluatedAt": evaluated,
@@ -252,4 +264,4 @@ def read_constituent_activity_page(client: Any, request: Mapping[str, Any]) -> d
 
 
 __all__ = ["discover_activity_capabilities", "read_group_activity",
-           "read_constituent_activity_page", "read_instrument_activity"]
+           "read_constituent_activity_page", "read_instrument_activity", "SUPPORTED_WINDOWS"]

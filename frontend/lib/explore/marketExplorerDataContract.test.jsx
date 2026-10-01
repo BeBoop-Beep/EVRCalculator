@@ -143,10 +143,10 @@ test("V2 directory row maps into the prepared series (identity = marketKey; alia
 test("leaf search exposes one exact-market action and never activates aggregate markets", () => {
   assert.equal(resolveSearchResultAction({ asset: "cards", market_key: "set:fossil" }).primary.kind, "none");
   const sealed = resolveSearchResultAction({ asset: "sealed", displayName: "Evolving Skies Booster Box", instrumentId: "sp-1", productFamily: "booster_box" });
-  assert.equal(sealed.primary.kind, "basket");
+  assert.equal(sealed.primary.kind, "direct");
   assert.equal(sealed.primary.item.asset, "sealed");
   assert.equal(sealed.primary.item.instrumentId, "sp-1");
-  assert.equal(resolveSearchResultAction({ asset: "cards", displayName: "Gengar", instrumentId: "v1" }).primary.kind, "basket");
+  assert.equal(resolveSearchResultAction({ asset: "cards", displayName: "Gengar", instrumentId: "v1" }).primary.kind, "direct");
   assert.equal(resolveSearchResultAction({ asset: "graded", reason: "Not enough coverage.", availability: "INSUFFICIENT_AUTHORITY" }).primary.kind, "unavailable");
 });
 

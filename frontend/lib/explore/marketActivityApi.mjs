@@ -1,4 +1,4 @@
-import { boundedFetch } from "./marketExplorerBoundedRequest.mjs";
+import { boundedFetch, EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
 
 export const MARKET_ACTIVITY_ENDPOINTS = Object.freeze({
   capabilities: "/api/market/explorer/activity/capabilities",
@@ -45,6 +45,9 @@ async function post(path, body, { signal, fetchImpl } = {}) {
     {
       signal,
       fetchImpl,
+      timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.activity,
+      timeoutCode: "MARKET_ACTIVITY_TIMEOUT",
+      timeoutMessage: "Market Activity took too long to load. Please try again.",
       read: async (result) => {
         const text = await result.text();
         if (!text) return null;

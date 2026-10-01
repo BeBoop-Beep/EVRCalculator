@@ -30,6 +30,7 @@ CONSTITUENTS_RPC_V2 = "get_pokemon_market_explorer_surface_constituents_v2"
 ASSET_OPTIONS_RPC_V2 = "get_pokemon_market_explorer_asset_options_v2"
 SEARCH_RPC_V1 = "search_pokemon_market_explorer_catalog_v1"
 ALIASES_TABLE_V2 = "pokemon_market_explorer_surface_aliases_v2"
+SERVING_TABLE_V2 = "pokemon_market_explorer_surface_serving_v2"
 
 MAX_MARKETS_V2 = 25
 V2_HISTORY_MAX_KEYS = 50
@@ -38,6 +39,7 @@ SEARCH_MIN_QUERY_LENGTH = 2
 SEARCH_MAX_LIMIT = 50
 ASSETS = ("cards", "sealed", "graded")
 ABSENT_CACHE_TTL_SECONDS = 15.0
+DIRECTORY_CACHE_TTL_SECONDS = 30.0
 
 # DB scope_kind -> the V1 `market_type` vocabulary the frontend already renders.
 _MARKET_TYPE = {
@@ -61,16 +63,27 @@ class GenerationMismatch(SurfaceV2Error):
 
 _absent_lock = Lock()
 _absent_until = 0.0
+_surface_cache_lock = Lock()
+_directory_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+_alias_cache: dict[str, dict[str, str]] = {}
 
 
 def _reset_v2_state_cache() -> None:
     global _absent_until
     with _absent_lock:
         _absent_until = 0.0
+    with _surface_cache_lock:
+        _directory_cache.clear()
+        _alias_cache.clear()
 
 
 def _rows(result: Any) -> list[dict[str, Any]]:
     return [dict(row) for row in (getattr(result, "data", None) or [])]
+
+
+def _one_row(result: Any) -> dict[str, Any] | None:
+    rows = _rows(result)
+    return rows[0] if rows else None
 
 
 def _is_rpc_missing(exc: BaseException) -> bool:
@@ -139,7 +152,38 @@ def read_v2_directory(client: Any) -> list[dict[str, Any]] | None:
         if now < _absent_until:
             return None
     try:
-        rows = _rows(client.rpc(DIRECTORY_RPC_V2, {}).execute())
+        serving = _one_row(client.table(SERVING_TABLE_V2).select("generation_id")
+                           .eq("singleton", 1).limit(1).execute())
+        serving_generation = str((serving or {}).get("generation_id") or "")
+        if serving_generation:
+            with _surface_cache_lock:
+                cached = _directory_cache.get(serving_generation)
+                if cached and now < cached[0]:
+                    return [dict(row) for row in cached[1]]
+                # The serving pointer is the invalidation authority. Retained
+                # generations cannot leak into a new request after promotion.
+                for generation in list(_directory_cache):
+                    if generation != serving_generation:
+                        _directory_cache.pop(generation, None)
+                        _alias_cache.pop(generation, None)
+                rows = _rows(client.rpc(DIRECTORY_RPC_V2, {}).execute())
+                if rows:
+                    generations = {str(row.get("generation_id")) for row in rows}
+                    if generations != {serving_generation}:
+                        raise GenerationMismatch("V2 directory does not match serving generation")
+                    keys = [row.get("market_key") for row in rows]
+                    if len(set(keys)) != len(keys):
+                        raise SurfaceV2Error("SURFACE_V2_DUPLICATE_MARKET_KEY")
+                    normalized = [normalize_directory_row(row) for row in rows]
+                    _directory_cache[serving_generation] = (
+                        time.monotonic() + DIRECTORY_CACHE_TTL_SECONDS,
+                        [dict(row) for row in normalized],
+                    )
+                    return normalized
+        else:
+            rows = _rows(client.rpc(DIRECTORY_RPC_V2, {}).execute())
+    except SurfaceV2Error:
+        raise
     except Exception as exc:
         if _is_rpc_missing(exc):
             with _absent_lock:
@@ -157,14 +201,28 @@ def read_v2_directory(client: Any) -> list[dict[str, Any]] | None:
     keys = [row.get("market_key") for row in rows]
     if len(set(keys)) != len(keys):
         raise SurfaceV2Error("SURFACE_V2_DUPLICATE_MARKET_KEY")
-    return [normalize_directory_row(row) for row in rows]
+    normalized = [normalize_directory_row(row) for row in rows]
+    generation_id = next(iter(generations))
+    with _surface_cache_lock:
+        _directory_cache[generation_id] = (
+            time.monotonic() + DIRECTORY_CACHE_TTL_SECONDS,
+            [dict(row) for row in normalized],
+        )
+    return normalized
 
 
 def read_aliases(client: Any, generation_id: str) -> dict[str, str]:
     """Generation-scoped legacy alias -> canonical market key (resolved server-side)."""
+    with _surface_cache_lock:
+        cached = _alias_cache.get(str(generation_id))
+        if cached is not None:
+            return dict(cached)
     rows = _rows(client.table(ALIASES_TABLE_V2).select("alias_key,market_key")
                  .eq("generation_id", generation_id).execute())
-    return {str(r["alias_key"]): str(r["market_key"]) for r in rows}
+    aliases = {str(r["alias_key"]): str(r["market_key"]) for r in rows}
+    with _surface_cache_lock:
+        _alias_cache[str(generation_id)] = dict(aliases)
+    return aliases
 
 
 def resolve_requested_keys(keys: list[str], directory_keys: set[str],
