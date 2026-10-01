@@ -1,5 +1,5 @@
 {
-  "mode": "preflight",
+  "mode": "collect",
   "requestedAt": "2026-10-01",
-  "reason": "expanded_evidence_preflight"
+  "reason": "expanded_evidence_collection_after_clean_preflight"
 }
