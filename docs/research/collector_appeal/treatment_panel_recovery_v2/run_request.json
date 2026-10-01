@@ -1,0 +1,5 @@
+{
+  "mode": "preflight",
+  "requestedAt": "2026-10-01",
+  "note": "Zero-credit first pass. Change to collect only after preflight is green and B5 releases the provider lock/budget."
+}
