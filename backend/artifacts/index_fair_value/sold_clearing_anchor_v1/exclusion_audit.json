@@ -1,0 +1,19 @@
+{
+  "cards_without_provider_identity": [],
+  "eligible_rows_all_time": 8019,
+  "eligible_rows_also_carrying_a_different_card_number": 78,
+  "exclusion_totals": {
+    "ATTRIBUTION_NOT_EXACT": 4529,
+    "CARD_NUMBER_NOT_IN_TITLE": 72,
+    "GRADED_FLAG": 31161,
+    "GRADER_OR_GRADE_EVIDENCE": 322,
+    "IDENTITY_NOT_EXACT": 783,
+    "NON_CARD_OR_WRONG_OBJECT": 23,
+    "NO_EXPLICIT_NM": 13136,
+    "WORSE_OR_CONFLICTING_CONDITION": 1005
+  },
+  "note": "Each row is counted once under the first failing rule, in the order the rules are evaluated.",
+  "priced_cards_at_or_above_25_with_all_time_eligible_lt_10": [],
+  "rows_in_panel_evidence": 59050,
+  "rows_outside_panel_ignored": 0
+}
