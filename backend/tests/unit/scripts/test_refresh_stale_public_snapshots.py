@@ -2966,3 +2966,58 @@ def test_standalone_recovery_records_benchmark_failure_as_hard_failure(monkeypat
     assert summary.global_rebuilt == []
     assert summary.global_failed == ["rip_benchmark_v1: candidate incoherent"]
     assert refresh._has_hard_failures(summary) is True
+
+
+def test_market_quality_phase_post_cutover_dry_run_never_splices_legacy_raw(monkeypatch):
+    """A dry run must not attach a legacy Raw target to edition-stable history."""
+    enforcement = _market_enforcement()
+    enforcement.decision.market_date = "2026-09-29"
+    monkeypatch.setattr(
+        refresh, "enforce_market_publication_gate",
+        lambda *_a, **_k: enforcement,
+    )
+    monkeypatch.setattr(
+        refresh, "market_index_accepted_dates",
+        lambda *_a, **_k: {"2026-09-28"},
+    )
+    _patch_rollout_index(
+        monkeypatch,
+        expected_root_count=22,
+        prior_history=[
+            {
+                "market_date": "2026-09-28",
+                "index_key": "raw",
+                "methodology_version": "edition_stable_market_identity_chain_v1",
+            },
+            {"market_date": "2026-09-28", "index_key": "top10"},
+        ],
+        rows=[
+            {
+                "market_date": "2026-09-29",
+                "index_key": "raw",
+                "set_count": 22,
+                "card_count": 220,
+            },
+            {
+                "market_date": "2026-09-29",
+                "index_key": "top10",
+                "set_count": 22,
+                "card_count": 220,
+            },
+        ],
+    )
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(),
+        market_date="2026-09-29",
+        commit=False,
+        summary=refresh.RefreshSummary(),
+    )
+
+    assert ready is True
+    assert rows is not None
+    assert {
+        row["index_key"]
+        for row in rows
+        if row["market_date"] == "2026-09-29"
+    } == {"top10"}

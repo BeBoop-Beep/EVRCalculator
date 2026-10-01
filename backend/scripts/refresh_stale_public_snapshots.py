@@ -2511,7 +2511,10 @@ def _run_market_quality_index_phase(
         # only and, on a day a historical-era rollout is staged, would
         # silently overwrite the larger public rollout cohort (e.g. 39 roots)
         # with the smaller legacy cohort (e.g. 22 roots).
-        from backend.db.services.pokemon_market_index_service import read_index_history
+        from backend.db.services.pokemon_market_index_service import (
+            EDITION_STABLE_RAW_CUTOVER_DATE,
+            read_index_history,
+        )
         from backend.db.services.pokemon_market_rollout_cohort import resolve_market_root_cohort
         from backend.db.services.pokemon_market_rollout_index import (
             build_rollout_market_index_rows, persist_rollout_market_index_rows,
@@ -2576,11 +2579,29 @@ def _run_market_quality_index_phase(
             # plus the in-memory candidate rows for `target`, so downstream
             # dry-run consumers (global Market Set Value / overview) can
             # preview today's would-be numbers without any write firing.
+            # Post-cutover Raw cannot be truthfully previewed with the legacy
+            # rollout candidate row. The edition-stable Raw target is produced by
+            # the commit-only DB refresh in the Set Value publisher, so a dry run
+            # must fail closed for today's Raw point rather than splice a legacy
+            # target onto edition-stable history (which creates an artificial
+            # structural jump). Top10 remains on the rollout-aware legacy family.
+            history_through = target
+            preview_rows = list(index_rows)
+            if target >= EDITION_STABLE_RAW_CUTOVER_DATE:
+                prior_accepted = sorted(day for day in accepted if day < target)
+                if prior_accepted:
+                    history_through = prior_accepted[-1]
+                preview_rows = [
+                    row for row in preview_rows
+                    if row.get("index_key") != "raw"
+                ]
             prior_history = [
-                row for row in read_index_history(client, through_date=target, accepted_dates=accepted)
+                row for row in read_index_history(
+                    client, through_date=history_through, accepted_dates=accepted
+                )
                 if str(row.get("market_date"))[:10] != target
             ]
-            snapshot_history = prior_history + list(index_rows)
+            snapshot_history = prior_history + preview_rows
         reached = sorted({str(row.get("market_date"))[:10] for row in index_rows})
         print(f"[market-index] raw/top10 target={target} latest={reached[-1] if reached else 'none'}")
         return True, snapshot_history
