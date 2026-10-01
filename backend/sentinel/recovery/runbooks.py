@@ -378,6 +378,7 @@ def build_safe_recovery_registry(
         if status in {
             "noop_batch_not_complete",
             "noop_already_running",
+            "deferred_database_safety_hold",
             "noop_currency_unknown",
             "noop_already_running",
             "gate_authority_unavailable",
