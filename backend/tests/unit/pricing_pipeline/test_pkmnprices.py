@@ -73,6 +73,21 @@ def test_client_auth_is_header_not_url_and_card_lookup():
     assert "tcg_player_id=89168" in request.full_url
 
 
+def test_card_lookup_by_name_number_does_not_require_set_id():
+    opener = opener_for([{
+        "data": [{"id": 88, "name": "Mewtwo V", "number": "SWSH229"}],
+        "pagination": {},
+    }])
+    client = PkmnPricesClient("secret-key", opener=opener, sleep=lambda _: None)
+    rows = client.cards_by_name_number(name="Mewtwo V", number="SWSH229")
+    assert rows[0]["id"] == 88
+    url = opener.seen[0].full_url
+    assert "name=Mewtwo+V" in url
+    assert "number=SWSH229" in url
+    assert "set_id=" not in url
+    assert "per_page=100" in url
+
+
 
 
 def test_tcgplayer_listings_probe_uses_exact_filters():
