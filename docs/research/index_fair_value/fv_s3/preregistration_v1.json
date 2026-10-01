@@ -1,0 +1,79 @@
+{
+  "core_panel_fingerprint": "9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+  "first_prospective_publication_exists_at_freeze": false,
+  "frozen_rule_methodology_contract_sha256": "1690416e0723e4bb6d066d8305cd58ef5a56782601ed94140ed111307ecb4b6a",
+  "frozen_rule_module": "backend/scripts/index_fair_value_sold_clearing_anchor.py",
+  "frozen_rule_module_sha256": "f0beb161dbc7e66be90fff6bc4374abffdc4ea1b421d5b1211e9b729a6c0af5a",
+  "preregistration": {
+    "anchor_accuracy": {
+      "denominator": "cards with status ANCHORED and a market price at the comparison date; coverage reported separately",
+      "evaluated_at": "publication evaluation date (horizon 0), against the canonical TCGplayer NM market price of that date",
+      "formulas": {
+        "mae_usd": "mean(|anchor - market|)",
+        "mdape_pct": "100 * median(|anchor - market| / market)",
+        "r2_dollars": "1 - sum((market - anchor)^2) / sum((market - mean(market))^2)",
+        "spearman": "Pearson correlation of average ranks of (anchor, market)",
+        "within_k_pct": "share of cards with |anchor - market| / market <= k/100"
+      },
+      "metrics": [
+        "mdape_pct",
+        "mae_usd",
+        "r2_dollars",
+        "spearman",
+        "within_10pct",
+        "within_20pct",
+        "within_30pct"
+      ],
+      "strata_by_market_price_usd": {
+        "all": 0.0,
+        "ge_100": 100.0,
+        "ge_25": 25.0,
+        "ge_250": 250.0
+      }
+    },
+    "blending_in_this_phase": false,
+    "components_kept_separate": true,
+    "enrichment_policy": "FIRST_SEEN_PROVIDER_ENRICHMENT_RESEARCH_ONLY",
+    "evidence_status_required": "PROSPECTIVE_AS_KNOWN_AT_CUTOFF",
+    "forward_behavior": {
+      "alternatives_not_ranked_in_advance": [
+        "divergence carries forward information (anchor > market precedes rises, anchor < market precedes falls)",
+        "anchor is only a contemporaneous alternative price estimator"
+      ],
+      "below_minimum_n": "report descriptives only and label INSUFFICIENT_N",
+      "definitions": {
+        "divergence": "d = (anchor - market_t0) / market_t0",
+        "forward_return": "r_h = (market_t0+h - market_t0) / market_t0"
+      },
+      "diagnostic_only": true,
+      "horizons_days": [
+        1,
+        7,
+        30
+      ],
+      "market_convergence_required": false,
+      "minimum_n_for_any_inference": 30,
+      "missing_outcomes": "never imputed; reported as coverage per horizon",
+      "multiplicity": "3 horizons x 4 strata are all reported; no horizon or stratum is selected after seeing results",
+      "no_conclusion_chosen_in_advance": true,
+      "statistics": [
+        "spearman(d, r_h)",
+        "sign agreement among |d| >= 0.05 (zero-return cards excluded)",
+        "OLS slope of r_h on d with set-clustered bootstrap 95% interval (B=2000, seed=20261001, cluster=root_set_id)",
+        "mean r_h by d tercile",
+        "predictor test: MdAPE of anchor vs MdAPE of market_t0 as predictors of market_t0+h, and share of cards where the anchor is closer"
+      ]
+    },
+    "preregistration_version": "fv_s3_prospective_shadow_preregistration_v1",
+    "publication_precedes_outcome": "anchor publications are appended before any comparison price for that evaluation date is read",
+    "retrospective_evidence_excluded_from_prospective_claims": true,
+    "rule_change_policy": "Observing prospective results never edits V1. A change creates ANCHOR_V2 and restarts the prospective clock.",
+    "rule_is_frozen": "Any change to eligibility, windows, minimum comps, estimator or availability gate requires a NEW rule version; results never retune V1.",
+    "rule_under_test": "EXPLICIT_NM_SOLD_CLEARING_ANCHOR_V1",
+    "unit": "one anchor publication per (rule_version, canonical_card_id, evaluation_date, information_cutoff)"
+  },
+  "preregistration_sha256": "b3bbceb0559fc58e600c60fbb80f54f81a7299d1a6ec50e6ba95e373fc7d3ca1",
+  "provider_backed_observation_exists_at_freeze": false,
+  "rule_source_commit": "bdfc06e9",
+  "statement": "Frozen before any provider-backed prospective observation. Editing V1 afterwards requires ANCHOR_V2."
+}
