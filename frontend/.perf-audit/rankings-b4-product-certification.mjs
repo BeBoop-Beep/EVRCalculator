@@ -33,32 +33,35 @@ function pageContract(requestUrl, view) {
 async function install(page, { paid, delay = 0 }) {
   await page.route("**/api/auth/me", (route) => route.fulfill({ status: paid ? 200 : 401, contentType: "application/json", body: JSON.stringify(paid ? { user: { id: "fixture-plus", email: "plus@example.test", index_plan: "plus" } } : { user: null }) }));
   for (const [pattern, view] of [["**/api/explore/product-rankings/scores?*", "scores"], ["**/api/explore/product-rankings/economics?*", "economics"], ["**/api/tcgs/pokemon/rankings/product-catalogue?*", "public"]]) await page.route(pattern, async (route) => {
+    const requestStartedAt = performance.now();
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     const payload = pageContract(route.request().url(), view); const body = JSON.stringify(payload);
-    measurements.requests.push({ view, url: route.request().url(), ids: payload.rows.map((row) => row.sealedProductId), rowCount: payload.rows.length, delay });
+    const responseReadyAt = performance.now();
+    measurements.requests.push({ view, url: route.request().url(), ids: payload.rows.map((row) => row.sealedProductId), rowCount: payload.rows.length, delay, requestStartedAt, responseReadyAt });
     measurements.responses.push({ view, bytes: Buffer.byteLength(body), rowCount: payload.rows.length, delay });
     await route.fulfill({ contentType: "application/json", body });
   });
 }
-async function openProducts(page) { await page.goto(`${origin}/Rankings`, { waitUntil: "domcontentloaded", timeout: 30000 }); await page.getByText("Products", { exact: true }).first().click(); }
+async function openProducts(page) { await page.goto(`${origin}/Rankings`, { waitUntil: "domcontentloaded", timeout: 30000 }); const clickedAt = performance.now(); await page.getByText("Products", { exact: true }).first().click(); return clickedAt; }
 
 async function paidRun(delay = 0) {
   const browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }); await install(page, { paid: true, delay });
-  const start = performance.now(); await openProducts(page); await page.locator("[data-product-scores-table] tbody tr").first().waitFor(); const scoresVisible = performance.now();
+  const scoresClickAt = await openProducts(page); await page.locator("[data-product-scores-table] tbody tr").first().waitFor(); const scoresVisible = performance.now(); const scoresRequest = measurements.requests.find((x) => x.view === "scores" && x.delay === delay);
   const scoreRows = await page.locator("[data-product-scores-table] tbody tr").count(); const body = await page.locator("body").innerText();
   if (scoreRows !== 25 || !body.includes("Showing 1–25 of 60 ranked Products") || !body.includes("50.0") || body.includes("Set Chase") || body.includes("Set Collector")) throw new Error("desktop Scores acceptance failed");
   if (!delay) await page.screenshot({ path: `${evidenceDir}/product-scores-desktop.png`, fullPage: true, animations: "disabled" });
   await page.getByRole("button", { name: "Chase", exact: true }).click(); await page.getByRole("button", { name: "Chase", exact: true }).click(); await page.getByText("Fixture Product 60", { exact: false }).first().waitFor();
-  await page.getByRole("button", { name: "Next", exact: true }).click(); await page.getByText("Page 2 of 3", { exact: true }).waitFor(); await page.getByRole("button", { name: "Previous", exact: true }).click();
+  const page2ClickAt = performance.now(); await page.getByRole("button", { name: "Next", exact: true }).click(); await page.getByText("Page 2 of 3", { exact: true }).waitFor(); const page2VisibleAt = performance.now(); await page.getByRole("button", { name: "Previous", exact: true }).click();
   await page.getByRole("button", { name: "Booster Box", exact: true }).click(); await page.getByText("Page 1 of 1", { exact: true }).waitFor();
   await page.getByRole("button", { name: "All Products", exact: true }).click(); await page.getByText("Page 1 of 3", { exact: true }).waitFor();
   const search = page.getByRole("searchbox", { name: "Search Products" }); await search.fill("Shrouded"); await page.waitForFunction(() => document.querySelectorAll("[data-product-scores-table] tbody tr").length === 1); await page.getByText("A Shrouded Fable Booster Pack", { exact: true }).first().waitFor(); await search.fill(""); await page.getByText("Page 1 of 3", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Next", exact: true }).click(); await page.getByText("Page 2 of 3", { exact: true }).waitFor(); await page.getByRole("button", { name: "Next", exact: true }).click(); await page.getByText("Page 3 of 3", { exact: true }).waitFor(); if (!(await page.getByRole("button", { name: "Next", exact: true }).isDisabled())) throw new Error("last-page bound"); await page.getByRole("button", { name: "Previous", exact: true }).click(); await page.getByRole("button", { name: "Previous", exact: true }).click();
-  const economicsStart = performance.now(); await page.getByText("Economics", { exact: true }).first().click(); await page.locator("[data-product-economics-table] tbody tr").first().waitFor(); const economicsVisible = performance.now();
+  const economicsClickAt = performance.now(); await page.getByText("Economics", { exact: true }).first().click(); await page.locator("[data-product-economics-table] tbody tr").first().waitFor(); const economicsVisible = performance.now(); const economicsRequest = measurements.requests.find((x) => x.view === "economics" && x.delay === delay);
   const econBody = await page.locator("body").innerText(); if (!econBody.includes("9.9%") || !econBody.includes("0.0002%")) throw new Error(`exact Recover Cost acceptance failed: ${econBody.slice(-2500)}`);
   if (!delay) { await page.screenshot({ path: `${evidenceDir}/product-economics-desktop.png`, fullPage: true, animations: "disabled" }); const tiny = page.locator("tr").filter({ hasText: "Tiny Recovery Booster Pack" }); await tiny.screenshot({ path: `${evidenceDir}/tiny-positive-recover-cost.png`, animations: "disabled" }); }
   const info = page.getByLabel("Best-Open details for A Shrouded Fable Booster Pack").first(); await info.click(); const popover = await page.locator("body").innerText(); if (!popover.includes("Current market") || !popover.includes("+$20.00") || !popover.includes("+20.0%") || !popover.includes("MSRP\nUnavailable")) throw new Error("Best-Open popover acceptance failed"); await page.keyboard.press("Escape");
-  measurements.timings.push({ delay, scoresTotalMs: scoresVisible - start, economicsTotalMs: economicsVisible - economicsStart });
+  const warmClickAt = performance.now(); await page.getByText("Scores", { exact: true }).first().click(); await page.locator("[data-product-scores-table] tbody tr").first().waitFor(); const warmVisibleAt = performance.now();
+  measurements.timings.push({ delay, scores: { clickToRequestMs: scoresRequest.requestStartedAt - scoresClickAt, requestToResponseMs: scoresRequest.responseReadyAt - scoresRequest.requestStartedAt, responseToRowsMs: scoresVisible - scoresRequest.responseReadyAt, totalMs: scoresVisible - scoresClickAt }, economics: { clickToRequestMs: economicsRequest.requestStartedAt - economicsClickAt, requestToResponseMs: economicsRequest.responseReadyAt - economicsRequest.requestStartedAt, responseToRowsMs: economicsVisible - economicsRequest.responseReadyAt, totalMs: economicsVisible - economicsClickAt }, paginationPage1To2Ms: page2VisibleAt - page2ClickAt, warmEconomicsToScoresMs: warmVisibleAt - warmClickAt });
   await browser.close();
 }
 

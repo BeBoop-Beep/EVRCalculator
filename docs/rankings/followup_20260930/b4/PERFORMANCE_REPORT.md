@@ -31,10 +31,14 @@ and anonymous route fixtures. The acceptance record is
 | Anonymous catalogue page 1 body | 5,099 bytes |
 | Paid Scores page 1 body | 9,184 bytes |
 | Paid Economics page 1 body | 14,013 bytes |
-| Normal Scores click-to-rows | recorded in JSON |
-| Normal Economics click-to-rows | recorded in JSON |
-| Injected 250 ms Scores click-to-rows | recorded in JSON |
-| Injected 250 ms Economics click-to-rows | recorded in JSON |
+| Normal Scores: click/request/response/rows/total | 711.6 / 0.4 / 514.8 / 1,226.7 ms |
+| Normal Economics: click/request/response/rows/total | 35.4 / 0.2 / 36.7 / 72.3 ms |
+| Normal page 1 -> page 2 | 134.4 ms |
+| Normal warm Economics -> Scores | 45.8 ms |
+| Delayed Scores: click/request/response/rows/total | 489.7 / 260.6 / 249.8 / 1,000.2 ms |
+| Delayed Economics: click/request/response/rows/total | 46.9 / 250.7 / 47.6 / 345.2 ms |
+| Delayed page 1 -> page 2 | 340.7 ms |
+| Delayed warm Economics -> Scores | 53.7 ms |
 
 The fixture also records every URL, returned ID, and row count. It proves that
 normal requests return at most the requested 25-row page, while search, family,

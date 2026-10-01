@@ -147,7 +147,9 @@
         "p-25"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 1211.1844,
+      "responseReadyAt": 1211.5696
     },
     {
       "view": "scores",
@@ -180,7 +182,9 @@
         "p-26"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 2047.0687,
+      "responseReadyAt": 2047.178
     },
     {
       "view": "scores",
@@ -213,7 +217,9 @@
         "p-37"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 2094.4772,
+      "responseReadyAt": 2094.5874
     },
     {
       "view": "scores",
@@ -246,7 +252,9 @@
         "p-12"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 2157.8235,
+      "responseReadyAt": 2157.9206
     },
     {
       "view": "scores",
@@ -274,7 +282,9 @@
         "p-03"
       ],
       "rowCount": 20,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 2339.2533,
+      "responseReadyAt": 2339.3415
     },
     {
       "view": "scores",
@@ -283,7 +293,9 @@
         "p-01"
       ],
       "rowCount": 1,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 2702.6176,
+      "responseReadyAt": 2702.7673
     },
     {
       "view": "scores",
@@ -301,7 +313,9 @@
         "p-02"
       ],
       "rowCount": 10,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 3112.8246,
+      "responseReadyAt": 3112.9143
     },
     {
       "view": "economics",
@@ -334,7 +348,9 @@
         "p-25"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 3363.4504,
+      "responseReadyAt": 3363.672
     },
     {
       "view": "scores",
@@ -367,7 +383,9 @@
         "p-25"
       ],
       "rowCount": 25,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 4524.8861,
+      "responseReadyAt": 4785.5266
     },
     {
       "view": "scores",
@@ -400,7 +418,9 @@
         "p-26"
       ],
       "rowCount": 25,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 5080.2799,
+      "responseReadyAt": 5337.4255
     },
     {
       "view": "scores",
@@ -433,7 +453,9 @@
         "p-37"
       ],
       "rowCount": 25,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 5125.4378,
+      "responseReadyAt": 5383.7205
     },
     {
       "view": "scores",
@@ -466,7 +488,9 @@
         "p-12"
       ],
       "rowCount": 25,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 5462.6392,
+      "responseReadyAt": 5724.422
     },
     {
       "view": "scores",
@@ -494,7 +518,9 @@
         "p-03"
       ],
       "rowCount": 20,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 5875.4373,
+      "responseReadyAt": 6126.9111
     },
     {
       "view": "scores",
@@ -503,7 +529,9 @@
         "p-01"
       ],
       "rowCount": 1,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 6497.4356,
+      "responseReadyAt": 6761.6318
     },
     {
       "view": "scores",
@@ -521,7 +549,9 @@
         "p-02"
       ],
       "rowCount": 10,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 7180.9383,
+      "responseReadyAt": 7440.7387
     },
     {
       "view": "economics",
@@ -554,7 +584,9 @@
         "p-25"
       ],
       "rowCount": 25,
-      "delay": 250
+      "delay": 250,
+      "requestStartedAt": 7663.7976,
+      "responseReadyAt": 7914.5221
     },
     {
       "view": "scores",
@@ -587,7 +619,9 @@
         "p-25"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 8654.3513,
+      "responseReadyAt": 8654.4887
     },
     {
       "view": "scores",
@@ -620,7 +654,9 @@
         "p-50"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 9329.9454,
+      "responseReadyAt": 9330.0313
     },
     {
       "view": "public",
@@ -653,19 +689,45 @@
         "p-25"
       ],
       "rowCount": 25,
-      "delay": 0
+      "delay": 0,
+      "requestStartedAt": 10238.1263,
+      "responseReadyAt": 10238.1898
     }
   ],
   "timings": [
     {
       "delay": 0,
-      "scoresTotalMs": 1236.1009,
-      "economicsTotalMs": 84.71330000000034
+      "scores": {
+        "clickToRequestMs": 711.5766000000001,
+        "requestToResponseMs": 0.3851999999999407,
+        "responseToRowsMs": 514.7538,
+        "totalMs": 1226.7156
+      },
+      "economics": {
+        "clickToRequestMs": 35.383000000000266,
+        "requestToResponseMs": 0.22159999999985303,
+        "responseToRowsMs": 36.67309999999998,
+        "totalMs": 72.2777000000001
+      },
+      "paginationPage1To2Ms": 134.40700000000015,
+      "warmEconomicsToScoresMs": 45.827200000000175
     },
     {
       "delay": 250,
-      "scoresTotalMs": 1024.3719999999998,
-      "economicsTotalMs": 343.1226999999999
+      "scores": {
+        "clickToRequestMs": 489.69249999999965,
+        "requestToResponseMs": 260.64050000000043,
+        "responseToRowsMs": 249.83919999999944,
+        "totalMs": 1000.1721999999995
+      },
+      "economics": {
+        "clickToRequestMs": 46.92209999999977,
+        "requestToResponseMs": 250.72450000000026,
+        "responseToRowsMs": 47.58010000000013,
+        "totalMs": 345.22670000000016
+      },
+      "paginationPage1To2Ms": 340.6704,
+      "warmEconomicsToScoresMs": 53.72960000000057
     }
   ],
   "checks": {
