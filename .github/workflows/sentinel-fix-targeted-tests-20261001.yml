@@ -18,9 +18,13 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install backend test dependencies
-        run: python -m pip install -q -r backend/requirements.txt
+        run: |
+          python -m pip install -q -r backend/requirements.txt
+          python -m pip install -q pytest
       - name: Run Sentinel publication recovery tests
         run: |
           python -m pytest -q \
             backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
-            backend/tests/unit/sentinel/test_safe_recovery.py
+            backend/tests/unit/sentinel/test_safe_recovery.py \
+            backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py \
+            backend/tests/unit/scripts/test_global_set_value_refresh_contract.py
