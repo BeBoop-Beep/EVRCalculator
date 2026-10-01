@@ -1,0 +1,19 @@
+{
+  "decisionToken": "TREATMENT_HIERARCHY_V4_DIAGNOSTIC_ONLY",
+  "workflowRunId": 36931188352,
+  "artifactId": 11195419796,
+  "artifactDigest": "sha256:5a24c23bf6cf3786c0cac94641682eb115d8e0bbb5e619030ad9f2c71a35feec",
+  "fitCards": 63,
+  "fitIdentities": 28,
+  "fitSets": 6,
+  "eligibleSetFamilies": 7,
+  "locallyIdentifiedSetFamilies": 7,
+  "temporalSpearman": 1,
+  "passingSetFamilyCount": 0,
+  "eraSupportedFamilies": {},
+  "productionWrites": 0,
+  "providerCalls": 0,
+  "collectorMutation": false,
+  "overallRipMutation": false,
+  "nextStep": "RUN_ONE_FINAL_FULL_DEPTH_PRICE_PANEL_TEST_BEFORE_CHANGING_EVIDENCE_TYPE"
+}
