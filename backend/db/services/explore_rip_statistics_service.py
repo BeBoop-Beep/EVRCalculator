@@ -674,10 +674,10 @@ def _calculate_score_ranks_and_tiers(
     scored_rows_with_valid_scores.sort(key=lambda item: (-item[1], item[0]))
     total = len(scored_rows_with_valid_scores)
     
-    # Assign ranks and use the one shared public rank-tier authority.
-    from backend.rankings.public_relative import public_rank_tier
+    # Assign ranks and use the absolute rank-percentile tier (no benchmark-neutral point here).
+    from backend.rankings.public_relative import absolute_rank_percentile_tier
     for rank, (target_id, score) in enumerate(scored_rows_with_valid_scores, start=1):
-        tier = public_rank_tier(rank, total)
+        tier = absolute_rank_percentile_tier(rank, total)
         result[target_id] = {"rank": rank, "tier": tier, "cohortSize": total}
     
     # Rows without scores get None

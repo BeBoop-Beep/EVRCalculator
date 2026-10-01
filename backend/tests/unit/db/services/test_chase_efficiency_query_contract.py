@@ -1,7 +1,7 @@
 import pytest
 
 from backend.db.services.chase_efficiency_query_service import SORT_COLUMNS, _public_row
-from backend.rankings.public_relative import public_rank_tier
+from backend.rankings.public_relative import absolute_rank_percentile_tier
 
 
 def test_cards_ui_sort_options_are_all_server_authoritative():
@@ -26,17 +26,20 @@ def test_card_payload_derives_buy_price_probability_and_percentile_server_side()
     assert payload["packsAtBuyPrice"] == 20
     assert payload["chanceAtBuyPrice"] == pytest.approx(1 - 0.99**20)
     assert payload["topPercent"] == pytest.approx(100 * 11 / 4_852)
-    assert payload["tier"] == public_rank_tier(11, 4_852) == "S"
+    assert payload["tier"] == absolute_rank_percentile_tier(11, 4_852) == "S"
     assert payload["milestones"]["0.5"]["spend"] == 345
 
 
 @pytest.mark.parametrize(
     ("rank", "size", "expected"),
-    [(5, 100, "S"), (6, 100, "A"), (15, 100, "A"), (16, 100, "B"),
-     (30, 100, "B"), (31, 100, "C"), (50, 100, "C"), (51, 100, "D"),
-     (75, 100, "D"), (76, 100, "F"),
-     (1, 7, "S"), (2, 7, "A"), (None, 100, None), (1, None, None), (0, 100, None)],
+    [(1, 100, "S"), (2, 100, "A"), (10, 100, "A"), (11, 100, "B"),
+     (25, 100, "B"), (26, 100, "C"), (50, 100, "C"), (51, 100, "D"),
+     (75, 100, "D"), (76, 100, "F"), (100, 100, "F"),
+     (48, 4_852, "S"), (49, 4_852, "A"), (485, 4_852, "A"), (486, 4_852, "B"),
+     (1_213, 4_852, "B"), (1_214, 4_852, "C"), (2_426, 4_852, "C"), (2_427, 4_852, "D"),
+     (3_639, 4_852, "D"), (3_640, 4_852, "F"),
+     (1, 7, "S"), (2, 7, "C"), (None, 100, None), (1, None, None), (0, 100, None)],
 )
-def test_card_payload_uses_canonical_public_rank_bucket_boundaries(rank, size, expected):
+def test_card_payload_uses_absolute_rank_percentile_boundaries(rank, size, expected):
     payload = _public_row({"overall_rank": rank, "overall_cohort_size": size})
-    assert payload["tier"] == public_rank_tier(rank, size) == expected
+    assert payload["tier"] == absolute_rank_percentile_tier(rank, size) == expected

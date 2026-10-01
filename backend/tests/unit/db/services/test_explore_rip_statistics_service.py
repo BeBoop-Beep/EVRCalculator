@@ -836,3 +836,16 @@ def test_overall_ranked_cohort_audit_driven_by_v12_not_v9():
     audit["expectedOverallRipVersion"] = CANONICAL_OVERALL_RIP_VERSION
     assert audit["expectedOverallRipVersion"] == CANONICAL_OVERALL_RIP_VERSION
     assert "v12" in audit["expectedOverallRipVersion"]
+
+
+def test_score_rank_tiers_use_absolute_percentile_not_benchmark_or_legacy_bands():
+    from backend.db.services.explore_rip_statistics_service import _calculate_score_ranks_and_tiers
+    rows = [{"target_id": f"t{i:03d}", "pack_score": 1000 - i} for i in range(100)]
+    result = _calculate_score_ranks_and_tiers(rows, "pack_score")
+    tiers = {rank: None for rank in (1, 2, 10, 11, 25, 26, 50, 51, 75, 76, 100)}
+    for payload in result.values():
+        if payload["rank"] in tiers:
+            tiers[payload["rank"]] = payload["tier"]
+    assert tiers == {1: "S", 2: "A", 10: "A", 11: "B", 25: "B", 26: "C", 50: "C",
+                     51: "D", 75: "D", 76: "F", 100: "F"}
+    assert all(payload["cohortSize"] == 100 for payload in result.values())

@@ -102,7 +102,12 @@ def compute_leader_normalized_scores(
 
 
 def public_rank_tier(rank: Any, cohort_size: Any) -> Optional[str]:
-    """Canonical Sets public rank-bucket tier shared by every RIP ranking."""
+    """LEGACY rank-only tier (ceil bands 5/15/30/50/75%).
+
+    No production caller remains.  Kept only for external/older imports; use
+    ``benchmark_relative_tier`` (Set/Era 0-10 benchmark) or
+    ``absolute_rank_percentile_tier`` (no neutral point) instead.
+    """
     try:
         numeric_rank, size = int(rank), int(cohort_size)
     except (TypeError, ValueError, ZeroDivisionError):
@@ -187,5 +192,5 @@ def absolute_rank_percentile_tier(rank: Any, cohort_size: Any) -> Optional[str]:
     return "F"
 
 
-# Compatibility name for the first product-relative implementation.
+# LEGACY compatibility name for the first product-relative implementation.
 public_product_rank_tier = public_rank_tier

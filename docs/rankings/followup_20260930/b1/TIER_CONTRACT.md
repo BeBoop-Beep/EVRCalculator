@@ -17,7 +17,15 @@ For scores with no benchmark-neutral point (Product V12 0-100, Card rankings). R
 
 S top 1%, A through 10%, B through 25%, C through 50%, D through 75%, F bottom 25%. Floor boundaries, each at least the previous; `max(1, ...)` for S. Cohorts: Product Full Market 138, Collector Overall Cards 18,293. Product V12 scale unchanged.
 
-Legacy `public_rank_tier` (S 5% / A 15% / B 30% / C 50% / D 75% / F, ceil) is left in place for its existing non-benchmark callers (`chase_efficiency_query_service`, `explore_rip_statistics_service`). It is no longer used for benchmark presentation. Migrating those callers to the absolute helper is deliberately out of B1 scope.
+Legacy `public_rank_tier` (S 5% / A 15% / B 30% / C 50% / D 75% / F, ceil) and its alias `public_product_rank_tier` have **no remaining production caller** and are kept, marked LEGACY, only for older tests/external imports. They were deliberately not redefined to mean either new helper.
+
+### Production call-site audit (closure)
+| Call site | Cohort | Helper now |
+|---|---|---|
+| `rankings_redesign_contract_service.benchmark_presentation` | Set/Era benchmark 0-10 | `benchmark_relative_tier` |
+| `chase_efficiency_query_service._public_row` | Card Chase Efficiency overall rank | `absolute_rank_percentile_tier` |
+| `explore_rip_statistics_service._calculate_score_ranks_and_tiers` | fixed-anchor absolute scores | `absolute_rank_percentile_tier` |
+| `public_rank_tier` / `public_product_rank_tier` | none | legacy, unused |
 
 ## Palette (existing shared tone, `lib/explore/interpretationTone.js`)
 S purple `rgba(192,132,252)`, A teal `rgba(45,212,191)`, B green `rgba(134,239,172)`, C sky/neutral blue, D orange `rgba(251,146,60)`, F red. No second palette was introduced.
