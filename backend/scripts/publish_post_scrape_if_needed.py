@@ -46,6 +46,7 @@ TAG = "[publish-if-needed]"
 
 REBUILD_SCRIPT = _PROJECT_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
 LOCK_HELD_EXIT_CODE = 4
+DATABASE_SAFETY_HOLD_EXIT_CODE = 75
 
 STATUS_NOOP_NOT_COMPLETE = "noop_batch_not_complete"
 STATUS_NOOP_ALREADY_CURRENT = "noop_already_current"
@@ -54,12 +55,14 @@ STATUS_NOOP_CURRENCY_UNKNOWN = "noop_currency_unknown"
 STATUS_GATE_AUTHORITY_UNAVAILABLE = "gate_authority_unavailable"
 STATUS_GATE_INVALID_CONTRACT = "gate_invalid_contract"
 STATUS_PUBLISHED = "published"
+STATUS_DEFERRED_DATABASE_SAFETY_HOLD = "deferred_database_safety_hold"
 STATUS_PUBLISH_FAILED = "publish_failed"
 STATUS_INVALID_MARKET_DATE = "invalid_market_date"
 
 # Statuses that must cause the CLI to exit nonzero so ops/alerting notices.
 _NONZERO_EXIT_STATUSES = (
     STATUS_INVALID_MARKET_DATE,
+    STATUS_DEFERRED_DATABASE_SAFETY_HOLD,
     STATUS_PUBLISH_FAILED,
     STATUS_NOOP_CURRENCY_UNKNOWN,
     STATUS_GATE_AUTHORITY_UNAVAILABLE,
@@ -230,6 +233,16 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
             "%s publication already running for market_date=%s; safe no-op", TAG, market_date
         )
         return {"market_date": market_date, "status": STATUS_NOOP_ALREADY_RUNNING, "exit_code": exit_code}
+    if exit_code == DATABASE_SAFETY_HOLD_EXIT_CODE:
+        logger.info(
+            "%s publication deferred by production database safety hold market_date=%s",
+            TAG, market_date,
+        )
+        return {
+            "market_date": market_date,
+            "status": STATUS_DEFERRED_DATABASE_SAFETY_HOLD,
+            "exit_code": exit_code,
+        }
 
     logger.error(
         "%s publication FAILED market_date=%s exit_code=%s", TAG, market_date, exit_code
@@ -255,6 +268,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _status_to_exit_code(status: str) -> int:
+    if status == STATUS_DEFERRED_DATABASE_SAFETY_HOLD:
+        return DATABASE_SAFETY_HOLD_EXIT_CODE
     return 1 if status in _NONZERO_EXIT_STATUSES else 0
 
 
