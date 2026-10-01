@@ -1,5 +1,5 @@
 {
-  "mode": "collect",
+  "mode": "preflight",
   "requestedAt": "2026-10-01",
-  "reason": "expanded_evidence_collection_after_clean_preflight"
+  "reason": "collection_complete_lock_provider_calls"
 }
