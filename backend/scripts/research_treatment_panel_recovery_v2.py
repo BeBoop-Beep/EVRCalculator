@@ -229,7 +229,14 @@ def collect(db, provider, cohort, *, period: str, max_cards: int, credit_cap: in
             payload=provider.price_history_page(
                 row["provider_card_id"],period=period,condition="Near Mint",
                 variant=row["provider_variant"],limit=365,page=1)
-            panels[row["canonical_card_id"]]={"card":row,"history":_history_rows(payload)}
+            history=_history_rows(payload)
+            panels[row["canonical_card_id"]]={"card":row,"history":history}
+            print(
+                f"[treatment-panel] card={row['canonical_card_id']} provider={row['provider_card_id']} "
+                f"variant={row['provider_variant']} history_rows={len(history)} "
+                f"credits={provider.credits_charged-start}",
+                flush=True,
+            )
         except Exception as exc:
             failures.append({"canonical_card_id":row["canonical_card_id"],"error":f"{type(exc).__name__}: {exc}"})
     readiness=[]
@@ -268,7 +275,12 @@ def main(argv=None):
             "provider_calls":0,"credits_used":0,"production_writes":0}
     if args.collect:
         creds=load_pkmnprices_credentials(allow_frontend_fallback=False)
-        provider=PkmnPricesClient(creds.api_key,min_request_interval=.55)
+        provider=PkmnPricesClient(
+            creds.api_key,
+            min_request_interval=.55,
+            timeout=10.0,
+            max_retries=0,
+        )
         result={**result,**collect(supabase,provider,cohort,period=args.period,max_cards=args.max_cards,credit_cap=args.credit_cap)}
         result["production_writes"]=0
     args.output.parent.mkdir(parents=True,exist_ok=True)
