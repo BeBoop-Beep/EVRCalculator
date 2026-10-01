@@ -1006,11 +1006,11 @@ jobs:
               echo "== treatment panel preflight =="
               (cd "$TREATMENT_WT" && "$PY" backend/scripts/research_treatment_panel_recovery_v2.py --market-date 2026-09-29 --period 180d --output "$TREATMENT_STATE/preflight.json")
               "$PY" - "$TREATMENT_STATE/preflight.json" <<'PY'
-import json,sys
-x=json.load(open(sys.argv[1],encoding="utf-8"))
-print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],"counts":x["cohort"]["counts"],
-       "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],"productionWrites":x["production_writes"]})
-PY
+          import json,sys
+          x=json.load(open(sys.argv[1],encoding="utf-8"))
+          print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],"counts":x["cohort"]["counts"],
+                 "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],"productionWrites":x["production_writes"]})
+          PY
               if [ "$VM_OPERATION" = "treatment-panel-pilot" ]; then
                 echo "== bounded 12-card / 2500-credit NM history pilot =="
                 if ! /usr/bin/flock -n /tmp/pkmnprices-api.lock -c "cd '$TREATMENT_WT' && PYTHONPATH='$TREATMENT_WT' '$PY' backend/scripts/research_treatment_panel_recovery_v2.py --market-date 2026-09-29 --period 180d --collect --max-cards 12 --credit-cap 2500 --output '$TREATMENT_STATE/pilot.json'"; then
@@ -1018,14 +1018,14 @@ PY
                   exit 75
                 fi
                 "$PY" - "$TREATMENT_STATE/pilot.json" <<'PY'
-import json,sys
-x=json.load(open(sys.argv[1],encoding="utf-8"))
-print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],
-       "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],
-       "cardsRequested":x.get("cards_requested"),"cardsReturned":x.get("cards_returned"),
-       "readinessCounts":x.get("readiness_counts"),"failureCount":len(x.get("failures") or []),
-       "productionWrites":x["production_writes"]})
-PY
+          import json,sys
+          x=json.load(open(sys.argv[1],encoding="utf-8"))
+          print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],
+                 "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],
+                 "cardsRequested":x.get("cards_requested"),"cardsReturned":x.get("cards_returned"),
+                 "readinessCounts":x.get("readiness_counts"),"failureCount":len(x.get("failures") or []),
+                 "productionWrites":x["production_writes"]})
+          PY
               fi
               echo "TREATMENT_PANEL_RECOVERY_OPERATION=PASS"
               ;;
