@@ -660,9 +660,16 @@ def run(
     if recovery.get("sampleFingerprint") != EXPECTED_RECOVERY_SAMPLE_FINGERPRINT:
         raise RuntimeError("expanded recovery sample fingerprint drift")
     full_sample = resolve_sample(manifest, load_json(ROUND23_LADDERS))
+    readiness_payload = recovery.get("panelReadiness") or {}
+    readiness_rows = (
+        readiness_payload.get("identities") or []
+        if isinstance(readiness_payload, Mapping)
+        else readiness_payload
+    )
     readiness = {
         str(row.get("identity")): str(row.get("status"))
-        for row in (recovery.get("panelReadiness") or [])
+        for row in readiness_rows
+        if isinstance(row, Mapping)
     }
     ready_statuses = {"PANEL_READY_STRONG", "PANEL_READY_MODERATE"}
     ready_sample = [
