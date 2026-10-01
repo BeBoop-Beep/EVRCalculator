@@ -10,7 +10,8 @@ import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import { planPresentation } from "@/lib/membership/upgradeFunnel.mjs";
 import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import { canonicalCardQueryKey } from "@/lib/rankings/rankingsSessionCache.mjs";
-import { buildCardRowsParams, fetchCardRankingFacets, fetchCollectorRows } from "@/lib/rankings/cardRankingsClient.mjs";
+import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
+import { buildCardRowsParams, DEFAULT_COLLECTOR_FILTERS, fetchCardRankingFacets, fetchCollectorRows } from "@/lib/rankings/cardRankingsClient.mjs";
 import CardRankingsFilterBar from "./CardRankingsFilterBar";
 import styles from "./explore.module.css";
 
@@ -21,7 +22,7 @@ export const COLLECTOR_LENSES = [
   { value: "artist", label: "Artist", score: "componentScore", heading: "Artist Appeal" },
   { value: "playability", label: "Playability", score: "componentScore", heading: "Playability" },
 ];
-const INITIAL_FILTERS = { search: "", era: "", set: "", rarity: "", sort: "rank", direction: "asc" };
+const INITIAL_FILTERS = DEFAULT_COLLECTOR_FILTERS;
 
 function Lock() {
   return <section data-card-collector-appeal-locked className={`${styles.surface} set-glass-surface border ${planPresentation(INDEX_PLAN_PLUS).panelClassName} p-7 text-center`}>
@@ -81,10 +82,21 @@ export default function CardCollectorAppealRankings({ entitled, authStatus = "re
     const timer = setTimeout(() => {
       const params = buildCardRowsParams({ lens, page, filters });
       const key = canonicalCardQueryKey(params, `collector:${lens}`);
+      const cached = !forced && sessionCache?.peek(key);
+      if (cached) {
+        setResults((state) => ({ ...state, [lens]: { status: "ready", payload: cached } }));
+        requestAnimationFrame(() => markRankingsLens("cards", "render-ready"));
+        return;
+      }
       setResults((state) => ({ ...state, [lens]: { ...state[lens], status: "loading" } }));
+      markRankingsLens("cards", "request-start");
       const load = () => fetchCollectorRows(params);
       (sessionCache ? sessionCache.request(key, load, { force: forced }) : load()).then((payload) => {
-        if (current && generation === requestGeneration.current) setResults((state) => ({ ...state, [lens]: { status: "ready", payload } }));
+        if (current && generation === requestGeneration.current) {
+          markRankingsLens("cards", "response-received");
+          setResults((state) => ({ ...state, [lens]: { status: "ready", payload } }));
+          requestAnimationFrame(() => markRankingsLens("cards", "render-ready"));
+        }
       }).catch((error) => {
         if (current && generation === requestGeneration.current) setResults((state) => ({ ...state, [lens]: { status: "error", error: error.message, payload: state[lens]?.payload || null } }));
       });
@@ -124,6 +136,6 @@ export default function CardCollectorAppealRankings({ entitled, authStatus = "re
     </div>
     <div className="divide-y divide-[var(--border-subtle)] desk:hidden">{rows.map((row) => <Link key={row.canonicalCardId} href={href(row) || "#"} className="flex gap-3 p-4"><Thumb row={row} /><div className="min-w-0 flex-1"><span className="text-[10px] font-bold">#{row.rank}</span><div className="flex items-start justify-between gap-2"><div className="min-w-0"><strong className="block truncate">{row.cardName}</strong><span className="text-xs text-[var(--text-secondary)]">{row.setName}{row.cardNumber ? ` · ${row.cardNumber}` : ""}</span></div><div className="shrink-0 text-right"><span className="block text-[10px] text-[var(--text-secondary)]">{active.heading}</span><strong className="text-base text-[var(--accent)]">{score(row[active.score])}</strong></div></div></div></Link>)}</div>
     {result.status === "loading" ? <div data-card-rankings-loading className="space-y-2 p-5"><span className="block h-12 animate-pulse rounded bg-white/[.04]" /><span className="block h-12 animate-pulse rounded bg-white/[.04]" /></div> : null}
-    <footer className="flex items-center justify-between border-t border-[var(--border-subtle)] p-3 text-xs text-[var(--text-secondary)]"><span>{result.payload?.total?.toLocaleString() || 0} ranked cards</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => { setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } })); setPage((value) => Math.max(1, value - 1)); }}>Previous</button><span>Page {page} of {result.payload?.totalPages || 1}</span><button type="button" disabled={page >= (result.payload?.totalPages || 1)} onClick={() => { setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } })); setPage((value) => value + 1); }}>Next</button></div></footer>
+    <footer className="flex items-center justify-between border-t border-[var(--border-subtle)] p-3 text-xs text-[var(--text-secondary)]"><span>{result.status === "idle" || (result.status === "loading" && !result.payload) ? "Loading card rankingsâ€¦" : `${(result.payload?.total || 0).toLocaleString()} ranked cards`}</span>{result.payload ? <div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => { setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } })); setPage((value) => Math.max(1, value - 1)); }}>Previous</button><span>Page {page} of {result.payload.totalPages || 0}</span><button type="button" disabled={page >= result.payload.totalPages} onClick={() => { setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } })); setPage((value) => value + 1); }}>Next</button></div> : null}</footer>
   </section>;
 }

@@ -1,0 +1,422 @@
+{
+  "requests": [
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "startedAt": 547.1325,
+      "responseAt": 547.1514
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "startedAt": 547.7937,
+      "responseAt": 548.0895
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=pokemon",
+      "startedAt": 2109.284,
+      "responseAt": 2109.3675
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=trainer",
+      "startedAt": 2196.3022,
+      "responseAt": 2196.3827
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=artist",
+      "startedAt": 2328.4372,
+      "responseAt": 2328.5385
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=playability",
+      "startedAt": 2464.9741,
+      "responseAt": 2465.0421
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "startedAt": 3093.8333,
+      "responseAt": 3345.8173
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "startedAt": 3093.9444,
+      "responseAt": 3346.0711
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=pokemon",
+      "startedAt": 3959.0753,
+      "responseAt": 4223.0561
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=trainer",
+      "startedAt": 4325.5326,
+      "responseAt": 4579.5553
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=artist",
+      "startedAt": 4674.7117,
+      "responseAt": 4937.9628
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=playability",
+      "startedAt": 5025.3534,
+      "responseAt": 5278.586
+    },
+    {
+      "plan": "plus",
+      "delay": 1000,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "startedAt": 5827.1578,
+      "responseAt": 6831.7346
+    },
+    {
+      "plan": "plus",
+      "delay": 1000,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "startedAt": 5827.3005,
+      "responseAt": 6832.1624
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "startedAt": 6612.7435,
+      "responseAt": 6863.8902
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "startedAt": 6613.1198,
+      "responseAt": 6864.3403
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=chase",
+      "startedAt": 7635.5043,
+      "responseAt": 7899.5317
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "chase",
+      "url": "http://127.0.0.1:3108/api/explore/card-chase-efficiency?page=1&page_size=50&sort=rank&direction=asc",
+      "startedAt": 7658.1944,
+      "responseAt": 7914.9128
+    },
+    {
+      "plan": "premium",
+      "delay": 0,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "startedAt": 8719.6692,
+      "responseAt": 8719.6835
+    },
+    {
+      "plan": "premium",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "startedAt": 8719.8902,
+      "responseAt": 8719.9541
+    },
+    {
+      "plan": "premium",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=2&page_size=50&sort=rank&direction=asc&lens=overall",
+      "startedAt": 9824.9428,
+      "responseAt": 9824.9846
+    }
+  ],
+  "responses": [
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "bytes": 184
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "bytes": 12264
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=pokemon",
+      "bytes": 12263
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=trainer",
+      "bytes": 12263
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=artist",
+      "bytes": 13912
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=playability",
+      "bytes": 12267
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "bytes": 184
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "bytes": 12264
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=pokemon",
+      "bytes": 12263
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=trainer",
+      "bytes": 12263
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=artist",
+      "bytes": 13912
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=playability",
+      "bytes": 12267
+    },
+    {
+      "plan": "plus",
+      "delay": 1000,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "bytes": 184
+    },
+    {
+      "plan": "plus",
+      "delay": 1000,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "bytes": 12264
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "bytes": 184
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "bytes": 12264
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=chase",
+      "bytes": 184
+    },
+    {
+      "plan": "premium",
+      "delay": 250,
+      "kind": "chase",
+      "url": "http://127.0.0.1:3108/api/explore/card-chase-efficiency?page=1&page_size=50&sort=rank&direction=asc",
+      "bytes": 23936
+    },
+    {
+      "plan": "premium",
+      "delay": 0,
+      "kind": "facets",
+      "url": "http://127.0.0.1:3108/api/explore/card-ranking-facets?lens=collector",
+      "bytes": 184
+    },
+    {
+      "plan": "premium",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=1&page_size=50&sort=rank&direction=asc&lens=overall",
+      "bytes": 12264
+    },
+    {
+      "plan": "premium",
+      "delay": 0,
+      "kind": "collector",
+      "url": "http://127.0.0.1:3108/api/explore/card-collector-appeal?page=2&page_size=50&sort=rank&direction=asc&lens=overall",
+      "bytes": 2567
+    }
+  ],
+  "runs": [
+    {
+      "plan": "plus",
+      "delay": 0,
+      "switch": "pokemon",
+      "totalMs": 77.86389999999983
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "switch": "trainer",
+      "totalMs": 141.10200000000032
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "switch": "artist",
+      "totalMs": 123.7805000000003
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "switch": "playability",
+      "totalMs": 138.28229999999985
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "switch": "overall",
+      "totalMs": 63.172599999999875
+    },
+    {
+      "plan": "plus",
+      "delay": 0,
+      "preClickRequests": 1,
+      "clickToShellMs": 361.4765,
+      "clickToRowsMs": 371.0790999999999,
+      "warmReturnMs": 168.2154999999998,
+      "warmRowRequests": 0
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "switch": "pokemon",
+      "totalMs": 377.08240000000023
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "switch": "trainer",
+      "totalMs": 354.59169999999995
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "switch": "artist",
+      "totalMs": 344.41479999999956
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "switch": "playability",
+      "totalMs": 354.8852999999999
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "switch": "overall",
+      "totalMs": 41.227999999999156
+    },
+    {
+      "plan": "plus",
+      "delay": 250,
+      "preClickRequests": 0,
+      "clickToShellMs": 362.0169000000001,
+      "clickToRowsMs": 787.3399,
+      "warmReturnMs": 100.3158999999996,
+      "warmRowRequests": 0
+    },
+    {
+      "plan": "premium",
+      "chaseColdMs": 401.4974999999995
+    },
+    {
+      "plan": "premium",
+      "collectorWarmMs": 72.50250000000051,
+      "collectorWarmRequests": 0
+    }
+  ],
+  "checks": {
+    "basePaidRequestLeak": "PASS"
+  },
+  "bytes": {
+    "collectorOverall": 12264,
+    "collectorPokemon": 12263,
+    "collectorArtist": 13912,
+    "collectorFacets": 184,
+    "chasePage": 23936,
+    "chaseFacets": 184
+  },
+  "status": "PASS"
+}

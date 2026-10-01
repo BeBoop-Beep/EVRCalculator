@@ -11,6 +11,7 @@ import { readPublicRankingsHeadlines } from "@/lib/rankings/rankingsPublicClient
 import { defaultFinancialHistoryRequest } from "./financialRipHistoryModel.mjs";
 import { planCohortPrefetch, prewarmFinancialHistory, readFinancialHistoryCached } from "@/lib/rankings/financialHistoryCache.mjs";
 import { beginLastGoodRefresh, failLastGoodRefresh, isRenderableEraState, isRenderableSetState } from "@/lib/rankings/rankingsLastGoodState.mjs";
+import { prewarmDefaultCollector } from "@/lib/rankings/cardRankingsClient.mjs";
 import styles from "./explore.module.css";
 
 const lensModules = {
@@ -147,6 +148,26 @@ export default function RankingsLazyClient({
     })();
     return () => { warmGeneration.current += 1; };
   }, [authStatus, canViewRankingsIntelligence, loadEra, loadSets]);
+
+  useEffect(() => {
+    if (!(authStatus === "resolved" || authStatus === "degraded") || !canViewCardCollectorAppeal) return undefined;
+    if (typeof navigator !== "undefined" && navigator.connection?.saveData) return undefined;
+    let live = true;
+    const run = () => {
+      if (!live) return;
+      markRankingsLens("cards", "prewarm-start");
+      Promise.all([
+        lensModules.cards(),
+        prewarmDefaultCollector({ sessionCache, entitled: canViewCardCollectorAppeal, authStatus }),
+      ]).then(() => { if (live) markRankingsLens("cards", "prewarm-ready"); });
+    };
+    const handle = typeof requestIdleCallback === "function" ? requestIdleCallback(run, { timeout: 1800 }) : setTimeout(run, 220);
+    return () => {
+      live = false;
+      if (typeof cancelIdleCallback === "function" && typeof requestIdleCallback === "function") cancelIdleCallback(handle);
+      else clearTimeout(handle);
+    };
+  }, [authStatus, canViewCardCollectorAppeal, sessionCache]);
 
   // Default Financial RIP history: start the chart's own request (same session-cache key) as soon
   // as access, cohort identities and the publication date are known - before the chart mounts - and

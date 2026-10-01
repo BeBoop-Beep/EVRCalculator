@@ -1,6 +1,6 @@
 import pytest
 
-from backend.db.services.chase_efficiency_query_service import SORT_COLUMNS, _public_row
+from backend.db.services.chase_efficiency_query_service import CHASE_PAGE_COLUMNS, SORT_COLUMNS, _public_row
 from backend.rankings.public_relative import absolute_rank_percentile_tier
 
 
@@ -11,6 +11,14 @@ def test_cards_ui_sort_options_are_all_server_authoritative():
         "pull_probability": "exact_pull_probability", "chase_spend_50": "chase_spend_50",
         "cost_multiple_50": "cost_multiple_50",
     }
+
+
+def test_page_projection_is_explicit_and_contains_public_row_inputs():
+    assert CHASE_PAGE_COLUMNS != "*"
+    for column in ("card_variant_id", "canonical_card_id", "chase_efficiency", "overall_rank", "rarity_cohort_size"):
+        assert column in CHASE_PAGE_COLUMNS.split(",")
+    for internal in ("created_at", "input_fingerprint", "diagnostics_json"):
+        assert internal not in CHASE_PAGE_COLUMNS
 
 
 def test_card_payload_derives_buy_price_probability_and_percentile_server_side():

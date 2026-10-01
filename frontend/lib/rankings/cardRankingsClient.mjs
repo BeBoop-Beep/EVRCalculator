@@ -1,3 +1,5 @@
+import { canonicalCardQueryKey } from "./rankingsSessionCache.mjs";
+
 async function readJson(response, fallback) {
   const payload = await response.json();
   if (!response.ok) {
@@ -35,4 +37,30 @@ export function fetchCollectorRows(params) {
 export function fetchChaseRows(params) {
   return fetch(`/api/explore/card-chase-efficiency?${params}`, { cache: "no-store" })
     .then((response) => readJson(response, "Unable to load Chase Efficiency"));
+}
+
+export const DEFAULT_COLLECTOR_FILTERS = Object.freeze({ search: "", era: "", set: "", rarity: "", sort: "rank", direction: "asc" });
+
+export function defaultCollectorRequest() {
+  const params = buildCardRowsParams({ lens: "overall", page: 1, filters: DEFAULT_COLLECTOR_FILTERS });
+  return { params, rowKey: canonicalCardQueryKey(params, "collector:overall"), facetKey: "cards:facets:collector" };
+}
+
+export function prewarmDefaultCollector({ sessionCache, entitled, authStatus, saveData = false } = {}) {
+  if (!sessionCache || !entitled || saveData || !(authStatus === "resolved" || authStatus === "degraded")) return Promise.resolve(null);
+  const { params, rowKey, facetKey } = defaultCollectorRequest();
+  return Promise.all([
+    sessionCache.request(facetKey, () => fetchCardRankingFacets("collector")),
+    sessionCache.request(rowKey, () => fetchCollectorRows(params)),
+  ]).catch(() => null);
+}
+
+export function prewarmDefaultChase({ sessionCache, entitled, authStatus, saveData = false } = {}) {
+  if (!sessionCache || !entitled || saveData || !(authStatus === "resolved" || authStatus === "degraded")) return Promise.resolve(null);
+  const filters = { ...DEFAULT_COLLECTOR_FILTERS, min_price: "", max_price: "" };
+  const params = buildCardRowsParams({ page: 1, filters });
+  return Promise.all([
+    sessionCache.request("cards:facets:chase", () => fetchCardRankingFacets("chase")),
+    sessionCache.request(canonicalCardQueryKey(params), () => fetchChaseRows(params)),
+  ]).catch(() => null);
 }
