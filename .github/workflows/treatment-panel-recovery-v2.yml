@@ -6,6 +6,14 @@ on:
       - research/collector-treatment-panel-recovery-v2-20261001
     paths:
       - ".research-triggers/treatment-panel-recovery-v2.txt"
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - ".research-triggers/treatment-panel-recovery-v2.txt"
+      - ".github/workflows/treatment-panel-recovery-v2.yml"
+      - "backend/scripts/research_treatment_panel_recovery_v2.py"
+      - "backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py"
 
 permissions:
   contents: read
