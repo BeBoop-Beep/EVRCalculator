@@ -1,0 +1,6 @@
+# Bucket B5 targeted sold-history expansion.
+# Offset from B4's */15 schedule to avoid cron-level lock collisions.
+# Python still enforces Core Panel completion, provider credit-day activation,
+# C continuity, scraper, publication and DB-safety pause rules.
+CRON_TZ=America/Phoenix
+7,22,37,52 * * * * /bin/bash /home/ubuntu/state/market_microstructure_b5/runtime/infra/oracle/run_market_microstructure_bucket_b5.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/market_microstructure_b5.log 2>&1
