@@ -35,23 +35,23 @@ jobs:
           if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
             ls -l "$HOLD"
             python3 - "$HOLD" <<'PY'
-import json, sys
-from pathlib import Path
-p=Path(sys.argv[1])
-try:
-    data=json.loads(p.read_text())
-except Exception as exc:
-    print("hold_parse_error="+type(exc).__name__)
-else:
-    redacted={}
-    for k,v in data.items():
-        low=str(k).lower()
-        if any(x in low for x in ("secret","token","password","key","url")):
-            redacted[k]="<redacted>"
-        else:
-            redacted[k]=v
-    print(json.dumps(redacted,sort_keys=True,default=str))
-PY
+          import json, sys
+          from pathlib import Path
+          p=Path(sys.argv[1])
+          try:
+              data=json.loads(p.read_text())
+          except Exception as exc:
+              print("hold_parse_error="+type(exc).__name__)
+          else:
+              redacted={}
+              for k,v in data.items():
+                  low=str(k).lower()
+                  if any(x in low for x in ("secret","token","password","key","url")):
+                      redacted[k]="<redacted>"
+                  else:
+                      redacted[k]=v
+              print(json.dumps(redacted,sort_keys=True,default=str))
+          PY
           else
             echo "hold_present=false"
           fi
