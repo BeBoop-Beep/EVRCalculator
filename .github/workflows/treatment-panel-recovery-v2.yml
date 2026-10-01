@@ -1,0 +1,109 @@
+name: Treatment Panel Recovery V2
+
+on:
+  push:
+    branches:
+      - research/treatment-panel-recovery-v2-pkmnprices-nm-20261001
+    paths:
+      - ".github/workflows/treatment-panel-recovery-v2.yml"
+      - "backend/scripts/research_treatment_panel_recovery_v2.py"
+      - "backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py"
+      - "docs/research/collector_appeal/treatment_panel_recovery_v2/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treatment-panel-recovery-v2
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve request
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODE="$(
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          row=json.loads(Path("docs/research/collector_appeal/treatment_panel_recovery_v2/run_request.json").read_text())
+          mode=str(row.get("mode") or "")
+          if mode not in {"preflight","collect"}:
+              raise SystemExit("invalid treatment-panel recovery mode")
+          print(mode)
+          PY
+          )"
+          echo "RECOVERY_MODE=$MODE" >> "$GITHUB_ENV"
+          echo "mode=$MODE"
+
+      - name: Prepare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD="/home/ubuntu/repos/EVRCalculator"
+          PY="$PROD/.venv/bin/python"
+          test -x "$PY"
+          test -f "$PROD/backend/.env"
+          mkdir -p backend/artifacts/treatment_panel_recovery_v2
+          echo "RECOVERY_PY=$PY" >> "$GITHUB_ENV"
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" "$RECOVERY_PY" -m pytest -q \
+            backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py
+
+      - name: Preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . /home/ubuntu/repos/EVRCalculator/backend/.env
+          set +a
+          PYTHONPATH="$GITHUB_WORKSPACE" "$RECOVERY_PY" \
+            -m backend.scripts.research_treatment_panel_recovery_v2 \
+            --preflight --json \
+            > backend/artifacts/treatment_panel_recovery_v2/preflight.json
+          cat backend/artifacts/treatment_panel_recovery_v2/preflight.json
+
+      - name: Collect exact NM history
+        if: ${{ env.RECOVERY_MODE == 'collect' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . /home/ubuntu/repos/EVRCalculator/backend/.env
+          set +a
+          set +e
+          PYTHONPATH="$GITHUB_WORKSPACE" /usr/bin/flock -n -E 75 /tmp/pkmnprices-api.lock \
+            "$RECOVERY_PY" -m backend.scripts.research_treatment_panel_recovery_v2 \
+            --collect --json \
+            > backend/artifacts/treatment_panel_recovery_v2/collect.json
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 75 ]; then
+            printf '{"status":"DEFERRED_PKMNPRICES_LOCK_HELD","providerCalls":0,"databaseWrites":0}\n' \
+              > backend/artifacts/treatment_panel_recovery_v2/collect.json
+            exit 0
+          fi
+          if [ "$CODE" -eq 3 ]; then
+            exit 0
+          fi
+          test "$CODE" -eq 0
+          cat backend/artifacts/treatment_panel_recovery_v2/collect.json
+
+      - name: Upload research artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-panel-recovery-v2-${{ github.run_id }}
+          path: backend/artifacts/treatment_panel_recovery_v2/
+          if-no-files-found: error
+          retention-days: 30
