@@ -1,0 +1,77 @@
+name: Treatment Panel Recovery V2
+
+on:
+  push:
+    branches:
+      - research/collector-treatment-panel-recovery-v2-20261001
+    paths:
+      - ".research-triggers/treatment-panel-recovery-v2.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treatment-panel-recovery-v2
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify runtime and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV_REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$ENV_REPO/.venv/bin/python"
+          test -x "$PY"
+          test ! -e /home/ubuntu/state/db-safety/hold.json
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          "$PY" -m pytest -q             backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py
+
+      - name: Read-only recovery preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV_REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$ENV_REPO/.venv/bin/python"
+          set -a
+          . "$ENV_REPO/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          mkdir -p "$RUNNER_TEMP/treatment_panel_recovery_v2"
+          "$PY" -m backend.scripts.research_treatment_panel_recovery_v2             --preflight             --cohort-date 2026-09-29             --output-dir "$RUNNER_TEMP/treatment_panel_recovery_v2"             | tee "$RUNNER_TEMP/treatment_panel_recovery_v2/preflight.json"
+
+      - name: Collect PkmnPrices NM history
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENV_REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$ENV_REPO/.venv/bin/python"
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+
+          test ! -e "$HOLD"
+          exec 8>/tmp/pkmnprices-api.lock
+          /usr/bin/flock -n 8 || {
+            echo "TREATMENT_PANEL_RECOVERY_PROVIDER_BUSY"
+            exit 75
+          }
+
+          set -a
+          . "$ENV_REPO/backend/.env"
+          set +a
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+
+          "$PY" -m backend.scripts.research_treatment_panel_recovery_v2             --collect             --cohort-date 2026-09-29             --period 180d             --condition "Near Mint"             --credit-cap 15000             --output-dir "$RUNNER_TEMP/treatment_panel_recovery_v2"             | tee "$RUNNER_TEMP/treatment_panel_recovery_v2/summary.json"
+
+      - name: Upload research artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-panel-recovery-v2-${{ github.run_id }}
+          path: ${{ runner.temp }}/treatment_panel_recovery_v2
+          if-no-files-found: warn
+          retention-days: 14
