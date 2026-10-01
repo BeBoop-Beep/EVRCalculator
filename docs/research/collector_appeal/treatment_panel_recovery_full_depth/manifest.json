@@ -25,7 +25,6 @@
     "noForwardFill": true
   },
   "expected": {
-    "identityGroupEntries": 114,
     "uniqueCards": 241,
     "maxHistoryRowsCredits": 43380,
     "groupSummary": [
@@ -85,7 +84,8 @@
         "identities": 7,
         "cards": 14
       }
-    ]
+    ],
+    "identities": 114
   },
   "sample": [
     {
