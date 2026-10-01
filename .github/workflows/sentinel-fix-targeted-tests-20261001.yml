@@ -1,0 +1,26 @@
+name: Sentinel fix targeted tests 2026-10-01
+
+on:
+  push:
+    branches:
+      - fix/sentinel-publication-recovery-20261001
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install backend test dependencies
+        run: python -m pip install -q -r backend/requirements.txt
+      - name: Run Sentinel publication recovery tests
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+            backend/tests/unit/sentinel/test_safe_recovery.py
