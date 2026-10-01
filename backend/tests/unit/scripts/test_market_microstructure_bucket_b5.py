@@ -5,6 +5,8 @@ from backend.scripts.run_market_microstructure_bucket_b5 import (
     EXPECTED_CORE_PANEL_READY,
     HORIZON_DAYS,
     IDENTITY_RESOLUTION_VERSION,
+    _exact_name_number_matches,
+    _number_key,
     MAX_ROWS_PER_TARGET_ROUND,
     MODE,
     PAGE_SIZE,
@@ -84,3 +86,18 @@ def test_b5_deterministic_identity_misses_are_not_retried_every_cron_tick():
     assert "identity_resolution_version" in source
     assert 'error.startswith("B5_PROVIDER_IDENTITY_COUNT_")' in source
     assert 'error.startswith("B5_PROVIDER_SET_COUNT_")' in source
+
+
+def test_b5_name_number_match_accepts_provider_display_suffix_and_zero_padding():
+    rows = [
+        {"id": 1, "name": "Mewtwo V - SWSH229", "number": "SWSH229"},
+        {"id": 2, "name": "Mewtwo VMAX", "number": "SWSH229"},
+    ]
+    matches = _exact_name_number_matches(rows, name="Mewtwo V", number="SWSH229")
+    assert [row["id"] for row in matches] == [1]
+    assert _number_key("004") == _number_key("4") == "4"
+
+
+def test_b5_name_number_match_rejects_wrong_number():
+    rows = [{"id": 1, "name": "Charizard", "number": "5"}]
+    assert _exact_name_number_matches(rows, name="Charizard", number="4") == []
