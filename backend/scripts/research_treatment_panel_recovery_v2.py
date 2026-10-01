@@ -393,17 +393,34 @@ def _external_tcgplayer_ids(client: Any, variant_ids: Sequence[str]) -> dict[str
 
 
 def _active_b5_runs(client: Any) -> list[dict[str, Any]]:
+    """Return only genuinely current B5 runs, not orphaned RUNNING receipts.
+
+    A killed B5 process can leave its row RUNNING forever.  A later invocation
+    of the same selector version supersedes that receipt.  The OS-level
+    /tmp/pkmnprices-api.lock in the workflow remains the final concurrency
+    authority; this DB check is an additional fail-closed signal.
+    """
     rows = (
         client.table("pkmnprices_sold_runs_v1")
         .select("run_id,status,started_at,finished_at,selector_version,credits_used,metadata")
-        .eq("status", "RUNNING")
         .order("started_at", desc=True)
-        .limit(10)
+        .limit(50)
         .execute()
         .data
         or []
     )
-    return [dict(x) for x in rows if not x.get("finished_at")]
+    latest_by_selector: dict[str, dict[str, Any]] = {}
+    for raw in rows:
+        row = dict(raw)
+        selector = str(row.get("selector_version") or "")
+        if not selector.startswith("bucket_b5_"):
+            continue
+        latest_by_selector.setdefault(selector, row)
+    return [
+        row
+        for row in latest_by_selector.values()
+        if row.get("status") == "RUNNING" and not row.get("finished_at")
+    ]
 
 
 def _build_targets(
