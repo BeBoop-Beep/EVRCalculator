@@ -30,6 +30,7 @@ jobs:
           case "$VM_REQUEST_MESSAGE" in
             "bucket-b5-activate: noop") OP=noop ;;
             "bucket-b5-activate: apply") OP=apply ;;
+            "bucket-b5-activate: apply-drain") OP=apply-drain ;;
             "bucket-b5-activate: status") OP=status ;;
             "bucket-b5-activate: run") OP=run ;;
             *) echo "REFUSING: invalid fixed operation"; exit 2 ;;
@@ -78,6 +79,40 @@ jobs:
             apply)
               prepare_release
               MARKET_B5_ENV_REPO="$REPO"                 /bin/bash "$WT/infra/oracle/install_market_microstructure_bucket_b5_cron.sh" --apply
+              ;;
+
+            apply-drain)
+              prepare_release
+              BEGIN="# BEGIN market-microstructure-b5 (managed)"
+              END="# END market-microstructure-b5 (managed)"
+              ORIGINAL="$(mktemp)"
+              crontab -l > "$ORIGINAL" 2>/dev/null || true
+              restore_original() {
+                crontab "$ORIGINAL" >/dev/null 2>&1 || true
+              }
+              trap 'restore_original; cleanup' EXIT
+
+              current="$(cat "$ORIGINAL")"
+              outside="$(awk -v b="$BEGIN" -v e="$END" '$0==b{skip=1;next} $0==e{skip=0;next} !skip{print}' <<<"$current")"
+              printf '%s\n' "$outside" | crontab -
+              echo "BUCKET_B5_CRON_DRAINED=true"
+
+              deadline=$((SECONDS + 600))
+              while true; do
+                if /usr/bin/flock -n /tmp/active-supply-panel.lock -c true                   && /usr/bin/flock -n /tmp/pkmnprices-api.lock -c true                   && /usr/bin/flock -n /tmp/pokemon-post-scrape-publication.lock -c true; then
+                  break
+                fi
+                if [ "$SECONDS" -ge "$deadline" ]; then
+                  echo "REFUSING: B5 locks did not drain within 600s"
+                  exit 75
+                fi
+                sleep 10
+              done
+              echo "BUCKET_B5_LOCKS_DRAINED=true"
+
+              MARKET_B5_ENV_REPO="$REPO"                 /bin/bash "$WT/infra/oracle/install_market_microstructure_bucket_b5_cron.sh" --apply
+              rm -f "$ORIGINAL"
+              trap cleanup EXIT
               ;;
 
             status)
