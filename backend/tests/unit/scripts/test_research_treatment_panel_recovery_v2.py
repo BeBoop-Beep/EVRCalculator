@@ -8,6 +8,7 @@ from backend.scripts.research_treatment_panel_recovery_v2 import (
     panel_status,
     provider_variant_name,
     validate_history_rows,
+    _active_b5_runs,
 )
 
 
@@ -78,3 +79,75 @@ def test_panel_readiness_does_not_forward_fill_missing_dates():
     report = build_panel_readiness(sample, history)
     assert report["identities"][0]["sharedDateCount"] == 1
     assert report["identities"][0]["firstSharedDate"] == "2026-01-02"
+
+
+class _Result:
+    def __init__(self, data):
+        self.data = data
+
+
+class _RunQuery:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def order(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, count):
+        self.rows = self.rows[:count]
+        return self
+
+    def execute(self):
+        return _Result(self.rows)
+
+
+class _RunDb:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def table(self, name):
+        assert name == "pkmnprices_sold_runs_v1"
+        return _RunQuery(list(self.rows))
+
+
+def test_active_b5_detection_ignores_superseded_orphan_receipts():
+    rows = [
+        {
+            "run_id": "new-terminal",
+            "status": "PARTIAL",
+            "started_at": "2026-10-01T18:52:00+00:00",
+            "finished_at": "2026-10-01T18:53:00+00:00",
+            "selector_version": "bucket_b5_gap_then_governed_7d_movers_v2",
+        },
+        {
+            "run_id": "old-orphan",
+            "status": "RUNNING",
+            "started_at": "2026-10-01T18:07:00+00:00",
+            "finished_at": None,
+            "selector_version": "bucket_b5_gap_then_governed_7d_movers_v2",
+        },
+    ]
+    assert _active_b5_runs(_RunDb(rows)) == []
+
+
+def test_active_b5_detection_keeps_latest_live_selector():
+    rows = [
+        {
+            "run_id": "new-live",
+            "status": "RUNNING",
+            "started_at": "2026-10-01T19:30:00+00:00",
+            "finished_at": None,
+            "selector_version": "bucket_b5_gap_then_governed_7d_movers_v2",
+        },
+        {
+            "run_id": "old-terminal",
+            "status": "PARTIAL",
+            "started_at": "2026-10-01T19:15:00+00:00",
+            "finished_at": "2026-10-01T19:16:00+00:00",
+            "selector_version": "bucket_b5_gap_then_governed_7d_movers_v2",
+        },
+    ]
+    assert [row["run_id"] for row in _active_b5_runs(_RunDb(rows))] == ["new-live"]
