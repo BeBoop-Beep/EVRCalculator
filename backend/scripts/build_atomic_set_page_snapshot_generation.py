@@ -53,32 +53,56 @@ def main():
  if len(fresh_set_ids)+len(carry_forward_set_ids)!=len(set_ids):
   raise RuntimeError('full-generation membership accounting failed to reconcile fresh + carry-forward sets')
  frozen_fingerprint=source_run_fingerprint(frozen_runs)
- # Collector authority is only required/loaded for the 22 fresh-rebuild sets.
- # Carry-forward sets keep whatever Collector data is already embedded in
- # their existing (unmodified) payload_json -- we never fabricate Collector
- # scores for sets that legitimately lack simulation support.
- if args.collector_authority=='model-run':
-  if not args.collector_model_run_id: raise RuntimeError('--collector-model-run-id is required for model-run authority')
-  collector=load_set_collector_appeal_for_model(args.collector_model_run_id,fresh_set_ids,client=c); collector_version=next(iter(collector.values()),{}).get('model_version'); collector_fingerprint=args.collector_model_run_id
- else:
-  v5=load_canonical_v5_collector_appeal(fresh_set_ids); collector=v5['payloads']; collector_version=COLLECTOR_APPEAL_V5_VERSION; collector_fingerprint=(v5['identity'] or {}).get('formulaFingerprint')
- scored=sum(((x.get('score_status')=='scored') if args.collector_authority=='model-run' else ((x.get('collectorAppeal') or {}).get('score') is not None)) for x in collector.values())
- if scored!=len(fresh_set_ids): raise RuntimeError('canonical Collector authority is incomplete for frozen cohort')
- summary={'fullGenerationExpectedSetCount':len(set_ids),'freshRebuiltSetCount':len(fresh_set_ids),'carriedForwardSetCount':len(carry_forward_set_ids),'collectorRows':len(collector),'scored':scored,'unavailable':len(collector)-scored,'collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'collectorModelRunId':args.collector_model_run_id,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs}
  latest_by_id={str(r['set_id']):r for r in existing_full_rows}
- carried_collector_contracts=[]
- for set_id in carry_forward_set_ids:
+ existing_collector_contract_ids=[]
+ for set_id in set_ids:
   payload=(latest_by_id.get(set_id) or {}).get('payload_json') or {}
   contract=payload.get(PUBLIC_CONTRACT_KEY)
   if not contract: continue
-  appeal=contract.get('collectorAppeal') or {}
   if contract.get('contractVersion')!='public_collector_appeal_contract_v1':
-   raise RuntimeError('carried-forward Collector contract version mismatch for set '+set_id)
-  if str(appeal.get('modelRunId') or '')!=str(args.collector_model_run_id or ''):
-   raise RuntimeError('carried-forward Collector authority mismatch for set '+set_id)
-  carried_collector_contracts.append(set_id)
- expected_collector_row_count=len(collector)+len(carried_collector_contracts)
+   raise RuntimeError('existing Collector contract version mismatch for set '+set_id)
+  existing_collector_contract_ids.append(set_id)
+
+ # A model-run generation is an authority cutover, not just a 22-set score
+ # refresh. Load the target Collector run for the full live set-page universe
+ # so carried-forward pages can receive the same model-run contract without
+ # rebuilding unrelated snapshot fields.
+ if args.collector_authority=='model-run':
+  if not args.collector_model_run_id: raise RuntimeError('--collector-model-run-id is required for model-run authority')
+  collector=load_set_collector_appeal_for_model(args.collector_model_run_id,set_ids,client=c)
+  collector_version=next(iter(collector.values()),{}).get('model_version')
+  collector_fingerprint=args.collector_model_run_id
+  missing_existing=sorted(set(existing_collector_contract_ids)-set(collector))
+  if missing_existing:
+   raise RuntimeError('target Collector model would drop existing Collector contract membership: '+','.join(missing_existing))
+  scored_fresh=sum((collector.get(set_id) or {}).get('score_status')=='scored' for set_id in fresh_set_ids)
+  if scored_fresh!=len(fresh_set_ids):
+   raise RuntimeError('canonical Collector authority is incomplete for frozen cohort')
+  scored=sum(x.get('score_status')=='scored' for x in collector.values())
+  expected_collector_row_count=len(collector)
+  carried_collector_overlays=sorted(set(carry_forward_set_ids)&set(collector))
+  carried_collector_contracts=[]
+ else:
+  v5=load_canonical_v5_collector_appeal(fresh_set_ids)
+  collector=v5['payloads']; collector_version=COLLECTOR_APPEAL_V5_VERSION
+  collector_fingerprint=(v5['identity'] or {}).get('formulaFingerprint')
+  scored=sum((x.get('collectorAppeal') or {}).get('score') is not None for x in collector.values())
+  if scored!=len(fresh_set_ids): raise RuntimeError('canonical Collector authority is incomplete for frozen cohort')
+  carried_collector_contracts=[]
+  for set_id in carry_forward_set_ids:
+   payload=(latest_by_id.get(set_id) or {}).get('payload_json') or {}
+   contract=payload.get(PUBLIC_CONTRACT_KEY)
+   if not contract: continue
+   appeal=contract.get('collectorAppeal') or {}
+   if str(appeal.get('modelRunId') or ''):
+    raise RuntimeError('carried-forward Collector authority mismatch for set '+set_id)
+   carried_collector_contracts.append(set_id)
+  expected_collector_row_count=len(collector)+len(carried_collector_contracts)
+  carried_collector_overlays=[]
+ summary={'fullGenerationExpectedSetCount':len(set_ids),'freshRebuiltSetCount':len(fresh_set_ids),'carriedForwardSetCount':len(carry_forward_set_ids),'collectorRows':len(collector),'scored':scored,'unavailable':len(collector)-scored,'collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'collectorModelRunId':args.collector_model_run_id,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs}
+ summary['existingCollectorContractRows']=len(existing_collector_contract_ids)
  summary['carriedForwardCollectorRows']=len(carried_collector_contracts)
+ summary['carriedForwardCollectorOverlays']=len(carried_collector_overlays)
  summary['expectedCollectorRows']=expected_collector_row_count
  def build_fresh_row(fresh_client,set_id):
   copied=build_set_page_snapshot_row(by_id[set_id],client=fresh_client,rankings_payload=rankings_payload); payload=dict(copied['payload_json']); payload.pop(PUBLIC_CONTRACT_KEY,None)
@@ -90,12 +114,25 @@ def main():
   copied['created_at']=copied.get('created_at') or copied.get('source_updated_at'); copied['updated_at']=copied.get('updated_at') or copied.get('source_updated_at')
   return copied
  def build_carry_forward_row(set_id):
-  # Safe carry-forward: copy the set's ACTUAL existing public page content
-  # verbatim. Never rewrite source_updated_at/created_at/updated_at to fake
-  # freshness -- a carried-forward row must remain honestly historical.
+  # Safe carry-forward: preserve every unrelated field and its historical
+  # timestamps. For a model-run authority cutover, replace only the embedded
+  # Collector contract so one activated generation never mixes V7/V8 run IDs.
   source_row=latest_by_id.get(set_id)
   if not source_row: raise RuntimeError('missing existing snapshot row to carry forward for set '+set_id)
-  return dict(source_row)
+  copied=dict(source_row)
+  if args.collector_authority=='model-run':
+   payload=dict(copied.get('payload_json') or {})
+   payload.pop(PUBLIC_CONTRACT_KEY,None)
+   target=collector.get(set_id)
+   if target is not None:
+    contract=build_public_collector_appeal_contract(target)
+    if not contract: raise RuntimeError('missing target Collector contract for carried-forward set '+set_id)
+    ca=contract.get('collectorAppeal') or {}
+    if str(ca.get('modelRunId') or '')!=str(args.collector_model_run_id):
+     raise RuntimeError('target Collector contract run mismatch for carried-forward set '+set_id)
+    payload[PUBLIC_CONTRACT_KEY]=contract
+   copied['payload_json']=payload
+  return copied
  def build_row(fresh_client,set_id):
   return build_fresh_row(fresh_client,set_id) if set_id in frozen_runs else build_carry_forward_row(set_id)
  if not args.write_stage:
@@ -103,7 +140,7 @@ def main():
    run_snapshot_operation_with_retry(lambda fresh_client,set_id=set_id: build_row(fresh_client,set_id),operation_name='dry-run atomic set-page generation row',set_id=set_id)
   print(json.dumps({**summary,'mode':'dry-run'},indent=2)); return
  current=c.table('pokemon_set_page_snapshot_current_generation').select('generation_id').eq('scope','pokemon').single().execute().data
- identity={'builder':'build_atomic_set_page_snapshot_generation.py','sourceMode':'full_generation_fresh_plus_carry_forward','collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs,'rebuiltFreshSetIds':fresh_set_ids,'carriedForwardSetIds':carry_forward_set_ids,'carryForwardSourceGenerationId':current['generation_id']}
+ identity={'builder':'build_atomic_set_page_snapshot_generation.py','sourceMode':'full_generation_fresh_plus_carry_forward_collector_overlay_v2','collectorAuthority':args.collector_authority,'collectorVersion':collector_version,'collectorAuthorityFingerprint':collector_fingerprint,'frozenSourceRunFingerprint':frozen_fingerprint,'frozenSourceRuns':frozen_runs,'rebuiltFreshSetIds':fresh_set_ids,'carriedForwardSetIds':carry_forward_set_ids,'carryForwardSourceGenerationId':current['generation_id']}
  building=c.table('pokemon_set_page_snapshot_generations').select('*').eq('status','building').limit(1).execute().data or []
  resumable=bool(building and building[0].get('expected_set_ids')==set_ids and str(building[0].get('collector_model_run_id'))==args.collector_model_run_id and (building[0].get('diagnostics_json') or {})==identity)
  if building and not resumable:
