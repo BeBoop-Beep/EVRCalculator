@@ -11,6 +11,7 @@ import {
   financialRipTooltipRows,
   formatFinancialRipDelta,
   formatFinancialRipTooltipDelta,
+  nextSingleEraPreset,
   shouldFetchFinancialRipHistory,
   stableEntityColor,
   setFinancialRipCandidates,
@@ -19,6 +20,12 @@ import {
 } from "./financialRipHistoryModel.mjs";
 
 const selected = [{ entity_type: "set", entity_id: "set-a", name: "Set A" }];
+
+test("single-era preset cycles bidirectionally through the available eras", () => {
+  assert.equal(nextSingleEraPreset("sv", ["mega", "sv"]), "mega");
+  assert.equal(nextSingleEraPreset("mega", ["mega", "sv"]), "sv");
+  assert.equal(nextSingleEraPreset("sv", []), null);
+});
 
 test("plots only the certified absolute Financial RIP contract", () => {
   const model = buildFinancialRipChartModel([{
