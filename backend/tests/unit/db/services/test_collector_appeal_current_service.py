@@ -104,3 +104,44 @@ def test_pre_v7_card_contract_is_not_mislabeled_as_artist_modeled():
     })
     assert card["artistModeled"] is False
     assert "artist" not in card
+
+
+def test_v8_set_scope_preserves_expanded_domains_and_marks_anchor25_calibration():
+    row = _row()
+    row["model_version"] = "pokemon_collector_appeal_v8_anchor25_cross_domain_v1"
+    scope = build_public_collector_appeal_contract(row)["collectorAppeal"]["subjectScope"]
+    assert scope["modeled"] == ["Pokémon", "Trainers", "Playability", "Artist"]
+    assert scope["diagnosticOnly"] == ["Treatment", "Pull Scarcity"]
+    assert "ANCHOR25" in scope["note"]
+    assert "market value" in scope["excluded"] and "price" in scope["excluded"]
+
+
+def test_v8_card_contract_keeps_artist_and_playability_modeled_without_inventing_split_lifts():
+    card = build_public_card_collector_appeal({
+        "collector_card_appeal_score": 82,
+        "score_status": "scored",
+        "subject_policy": "trainer",
+        "subject_baseline_score": 77,
+        "artist_recognition_score": 88,
+        "artist_lift": None,
+        "playability_score": 35,
+        "playability_lift": None,
+        "confidence": "high",
+        "treatment_input_excluded": True,
+        "hit_eligibility_independent": True,
+        "model_run_id": "run-v8",
+        "model_version": "pokemon_collector_appeal_v8_anchor25_cross_domain_v1",
+        "component_inputs_json": {
+            "subjectType": "trainer",
+            "subjectIdentity": "Iono",
+            "artistNames": ["Artist Name"],
+            "artistEvidenceStatus": "SCORED",
+            "playabilityArtistDecomposition": "not_recomputed_unvalidated",
+        },
+    })
+    assert card["artistModeled"] is True
+    assert card["artist"]["recognitionScore"] == 88
+    assert card["artist"]["positiveLift"] is None
+    assert card["playability"]["score"] == 35
+    assert card["playability"]["positiveLift"] is None
+    assert card["treatmentExcluded"] is True
