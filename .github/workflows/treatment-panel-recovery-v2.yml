@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install focused dependencies
-        run: python -m pip install -q pytest==8.3.5 python-dotenv==1.2.2 supabase==2.28.3
+        run: python -m pip install -q pytest==8.3.5 numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
       - name: Verify secret availability without disclosure
         shell: bash
         run: |
@@ -39,17 +39,16 @@ jobs:
           PY
       - name: Unit tests
         run: python -m pytest -q backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py
-      - name: Capture targeted 180-day NM Treatment history
+      - name: Live DB preflight (zero provider calls / zero writes)
         run: |
           python backend/scripts/research_treatment_panel_recovery_v2.py \
             --market-date 2026-09-29 \
             --period 180d \
             --credit-cap 9000 \
-            --collect \
-            --output backend/artifacts/treatment_panel_recovery_v2/result.json
-      - name: Upload recovery artifact
+            --output backend/artifacts/treatment_panel_recovery_v2/preflight.json
+      - name: Upload preflight artifact
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-panel-recovery-v2
-          path: backend/artifacts/treatment_panel_recovery_v2/result.json
+          name: treatment-panel-recovery-v2-preflight
+          path: backend/artifacts/treatment_panel_recovery_v2/preflight.json
           if-no-files-found: error
