@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: treatment-panel-recovery-v2-vm
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   capture:
@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="d603d4e0199b6562db8055b786a270edb3dc18d2"
+          EXPECTED_SHA="f23614bfe397b46b33ba1d526b70d0b9f1f222c0"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
@@ -50,7 +50,8 @@ jobs:
           "$PY" backend/scripts/research_treatment_panel_recovery_v2.py \
             --market-date 2026-09-29 \
             --period 180d \
-            --credit-cap 9000 \
+            --credit-cap 1000 \
+            --max-cards 4 \
             --collect \
             --output backend/artifacts/treatment_panel_recovery_v2/result.json
       - name: Upload recovery artifact
