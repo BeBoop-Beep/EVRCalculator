@@ -1,0 +1,776 @@
+{
+  "version": "treatment_panel_recovery_full_depth_v1",
+  "frozenAt": "2026-10-01",
+  "sourceRound23BlobSha": "80123e5159262f7dd380e668b4184e8f063e3482",
+  "simulationCohortMarketDate": "2026-09-29",
+  "selectionPolicy": "Use every frozen Round-23 matched ladder belonging to the exact eight Set/family experiments established before the V2 pilot. Stable-sort by era, set, family, identity. No price/outcome-based selection.",
+  "provider": {
+    "name": "PkmnPrices",
+    "endpoint": "/v1/cards/:id/prices/history",
+    "currency": "usd",
+    "condition": "Near Mint",
+    "period": "180d",
+    "limit": 365,
+    "creditCap": 50000,
+    "canonicalPriceMutation": false,
+    "databaseWrites": 0
+  },
+  "gates": {
+    "strongMinimumSharedDates": 90,
+    "moderateTier1MinimumSharedDates": 30,
+    "moderateControlledMinimumSharedDates": 90,
+    "minimumMatchedIdentitiesPerSetFamily": 2,
+    "minimumPassingSetsPerEraFamily": 2,
+    "noInterpolation": true,
+    "noForwardFill": true
+  },
+  "expected": {
+    "identityGroupEntries": 114,
+    "uniqueCards": 241,
+    "maxHistoryRowsCredits": 43380,
+    "groupSummary": [
+      {
+        "era": "Scarlet and Violet",
+        "set": "Surging Sparks",
+        "family": "double_rare <> special_illustration_rare <> ultra_rare",
+        "identities": 5,
+        "cards": 15
+      },
+      {
+        "era": "Scarlet and Violet",
+        "set": "Scarlet and Violet 151",
+        "family": "double_rare <> special_illustration_rare <> ultra_rare",
+        "identities": 5,
+        "cards": 15
+      },
+      {
+        "era": "Scarlet and Violet",
+        "set": "Shrouded Fable",
+        "family": "common <> illustration_rare",
+        "identities": 9,
+        "cards": 18
+      },
+      {
+        "era": "Scarlet and Violet",
+        "set": "White Flare",
+        "family": "common <> illustration_rare",
+        "identities": 37,
+        "cards": 74
+      },
+      {
+        "era": "Scarlet and Violet",
+        "set": "Black Bolt",
+        "family": "illustration_rare <> uncommon",
+        "identities": 23,
+        "cards": 46
+      },
+      {
+        "era": "Scarlet and Violet",
+        "set": "Paldea Evolved",
+        "family": "illustration_rare <> uncommon",
+        "identities": 19,
+        "cards": 41
+      },
+      {
+        "era": "Scarlet and Violet",
+        "set": "Paradox Rift",
+        "family": "double_rare <> ultra_rare",
+        "identities": 9,
+        "cards": 18
+      },
+      {
+        "era": "Scarlet and Violet",
+        "set": "Surging Sparks",
+        "family": "double_rare <> ultra_rare",
+        "identities": 7,
+        "cards": 14
+      }
+    ]
+  },
+  "sample": [
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:30f8fd445963f4ed"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:77b864783d62bf52"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:ac496295cb9dc3da"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:de96cad440a44a67"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:de9b6c2ffec40093"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Scarlet and Violet 151",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:0a1a9cd3fe172762"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Scarlet and Violet 151",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:1431394448cb2433"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Scarlet and Violet 151",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:16f232b21ad8f822"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Scarlet and Violet 151",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:694babf806d5b0d5"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Scarlet and Violet 151",
+      "family": "double_rare <> special_illustration_rare <> ultra_rare",
+      "identity": "subject-mechanic:72d88d823bb9e3fe"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:0b7f4b554be8ccc7"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:1ef8ffb8097cbd7f"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:27219b5553826785"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:45899e272a7a1e82"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:5896f5c4fb31dc40"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:64aead135353ddc7"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:6da4b9010e67a428"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:7bb4fac40f9cf2a8"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Shrouded Fable",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:fe30a8bf813148e0"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:02ab27827b1b391d"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:074ccddc125186c3"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:1692ac463f187d20"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:1fab9995a9026881"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:201db71676213319"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:261dc62177b03ad6"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:270393d15f785eec"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:27abdba58fd83801"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:3eb2b6e02b196774"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:452c096d38b6f021"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:4d2616742e3acc78"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:4dd68e20fc6dd801"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:56c6b1cb745903d2"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:5de52fab99033391"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:602c20928ed0745f"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:65ecd364136d56fa"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:699c1d2427aa352d"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:7115ab51ba6e2d5d"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:7231666bb0b6cd6d"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:74bf74859fa73cc3"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:85f12742aa8f1b40"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:86ab54c1fbe21660"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:894382499dc163f5"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:921887986ec60b90"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:92be36cfada88592"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:9343693990b9927f"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:9d4d32cec6852dd7"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:ab21b1c5dd354297"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:b3ff8c34cc88779a"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:d20efca994c730a6"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:dd33941bd54b3afb"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:e35e4f2caa14535d"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:eebd72b769306d02"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:fb6b41a2a9572d62"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:fc218f6253b81015"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:fea40feac732c30e"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "White Flare",
+      "family": "common <> illustration_rare",
+      "identity": "subject-mechanic:ff8b5ea0e1c6b653"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:10640e0bc3ea4a9a"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:148b72aa24b578be"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:1d2fca2fede72aa9"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:3587c27f5d6bc58b"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:4ca8912603b41f01"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:526218174d40b1e5"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:5420332bd3008573"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:663003583eb5080b"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:6a203a45a4dd811a"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:6dd7eaa33b0a9af4"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:8322414520a14765"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:888a5ff4201ef84a"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:8e8bedf2ee84539e"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:a05a8dcc94a9ebc6"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:a33f0fb29a45634e"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:aa7dbc752f0b5327"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:ae88769722a016bc"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:b2a9589d81aa4eec"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:b70f494c4cd2ba64"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:be109e95521fc656"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:db7b32d6b312d645"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:dcf0f5bffe1cd31c"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Black Bolt",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:e773e13493d250c8"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:0233f0ee226c3fb3"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:05eba62779c24de2"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:1f2212fa65c2865a"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:29fc749836ffaa56"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:490c5558035d3878"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:4c704ec6e6e895be"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:5ca629805d1e3093"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:75ae75cd5770c184"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:789b412602dac346"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:83631d00a86d851a"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:8671e3e845608abd"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:a2275822bcc4d82c"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:a89e095a995e3de1"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:b766144fd32ae1ae"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:be45058385589d0e"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:e26d2b5d5722e7f6"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:f68a24bec1633c39"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:fa9bb6a5c8766e1a"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paldea Evolved",
+      "family": "illustration_rare <> uncommon",
+      "identity": "subject-mechanic:fbe67400913664c3"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:040f26bf3a59a793"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:0ed65767ee010ec5"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:17f75e554a1a58e3"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:3e709b1af4397578"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:6a433fddd3c71d02"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:6d3fe37edd72da44"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:6f1fb28986445658"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:816c5d9bc87ed21d"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Paradox Rift",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:be29ee3277180aef"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:05f4013b5ba5b389"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:47a3ea906dc64fef"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:557c99b97f89a144"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:6c79e9957667f6b8"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:8d991dcd13348534"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:ad4f29110da9318d"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "set": "Surging Sparks",
+      "family": "double_rare <> ultra_rare",
+      "identity": "subject-mechanic:e9c5177814abd4f1"
+    }
+  ]
+}
