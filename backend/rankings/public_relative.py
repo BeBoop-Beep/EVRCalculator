@@ -122,5 +122,70 @@ def public_rank_tier(rank: Any, cohort_size: Any) -> Optional[str]:
     return "F"
 
 
+BENCHMARK_REFERENCE_SCORE = 5.0
+BENCHMARK_NEUTRAL_HALF_BAND = 0.25
+_BAND_EPSILON = 1e-9
+
+
+def _valid_rank_and_size(rank: Any, cohort_size: Any) -> Optional[tuple[int, int]]:
+    try:
+        numeric_rank, size = int(rank), int(cohort_size)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if size <= 0 or numeric_rank <= 0 or numeric_rank > size:
+        return None
+    return numeric_rank, size
+
+
+def benchmark_relative_tier(score: Any, rank: Any, cohort_size: Any,
+                            reference: float = BENCHMARK_REFERENCE_SCORE) -> Optional[str]:
+    """Tier for benchmark-centered Set/Era scores (0-10, Pokemon average = 5.0).
+
+    Scores within ``reference +/- 0.25`` (inclusive) are C regardless of rank.
+    Above the band: S top 1%, A through top 10%, B remainder.  Below the band:
+    F for the bottom quartile (cohorts of 4 or more only), otherwise D.
+    Cohort cut-offs use floor, never ceil.
+    """
+    try:
+        value = float(score)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(value) or math.isinf(value):
+        return None
+    position = _valid_rank_and_size(rank, cohort_size)
+    if position is None:
+        return None
+    numeric_rank, size = position
+    delta = value - reference
+    if abs(delta) <= BENCHMARK_NEUTRAL_HALF_BAND + _BAND_EPSILON:
+        return "C"
+    if delta > 0:
+        s_count = max(1, size // 100)
+        a_cutoff = max(s_count, size // 10)
+        if numeric_rank <= s_count:
+            return "S"
+        return "A" if numeric_rank <= a_cutoff else "B"
+    f_count = max(1, size // 4)
+    return "F" if size >= 4 and numeric_rank > size - f_count else "D"
+
+
+def absolute_rank_percentile_tier(rank: Any, cohort_size: Any) -> Optional[str]:
+    """Tier for absolute scores with no benchmark-neutral point (Products, Cards).
+
+    S top 1%, A through top 10%, B through 25%, C through 50%, D through 75%,
+    F the bottom 25%.  Floor-based cut-offs, each at least the previous one.
+    """
+    position = _valid_rank_and_size(rank, cohort_size)
+    if position is None:
+        return None
+    numeric_rank, size = position
+    cutoff = 1
+    for percent, label in ((1, "S"), (10, "A"), (25, "B"), (50, "C"), (75, "D")):
+        cutoff = max(cutoff, size * percent // 100)
+        if numeric_rank <= cutoff:
+            return label
+    return "F"
+
+
 # Compatibility name for the first product-relative implementation.
 public_product_rank_tier = public_rank_tier

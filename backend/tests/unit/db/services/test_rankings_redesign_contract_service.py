@@ -42,7 +42,7 @@ class Client:
 def test_benchmark_presentation_proves_neutral_center_and_canonical_tiers():
     assert benchmark_reference() == {"label": "Pokémon Overall Average", "score": 5.0, "iconKey": "pokemon"}
     assert benchmark_presentation(7.25, rank=2, cohort_size=22) == {
-        "score": 7.25, "rank": 2, "cohortSize": 22, "tier": "S",
+        "score": 7.25, "rank": 2, "cohortSize": 22, "tier": "A",
         "benchmarkReferenceScore": 5.0, "deltaVsBenchmark": 2.25, "benchmarkPosition": "above",
     }
     assert benchmark_presentation(5)["benchmarkPosition"] == "at"

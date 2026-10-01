@@ -1,5 +1,6 @@
 "use client";
 
+import { RANKINGS_SELECTED_BORDERED_SURFACE } from "@/lib/explore/rankingsSelectedState.mjs";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ChartFrame from "./ChartFrame";
@@ -28,13 +29,13 @@ const labelDate = (date) => new Intl.DateTimeFormat("en-US", { month: "short", d
 
 function ModeControls({ mode, onChange, disabled = false }) {
   return <div role="radiogroup" aria-label="Financial RIP entity type" className="inline-flex rounded-lg border border-[var(--border-subtle)] bg-black/10 p-1">
-    {[{ key: "sets", label: "Sets" }, { key: "eras", label: "Eras" }].map((item) => <button key={item.key} type="button" role="radio" aria-checked={mode === item.key} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 rounded-md px-3 text-xs font-semibold transition-colors ${mode === item.key ? "bg-white/10 text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>{item.label}</button>)}
+    {[{ key: "sets", label: "Sets" }, { key: "eras", label: "Eras" }].map((item) => <button key={item.key} type="button" role="radio" aria-checked={mode === item.key} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 rounded-md px-3 text-xs font-semibold transition-colors ${mode === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "text-[var(--text-secondary)]"}`}>{item.label}</button>)}
   </div>;
 }
 
 function WindowControls({ value, onChange, disabled = false }) {
   return <div role="radiogroup" aria-label="Financial RIP history time range" className="flex min-w-max gap-1">
-    {FINANCIAL_RIP_WINDOWS.map((item) => <button key={item.key} type="button" role="radio" aria-checked={value === item.key} aria-label={item.ariaLabel} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 min-w-11 rounded-md border px-2 text-[10px] font-semibold tracking-wide ${value === item.key ? "border-sky-400/40 bg-sky-400/10 text-sky-200" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>)}
+    {FINANCIAL_RIP_WINDOWS.map((item) => <button key={item.key} type="button" role="radio" aria-checked={value === item.key} aria-label={item.ariaLabel} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 min-w-11 rounded-md border px-2 text-[10px] font-semibold tracking-wide ${value === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>)}
   </div>;
 }
 

@@ -26,6 +26,7 @@ export default function CardRankingsHub({
           value={lens}
           onChange={setLens}
           ariaLabel="Card ranking lens"
+          variant="rankings"
           equalWidth
           mobileFullWidth
         />
