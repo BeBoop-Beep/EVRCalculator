@@ -11,16 +11,18 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
-    build_global_card_movers_row,
+    build_global_mixed_movers_row,
+    read_mixed_market_movers_authority,
     upsert_explore_card_movers_snapshot,
 )
 from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
-from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(description="Build the fixed 7D global Explore card-movers snapshot")
+    result = argparse.ArgumentParser(
+        description="Build the fixed 7D mixed card + sealed Market movers snapshot"
+    )
     mode = result.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--commit", action="store_true")
@@ -29,27 +31,14 @@ def parser() -> argparse.ArgumentParser:
 
 
 def build(*, client, market_date: str, commit: bool) -> dict:
-    ranking_rows = list(
-        client.table("pokemon_explore_rankings_snapshot_latest")
-        .select("ranking_payload_json").eq("tcg", "pokemon").eq("scope", "rip-statistics")
-        .limit(1).execute().data or []
+    authority = read_mixed_market_movers_authority(
+        market_date=market_date,
+        client=client,
     )
-    ranking_payload = ranking_rows[0].get("ranking_payload_json") if ranking_rows else {}
-    sets = [
-        row for row in ((ranking_payload or {}).get("targets") or [])
-        if is_public_analytics_eligible(row)
-    ]
-    set_ids = [str(row.get("set_id") or row.get("id")) for row in sets if row.get("set_id") or row.get("id")]
-    snapshots = []
-    # Dashboard payloads are intentionally large; small bounded batches avoid
-    # PostgREST statement timeouts while still preventing per-set fan-out.
-    for offset in range(0, len(set_ids), 8):
-        page = (client.table("pokemon_set_market_dashboard_snapshot_latest")
-                .select("set_id,payload_json,latest_market_date,updated_at")
-                .eq("window_key", "365d")
-                .in_("set_id", set_ids[offset:offset + 8]).execute())
-        snapshots.extend(page.data or [])
-    row = build_global_card_movers_row(sets, snapshots, target_market_date=market_date)
+    row = build_global_mixed_movers_row(
+        authority,
+        target_market_date=market_date,
+    )
     if commit:
         upsert_explore_card_movers_snapshot(row, client=client)
     return row
@@ -59,8 +48,11 @@ def main() -> None:
     args = parser().parse_args()
     client = get_client()
     gate = enforce_cli_publication_gate(
-        client, commit=bool(args.commit), market_date=args.market_date,
-        override=args.force_publish, entry_point="Explore card movers snapshot",
+        client,
+        commit=bool(args.commit),
+        market_date=args.market_date,
+        override=args.force_publish,
+        entry_point="Explore mixed Market movers snapshot",
     )
     if not gate.proceed:
         raise SystemExit(gate.exit_code)

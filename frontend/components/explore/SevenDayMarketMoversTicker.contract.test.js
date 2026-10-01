@@ -28,10 +28,16 @@ test("the optional medium thumbnail is larger and responsive without changing th
   assert.ok(!source.includes("object-cover"));
 });
 
-test("set identity remains exclusive to Explore mode", () => {
+test("Explore secondary labels preserve sealed families and explicit vintage card scopes", () => {
+  assert.ok(source.includes("function marketSetLabel(card)"));
+  assert.ok(source.includes('if (card?.asset === "sealed")'));
+  assert.ok(source.includes('card?.productFamilyLabel || "Sealed Product"'));
+  assert.ok(source.includes('if (scope === "first_edition") return \`\${setName} · 1st Edition\`;'));
+  assert.ok(source.includes('if (scope === "unlimited") return \`\${setName} · Unlimited\`;'));
+  assert.ok(source.includes('if (scope === "shadowless") return \`\${setName} · Shadowless\`;'));
   assert.ok(
     source.includes(
-      'crossSet ? <span className="block truncate text-[10px] text-[var(--text-secondary)]">{card?.setName || "Unknown set"}</span> : null'
+      'crossSet ? <span className="block truncate text-[10px] text-[var(--text-secondary)]">{marketSetLabel(card)}</span> : null'
     )
   );
 });
@@ -60,9 +66,12 @@ test("set action uses one responsive accessible anchor and Explore still omits i
   assert.ok(!mobileChild.includes("View all movers"));
 });
 
-test("every mover card uses the canonical shared Card Detail route", () => {
+test("mixed movers route cards and sealed products through their canonical detail routes", () => {
   assert.ok(source.includes('import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient"'));
-  assert.ok(source.includes("const hrefFor = (card) => buildPokemonCardDetailHref(card);"));
+  assert.ok(source.includes('import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes"'));
+  assert.ok(source.includes('item?.asset === "sealed"'));
+  assert.ok(source.includes("buildSealedProductHref(item)"));
+  assert.ok(source.includes("buildPokemonCardDetailHref(item)"));
   assert.ok(source.includes("href={hrefFor(card)}"));
   assert.ok(!source.includes("buildTcgSetHrefFromTarget"));
 });

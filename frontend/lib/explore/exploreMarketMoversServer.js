@@ -31,12 +31,12 @@ export const getExploreMarketMovers = cache(async function getExploreMarketMover
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      const response = await fetch(`${getBackendApiBaseUrl()}/explore/card-market-movers`, {
+      const response = await fetch(`${getBackendApiBaseUrl()}/explore/card-market-movers?limit=50`, {
         next: { revalidate: 120 },
       });
       if (!response.ok) return unavailable(cached?.data);
       const data = await response.json();
-      const normalized = { marketMovers: { ...(data?.marketMovers || {}), all: Array.isArray(data?.marketMovers?.all) ? data.marketMovers.all.slice(0, 30) : [] }, meta: data?.meta || {} };
+      const normalized = { marketMovers: { ...(data?.marketMovers || {}), all: Array.isArray(data?.marketMovers?.all) ? data.marketMovers.all.slice(0, 50) : [] }, meta: data?.meta || {} };
       processCache.set(CACHE_KEY, { data: normalized, expiresAt: Date.now() + TTL });
       return normalized;
     } catch {
