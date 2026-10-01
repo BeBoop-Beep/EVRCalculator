@@ -1,0 +1,37 @@
+{
+  "version": "treatment_hierarchy_v4_set_local_scarcity_identifiability_v1",
+  "frozenAt": "2026-10-01",
+  "fitPerformedBeforeFreeze": false,
+  "recovery": {
+    "workflowRunId": 36929725640,
+    "artifactId": 11196076068,
+    "digest": "sha256:e3dc70d260e53e079348db304774c89812b9a9fc0d35654ecf6d0470f1fc974b",
+    "manifestFingerprint": "55b8dcd3090acb707d101a3b03e574862cc3ef15f752c95940870f7b4b3d6e24",
+    "sampleFingerprint": "7fecdbd2cb448dd9414f062d0d83b16a58b187dcbd7bf679cf781dc295d7b23e"
+  },
+  "pureModel": {
+    "scope": "set_family",
+    "scarcitySlope": "set_family_local",
+    "scarcity": "-ln(modeled_probability)",
+    "identityDateDemeaning": true,
+    "intercept": false
+  },
+  "rankGate": {
+    "requireFullColumnRank": true,
+    "regularizationAllowed": false,
+    "pseudoinverseRescueAllowed": false
+  },
+  "support": {
+    "minimumReadyIdentities": 2,
+    "bootstrapDraws": 2000,
+    "seed": 20261001,
+    "minimumSignStability": 0.8,
+    "maximumInfluenceDrift": 0.5,
+    "minimumTemporalSpearman": 0.6,
+    "maximumSensitivityDrift": 0.5
+  },
+  "eraMinimumPassingSetsPerFamily": 2,
+  "crossEraAuthorized": false,
+  "providerCallsAuthorized": false,
+  "productionWritesAuthorized": false
+}
