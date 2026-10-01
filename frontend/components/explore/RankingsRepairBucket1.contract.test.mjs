@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8").r
 const distribution = read("./OpeningEconomicsDistribution.jsx");
 const setPack = read("./SetPackMetrics.jsx");
 const eraPack = read("./OpeningEconomicsEras.jsx");
-const financial = read("./SetMetricRankingsTable.jsx");
+const financial = read("./BenchmarkEntityScoreTable.jsx");
 const products = read("./RankingsProductLensClient.jsx");
 const lazy = read("./RankingsLazyClient.jsx");
 
@@ -48,14 +48,14 @@ test("Era Pack Economics uses the approved narrow current vocabulary", () => {
   assert.ok(!eraPack.includes("Break-Even"));
 });
 
-test("Financial RIP table renders the approved neutral score projection", () => {
-  assert.ok(financial.includes('metric: "financial"'));
-  assert.ok(financial.includes('presentation="neutral"'));
+test("Financial RIP column renders through the unified benchmark component score", () => {
+  assert.ok(financial.includes("SCORE_COLUMNS"));
+  assert.ok(financial.includes("RankingsBenchmarkComponentScore"));
   assert.ok(!financial.includes("metric.typicalOpening /"));
 });
 
-test("Product Rankings removes strategy quantities and uses published full-market rank", () => {
+test("Product Rankings removes strategy quantities and uses published rank plus server total", () => {
   for (const removed of [">Units<", ">Committed<", "row?.quantity", "row?.actualCommittedCapital", "<Strategy"]) assert.ok(!products.includes(removed));
   assert.ok(products.includes("row.rank"));
-  assert.ok(products.includes("row.cohortSize"));
+  assert.ok(products.includes("contract.total"));
 });

@@ -24,11 +24,15 @@ test("Rankings analytical lenses are code-split and data-lazy", () => {
     "OpeningEconomicsEras",
     "EraRankings",
     "SetRankingsHub",
-    "CardChaseEfficiencyRankings",
+    "CardRankingsHub",
     "RankingsProductLensClient",
   ]) {
     assert.ok(source.includes(`import(\"./${moduleName}\")`), `${moduleName} must stay dynamically imported`);
   }
+  const cardsHub = read("components/explore/CardRankingsHub.jsx");
+  assert.ok(cardsHub.includes('import CardCollectorAppealRankings from "./CardCollectorAppealRankings"'));
+  assert.ok(cardsHub.includes('import CardChaseEfficiencyRankings from "./CardChaseEfficiencyRankings"'));
+  assert.ok(!cardsHub.includes("next/dynamic"), "Cards must not pay a serial child chunk boundary");
   assert.ok(source.includes('/api/explore/rankings/lens?lens=sets'));
   assert.ok(source.includes('/api/explore/rankings/lens?lens=eras'));
   assert.ok(source.includes('const [lens, setActiveLens]'));

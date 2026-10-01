@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
-from backend.rankings.public_relative import public_rank_tier
+from backend.rankings.public_relative import benchmark_relative_tier
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
 
 
@@ -49,10 +49,9 @@ def benchmark_presentation(score: Any, *, rank: Any = None, cohort_size: Any = N
         "score": value,
         "rank": rank,
         "cohortSize": cohort_size,
-        # Benchmark scores are centered at 5.0; legacy leader-score thresholds
-        # are not valid here.  The canonical public rank-bucket tier is safe
-        # because it describes cohort position rather than score calibration.
-        "tier": tier or public_rank_tier(rank, cohort_size),
+        # Benchmark scores are centered at 5.0: a neutral 4.75-5.25 band is C
+        # whatever the rank, so the tier needs score AND cohort position.
+        "tier": tier or benchmark_relative_tier(value, rank, cohort_size, reference),
         "benchmarkReferenceScore": reference,
         "deltaVsBenchmark": delta,
         "benchmarkPosition": position,

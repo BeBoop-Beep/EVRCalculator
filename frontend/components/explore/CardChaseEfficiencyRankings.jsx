@@ -396,9 +396,11 @@ export default function CardChaseEfficiencyRankings({
       ) : null}
       <footer className="flex items-center justify-between border-t border-[var(--border-subtle)] px-4 py-3 text-xs text-[var(--text-secondary)]">
         <span>
-          {result.payload?.total
-            ? `${result.payload.total.toLocaleString()} ranked printings`
-            : "No ranked cards"}
+          {result.status === "idle" || (result.status === "loading" && !result.payload)
+            ? "Loading card rankingsâ€¦"
+            : result.payload?.total
+              ? `${result.payload.total.toLocaleString()} ranked printings`
+              : "No ranked cards"}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -409,9 +411,7 @@ export default function CardChaseEfficiencyRankings({
           >
             Previous
           </button>
-          <span>
-            Page {page} of {result.payload?.totalPages || 1}
-          </span>
+          {result.payload ? <span>Page {page} of {result.payload.totalPages || 0}</span> : null}
           <button
             type="button"
             disabled={page >= (result.payload?.totalPages || 1)}

@@ -36,7 +36,7 @@ test("Product RIP uses the peer hierarchy and preserves inheritance labels", () 
 });
 
 test("active ranking tables have peer columns without a spanning Market-Based header", () => {
-  assert.ok(productRankings.includes("Financial") && productRankings.includes("Set Chase") && productRankings.includes("Set Collector"));
+  assert.ok(productRankings.includes("Financial") && productRankings.includes("Chase") && productRankings.includes("Collector Appeal"));
   assert.ok(setRankings.includes("Financial RIP") && setRankings.includes("Chase Accessibility") && setRankings.includes("Collector Appeal"));
   for (const source of [productRankings, setRankings]) assert.doesNotMatch(source, /data-market-based-header/);
 });

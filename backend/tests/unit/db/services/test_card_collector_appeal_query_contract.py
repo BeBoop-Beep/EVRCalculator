@@ -8,20 +8,18 @@ from backend.db.services.card_collector_appeal_query_service import (
 )
 
 
-def test_subject_baselines_are_mutually_exclusive_and_missing_stays_missing():
-    pokemon = _public_row({"subject_policy": "pokemon", "subject_baseline_score": 81})
-    trainer = _public_row({"subject_policy": "trainer", "subject_baseline_score": 72})
-    missing = _public_row({"subject_policy": "pokemon", "subject_baseline_score": None})
-    assert pokemon["pokemonAppeal"] == 81 and pokemon["trainerAppeal"] is None
-    assert trainer["trainerAppeal"] == 72 and trainer["pokemonAppeal"] is None
-    assert missing["pokemonAppeal"] is None
+def test_public_projection_excludes_unused_diagnostics():
+    payload = _public_row({"subject_policy": "pokemon", "subject_baseline_score": 81,
+                           "component_inputs_json": {"internal": True}})
+    assert "pokemonAppeal" not in payload
+    assert "subjectIdentity" not in payload
+    assert "component_inputs_json" not in payload
 
 
-def test_projection_exposes_context_without_inventing_scores():
-    payload = _public_row({"treatment_category": "special_illustration", "modeled_pull_probability": None})
-    assert payload["treatmentCategory"] == "special_illustration"
-    assert "treatmentScore" not in payload
-    assert payload["modeledPullProbability"] is None
+def test_artist_projection_alone_exposes_artist_names():
+    row = {"artist_names": ["Artist"]}
+    assert _public_row(row, "artist")["artistNames"] == ["Artist"]
+    assert "artistNames" not in _public_row(row, "overall")
 
 
 class _Query:
@@ -90,13 +88,14 @@ def test_query_pages_prepared_authority_then_batch_enriches_only_page():
     payload = query_card_collector_appeal(client)
 
     assert payload["total"] == 18293
-    assert payload["rows"][0]["pokemonAppeal"] == 91
+    assert payload["rows"][0]["collectorAppeal"] == 88
     assert payload["rows"][0]["imageSmallUrl"].endswith("pika.jpg")
     names = [name for name, _ in client.calls]
     assert "pokemon_card_collector_appeal_rankings_current_v" not in names
     assert names.count("pokemon_card_collector_appeal_rankings") == 1
     assert names.count("pokemon_canonical_cards") == 1
-    assert names.count("pokemon_card_collector_appeal_scores") == 1
+    assert names.count("pokemon_card_collector_appeal_scores") == 0
+    assert names.count("eras") == 0
     ranking_ops = next(ops for name, ops in client.calls if name == "pokemon_card_collector_appeal_rankings")
     assert any(op == "range" and args == (0, 49) for op, args, _ in ranking_ops)
 
@@ -145,3 +144,6 @@ def test_component_lenses_rank_only_available_component_cohort(lens, column, pol
     assert result["rows"][0]["componentScore"] == 77
     rpc_ops = next(ops for name, ops in client.calls if name == "get_pokemon_card_component_rankings_v1")
     assert rpc_ops[0][1][0]["p_lens"] == lens
+    names = [name for name, _ in client.calls]
+    assert names.count("pokemon_card_collector_appeal_scores") == (1 if lens == "artist" else 0)
+    assert names.count("eras") == 0

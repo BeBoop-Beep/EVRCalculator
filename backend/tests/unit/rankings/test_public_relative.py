@@ -83,3 +83,54 @@ def test_budget_projection_is_cohort_isolated_and_preserves_model_tier():
     assert projected["a"]["publicTier"] == "S"
     # An extreme row from another budget never enters this function/cohort.
     assert "other-budget" not in projected
+
+
+# ---- Follow-up B1: explicit benchmark vs absolute tier contracts ----
+import pytest as _pytest
+from backend.rankings.public_relative import absolute_rank_percentile_tier, benchmark_relative_tier
+
+
+@_pytest.mark.parametrize(("score", "rank", "size", "expected"), [
+    (5.00, 1, 22, "C"), (5.00, 22, 22, "C"), (4.75, 22, 22, "C"), (5.25, 1, 22, "C"),
+    (5.10, 1, 22, "C"),
+    (5.251, 1, 22, "S"), (5.251, 2, 22, "A"), (5.251, 3, 22, "B"), (5.251, 22, 22, "B"),
+    (4.749, 17, 22, "D"), (4.749, 18, 22, "F"), (4.749, 22, 22, "F"),
+    (4.60, 2, 2, "D"), (5.26, 1, 2, "S"), (4.60, 4, 4, "F"), (4.60, 3, 4, "D"),
+    (4.60, 3, 3, "D"),
+    (7.358, 1, 22, "S"), (6.426, 2, 22, "A"), (6.374, 3, 22, "B"), (5.237, 10, 22, "C"),
+    (4.564, 16, 22, "D"), (4.348, 18, 22, "F"),
+    (5.149, 1, 2, "C"), (4.602, 2, 2, "D"), (5.260, 1, 2, "S"), (4.306, 2, 2, "D"),
+    (None, 1, 22, None), (5.5, None, 22, None), (5.5, 1, None, None),
+    (5.5, 0, 22, None), (5.5, 23, 22, None), (5.5, 1, 0, None), ("x", 1, 22, None),
+    (float("nan"), 1, 22, None),
+])
+def test_benchmark_relative_tier_contract(score, rank, size, expected):
+    assert benchmark_relative_tier(score, rank, size) == expected
+
+
+def test_benchmark_floor_cutoffs_are_floor_not_ceil():
+    # N=150: floor(1.5)=1 S, floor(15)=15 A.  ceil would give 2 and 15.
+    assert [benchmark_relative_tier(6, r, 150) for r in (1, 2, 15, 16)] == ["S", "A", "A", "B"]
+    # N=7: max(1, floor(.07))=1 S, max(1, floor(.7))=1 A cutoff -> rank 2 is B.
+    assert [benchmark_relative_tier(6, r, 7) for r in (1, 2)] == ["S", "B"]
+
+
+@_pytest.mark.parametrize(("rank", "size", "expected"), [
+    (1, 138, "S"), (2, 138, "A"), (13, 138, "A"), (14, 138, "B"), (34, 138, "B"),
+    (35, 138, "C"), (69, 138, "C"), (70, 138, "D"), (103, 138, "D"), (104, 138, "F"),
+    (138, 138, "F"),
+    (182, 18293, "S"), (183, 18293, "A"), (1829, 18293, "A"), (1830, 18293, "B"),
+    (4573, 18293, "B"), (4574, 18293, "C"), (9146, 18293, "C"), (9147, 18293, "D"),
+    (13719, 18293, "D"), (13720, 18293, "F"), (18293, 18293, "F"),
+    (1, 1, "S"), (None, 138, None), (1, None, None), (0, 138, None), (139, 138, None),
+])
+def test_absolute_rank_percentile_tier_contract(rank, size, expected):
+    assert absolute_rank_percentile_tier(rank, size) == expected
+
+
+def test_benchmark_presentation_uses_benchmark_helper_not_legacy_rank_bands():
+    from backend.db.services.rankings_redesign_contract_service import benchmark_presentation
+    assert benchmark_presentation(4.564, rank=16, cohort_size=22)["tier"] == "D"
+    assert benchmark_presentation(5.10, rank=1, cohort_size=22)["tier"] == "C"
+    assert benchmark_presentation(None, rank=1, cohort_size=22)["tier"] is None
+    assert benchmark_presentation(4.602, rank=2, cohort_size=2)["tier"] == "D"

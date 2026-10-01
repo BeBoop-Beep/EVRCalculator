@@ -16,7 +16,9 @@ export function readPublicPackEconomicsPreview({ fetchImpl = fetch, sessionCache
   return sessionCache ? sessionCache.request("public:pack-economics-preview", load, { force }) : load();
 }
 
-export function readPublicProductCatalogue({ fetchImpl = fetch, sessionCache = null, force = false } = {}) {
-  const load = () => readJson("/api/tcgs/pokemon/rankings/product-catalogue", fetchImpl);
-  return sessionCache ? sessionCache.request("public:product-catalogue", load, { force }) : load();
+export function readPublicProductCatalogue({ fetchImpl = fetch, sessionCache = null, force = false, params = {} } = {}) {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+  const url = `/api/tcgs/pokemon/rankings/product-catalogue${query.size ? `?${query}` : ""}`;
+  const load = () => readJson(url, fetchImpl);
+  return sessionCache ? sessionCache.request(`public:product-catalogue:${query}`, load, { force }) : load();
 }

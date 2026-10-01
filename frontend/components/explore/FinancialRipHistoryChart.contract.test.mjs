@@ -4,13 +4,15 @@ import test from "node:test";
 
 const source = readFileSync(new URL("./FinancialRipHistoryChart.jsx", import.meta.url), "utf8");
 const model = readFileSync(new URL("./financialRipHistoryModel.mjs", import.meta.url), "utf8");
+const legend = readFileSync(new URL("./FinancialRipHistoryLegend.jsx", import.meta.url), "utf8");
+const tooltipSource = readFileSync(new URL("./FinancialRipHistoryTooltip.jsx", import.meta.url), "utf8");
 const distribution = readFileSync(new URL("./OpeningEconomicsDistribution.jsx", import.meta.url), "utf8");
 
 test("uses the Financial RIP history reader and no legacy benchmark reader", () => {
-  assert.ok(source.includes("readFinancialRipHistory"));
+  assert.ok(source.includes("readFinancialHistoryCached"));
   assert.ok(!source.includes("readBenchmarkHistory"));
-  assert.ok(source.indexOf("shouldFetchFinancialRipHistory") < source.indexOf("readFinancialRipHistory(requestEntities"));
-  assert.match(source, /financialRipRequestEntities\(selected, request\.view\?\.selected\)/);
+  assert.ok(source.indexOf("shouldFetchFinancialRipHistory") < source.indexOf("readFinancialHistoryCached(requestEntities"));
+  assert.match(source, /financialRipRequestEntities\(selected, request\.view\?\.mode === mode \? request\.view\?\.selected : \[\], seededModes\[mode\] \? candidates : \[\]\)/);
 });
 
 test("locked access is a synthetic frosted preview with no chart data dependency", () => {
@@ -39,9 +41,10 @@ test("controls, observed-date continuity, moving reference, and responsive frame
 test("selector chips are absent and one complete removable legend preserves permanent Overall", () => {
   assert.equal((source.match(/showChips=\{false\}/g) || []).length, 2);
   assert.doesNotMatch(source, /chart\.series\.slice\(0, 5\)|selected Sets/);
-  assert.match(source, /chart\.series\.map\(\(item\).*Remove \$\{item\.name\} from Financial RIP chart/s);
+  assert.match(legend, /series\.map\(\(item\).*Remove \$\{item\.name\} from Financial RIP chart/s);
   assert.doesNotMatch(source, /Choose at least one .* to view Financial RIP history/);
-  assert.match(source, /min-w-max.*desk:flex-wrap/);
+  assert.match(legend, /flex flex-wrap/);
+  assert.match(source, /<FinancialRipHistoryLegend/);
 });
 
 test("Era preset bypasses only the manual five cap and removals are local", () => {
@@ -52,7 +55,7 @@ test("Era preset bypasses only the manual five cap and removals are local", () =
 });
 
 test("compact tooltip uses one Overall, dynamic ordering helper, and no rank or cohort", () => {
-  const tooltip = source.slice(source.indexOf("function ChartTooltip"), source.indexOf("const MAX_FINANCIAL"));
+  const tooltip = tooltipSource;
   assert.match(tooltip, /financialRipTooltipRows/);
   assert.equal((tooltip.match(/>Overall<\/span>/g) || []).length, 1);
   assert.doesNotMatch(tooltip, /Rank|cohort|Financial RIP <strong>/);
@@ -63,7 +66,7 @@ test("refresh and failure preserve the last successful certified chart", () => {
   assert.ok(source.includes('setRequest((current) => ({ ...current, status: "loading"'));
   assert.ok(source.includes("request.view?.mode === mode ? request.view : null"));
   assert.ok(source.includes("The latest refresh failed, so the last successful history remains visible."));
-  assert.ok(source.includes("Updating history\u2026"));
+  assert.ok(legend.includes("Updating history"));
 });
 
 test("the retired Financial Return chart cannot return as a second authority", () => {

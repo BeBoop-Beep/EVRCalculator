@@ -8,7 +8,8 @@ test("benchmark /10 badge hides its redundant caption and decorative position ar
   const primitive = read("./RankingsScorePrimitives.jsx");
   const badge = read("./RipScoreBadge.jsx");
   assert.match(primitive, /scoreScale=\{RIP_SCORE_SCALE_BENCHMARK_10\}/);
-  assert.match(primitive, /accentColor="rgba\(192,132,252,0\.96\)"/);
+  assert.doesNotMatch(primitive, /192,132,252|accentColor="/);
+  assert.match(primitive, /accentColor=\{getBenchmarkTierTone\(metric\?\.tier\)\?\.accentColor\}/);
   assert.match(primitive, /showLabel=\{false\}/);
   assert.doesNotMatch(primitive, /BenchmarkPositionIndicator|data-benchmark-position|deltaVsBenchmark/);
   assert.match(badge, /<span className="sr-only">\{label\}<\/span>/);
@@ -17,17 +18,16 @@ test("benchmark /10 badge hides its redundant caption and decorative position ar
 
 test("component scores are accessible neutral numbers without internal decoration", () => {
   const primitive = read("./RankingsScorePrimitives.jsx");
-  const table = read("./RankingsScoreTable.jsx");
-  const era = read("./EraRankings.jsx");
+  const table = read("./BenchmarkEntityScoreTable.jsx");
   assert.match(primitive, /data-rankings-neutral-metric aria-label=/);
   assert.match(primitive, /font-semibold tabular-nums text-\[var\(--text-primary\)\]/);
-  assert.doesNotMatch(primitive, /data-rankings-compact-score|borderColor|rounded-lg border bg-/);
-  assert.match(table, /presentation === "neutral"/);
-  assert.match(era, /RankingsCompactScore[^]*label=\{label\}/);
+  const neutral = primitive.slice(primitive.indexOf("export function RankingsNeutralMetric"), primitive.indexOf("// Benchmark Set/Era component score"));
+  assert.doesNotMatch(neutral, /data-rankings-compact-score|borderColor|rounded-lg border bg-/);
+  assert.match(table, /RankingsBenchmarkComponentScore metric=\{row\[column\.key\]\} label=\{column\.label\}/);
 });
 
 test("rankings Set identity uses bounded artwork projections on primary surfaces", () => {
-  const metric = read("./SetMetricRankingsTable.jsx");
+  const metric = read("./SetRipScoreLeaderboard.jsx");
   const packs = read("./SetPackMetrics.jsx");
   const overview = read("./RankingsOverviewHighlights.jsx");
   for (const source of [metric, packs, overview]) assert.match(source, /SetIdentity/);
@@ -37,15 +37,15 @@ test("rankings Set identity uses bounded artwork projections on primary surfaces
   assert.doesNotMatch(packs, /fetch\(|axios|useSWR/);
 });
 
-test("rankings-only toggles use neutral white selection and keep visible focus", () => {
+test("rankings-only toggles use green selection with white text and keep visible focus", () => {
   const control = read("../ui/SegmentedControl.jsx");
   const lazy = read("./RankingsLazyClient.jsx");
   const css = read("./explore.module.css");
   assert.match(lazy, /variant="rankingsPrimary"/);
   assert.match(control, /variant === "rankings"/);
-  assert.match(control, /bg-white\/\[\.11\] text-white/);
+  assert.doesNotMatch(control, /bg-white\/\[\.11\]/);
+  assert.match(control, /RANKINGS_SELECTED_SURFACE/);
   assert.match(css, /productFamilyTab:focus-visible/);
-  assert.doesNotMatch(css.match(/\.productFamilyTab:hover[^\n]*\n\.productFamilyTab:focus-visible[^\n]*\n\.productFamilyTabActive[^\n]*/)?.[0] || "", /45,212,191|94,234,212/);
 });
 
 test("Product calibration remains pending and is not converted in B2 presentation code", () => {

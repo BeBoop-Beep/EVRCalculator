@@ -2,7 +2,7 @@
 import FinancialRipHistoryChart from "./FinancialRipHistoryChart";
 import { money, ratioAsPercent } from "./openingEconomicsSelector.mjs";
 const Dash = () => <span className="text-[var(--text-secondary)] opacity-60">—</span>;
-export default function OpeningEconomicsDistribution({ scope, overview, financialCohort, targets = [], openingSets = [], eras = [], marketDate = null }) {
+export default function OpeningEconomicsDistribution({ scope, overview, financialCohort, targets = [], openingSets = [], eras = [], marketDate = null, sessionCache = null }) {
   const published = overview?.openingEconomics || {};
   const metrics = [
     ["Overall Expected Value / Pack", money(published.overallExpectedValuePerPack ?? scope.averageModelBreakEvenPerPack)],
@@ -14,6 +14,6 @@ export default function OpeningEconomicsDistribution({ scope, overview, financia
     <div className="grid grid-cols-2 gap-4 border-b border-[var(--border-subtle)] pb-4 lg:grid-cols-4">
       {metrics.map(([label, value]) => <div key={label}><p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{value ?? <Dash />}</p></div>)}
     </div>
-    <FinancialRipHistoryChart targets={targets} financialCohort={financialCohort} openingSets={openingSets} eras={eras} marketDate={overview?.overallFinancialRip?.marketDate || marketDate} />
+    <FinancialRipHistoryChart key={sessionCache?.identity || "no-session"} sessionCache={sessionCache} targets={targets} financialCohort={financialCohort} openingSets={openingSets} eras={eras} marketDate={overview?.overallFinancialRip?.marketDate || marketDate} />
   </section>;
 }

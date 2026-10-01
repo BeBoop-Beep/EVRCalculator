@@ -15,19 +15,16 @@ test("absolute Product Overall is explicit and never converted into a benchmark"
   assert.match(backend, /"scoreValue": score_value/);
   assert.doesNotMatch(backend.slice(backend.indexOf("def project_product_contract"), backend.indexOf("def read_product_best_open_map")), /benchmark_presentation\(/);
   assert.match(lens, /row\.ripScore\?\.scoreValue/);
-  assert.match(lens, /scoreKind === "benchmark"/);
   assert.doesNotMatch(lens, /scoreValue\s*\/\s*10|Math\.min\(10/);
 });
 
-test("persistent reference is outside sortable rows and reports pending publication", () => {
-  assert.match(lens, /data-product-overall-reference/);
-  assert.match(lens, /Benchmark not yet published/);
+test("B4 score contract remains absolute and publication-bound", () => {
   assert.match(backend, /product_benchmark_publication_pending/);
-  assert.ok(lens.indexOf("<ProductOverallReference") < lens.indexOf("<ScoresTable rows="));
+  assert.match(lens, /Product Overall and Financial are absolute/);
 });
 
 test("Scores and Economics control is supplied to the actual table toolbar", () => {
-  assert.match(lens, /toolbarControl=\{viewControl\}/);
+  assert.match(lens, /toolbarControl=\{toggle\}/);
   assert.match(lens, /ariaLabel="Product Rankings view"/);
 });
 

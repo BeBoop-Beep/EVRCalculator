@@ -178,6 +178,12 @@ def test_public_b1_routes_are_anonymous_while_wide_scorecards_gate_before_reads(
     assert reads == public_reads
     assert client.get("/tcgs/pokemon/rankings/scorecards?entity_type=set", headers=_headers("plus-token")).status_code == 200
     assert reads[-2:] == ["client", "scorecards"]
+    # The Era wide scorecard is gated by the same Plus rule, before any read.
+    before_era = list(reads)
+    assert client.get("/tcgs/pokemon/rankings/scorecards?entity_type=era").status_code == 401
+    assert client.get("/tcgs/pokemon/rankings/scorecards?entity_type=era", headers=_headers("base-token")).status_code == 403
+    assert reads == before_era
+    assert client.get("/tcgs/pokemon/rankings/scorecards?entity_type=era", headers=_headers("plus-token")).status_code == 200
 
 
 def test_public_overview_matrix_reuses_only_shared_authority(monkeypatch):

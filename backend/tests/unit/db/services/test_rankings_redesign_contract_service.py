@@ -42,7 +42,7 @@ class Client:
 def test_benchmark_presentation_proves_neutral_center_and_canonical_tiers():
     assert benchmark_reference() == {"label": "Pokémon Overall Average", "score": 5.0, "iconKey": "pokemon"}
     assert benchmark_presentation(7.25, rank=2, cohort_size=22) == {
-        "score": 7.25, "rank": 2, "cohortSize": 22, "tier": "S",
+        "score": 7.25, "rank": 2, "cohortSize": 22, "tier": "A",
         "benchmarkReferenceScore": 5.0, "deltaVsBenchmark": 2.25, "benchmarkPosition": "above",
     }
     assert benchmark_presentation(5)["benchmarkPosition"] == "at"
@@ -357,3 +357,49 @@ def test_public_product_catalogue_is_alphabetical_and_score_independent():
     assert result["rows"][0]["familyKey"] == "elite_trainer_box"
     assert "pokemon_rip_benchmark_rows_v1" not in client.calls
     assert all(not any(key in row for key in ("rank", "ripScore", "unitPrice", "bestOpenPrice")) for row in result["rows"])
+
+
+def _era_benchmark_client():
+    def row(entity_type, entity_id, metric, score, rank, size=2):
+        return {"publication_id": "pub", "entity_type": entity_type, "entity_id": entity_id, "metric_key": metric,
+                "benchmark_score": score, "rank": rank, "cohort_size": size, "benchmark_status": "available"}
+    rows = []
+    # Live Sep-30 values: Scarlet & Violet (rank 1) and Mega Evolution (rank 2).
+    for entity, overall, financial, chase, collector, rank in (
+        ("sv", 5.149, 5.148, 5.260, 5.004, 1), ("mega", 4.602, 4.604, 4.306, 4.989, 2),
+    ):
+        rows += [row("era", entity, "overall", overall, rank), row("era", entity, "financial", financial, rank),
+                 row("era", entity, "chase", chase, rank), row("era", entity, "collector", collector, rank)]
+    rows += [row("set", "s-sv", "financial", 6, 1, 22), row("set", "s-mega-1", "financial", 4, 2, 22),
+             row("set", "s-mega-2", "financial", 4, 3, 22)]
+    return Client({
+        "pokemon_rip_benchmark_publications_v1": [{"id": "pub", "market_date": "2026-09-30", "benchmark_key": "pokemon",
+            "calibration_version": "v1", "overall_model_version": "overall-v12", "publication_status": "published"}],
+        "pokemon_rip_benchmark_rows_v1": rows,
+        "eras": [{"id": "sv", "name": "Scarlet & Violet", "canonical_key": "sv"},
+                 {"id": "mega", "name": "Mega Evolution", "canonical_key": "mega"}],
+        "sets": [{"id": "s-sv", "era_id": "sv"}, {"id": "s-mega-1", "era_id": "mega"}, {"id": "s-mega-2", "era_id": "mega"}],
+    })
+
+
+def test_paid_era_scorecards_carry_all_four_metrics_with_benchmark_tiers():
+    result = read_scorecards(_era_benchmark_client(), entity_type="era", benchmark_key="pokemon", calibration_version="v1")
+    by_name = {row["name"]: row for row in result["rows"]}
+    mega, sv = by_name["Mega Evolution"], by_name["Scarlet & Violet"]
+    assert [row["name"] for row in result["rows"]] == ["Scarlet & Violet", "Mega Evolution"]
+    for key in ("overall", "financial", "collector", "chase"):
+        assert mega[key]["score"] is not None and mega[key]["rank"] == 2 and mega[key]["cohortSize"] == 2
+    assert (mega["overall"]["score"], mega["financial"]["score"], mega["chase"]["score"], mega["collector"]["score"]) == (4.602, 4.604, 4.306, 4.989)
+    # B1 tier contract, per metric: neutral band C, +/-.25 around 5.0; tiny cohort never forces F.
+    assert [sv[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["C", "C", "C", "S"]
+    assert [mega[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["D", "D", "C", "D"]
+    assert mega["modeledSetCount"] == 2 and sv["modeledSetCount"] == 1
+
+
+def test_public_era_headlines_stay_overall_only():
+    result = read_public_headlines(_era_benchmark_client(), entity_type="era", benchmark_key="pokemon", calibration_version="v1")
+    assert [row["name"] for row in result["rows"]] == ["Scarlet & Violet", "Mega Evolution"]
+    assert all(set(row) & {"financial", "collector", "chase"} == set() for row in result["rows"])
+    text = str(result).lower()
+    assert "financial" not in text and "collector" not in text and "chase" not in text
+    assert "4.604" not in text and "4.306" not in text and "4.989" not in text

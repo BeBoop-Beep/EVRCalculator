@@ -6,7 +6,7 @@ import time
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from backend.rankings.public_relative import public_rank_tier
+from backend.rankings.public_relative import absolute_rank_percentile_tier
 
 SORT_COLUMNS = {
     "chase_efficiency": "chase_efficiency", "rank": "overall_rank",
@@ -16,6 +16,15 @@ SORT_COLUMNS = {
 }
 _LATEST_POINTER_TTL_SECONDS = 30.0
 _LATEST_POINTER_CACHE: Dict[int, tuple[float, Dict[str, Any]]] = {}
+CHASE_PAGE_COLUMNS = (
+    "snapshot_id,card_variant_id,canonical_card_id,set_id,era_id,card_name,canonical_rarity,"
+    "printing_type,special_type,artwork,exact_pull_probability,current_near_mint_market_price,"
+    "card_price_as_of,chase_efficiency,best_verified_pack_equivalent_cost,loose_booster_pack_price,"
+    "chosen_sealed_product_id,chosen_product_family,chosen_product_name,chosen_product_price,"
+    "chosen_random_pack_count,chosen_product_price_as_of,chosen_product_price_source,milestones_json,"
+    "chase_spend_50,cost_multiple_50,overall_rank,overall_cohort_size,era_rank,era_cohort_size,"
+    "set_rank,set_cohort_size,rarity_rank,rarity_cohort_size"
+)
 
 
 def _latest_snapshot(client: Any) -> Optional[Dict[str, Any]]:
@@ -59,7 +68,7 @@ def _public_row(row: Dict[str, Any], image_urls: Optional[Dict[str, Any]] = None
         "chaseSpend50": row.get("chase_spend_50"), "costMultiple50": row.get("cost_multiple_50"),
         "packsAtBuyPrice": packs_at_buy_price, "chanceAtBuyPrice": chance_at_buy_price,
         "topPercent": (100.0 * int(overall_rank) / int(overall_size)) if overall_rank and overall_size else None,
-        "tier": public_rank_tier(overall_rank, overall_size),
+        "tier": absolute_rank_percentile_tier(overall_rank, overall_size),
         "ranks": {scope: {"rank": row.get(f"{scope}_rank"), "cohortSize": row.get(f"{scope}_cohort_size")}
                   for scope in ("overall", "era", "set", "rarity")},
     }
@@ -76,7 +85,7 @@ def query_chase_efficiency(client: Any, *, page: int = 1, page_size: int = 50, s
     if direction not in {"asc", "desc"}: raise ValueError("direction must be asc or desc")
     latest = _latest_snapshot(client)
     if not latest: return {"available": False, "reason": "no_published_snapshot", "rows": []}
-    query = client.table("pokemon_card_chase_efficiency_rows").select("*", count="exact").eq("snapshot_id", latest["snapshot_id"])
+    query = client.table("pokemon_card_chase_efficiency_rows").select(CHASE_PAGE_COLUMNS, count="exact").eq("snapshot_id", latest["snapshot_id"])
     if search: query = query.ilike("card_name", f"%{str(search).strip()[:100]}%")
     if era:
         try: era_id = str(UUID(str(era)))

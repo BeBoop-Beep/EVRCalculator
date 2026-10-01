@@ -59,25 +59,18 @@ def _current_pointer(client: Any) -> Dict[str, Any]:
     return pointer
 
 
-def _public_row(row: Dict[str, Any]) -> Dict[str, Any]:
-    policy = row.get("subject_policy")
-    baseline = _number(row.get("subject_baseline_score"))
-    return {
+def _public_row(row: Dict[str, Any], lens: str = "overall") -> Dict[str, Any]:
+    public = {
         "modelRunId": row.get("model_run_id"), "modelVersion": row.get("model_version"),
         "asOfDate": row.get("as_of_date"), "canonicalCardId": row.get("pokemon_canonical_card_id"),
         "cardName": row.get("card_name"), "setId": row.get("set_id"), "setName": row.get("set_name"),
-        "setCanonicalKey": row.get("set_canonical_key"), "eraId": row.get("era_id"),
-        "eraName": row.get("era_name"), "rarity": row.get("rarity"), "imageSmallUrl": row.get("image_small_url"),
+        "setCanonicalKey": row.get("set_canonical_key"), "rarity": row.get("rarity"), "imageSmallUrl": row.get("image_small_url"),
         "collectorAppeal": _number(row.get("collector_appeal_score")), "rank": row.get("rank"),
-        "cohortSize": row.get("cohort_size"), "pokemonAppeal": baseline if policy == "pokemon" else None,
-        "trainerAppeal": baseline if policy == "trainer" else None, "subjectType": row.get("subject_type"),
-        "subjectIdentity": row.get("subject_identity"), "artistAppeal": _number(row.get("artist_recognition_score")),
-        "artistStatus": row.get("artist_status"), "artistNames": row.get("artist_names") or [],
-        "playability": _number(row.get("playability_score")), "playabilityStatus": row.get("playability_status"),
-        "playabilityConfidence": row.get("playability_confidence"), "treatmentCategory": row.get("treatment_category"),
-        "treatmentStatus": row.get("treatment_status"), "modeledPullProbability": _number(row.get("modeled_pull_probability")),
-        "methodologyVersion": row.get("methodology_version"),
+        "cohortSize": row.get("cohort_size"),
     }
+    if lens == "artist":
+        public["artistNames"] = row.get("artist_names") or []
+    return public
 
 
 def _resolve_era_set_ids(client: Any, era: str) -> list[str]:
@@ -169,20 +162,18 @@ def query_card_collector_appeal(client: Any, *, page: int = 1, page_size: int = 
     set_ids = sorted({str(row["set_id"]) for row in ranking_rows if row.get("set_id")})
     cards = _by_id(_rows(client.table("pokemon_canonical_cards").select("id,image_small_url")
                          .in_("id", card_ids).execute())) if card_ids else {}
+    # Only Artist renders detail that is absent from the prepared ranking/RPC
+    # row. Other lenses consume their published score directly.
     scores = _by_id(_rows(client.table("pokemon_card_collector_appeal_scores").select(SCORE_COLUMNS)
                           .eq("model_run_id", str(model_run_id))
-                          .in_("pokemon_canonical_card_id", card_ids).execute()), "pokemon_canonical_card_id") if card_ids else {}
+                          .in_("pokemon_canonical_card_id", card_ids).execute()), "pokemon_canonical_card_id") if card_ids and lens == "artist" else {}
     sets = _by_id(_rows(client.table("sets").select("id,name,canonical_key,era_id")
                         .in_("id", set_ids).execute())) if set_ids else {}
-    era_ids = sorted({str(row["era_id"]) for row in sets.values() if row.get("era_id")})
-    eras = _by_id(_rows(client.table("eras").select("id,name,canonical_key")
-                        .in_("id", era_ids).execute())) if era_ids else {}
 
     enriched = []
     for page_index, ranking in enumerate(ranking_rows):
         card_id = str(ranking["pokemon_canonical_card_id"])
         set_row = sets.get(str(ranking.get("set_id")), {})
-        era_row = eras.get(str(set_row.get("era_id")), {})
         component = scores.get(card_id, {})
         inputs = component.get("component_inputs_json") or {}
         enriched.append({**ranking, **component,
@@ -190,14 +181,14 @@ def query_card_collector_appeal(client: Any, *, page: int = 1, page_size: int = 
                          "model_version": pointer.get("model_version"), "as_of_date": pointer.get("as_of_date"),
                          "image_small_url": cards.get(card_id, {}).get("image_small_url"),
                          "set_name": set_row.get("name"), "set_canonical_key": set_row.get("canonical_key"),
-                         "era_id": set_row.get("era_id"), "era_name": era_row.get("name"),
+                         "era_id": set_row.get("era_id"),
                          "subject_type": inputs.get("subjectType"), "subject_identity": inputs.get("subjectIdentity"),
                          "artist_status": inputs.get("artistEvidenceStatus"), "artist_names": inputs.get("artistNames") or [],
                          "playability_status": "scored" if component.get("playability_score") is not None else "unavailable",
                          "playability_confidence": component.get("confidence"),
                          "treatment_status": (inputs.get("treatmentDiagnostic") or {}).get("status")})
 
-    public_rows = [_public_row(row) for row in enriched]
+    public_rows = [_public_row(row, lens) for row in enriched]
     if lens != "overall":
         for row, source in zip(public_rows, enriched):
             row["rank"] = source["component_rank"]

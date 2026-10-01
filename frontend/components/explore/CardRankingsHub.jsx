@@ -1,12 +1,11 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useState } from "react";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import CardCollectorAppealRankings from "./CardCollectorAppealRankings";
+import CardChaseEfficiencyRankings from "./CardChaseEfficiencyRankings";
+import { prewarmDefaultChase } from "@/lib/rankings/cardRankingsClient.mjs";
 import styles from "./explore.module.css";
-
-const Collector = dynamic(() => import("./CardCollectorAppealRankings"));
-const Chase = dynamic(() => import("./CardChaseEfficiencyRankings"));
 
 export default function CardRankingsHub({
   canViewCollectorAppeal,
@@ -21,11 +20,12 @@ export default function CardRankingsHub({
         <SegmentedControl
           options={[
             { value: "collector", label: "Collector Appeal" },
-            { value: "chase", label: "Chase Efficiency" },
+            { value: "chase", label: "Chase Efficiency", onIntent: () => prewarmDefaultChase({ sessionCache, entitled: canViewChaseEfficiency, authStatus, saveData: typeof navigator !== "undefined" && Boolean(navigator.connection?.saveData) }) },
           ]}
           value={lens}
           onChange={setLens}
           ariaLabel="Card ranking lens"
+          variant="rankings"
           equalWidth
           mobileFullWidth
         />
@@ -34,14 +34,14 @@ export default function CardRankingsHub({
         <div role="status" aria-live="polite" className="min-h-40 p-5 text-sm text-[var(--text-secondary)]">Checking card accessâ€¦</div>
       ) : null}
       {authStatus !== "resolving" && lens === "collector" ? (
-        <Collector
+        <CardCollectorAppealRankings
           entitled={canViewCollectorAppeal}
           authStatus={authStatus}
           sessionCache={sessionCache}
         />
       ) : null}
       {authStatus !== "resolving" && lens === "chase" ? (
-        <Chase
+        <CardChaseEfficiencyRankings
           entitled={canViewChaseEfficiency}
           authStatus={authStatus}
           sessionCache={sessionCache}

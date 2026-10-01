@@ -14,8 +14,10 @@ async function readJson(response) {
   return payload;
 }
 
-export function readProductRankings(view, { fetchImpl = fetch, sessionCache = null, force = false } = {}) {
+export function readProductRankings(view, { fetchImpl = fetch, sessionCache = null, force = false, params = {} } = {}) {
   if (!ENDPOINTS[view]) throw new Error(`Unsupported Product Rankings view: ${view}`);
-  const load = () => fetchImpl(ENDPOINTS[view], { credentials: "include", cache: "no-store" }).then(readJson);
-  return sessionCache ? sessionCache.request(`products:${view}`, load, { force }) : load();
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+  const url = `${ENDPOINTS[view]}${query.size ? `?${query}` : ""}`;
+  const load = () => fetchImpl(url, { credentials: "include", cache: "no-store" }).then(readJson);
+  return sessionCache ? sessionCache.request(`products:${view}:${query}`, load, { force }) : load();
 }
