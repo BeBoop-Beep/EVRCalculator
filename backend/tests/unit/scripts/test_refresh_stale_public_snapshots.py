@@ -26,11 +26,13 @@ def _stub_market_candidate_preparation(monkeypatch):
     )
 
 
-def _market_enforcement(*, allowed=True, proceed=True, status="READY"):
+def _market_enforcement(
+    *, allowed=True, proceed=True, status="READY", market_date="2026-08-23"
+):
     return SimpleNamespace(
         proceed=proceed,
         decision=SimpleNamespace(
-            allowed=allowed, status=status, market_date="2026-08-23",
+            allowed=allowed, status=status, market_date=market_date,
             reason=f"status={status}",
             evaluation={"qualifyingSetCount": 22, "cohortSetCount": 22},
         ),
@@ -194,6 +196,127 @@ def test_market_quality_phase_orders_prepare_quality_finalizer_and_persist(monke
         "prepare", "quality", "read-quality", "validate-final", "finalizer",
         "validate-final", ("build", "2026-08-23"), "persist",
     ]
+
+
+def test_market_quality_phase_materializes_edition_stable_raw_before_downstream_publish(monkeypatch):
+    """Post-cutover commit must close Raw authority before Set Value can read it."""
+    from backend.scripts import build_pokemon_market_index_history as index_history
+
+    order = []
+    monkeypatch.setattr(
+        refresh,
+        "prepare_market_rollout_candidate",
+        lambda *_a, **_k: order.append("prepare") or {"status": "complete"},
+    )
+    monkeypatch.setattr(
+        refresh,
+        "enforce_market_publication_gate",
+        lambda *_a, **_k: order.append("quality")
+        or _market_enforcement(market_date="2026-10-01"),
+    )
+    monkeypatch.setattr(
+        refresh,
+        "market_index_accepted_dates",
+        lambda *_a, **_k: order.append("read-quality") or {"2026-10-01"},
+    )
+    monkeypatch.setattr(
+        index_history,
+        "_rollout_source_materialization",
+        lambda *_a, **_k: order.append("validate-final")
+        or {"ready": True, "provenanceState": "final"},
+    )
+    _patch_rollout_index(
+        monkeypatch,
+        order=order,
+        expected_root_count=155,
+        rows=[
+            {
+                "market_date": "2026-10-01",
+                "index_key": "raw",
+                "set_count": 155,
+                "card_count": 20000,
+            },
+            {
+                "market_date": "2026-10-01",
+                "index_key": "top10",
+                "set_count": 155,
+                "card_count": 1550,
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        "backend.alerts.pipeline_alerts.alert_market_index",
+        lambda **_kwargs: order.append("alert"),
+    )
+
+    class RpcResult:
+        data = {"status": "READY", "marketDate": "2026-10-01"}
+
+        def execute(self):
+            order.append("raw-edition-stable")
+            return self
+
+    class Client:
+        def rpc(self, name, payload):
+            assert name == "refresh_pokemon_market_raw_edition_stable_history_v1"
+            assert payload == {"p_through_date": "2026-10-01"}
+            return RpcResult()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        Client(),
+        market_date="2026-10-01",
+        commit=True,
+        summary=refresh.RefreshSummary(),
+    )
+
+    assert ready is True and rows is None
+    assert order.index("persist") < order.index("raw-edition-stable") < order.index("alert")
+
+
+def test_market_quality_phase_rejects_bad_edition_stable_raw_receipt(monkeypatch):
+    """A half-published post-cutover Raw authority must fail closed."""
+    from backend.scripts import build_pokemon_market_index_history as index_history
+
+    monkeypatch.setattr(
+        refresh,
+        "enforce_market_publication_gate",
+        lambda *_a, **_k: _market_enforcement(market_date="2026-10-01"),
+    )
+    monkeypatch.setattr(refresh, "market_index_accepted_dates", lambda *_a, **_k: {"2026-10-01"})
+    monkeypatch.setattr(
+        index_history,
+        "_rollout_source_materialization",
+        lambda *_a, **_k: {"ready": True, "provenanceState": "final"},
+    )
+    _patch_rollout_index(
+        monkeypatch,
+        expected_root_count=155,
+        rows=[
+            {"market_date": "2026-10-01", "index_key": "raw", "set_count": 155},
+            {"market_date": "2026-10-01", "index_key": "top10", "set_count": 155},
+        ],
+    )
+
+    class RpcResult:
+        data = {"status": "READY", "marketDate": "2026-09-30"}
+
+        def execute(self):
+            return self
+
+    class Client:
+        def rpc(self, name, payload):
+            return RpcResult()
+
+    summary = refresh.RefreshSummary()
+    ready, rows = refresh._run_market_quality_index_phase(
+        Client(), market_date="2026-10-01", commit=True, summary=summary
+    )
+
+    assert ready is False and rows is None
+    assert any(
+        "edition-stable Raw authority did not refresh to 2026-10-01" in failure
+        for failure in summary.global_failed
+    )
 
 
 def test_market_quality_phase_preparation_failure_stops_before_quality(monkeypatch):
