@@ -1,0 +1,69 @@
+name: Sentinel incident diagnostic 2026-10-01
+
+on:
+  push:
+    branches:
+      - fix/sentinel-publication-recovery-20261001
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sentinel-incident-diagnostic-20261001
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 10
+    steps:
+      - name: Inspect live publication safety and recent logs
+        shell: bash
+        run: |
+          set -u
+          REPO=/home/ubuntu/repos/EVRCalculator
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+          LOCK=/tmp/pokemon-post-scrape-publication.lock
+
+          echo "=== clock ==="
+          date --iso-8601=seconds
+          echo "=== live checkout ==="
+          cd "$REPO" || exit 1
+          git rev-parse HEAD
+          git status --short
+          echo "=== database safety hold ==="
+          if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
+            ls -l "$HOLD"
+            python3 - "$HOLD" <<'PY'
+import json, sys
+from pathlib import Path
+p=Path(sys.argv[1])
+try:
+    data=json.loads(p.read_text())
+except Exception as exc:
+    print("hold_parse_error="+type(exc).__name__)
+else:
+    redacted={}
+    for k,v in data.items():
+        low=str(k).lower()
+        if any(x in low for x in ("secret","token","password","key","url")):
+            redacted[k]="<redacted>"
+        else:
+            redacted[k]=v
+    print(json.dumps(redacted,sort_keys=True,default=str))
+PY
+          else
+            echo "hold_present=false"
+          fi
+          echo "=== publication lock ==="
+          if /usr/bin/flock -n "$LOCK" -c true; then echo "publication_lock=free"; else echo "publication_lock=held"; fi
+          echo "=== related processes ==="
+          ps -eo pid=,ppid=,etimes=,stat=,args= | grep -E 'rebuild_snapshots_after_scrape|refresh_stale_public_snapshots|run_market_explorer_daily_publication|run_market_explorer_maintained_cache_prewarm|db_workload_guard|run_daily_multi_source_card_pricing|pkmn|backfill' | grep -v grep || true
+          echo "=== relevant crontab ==="
+          crontab -l 2>/dev/null | grep -E 'market|sentinel|pricing|scrape|snapshot|publication' || true
+          echo "=== publication.log tail ==="
+          tail -220 "$REPO/publication.log" 2>/dev/null || true
+          echo "=== market explorer prewarm tail ==="
+          tail -160 "$REPO/backend/logs/market_explorer_prewarm.log" 2>/dev/null || true
+          echo "=== market explorer health tail ==="
+          tail -120 "$REPO/backend/logs/market_explorer_health.log" 2>/dev/null || true
