@@ -1,0 +1,95 @@
+name: Treatment Hierarchy V2
+
+on:
+  push:
+    branches:
+      - research/treatment-panel-recovery-v2-pkmnprices-nm-20261001
+    paths:
+      - ".github/workflows/treatment-hierarchy-v2.yml"
+      - "backend/scripts/research_treatment_hierarchy_v2.py"
+      - "backend/tests/unit/scripts/test_research_treatment_hierarchy_v2.py"
+      - "docs/research/collector_appeal/treatment_hierarchy_v2/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: treatment-hierarchy-v2
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD="/home/ubuntu/repos/EVRCalculator"
+          PY="$PROD/.venv/bin/python"
+          test -x "$PY"
+          test -f "$PROD/backend/.env"
+          mkdir -p backend/artifacts/treatment_panel_recovery_v2_input
+          mkdir -p backend/artifacts/treatment_hierarchy_v2
+          echo "RESEARCH_PY=$PY" >> "$GITHUB_ENV"
+
+      - name: Download frozen recovery artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-panel-recovery-v2-36913676646
+          path: backend/artifacts/treatment_panel_recovery_v2_input
+          github-token: ${{ github.token }}
+          repository: BeBoop-Beep/EVRCalculator
+          run-id: 36913676646
+
+      - name: Verify frozen recovery artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s backend/artifacts/treatment_panel_recovery_v2_input/history.json
+          test -s backend/artifacts/treatment_panel_recovery_v2_input/summary.json
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          required = [
+              Path("backend/artifacts/treatment_panel_recovery_v2_input/history.json"),
+              Path("backend/artifacts/treatment_panel_recovery_v2_input/summary.json"),
+              Path("backend/artifacts/treatment_panel_recovery_v2_input/panel_readiness.json"),
+          ]
+          for p in required:
+              print(p, hashlib.sha256(p.read_bytes()).hexdigest())
+          PY
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE" "$RESEARCH_PY" -m pytest -q \
+            backend/tests/unit/scripts/test_research_treatment_hierarchy_v2.py \
+            backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py
+
+      - name: Fit frozen Treatment hierarchy pilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . /home/ubuntu/repos/EVRCalculator/backend/.env
+          set +a
+          PYTHONPATH="$GITHUB_WORKSPACE" "$RESEARCH_PY" \
+            -m backend.scripts.research_treatment_hierarchy_v2 \
+            > backend/artifacts/treatment_hierarchy_v2/run_stdout.json
+          cat backend/artifacts/treatment_hierarchy_v2/run_stdout.json
+          cat backend/artifacts/treatment_hierarchy_v2/FINAL_REPORT.md
+
+      - name: Upload V2 research artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-hierarchy-v2-${{ github.run_id }}
+          path: backend/artifacts/treatment_hierarchy_v2/
+          if-no-files-found: error
+          retention-days: 30
