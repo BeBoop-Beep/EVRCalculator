@@ -157,6 +157,35 @@ def test_budget_contract_coexists_with_b5_and_active_supply():
     assert c["worst_case_credits_enforced"] == 8000 < c["uncapped_worst_case_credits"] == 16560
 
 
+def test_no_unaccounted_scheduled_provider_consumer_exists_on_current_develop():
+    # Any workflow with a cron that drives PkmnPrices must be the audited daily vintage-gap one.
+    scheduled = []
+    for wf in sorted((ROOT / ".github/workflows").glob("*.yml")):
+        text = wf.read_text(encoding="utf-8")
+        if re.search(r"^\s*-?\s*cron:", text, re.M) and re.search(r"pkmnprices|PkmnPrices|sold_evidence|ebay_sold", text):
+            scheduled.append(wf.name)
+    assert scheduled == ["pkmnprices-sold-evidence-daily.yml"], scheduled
+    # Any live (uncommented) VM crontab entry that runs a provider-credit job must be an audited one.
+    live = set()
+    for cron in sorted((ROOT / "infra/oracle").glob("*.crontab")):
+        for line in cron.read_text(encoding="utf-8").splitlines():
+            if line.strip() and not line.lstrip().startswith("#") and re.search(
+                    r"microstructure_bucket|active_supply_panel\.sh|pkmnprices|core_panel", line):
+                live.add(cron.name)
+    assert live == {"market-microstructure-b4.crontab", "market-microstructure-b5.crontab",
+                    "active-supply-panel.crontab"}, live
+    assert len(inc.AUDITED_SCHEDULED_PROVIDER_CONSUMERS) == 4
+
+
+def test_current_source_caps_have_not_drifted_from_the_audited_values():
+    from backend.scripts import run_market_active_supply_snapshot as c
+    from backend.scripts import run_market_microstructure_bucket_b5 as b5
+
+    assert (inc.ACCOUNT_DAILY_CREDIT_LIMIT, b5.DAILY_B5_CREDIT_CAP, c.FULL_PANEL_CREDIT_CAP) == (75000, 55000, 4500)
+    assert inc.B4_DAILY_CREDIT_CAP == 55000 and inc.CANARY_ONE_TIME_CREDIT_CEILING == 20
+    assert inc.budget_contract()["canary_one_time_credit_ceiling"] == 20
+
+
 def test_vintage_gap_cap_matches_the_workflow_it_cites():
     workflow = (ROOT / ".github/workflows/pkmnprices-sold-evidence-daily.yml").read_text(encoding="utf-8")
     assert f"--item-credit-cap {inc.VINTAGE_GAP_DAILY_CREDIT_CAP}" in workflow
@@ -185,7 +214,6 @@ def test_invocation_budget_accounts_prior_spend_and_other_consumers():
 # ------------------------------------------------------------------ eligibility / no backfill / no lookup
 @pytest.mark.parametrize("kwargs,reason", [
     ({"identity": False}, "NO_CACHED_IDENTITY"),
-    ({"complete": False}, "HISTORICAL_BACKFILL_NOT_COMPLETE"),
     ({"ready": False}, "PHASE1_NOT_READY"),
     ({"frontier": None}, "NO_FRONTIER"),
 ])
@@ -196,6 +224,21 @@ def test_ineligible_cards_are_skipped_never_fetched(kwargs, reason):
     result, store = _run([state], provider)
     assert provider.calls == [] and result["skipped"] == {reason: 1}
     assert store.evidence == {}
+
+
+def test_phase1_ready_card_with_partial_lifetime_cursor_is_eligible_and_cursor_is_untouched():
+    # This is the real B4 shape for most Core Panel cards: 180d horizon reached, lifetime cursor still open.
+    state = _state(1, complete=False, extra_meta={"core_panel_backfill_in_progress": True,
+                                                  "core_panel_backfill_cursor": "OLD-CURSOR-123"})
+    state["sync"]["status"] = "PARTIAL"
+    assert inc.card_eligibility(state) == (True, "ELIGIBLE")
+    original = copy.deepcopy(state["sync"])
+    provider = FakeProvider({(1001, None): _page([_raw(1, "2026-09-25T00:00:00+00:00")])})
+    result, store = _run([state], provider)
+    written = copy.deepcopy(store.sync[1001])
+    del written["metadata"][inc.STATE_KEY]
+    assert written == original and written["metadata"]["core_panel_backfill_cursor"] == "OLD-CURSOR-123"
+    assert all(c["cursor"] is None for c in provider.calls)  # the historical cursor is never used
 
 
 def test_module_never_performs_identity_lookup_or_backfill():
@@ -413,7 +456,7 @@ def test_collector_uses_only_append_dedupe_store_for_evidence():
 
 # ------------------------------------------------------------------ preflight + scheduler artefacts
 def test_preflight_makes_zero_provider_calls_and_zero_writes(monkeypatch):
-    states = [_state(1), _state(2, complete=False)]
+    states = [_state(1), _state(2, ready=False)]
     monkeypatch.setattr(inc, "panel_states", lambda db: states)
     monkeypatch.setattr(inc, "operational_pause_reason", lambda db: None)
     monkeypatch.setattr(inc, "ACTIVATION_ENABLED", False)
@@ -425,7 +468,7 @@ def test_preflight_makes_zero_provider_calls_and_zero_writes(monkeypatch):
     result = inc.preflight(ReadOnlyDB(), expected_date="2026-10-02")
     assert result["provider_requests"] == 0 and result["provider_credits_used"] == 0 and result["database_writes"] == 0
     assert result["dormant"] is True and result["eligible_cards"] == 1
-    assert result["eligibility"] == {"ELIGIBLE": 1, "HISTORICAL_BACKFILL_NOT_COMPLETE": 1}
+    assert result["eligibility"] == {"ELIGIBLE": 1, "PHASE1_NOT_READY": 1}
     assert result["budget_contract"]["total_committed"] == 68100
 
 

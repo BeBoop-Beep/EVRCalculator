@@ -13,8 +13,8 @@ for these 207 cards arrive daily. Fair Value shadow validation needs them.
 
 Contract (all enforced in code, tested without any provider call)
 -----------------------------------------------------------------
-* Never restarts or touches historical backfill. Cards whose B4 backfill is not complete
-  are skipped. Existing ``core_panel_backfill_*`` cursors and every pre-existing sync
+* Never restarts or touches historical backfill. Cards whose B4 phase-1 (180-day) walk is not
+  ready, or that have no recorded frontier, are skipped; a PARTIAL lifetime cursor is left alone. Existing ``core_panel_backfill_*`` cursors and every pre-existing sync
   field are preserved byte-for-byte; this module writes ONLY the namespaced metadata key
   ``core_panel_daily_increment``.
 * Reuses cached exact PkmnPrices identities. It NEVER performs an identity lookup; a card
@@ -65,6 +65,7 @@ from backend.scripts.run_market_microstructure_bucket_b import (  # noqa: E402
     _normalize,
 )
 from backend.scripts.run_market_microstructure_bucket_b4 import (  # noqa: E402
+    DAILY_B_CREDIT_CAP as B4_DAILY_CREDIT_CAP,
     operational_pause_reason,
     panel_states,
     phoenix_date,
@@ -89,6 +90,16 @@ ONE_PAGE_PASS_CREDITS = EXPECTED_PANEL_COUNT * PAGE_SIZE  # 4,140
 DAILY_INCREMENT_CREDIT_CAP = 8000
 #: .github/workflows/pkmnprices-sold-evidence-daily.yml passes --item-credit-cap 600.
 VINTAGE_GAP_DAILY_CREDIT_CAP = 600
+#: One-time provider-semantics canary ceiling (run_core_panel_provider_semantics_canary); not daily.
+CANARY_ONE_TIME_CREDIT_CEILING = 20
+#: Scheduled / schedulable PkmnPrices consumers audited against current develop. The test suite
+#: scans .github/workflows and infra/oracle crontabs and fails if a new one appears unaccounted.
+AUDITED_SCHEDULED_PROVIDER_CONSUMERS = {
+    "b4_phase1_breadth": "infra/oracle/market-microstructure-b4.crontab (cap 55,000; inert once 207/207 phase1_ready)",
+    "b5_targeted_expansion": "infra/oracle/market-microstructure-b5.crontab (cap 55,000)",
+    "active_supply_c": "infra/oracle/active-supply-panel.crontab (hard cap 4,500)",
+    "vintage_gap_daily": ".github/workflows/pkmnprices-sold-evidence-daily.yml (cap 600)",
+}
 RUNTIME_SAFETY_MARGIN = 2000
 MIN_UNALLOCATED_HEADROOM = 5000
 
@@ -135,6 +146,12 @@ def budget_contract() -> dict[str, Any]:
         "worst_case_credits_enforced": DAILY_INCREMENT_CREDIT_CAP,
         "max_pages_per_card_day": MAX_PAGES_PER_CARD_DAY,
         "page_size": PAGE_SIZE,
+        "b4_daily_cap_informational": B4_DAILY_CREDIT_CAP,
+        "b4_note": "B4 carries its own 55,000 cap but is inert at 207/207 phase1_ready; if it ever spends, the "
+                   "runtime other-consumer accounting in invocation_budget() shrinks this collector's room.",
+        "canary_one_time_credit_ceiling": CANARY_ONE_TIME_CREDIT_CEILING,
+        "audited_scheduled_provider_consumers": AUDITED_SCHEDULED_PROVIDER_CONSUMERS,
+        "runtime_safety_margin": RUNTIME_SAFETY_MARGIN,
     }
     if DAILY_INCREMENT_CREDIT_CAP < ONE_PAGE_PASS_CREDITS:
         raise RuntimeError("INCREMENT_CAP_BELOW_ONE_PAGE_PASS")
@@ -169,9 +186,10 @@ def card_eligibility(state: dict[str, Any]) -> tuple[bool, str]:
         return False, "NO_CACHED_IDENTITY"  # never looked up here
     if not sync:
         return False, "NO_SYNC_STATE"
-    meta = dict(sync.get("metadata") or {})
-    if not (sync.get("status") == "CURRENT" and meta.get("core_panel_backfill_complete") is True):
-        return False, "HISTORICAL_BACKFILL_NOT_COMPLETE"
+    # B4 only walks each card back to its 180-day horizon (`phase1_ready`) and may leave the
+    # lifetime cursor PARTIAL. What incremental collection needs is that the newest-first walk
+    # started from a recorded watermark, not that history is drained; the historical cursor is
+    # never read, resumed or modified here.
     if not state.get("phase1_ready"):
         return False, "PHASE1_NOT_READY"
     frontier, _ = frontier_of(sync)

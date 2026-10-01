@@ -131,8 +131,9 @@ touching credentials, DB or provider; only `--preflight` runs (0 provider calls,
 daily newest sales for the 207 cards.
 
 **Design.**
-* Eligible only if a cached exact identity exists, the B4 backfill is `CURRENT`/complete, `phase1_ready`, and a
-  frontier exists. It never performs identity lookups and never restarts or edits backfill.
+* Eligible only if a cached exact identity exists, B4 marked the card `phase1_ready`, and a recorded frontier exists.
+  *(Corrected in FV-S3: the first version required a fully drained lifetime backfill, which blocked 186 of 207 cards;
+  B4 walks only to a 180-day horizon and leaves the lifetime cursor `PARTIAL`, which is left untouched.)* It never performs identity lookups and never restarts or edits backfill.
 * One bounded `date_desc` combined (raw + graded) page per card with `since=<frontier>`. In-repo documentation
   (`PKMNPRICES_SOLD_HISTORY_PERSISTENCE_20260929.md`) states `since` filters on `ingested_at`, so completeness =
   "provider reports the `since` set exhausted", not "page looked old". Rows at/older than the frontier despite `since`
