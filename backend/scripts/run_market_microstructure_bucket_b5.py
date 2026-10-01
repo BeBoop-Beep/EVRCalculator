@@ -30,7 +30,7 @@ from backend.scripts.run_market_microstructure_bucket_b4 import (
 )
 
 MODE = "bucket_b5_targeted_sold_history_v1"
-SELECTOR_VERSION = "bucket_b5_gap_then_governed_7d_movers_v1"
+SELECTOR_VERSION = "bucket_b5_gap_then_governed_7d_movers_v2"
 PAGE_SIZE = 20
 MAX_ROWS_PER_TARGET_ROUND = 80
 ACCOUNT_DAILY_CREDIT_LIMIT = 75000
@@ -39,12 +39,40 @@ ACCOUNT_RESERVE_CREDITS = ACCOUNT_DAILY_CREDIT_LIMIT - DAILY_B5_CREDIT_CAP
 EXPANDED_B5_ACTIVATION_CREDIT_DAY = "2026-10-01"
 HORIZON_DAYS = 180
 EXPECTED_CORE_PANEL_READY = 207
+IDENTITY_RESOLUTION_VERSION = "b5_name_number_first_v2"
 MOVER_TABLE = "pokemon_explore_card_movers_snapshot_latest"
 
 
 def _chunks(values: list[Any], size: int = 150) -> Iterable[list[Any]]:
     for start in range(0, len(values), size):
         yield values[start:start + size]
+
+
+def _number_key(value: Any) -> str:
+    text = str(value or "").strip().casefold()
+    if text.isdigit():
+        return str(int(text))
+    return text
+
+
+def _provider_name_matches(provider_name: Any, target_name: Any) -> bool:
+    provider = str(provider_name or "").strip().casefold()
+    target = str(target_name or "").strip().casefold()
+    return bool(target) and (provider == target or provider.startswith(target + " - "))
+
+
+def _exact_name_number_matches(
+    rows: list[dict[str, Any]],
+    *,
+    name: str,
+    number: str,
+) -> list[dict[str, Any]]:
+    number_key = _number_key(number)
+    return [
+        row for row in rows
+        if _provider_name_matches(row.get("name"), name)
+        and _number_key(row.get("number")) == number_key
+    ]
 
 
 def _paged(db: Any, table: str, columns: str, *, order: str | None = None) -> list[dict[str, Any]]:
@@ -385,6 +413,44 @@ def _daily_credits_used(db: Any, credit_day: str) -> int:
     )
 
 
+def _deterministic_identity_blocks_today(db: Any, credit_day: str) -> set[str]:
+    """Do not repeat deterministic identity misses every 15 minutes.
+
+    Only blocks produced by this identity-resolution version are reused.  Older
+    B5 resolver failures are intentionally ignored so a newly deployed resolver
+    gets one fresh attempt immediately.
+    """
+    start = datetime.fromisoformat(credit_day + "T00:00:00+00:00")
+    end = start + timedelta(days=1)
+    rows = (
+        db.table("pkmnprices_sold_runs_v1")
+        .select("metadata,started_at")
+        .gte("started_at", start.isoformat())
+        .lt("started_at", end.isoformat())
+        .execute().data or []
+    )
+    blocked: set[str] = set()
+    for row in rows:
+        metadata = dict(row.get("metadata") or {})
+        if metadata.get("mode") != MODE:
+            continue
+        if metadata.get("identity_resolution_version") != IDENTITY_RESOLUTION_VERSION:
+            continue
+        for receipt in list(metadata.get("receipts") or []):
+            if not isinstance(receipt, dict) or receipt.get("status") != "BLOCKED":
+                continue
+            error = str(receipt.get("error") or "")
+            if not (
+                error.startswith("B5_PROVIDER_IDENTITY_COUNT_")
+                or error.startswith("B5_PROVIDER_SET_COUNT_")
+            ):
+                continue
+            cid = str(receipt.get("canonical_card_id") or "")
+            if cid:
+                blocked.add(cid)
+    return blocked
+
+
 def _credit_day() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
@@ -442,7 +508,7 @@ def _ensure_identity(
     provider: PkmnPricesClient,
     target: dict[str, Any],
     *,
-    set_cache: dict[str, int],
+    set_cache: dict[str, int | None],
 ) -> tuple[dict[str, Any], int]:
     cached = store.get_identity_by_canonical(target["canonical_card_id"])
     if cached:
@@ -462,38 +528,50 @@ def _ensure_identity(
             if str(row.get("tcg_player_id") or "") == str(target["tcgplayer_product_id"])
         ]
     elif strategy == "exact_set_name_card_name_number":
-        set_name = str(target["provider_search_set_name"])
-        cache_key = set_name.casefold()
-        provider_set_id = set_cache.get(cache_key)
-        if provider_set_id is None:
-            set_rows = provider.sets_by_name(
-                set_name, language="English", per_page=20
-            )
-            exact_sets = [
-                row for row in set_rows
-                if str(row.get("name") or "").strip().casefold() == cache_key
-                and str(row.get("language") or "English").casefold() == "english"
-            ]
-            if len(exact_sets) != 1:
-                raise RuntimeError(f"B5_PROVIDER_SET_COUNT_{len(exact_sets)}")
-            provider_set_id = int(exact_sets[0]["id"])
-            set_cache[cache_key] = provider_set_id
-
-        rows = provider.cards_by_identity(
-            name=str(target["provider_search_name"]),
-            number=str(target["provider_search_number"]),
-            set_id=provider_set_id,
+        # The provider's set catalog does not use the Pokemon TCG API's promo
+        # set names consistently (for example SWSH/DP/SM Black Star Promos).
+        # Resolve by exact card name + number first.  Only consult set search
+        # when more than one exact card candidate remains.
+        search_name = str(target["provider_search_name"])
+        search_number = str(target["provider_search_number"])
+        rows = provider.cards_by_name_number(
+            name=search_name,
+            number=search_number,
             language="English",
-            per_page=20,
+            per_page=100,
         )
-        exact = [
-            row for row in rows
-            if str(row.get("name") or "").strip().casefold()
-                == str(target["provider_search_name"]).strip().casefold()
-            and str(row.get("number") or "").strip().casefold()
-                == str(target["provider_search_number"]).strip().casefold()
-            and str((row.get("set") or {}).get("id") or "") == str(provider_set_id)
-        ]
+        exact = _exact_name_number_matches(
+            rows,
+            name=search_name,
+            number=search_number,
+        )
+
+        if len(exact) > 1:
+            set_name = str(target["provider_search_set_name"])
+            cache_key = set_name.casefold()
+            if cache_key in set_cache:
+                provider_set_id = set_cache[cache_key]
+            else:
+                set_rows = provider.sets_by_name(
+                    set_name, language="English", per_page=100
+                )
+                exact_sets = [
+                    row for row in set_rows
+                    if str(row.get("name") or "").strip().casefold() == cache_key
+                    and str(row.get("language") or "English").casefold() == "english"
+                ]
+                provider_set_id = (
+                    int(exact_sets[0]["id"]) if len(exact_sets) == 1 else None
+                )
+                # Negative-cache the failed disambiguation for this invocation.
+                set_cache[cache_key] = provider_set_id
+
+            if provider_set_id is not None:
+                exact = [
+                    row for row in exact
+                    if str((row.get("set") or {}).get("id") or "")
+                    == str(provider_set_id)
+                ]
     else:
         raise RuntimeError("B5_PROVIDER_IDENTITY_STRATEGY_UNSUPPORTED")
 
@@ -702,6 +780,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
         "manifest_fingerprint": selector_meta["selector_fingerprint"],
         "metadata": {
             "mode": MODE,
+            "identity_resolution_version": IDENTITY_RESOLUTION_VERSION,
             "selector_fingerprint": selector_meta["selector_fingerprint"],
             "gap_target_count": selector_meta["gap_target_count"],
             "mover_target_count": selector_meta["mover_target_count"],
@@ -718,8 +797,8 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
     })
 
     by_id = {row["canonical_card_id"]: row for row in targets}
-    blocked: set[str] = set()
-    set_cache: dict[str, int] = {}
+    blocked: set[str] = _deterministic_identity_blocks_today(db, _credit_day())
+    set_cache: dict[str, int | None] = {}
     totals = Counter()
     receipts: dict[str, dict[str, Any]] = {}
     pause = None
@@ -883,6 +962,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
                     "priority_tier": target["priority_tier"],
                     "priority_reason": target["priority_reason"],
                     "status": "BLOCKED",
+                    "identity_resolution_version": IDENTITY_RESOLUTION_VERSION,
                     "error_code": type(exc).__name__,
                     "error": str(exc)[:240],
                 }
@@ -918,6 +998,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
         "error_code": None,
         "metadata": {
             "mode": MODE,
+            "identity_resolution_version": IDENTITY_RESOLUTION_VERSION,
             "selector_fingerprint": selector_meta["selector_fingerprint"],
             "gap_target_count": selector_meta["gap_target_count"],
             "mover_target_count": selector_meta["mover_target_count"],
