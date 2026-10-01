@@ -12,6 +12,10 @@ jobs:
   targeted:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.test
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
