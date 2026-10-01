@@ -1,0 +1,53 @@
+{
+  "version": "treatment_hierarchy_v3_expanded_modern_pilot_v1",
+  "frozenAt": "2026-10-01",
+  "fitPerformedBeforeFreeze": false,
+  "collectionResultKnownBeforeFreeze": false,
+  "recoveryManifestFingerprint": "55b8dcd3090acb707d101a3b03e574862cc3ef15f752c95940870f7b4b3d6e24",
+  "sampleFingerprint": "7fecdbd2cb448dd9414f062d0d83b16a58b187dcbd7bf679cf781dc295d7b23e",
+  "cohort": {
+    "identityGroupEntries": 40,
+    "uniqueCards": 92,
+    "sets": 7,
+    "era": "Scarlet and Violet",
+    "identitiesPerSetFamily": 5
+  },
+  "price": {
+    "source": "pkmnprices_tcgplayer_history",
+    "currency": "USD",
+    "condition": "Near Mint",
+    "period": "180d",
+    "field": "avg",
+    "interpolation": false,
+    "forwardFill": false
+  },
+  "pureTreatment": {
+    "identityDateFixedEffects": true,
+    "scarcityFeature": "-ln(modeled_probability)",
+    "scarcityAuthority": "exact_variant_pull_frequency_v1"
+  },
+  "package": {
+    "identityDateFixedEffects": true,
+    "scarcityControl": false
+  },
+  "bootstrap": {
+    "draws": 2000,
+    "seed": 20261001,
+    "unit": "matched_identity",
+    "stratifiedBy": "set_family",
+    "minimumSignStability": 0.8
+  },
+  "influence": {
+    "unit": "matched_identity",
+    "maximumAbsoluteCoefficientDrift": 0.5
+  },
+  "temporal": {
+    "split": "median_exact_shared_date_per_identity",
+    "minimumCoefficientSpearman": 0.6,
+    "requireSameSignPerSupportedCoefficient": true
+  },
+  "sensitivityMaximumAbsoluteDrift": 0.5,
+  "eraMinimumPassingSetsPerFamily": 2,
+  "crossEraAuthorized": false,
+  "productionWritesAuthorized": false
+}
