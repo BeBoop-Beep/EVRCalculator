@@ -2511,7 +2511,10 @@ def _run_market_quality_index_phase(
         # only and, on a day a historical-era rollout is staged, would
         # silently overwrite the larger public rollout cohort (e.g. 39 roots)
         # with the smaller legacy cohort (e.g. 22 roots).
-        from backend.db.services.pokemon_market_index_service import read_index_history
+        from backend.db.services.pokemon_market_index_service import (
+            EDITION_STABLE_RAW_CUTOVER_DATE,
+            read_index_history,
+        )
         from backend.db.services.pokemon_market_rollout_cohort import resolve_market_root_cohort
         from backend.db.services.pokemon_market_rollout_index import (
             build_rollout_market_index_rows, persist_rollout_market_index_rows,
@@ -2559,6 +2562,30 @@ def _run_market_quality_index_phase(
 
         if commit:
             persist_rollout_market_index_rows(client, index_rows)
+
+            # Since the Sep-27 cutover, the public Raw family is the
+            # edition-stable market-identity series. Downstream global Market
+            # Set Value construction performs a strict read of that authority,
+            # while its candidate builder intentionally runs with commit=False
+            # so it cannot prepare this prerequisite itself. Materialize Raw
+            # here, in the owning Market-index phase, before any downstream
+            # candidate can observe a half-published day.
+            if target >= EDITION_STABLE_RAW_CUTOVER_DATE:
+                raw_response = client.rpc(
+                    "refresh_pokemon_market_raw_edition_stable_history_v1",
+                    {"p_through_date": target},
+                ).execute()
+                raw_receipt = raw_response.data or {}
+                if (
+                    not isinstance(raw_receipt, dict)
+                    or raw_receipt.get("status") != "READY"
+                    or str(raw_receipt.get("marketDate") or "")[:10] != target
+                ):
+                    raise RuntimeError(
+                        "edition-stable Raw authority did not refresh to "
+                        f"{target}: {raw_receipt}"
+                    )
+
             from backend.alerts.pipeline_alerts import alert_market_index
             latest = {key: max((str(row.get("market_date"))[:10] for row in index_rows
                                 if row.get("index_key") == key), default=None)
