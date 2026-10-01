@@ -392,6 +392,13 @@
   z-index: 1;
 }
 
+/* Product Economics contains a real disclosure button inside the otherwise
+   stretched-link row. Keep that control above the row navigation overlay. */
+.productEconomicsTable :global([data-best-open-cell]) {
+  position: relative;
+  z-index: 2;
+}
+
 /* One focus ring per row: the stretched pseudo-element draws it, the anchor
    itself stays unstyled so the two do not double up. */
 .rowLink:focus-visible {

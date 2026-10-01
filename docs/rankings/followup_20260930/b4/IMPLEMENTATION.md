@@ -17,3 +17,14 @@ source_calculation_run_id)` and batches simulation and Best-Open reads.
 
 No schema migration, scoring change, publication change, or Best-Open
 methodology change was made.
+
+Closure testing found and fixed two Product-only presentation regressions. A
+stale Scores contract is now discarded when switching to Economics, preventing
+the incompatible table from flashing. The Best-Open cell now sits above the
+stretched row-link overlay, so its information trigger accepts pointer input.
+
+The controlled production-browser harness lives at
+`frontend/.perf-audit/rankings-b4-product-certification.mjs`. It covers Plus
+Scores/Economics, anonymous catalogue, desktop/mobile pagination, search,
+family, view reset, global sort-before-page, exact/tiny Recover Cost,
+Best-Open details, delayed responses, and public leakage.

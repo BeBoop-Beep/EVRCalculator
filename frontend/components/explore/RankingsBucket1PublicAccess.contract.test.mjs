@@ -30,26 +30,27 @@ test("Set Pack Economics preview exposes cost and locks protected component cell
 });
 
 test("anonymous Products load the independent catalogue without paid ranking reads", () => {
-  assert.match(products, /readPublicProductCatalogue\(\{ sessionCache \}\)/);
-  assert.match(products, /publicMode \? catalogue\.contract\?\.rows/);
-  assert.match(products, /String\(a\.productName \|\| ""\)\.localeCompare/);
+  assert.match(products, /readPublicProductCatalogue\(\{ sessionCache, force, params \}\)/);
+  assert.match(products, /publicMode \? await readPublicProductCatalogue/);
+  assert.match(products, /sort: sort\.key/);
 });
 
 test("anonymous Product Scores and Economics render ordinary locked cells", () => {
-  assert.match(products, /function PublicScoresTable/);
-  assert.match(products, /function PublicEconomicsTable/);
-  assert.match(products, /<LockedCell \/>/);
+  assert.match(products, /function PublicTable/);
+  assert.match(products, /const Locked/);
+  assert.match(products, /<Locked \/>/);
   assert.doesNotMatch(products, /PlanLock/);
 });
 
 test("Product type controls and search remain backed by catalogue rows", () => {
-  assert.match(products, /productFamilyOptions\(familyRows\)/);
-  assert.match(products, /filterProductRows\(rawRows, \{ query, family \}\)/);
+  assert.match(products, /family: family === "all" \? undefined : family/);
+  assert.match(products, /setSearch\(query\)/);
   assert.match(products, /searchLabel="Search Products"/);
 });
 
 test("downgrade clears paid Product and Set state while public rows remain independent", () => {
-  assert.match(products, /if \(!canViewRankingsIntelligence\) setStates/);
+  assert.match(products, /const publicMode = .*canViewRankingsIntelligence/);
+  assert.match(products, /!publicMode && state\.contract\?\.view !== view \? null/);
   assert.match(sets, /if \(!canViewRankingsIntelligence\) setPackState/);
   assert.match(fs.readFileSync(new URL("../../lib/rankings/paidScorecardVisibility.mjs", import.meta.url), "utf8"), /Boolean\(entitled\) && identity != null && state\?\.identity === identity/);
   assert.match(lazy, /publicScorecards=\{visibleSetsState\.scorecards\}/);

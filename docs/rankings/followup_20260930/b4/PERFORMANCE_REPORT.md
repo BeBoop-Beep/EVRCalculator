@@ -22,7 +22,25 @@ sorts require a bounded cohort simulation batch so ordering remains global.
 
 ## Local fixture/build evidence
 
-No live database or authenticated browser timing was performed in this
-worktree. Therefore cold/warm endpoint time, browser click-to-rows, request
-count, and response-byte deltas remain deployment-environment measurements;
-the supplied live evidence above is not presented as local fixture timing.
+A production build was served locally and exercised with deterministic Plus
+and anonymous route fixtures. The acceptance record is
+`evidence/browser-acceptance.json`.
+
+| Measurement | Result |
+|---|---:|
+| Anonymous catalogue page 1 body | 5,099 bytes |
+| Paid Scores page 1 body | 9,184 bytes |
+| Paid Economics page 1 body | 14,013 bytes |
+| Normal Scores click-to-rows | recorded in JSON |
+| Normal Economics click-to-rows | recorded in JSON |
+| Injected 250 ms Scores click-to-rows | recorded in JSON |
+| Injected 250 ms Economics click-to-rows | recorded in JSON |
+
+The fixture also records every URL, returned ID, and row count. It proves that
+normal requests return at most the requested 25-row page, while search, family,
+global sort, last-page bounds, and view reset remain server-driven. Timings are
+controlled-browser observations, not live database endpoint latency.
+
+`LIVE_LOCAL_PRODUCT_TIMING_BLOCKED`: no authenticated local database/runtime
+credentials were supplied, so a fresh live cold/warm endpoint measurement is
+not claimed. The authoritative live measurements above remain the live basis.

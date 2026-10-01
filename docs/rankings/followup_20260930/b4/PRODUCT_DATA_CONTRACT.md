@@ -23,3 +23,9 @@ borrowed.
 
 Public catalogue responses contain identity and facets only. They contain no
 rank, scores, economics, or Best-Open fields.
+
+Recovery probability and Chase remain distinct authorities. Recover Cost is
+the exact Product simulation probability and retains small positive values
+(for example, `0.000002` renders as `0.0002%`). Chase is the parent-Set-derived
+fixed 0â€“100 scalar; it must never be populated from recovery probability or
+from leader-normalized Set `publicScore`.

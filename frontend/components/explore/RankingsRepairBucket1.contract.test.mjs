@@ -54,8 +54,8 @@ test("Financial RIP column renders through the unified benchmark component score
   assert.ok(!financial.includes("metric.typicalOpening /"));
 });
 
-test("Product Rankings removes strategy quantities and uses published full-market rank", () => {
+test("Product Rankings removes strategy quantities and uses published rank plus server total", () => {
   for (const removed of [">Units<", ">Committed<", "row?.quantity", "row?.actualCommittedCapital", "<Strategy"]) assert.ok(!products.includes(removed));
   assert.ok(products.includes("row.rank"));
-  assert.ok(products.includes("row.cohortSize"));
+  assert.ok(products.includes("contract.total"));
 });

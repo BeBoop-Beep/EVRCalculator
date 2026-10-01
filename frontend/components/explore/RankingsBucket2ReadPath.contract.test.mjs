@@ -23,10 +23,10 @@ test("Overview cards use the server-seeded v2 public authority", () => {
 });
 
 test("Products uses one lazy authority per active split view", () => {
-  assert.match(products, /readProductRankings\(target/);
+  assert.match(products, /readProductRankings\(view/);
   assert.match(productReadPath, /\/api\/explore\/product-rankings\/scores/);
   assert.match(productReadPath, /\/api\/explore\/product-rankings\/economics/);
-  assert.match(productReadPath, /`products:\$\{view\}`/);
+  assert.match(productReadPath, /`products:\$\{view\}:\$\{query\}`/);
   assert.doesNotMatch(lazy, /loadProductRankingsAuthorities|products:full_market/);
   assert.doesNotMatch(products, /product-rankings\/overall|rip-benchmark\/current-batch/);
 });
@@ -40,11 +40,11 @@ test("first Card request waits for auth reconciliation and retries on status com
   }
 });
 
-test("Set, Era, and Product refreshes use the tested last-good transition contract", () => {
+test("Set and Era retain last-good refreshes while Product invalidates cross-view state", () => {
   assert.match(lazy, /beginLastGoodRefresh\(current, isRenderableEraState\)/);
   assert.match(lazy, /failLastGoodRefresh\(current, error, isRenderableEraState/);
   assert.match(lazy, /beginLastGoodRefresh\(current, isRenderableSetState\)/);
   assert.match(lazy, /failLastGoodRefresh\(current, error, isRenderableSetState/);
-  assert.match(products, /beginLastGoodRefresh\(current\[target\], renderable\)/);
-  assert.match(products, /failLastGoodRefresh\(current\[target\], error, renderable/);
+  assert.match(products, /s\.contract\?\.view === view \? s\.contract : null/);
+  assert.match(products, /state\.contract\?\.view !== view \? null : state\.contract/);
 });
