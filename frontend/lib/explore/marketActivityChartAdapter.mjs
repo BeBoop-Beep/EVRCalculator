@@ -15,17 +15,23 @@ export function activityChartDto(payload) {
     provenConstituents: point.provenConstituents,
   }));
   const listings = points(series.supply?.listings);
-  const quantities = new Map(points(series.supply?.quantity).map((point) => [point.date, point]));
-  const supply = listings.map((point) => ({
-    date: point.date,
-    listingOfferCount: point.value,
-    listedQuantity: quantities.get(point.date)?.value ?? null,
-    contributingConstituents: point.contributingConstituents,
+  const listingByDate = new Map(listings.map((point) => [point.date, point]));
+  const quantities = points(series.supply?.quantity);
+  const quantityByDate = new Map(quantities.map((point) => [point.date, point]));
+  // FMA v1.1 does not require listing and quantity point dates to align. Build
+  // from their union and preserve a missing side as null (including real zero).
+  const supplyDates = [...new Set([...listingByDate.keys(), ...quantityByDate.keys()])].sort();
+  const supply = supplyDates.map((date) => ({
+    date,
+    listingOfferCount: listingByDate.get(date)?.value ?? null,
+    listedQuantity: quantityByDate.get(date)?.value ?? null,
+    contributingConstituents: listingByDate.get(date)?.contributingConstituents
+      ?? quantityByDate.get(date)?.contributingConstituents ?? null,
     source: series.supply?.source || null,
     quantityProvenance: series.supply?.aggregation || null,
-    observedAt: point.observedAt || `${point.date}T00:00:00Z`,
-    currentUntil: point.currentUntil ?? null,
-    state: point.state || "HISTORICAL_OBSERVATION",
+    observedAt: listingByDate.get(date)?.observedAt ?? quantityByDate.get(date)?.observedAt ?? null,
+    currentUntil: listingByDate.get(date)?.currentUntil ?? quantityByDate.get(date)?.currentUntil ?? null,
+    state: listingByDate.get(date)?.state ?? quantityByDate.get(date)?.state ?? "HISTORICAL_OBSERVATION",
   }));
   return {
     activityGenerationId: payload?.activityGenerationId || null,

@@ -17,6 +17,9 @@ class DirectInstrumentError(ValueError):
         self.code, self.message, self.status_code = code, message, status_code
 
 
+CARD_HISTORY_RPC_V2 = "get_card_variant_price_observed_history_v2"
+
+
 def _rows(result: Any) -> list[dict[str, Any]]:
     return [dict(row) for row in (getattr(result, "data", None) or [])]
 
@@ -42,16 +45,49 @@ def _indexed(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
             for day, price in positive]
 
 
+def _positive_price(value: Any) -> float | None:
+    try:
+        price = float(value)
+    except (TypeError, ValueError):
+        return None
+    return price if price > 0 else None
+
+
 def _card(client: Any, instrument_id: str) -> dict[str, Any]:
     metadata = _execute(client.table("pokemon_market_explorer_card_current_metadata")
                         .select("*").eq("card_variant_id", instrument_id).limit(1))
     if not metadata:
         raise DirectInstrumentError("DIRECT_INSTRUMENT_UNKNOWN", "Card instrument is not in the canonical catalogue.", 404)
     item = metadata[0]
-    history = _execute(client.table("pokemon_market_explorer_card_daily_states_v2_shadow")
+    conditions = _execute(client.table("conditions").select("id")
+                          .eq("name", "Near Mint").eq("abbreviation", "NM"))
+    if len(conditions) != 1:
+        raise DirectInstrumentError("DIRECT_INSTRUMENT_HISTORY_AUTHORITY_INVALID",
+                                    "Canonical Near Mint price authority is unavailable.", 503)
+    today = date.today().isoformat()
+    observed = _rows(client.rpc(CARD_HISTORY_RPC_V2, {
+        "p_card_variant_id": instrument_id,
+        "p_condition_id": str(conditions[0]["id"]),
+        "p_start_date": None,
+        "p_end_date": today,
+        "p_source": "TCGPlayer",
+        "p_currency": "USD",
+    }).execute())
+    daily = _execute(client.table("pokemon_market_explorer_card_daily_states_v2_shadow")
                        .select("market_date,market_price,set_id")
                        .eq("card_variant_id", instrument_id).order("market_date"))
-    points = [{"date": row.get("market_date"), "price": row.get("market_price")} for row in history]
+    # Price Storage V2 supplies the complete observed-date history. Retained
+    # daily states are authoritative on overlap and therefore overwrite by day.
+    by_day: dict[str, float] = {}
+    for row in observed:
+        day, price = str(row.get("observed_date") or "")[:10], _positive_price(row.get("market_price"))
+        if day and day <= today and price is not None:
+            by_day[day] = price
+    for row in daily:
+        day, price = str(row.get("market_date") or "")[:10], _positive_price(row.get("market_price"))
+        if day and day <= today and price is not None:
+            by_day[day] = price
+    points = [{"date": day, "price": by_day[day]} for day in sorted(by_day)]
     set_rows = _execute(client.table("sets").select("name").eq("id", item.get("set_id")).limit(1))
     set_name = set_rows[0].get("name") if set_rows else None
     row = {

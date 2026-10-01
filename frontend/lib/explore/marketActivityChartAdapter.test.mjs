@@ -22,6 +22,32 @@ test("chart adapter preserves sparse dates and distinct sales/supply units", () 
   assert.deepEqual(dto.sales.points.map((point) => point.date), ["2026-09-01", "2026-09-03"]);
   assert.equal(dto.sales.points[1].observedSoldCount, 0);
   assert.deepEqual(dto.supply.points.map((point) => [point.listingOfferCount, point.listedQuantity]), [[38, 40]]);
+  assert.equal(dto.supply.points[0].observedAt, null, "date-only authority must stay date-only");
   assert.equal(dto.supply.points[0].state, "HISTORICAL_OBSERVATION");
   assert.deepEqual(dto.supportedWindows, MARKET_ACTIVITY_SUPPORTED_WINDOWS);
+});
+
+test("supply uses the date union without zero-fill or midnight synthesis", () => {
+  const dto = activityChartDto({ series: { supply: {
+    listings: { points: [
+      { date: "2026-09-20", value: 0, contributingConstituents: 1 },
+      { date: "2026-09-23", value: 38, contributingConstituents: 2 },
+    ] },
+    quantity: { points: [
+      { date: "2026-09-20", value: 4, contributingConstituents: 1 },
+      { date: "2026-09-25", value: 40, contributingConstituents: 2 },
+    ] },
+  } } });
+  assert.deepEqual(dto.supply.points, [
+    { date: "2026-09-20", listingOfferCount: 0, listedQuantity: 4,
+      contributingConstituents: 1, source: null, quantityProvenance: null,
+      observedAt: null, currentUntil: null, state: "HISTORICAL_OBSERVATION" },
+    { date: "2026-09-23", listingOfferCount: 38, listedQuantity: null,
+      contributingConstituents: 2, source: null, quantityProvenance: null,
+      observedAt: null, currentUntil: null, state: "HISTORICAL_OBSERVATION" },
+    { date: "2026-09-25", listingOfferCount: null, listedQuantity: 40,
+      contributingConstituents: 2, source: null, quantityProvenance: null,
+      observedAt: null, currentUntil: null, state: "HISTORICAL_OBSERVATION" },
+  ]);
+  assert.equal(JSON.stringify(dto).includes("T00:00:00Z"), false);
 });

@@ -121,6 +121,32 @@ def test_catalog_search_failure_is_browser_safe_no_invented_results(api):
     assert r.json()["code"] == "CATALOG_SEARCH_FAILED"
 
 
+def test_direct_single_item_is_public_and_does_not_consult_plan(monkeypatch, api):
+    instrument_id = "33333333-3333-3333-3333-333333333333"
+    monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **kw: pytest.fail("direct read required auth"))
+    monkeypatch.setattr(main, "_resolve_index_plan", lambda *args: pytest.fail("direct read consulted plan"))
+    monkeypatch.setattr(main, "read_direct_instrument", lambda _client, asset, identity, start: {
+        "kind": "directInstrument", "asset": asset, "instrumentId": identity,
+        "history": [{"date": "2026-09-01", "rawPrice": 1, "indexValue": 100}],
+    })
+    response = api(Fake()).post("/market/explorer/direct-instrument", json={
+        "asset": "cards", "instrumentId": instrument_id,
+    })
+    assert response.status_code == 200
+    assert response.json()["instrumentId"] == instrument_id
+
+
+def test_direct_route_rejects_lists_and_extra_basket_fields(api):
+    instrument_id = "33333333-3333-3333-3333-333333333333"
+    client = api(Fake())
+    assert client.post("/market/explorer/direct-instrument", json={
+        "asset": "cards", "instrumentId": [instrument_id],
+    }).status_code == 422
+    assert client.post("/market/explorer/direct-instrument", json={
+        "asset": "cards", "instrumentId": instrument_id, "instrumentIds": [instrument_id],
+    }).status_code == 422
+
+
 def test_asset_options_ok_invalid_and_failure(api):
     client = api(Fake(options={"asset": "sealed", "types": []}))
     assert client.get("/market/explorer/asset-options", params={"asset": "sealed"}).json() == {"asset": "sealed", "types": []}
