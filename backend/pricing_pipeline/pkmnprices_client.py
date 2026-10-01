@@ -174,6 +174,34 @@ class PkmnPricesClient:
             raise PkmnPricesAPIError(200, "invalid_payload", "cards data is not an array")
         return [dict(row) for row in rows if isinstance(row, dict)]
 
+    def cards_by_name_number(
+        self,
+        *,
+        name: str,
+        number: str,
+        language: str = "English",
+        per_page: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Search cards by exact card-number candidate without requiring a set id.
+
+        The provider's name filter is partial-match, so callers must still enforce
+        exact name/number matching before accepting an identity.
+        """
+        payload = self.get(
+            "/v1/cards",
+            {
+                "name": str(name),
+                "number": str(number),
+                "language": language,
+                "per_page": max(1, min(int(per_page), 100)),
+                "page": 1,
+            },
+        )
+        rows = payload.get("data") or []
+        if not isinstance(rows, list):
+            raise PkmnPricesAPIError(200, "invalid_payload", "cards data is not an array")
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
     def cards_by_tcgplayer_id(
         self,
         tcgplayer_product_id: str | int,
