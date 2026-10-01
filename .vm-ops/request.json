@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-reviewed",
-  "request_id": "sentinel-hotfix-sync-20261001"
+  "operation": "sentinel-audit-now",
+  "request_id": "sentinel-post-hotfix-audit-20261001"
 }
