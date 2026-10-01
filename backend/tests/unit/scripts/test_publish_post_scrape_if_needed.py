@@ -109,6 +109,27 @@ def test_rebuild_failure_is_reported(monkeypatch):
     assert result["exit_code"] == 1
 
 
+def test_database_safety_hold_is_a_retryable_deferral(monkeypatch):
+    monkeypatch.setattr(mod, "_batch_gate_decision", lambda *_a, **_k: _gate())
+    _set_lock(monkeypatch, False)
+    monkeypatch.setattr(
+        mod,
+        "_already_current",
+        lambda *_a, **_k: PublicationCurrencyStatus.STALE,
+    )
+    result = mod.publish_if_needed(
+        "2026-09-01",
+        client=object(),
+        run_rebuild=lambda _md: mod.DATABASE_SAFETY_HOLD_EXIT_CODE,
+    )
+    assert result["status"] == mod.STATUS_DEFERRED_DATABASE_SAFETY_HOLD
+    assert result["exit_code"] == mod.DATABASE_SAFETY_HOLD_EXIT_CODE
+    assert (
+        mod._status_to_exit_code(result["status"])
+        == mod.DATABASE_SAFETY_HOLD_EXIT_CODE
+    )
+
+
 def test_currency_unknown_never_rebuilds(monkeypatch):
     monkeypatch.setattr(mod, "_batch_gate_decision", lambda *_a, **_k: _gate())
     _set_lock(monkeypatch, False)

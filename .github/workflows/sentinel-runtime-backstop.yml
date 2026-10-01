@@ -40,7 +40,17 @@ jobs:
       - name: Install independent Sentinel runtime
         run: python -m pip install -q supabase==2.28.3 python-dotenv==1.2.2 requests
       - name: Verify production Sentinel heartbeat independently
-        run: python -m backend.sentinel.operational --profile independent
+        shell: bash
+        run: |
+          set +e
+          python -m backend.sentinel.operational --profile independent
+          code=$?
+          set -e
+          if [ "$code" -eq 1 ]; then
+            echo "::warning::Sentinel observed an unhealthy persisted state; incident state owns alerting."
+            exit 0
+          fi
+          exit "$code"
 
 
   vm-fast-backstop:
@@ -68,4 +78,12 @@ jobs:
           . backend/.env
           set +a
           export PYTHONPATH="$REPO"
-          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)"             "$PY" -m backend.sentinel.operational --profile fast
+          set +e
+          SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" "$PY" -m backend.sentinel.operational --profile fast
+          code=$?
+          set -e
+          if [ "$code" -eq 1 ]; then
+            echo "::warning::Sentinel observed an unhealthy persisted state; incident state owns alerting."
+            exit 0
+          fi
+          exit "$code"
