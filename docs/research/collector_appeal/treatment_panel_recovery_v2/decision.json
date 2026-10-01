@@ -1,0 +1,33 @@
+{
+  "decisionToken": "TREATMENT_PANEL_RECOVERY_V2_PASS_PHASE2_REOPENED",
+  "workflowRunId": 36913676646,
+  "artifactId": 11190000187,
+  "artifactDigest": "sha256:e1cafb46732bf40932c8095b8f8266b05d256d2fdaa5761afc0fe1078be86233",
+  "providerCreditsUsed": 3521,
+  "cardsRequested": 36,
+  "cardsCollected": 36,
+  "historyRows": 3465,
+  "matchedIdentities": 16,
+  "panelReadyModerate": 16,
+  "panelReadyStrong": 0,
+  "setFamilyGroupsPassing": 8,
+  "eraFamilyGatesPassing": 4,
+  "sourceBridge": {
+    "comparisons": 48,
+    "sets": 7,
+    "medianAbsoluteRelativeDifference": 0.003507584272852128,
+    "p90AbsoluteRelativeDifference": 0.028779648177359268,
+    "p95AbsoluteRelativeDifference": 0.04601449275362306,
+    "maximumAbsoluteRelativeDifference": 0.0833333333333333,
+    "shareWithin5Pct": 0.9375,
+    "shareWithin10Pct": 1.0,
+    "medianSignedRelativeDifference": 0.0,
+    "meanSignedRelativeDifference": -0.0009038853797223097,
+    "logPricePearson": 0.9999582789679248
+  },
+  "productionWrites": 0,
+  "canonicalPriceMutation": false,
+  "collectorMutation": false,
+  "overallRipMutation": false,
+  "nextStep": "FREEZE_TREATMENT_HIERARCHY_V2_ESTIMATOR_THEN_FIT"
+}
