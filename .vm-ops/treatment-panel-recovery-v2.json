@@ -1,8 +1,9 @@
 {
   "operation": "treatment-panel-recovery-v2",
-  "research_sha": "43a152d9026b7e8ce0141273e75bea5dfc8fc264",
+  "research_sha": "2602d7908a4ad9cf24aa46e1f9d05ba61718f4ba",
   "market_date": "2026-09-29",
   "period": "180d",
   "credit_cap": 9000,
-  "requested_at": "2026-10-01"
+  "requested_at": "2026-10-01",
+  "request_seq": 2
 }
