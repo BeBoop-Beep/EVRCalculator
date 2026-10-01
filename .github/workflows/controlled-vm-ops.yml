@@ -36,7 +36,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -981,6 +981,54 @@ jobs:
           }
 
           case "$VM_OPERATION" in
+            treatment-panel-preflight|treatment-panel-pilot)
+              TREATMENT_BRANCH="research/treatment-panel-recovery-v2-pkmnprices-20261001"
+              TREATMENT_SHA="772e827b8174acbc397c68eb51d9e320f9c23493"
+              TREATMENT_STATE="/home/ubuntu/state/treatment-panel-recovery-v2"
+              TREATMENT_WT="/tmp/EVRCalculator-treatment-panel-recovery-v2"
+              cd "$REPO"
+              mkdir -p "$TREATMENT_STATE"
+              git fetch --quiet origin "$TREATMENT_BRANCH"
+              FETCHED="$(git rev-parse FETCH_HEAD)"
+              [ "$FETCHED" = "$TREATMENT_SHA" ] || { echo "REFUSING: treatment research branch moved expected=$TREATMENT_SHA fetched=$FETCHED"; exit 2; }
+              git worktree prune >/dev/null 2>&1 || true
+              if [ -e "$TREATMENT_WT" ]; then
+                git worktree remove --force "$TREATMENT_WT" >/dev/null 2>&1 || rm -rf "$TREATMENT_WT"
+              fi
+              git worktree add --detach "$TREATMENT_WT" "$TREATMENT_SHA" >/dev/null
+              trap 'git -C "$REPO" worktree remove --force "$TREATMENT_WT" >/dev/null 2>&1 || rm -rf "$TREATMENT_WT"; git -C "$REPO" worktree prune >/dev/null 2>&1 || true' EXIT
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$TREATMENT_WT"
+              echo "== research helper tests =="
+              (cd "$TREATMENT_WT" && "$PY" -m pytest -q -p no:cacheprovider backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py)
+              echo "== treatment panel preflight =="
+              (cd "$TREATMENT_WT" && "$PY" backend/scripts/research_treatment_panel_recovery_v2.py --market-date 2026-09-29 --period 180d --output "$TREATMENT_STATE/preflight.json")
+              "$PY" - "$TREATMENT_STATE/preflight.json" <<'PY'
+import json,sys
+x=json.load(open(sys.argv[1],encoding="utf-8"))
+print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],"counts":x["cohort"]["counts"],
+       "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],"productionWrites":x["production_writes"]})
+PY
+              if [ "$VM_OPERATION" = "treatment-panel-pilot" ]; then
+                echo "== bounded 12-card / 2500-credit NM history pilot =="
+                if ! /usr/bin/flock -n /tmp/pkmnprices-api.lock -c "cd '$TREATMENT_WT' && PYTHONPATH='$TREATMENT_WT' '$PY' backend/scripts/research_treatment_panel_recovery_v2.py --market-date 2026-09-29 --period 180d --collect --max-cards 12 --credit-cap 2500 --output '$TREATMENT_STATE/pilot.json'"; then
+                  echo "TREATMENT_PANEL_PILOT_BLOCKED_OR_FAILED"
+                  exit 75
+                fi
+                "$PY" - "$TREATMENT_STATE/pilot.json" <<'PY'
+import json,sys
+x=json.load(open(sys.argv[1],encoding="utf-8"))
+print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],
+       "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],
+       "cardsRequested":x.get("cards_requested"),"cardsReturned":x.get("cards_returned"),
+       "readinessCounts":x.get("readiness_counts"),"failureCount":len(x.get("failures") or []),
+       "productionWrites":x["production_writes"]})
+PY
+              fi
+              echo "TREATMENT_PANEL_RECOVERY_OPERATION=PASS"
+              ;;
             repair-sep22-market-publication-direct)
               cd "$REPO"
               test "$VM_MARKET_DATE" = "2026-09-22" || { echo "This repair is scoped only to 2026-09-22"; exit 8; }
