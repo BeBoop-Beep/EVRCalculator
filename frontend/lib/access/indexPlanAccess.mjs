@@ -55,6 +55,7 @@ export const FEATURE_MARKET_EXPLORER_ADVANCED_RANKING = "market_explorer_advance
 export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
 export const FEATURE_CARD_COLLECTOR_APPEAL = "card_collector_appeal";
 export const FEATURE_PRODUCT_RIP = "product_rip";
+export const FEATURE_PRODUCT_FULL_MARKET_RANKINGS = "product_full_market_rankings";
 export const FEATURE_BEST_OPEN_PRICE = "best_open_price";
 export const FEATURE_DETAILED_OPENING_ECONOMICS = "detailed_opening_economics";
 export const FEATURE_SET_PACK_ECONOMICS = "set_pack_economics";
@@ -93,6 +94,7 @@ export const PREMIUM_FEATURES = Object.freeze(new Set([
   FEATURE_MARKET_EXPLORER_POKEMON, FEATURE_MARKET_EXPLORER_EXPLICIT_INSTRUMENTS,
   FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS, FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
   FEATURE_PRODUCT_CHASE_INTELLIGENCE,
+  FEATURE_PRODUCT_FULL_MARKET_RANKINGS,
   FEATURE_MARKET_EXPLORER_FAIR_VALUE,
 ]));
 
@@ -181,6 +183,8 @@ export function resolveRankingsPlanAccess(user) {
   const indexPlan = normalizeIndexPlan(user?.index_plan);
   return {
     canViewRankingsIntelligence: hasIndexPlusAccess(indexPlan),
+    canViewFamilyProductRankings: hasIndexPlusAccess(indexPlan),
+    canViewFullMarketProductRankings: hasIndexPremiumAccess(indexPlan),
     canViewBestOpenPrice: hasIndexFeatureAccess(indexPlan, FEATURE_BEST_OPEN_PRICE),
     canViewCardChaseEfficiency: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_CHASE_EFFICIENCY),
     canViewCardCollectorAppeal: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_COLLECTOR_APPEAL),

@@ -12,6 +12,7 @@ import { defaultFinancialHistoryRequest } from "./financialRipHistoryModel.mjs";
 import { planCohortPrefetch, prewarmFinancialHistory, readFinancialHistoryCached } from "@/lib/rankings/financialHistoryCache.mjs";
 import { beginLastGoodRefresh, failLastGoodRefresh, isRenderableEraState, isRenderableSetState } from "@/lib/rankings/rankingsLastGoodState.mjs";
 import { prewarmDefaultCollector } from "@/lib/rankings/cardRankingsClient.mjs";
+import { prewarmDefaultProduct } from "@/lib/rankings/productRankingsClient.mjs";
 import styles from "./explore.module.css";
 
 const lensModules = {
@@ -48,7 +49,7 @@ export default function RankingsLazyClient({
   rankingsOverview = null,
   financialCohort = null,
 }) {
-  const { canViewRankingsIntelligence, canViewCardChaseEfficiency, canViewCardCollectorAppeal, authStatus, requestKey } = useRankingsAccess();
+  const { canViewRankingsIntelligence, canViewFullMarketProductRankings, canViewCardChaseEfficiency, canViewCardCollectorAppeal, authStatus, requestKey } = useRankingsAccess();
   const [lens, setActiveLens] = useState("overall");
   const [eraLens, setEraLens] = useState("rankings");
   const [setEntryView, setSetEntryView] = useState("ripScore");
@@ -145,9 +146,10 @@ export default function RankingsLazyClient({
         loadEra(),
       ]));
       await idle(() => loadSets());
+      await idle(() => prewarmDefaultProduct({ sessionCache, canViewFullMarket: canViewFullMarketProductRankings }));
     })();
     return () => { warmGeneration.current += 1; };
-  }, [authStatus, canViewRankingsIntelligence, loadEra, loadSets]);
+  }, [authStatus, canViewFullMarketProductRankings, canViewRankingsIntelligence, loadEra, loadSets, sessionCache]);
 
   useEffect(() => {
     if (!(authStatus === "resolved" || authStatus === "degraded") || !canViewCardCollectorAppeal) return undefined;
@@ -207,6 +209,8 @@ export default function RankingsLazyClient({
     lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
     if (next === "eras") loadEra();
     if (next === "sets") loadSets();
+    if (next === "products" && (authStatus === "resolved" || authStatus === "degraded")) prewarmDefaultProduct({ sessionCache, canViewFullMarket: canViewFullMarketProductRankings }).catch(() => null);
+    if (next === "cards" && (authStatus === "resolved" || authStatus === "degraded")) prewarmDefaultCollector({ sessionCache, entitled: canViewCardCollectorAppeal, authStatus }).catch(() => null);
   };
 
   const visibleEraState = eraState.cacheIdentity === sessionCache.identity ? eraState : { status: "idle", contract: null, marketDate: rankingsMarketDate };

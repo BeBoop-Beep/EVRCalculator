@@ -74,7 +74,9 @@ test("all twelve certified v2 observations and the moving Overall reference surv
 });
 
 test("timeframes and authority date match the chart contract", () => {
-  assert.deepEqual(FINANCIAL_RIP_WINDOWS.map((item) => item.key), ["30D", "3M", "6M", "1Y", "ALL"]);
+  assert.deepEqual(FINANCIAL_RIP_WINDOWS.map((item) => item.key), ["1D", "7D", "30D", "3M", "6M", "1Y", "ALL"]);
+  assert.deepEqual(financialRipWindowRange("1D", "2026-09-27"), { startDate: "2026-09-27", endDate: "2026-09-27" });
+  assert.deepEqual(financialRipWindowRange("7D", "2026-09-27"), { startDate: "2026-09-21", endDate: "2026-09-27" });
   assert.deepEqual(financialRipWindowRange("30D", "2026-09-27"), { startDate: "2026-08-29", endDate: "2026-09-27" });
   assert.deepEqual(financialRipWindowRange("ALL", "2026-09-27", "2026-01-04"), { startDate: "2026-01-04", endDate: "2026-09-27" });
 });

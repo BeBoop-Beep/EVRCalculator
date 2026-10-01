@@ -12,7 +12,7 @@ from functools import cmp_to_key
 from typing import Any, Mapping, Optional
 
 from backend.desirability.chase_accessibility_overall_score import chase_accessibility_overall_score
-from backend.domain.pokemon.sealed_product_classifier import FAMILY_LABELS, classify_sealed_product
+from backend.domain.pokemon.sealed_product_classifier import FAMILY_LABELS
 from backend.db.services.budget_product_ranking_service import (
     load_full_market_ranking, load_latest_snapshot, resolve_generic_budget_cohort_size,
     resolve_generic_budget_rank, resolve_generic_overall_score,
@@ -201,30 +201,22 @@ def _apply_exact(row: dict[str, Any], exact: Mapping[str, Any]) -> None:
                 "economicsSourceMarketDate": _day(exact.get("price_as_of"))})
 
 
-def read_public_product_catalogue_page(client: Any, *, page: int = 1, page_size: int = 25,
+def read_public_product_catalogue_page(authority: Mapping[str, Any], *, page: int = 1, page_size: int = 25,
                                        search: Optional[str] = None, family: Optional[str] = None) -> dict[str, Any]:
-    """Paginated identity-only catalogue. The bounded ~1.8k identity scan is
-    required because family classification is derived from canonical names;
-    only the selected page crosses the HTTP boundary."""
-    products = _rows(client.table("sealed_products").select(
-        "id,set_id,name,product_type,image_small_url,image_large_url"
-    ).order("name").order("id").limit(5000).execute())
-    set_ids = sorted({str(row.get("set_id")) for row in products if row.get("set_id")})
-    sets = {str(row["id"]): row for row in _rows(client.table("sets").select(
-        "id,name,canonical_key"
-    ).in_("id", set_ids).execute())} if set_ids else {}
-    rows = []
-    for product in products:
-        classified = classify_sealed_product(product.get("name")); set_row = sets.get(str(product.get("set_id")), {})
-        rows.append({"sealedProductId": str(product["id"]), "productName": product.get("name"),
-                     "productType": product.get("product_type"), "familyKey": classified["productFamily"],
-                     "familyName": classified["productFamilyLabel"], "setId": str(product.get("set_id") or "") or None,
-                     "setName": set_row.get("name"), "setCanonicalKey": set_row.get("canonical_key"),
-                     "imageSmallUrl": product.get("image_small_url"), "imageLargeUrl": product.get("image_large_url")})
+    """Identity-only preview of the *rankable* Product authority.
+
+    The public preview is projected from the same published Full Market cohort
+    as paid Scores/Economics. Catalogue-only sealed identities therefore never
+    become Rankings tabs or preview rows merely because they exist sitewide.
+    """
+    rows = [{key: row.get(key) for key in (
+        "sealedProductId", "productName", "setId", "setName", "setCanonicalKey",
+        "familyKey", "familyName", "productImageUrl",
+    )} for row in authority.get("rows") or []]
     rows.sort(key=lambda row: ((row.get("productName") or "").casefold(), row["sealedProductId"]))
     facets = sorted(({"value": key, "label": label} for key, label in
                      {(row["familyKey"], row["familyName"]) for row in rows}), key=lambda item: item["label"])
     filtered = _filter_sort(rows, search=search, family=family, sort="productName", direction="asc")
     selected, meta = _page(filtered, page, page_size)
-    return {"contractVersion": "rankings-product-catalogue-v2", "status": "available", **meta,
+    return {"contractVersion": "rankings-product-catalogue-v3", "status": "available", **meta,
             "families": facets, "rows": selected}

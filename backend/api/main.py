@@ -79,6 +79,7 @@ from backend.domain.access.index_plan_access import (
     FEATURE_MARKET_EXPLORER_SINGLE_AXIS,
     FEATURE_PACK_ECONOMICS,
     FEATURE_PRODUCT_RIP,
+    FEATURE_PRODUCT_FULL_MARKET_RANKINGS,
     FEATURE_PRODUCT_CHASE_INTELLIGENCE,
     FEATURE_SET_RIP_ANALYTICS,
     evaluate_market_query_access,
@@ -788,7 +789,7 @@ def pokemon_rankings_product_catalogue(
     search: Optional[str] = Query(default=None), family: Optional[str] = Query(default=None),
 ):
     return read_public_product_catalogue_page(
-        _benchmark_client(), page=page, page_size=page_size, search=search, family=family)
+        _rankings_product_authority(), page=page, page_size=page_size, search=search, family=family)
 
 
 @app.get("/tcgs/pokemon/rankings/pack-economics")
@@ -2015,18 +2016,8 @@ def get_card_ranking_facets(
     return _tiered_response(read_card_facets(service_read_client, lens=lens))
 
 
-def _rankings_product_v2(
-    *, view: str, request: Request, authorization: Optional[str], token_cookie: Optional[str],
-    page: int, page_size: int, search: Optional[str], family: Optional[str],
-    sort: Optional[str], direction: str,
-):
-    user_id = _require_index_feature(
-        feature=FEATURE_PRODUCT_RIP, code="INDEX_PLUS_REQUIRED",
-        message="Product Rankings require Index Plus.",
-        authorization=authorization, token_cookie=token_cookie,
-    )
-    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
-                        route=f"/explore/product-rankings/{view}")
+def _rankings_product_authority() -> Dict[str, Any]:
+    """Resolve the publication-bound Product authority with one shared cache."""
     global _rankings_product_authority_cache
     release = rip_release.resolve_release_or_marked_fallback(service_read_client)
     ranking_kwargs = {} if release.ranking_method_version == "budget_product_ranking_v1" else {
@@ -2036,11 +2027,28 @@ def _rankings_product_v2(
                                           str(snapshot.get("cohort_fingerprint")))
     cached = _rankings_product_authority_cache
     if identity is not None and cached and cached[0] == identity:
-        authority = cached[1]
-    else:
-        authority = read_product_authority(service_read_client, release=release)
-        if authority.get("available"):
-            _rankings_product_authority_cache = (authority["publicationIdentity"], authority)
+        return cached[1]
+    authority = read_product_authority(service_read_client, release=release)
+    if authority.get("available"):
+        _rankings_product_authority_cache = (authority["publicationIdentity"], authority)
+    return authority
+
+
+def _rankings_product_v2(
+    *, view: str, request: Request, authorization: Optional[str], token_cookie: Optional[str],
+    page: int, page_size: int, search: Optional[str], family: Optional[str],
+    sort: Optional[str], direction: str,
+):
+    scoped = bool(family and family != "all")
+    user_id = _require_index_feature(
+        feature=FEATURE_PRODUCT_RIP if scoped else FEATURE_PRODUCT_FULL_MARKET_RANKINGS,
+        code="INDEX_PLUS_REQUIRED" if scoped else "INDEX_PREMIUM_REQUIRED",
+        message="Family Product Rankings require Index Plus." if scoped else "Full Market Product Rankings require Index Premium.",
+        authorization=authorization, token_cookie=token_cookie,
+    )
+    _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
+                        route=f"/explore/product-rankings/{view}")
+    authority = _rankings_product_authority()
     return _tiered_response(query_product_rankings(
         service_read_client, authority, view=view, page=page, page_size=page_size,
         search=search, family=family, sort=sort, direction=direction,

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import InfoPopover from "@/components/ui/InfoPopover";
+import PlanLock from "@/components/membership/PlanLock";
+import { INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes.mjs";
 import { readProductRankings } from "@/lib/rankings/productRankingsClient.mjs";
 import { readPublicProductCatalogue } from "@/lib/rankings/rankingsPublicClient.mjs";
@@ -14,51 +16,330 @@ import { formatRecoverCost } from "./productRankingsPresentation.mjs";
 import styles from "./explore.module.css";
 
 const PAGE_SIZE = 25;
-const VIEW_OPTIONS = [{ value: "scores", label: "Scores" }, { value: "economics", label: "Economics" }];
-const SCORE_SORTS = { rank: "Rank", productName: "Product", ripScore: "Product Overall", financialRip: "Financial", chaseScore: "Chase", collectorAppeal: "Collector Appeal" };
-const ECONOMICS_SORTS = { productName: "Product", unitPrice: "Unit Price", bestOpenPrice: "Best-Open Price", expectedValuePerPack: "EV / Pack", modeledReturnOnSpend: "Modeled Return", chanceToRecoverCost: "Recover Cost" };
-const DEFINITIONS = { financialRip: "Absolute Product Financial RIP authority.", chaseScore: "Chase is inherited from this Product's parent Set and uses the canonical fixed 0–100 Chase transform.", collectorAppeal: "Collector Appeal is inherited from this Product's parent Set; it is not a separate Product model.", unitPrice: "Current market cost for this exact Product simulation.", bestOpenPrice: "The highest modeled purchase price where opening this exact Product still meets its Best-Open comparison threshold.", expectedValuePerPack: "Exact Product simulation expected value divided by its pack count.", modeledReturnOnSpend: "Exact Product simulation expected value divided by current Product market cost.", chanceToRecoverCost: "Modeled chance that an opening of this exact Product recovers its purchase cost." };
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
-const number = (v) => v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null;
-const currency = (v) => number(v) === null ? "—" : money.format(Number(v));
-const percent = (v) => number(v) === null ? "—" : `${(Number(v) * 100).toFixed(1)}%`;
-const metric = (v) => number(v) === null ? "—" : Number(v).toFixed(1);
-const identity = (row) => ({ ...row, productFamily: row.familyKey, productFamilyLabel: row.familyName });
+const VIEW_OPTIONS = [
+  { value: "scores", label: "Scores" },
+  { value: "economics", label: "Economics" },
+];
+const SCORE_SORTS = {
+  rank: "Rank",
+  productName: "Product",
+  ripScore: "Product Overall",
+  financialRip: "Financial",
+  chaseScore: "Chase",
+  collectorAppeal: "Collector Appeal",
+};
+const ECONOMICS_SORTS = {
+  productName: "Product",
+  unitPrice: "Unit Price",
+  bestOpenPrice: "Best-Open Price",
+  expectedValuePerPack: "EV / Pack",
+  modeledReturnOnSpend: "Modeled Return",
+  chanceToRecoverCost: "Recover Cost",
+};
+const DEFINITIONS = {
+  financialRip: "Absolute Product Financial RIP authority.",
+  chaseScore: "Chase is inherited from this Product's parent Set and uses the canonical fixed 0–100 Chase transform.",
+  collectorAppeal: "Collector Appeal is inherited from this Product's parent Set; it is not a separate Product model.",
+  unitPrice: "Current market cost for this exact Product simulation.",
+  bestOpenPrice: "The highest modeled purchase price where opening this exact Product still meets its Best-Open comparison threshold.",
+  expectedValuePerPack: "Exact Product simulation expected value divided by its pack count.",
+  modeledReturnOnSpend: "Exact Product simulation expected value divided by current Product market cost.",
+  chanceToRecoverCost: "Modeled chance that an opening of this exact Product recovers its purchase cost.",
+};
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+const number = (v) => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+const currency = (v) => (number(v) === null ? "—" : money.format(Number(v)));
+const percent = (v) => (number(v) === null ? "—" : `${(Number(v) * 100).toFixed(1)}%`);
+const metric = (v) => (number(v) === null ? "—" : Number(v).toFixed(1));
+const identity = (row) => ({
+  ...row,
+  productFamily: row.familyKey,
+  productFamilyLabel: row.familyName,
+});
 
-function ProductLink({ row }) { return <Link href={buildSealedProductHref(row) || "#"} className={styles.rowLink}><RankedProductIdentity product={identity(row)} secondary={`${row.setName || "Unknown set"} · ${row.familyName || "Product"}`} /></Link>; }
-function Metric({ label, value }) { return <div><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">{label}</dt><dd className="mt-0.5 font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd></div>; }
+function ProductLink({ row }) {
+  return (
+    <Link href={buildSealedProductHref(row) || "#"} className={styles.rowLink}>
+      <RankedProductIdentity product={identity(row)} secondary={`${row.setName || "Unknown set"} · ${row.familyName || "Product"}`} />
+    </Link>
+  );
+}
+function Metric({ label, value }) {
+  return (
+    <div>
+      <dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">{label}</dt>
+      <dd className="mt-0.5 font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd>
+    </div>
+  );
+}
 const Empty = () => <p className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">No Products match the current filters.</p>;
-const Loading = ({ view }) => <section className={`${styles.surface} min-h-64 p-5`} aria-busy="true"><p className="sr-only">Loading Product {view}</p><div className="h-40 animate-pulse rounded-xl bg-white/[.045]" /></section>;
-function SortHeader({ name, label, sort, onSort }) { return <th className={name === "productName" ? "" : styles.numeric} aria-sort={sort.key === name ? sort.direction === "asc" ? "ascending" : "descending" : undefined}><span className="inline-flex items-center gap-1"><button type="button" className={styles.sortButton} onClick={() => onSort(name)}>{label}</button>{DEFINITIONS[name] ? <InfoPopover text={DEFINITIONS[name]} /> : null}</span></th>; }
+const Loading = ({ view }) => (
+  <section className={`${styles.surface} min-h-64 p-5`} aria-busy="true">
+    <p className="sr-only">Loading Product {view}</p>
+    <div className="h-40 animate-pulse rounded-xl bg-white/[.045]" />
+  </section>
+);
+function SortHeader({ name, label, sort, onSort }) {
+  return (
+    <th className={name === "productName" ? "" : styles.numeric} aria-sort={sort.key === name ? (sort.direction === "asc" ? "ascending" : "descending") : undefined}>
+      <span className="inline-flex items-center gap-1">
+        <button type="button" className={styles.sortButton} onClick={() => onSort(name)}>
+          {label}
+        </button>
+        {DEFINITIONS[name] ? <InfoPopover text={DEFINITIONS[name]} /> : null}
+      </span>
+    </th>
+  );
+}
 
 function Scores({ rows, sort, onSort }) {
   if (!rows.length) return <Empty />;
-  return <><div className="hidden overflow-x-auto desk:block"><table className={`${styles.table} ${styles.productScoresTable}`} data-product-scores-table><caption className="sr-only">Product Scores ranked across the current Full Market cohort.</caption><thead className={styles.head}><tr>{Object.entries(SCORE_SORTS).map(([name, label]) => <SortHeader key={name} name={name} label={label} sort={sort} onSort={onSort} />)}</tr></thead><tbody>{rows.map((row) => <tr key={row.sealedProductId} className={styles.row}><td className={styles.numeric}>#{row.rank ?? "—"}</td><td><ProductLink row={row} /></td><td className={styles.numeric}>{metric(row.ripScore?.scoreValue)}</td><td className={styles.numeric}>{metric(row.financialRip)}</td><td className={styles.numeric}>{metric(row.chaseScore)}</td><td className={styles.numeric}>{metric(row.collectorAppeal)}</td></tr>)}</tbody></table></div><div className="space-y-2 p-3 desk:hidden">{rows.map((row) => <article key={row.sealedProductId} className={styles.mobileRow} data-product-score-card><div>#{row.rank ?? "—"}<ProductLink row={row} /></div><dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3"><Metric label="Financial" value={metric(row.financialRip)} /><Metric label="Chase" value={metric(row.chaseScore)} /><Metric label="Collector Appeal" value={metric(row.collectorAppeal)} /></dl></article>)}</div></>;
+  return (
+    <>
+      <div className="hidden overflow-x-auto desk:block">
+        <table className={`${styles.table} ${styles.productScoresTable}`} data-product-scores-table>
+          <caption className="sr-only">Product Scores ranked across the current Full Market cohort.</caption>
+          <thead className={styles.head}>
+            <tr>
+              {Object.entries(SCORE_SORTS).map(([name, label]) => (
+                <SortHeader key={name} name={name} label={label} sort={sort} onSort={onSort} />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.sealedProductId} className={styles.row}>
+                <td className={styles.numeric}>#{row.rank ?? "—"}</td>
+                <td>
+                  <ProductLink row={row} />
+                </td>
+                <td className={styles.numeric}>{metric(row.ripScore?.scoreValue)}</td>
+                <td className={styles.numeric}>{metric(row.financialRip)}</td>
+                <td className={styles.numeric}>{metric(row.chaseScore)}</td>
+                <td className={styles.numeric}>{metric(row.collectorAppeal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-2 p-3 desk:hidden">
+        {rows.map((row) => (
+          <article key={row.sealedProductId} className={styles.mobileRow} data-product-score-card>
+            <div>
+              #{row.rank ?? "—"}
+              <ProductLink row={row} />
+            </div>
+            <dl className="mt-3 grid grid-cols-3 gap-2 border-t pt-3">
+              <Metric label="Financial" value={metric(row.financialRip)} />
+              <Metric label="Chase" value={metric(row.chaseScore)} />
+              <Metric label="Collector Appeal" value={metric(row.collectorAppeal)} />
+            </dl>
+          </article>
+        ))}
+      </div>
+    </>
+  );
 }
 function Economics({ rows, sort, onSort }) {
   if (!rows.length) return <Empty />;
-  return <><div className="hidden overflow-x-auto desk:block"><table className={`${styles.table} ${styles.productEconomicsTable}`} data-product-economics-table><caption className="sr-only">Exact Product Economics.</caption><thead className={styles.head}><tr>{Object.entries(ECONOMICS_SORTS).map(([name, label]) => <SortHeader key={name} name={name} label={label} sort={sort} onSort={onSort} />)}</tr></thead><tbody>{rows.map((row) => <tr key={row.sealedProductId} className={styles.row}><td><ProductLink row={row} /></td><td className={styles.numeric}>{currency(row.unitPrice)}</td><td className={styles.numeric}><BestOpenDetailsPopover row={row} /></td><td className={styles.numeric}>{currency(row.expectedValuePerPack)}</td><td className={styles.numeric}>{percent(row.modeledReturnOnSpend)}</td><td className={styles.numeric}>{formatRecoverCost(row.chanceToRecoverCost)}</td></tr>)}</tbody></table></div><div className="space-y-2 p-3 desk:hidden">{rows.map((row) => <article key={row.sealedProductId} className={styles.mobileRow} data-product-economics-card><ProductLink row={row} /><dl className="mt-3 grid grid-cols-2 gap-3 border-t pt-3"><Metric label="Unit Price" value={currency(row.unitPrice)} /><Metric label="Best-Open" value={<BestOpenDetailsPopover row={row} />} /><Metric label="EV / Pack" value={currency(row.expectedValuePerPack)} /><Metric label="Modeled Return" value={percent(row.modeledReturnOnSpend)} /><Metric label="Recover Cost" value={formatRecoverCost(row.chanceToRecoverCost)} /></dl></article>)}</div></>;
+  return (
+    <>
+      <div className="hidden overflow-x-auto desk:block">
+        <table className={`${styles.table} ${styles.productEconomicsTable}`} data-product-economics-table>
+          <caption className="sr-only">Exact Product Economics.</caption>
+          <thead className={styles.head}>
+            <tr>
+              {Object.entries(ECONOMICS_SORTS).map(([name, label]) => (
+                <SortHeader key={name} name={name} label={label} sort={sort} onSort={onSort} />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.sealedProductId} className={styles.row}>
+                <td>
+                  <ProductLink row={row} />
+                </td>
+                <td className={styles.numeric}>{currency(row.unitPrice)}</td>
+                <td className={styles.numeric}>
+                  <BestOpenDetailsPopover row={row} />
+                </td>
+                <td className={styles.numeric}>{currency(row.expectedValuePerPack)}</td>
+                <td className={styles.numeric}>{percent(row.modeledReturnOnSpend)}</td>
+                <td className={styles.numeric}>{formatRecoverCost(row.chanceToRecoverCost)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="space-y-2 p-3 desk:hidden">
+        {rows.map((row) => (
+          <article key={row.sealedProductId} className={styles.mobileRow} data-product-economics-card>
+            <ProductLink row={row} />
+            <dl className="mt-3 grid grid-cols-2 gap-3 border-t pt-3">
+              <Metric label="Unit Price" value={currency(row.unitPrice)} />
+              <Metric label="Best-Open" value={<BestOpenDetailsPopover row={row} />} />
+              <Metric label="EV / Pack" value={currency(row.expectedValuePerPack)} />
+              <Metric label="Modeled Return" value={percent(row.modeledReturnOnSpend)} />
+              <Metric label="Recover Cost" value={formatRecoverCost(row.chanceToRecoverCost)} />
+            </dl>
+          </article>
+        ))}
+      </div>
+    </>
+  );
 }
-const Locked = () => <span aria-label="Requires Index Plus">Locked</span>;
-function PublicTable({ rows, view }) { const labels = view === "scores" ? ["Product Overall", "Financial", "Chase", "Collector Appeal"] : ["Unit Price", "Best-Open Price", "EV / Pack", "Modeled Return", "Recover Cost"]; if (!rows.length) return <Empty />; return <><div className="hidden overflow-x-auto desk:block"><table className={styles.table} data-product-public-catalogue><thead className={styles.head}><tr><th>Product</th>{labels.map((x) => <th key={x}>{x}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.sealedProductId}><td><ProductLink row={row} /></td>{labels.map((x) => <td key={x}><Locked /></td>)}</tr>)}</tbody></table></div><div className="space-y-2 p-3 desk:hidden">{rows.map((row) => <article key={row.sealedProductId} className={styles.mobileRow}><ProductLink row={row} /><p>Analytics: <Locked /></p></article>)}</div></>; }
-function Pagination({ contract, onPage, ranked }) { const start = contract.total ? (contract.page - 1) * contract.pageSize + 1 : 0; const end = Math.min(contract.page * contract.pageSize, contract.total); return <nav aria-label="Product pages" className="flex min-h-12 items-center justify-between gap-3 border-t px-4 py-3 text-sm"><span>Showing {start}–{end} of {contract.total} {ranked ? "ranked Products" : "Products"}</span><span className="flex items-center gap-3"><button type="button" className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={contract.page <= 1} onClick={() => onPage(contract.page - 1)}>Previous</button><span>Page {contract.page} of {contract.totalPages}</span><button type="button" className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={contract.page >= contract.totalPages} onClick={() => onPage(contract.page + 1)}>Next</button></span></nav>; }
+function ProductLockPanel({ family }) {
+  const fullMarket = family === "all";
+  return (
+    <div data-product-rankings-lock data-product-scope={fullMarket ? "full-market" : "family"} className="p-4 sm:p-5">
+      <PlanLock requiredPlan={fullMarket ? INDEX_PLAN_PREMIUM : INDEX_PLAN_PLUS} source={fullMarket ? "rankings-products-full-market" : "rankings-products-family"} description={fullMarket ? "Cross-format Full Market Product Rankings compare supported Product types against one another." : "Family Product Rankings compare Products only within this supported Product family."} />
+    </div>
+  );
+}
+function Pagination({ contract, onPage, ranked }) {
+  const start = contract.total ? (contract.page - 1) * contract.pageSize + 1 : 0;
+  const end = Math.min(contract.page * contract.pageSize, contract.total);
+  return (
+    <nav aria-label="Product pages" className="flex min-h-12 items-center justify-between gap-3 border-t px-4 py-3 text-sm">
+      <span>
+        Showing {start}–{end} of {contract.total} {ranked ? "ranked Products" : "Products"}
+      </span>
+      <span className="flex items-center gap-3">
+        <button type="button" className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={contract.page <= 1} onClick={() => onPage(contract.page - 1)}>
+          Previous
+        </button>
+        <span>
+          Page {contract.page} of {contract.totalPages}
+        </span>
+        <button type="button" className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={contract.page >= contract.totalPages} onClick={() => onPage(contract.page + 1)}>
+          Next
+        </button>
+      </span>
+    </nav>
+  );
+}
 
 export default function RankingsProductLensClient({ sessionCache }) {
-  const { canViewRankingsIntelligence, authStatus } = useRankingsAccess();
-  const [view, setView] = useState("scores"), [page, setPage] = useState(1), [family, setFamily] = useState("all"), [query, setQuery] = useState(""), [search, setSearch] = useState("");
-  const [sorts, setSorts] = useState({ scores: { key: "rank", direction: "asc" }, economics: { key: "productName", direction: "asc" } });
+  const { canViewFamilyProductRankings, canViewFullMarketProductRankings, authStatus } = useRankingsAccess();
+  const [view, setView] = useState("scores"),
+    [page, setPage] = useState(1),
+    [family, setFamily] = useState("all"),
+    [query, setQuery] = useState(""),
+    [search, setSearch] = useState("");
+  const [sorts, setSorts] = useState({
+    scores: { key: "rank", direction: "asc" },
+    economics: { key: "productName", direction: "asc" },
+  });
   const [state, setState] = useState({ status: "idle", contract: null });
-  const publicMode = (authStatus === "resolved" || authStatus === "degraded") ? !canViewRankingsIntelligence : true, sort = sorts[view];
-  useEffect(() => { const id = setTimeout(() => { setPage(1); setSearch(query); }, 250); return () => clearTimeout(id); }, [query]);
-  const params = useMemo(() => ({ page, page_size: PAGE_SIZE, search, family: family === "all" ? undefined : family, ...(!publicMode ? { sort: sort.key, direction: sort.direction } : {}) }), [family, page, publicMode, search, sort]);
-  const load = useCallback(async (force = false) => { setState((s) => ({ status: "loading", contract: publicMode || s.contract?.view === view ? s.contract : null })); try { const contract = publicMode ? await readPublicProductCatalogue({ sessionCache, force, params }) : await readProductRankings(view, { sessionCache, force, params }); setState({ status: "ready", contract }); } catch (error) { setState((s) => ({ status: s.contract ? "ready" : "error", contract: s.contract, error: error.message })); } }, [params, publicMode, sessionCache, view]);
-  useEffect(() => { if (authStatus === "resolved" || authStatus === "degraded") load(); }, [authStatus, load]);
-  const contract = !publicMode && state.contract?.view !== view ? null : state.contract, rows = contract?.rows || [], families = contract?.families || [];
-  const chooseFamily = (value) => { setFamily(value); setPage(1); }, chooseView = (value) => { setView(value); setPage(1); };
-  const changeSort = (key) => { setSorts((s) => ({ ...s, [view]: { key, direction: s[view].key === key && s[view].direction === "asc" ? "desc" : "asc" } })); setPage(1); };
-  const controls = <nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1"><button type="button" onClick={() => chooseFamily("all")} aria-pressed={family === "all"} className={`${styles.productFamilyTab} ${family === "all" ? styles.productFamilyTabActive : ""}`}>All Products</button>{families.map((x) => <button key={x.value} type="button" onClick={() => chooseFamily(x.value)} aria-pressed={family === x.value} className={`${styles.productFamilyTab} ${family === x.value ? styles.productFamilyTabActive : ""}`}>{x.label}</button>)}</nav>;
-  if (!contract && state.status !== "error") return <>{controls}<Loading view={view} /></>;
-  if (!contract) return <>{controls}<section className={`${styles.surface} p-5`}>Product Rankings are temporarily unavailable. <button className="underline" onClick={() => load(true)}>Retry</button></section></>;
+  const [supportedFamilies, setSupportedFamilies] = useState([]);
+  const scopeAllowed = family === "all" ? canViewFullMarketProductRankings : canViewFamilyProductRankings;
+  const publicMode = authStatus === "resolved" || authStatus === "degraded" ? !scopeAllowed : true,
+    sort = sorts[view];
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setPage(1);
+      setSearch(query);
+    }, 250);
+    return () => clearTimeout(id);
+  }, [query]);
+  const params = useMemo(
+    () => ({
+      page,
+      page_size: PAGE_SIZE,
+      search,
+      family: family === "all" ? undefined : family,
+      ...(!publicMode ? { sort: sort.key, direction: sort.direction } : {}),
+    }),
+    [family, page, publicMode, search, sort],
+  );
+  const load = useCallback(
+    async (force = false) => {
+      setState((s) => ({
+        status: "loading",
+        contract: publicMode ? (s.contract?.view ? null : s.contract) : s.contract?.view === view ? s.contract : null,
+      }));
+      try {
+        const contract = publicMode ? await readPublicProductCatalogue({ sessionCache, force, params }) : await readProductRankings(view, { sessionCache, force, params });
+        if (contract.families?.length) setSupportedFamilies(contract.families);
+        setState({ status: "ready", contract });
+      } catch (error) {
+        setState((s) => ({
+          status: s.contract ? "ready" : "error",
+          contract: s.contract,
+          error: error.message,
+        }));
+      }
+    },
+    [params, publicMode, sessionCache, view],
+  );
+  useEffect(() => {
+    if (authStatus === "resolved" || authStatus === "degraded") load();
+  }, [authStatus, load]);
+  const contract = !publicMode && state.contract?.view !== view ? null : state.contract,
+    rows = contract?.rows || [],
+    families = supportedFamilies.length ? supportedFamilies : contract?.families || [];
+  const chooseFamily = (value) => {
+      setFamily(value);
+      setPage(1);
+    },
+    chooseView = (value) => {
+      setView(value);
+      setPage(1);
+    };
+  const changeSort = (key) => {
+    setSorts((s) => ({
+      ...s,
+      [view]: {
+        key,
+        direction: s[view].key === key && s[view].direction === "asc" ? "desc" : "asc",
+      },
+    }));
+    setPage(1);
+  };
+  const controls = (
+    <nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1">
+      <button type="button" onClick={() => chooseFamily("all")} aria-pressed={family === "all"} className={`${styles.productFamilyTab} ${family === "all" ? styles.productFamilyTabActive : ""}`}>
+        All Products
+      </button>
+      {families.map((x) => (
+        <button key={x.value} type="button" onClick={() => chooseFamily(x.value)} aria-pressed={family === x.value} className={`${styles.productFamilyTab} ${family === x.value ? styles.productFamilyTabActive : ""}`}>
+          {x.label}
+        </button>
+      ))}
+    </nav>
+  );
+  if (!contract && state.status !== "error")
+    return (
+      <>
+        {controls}
+        <Loading view={view} />
+      </>
+    );
+  if (!contract)
+    return (
+      <>
+        {controls}
+        <section className={`${styles.surface} p-5`}>
+          Product Rankings are temporarily unavailable.{" "}
+          <button className="underline" onClick={() => load(true)}>
+            Retry
+          </button>
+        </section>
+      </>
+    );
   const toggle = <SegmentedControl className="w-full max-w-[13rem]" ariaLabel="Product Rankings view" value={view} onChange={chooseView} options={VIEW_OPTIONS} variant="rankings" equalWidth mobileFullWidth />;
-  return <>{controls}<AnalyticsTableShell title={view === "scores" ? "Product Scores" : "Product Economics"} toolbarControl={toggle} info={publicMode ? "Product identity and type are public. Analytics require Index Plus." : view === "scores" ? "Product Overall and Financial are absolute. Chase and Collector Appeal are inherited from the parent Set." : "Exact Product simulation economics and exact-identity Best-Open evidence."} query={query} onQueryChange={(e) => setQuery(e.target.value)} searchPlaceholder="Search Products…" searchLabel="Search Products" context={publicMode ? "Alphabetical Product catalogue" : "Current Full Market Product cohort"} shown={rows.length} ranked={!publicMode && view === "scores" ? contract.total : null} marketDate={publicMode ? null : contract.marketDate}>{publicMode ? <PublicTable rows={rows} view={view} /> : view === "scores" ? <Scores rows={rows} sort={sort} onSort={changeSort} /> : <Economics rows={rows} sort={sort} onSort={changeSort} />}<Pagination contract={contract} onPage={setPage} ranked={!publicMode && view === "scores"} /></AnalyticsTableShell></>;
+  return (
+    <>
+      {controls}
+      <AnalyticsTableShell title={view === "scores" ? "Product Scores" : "Product Economics"} toolbarControl={toggle} info={publicMode ? (family === "all" ? "Full Market Product Rankings require Index Premium." : "Family Product Rankings require Index Plus.") : view === "scores" ? "Product Overall and Financial are absolute. Chase and Collector Appeal are inherited from the parent Set." : "Exact Product simulation economics and exact-identity Best-Open evidence."} query={publicMode ? "" : query} onQueryChange={publicMode ? undefined : (e) => setQuery(e.target.value)} searchPlaceholder="Search Products…" searchLabel="Search Products" context={publicMode ? `${contract.total} supported rankable Products` : family === "all" ? "Current Full Market Product cohort" : "Current Product family cohort"} shown={publicMode ? null : rows.length} ranked={!publicMode && view === "scores" ? contract.total : null} marketDate={publicMode ? null : contract.marketDate}>
+        {publicMode ? <ProductLockPanel family={family} /> : view === "scores" ? <Scores rows={rows} sort={sort} onSort={changeSort} /> : <Economics rows={rows} sort={sort} onSort={changeSort} />}
+        {!publicMode ? <Pagination contract={contract} onPage={setPage} ranked={view === "scores"} /> : null}
+      </AnalyticsTableShell>
+    </>
+  );
 }

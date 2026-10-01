@@ -33,7 +33,7 @@ test("Overview replaces the old outcome chart and uses the public Set authority"
 
 test("Set Pack Economics uses the requested vocabulary and canonical order", () => {
   assert.deepEqual(SET_PACK_COLUMNS.map(([key, label]) => [key, label]), [
-    ["productFamilyCount", "Families"], ["productCount", "Products"], ["averagePackCostPerPack", "Avg Pack Cost"], ["expectedValuePerPack", "EV / Pack"], ["modeledReturnOnSpend", "Modeled Return"], ["chanceToRecoverCost", "Recover Cost"], ["entertainmentCostPerPack", "Entertainment Cost"], ["bestOpenPrice", "Best-Open Price"],
+    ["packCount", "Packs"], ["productCount", "Products"], ["averagePackCostPerPack", "Avg Pack Cost"], ["expectedValuePerPack", "EV / Pack"], ["modeledReturnOnSpend", "Modeled Return"], ["chanceToRecoverCost", "Recover Cost"], ["entertainmentCostPerPack", "Entertainment Cost"], ["bestOpenPrice", "Best-Open Price"],
   ]);
   assert.ok(setPack.includes("overflow-x-auto"));
   assert.ok(setPack.includes("styles.colPackEconomicsIdentity"));

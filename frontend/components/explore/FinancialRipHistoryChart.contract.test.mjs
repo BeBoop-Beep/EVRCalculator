@@ -12,7 +12,7 @@ test("uses the Financial RIP history reader and no legacy benchmark reader", () 
   assert.ok(source.includes("readFinancialHistoryCached"));
   assert.ok(!source.includes("readBenchmarkHistory"));
   assert.ok(source.indexOf("shouldFetchFinancialRipHistory") < source.indexOf("readFinancialHistoryCached(requestEntities"));
-  assert.match(source, /financialRipRequestEntities\(selected, request\.view\?\.mode === mode \? request\.view\?\.selected : \[\], seededModes\[mode\] \? candidates : \[\]\)/);
+  assert.match(source, /financialRipRequestEntities\(\s*selected,\s*request\.view\?\.mode === mode \? request\.view\?\.selected : \[\],\s*seededModes\[mode\] \? candidates : \[\],?\s*\)/);
 });
 
 test("locked access is a synthetic frosted preview with no chart data dependency", () => {
@@ -24,7 +24,7 @@ test("locked access is a synthetic frosted preview with no chart data dependency
 
 test("controls, observed-date continuity, moving reference, and responsive frame are explicit", () => {
   for (const label of ["Sets", "Eras", "Overall Financial RIP"]) assert.ok(source.includes(label));
-  for (const window of ["30D", "3M", "6M", "1Y", "ALL"]) assert.ok(model.includes(`key: "${window}"`));
+  for (const window of ["1D", "7D", "30D", "3M", "6M", "1Y", "ALL"]) assert.ok(model.includes(`key: "${window}"`));
   assert.equal((source.match(/connectNulls/g) || []).length, 2);
   assert.ok(source.includes("<ChartFrame"));
   assert.ok(source.includes("h-[20rem] sm:h-[24rem] desk:h-[28rem]"));
@@ -32,9 +32,10 @@ test("controls, observed-date continuity, moving reference, and responsive frame
   assert.ok(source.includes('mode === "sets" ? "Sets…" : "Eras…"'));
   assert.ok(source.includes('searchPlaceholder="Search Eras…"'));
   assert.ok(source.includes("setIdsForEra"));
-  assert.ok(source.includes('stroke="#cbd5e1"'));
+  assert.ok(source.includes('stroke="#ffffff"'));
+  assert.ok(source.includes('strokeDasharray="9 7"'));
   assert.ok(source.includes("strokeWidth={3}"));
-  assert.ok(source.includes("strokeOpacity={0.72}"));
+  assert.ok(source.includes("strokeOpacity={0.9}"));
   assert.equal((source.match(/connectNulls=\{false\}/g) || []).length, 2);
 });
 
@@ -63,7 +64,7 @@ test("compact tooltip uses one Overall, dynamic ordering helper, and no rank or 
 });
 
 test("refresh and failure preserve the last successful certified chart", () => {
-  assert.ok(source.includes('setRequest((current) => ({ ...current, status: "loading"'));
+  assert.match(source, /setRequest\(\(current\) => \(\{\s*\.\.\.current,\s*status: "loading"/);
   assert.ok(source.includes("request.view?.mode === mode ? request.view : null"));
   assert.ok(source.includes("The latest refresh failed, so the last successful history remains visible."));
   assert.ok(legend.includes("Updating history"));
