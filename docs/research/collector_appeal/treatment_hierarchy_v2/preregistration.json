@@ -1,0 +1,19 @@
+{
+  "version": "treatment_hierarchy_v2_modern_pilot_v1",
+  "frozenAt": "2026-10-01",
+  "fitPerformedBeforeFreeze": false,
+  "recoveryWorkflowRunId": 36913676646,
+  "recoveryArtifactId": 11190000187,
+  "recoveryArtifactDigest": "sha256:e1cafb46732bf40932c8095b8f8266b05d256d2fdaa5761afc0fe1078be86233",
+  "cohort": {"identities": 16, "cards": 36, "sets": 7, "era": "Scarlet and Violet"},
+  "price": {"source": "pkmnprices_tcgplayer_history", "currency": "USD", "condition": "Near Mint", "period": "180d", "field": "avg", "interpolation": false, "forwardFill": false},
+  "pureTreatment": {"identityDateFixedEffects": true, "scarcityFeature": "-ln(modeled_probability)", "scarcityAuthority": "exact_variant_pull_frequency_v1"},
+  "package": {"identityDateFixedEffects": true, "scarcityControl": false},
+  "bootstrap": {"draws": 2000, "seed": 20261001, "unit": "matched_identity", "stratifiedBy": "set_family", "minimumSignStability": 0.8},
+  "influence": {"unit": "matched_identity", "maximumAbsoluteCoefficientDrift": 0.5},
+  "temporal": {"split": "median_exact_shared_date_per_identity", "minimumCoefficientSpearman": 0.6, "requireSameSignPerSupportedCoefficient": true},
+  "sensitivityMaximumAbsoluteDrift": 0.5,
+  "eraMinimumPassingSetsPerFamily": 2,
+  "crossEraAuthorized": false,
+  "productionWritesAuthorized": false
+}
