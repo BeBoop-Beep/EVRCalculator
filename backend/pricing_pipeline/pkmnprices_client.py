@@ -1,0 +1,379 @@
+"""Small dependency-free client for the PkmnPrices data API.
+
+Only server-side callers should construct this client.  Authentication is sent
+through X-API-Key and never appears in URLs, logs, exceptions, or repr output.
+"""
+from __future__ import annotations
+
+import json
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping
+
+BASE_URL = "https://api.pkmnprices.com"
+USER_AGENT = "inDex-PkmnPrices/1"
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
+@dataclass(frozen=True)
+class PkmnPricesAPIError(RuntimeError):
+    status: int
+    code: str
+    message: str
+
+    def __str__(self) -> str:
+        return f"PkmnPrices API error status={self.status} code={self.code}"
+
+
+class PkmnPricesClient:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        base_url: str = BASE_URL,
+        opener: Callable[..., Any] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+        max_retries: int = 2,
+        timeout: float = 30.0,
+        min_request_interval: float = 0.0,
+    ) -> None:
+        if not api_key:
+            raise ValueError("PkmnPrices API key is required")
+        self._api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self._opener = opener or urllib.request.urlopen
+        self._sleep = sleep
+        self.max_retries = max(0, int(max_retries))
+        self.timeout = float(timeout)
+        self.min_request_interval = max(0.0, float(min_request_interval))
+        self.request_attempt_count = 0
+        self.successful_request_count = 0
+        self.credits_charged = 0
+        self.credits_limit: int | None = None
+        self.rate_remaining: int | None = None
+
+    def __repr__(self) -> str:
+        return f"PkmnPricesClient(base_url={self.base_url!r}, api_key=<redacted>)"
+
+    def _url(self, path: str, params: Mapping[str, Any] | None = None) -> str:
+        query = {
+            key: ("true" if value is True else "false" if value is False else str(value))
+            for key, value in (params or {}).items()
+            if value is not None
+        }
+        suffix = "?" + urllib.parse.urlencode(query) if query else ""
+        return self.base_url + "/" + path.lstrip("/") + suffix
+
+    @staticmethod
+    def _error(exc: urllib.error.HTTPError) -> PkmnPricesAPIError:
+        code = "http_error"
+        message = "provider request failed"
+        try:
+            payload = json.loads(exc.read().decode("utf-8", errors="replace"))
+            detail = payload.get("error") or {}
+            code = str(detail.get("code") or code)
+            message = str(detail.get("message") or message)
+        except Exception:
+            pass
+        return PkmnPricesAPIError(int(exc.code), code, message)
+
+    def get(self, path: str, params: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        request = urllib.request.Request(
+            self._url(path, params),
+            headers={
+                "X-API-Key": self._api_key,
+                "Accept": "application/json",
+                "User-Agent": USER_AGENT,
+            },
+        )
+        for attempt in range(self.max_retries + 1):
+            try:
+                if self.min_request_interval > 0:
+                    self._sleep(self.min_request_interval)
+                self.request_attempt_count += 1
+                with self._opener(request, timeout=self.timeout) as response:
+                    status = int(getattr(response, "status", 200))
+                    payload = json.load(response)
+                    headers = getattr(response, "headers", {}) or {}
+                    charged = headers.get("x-credits-charged") if hasattr(headers, "get") else None
+                    limit = headers.get("x-credits-limit") if hasattr(headers, "get") else None
+                    remaining = headers.get("x-rate-remaining") if hasattr(headers, "get") else None
+                if status != 200:
+                    raise PkmnPricesAPIError(status, "unexpected_status", "unexpected provider response")
+                if not isinstance(payload, dict):
+                    raise PkmnPricesAPIError(status, "invalid_payload", "provider payload is not an object")
+                self.successful_request_count += 1
+                try:
+                    if charged is not None:
+                        self.credits_charged += max(0, int(charged))
+                    if limit is not None:
+                        self.credits_limit = int(limit)
+                    if remaining is not None:
+                        self.rate_remaining = int(remaining)
+                except (TypeError, ValueError):
+                    # Provider accounting headers are observability only; malformed
+                    # values must not corrupt evidence collection.
+                    pass
+                return payload
+            except urllib.error.HTTPError as exc:
+                error = self._error(exc)
+                if error.status not in RETRYABLE_STATUS or attempt >= self.max_retries:
+                    raise error from None
+            except (urllib.error.URLError, TimeoutError):
+                if attempt >= self.max_retries:
+                    raise
+            self._sleep(float(2 ** attempt))
+        raise RuntimeError("unreachable")
+
+    def sets_by_name(
+        self,
+        name: str,
+        *,
+        language: str = "English",
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        payload = self.get(
+            "/v1/sets",
+            {
+                "name": str(name),
+                "language": language,
+                "per_page": max(1, min(int(per_page), 100)),
+                "page": 1,
+            },
+        )
+        rows = payload.get("data") or []
+        if not isinstance(rows, list):
+            raise PkmnPricesAPIError(200, "invalid_payload", "sets data is not an array")
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def cards_by_identity(
+        self,
+        *,
+        name: str,
+        number: str,
+        set_id: str | int,
+        language: str = "English",
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        payload = self.get(
+            "/v1/cards",
+            {
+                "name": str(name),
+                "number": str(number),
+                "set_id": str(set_id),
+                "language": language,
+                "per_page": max(1, min(int(per_page), 100)),
+                "page": 1,
+            },
+        )
+        rows = payload.get("data") or []
+        if not isinstance(rows, list):
+            raise PkmnPricesAPIError(200, "invalid_payload", "cards data is not an array")
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def cards_by_name_number(
+        self,
+        *,
+        name: str,
+        number: str,
+        language: str = "English",
+        per_page: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Search cards by exact card-number candidate without requiring a set id.
+
+        The provider's name filter is partial-match, so callers must still enforce
+        exact name/number matching before accepting an identity.
+        """
+        payload = self.get(
+            "/v1/cards",
+            {
+                "name": str(name),
+                "number": str(number),
+                "language": language,
+                "per_page": max(1, min(int(per_page), 100)),
+                "page": 1,
+            },
+        )
+        rows = payload.get("data") or []
+        if not isinstance(rows, list):
+            raise PkmnPricesAPIError(200, "invalid_payload", "cards data is not an array")
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def cards_by_tcgplayer_id(
+        self,
+        tcgplayer_product_id: str | int,
+        *,
+        language: str = "English",
+        per_page: int = 5,
+    ) -> list[dict[str, Any]]:
+        payload = self.get(
+            "/v1/cards",
+            {
+                "tcg_player_id": str(tcgplayer_product_id),
+                "language": language,
+                "per_page": max(1, min(int(per_page), 100)),
+                "page": 1,
+            },
+        )
+        rows = payload.get("data") or []
+        if not isinstance(rows, list):
+            raise PkmnPricesAPIError(200, "invalid_payload", "cards data is not an array")
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def card(self, provider_card_id: str | int, *, currency: str = "usd") -> dict[str, Any]:
+        payload = self.get(f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}", {"currency": currency})
+        return dict(payload)
+
+    def price_history_page(
+        self,
+        provider_card_id: str | int,
+        *,
+        currency: str = "usd",
+        period: str = "30d",
+        condition: str | None = None,
+        variant: str | None = None,
+        limit: int = 30,
+        page: int = 1,
+    ) -> dict[str, Any]:
+        """Fetch bounded daily price aggregates for one card/condition/variant."""
+        return self.get(
+            f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}/prices/history",
+            {
+                "currency": currency,
+                "period": period,
+                "condition": condition,
+                "variant": variant,
+                "limit": max(1, min(int(limit), 365)),
+                "page": max(1, int(page)),
+            },
+        )
+
+    def tcgplayer_listings_page(
+        self,
+        provider_card_id: str | int,
+        *,
+        condition: str | None = None,
+        printing: str | None = None,
+        language: str | None = "English",
+        sort: str = "total_asc",
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """Fetch a bounded page of live TCGplayer offers for one provider card."""
+        return self.get(
+            f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}/listings/tcgplayer",
+            {
+                "condition": condition,
+                "printing": printing,
+                "language": language,
+                "sort": sort,
+                "limit": max(1, min(int(limit), 20)),
+                "cursor": cursor,
+            },
+        )
+
+    def ebay_sold_page(
+        self,
+        provider_card_id: str | int,
+        *,
+        graded: bool | None = False,
+        grader: str | None = None,
+        grade: str | None = None,
+        variant: str | None = None,
+        since: str | None = None,
+        sort: str = "date_desc",
+        limit: int = 20,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        return self.get(
+            f"/v1/cards/{urllib.parse.quote(str(provider_card_id), safe='')}/listings/ebay",
+            {
+                "graded": graded,
+                "grader": grader,
+                "grade": grade,
+                "variant": variant,
+                "since": since,
+                "sort": sort,
+                "limit": max(1, min(int(limit), 20)),
+                "cursor": cursor,
+            },
+        )
+
+    def ebay_sold_collection(
+        self,
+        provider_card_id: str | int,
+        *,
+        graded: bool | None = False,
+        grader: str | None = None,
+        grade: str | None = None,
+        variant: str | None = None,
+        since: str | None = None,
+        max_items: int = 200,
+        initial_cursor: str | None = None,
+    ) -> dict[str, Any]:
+        """Collect a bounded cursor walk and report whether older rows remain."""
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = initial_cursor
+        has_more = False
+        next_cursor: str | None = None
+        while len(rows) < max(0, int(max_items)):
+            remaining = int(max_items) - len(rows)
+            if remaining <= 0:
+                break
+            payload = self.ebay_sold_page(
+                provider_card_id,
+                graded=graded,
+                grader=grader,
+                grade=grade,
+                variant=variant,
+                since=since,
+                limit=min(20, remaining),
+                cursor=cursor,
+            )
+            data = payload.get("data") or []
+            if not isinstance(data, list):
+                raise PkmnPricesAPIError(200, "invalid_payload", "sold data is not an array")
+            rows.extend(dict(row) for row in data if isinstance(row, dict))
+            page = payload.get("pagination") or {}
+            has_more = bool(page.get("has_more"))
+            next_value = page.get("next_cursor")
+            next_cursor = str(next_value) if next_value else None
+            if not has_more:
+                break
+            if not next_cursor or next_cursor == cursor:
+                raise PkmnPricesAPIError(200, "invalid_pagination", "sold pagination cursor did not advance")
+            if len(rows) >= int(max_items):
+                break
+            cursor = next_cursor
+        return {
+            "rows": rows,
+            "has_more": has_more,
+            "next_cursor": next_cursor if has_more else None,
+        }
+
+    def ebay_sold(
+        self,
+        provider_card_id: str | int,
+        *,
+        graded: bool | None = False,
+        grader: str | None = None,
+        grade: str | None = None,
+        variant: str | None = None,
+        since: str | None = None,
+        max_items: int = 200,
+    ) -> list[dict[str, Any]]:
+        return list(
+            self.ebay_sold_collection(
+                provider_card_id,
+                graded=graded,
+                grader=grader,
+                grade=grade,
+                variant=variant,
+                since=since,
+                max_items=max_items,
+                initial_cursor=None,
+            )["rows"]
+        )
