@@ -1,0 +1,81 @@
+name: Collector Cross-Domain Temporal V1
+
+on:
+  push:
+    branches:
+      - research/collector-cross-domain-temporal-v1-20260929
+    paths:
+      - ".github/workflows/collector-cross-domain-temporal-v1.yml"
+      - "backend/scripts/research_collector_cross_domain_temporal_v1.py"
+      - "backend/tests/unit/scripts/test_research_collector_cross_domain_temporal_v1.py"
+      - "docs/research/collector_appeal/cross_domain_temporal_v1/PREREGISTRATION.md"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collector-cross-domain-temporal-v1
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS: "90"
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest==8.3.5
+
+      - name: Run Phase 1 and temporal contract tests
+        run: |
+          python -m pytest -q             backend/tests/unit/scripts/test_research_collector_cross_domain_calibration_v1.py             backend/tests/unit/scripts/test_research_collector_cross_domain_temporal_v1.py
+
+      - name: Run independent temporal validation
+        run: |
+          test -n "${SUPABASE_URL:-}" || { echo "SUPABASE_URL secret missing"; exit 2; }
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "SUPABASE_SERVICE_ROLE_KEY secret missing"; exit 2; }
+          python backend/scripts/research_collector_cross_domain_temporal_v1.py --bootstrap-draws 1000
+
+      - name: Verify research-only output contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("docs/research/collector_appeal/cross_domain_temporal_v1")
+          decision=json.loads((root/"decision.json").read_text())
+          results=json.loads((root/"temporal_results.json").read_text())
+          assert decision["productionMutations"] == "NONE"
+          assert decision["candidate"] == "ANCHOR25"
+          assert len(results["folds"]) == 5
+          assert all(x["marketDate"] in decision["temporalDates"] for x in results["folds"])
+          print(json.dumps(decision, indent=2))
+          PY
+
+      - name: Commit temporal validation artifacts
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add             docs/research/collector_appeal/cross_domain_temporal_v1/FINAL_REPORT.md             docs/research/collector_appeal/cross_domain_temporal_v1/temporal_results.json             docs/research/collector_appeal/cross_domain_temporal_v1/bootstrap_intervals.json             docs/research/collector_appeal/cross_domain_temporal_v1/decision.json
+          if git diff --cached --quiet; then
+            echo "No temporal artifact changes to commit."
+          else
+            git commit -m "research: record collector temporal validation results"
+            git push origin HEAD:research/collector-cross-domain-temporal-v1-20260929
+          fi

@@ -1,0 +1,18 @@
+{
+  "decision": "COLLECTOR_V8_ANCHOR25_SHADOW_SUPPORTED_FOR_PROMOTION_REVIEW",
+  "candidateVersion": "pokemon_collector_appeal_v8_anchor25_cross_domain_v1",
+  "overallShadowVersion": "overall_rip_v14_86_financial_v4_04_chase_accessibility_v1_10_collector_appeal_v8_anchor25",
+  "gates": {
+    "frozenV7Artifact": true,
+    "cardControlEquivalence": true,
+    "temporalValidation": true,
+    "pokemonUnchanged": true,
+    "trainerSpearmanGte995": true,
+    "v7SetReplay": true,
+    "v12OverallReplay": true,
+    "noSetAvailabilityLoss": true
+  },
+  "productionMutations": "NONE",
+  "promotionPerformed": false,
+  "nextStep": "PROMOTION_READINESS_REVIEW"
+}

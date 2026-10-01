@@ -1,0 +1,145 @@
+name: Collector V8 Promotion Readiness
+
+on:
+  push:
+    branches:
+      - research/collector-v8-promotion-readiness-20260929
+    paths:
+      - ".github/workflows/collector-v8-promotion-readiness.yml"
+      - "backend/scripts/build_pokemon_collector_appeal_v8_anchor25.py"
+      - "backend/tests/unit/scripts/test_build_pokemon_collector_appeal_v8_anchor25.py"
+      - "backend/scripts/research_collector_cross_domain_calibration_v1.py"
+      - "backend/scripts/research_collector_v8_anchor25_shadow.py"
+      - "backend/artifacts/collector_appeal_v7_expanded_candidate_v1.json"
+      - "docs/research/collector_appeal/cross_domain_temporal_v1/**"
+      - "docs/research/collector_appeal/v8_anchor25_shadow/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collector-v8-promotion-readiness
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - name: Checkout promotion-readiness branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest==8.3.5
+
+      - name: Run Collector calibration, temporal, shadow, and builder contracts
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_research_collector_cross_domain_calibration_v1.py \
+            backend/tests/unit/scripts/test_research_collector_cross_domain_temporal_v1.py \
+            backend/tests/unit/scripts/test_research_collector_v8_anchor25_shadow.py \
+            backend/tests/unit/scripts/test_build_pokemon_collector_appeal_v8_anchor25.py
+
+      - name: Build exact frozen-cutover candidate offline
+        run: |
+          python backend/scripts/build_pokemon_collector_appeal_v8_anchor25.py \
+            --output /tmp/collector_v8_candidate.json \
+            > /tmp/collector_v8_summary.json
+
+      - name: Verify exact card and Set parity with validated shadow
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from backend.scripts.research_collector_cross_domain_calibration_v1 import (
+              authorities, build_candidates, map_trainers,
+          )
+          from backend.scripts.research_collector_v8_anchor25_shadow import set_scores
+
+          frozen = json.loads(Path("backend/artifacts/collector_appeal_v7_expanded_candidate_v1.json").read_text())
+          built = json.loads(Path("/tmp/collector_v8_candidate.json").read_text())
+
+          pokemon, trainers = authorities(frozen["cards"])
+          anchors = map_trainers(trainers, pokemon)
+          candidates, equivalence = build_candidates(frozen["cards"], anchors)
+          frozen_by_id = {str(row["canonical_card_id"]): row for row in frozen["cards"]}
+          for row in candidates:
+              row["pull_scarcity_diagnostic"] = frozen_by_id[str(row["canonical_card_id"])].get("pull_scarcity_diagnostic")
+          shadow_sets = set_scores(candidates, frozen["sets"], "ANCHOR25")
+
+          expected_cards = {str(row["canonical_card_id"]): float(row["score_ANCHOR25"]) for row in candidates}
+          actual_cards = {str(row["canonical_card_id"]): float(row["card_collector_appeal_v8"]) for row in built["cards"]}
+          assert set(actual_cards) == set(expected_cards)
+          card_max_error = max(abs(actual_cards[key] - expected_cards[key]) for key in expected_cards)
+          assert card_max_error <= 1e-12, card_max_error
+
+          expected_sets = {str(row["setId"]): row for row in shadow_sets}
+          actual_sets = {str(row["set_id"]): row for row in built["sets"]}
+          assert set(actual_sets) == set(expected_sets)
+          max_error = 0.0
+          mismatches = []
+          for set_id in sorted(expected_sets):
+              actual = actual_sets[set_id]
+              expected = expected_sets[set_id]
+              for actual_key, expected_key in (
+                  ("D_final", "D_final"),
+                  ("F", "F"),
+                  ("frequency_modifier", "frequencyModifier"),
+                  ("collector_appeal", "collectorAppeal"),
+              ):
+                  a, e = actual.get(actual_key), expected.get(expected_key)
+                  if (a is None) != (e is None):
+                      mismatches.append((set_id, actual_key, a, e))
+                      continue
+                  if a is not None:
+                      error = abs(float(a) - float(e))
+                      max_error = max(max_error, error)
+                      if error > 1e-12:
+                          mismatches.append((set_id, actual_key, a, e))
+          assert not mismatches, mismatches[:10]
+          assert equivalence["passed"] is True
+          assert len(built["cards"]) == 18293
+          assert len(built["sets"]) == 128
+          assert sum(row.get("collector_appeal") is not None for row in built["sets"]) == 22
+          assert built["manifest"]["calibrationAnalysis"]["controlReplayExact"] is True
+          assert built["manifest"]["calibrationAnalysis"]["pokemonUnchanged"] is True
+          assert built["manifest"]["calibrationAnalysis"]["trainerWithinDomainSpearman"] >= 0.995
+
+          print(json.dumps({
+              "cards": len(built["cards"]),
+              "sets": len(built["sets"]),
+              "scoredSets": sum(row.get("collector_appeal") is not None for row in built["sets"]),
+              "maxCardParityError": card_max_error,
+              "maxSetParityError": max_error,
+              "formulaFingerprint": built["manifest"]["formulaFingerprint"],
+              "cardFingerprint": built["manifest"]["cardFingerprint"],
+              "setFingerprint": built["manifest"]["setFingerprint"],
+              "trainerWithinDomainSpearman": built["manifest"]["calibrationAnalysis"]["trainerWithinDomainSpearman"],
+              "databaseWrites": "NONE",
+          }, indent=2))
+          PY
+
+      - name: Verify research boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source = Path("backend/scripts/build_pokemon_collector_appeal_v8_anchor25.py").read_text().lower()
+          assert "promote_pokemon_collector" not in source
+          assert "select_pokemon_collector_appeal_current" not in source
+          assert "--write-stage" in source
+          print("Promotion path absent; staged write remains explicit opt-in only.")
+          PY

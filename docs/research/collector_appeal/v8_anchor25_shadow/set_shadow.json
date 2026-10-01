@@ -1,0 +1,3100 @@
+{
+  "version": "pokemon_collector_appeal_v8_anchor25_cross_domain_v1",
+  "replay": {
+    "maxAbsoluteError": 0.0,
+    "setsOutside1e9": 0,
+    "sets": [
+      {
+        "setId": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "03764ded-825a-45c0-8b15-ce100cff9552",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "1b3250bb-f123-47d8-b090-499e5879eda7",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "212383a2-ed84-4a5e-af37-50814247a437",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "26fedb88-87d7-487a-9f01-528d603c682e",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "27f3eb48-9964-4a3f-9861-a434ae244697",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "2d6ec108-70b2-4698-a21a-1af39828004f",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "30396643-190c-416d-92a4-e8414c8b4980",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "3836457c-77dc-44b0-a72f-779b6dd78884",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "388dd649-960b-4fd8-a8df-e56b3730972e",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "3f3c7677-b876-4353-821e-6bdd610fd683",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "42a3740d-4778-4857-9c28-e116f34b51f3",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "4de777b3-396e-4f19-9d78-c054b296bedb",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "5361a918-eb23-447e-a00e-e21493bc4320",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "537d3312-9622-4015-9ef2-66e16a27287c",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "69d6d1be-f610-421b-b29c-c3348fe19518",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "6c82fb37-b9b9-4961-a528-12556bd15417",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "759c09f8-8a1b-4212-be89-66088afa6893",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "75cc9ef9-1099-4e47-8d09-17f416606865",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "7a1b8de0-331f-4635-8512-b737da431f7d",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "7c998bc2-6073-4461-8873-64d1b3e78930",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "7ceb2e94-7968-4394-95cb-742b01804974",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "806b7046-4fd5-4259-be17-54b28381f034",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "8158d0ae-0255-48f0-b189-d134035b72b0",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "846787ce-2e12-4dab-b941-886f95cd16f8",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "8938c853-2282-46d8-ba44-87584fa2c168",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "93212749-ce0e-498e-975e-7d947a3448ce",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "965b3000-c483-4110-bb21-ff5ffe120564",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "98301e8a-8aa3-43d8-a85b-908883264721",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "aac3de95-9f92-44af-966d-70b1d201c01e",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "bd54a027-2b93-4cfb-b118-687bd0481def",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "be7c981b-c55e-4f60-a1b8-be922531452d",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "d38ee646-382d-45c0-9463-e9302aa2471a",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "fields": {
+          "D_final": 0.0,
+          "F": 0.0,
+          "frequencyModifier": 0.0,
+          "collectorAppeal": 0.0
+        }
+      },
+      {
+        "setId": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      },
+      {
+        "setId": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+        "fields": {
+          "D_final": 0.0,
+          "F": null,
+          "frequencyModifier": null,
+          "collectorAppeal": null
+        }
+      }
+    ],
+    "passed": true
+  },
+  "comparison": {
+    "rows": [
+      {
+        "setId": "0010d2ec-894e-4c17-855d-5de6ff6fd204",
+        "setName": "Base",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "03764ded-825a-45c0-8b15-ce100cff9552",
+        "setName": "Shining Fates",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.06177487711809704,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "03bfd551-26be-423f-a4f2-9c4e936f3de3",
+        "setName": "Celestial Storm",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "069f83b6-3028-4a00-ae8e-96ef2083a11d",
+        "setName": "HeartGold & SoulSilver",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.04236691526692482,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "076aa350-5b36-4ff4-9095-fe4e95c01b79",
+        "setName": "Champion's Path",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.09145723338309608,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded",
+        "setName": "HS—Undaunted",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "0d90b4ed-16a1-456c-81c6-83d2869d3846",
+        "setName": "Astral Radiance",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.04756161404365855,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "setName": "Phantasmal Flames",
+        "v7": 80.71615732219414,
+        "v8": 80.71615732219414,
+        "delta": 0.0,
+        "v7Rank": 9,
+        "v8Rank": 9,
+        "rankDelta": 0,
+        "DDelta": 0.0,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "126093d8-50e7-4a7c-891d-8cffd5733eeb",
+        "setName": "Unseen Forces",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "setName": "Journey Together",
+        "v7": 73.10993303897354,
+        "v8": 73.10993303897354,
+        "delta": 0.0,
+        "v7Rank": 16,
+        "v8Rank": 16,
+        "rankDelta": 0,
+        "DDelta": 0.0,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "15fd93a2-82e3-4a5f-9f11-112cee192c95",
+        "setName": "Great Encounters",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "1b3250bb-f123-47d8-b090-499e5879eda7",
+        "setName": "Delta Species",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "1c48d45b-199b-4925-bbfe-168c59faf66a",
+        "setName": "HS—Unleashed",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890",
+        "setName": "Chilling Reign",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.05505965272766389,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "1e5eb27b-53bb-490b-9edb-1ce98b3a4341",
+        "setName": "Generations",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.022509570620087516,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "setName": "Paldea Evolved",
+        "v7": 69.52436262293534,
+        "v8": 69.46443317666674,
+        "delta": -0.05992944626859753,
+        "v7Rank": 19,
+        "v8Rank": 19,
+        "rankDelta": 0,
+        "DDelta": -0.05992944626859753,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "212383a2-ed84-4a5e-af37-50814247a437",
+        "setName": "Crimson Invasion",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.04469389019041614,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "2262c6e4-3f9a-4364-b03a-d811cd604739",
+        "setName": "Legends Awakened",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.01358415768132204,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "26db83e5-986f-4b91-82f4-c993ad1a0aaf",
+        "setName": "Roaring Skies",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.03207643612522304,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "26fedb88-87d7-487a-9f01-528d603c682e",
+        "setName": "Vivid Voltage",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.054324061039267235,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "279f849e-9de7-4ca3-a922-a4f92ba9d89b",
+        "setName": "Dragon Majesty",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.06776305151574036,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "27f3eb48-9964-4a3f-9861-a434ae244697",
+        "setName": "Sandstorm",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.026589817046129838,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "29901e65-a5d2-4e12-8e26-62216ed947ab",
+        "setName": "Detective Pikachu",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "29d1d610-11c5-479c-a9ff-dace7bb96f92",
+        "setName": "XY",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "2d6ec108-70b2-4698-a21a-1af39828004f",
+        "setName": "Silver Tempest",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.05378368446811521,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "30396643-190c-416d-92a4-e8414c8b4980",
+        "setName": "Power Keepers",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.028887731872600853,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "34a48f79-1bd3-4f1d-9e3c-758955be70ee",
+        "setName": "Emerging Powers",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "3562f9c9-f879-4d49-9d69-d0ab511230f9",
+        "setName": "Neo Genesis",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "37e1b616-c5f4-4279-83c4-ea8dcdd83c69",
+        "setName": "Jungle",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "3836457c-77dc-44b0-a72f-779b6dd78884",
+        "setName": "Darkness Ablaze",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.012481163669477269,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "388dd649-960b-4fd8-a8df-e56b3730972e",
+        "setName": "Deoxys",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "setName": "Shrouded Fable",
+        "v7": 76.49949792709138,
+        "v8": 76.46903316634268,
+        "delta": -0.03046476074869986,
+        "v7Rank": 13,
+        "v8Rank": 13,
+        "rankDelta": 0,
+        "DDelta": -0.03046476074869986,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "setName": "Scarlet and Violet Base Set",
+        "v7": 73.80862216693993,
+        "v8": 73.75142172306717,
+        "delta": -0.05720044387275891,
+        "v7Rank": 15,
+        "v8Rank": 15,
+        "rankDelta": 0,
+        "DDelta": -0.05720044387275891,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "3f3c7677-b876-4353-821e-6bdd610fd683",
+        "setName": "Ancient Origins",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.03245964631047116,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "4099fc11-a3f6-4034-8208-fbf82bd89de5",
+        "setName": "Holon Phantoms",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "setName": "Black Bolt",
+        "v7": 54.73968890462615,
+        "v8": 54.855398604445526,
+        "delta": 0.11570969981937651,
+        "v7Rank": 22,
+        "v8Rank": 22,
+        "rankDelta": 0,
+        "DDelta": 0.11570969981937651,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "42a3740d-4778-4857-9c28-e116f34b51f3",
+        "setName": "Neo Destiny",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "46ab39a7-dd96-4a2d-af0f-44b868918114",
+        "setName": "Battle Styles",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.0713077621397602,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "setName": "Pitch Black",
+        "v7": 67.11523077558564,
+        "v8": 67.07242832410186,
+        "delta": -0.042802451483780146,
+        "v7Rank": 20,
+        "v8Rank": 20,
+        "rankDelta": 0,
+        "DDelta": -0.042802451483780146,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "476a8f1c-bd50-4ba7-a217-562015fee3d6",
+        "setName": "Unbroken Bonds",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.030339028071679763,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "488bda22-33b7-40d7-9fe1-b3f87c2d2204",
+        "setName": "Next Destinies",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "497a77be-f0e9-4dda-bbdb-b561bc91f3b2",
+        "setName": "Gym Challenge",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "setName": "Stellar Crown",
+        "v7": 82.32201010195392,
+        "v8": 82.30494289579228,
+        "delta": -0.01706720616164148,
+        "v7Rank": 8,
+        "v8Rank": 8,
+        "rankDelta": 0,
+        "DDelta": -0.01706720616164148,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "4b792f11-635a-4e2f-9f60-09aafe387a4a",
+        "setName": "Dragon Vault",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "4c0902e8-fc57-4e07-82e1-e4bdb9fe9990",
+        "setName": "Dragon",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "4de777b3-396e-4f19-9d78-c054b296bedb",
+        "setName": "BREAKpoint",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.03128117258358998,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "4f84d317-e15d-4598-bc8d-52baa04b3485",
+        "setName": "Team Rocket",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "50c5370b-a5e7-4fbc-98fe-efc35e05ff80",
+        "setName": "FireRed & LeafGreen",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "5109f22e-0799-46b5-a4ad-8861d1cfefee",
+        "setName": "Lost Origin",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.047209916969137566,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "5361a918-eb23-447e-a00e-e21493bc4320",
+        "setName": "Noble Victories",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "537d3312-9622-4015-9ef2-66e16a27287c",
+        "setName": "Gym Heroes",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "591a2b3e-2dc8-4e80-b42d-aec4f4b786e4",
+        "setName": "Black & White",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "5bb951fd-bb74-40d7-b496-cca5bf959515",
+        "setName": "Legendary Collection",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "setName": "Chaos Rising",
+        "v7": 71.17397859529204,
+        "v8": 71.20431272811638,
+        "delta": 0.03033413282433628,
+        "v7Rank": 17,
+        "v8Rank": 17,
+        "rankDelta": 0,
+        "DDelta": 0.03033413282433628,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "setName": "Paradox Rift",
+        "v7": 70.261631597985,
+        "v8": 70.1857004310828,
+        "delta": -0.07593116690220825,
+        "v7Rank": 18,
+        "v8Rank": 18,
+        "rankDelta": 0,
+        "DDelta": -0.07593116690220825,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "setName": "Perfect Order",
+        "v7": 80.4676070403684,
+        "v8": 80.41844915882234,
+        "delta": -0.049157881546065596,
+        "v7Rank": 10,
+        "v8Rank": 10,
+        "rankDelta": 0,
+        "DDelta": -0.049157881546065596,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "5ee1fc9a-a49e-4323-8aa7-43df6d3c8124",
+        "setName": "Fates Collide",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "65ee8536-af5a-4242-8a1f-9928c81f501b",
+        "setName": "Plasma Storm",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "69d6d1be-f610-421b-b29c-c3348fe19518",
+        "setName": "Steam Siege",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "6b5aa766-ca92-4ca2-a750-6323bbd97d13",
+        "setName": "Pokémon GO",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.016468533515507033,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "6c5be923-95d0-46ee-86a4-61148fb5152a",
+        "setName": "BREAKthrough",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.02535924537720291,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "6c82fb37-b9b9-4961-a528-12556bd15417",
+        "setName": "Base Set 2",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "6d813ed0-f263-4294-a099-18f1d5c7bd81",
+        "setName": "Plasma Blast",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.01633132522745484,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "6e18dc34-5d2f-47b2-8595-e350ebd4a630",
+        "setName": "Unified Minds",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.04086598341075387,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "70a8d8f3-9aee-4ac8-88e4-dfbca50652f4",
+        "setName": "Crown Zenith",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.06660870461557522,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "759c09f8-8a1b-4212-be89-66088afa6893",
+        "setName": "Rebel Clash",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.09680165941971097,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "75cc9ef9-1099-4e47-8d09-17f416606865",
+        "setName": "Evolutions",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.02845357129029935,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "setName": "Ascended Heroes",
+        "v7": 89.09525017767515,
+        "v8": 89.0666098506662,
+        "delta": -0.02864032700895791,
+        "v7Rank": 2,
+        "v8Rank": 2,
+        "rankDelta": 0,
+        "DDelta": -0.02864032700895791,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "77bde285-03f8-4a48-b6a5-2f548225c3eb",
+        "setName": "Stormfront",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "7a1b8de0-331f-4635-8512-b737da431f7d",
+        "setName": "Diamond & Pearl",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "setName": "Prismatic Evolutions",
+        "v7": 87.81239833926892,
+        "v8": 87.76533375866653,
+        "delta": -0.04706458060239527,
+        "v7Rank": 4,
+        "v8Rank": 4,
+        "rankDelta": 0,
+        "DDelta": -0.04706458060239527,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "7a87a5b5-17dc-43e6-9eac-3de88beab0e7",
+        "setName": "Dark Explorers",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "7c998bc2-6073-4461-8873-64d1b3e78930",
+        "setName": "Lost Thunder",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.042126410954310245,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "7ceb2e94-7968-4394-95cb-742b01804974",
+        "setName": "Expedition Base Set",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.02086063600962973,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "7e99a62d-57ab-4ef4-8338-576524fb8d0d",
+        "setName": "Supreme Victors",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.032932893725003964,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "7fed6bc2-a67f-47e1-a453-d8c4ff986947",
+        "setName": "Flashfire",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.03620698915952403,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "806b7046-4fd5-4259-be17-54b28381f034",
+        "setName": "Double Crisis",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "8158d0ae-0255-48f0-b189-d134035b72b0",
+        "setName": "Ultra Prism",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.062264257695375136,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "846787ce-2e12-4dab-b941-886f95cd16f8",
+        "setName": "Hidden Legends",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "8938c853-2282-46d8-ba44-87584fa2c168",
+        "setName": "Sun & Moon",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.012153445571655652,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "89e710d1-c378-4b4e-aaea-5994d8441f45",
+        "setName": "Neo Revelation",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7",
+        "setName": "Furious Fists",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.016880620396179324,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "8b5fb7da-391e-477d-b46c-f99ae584e7d3",
+        "setName": "Burning Shadows",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.055185375011177484,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "8cd0a0f0-d17c-4a5c-bc52-47e1723e0699",
+        "setName": "Fusion Strike",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.017250124028933556,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "8f78267f-493b-4d60-a19e-587ae1f60f69",
+        "setName": "Secret Wonders",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.03149875135177638,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "8fe71704-0369-427a-ad32-4d173b43b1e1",
+        "setName": "Legendary Treasures",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "setName": "Temporal Forces",
+        "v7": 77.51449844950974,
+        "v8": 77.48073371543069,
+        "delta": -0.03376473407905678,
+        "v7Rank": 12,
+        "v8Rank": 12,
+        "rankDelta": 0,
+        "DDelta": -0.03376473407905678,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "93050f21-b805-41fc-a49d-b5afcb9c41dc",
+        "setName": "Crystal Guardians",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "93212749-ce0e-498e-975e-7d947a3448ce",
+        "setName": "Evolving Skies",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.03404019010133652,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "965b3000-c483-4110-bb21-ff5ffe120564",
+        "setName": "HS—Triumphant",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "98301e8a-8aa3-43d8-a85b-908883264721",
+        "setName": "Platinum",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.04615590709541095,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "a2cc93d2-762d-4dcc-ac17-62f244abce06",
+        "setName": "Skyridge",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2",
+        "setName": "Neo Discovery",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "a69e4091-5b33-499d-85a5-a8f0b7ecaddc",
+        "setName": "Team Magma vs Team Aqua",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.026588690390568104,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "a72c75bd-0d61-4643-b603-fef78425dcfa",
+        "setName": "Brilliant Stars",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.03181282067312452,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "a8064dc8-57b9-4e6b-87fd-c0aa077fea7a",
+        "setName": "Team Up",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.04402510921293867,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "aac3de95-9f92-44af-966d-70b1d201c01e",
+        "setName": "Aquapolis",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "b0d7bd6a-4e57-4495-b975-e132417cc071",
+        "setName": "Ruby & Sapphire",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "setName": "Mega Evolution",
+        "v7": 79.70664938212168,
+        "v8": 79.66895203002312,
+        "delta": -0.03769735209856151,
+        "v7Rank": 11,
+        "v8Rank": 11,
+        "rankDelta": 0,
+        "DDelta": -0.03769735209856151,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "setName": "Obsidian Flames",
+        "v7": 83.49729307122448,
+        "v8": 83.44273322922172,
+        "delta": -0.054559842002760206,
+        "v7Rank": 5,
+        "v8Rank": 5,
+        "rankDelta": 0,
+        "DDelta": -0.054559842002760206,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "b5172ada-e0d5-4c3f-a4c7-06b4ac3391de",
+        "setName": "Call of Legends",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.02243453245147009,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "bd54a027-2b93-4cfb-b118-687bd0481def",
+        "setName": "Majestic Dawn",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6",
+        "setName": "Arceus",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.026922713241575025,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "be72ec5d-de1a-41db-81e0-89c310ed75ae",
+        "setName": "Guardians Rising",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.030463901425477502,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "be7c981b-c55e-4f60-a1b8-be922531452d",
+        "setName": "Celebrations",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.043776252412214944,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "setName": "White Flare",
+        "v7": 58.89445362264765,
+        "v8": 58.857831357299624,
+        "delta": -0.03662226534802926,
+        "v7Rank": 21,
+        "v8Rank": 21,
+        "rankDelta": 0,
+        "DDelta": -0.03662226534802926,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "c56fe006-6d9a-4b26-a4e0-6726138edecb",
+        "setName": "Dragon Frontiers",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.02625779183253485,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "c79eb59b-03a4-41c9-891b-de78a8f50d5e",
+        "setName": "Forbidden Light",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.053925825305981334,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "c825e588-8070-4dc7-b2b4-bedaf811ffed",
+        "setName": "Primal Clash",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.032801782709682925,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "c86889c9-ea25-4caa-b63c-7aa0b9796da8",
+        "setName": "Fossil",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "ca0ad9de-678b-4734-9e91-93a1d7201e51",
+        "setName": "Boundaries Crossed",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.02767579446485513,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "ca43d96a-ad90-4717-a4f6-253fb26a6d53",
+        "setName": "Mysterious Treasures",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "cb1dc8ed-925b-443d-ba23-d6ffa8f7084c",
+        "setName": "Legend Maker",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "setName": "Twilight Masquerade",
+        "v7": 82.38220984227969,
+        "v8": 82.3413244297796,
+        "delta": -0.04088541250008859,
+        "v7Rank": 7,
+        "v8Rank": 7,
+        "rankDelta": 0,
+        "DDelta": -0.04088541250008859,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "cbc11b3c-0244-4fca-880f-68ebdd599894",
+        "setName": "Sword & Shield",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.0504444367524286,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+        "setName": "Scarlet and Violet 151",
+        "v7": 89.25266943110611,
+        "v8": 89.22507996793134,
+        "delta": -0.027589463174777507,
+        "v7Rank": 1,
+        "v8Rank": 1,
+        "rankDelta": 0,
+        "DDelta": -0.027589463174777507,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "d38ee646-382d-45c0-9463-e9302aa2471a",
+        "setName": "Phantom Forces",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.04528783990321017,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "db98ee23-c79a-4bfb-8a50-a5ba8a69120d",
+        "setName": "Hidden Fates",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.05056283269051676,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "ddbc1691-ea68-4775-8343-7b8fddbf81e6",
+        "setName": "Plasma Freeze",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.011568095707005455,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "setName": "Destined Rivals",
+        "v7": 75.05743730291533,
+        "v8": 75.01014133769155,
+        "delta": -0.04729596522378188,
+        "v7Rank": 14,
+        "v8Rank": 14,
+        "rankDelta": 0,
+        "DDelta": -0.04729596522379609,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03",
+        "setName": "Cosmic Eclipse",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.0632370658094743,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "ed036406-26a7-4c68-92d5-dcd04f62556d",
+        "setName": "Shining Legends",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.015303385209321618,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "ed118173-d54b-40d5-bdb4-1964024dbad3",
+        "setName": "Team Rocket Returns",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "setName": "Surging Sparks",
+        "v7": 82.89947487692919,
+        "v8": 82.86172591174895,
+        "delta": -0.03774896518024207,
+        "v7Rank": 6,
+        "v8Rank": 6,
+        "rankDelta": 0,
+        "DDelta": -0.03774896518024207,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "setName": "Paldean Fates",
+        "v7": 88.41774862612466,
+        "v8": 88.39857711869901,
+        "delta": -0.019171507425653544,
+        "v7Rank": 3,
+        "v8Rank": 3,
+        "rankDelta": 0,
+        "DDelta": -0.019171507425653544,
+        "FDelta": 0.0,
+        "frequencyModifierDelta": 0.0,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "fdbc28d8-0b83-455c-b25c-13d2a222365a",
+        "setName": "Dragons Exalted",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "ff3a0e62-c79e-4721-aee8-41fb9d9e864b",
+        "setName": "Emerald",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": -0.06116280714618938,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      },
+      {
+        "setId": "ffc6b635-fe16-4416-b4fc-0f727e4c81d4",
+        "setName": "Rising Rivals",
+        "v7": null,
+        "v8": null,
+        "delta": null,
+        "v7Rank": null,
+        "v8Rank": null,
+        "rankDelta": null,
+        "DDelta": 0.0,
+        "FDelta": null,
+        "frequencyModifierDelta": null,
+        "desirableEntering": [],
+        "desirableLeaving": []
+      }
+    ],
+    "summary": {
+      "sets": 128,
+      "scoredV7": 22,
+      "scoredV8": 22,
+      "meanDelta": -0.027161360862924703,
+      "medianDelta": -0.037159808723295384,
+      "maxGain": 0.11570969981937651,
+      "maxLoss": -0.07593116690220825,
+      "rankCorrelation": 1.0,
+      "maxAbsoluteRankMove": 0,
+      "setsWithRankChange": 0,
+      "setsWithFrequencyChange": 0,
+      "setsWithDesirableThresholdChange": 0
+    }
+  }
+}
