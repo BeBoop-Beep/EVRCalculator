@@ -39,16 +39,17 @@ jobs:
           PY
       - name: Unit tests
         run: python -m pytest -q backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py
-      - name: Live DB preflight (zero provider calls / zero writes)
+      - name: Capture targeted 180-day NM Treatment history
         run: |
           python backend/scripts/research_treatment_panel_recovery_v2.py \
             --market-date 2026-09-29 \
             --period 180d \
             --credit-cap 9000 \
-            --output backend/artifacts/treatment_panel_recovery_v2/preflight.json
-      - name: Upload preflight artifact
+            --collect \
+            --output backend/artifacts/treatment_panel_recovery_v2/result.json
+      - name: Upload recovery artifact
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-panel-recovery-v2-preflight
-          path: backend/artifacts/treatment_panel_recovery_v2/preflight.json
+          name: treatment-panel-recovery-v2
+          path: backend/artifacts/treatment_panel_recovery_v2/result.json
           if-no-files-found: error
