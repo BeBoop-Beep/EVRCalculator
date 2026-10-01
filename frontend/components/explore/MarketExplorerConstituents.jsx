@@ -422,7 +422,7 @@ function QueryConstituentSection({
           <span className="tabular-nums" data-market-constituents-count>
             {page.totalCount}
           </span>
-          {asset === "sealed" ? " products" : " cards"}
+          {asset === "sealed" ? " tracked products" : " tracked cards"}
           {page.asOf ? ` · as of ${page.asOf}` : ""}
         </span>
       </div>
@@ -593,7 +593,7 @@ function QueryConstituentSection({
           data-market-constituents-page-complete
           className="px-3 pb-4 text-[10px] text-[var(--text-secondary)] sm:px-4"
         >
-          All {page.totalCount} constituents loaded.
+          All {page.totalCount} tracked {asset === "sealed" ? "products" : "cards"} loaded.
         </p>
       )}
     </>

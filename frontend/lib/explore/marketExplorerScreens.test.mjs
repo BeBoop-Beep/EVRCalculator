@@ -10,6 +10,15 @@ import {
   validateScreenRegistry,
 } from "./marketExplorerScreens.mjs";
 
+test("asset-specific performance Screens retain backend global ranks and request the base Screen", () => {
+  const cards = MARKET_EXPLORER_SCREENS.find((screen) => screen.id === "top-performers-cards");
+  const sealed = MARKET_EXPLORER_SCREENS.find((screen) => screen.id === "worst-performers-sealed");
+  assert.equal(cards.requestScreen, "top-performers");
+  assert.equal(cards.asset, "cards");
+  assert.equal(sealed.requestScreen, "worst-performers");
+  assert.equal(sealed.asset, "sealed");
+});
+
 test("the V1 Screen registry is valid, unique, and deterministically entitled", () => {
   assert.equal(validateScreenRegistry(), true);
   assert.equal(new Set(MARKET_EXPLORER_SCREENS.map((screen) => screen.id)).size, MARKET_EXPLORER_SCREENS.length);

@@ -390,7 +390,10 @@ export default function MarketExplorerClient({
     [],
   );
   const focusSeries = useCallback(
-    (key) => dispatchView({ type: WORKSPACE_VIEW_ACTIONS.focus, key }),
+    (key) => {
+      dispatchView({ type: WORKSPACE_VIEW_ACTIONS.focus, key });
+      setRequestedDetailSeriesId(key);
+    },
     [],
   );
   const clearFocus = useCallback(
@@ -1032,7 +1035,7 @@ export default function MarketExplorerClient({
           />
           <div
             data-market-explorer-sidebar-section="asset-markets"
-            className="relative z-[70] px-3 pb-3"
+            className="relative px-3 pb-3"
           >
             {activeBrowseAsset === "cards" ? (
               <MarketExplorerRarityMarkets

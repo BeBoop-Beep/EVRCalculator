@@ -82,3 +82,13 @@ test("prepared charts retain actual long-window observations without inventing r
   assert.equal(compared.series[1].values[0], null);
   assert.equal(compared.series[0].values[0], 100);
 });
+
+test("30D uses the requested calendar domain while retaining an earlier calculation baseline only as metadata", () => {
+  const raw = { key: "raw", label: "Raw", asset: "cards", available: true, marketType: "parent", familyChanges: { "30D": { available: true, percent: 4, targetStartDate: "2026-08-30", startDate: "2026-08-28", endDate: "2026-09-29" } }, trend: [{ date: "2026-08-28", value: 100 }, { date: "2026-08-31", value: 101 }, { date: "2026-09-29", value: 104 }] };
+  const sealed = { key: "sealed", label: "Total Sealed", asset: "sealed", available: true, marketType: "parent", familyChanges: { "30D": { available: true, percent: 2, targetStartDate: "2026-08-30", startDate: "2026-08-30", endDate: "2026-09-29" } }, trend: [{ date: "2026-08-30", value: 100 }, { date: "2026-09-29", value: 102 }] };
+  const model = buildExplorerChartModel(null, [raw, sealed], "30D");
+  assert.equal(model.startDate, "2026-08-30");
+  assert.equal(model.dates[0], "2026-08-30");
+  assert.equal(model.series[0].values[0], null);
+  assert.equal(model.series[0].change.startDate, "2026-08-28");
+});

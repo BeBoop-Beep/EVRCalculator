@@ -18,6 +18,7 @@ import {
   projectMarketChartValues,
 } from "./marketPerformanceDomain.mjs";
 import { formatIndexValue, formatMarketDate, formatShortDate } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { orderMarketPerformanceReadings } from "./marketPerformanceReadings.mjs";
 
 // Purpose-built dual-series index chart.
 //
@@ -201,7 +202,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
   const lineOrder = focusActive ? [...drawn.filter(isDimmed), ...drawn.filter((entry) => !isDimmed(entry))] : drawn;
 
   const activeDate = activeIndex === null ? null : dates[activeIndex] || null;
-  const activeReadings = activeIndex === null
+  const unorderedReadings = activeIndex === null
     ? []
     : drawn.map((entry) => ({
         key: entry.key,
@@ -213,8 +214,10 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
         point: entry.pointMeta?.[activeIndex] || null,
         focus: focusActive ? (isDimmed(entry) ? "dimmed" : "focused") : undefined,
       }));
-  // Focused series first in the tooltip; every other visible series stays.
-  if (focusActive) activeReadings.sort((left, right) => (left.focus === "focused" ? -1 : 0) - (right.focus === "focused" ? -1 : 0));
+  const activeReadings = orderMarketPerformanceReadings(
+    unorderedReadings,
+    focusActive ? focusedSeriesKey : null,
+  );
   const spokenReading = activeDate
     ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label} index ${reading.rawValue === null ? "unavailable" : formatIndexValue(reading.rawValue)}, ${timeframe} performance ${reading.performanceValue === null ? "unavailable" : `${reading.performanceValue.toFixed(2)} percent`}${reading.point?.isCarriedForward ? `, previous close carried from ${formatMarketDate(reading.point.sourceDate)}` : ""}`).join(". ")}.`
     : null;

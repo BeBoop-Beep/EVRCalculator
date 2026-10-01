@@ -2,6 +2,7 @@
 
 import { changeDirection, formatChangePercent, formatIndexValue, getPricePerformanceChange } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+import { formatExplorerMarketLabel } from "@/lib/explore/marketExplorerLabels.mjs";
 
 const returnColor = (change) => {
   const direction = changeDirection(change);
@@ -69,7 +70,7 @@ export default function MarketExplorerActiveMarkets({
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Active Markets</h2>
           <p className="min-w-0 text-[10px] text-[var(--text-secondary)] [@media(max-height:500px)]:hidden">
-            Select one to focus it on the chart. Constituent targets live inside Constituents &amp; Comparison.
+            Select a chip to inspect it; use the magnifier to focus its chart line.
           </p>
         </div>
         <div
@@ -111,6 +112,7 @@ export default function MarketExplorerActiveMarkets({
       <div data-market-explorer-active-chip-scroll className="min-w-0 overflow-x-auto">
       <ul className="flex min-w-max flex-nowrap gap-1.5">
         {series.map((entry) => {
+          const displayLabel = formatExplorerMarketLabel(entry);
           const isActive = entry.key === activeSeriesId;
           const isHidden = hidden.has(entry.key);
           const isFocused = entry.key === focusedSeriesKey;
@@ -150,8 +152,8 @@ export default function MarketExplorerActiveMarkets({
                   type="button"
                   data-market-explorer-active-focus={entry.key}
                   aria-pressed={isFocused}
-                  aria-label={isFocused ? `Clear focus on ${entry.label}` : `Focus on ${entry.label}`}
-                  onClick={() => onFocus?.(entry.key)}
+                  aria-label={isFocused ? `Clear focus on ${displayLabel}` : `Focus on ${displayLabel}`}
+                  onClick={() => { onFocus?.(entry.key); onInspect?.(entry.key); }}
                   className={[
                     "flex-none rounded-full p-0.5 leading-none transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80",
                     "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100",
@@ -164,7 +166,7 @@ export default function MarketExplorerActiveMarkets({
                   type="button"
                   data-market-explorer-active-visibility={entry.key}
                   aria-pressed={!isHidden}
-                  aria-label={isHidden ? `Show ${entry.label} on the chart` : `Hide ${entry.label} from the chart`}
+                  aria-label={isHidden ? `Show ${displayLabel} on the chart` : `Hide ${displayLabel} from the chart`}
                   onClick={() => onToggleVisibility?.(entry.key)}
                   className="flex-none rounded-full p-0.5 leading-none text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
                 >
@@ -172,15 +174,16 @@ export default function MarketExplorerActiveMarkets({
                 </button>
                 <button
                   type="button"
+                  data-market-explorer-active-chip-body={entry.key}
                   data-market-explorer-active-focus-body={entry.key}
-                  aria-pressed={isFocused}
-                  onClick={() => onFocus?.(entry.key)}
+                  aria-pressed={isActive}
+                  onClick={() => onInspect?.(entry.key)}
                   className={[
                     "min-w-0 truncate text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
-                    isFocused ? "font-semibold text-sky-200" : "text-[var(--text-primary)]",
+                    isActive ? "font-semibold text-[rgb(153,246,228)]" : "text-[var(--text-primary)]",
                   ].join(" ")}
                 >
-                  {entry.shortLabel || entry.label}
+                  {entry.shortLabel || displayLabel}
                 </button>
                 {showsIndexValue ? (
                   <span data-market-explorer-active-chip-index={entry.key} className="flex-none tabular-nums text-[10px] text-[var(--text-secondary)]">
@@ -189,7 +192,7 @@ export default function MarketExplorerActiveMarkets({
                 ) : null}
                 <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums" style={{ color: returnColor(periodChange) }}>{formatChangePercent(periodChange)}</span>
                 {entry.instanceId ? (
-                  <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${entry.label}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
+                  <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${displayLabel}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
                 ) : null}
                 <button
                   type="button"
@@ -198,7 +201,7 @@ export default function MarketExplorerActiveMarkets({
                   // prepared market stays selectable via this button; Clear
                   // Graph is the dedicated path to a genuinely empty chart).
                   disabled={!canRemove}
-                  aria-label={`Remove ${entry.label} from the comparison`}
+                  aria-label={`Remove ${displayLabel} from the comparison`}
                   onClick={() => onRemove?.(entry.key)}
                   className="flex-none rounded-full px-1 text-[11px] leading-none text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
                 >

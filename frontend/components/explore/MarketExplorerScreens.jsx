@@ -1,39 +1,24 @@
 "use client";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { MARKET_EXPLORER_SCREENS, screenResultLabel } from "@/lib/explore/marketExplorerScreens.mjs";
 
+function Results({ screen, selected, state, canCompare, activeKeys, pendingKeys, onSelect, onClose, onRetry }) {
+  return <div data-market-screen-results data-market-screen-results-for={selected} className="col-span-full max-h-72 overflow-y-auto rounded-md border border-[var(--border-subtle)] bg-slate-950 px-2 py-2">
+    <div className="flex items-center justify-between gap-2"><p role="status" className="text-[11px] text-[var(--text-secondary)]">{state.status === "loading" ? "Loading prepared Screen…" : state.status === "error" ? "Screen temporarily unavailable." : `${state.results.length} prepared results · click any row to ${canCompare ? "add it to the comparison" : "view it"}`}</p><span className="flex gap-1">{state.status === "error" ? <button type="button" data-market-screen-retry onClick={onRetry} className="rounded-md border px-2 py-1 text-[10px]">Retry</button> : null}<button type="button" data-market-screen-close aria-label={`Close ${screen.label}`} onClick={onClose} className="rounded-md border px-2 py-1 text-[10px]">Close</button></span></div>
+    <ol>{state.results.slice(0, 10).map((row) => { const active = activeKeys.includes(row.market_key); const loading = !active && pendingKeys.includes(row.market_key); return <li key={row.market_key} className="flex min-w-0 items-center gap-2 border-b border-[var(--border-subtle)] py-1 text-xs"><span className="w-7 flex-none text-[var(--text-secondary)]">#{row.rank}</span><button type="button" data-market-screen-result={row.market_key} aria-pressed={active} onClick={() => onSelect(row.market_key)} className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border-l-2 px-2 py-2 text-left ${active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.12)] font-bold text-[rgb(45,212,191)]" : "border-transparent hover:bg-white/[.035]"}`}><span className="min-w-0 flex-1 truncate">{screenResultLabel(row)}</span><span className="flex-none text-[9px] font-semibold">{active ? "Remove" : loading ? "Adding…" : canCompare ? "+ Compare" : "View"}</span></button><span className="flex-none tabular-nums text-[var(--text-secondary)]">{Number(row.metric_value).toFixed(1)}%</span></li>; })}</ol>
+  </div>;
+}
+
 export default function MarketExplorerScreens({ canCompare = false, activeKeys = [], pendingKeys = [], onSelect }) {
-  const [selected, setSelected] = useState(null);
-  const [screenStates, setScreenStates] = useState({});
-  const cache = useRef(new Map());
-
+  const [selected, setSelected] = useState(null); const [states, setStates] = useState({}); const cache = useRef(new Map());
   const run = async (screen, { refresh = false } = {}) => {
+    if (!refresh && selected === screen.id) { setSelected(null); return; }
     setSelected(screen.id);
-    if (!refresh && cache.current.has(screen.id)) {
-      setScreenStates((current) => ({ ...current, [screen.id]: { status: "ready", results: cache.current.get(screen.id) } }));
-      return;
-    }
-    setScreenStates((current) => ({ ...current, [screen.id]: { status: "loading", results: current[screen.id]?.results || [] } }));
-    const query = new URLSearchParams({ kind: "screen", screen: screen.id, limit: String(screen.limit || 10) });
-    try {
-      const response = await fetch(`/api/market/explorer/prepared?${query}`, { credentials: "include", cache: "no-store" });
-      const payload = await response.json();
-      const results = response.ok && Array.isArray(payload.results) ? payload.results : [];
-      if (response.ok) cache.current.set(screen.id, results);
-      if (!response.ok && process.env.NODE_ENV !== "production") console.error("Market Explorer Screen request failed", { httpStatus: response.status, errorCode: typeof payload?.code === "string" ? payload.code : "PREPARED_SCREEN_REQUEST_FAILED" });
-      setScreenStates((current) => ({ ...current, [screen.id]: { status: response.ok ? "ready" : "error", results } }));
-    } catch (error) {
-      if (process.env.NODE_ENV !== "production") console.error("Market Explorer Screen transport failure", { errorCode: "PREPARED_SCREEN_TRANSPORT_FAILED", errorName: error?.name || "Error" });
-      setScreenStates((current) => ({ ...current, [screen.id]: { status: "error", results: [] } }));
-    }
+    if (!refresh && cache.current.has(screen.id)) { setStates((s) => ({ ...s, [screen.id]: { status: "ready", results: cache.current.get(screen.id) } })); return; }
+    setStates((s) => ({ ...s, [screen.id]: { status: "loading", results: s[screen.id]?.results || [] } }));
+    const query = new URLSearchParams({ kind: "screen", screen: screen.requestScreen || screen.id, limit: String(screen.limit || 10) }); if (screen.asset) query.set("asset", screen.asset);
+    try { const response = await fetch(`/api/market/explorer/prepared?${query}`, { credentials: "include", cache: "no-store" }); const payload = await response.json(); const results = response.ok && Array.isArray(payload.results) ? payload.results : []; if (response.ok) cache.current.set(screen.id, results); setStates((s) => ({ ...s, [screen.id]: { status: response.ok ? "ready" : "error", results } })); }
+    catch { setStates((s) => ({ ...s, [screen.id]: { status: "error", results: [] } })); }
   };
-
-  const selectedScreen = MARKET_EXPLORER_SCREENS.find((screen) => screen.id === selected);
-  const selectedState = selected ? (screenStates[selected] || { status: "idle", results: [] }) : null;
-  return <section data-market-explorer-screens className="px-3 py-3 sm:px-4" aria-labelledby="market-screens-heading">
-    <h2 id="market-screens-heading" className="text-sm font-semibold text-[var(--text-primary)]">Screens</h2>
-    <p className="text-[11px] text-[var(--text-secondary)]">Prepared analytical discovery. Momentum is canonical 30D index return.</p>
-    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">{MARKET_EXPLORER_SCREENS.map((screen) => { const active = selected === screen.id; return <button type="button" key={screen.id} data-market-screen={screen.id} aria-pressed={active} onClick={() => run(screen)} className={`rounded-md border px-3 py-2 text-left text-xs transition-colors hover:bg-white/[.035] ${active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.16)] text-[rgb(45,212,191)] shadow-[inset_0_0_0_1px_rgba(45,212,191,.18)]" : "border-[var(--border-subtle)]"}`}><strong className="block">{screen.label}</strong><span className={`text-[10px] ${active ? "text-[rgb(153,246,228)]" : "text-[var(--text-secondary)]"}`}>{screen.description}</span></button>; })}</div>
-    {selectedState ? <div data-market-screen-results data-market-screen-results-for={selected} className="mt-3 max-h-72 overflow-y-auto rounded-md border border-[var(--border-subtle)] px-2 py-2"><div className="flex items-center justify-between gap-2"><p role="status" className="text-[11px] text-[var(--text-secondary)]">{selectedState.status === "loading" ? "Loading prepared Screen…" : selectedState.status === "error" ? "Screen temporarily unavailable." : `${selectedState.results.length} prepared results · click any row to ${canCompare ? "add it to the comparison" : "view it"}`}</p>{selectedState.status === "error" ? <button type="button" data-market-screen-retry onClick={() => run(selectedScreen, { refresh: true })} className="rounded-md border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)]">Retry</button> : null}</div><ol>{selectedState.results.slice(0, 10).map((row) => { const active = activeKeys.includes(row.market_key); const loading = !active && pendingKeys.includes(row.market_key); return <li key={row.market_key} className="flex min-w-0 items-center gap-2 border-b border-[var(--border-subtle)] py-1 text-xs"><span className="w-5 flex-none text-[var(--text-secondary)]">{row.rank}</span><button type="button" data-market-screen-result={row.market_key} aria-pressed={active} onClick={() => onSelect(row.market_key)} className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border-l-2 px-2 py-2 text-left ${active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.12)] font-bold text-[rgb(45,212,191)]" : "border-transparent text-[var(--text-primary)] hover:bg-white/[.035]"}`}><span className="min-w-0 flex-1 truncate">{screenResultLabel(row)}</span><span className="flex-none whitespace-nowrap text-[9px] font-semibold">{active ? "Remove" : loading ? "Adding…" : canCompare ? "+ Compare" : "View"}</span></button><span className="flex-none tabular-nums text-[var(--text-secondary)]">{Number(row.metric_value).toFixed(1)}%</span></li>; })}</ol></div> : null}
-  </section>;
+  return <section data-market-explorer-screens className="px-3 py-3 sm:px-4" aria-labelledby="market-screens-heading"><h2 id="market-screens-heading" className="text-sm font-semibold">Screens</h2><p className="text-[11px] text-[var(--text-secondary)]">Prepared analytical discovery. Rankings retain their global rank.</p><div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">{MARKET_EXPLORER_SCREENS.map((screen, index) => { const active = selected === screen.id; const state = states[screen.id] || { status: "idle", results: [] }; const rowScreens = MARKET_EXPLORER_SCREENS.slice(index - (index % 2), index - (index % 2) + 2); const rowEnds = index % 2 === 1 || index === MARKET_EXPLORER_SCREENS.length - 1; return <Fragment key={screen.id}><button type="button" data-market-screen={screen.id} aria-pressed={active} onClick={() => run(screen)} className={`rounded-md border px-3 py-2 text-left text-xs ${active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.16)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] hover:bg-white/[.035]"}`}><strong className="block">{screen.label}</strong><span className="text-[10px] text-[var(--text-secondary)]">{screen.description}</span></button>{active ? <div className="sm:hidden"><Results screen={screen} selected={selected} state={state} canCompare={canCompare} activeKeys={activeKeys} pendingKeys={pendingKeys} onSelect={onSelect} onClose={() => setSelected(null)} onRetry={() => run(screen, { refresh: true })} /></div> : null}{rowEnds && rowScreens.some((item) => item.id === selected) ? <div className="hidden sm:block sm:col-span-2"><Results screen={MARKET_EXPLORER_SCREENS.find((item) => item.id === selected)} selected={selected} state={states[selected] || { status: "idle", results: [] }} canCompare={canCompare} activeKeys={activeKeys} pendingKeys={pendingKeys} onSelect={onSelect} onClose={() => setSelected(null)} onRetry={() => run(MARKET_EXPLORER_SCREENS.find((item) => item.id === selected), { refresh: true })} /></div> : null}</Fragment>; })}</div></section>;
 }
