@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: index-production-vm-ops-v2
@@ -24,6 +25,7 @@ jobs:
       ACTIONS_SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       ACTIONS_POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
       ACTIONS_SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+      VM_GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Validate request
         shell: bash
@@ -56,8 +58,10 @@ jobs:
               raise SystemExit("scrape-catalog-set-refresh requires set_id=<canonical_key>")
           if op == "scrape-set-refresh" and not set_id:
               raise SystemExit("scrape-set-refresh requires set_id=<canonical_key>")
-          if (op.startswith("pricing-") or op.startswith("pkmnprices-")) and (market_date or set_id):
+          if (op.startswith("pricing-") or op.startswith("pkmnprices-") or op == "treatment-panel-recovery-v2") and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
+          if op == "treatment-panel-recovery-v2" and (not request_id or not request_id.isdigit()):
+              raise SystemExit("treatment-panel-recovery-v2 requires numeric request_id=<issue number>")
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write(f"VM_OPERATION={op}\n")
@@ -4942,6 +4946,124 @@ jobs:
               echo "PRICING_RUNTIME_DEPLOYED=PASS"
               if grep -qx 'runtime_provenance_configured=false' <<<"$PROV"; then echo "RUNTIME_PROVENANCE_PROFILE_NOT_CONFIGURED"; fi
               ;;
+
+            treatment-panel-recovery-v2)
+              set -euo pipefail
+              RESEARCH_SHA="33445b6b12b5c168361ffc1a82beb72e72623101"
+              RESEARCH_BRANCH="research/collector-treatment-panel-recovery-v2-20261001"
+              WT="/tmp/EVRCalculator-treatment-panel-recovery-v2-$GITHUB_RUN_ID"
+              OUT="/tmp/treatment-panel-recovery-v2-$GITHUB_RUN_ID"
+              ENV_REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$ENV_REPO/.venv/bin/python"
+              ISSUE="$VM_REQUEST_ID"
+
+              cleanup_treatment_recovery() {
+                if [ -e "$WT" ]; then
+                  git -C "$ENV_REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+                fi
+                git -C "$ENV_REPO" worktree prune >/dev/null 2>&1 || true
+              }
+              trap cleanup_treatment_recovery EXIT
+
+              post_treatment_comment() {
+                local body_file="$1"
+                VM_COMMENT_BODY="$body_file" VM_COMMENT_ISSUE="$ISSUE" VM_COMMENT_REPO="$GITHUB_REPOSITORY" \
+                  VM_COMMENT_TOKEN="$VM_GITHUB_TOKEN" python3 - <<'PY'
+          import json, os, urllib.request
+          path=os.environ["VM_COMMENT_BODY"]
+          body=open(path,encoding="utf-8").read()
+          payload=json.dumps({"body": body}).encode()
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['VM_COMMENT_REPO']}/issues/{os.environ['VM_COMMENT_ISSUE']}/comments",
+              data=payload,
+              headers={
+                  "Authorization": "Bearer " + os.environ["VM_COMMENT_TOKEN"],
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=30) as response:
+              print("issue_comment_http_status=" + str(response.status))
+          PY
+              }
+
+              [ -x "$PY" ] || { echo "TREATMENT_RECOVERY_PYTHON_MISSING"; exit 2; }
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] || { echo "TREATMENT_RECOVERY_DB_SAFETY_HOLD"; exit 75; }
+
+              cd "$ENV_REPO"
+              git fetch origin "$RESEARCH_BRANCH" --quiet
+              git cat-file -e "$RESEARCH_SHA^{commit}"
+              [ "$(git rev-parse "origin/$RESEARCH_BRANCH")" = "$RESEARCH_SHA" ] || {
+                echo "TREATMENT_RECOVERY_SHA_DRIFT_REFUSED"
+                exit 20
+              }
+              rm -rf "$OUT"
+              mkdir -p "$OUT"
+              cleanup_treatment_recovery
+              git worktree add --detach "$WT" "$RESEARCH_SHA" >/dev/null
+              [ "$(git -C "$WT" rev-parse HEAD)" = "$RESEARCH_SHA" ] || exit 21
+
+              set -a
+              . "$ENV_REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+
+              echo "== focused tests =="
+              "$PY" -m pytest -q "$WT/backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py"
+
+              echo "== read-only preflight =="
+              (cd "$WT" && "$PY" -m backend.scripts.research_treatment_panel_recovery_v2 \
+                --preflight --cohort-date 2026-09-29 --output-dir "$OUT") | tee "$OUT/preflight.json"
+
+              exec 8>/tmp/pkmnprices-api.lock
+              if ! /usr/bin/flock -n 8; then
+                printf '## Treatment Panel Recovery V2\n\nStatus: **DEFERRED_PROVIDER_BUSY**\n\nThe shared PkmnPrices lock was held; zero provider credits were used and no production writes occurred.\n' > "$OUT/issue-comment.md"
+                post_treatment_comment "$OUT/issue-comment.md"
+                exit 75
+              fi
+
+              echo "== collect 180d PkmnPrices TCGPlayer Near Mint history =="
+              (cd "$WT" && "$PY" -m backend.scripts.research_treatment_panel_recovery_v2 \
+                --collect --cohort-date 2026-09-29 --period 180d --condition "Near Mint" \
+                --credit-cap 15000 --output-dir "$OUT") | tee "$OUT/summary.json"
+
+              TREATMENT_OUT="$OUT" "$PY" - <<'PY'
+          import json, os
+          from pathlib import Path
+          out=Path(os.environ["TREATMENT_OUT"])
+          result=json.loads((out/"result.json").read_text(encoding="utf-8"))
+          ev=result["evaluation"]["statusCounts"]
+          col=result["collection"]
+          lines=[
+              "## Treatment Panel Recovery V2",
+              "",
+              "Status: **COMPLETED**",
+              "",
+              f"- research SHA: `33445b6b12b5c168361ffc1a82beb72e72623101`",
+              f"- provider cards queried: **{col['providerCardsQueried']} / {col['providerCardsPlanned']}**",
+              f"- credits used: **{col['creditsUsed']} / {col['creditCap']}**",
+              f"- Near-Mint history rows retained: **{col['historyRows']}**",
+              f"- PANEL_READY_STRONG: **{ev.get('PANEL_READY_STRONG',0)}**",
+              f"- PANEL_READY_MODERATE: **{ev.get('PANEL_READY_MODERATE',0)}**",
+              f"- HISTORY_BLOCKED: **{ev.get('HISTORY_BLOCKED',0)}**",
+              f"- result fingerprint: `{result['resultFingerprint']}`",
+              "",
+              "Safety: production DB writes = **0**; canonical price mutation = **none**; Collector Appeal mutation = **none**; Overall RIP mutation = **none**.",
+              "",
+              "<details><summary>Per-Set readiness</summary>",
+              "",
+          ]
+          for key,value in result["evaluation"]["bySetAndStatus"].items():
+              lines.append(f"- {key}: {value}")
+          lines += ["", "</details>", ""]
+          (out/"issue-comment.md").write_text("\n".join(lines),encoding="utf-8")
+          PY
+              post_treatment_comment "$OUT/issue-comment.md"
+              echo "TREATMENT_PANEL_RECOVERY_V2=PASS"
+              ;;
+
 
             *)
               echo "Unexpected operation after validation: $VM_OPERATION"
