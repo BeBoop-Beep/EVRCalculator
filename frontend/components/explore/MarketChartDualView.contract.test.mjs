@@ -4,17 +4,17 @@ import fs from "node:fs";
 
 const read = (name) => fs.readFileSync(new URL(name, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
-test("Market and Explorer share one accessible view toggle and default to Performance", () => {
+test("Market and Explorer share one accessible view toggle; Explorer is client-controlled", () => {
   const toggle = read("./MarketChartViewToggle.jsx");
   const market = read("./PokemonMarketPerformance.jsx");
   const explorer = read("./MarketExplorerChart.jsx");
   assert.match(toggle, /aria-pressed=\{selected\}/);
   assert.match(toggle, /data-market-chart-view=\{option\.value\}/);
-  for (const source of [market, explorer]) {
-    assert.match(source, /useState\(MARKET_CHART_VIEW_PERFORMANCE\)/);
-    assert.match(source, /<MarketChartViewToggle value=\{viewMode\} onChange=\{setViewMode\}/);
-    assert.match(source, /viewMode=\{viewMode\}/);
-  }
+  assert.match(market, /useState\(MARKET_CHART_VIEW_PERFORMANCE\)/);
+  assert.match(market, /<MarketChartViewToggle value=\{viewMode\} onChange=\{setViewMode\}/);
+  assert.match(explorer, /viewMode = MARKET_CHART_VIEW_INDEX/);
+  assert.match(explorer, /onChange=\{onViewModeChange\}/);
+  assert.match(explorer, /<MarketActivityChart/);
 });
 
 test("mode switching is local presentation state with no network owner", () => {

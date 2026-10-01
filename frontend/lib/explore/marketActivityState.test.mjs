@@ -344,22 +344,16 @@ test("sparse points use canonical x positions and preserve gaps", () => {
   );
 });
 
-test("Activity remains a companion pane with one tooltip owner and no production route", async () => {
+test("Activity is a main-canvas chart mode and the detached pane has no production route", async () => {
   const root = fileURLToPath(new URL("../..", import.meta.url));
-  const [chart, pane, client] = await Promise.all([
-    readFile(`${root}/components/explore/MarketPerformanceChart.jsx`, "utf8"),
-    readFile(`${root}/components/explore/MarketActivityPane.jsx`, "utf8"),
+  const [chart, activityChart, client] = await Promise.all([
+    readFile(`${root}/components/explore/MarketExplorerChart.jsx`, "utf8"),
+    readFile(`${root}/components/explore/MarketActivityChart.jsx`, "utf8"),
     readFile(`${root}/components/explore/MarketExplorerClient.jsx`, "utf8"),
   ]);
-  assert.match(chart, /data-market-performance-tooltip/);
-  assert.doesNotMatch(pane, /Tooltip|createPortal/);
-  assert.match(
-    pane,
-    /state\.status === "ready" &&[\s\S]*availability\?\.state === "UNAVAILABLE"/,
-  );
-  assert.match(client, /activityState=\{activityOn \? activityState : null\}/);
-  assert.match(
-    client,
-    /overlays=\{chartOverlays\}[\s\S]*activityState=\{activityOn \? activityState : null\}/,
-  );
+  assert.match(chart, /viewMode === MARKET_CHART_VIEW_ACTIVITY/);
+  assert.match(chart, /<MarketActivityChart/);
+  assert.doesNotMatch(chart, /MarketActivityPane/);
+  assert.match(activityChart, /data-market-activity-tooltip/);
+  assert.match(client, /chartViewMode/);
 });

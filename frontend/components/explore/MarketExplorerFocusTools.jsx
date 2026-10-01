@@ -40,16 +40,8 @@ function ToolControl({ id, label, tool, badge, pressed, onToggle }) {
  * Builds the `focusTools` seam entries the Chart strip renders.
  * `states` comes from resolveFocusToolStates(plan, focusedKey, backendCapabilities).
  */
-export function buildFocusTools({ states, fairValueOn = false, demandPressureOn = false, activityOn = false, onToggle }) {
+export function buildFocusTools({ states, fairValueOn = false, demandPressureOn = false, onToggle }) {
   return [
-    {
-      id: "market-activity",
-      render: () => (
-        <ToolControl id="market-activity" label="Market Activity" tool={states.activity}
-          badge={states.activity.state === FOCUS_TOOL_STATE.locked ? "Index+" : null}
-          pressed={activityOn} onToggle={onToggle} />
-      ),
-    },
     {
       id: "demand-pressure",
       render: () => (

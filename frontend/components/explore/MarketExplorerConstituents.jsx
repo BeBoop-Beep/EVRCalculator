@@ -698,7 +698,7 @@ export default function MarketExplorerConstituents({
       className="flex min-w-0 flex-col"
       aria-labelledby="market-constituents-heading"
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-3 py-3 sm:px-4">
+      <div className="relative flex min-h-14 flex-wrap items-start gap-x-2 gap-y-2 px-3 py-3 sm:items-center sm:px-4">
         <h2
           id="market-constituents-heading"
           className="text-[16px] font-semibold text-[var(--text-primary)]"
@@ -736,7 +736,8 @@ export default function MarketExplorerConstituents({
           <div
             role="tablist"
             aria-label="Constituent view"
-            className="ml-auto flex rounded-md border border-[var(--border-subtle)] p-0.5"
+            data-market-constituent-view-toggle
+            className="order-3 mx-auto flex w-fit rounded-md border border-[var(--border-subtle)] p-0.5 sm:absolute sm:left-1/2 sm:top-1/2 sm:order-none sm:-translate-x-1/2 sm:-translate-y-1/2"
           >
             <button
               type="button"
@@ -760,7 +761,7 @@ export default function MarketExplorerConstituents({
         ) : null}
         {localView === "performance" &&
         (isPaged || model.availability === CONSTITUENTS_AVAILABLE) ? (
-          <div className="ml-auto">
+          <div className="ml-auto min-w-0 sm:min-w-[16rem] sm:text-right">
             <MovementWindowSelector
               value={model.movementWindow}
               onChange={setMovementWindow}

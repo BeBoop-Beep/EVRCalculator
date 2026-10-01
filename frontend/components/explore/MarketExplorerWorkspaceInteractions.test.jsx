@@ -53,7 +53,7 @@ function mountChips(props = {}) {
   return { renderer, calls };
 }
 
-test("chip focus action: labelled, separate from visibility/remove, and touches nothing else", () => {
+test("chip focus action is labelled, separate, and also selects the inspecting target", () => {
   const { renderer, calls } = mountChips();
   const focus = one(renderer, "data-market-explorer-active-focus", "B");
   assert.equal(focus.props["aria-label"], "Focus on Market B");
@@ -64,7 +64,7 @@ test("chip focus action: labelled, separate from visibility/remove, and touches 
   assert.match(remove.props["aria-label"], /Remove Market B/);
   assert.match(visibility.props["aria-label"], /Hide Market B/);
   act(() => focus.props.onClick());
-  assert.deepEqual(calls, { focus: ["B"], remove: [], visibility: [], inspect: [], clear: 0 });
+  assert.deepEqual(calls, { focus: ["B"], remove: [], visibility: [], inspect: ["B"], clear: 0 });
 });
 
 test("chip focus: the focused chip is marked, pressed, and offers to clear focus", () => {
@@ -88,9 +88,9 @@ test("chip focus is not hover-only: hidden by default only where a real hover ex
   assert.doesNotMatch(button, /(^|\s)(desk|tab|sm|md|lg):(hidden|opacity-0)/, "no viewport-width gating of the focus action");
 });
 
-test("chip body and magnifier share focus semantics; constituent targeting stays in its panel", () => {
+test("chip body selects inspecting without activating chart focus", () => {
   const { renderer } = mountChips();
-  assert.equal(one(renderer, "data-market-explorer-active-focus-body", "A").props["aria-pressed"], false);
+  assert.equal(one(renderer, "data-market-explorer-active-focus-body", "A").props["aria-pressed"], true);
   assert.equal(one(renderer, "data-market-explorer-active-focus-body", "B").props["aria-pressed"], false);
 });
 
@@ -414,11 +414,11 @@ async function mountClient(props = {}) {
   return renderer;
 }
 
-test("MarketExplorerClient defaults Market Activity to unavailable without capability authority", async () => {
+test("MarketExplorerClient exposes unavailable Activity only in the main chart toggle while focused", async () => {
   installClientFetch();
   const renderer = await mountClient();
   click(renderer, "data-market-explorer-active-focus", "raw"); await flush();
-  assert.equal(one(renderer, "data-market-explorer-focus-tool", "market-activity").props["data-focus-tool-state"], "unavailable");
+  assert.equal(one(renderer, "data-market-chart-view", "activity").props["data-market-chart-view-state"], "unavailable");
   assert.equal(find(renderer, "data-market-activity-pane").length, 0);
 });
 async function addFossil(renderer) {

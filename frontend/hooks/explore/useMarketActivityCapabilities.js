@@ -18,6 +18,7 @@ export default function useMarketActivityCapabilities({
   activeSeries,
   identityKey,
   plan,
+  windowDays = 30,
   enabled = true,
   transport = fetchMarketActivityCapabilities,
 }) {
@@ -25,7 +26,7 @@ export default function useMarketActivityCapabilities({
     () => eligibleActivityMarkets(activeSeries),
     [activeSeries],
   );
-  const batchKey = activityCapabilityBatchKey(markets, identityKey, plan);
+  const batchKey = activityCapabilityBatchKey(markets, identityKey, plan, windowDays);
   const [state, setState] = useState({
     status: "idle",
     capabilities: {},
@@ -62,7 +63,7 @@ export default function useMarketActivityCapabilities({
     }
     const controller = new AbortController();
     setState({ status: "loading", capabilities: {}, error: null });
-    transport({ markets, windowDays: 30, signal: controller.signal })
+    transport({ markets, windowDays, signal: controller.signal })
       .then((payload) => {
         if (controller.signal.aborted || requestSequence !== sequence.current)
           return;
@@ -80,7 +81,7 @@ export default function useMarketActivityCapabilities({
         setState({ status: "error", capabilities: {}, error });
       });
     return () => controller.abort();
-  }, [batchKey, enabled, markets, transport]);
+  }, [batchKey, enabled, markets, transport, windowDays]);
 
   return state;
 }
