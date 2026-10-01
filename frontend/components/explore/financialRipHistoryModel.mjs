@@ -85,9 +85,67 @@ export function shouldFetchFinancialRipHistory({ entitled, authStatus, selectedC
   );
 }
 
-export function financialRipRequestEntities(selected = [], lastSelected = []) {
+// With no user-selected series the chart is Overall-only, but a range change still has
+// to ask the authorised endpoint for the active range.  An invisible transport anchor
+// (last loaded entity, else the first cohort entity) carries that request; it is never
+// plotted or listed.
+export function financialRipRequestEntities(selected = [], lastSelected = [], fallback = []) {
   if (selected.length) return selected;
-  return lastSelected.length ? [lastSelected[0]] : [];
+  if (lastSelected.length) return [lastSelected[0]];
+  return fallback.length ? [fallback[0]] : [];
+}
+
+export const FINANCIAL_RIP_DEFAULT_SET_COUNT = 3;
+export const FINANCIAL_RIP_FADED_OPACITY = 0.14;
+
+export function buildFinancialRipCandidates({ financialCohort = null, targets = [], openingSets = [], eras = [] } = {}) {
+  const cohortEras = Array.isArray(financialCohort?.eras) ? financialCohort.eras : [];
+  const setCandidates = cohortEras.length
+    ? cohortEras.flatMap((era) => (era.sets || []).map((set) => ({ entity_type: "set", entity_id: String(set.setId), name: set.setName, canonicalKey: set.canonicalKey, eraId: String(era.eraId), eraName: era.eraName })))
+    : setFinancialRipCandidates(targets, openingSets);
+  const eraCandidates = cohortEras.length
+    ? cohortEras.map((era) => ({ entity_type: "era", entity_id: String(era.eraId), name: era.eraName }))
+    : eraFinancialRipCandidates(openingSets, eras);
+  return { setCandidates, eraCandidates };
+}
+
+/** The request the chart makes on first paint: first 3 Sets, 30D, ending at the publication date. */
+export function defaultFinancialHistoryRequest({ financialCohort = null, targets = [], openingSets = [], eras = [], marketDate = null } = {}) {
+  const { setCandidates } = buildFinancialRipCandidates({ financialCohort, targets, openingSets, eras });
+  const { startDate, endDate } = financialRipWindowRange("30D", marketDate, null);
+  if (!setCandidates.length || !startDate || !endDate) return null;
+  const toEntity = (item) => ({ entity_type: "set", entity_id: item.entity_id });
+  return {
+    entities: setCandidates.slice(0, FINANCIAL_RIP_DEFAULT_SET_COUNT).map(toEntity),
+    cohortEntities: setCandidates.map(toEntity),
+    startDate,
+    endDate,
+  };
+}
+
+// ---- focus (display only: never changes the selection) -----------------------------
+
+/** Hover focus is temporary and wins over persistent focus; both must be plotted series. */
+export function resolveActiveFocus({ persistentId = null, hoverId = null, seriesIds = [] } = {}) {
+  const plotted = new Set(seriesIds.map(String));
+  if (hoverId != null && plotted.has(String(hoverId))) return String(hoverId);
+  if (persistentId != null && plotted.has(String(persistentId))) return String(persistentId);
+  return null;
+}
+
+export function toggleFocus(current, id) {
+  return current != null && String(current) === String(id) ? null : String(id);
+}
+
+export function seriesEmphasis(entityIdValue, activeFocusId) {
+  const faded = activeFocusId != null && String(entityIdValue) !== String(activeFocusId);
+  return { faded, strokeOpacity: faded ? FINANCIAL_RIP_FADED_OPACITY : 1, strokeWidth: 1.75, showDots: !faded };
+}
+
+/** Draw the focused series last so it sits above the faded ones. */
+export function orderSeriesForDrawing(series = [], activeFocusId = null) {
+  if (activeFocusId == null) return series;
+  return [...series.filter((item) => String(item.entity_id) !== String(activeFocusId)), ...series.filter((item) => String(item.entity_id) === String(activeFocusId))];
 }
 
 export function toggleFinancialRipSelection(current = [], id, max = Infinity) {
@@ -127,9 +185,10 @@ export function buildFinancialRipChartModel(rows = [], selectedEntities = [], ra
   return { points: [...points.values()].sort((a, b) => a.timestamp - b.timestamp), series };
 }
 
-export function financialRipTooltipRows(point = {}, series = []) {
+export function financialRipTooltipRows(point = {}, series = [], focusId = null) {
   const overall = finite(point.overallFinancialRip);
-  return series.flatMap((item) => {
+  const visible = focusId == null ? series : series.filter((item) => String(item.entity_id) === String(focusId));
+  return visible.flatMap((item) => {
     const detail = point.entities?.[String(item.entity_id)];
     const score = finite(detail?.financialRip);
     if (score === null) return [];

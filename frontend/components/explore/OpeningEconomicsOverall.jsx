@@ -42,7 +42,7 @@ export function OpeningEconomicsSkeleton() {
   </section>;
 }
 
-export default function OpeningEconomicsOverall({ economics, overview, financialCohort, targets = [], eras = [] }) {
+export default function OpeningEconomicsOverall({ economics, overview, financialCohort, targets = [], eras = [], sessionCache = null }) {
   const overviewAvailable = overview?.status === "available";
   const legacyAvailable = isAvailable(economics);
   if (economics?.status === "loading" && !overviewAvailable) return <OpeningEconomicsSkeleton />;
@@ -56,7 +56,7 @@ export default function OpeningEconomicsOverall({ economics, overview, financial
   const marketDate = overview?.openingEconomics?.marketDate || economics?.marketDate || null;
   return <section data-opening-economics-overall>
     <Header scope={scope} marketDate={marketDate} />
-    <OpeningEconomicsDistribution scope={scope} overview={overview} financialCohort={financialCohort} targets={targets} openingSets={economics?.sets || []} eras={eras} marketDate={marketDate} />
+    <OpeningEconomicsDistribution scope={scope} overview={overview} financialCohort={financialCohort} targets={targets} openingSets={economics?.sets || []} eras={eras} marketDate={marketDate} sessionCache={sessionCache} />
     {legacyAvailable ? <details className={`${styles.surfaceQuiet} mt-3 rounded-xl px-4 py-3`} data-opening-economics-methodology>
       <summary className="cursor-pointer list-none text-xs font-medium text-[var(--text-primary)]">How this is calculated</summary>
       <ul className="mt-2.5 space-y-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">{METHODOLOGY.map((line) => <li key={line} className="flex gap-2"><span aria-hidden="true" className="mt-1.5 h-1 w-1 flex-none rounded-full bg-[rgb(var(--ex-teal))]" /><span>{line}</span></li>)}</ul>

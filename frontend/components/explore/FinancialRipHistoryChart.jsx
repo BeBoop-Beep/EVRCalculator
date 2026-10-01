@@ -1,28 +1,32 @@
 "use client";
 
 import { RANKINGS_SELECTED_BORDERED_SURFACE } from "@/lib/explore/rankingsSelectedState.mjs";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ChartFrame from "./ChartFrame";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
-import { readFinancialRipHistory } from "@/lib/rankings/ripBenchmarkClient.mjs";
+import { peekFinancialHistory, readFinancialHistoryCached } from "@/lib/rankings/financialHistoryCache.mjs";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
+import FinancialRipHistoryLegend from "./FinancialRipHistoryLegend";
+import ChartTooltip, { FinancialRipTooltipContent, TOOLTIP_SCROLL_ATTR } from "./FinancialRipHistoryTooltip";
 import {
+  FINANCIAL_RIP_DEFAULT_SET_COUNT,
   FINANCIAL_RIP_WINDOWS,
+  buildFinancialRipCandidates,
   buildFinancialRipChartModel,
-  eraFinancialRipCandidates,
   financialRipRequestEntities,
   financialRipWindowRange,
   financialRipYAxisDomain,
   formatFinancialRip,
   formatFinancialRipDelta,
-  formatFinancialRipTooltipDelta,
-  financialRipTooltipRows,
-  setFinancialRipCandidates,
+  orderSeriesForDrawing,
+  resolveActiveFocus,
+  seriesEmphasis,
   setIdsForEra,
   shouldFetchFinancialRipHistory,
+  toggleFocus,
 } from "./financialRipHistoryModel.mjs";
 
 const labelDate = (date) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
@@ -64,20 +68,10 @@ function EntitySelector({ candidates, selectedIds, onChange, mode, eraPresets = 
   </div>;
 }
 
-function ChartTooltip({ active, payload, series }) {
-  const point = payload?.[0]?.payload;
-  if (!active || !point) return null;
-  const rows = financialRipTooltipRows(point, series);
-  return <div className="max-h-80 min-w-56 overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-3 text-xs shadow-2xl">
-    <p className="font-semibold text-[var(--text-primary)]">{labelDate(point.date)}</p>
-    <div className="mt-2 flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] pt-2"><span className="text-[var(--text-secondary)]">Overall</span><strong className="tabular-nums">{formatFinancialRip(point.overallFinancialRip)}</strong></div>
-    <div className="mt-2 space-y-1.5">{rows.map((row) => <div key={row.entity_id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} /><span className="truncate font-medium">{row.name}</span><span className="tabular-nums text-[var(--text-secondary)]">{formatFinancialRipTooltipDelta(row.deltaVsOverall)}</span></div>)}</div>
-  </div>;
-}
-
 const MAX_FINANCIAL_RIP_SET_SELECTION = 5;
+const WHEEL_LINE_PX = 16;
 
-export default function FinancialRipHistoryChart({ targets = [], financialCohort = null, openingSets = [], eras = [], marketDate = null }) {
+export default function FinancialRipHistoryChart({ targets = [], financialCohort = null, openingSets = [], eras = [], marketDate = null, sessionCache = null }) {
   const { canViewRankingsIntelligence: entitled, authStatus } = useRankingsAccess();
   const [mode, setMode] = useState("sets");
   const [windowKey, setWindowKey] = useState("30D");
@@ -86,15 +80,47 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   const [presetEraId, setPresetEraId] = useState(null);
   const [request, setRequest] = useState({ status: "idle", view: null, key: null, pendingKey: null, error: null });
   const [retryNonce, setRetryNonce] = useState(0);
-  const cohortEras = useMemo(() => Array.isArray(financialCohort?.eras) ? financialCohort.eras : [], [financialCohort]);
-  const setCandidates = useMemo(() => cohortEras.length ? cohortEras.flatMap((era) => (era.sets || []).map((set) => ({ entity_type: "set", entity_id: String(set.setId), name: set.setName, canonicalKey: set.canonicalKey, eraId: String(era.eraId), eraName: era.eraName }))) : setFinancialRipCandidates(targets, openingSets), [cohortEras, targets, openingSets]);
-  const eraCandidates = useMemo(() => cohortEras.length ? cohortEras.map((era) => ({ entity_type: "era", entity_id: String(era.eraId), name: era.eraName })) : eraFinancialRipCandidates(openingSets, eras), [cohortEras, openingSets, eras]);
-  useEffect(() => { setSetSelection((current) => current.length ? (presetEraId ? current : current.slice(0, MAX_FINANCIAL_RIP_SET_SELECTION)).filter((id) => setCandidates.some((item) => item.entity_id === id)) : setCandidates.slice(0, 3).map((item) => item.entity_id)); }, [presetEraId, setCandidates]);
-  useEffect(() => { setEraSelection((current) => current.length ? current.filter((id) => eraCandidates.some((item) => item.entity_id === id)) : eraCandidates.map((item) => item.entity_id)); }, [eraCandidates]);
+  const [focusId, setFocusId] = useState(null);
+  const [hoverId, setHoverId] = useState(null);
+  const [pinnedDate, setPinnedDate] = useState(null);
+  const seeded = useRef({ sets: false, eras: false });
+  const [seededModes, setSeededModes] = useState({ sets: false, eras: false });
+  const plotRef = useRef(null);
+  const { setCandidates, eraCandidates } = useMemo(() => buildFinancialRipCandidates({ financialCohort, targets, openingSets, eras }), [financialCohort, targets, openingSets, eras]);
+
+  // Defaults are seeded exactly once.  An empty selection afterwards (Clear All) is a valid
+  // user state and must never be silently re-populated.
+  useEffect(() => {
+    if (!seeded.current.sets) {
+      if (!setCandidates.length) return;
+      seeded.current.sets = true;
+      setSeededModes((current) => ({ ...current, sets: true }));
+      setSetSelection(setCandidates.slice(0, FINANCIAL_RIP_DEFAULT_SET_COUNT).map((item) => item.entity_id));
+      return;
+    }
+    setSetSelection((current) => {
+      const next = (presetEraId ? current : current.slice(0, MAX_FINANCIAL_RIP_SET_SELECTION)).filter((id) => setCandidates.some((item) => item.entity_id === id));
+      return next.length === current.length ? current : next;
+    });
+  }, [presetEraId, setCandidates]);
+  useEffect(() => {
+    if (!seeded.current.eras) {
+      if (!eraCandidates.length) return;
+      seeded.current.eras = true;
+      setSeededModes((current) => ({ ...current, eras: true }));
+      setEraSelection(eraCandidates.map((item) => item.entity_id));
+      return;
+    }
+    setEraSelection((current) => {
+      const next = current.filter((id) => eraCandidates.some((item) => item.entity_id === id));
+      return next.length === current.length ? current : next;
+    });
+  }, [eraCandidates]);
+
   const candidates = mode === "sets" ? setCandidates : eraCandidates;
   const selectedIds = mode === "sets" ? setSelection : eraSelection;
   const selected = useMemo(() => candidates.filter((item) => selectedIds.includes(item.entity_id)), [candidates, selectedIds]);
-  const requestEntities = useMemo(() => financialRipRequestEntities(selected, request.view?.selected), [request.view?.selected, selected]);
+  const requestEntities = useMemo(() => financialRipRequestEntities(selected, request.view?.mode === mode ? request.view?.selected : [], seededModes[mode] ? candidates : []), [candidates, mode, request.view, seededModes, selected]);
   const knownFrom = request.view?.payload?.historyAvailableFrom || null;
   const knownThrough = request.view?.payload?.historyAvailableThrough || marketDate;
   const range = useMemo(() => financialRipWindowRange(windowKey, knownThrough, knownFrom), [windowKey, knownThrough, knownFrom]);
@@ -106,30 +132,31 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
     if (!shouldFetchFinancialRipHistory({ entitled, authStatus, selectedCount: requestEntities.length, startDate: fetchRange.startDate, endDate: fetchRange.endDate })) return undefined;
     const loadedIds = new Set((request.view?.selected || []).map((item) => item.entity_id));
     if (request.view?.mode === mode && request.view?.windowKey === windowKey && selected.every((item) => loadedIds.has(item.entity_id))) return undefined;
+    const commit = (payload) => ({
+      status: "ready",
+      view: {
+        payload,
+        selected: selected.map((item) => ({ ...item })),
+        range: financialRipWindowRange(windowKey, payload?.historyAvailableThrough || marketDate, payload?.historyAvailableFrom || null),
+        mode,
+        windowKey,
+      },
+      key: requestKey,
+      pendingKey: null,
+      error: null,
+    });
+    const options = { sessionCache, startDate: fetchRange.startDate, endDate: fetchRange.endDate };
+    // A completed exact or superset entry (e.g. the prefetched 22-Set cohort) is applied
+    // synchronously: no spinner, no network.
+    const cached = peekFinancialHistory(requestEntities, options);
+    if (cached !== undefined) {
+      setRequest(commit(cached));
+      return undefined;
+    }
     let active = true;
     setRequest((current) => ({ ...current, status: "loading", pendingKey: requestKey, error: null }));
-    readFinancialRipHistory(requestEntities, { startDate: fetchRange.startDate, endDate: fetchRange.endDate })
-      .then((payload) => {
-        if (!active) return;
-        const displayRange = financialRipWindowRange(
-          windowKey,
-          payload?.historyAvailableThrough || marketDate,
-          payload?.historyAvailableFrom || null,
-        );
-        setRequest({
-          status: "ready",
-          view: {
-            payload,
-            selected: selected.map((item) => ({ ...item })),
-            range: displayRange,
-            mode,
-            windowKey,
-          },
-          key: requestKey,
-          pendingKey: null,
-          error: null,
-        });
-      })
+    readFinancialHistoryCached(requestEntities, options)
+      .then((payload) => { if (active) setRequest(commit(payload)); })
       .catch((error) => {
         if (active) setRequest((current) => ({
           ...current,
@@ -139,7 +166,7 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
         }));
       });
     return () => { active = false; };
-  }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, marketDate, mode, request.view, requestEntities, requestKey, selected, windowKey]);
+  }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, marketDate, mode, request.view, requestEntities, requestKey, selected, sessionCache, windowKey]);
 
   const display = request.view?.mode === mode ? request.view : null;
   const chart = useMemo(
@@ -152,9 +179,61 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   );
   const yDomain = useMemo(() => financialRipYAxisDomain(chart.points, chart.series), [chart]);
   const accessPending = authStatus !== "resolved" && authStatus !== "degraded";
+  const seriesIds = useMemo(() => chart.series.map((item) => item.entity_id), [chart.series]);
+  const activeFocus = resolveActiveFocus({ persistentId: focusId, hoverId, seriesIds });
+  const drawSeries = useMemo(() => orderSeriesForDrawing(chart.series, activeFocus), [chart.series, activeFocus]);
+  const pinnedPoint = useMemo(() => (pinnedDate ? chart.points.find((point) => point.date === pinnedDate) || null : null), [chart.points, pinnedDate]);
+
+  // Focus is display-only; it follows what is actually plotted.
+  useEffect(() => { if (focusId != null && !seriesIds.includes(focusId)) setFocusId(null); }, [focusId, seriesIds]);
+  useEffect(() => { if (hoverId != null && !seriesIds.includes(hoverId)) setHoverId(null); }, [hoverId, seriesIds]);
+  useEffect(() => { setPinnedDate(null); }, [mode, windowKey, selectionKey]);
+  useEffect(() => { setFocusId(null); setHoverId(null); }, [mode]);
+  useEffect(() => {
+    if (!pinnedDate) return undefined;
+    const onKey = (event) => { if (event.key === "Escape") setPinnedDate(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [pinnedDate]);
+
+  // Wheel / trackpad over the plot scrolls the (pointer-transparent) hover tooltip when it
+  // overflows.  Wheel inside a tooltip scroll region is left to native scrolling, and when the
+  // tooltip is at its scroll limit the page scrolls normally.
+  useEffect(() => {
+    const node = plotRef.current;
+    if (!node) return undefined;
+    const onWheel = (event) => {
+      if (event.target?.closest?.(`[${TOOLTIP_SCROLL_ATTR}]`)) return;
+      const region = node.querySelector(`[data-financial-history-tooltip][data-pinned="false"] [${TOOLTIP_SCROLL_ATTR}]`);
+      if (!region || region.scrollHeight <= region.clientHeight + 1) return;
+      const delta = event.deltaMode === 1 ? event.deltaY * WHEEL_LINE_PX : event.deltaY;
+      const atTop = region.scrollTop <= 0 && delta < 0;
+      const atBottom = region.scrollTop + region.clientHeight >= region.scrollHeight - 1 && delta > 0;
+      if (atTop || atBottom) return;
+      region.scrollTop += delta;
+      event.preventDefault();
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [display]);
+
   const changeSelection = (ids) => { if (mode === "sets") { setPresetEraId(null); setSetSelection(ids.slice(0, MAX_FINANCIAL_RIP_SET_SELECTION)); } else setEraSelection(ids); };
   const selectEraSets = (eraId) => { setPresetEraId(eraId); const ids = setIdsForEra(setCandidates, eraId); if (ids.length) setSetSelection(ids); };
-  const removeSeries = (id) => { if (mode === "sets") setSetSelection((current) => current.filter((item) => item !== id)); else setEraSelection((current) => current.filter((item) => item !== id)); };
+  const removeSeries = useCallback((id) => {
+    if (mode === "sets") setSetSelection((current) => current.filter((item) => item !== id)); else setEraSelection((current) => current.filter((item) => item !== id));
+    setFocusId((current) => (current === id ? null : current));
+    setHoverId((current) => (current === id ? null : current));
+  }, [mode]);
+  const clearAll = useCallback(() => {
+    if (mode === "sets") { setPresetEraId(null); setSetSelection([]); } else setEraSelection([]);
+    setFocusId(null);
+    setHoverId(null);
+    setPinnedDate(null);
+  }, [mode]);
+  const pinFromChart = (state) => {
+    const date = state?.activePayload?.[0]?.payload?.date || chart.points[state?.activeTooltipIndex]?.date || null;
+    if (date) setPinnedDate((current) => (current === date ? null : date));
+  };
 
   return <section className="mt-5 border-t border-[var(--border-subtle)] pt-5" data-financial-rip-history-chart>
     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -174,11 +253,16 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
       <EntitySelector candidates={candidates} selectedIds={selectedIds} onChange={changeSelection} mode={mode} eraPresets={eraCandidates} presetEraId={presetEraId} onPresetChange={(eraId) => eraId ? selectEraSets(eraId) : setPresetEraId(null)} />
 
       <>
-        <div className="mt-3 max-w-full overflow-x-auto" aria-label="Visible Financial RIP series"><div className="flex min-w-max items-center gap-2 desk:min-w-0 desk:flex-wrap">
-          {display ? <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[10px]"><span className="h-0.5 w-3 bg-slate-200/75" />Overall Financial RIP</span> : null}
-          {chart.series.map((item) => <span key={item.entity_id} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-2.5 py-1 text-[10px]"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} /><span>{item.name}</span><button type="button" onClick={() => removeSeries(item.entity_id)} aria-label={`Remove ${item.name} from Financial RIP chart`} className="ml-0.5 rounded px-1 text-sm leading-none text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">×</button></span>)}
-          {request.status === "loading" && display ? <span aria-live="polite" className="text-[10px] text-[var(--text-secondary)]">Updating history…</span> : null}
-        </div></div>
+        <FinancialRipHistoryLegend
+          series={chart.series}
+          showOverall={Boolean(display)}
+          persistentFocusId={focusId}
+          onToggleFocus={(id) => setFocusId((current) => toggleFocus(current, id))}
+          onHoverFocus={setHoverId}
+          onRemove={removeSeries}
+          onClearAll={clearAll}
+          updating={request.status === "loading" && Boolean(display)}
+        />
 
         {!display && request.status === "loading" ? (
           <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">Loading Financial RIP history…</div>
@@ -188,18 +272,25 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
             <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="mt-3 min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-sm font-semibold">Retry</button>
           </div>
         ) : display ? <>
-          <ChartFrame className="mt-4 h-[20rem] sm:h-[24rem] desk:h-[28rem]">
-            <ResponsiveContainer>
-              <LineChart data={chart.points} margin={{ top: 12, right: 14, bottom: 6, left: 0 }}>
-                <CartesianGrid stroke="rgba(148,163,184,.16)" strokeDasharray="2 8" vertical={false} />
-                <XAxis dataKey="timestamp" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={(value) => labelDate(new Date(value).toISOString().slice(0, 10)).replace(/, \d{4}/, "")} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 10 }} />
-                <YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} />
-                <Tooltip content={<ChartTooltip series={chart.series} />} />
-                <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#cbd5e1" strokeOpacity={0.72} strokeWidth={3} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
-                {chart.series.map((item) => <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeWidth={1.75} dot={{ r: 2 }} activeDot={{ r: 5 }} connectNulls={false} isAnimationActive={false} />)}
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartFrame>
+          <div ref={plotRef} className="relative" data-financial-history-plot data-active-focus={activeFocus || undefined}>
+            <ChartFrame className="mt-4 h-[20rem] sm:h-[24rem] desk:h-[28rem]">
+              <ResponsiveContainer>
+                <LineChart data={chart.points} margin={{ top: 12, right: 14, bottom: 6, left: 0 }} onClick={pinFromChart}>
+                  <CartesianGrid stroke="rgba(148,163,184,.16)" strokeDasharray="2 8" vertical={false} />
+                  <XAxis dataKey="timestamp" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={(value) => labelDate(new Date(value).toISOString().slice(0, 10)).replace(/, \d{4}/, "")} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 10 }} />
+                  <YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} />
+                  <Tooltip content={<ChartTooltip series={chart.series} focusId={activeFocus} suppressed={Boolean(pinnedPoint)} />} />
+                  <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#cbd5e1" strokeOpacity={0.72} strokeWidth={3} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
+                  {drawSeries.map((item) => {
+                    const emphasis = seriesEmphasis(item.entity_id, activeFocus);
+                    return <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeOpacity={emphasis.strokeOpacity} strokeWidth={emphasis.strokeWidth} dot={emphasis.showDots ? { r: 2 } : false} activeDot={emphasis.showDots ? { r: 5 } : false} connectNulls={false} isAnimationActive={false} />;
+                  })}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartFrame>
+            {pinnedPoint ? <div data-financial-history-pinned className="absolute right-2 top-5 z-30"><FinancialRipTooltipContent point={pinnedPoint} series={chart.series} focusId={activeFocus} pinned onClose={() => setPinnedDate(null)} /></div> : null}
+          </div>
+          <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Click or tap the chart to pin the values for a date; scroll the list for long selections.</p>
           <ol className="sr-only" aria-label="Visible Financial RIP observations">
             {chart.points.flatMap((point) => Object.entries(point.entities).map(([id, detail]) => <li key={`${point.date}:${id}`}>{labelDate(point.date)}, {names[id]} Financial RIP {formatFinancialRip(detail.financialRip)}, {formatFinancialRipDelta(detail.deltaVsOverall)}, Overall Financial RIP {formatFinancialRip(detail.overallFinancialRip)}, {detail.rank == null ? "rank unavailable" : `rank ${detail.rank} of ${detail.cohortSize}`}.</li>))}
           </ol>

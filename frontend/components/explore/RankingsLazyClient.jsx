@@ -8,6 +8,8 @@ import { createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
 import { scorecardSetTarget } from "@/lib/rankings/rankingsScorecardsClient.mjs";
 import { readPublicRankingsHeadlines } from "@/lib/rankings/rankingsPublicClient.mjs";
+import { defaultFinancialHistoryRequest } from "./financialRipHistoryModel.mjs";
+import { planCohortPrefetch, prewarmFinancialHistory, readFinancialHistoryCached } from "@/lib/rankings/financialHistoryCache.mjs";
 import { beginLastGoodRefresh, failLastGoodRefresh, isRenderableEraState, isRenderableSetState } from "@/lib/rankings/rankingsLastGoodState.mjs";
 import styles from "./explore.module.css";
 
@@ -146,6 +148,30 @@ export default function RankingsLazyClient({
     return () => { warmGeneration.current += 1; };
   }, [authStatus, canViewRankingsIntelligence, loadEra, loadSets]);
 
+  // Default Financial RIP history: start the chart's own request (same session-cache key) as soon
+  // as access, cohort identities and the publication date are known - before the chart mounts - and
+  // only for entitled viewers.  The chart then consumes the in-flight/completed entry.  Once the
+  // default view is usable, an optional idle prefetch of the whole <=22-Set cohort for the same
+  // range makes later Set changes local; it is skipped under save-data.
+  const historyMarketDate = rankingsOverview?.overallFinancialRip?.marketDate || rankingsOverview?.openingEconomics?.marketDate || openingEconomics?.marketDate || null;
+  useEffect(() => {
+    if (lens !== "overall" || !canViewRankingsIntelligence || !(authStatus === "resolved" || authStatus === "degraded")) return undefined;
+    if (!Array.isArray(financialCohort?.eras) || !financialCohort.eras.length) return undefined;
+    const plan = defaultFinancialHistoryRequest({ financialCohort, marketDate: historyMarketDate });
+    if (!plan) return undefined;
+    let live = true;
+    let idleHandle = null;
+    prewarmFinancialHistory(plan, { sessionCache, entitled: canViewRankingsIntelligence, authStatus }).then((payload) => {
+      if (!live || !payload) return;
+      const prefetch = planCohortPrefetch(plan, { entitled: canViewRankingsIntelligence, saveData: typeof navigator !== "undefined" && Boolean(navigator.connection?.saveData) });
+      if (!prefetch) return;
+      const run = () => { if (live) readFinancialHistoryCached(prefetch.entities, { sessionCache, startDate: prefetch.startDate, endDate: prefetch.endDate }).catch(() => null); };
+      if (typeof requestIdleCallback === "function") idleHandle = requestIdleCallback(run, { timeout: 3000 });
+      else idleHandle = setTimeout(run, 400);
+    });
+    return () => { live = false; if (idleHandle != null && typeof cancelIdleCallback === "function" && typeof requestIdleCallback === "function") cancelIdleCallback(idleHandle); };
+  }, [lens, canViewRankingsIntelligence, authStatus, financialCohort, historyMarketDate, sessionCache]);
+
   const changeLens = (next) => {
     markRankingsLens(next, "selected");
     lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
@@ -211,7 +237,7 @@ export default function RankingsLazyClient({
             onOpenTopEra={() => { setEraLens("rankings"); setActiveLens("eras"); }}
             onOpenLowestCost={() => { setSetEntryView("packEconomics"); setActiveLens("sets"); }}
           />
-          <OpeningEconomicsOverall economics={openingEconomics} overview={rankingsOverview} financialCohort={financialCohort} targets={targets} eras={visibleEraState.contract?.eras || []} />
+          <OpeningEconomicsOverall economics={openingEconomics} overview={rankingsOverview} financialCohort={financialCohort} targets={targets} eras={visibleEraState.contract?.eras || []} sessionCache={sessionCache} />
         </>
       ) : lens === "eras" ? (
         eraLens === "rankings" ? (
