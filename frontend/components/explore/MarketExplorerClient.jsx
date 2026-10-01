@@ -61,6 +61,9 @@ import { buildFocusTools } from "./MarketExplorerFocusTools";
 import useMarketActivity from "@/hooks/explore/useMarketActivity";
 import useMarketActivityCapabilities from "@/hooks/explore/useMarketActivityCapabilities";
 import { fetchMarketActivityGroup } from "@/lib/explore/marketActivityApi.mjs";
+import { fetchDirectInstrument } from "@/lib/explore/marketExplorerDirectInstrument.mjs";
+import { activityTimeframeAvailable, activityWindowForTimeframe, enterActivityView, reconcileActivityView } from "@/lib/explore/marketActivityView.mjs";
+import { MARKET_CHART_VIEW_ACTIVITY, MARKET_CHART_VIEW_INDEX } from "./marketPerformanceDomain.mjs";
 
 function PreparedMarketStatus({ pendingKeys, failedKeys, failures, labels, series, loader }) {
   if (!pendingKeys.length && !failedKeys.length && !series.some((entry) => entry.trend.length < 2)) return null;
@@ -336,6 +339,9 @@ export default function MarketExplorerClient({
   // deterministic fallback (first enumerable market) when it is removed. No second
   // state variable exists for the target. Focus never writes to it.
   const [requestedDetailSeriesId, setRequestedDetailSeriesId] = useState(null);
+  const [chartViewMode, setChartViewMode] = useState(MARKET_CHART_VIEW_INDEX);
+  const [directSeries, setDirectSeries] = useState([]);
+  const directRequestRef = useRef({ sequence: 0, controller: null });
   const {
     querySeries,
     addQuery: addQueryUnlimited,
@@ -387,7 +393,10 @@ export default function MarketExplorerClient({
     [],
   );
   const focusSeries = useCallback(
-    (key) => dispatchView({ type: WORKSPACE_VIEW_ACTIONS.focus, key }),
+    (key) => {
+      dispatchView({ type: WORKSPACE_VIEW_ACTIONS.focus, key });
+      setRequestedDetailSeriesId(key);
+    },
     [],
   );
   const clearFocus = useCallback(
@@ -405,6 +414,8 @@ export default function MarketExplorerClient({
   const clearGraph = useCallback(() => {
     clearAllSelection();
     clearAllQueries();
+    directRequestRef.current.controller?.abort();
+    setDirectSeries([]);
     dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reset });
     setEditingSeriesId(null);
     setRequestedDetailSeriesId(null);
@@ -540,6 +551,30 @@ export default function MarketExplorerClient({
     ],
   );
 
+  const selectDirectInstrument = useCallback(async (item) => {
+    if (!item?.instrumentId || !["cards", "sealed"].includes(item.asset)) return "invalid";
+    if (canComparePreparedMarkets && !requestActiveSlot()) return "limit";
+    const sequence = directRequestRef.current.sequence + 1;
+    directRequestRef.current.controller?.abort();
+    const controller = new AbortController();
+    directRequestRef.current = { sequence, controller };
+    try {
+      const series = await fetchDirectInstrument({ asset: item.asset, instrumentId: item.instrumentId, signal: controller.signal });
+      if (directRequestRef.current.sequence !== sequence) return "stale";
+      if (canComparePreparedMarkets) setDirectSeries((current) => unifySeriesByKey([...current, series]));
+      else {
+        clearAllSelection(); clearAllQueries(); preparedLoader.clear();
+        setDirectSeries([series]); dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reset });
+      }
+      setRequestedDetailSeriesId(series.key);
+      return canComparePreparedMarkets ? "added" : "replaced";
+    } catch (error) {
+      if (controller.signal.aborted) return "cancelled";
+      setLimitNotice({ code: error?.code || "DIRECT_INSTRUMENT_FAILED", message: error?.message });
+      return "failed";
+    }
+  }, [canComparePreparedMarkets, clearAllQueries, clearAllSelection, preparedLoader, requestActiveSlot]);
+
   // A canonical prepared deep link is a selection, not an addition to the
   // legacy default asset pair. Resolve it through the same replacement path
   // Basic Browse uses so the first usable state contains exactly one market.
@@ -578,15 +613,18 @@ export default function MarketExplorerClient({
       ...selectedSeriesIds.map((id) => byKey.get(id)).filter(Boolean),
       ...loadedPreparedSeries,
       ...querySeries,
+      ...directSeries,
     ]);
-  }, [comparableSeries, loadedPreparedSeries, selectedSeriesIds, querySeries]);
+  }, [comparableSeries, directSeries, loadedPreparedSeries, selectedSeriesIds, querySeries]);
   const activityIdentityKey = isAuthenticated
     ? `${liveUser?.id || liveUser?.email || "user"}:${indexPlan}`
     : null;
+  const activityWindowDays = activityWindowForTimeframe(timeframe) || 30;
   const discoveredActivity = useMarketActivityCapabilities({
     activeSeries: selectedSeries,
     identityKey: activityIdentityKey,
     plan: indexPlan,
+    windowDays: activityWindowDays,
     enabled: !activityFixtureMode,
     ...(activityCapabilityTransport
       ? { transport: activityCapabilityTransport }
@@ -687,12 +725,7 @@ export default function MarketExplorerClient({
       : null;
   const focusedSeries =
     selectedSeries.find((series) => series.key === focusedSeriesKey) || null;
-  const activityFocusKey =
-    focusedSeries &&
-    !["sealed", "graded"].includes(focusedSeries.asset) &&
-    !/sealed|graded/i.test(focusedSeriesKey)
-      ? focusedSeriesKey
-      : null;
+  const activityFocusKey = focusedSeries?.asset === "cards" ? focusedSeriesKey : null;
   useEffect(() => {
     dispatchView({
       type: WORKSPACE_VIEW_ACTIONS.reconcile,
@@ -721,9 +754,6 @@ export default function MarketExplorerClient({
   const demandPressureOn =
     focusToolStates.demandPressure.state === FOCUS_TOOL_STATE.available &&
     (focusToolToggles["demand-pressure"] ?? false);
-  const activityOn =
-    focusToolStates.activity.state === FOCUS_TOOL_STATE.available &&
-    (focusToolToggles["market-activity"] ?? false);
   const toggleFocusTool = useCallback(
     (id) =>
       setFocusToolToggles((current) => ({
@@ -738,14 +768,12 @@ export default function MarketExplorerClient({
         states: focusToolStates,
         fairValueOn,
         demandPressureOn,
-        activityOn,
         onToggle: toggleFocusTool,
       }),
     [
       focusToolStates,
       fairValueOn,
       demandPressureOn,
-      activityOn,
       toggleFocusTool,
     ],
   );
@@ -767,6 +795,21 @@ export default function MarketExplorerClient({
     ? effectiveMarketCapabilities?.activity?.[focusedSeriesKey] ||
       effectiveMarketCapabilities?.activity?.["*"]
     : null;
+  const activityOn = chartViewMode === MARKET_CHART_VIEW_ACTIVITY;
+  useEffect(() => {
+    if (!focusedSeries || focusedSeries.asset !== "cards") setChartViewMode(MARKET_CHART_VIEW_INDEX);
+    else if (activityFixtureMode || discoveredActivity.status === "ready") setChartViewMode((current) => reconcileActivityView(current, focusedSeries, activityCapability));
+  }, [focusedSeries, activityCapability, activityFixtureMode, discoveredActivity.status]);
+  const changeChartView = useCallback((next) => {
+    if (next !== MARKET_CHART_VIEW_ACTIVITY) { setChartViewMode(next); return; }
+    if (focusToolStates.activity.state !== FOCUS_TOOL_STATE.available) return;
+    const entered = enterActivityView(timeframe);
+    if (entered.timeframe !== timeframe) setRequestedTimeframe(entered.timeframe);
+    setChartViewMode(entered.chartViewMode);
+  }, [focusToolStates.activity.state, timeframe]);
+  const chartTimeframeOptions = useMemo(() => activityOn
+    ? timeframeOptions.map((option) => ({ ...option, available: option.available && activityTimeframeAvailable(option.key) }))
+    : timeframeOptions, [activityOn, timeframeOptions]);
   const activityChartRange = useMemo(() => {
     if (!activityOn) return null;
     if (activityFixtureMode)
@@ -787,7 +830,7 @@ export default function MarketExplorerClient({
   ]);
   const activityScope = useMemo(
     () =>
-      activityOn && focusedSeriesKey
+      activityOn && focusedSeriesKey && activityCapability?.available === true
         ? {
             focusMarketKey: focusedSeriesKey,
             marketKey: activityCapability.marketKey,
@@ -816,6 +859,13 @@ export default function MarketExplorerClient({
     transport: resolvedActivityTransport,
     identityKey: activityIdentityKey,
   });
+  const activityCanvasState = activityOn && discoveredActivity.status === "loading" && !activityCapability
+    ? { status: "loading", data: null, error: null }
+    : activityState;
+  useEffect(() => {
+    if (!activityOn) return;
+    if (["auth", "entitlement"].includes(activityState.error?.kind) || activityState.data?.availability?.state === "UNAVAILABLE") setChartViewMode(MARKET_CHART_VIEW_INDEX);
+  }, [activityOn, activityState.error, activityState.data]);
   // The workspace has nothing to show once the last active market is gone.
   const hasActiveMarkets = selectedSeries.length > 0;
   const openMethodology = () => {
@@ -989,6 +1039,7 @@ export default function MarketExplorerClient({
             }
             onDisclosureChange={setSidebarDisclosure}
             gradedReason={gradedOptionStates.data?.reason || null}
+            onDirectSelect={selectDirectInstrument}
             onAddToBasket={(item) => {
               setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 });
               setBuilderMode("exact");
@@ -1001,7 +1052,7 @@ export default function MarketExplorerClient({
           />
           <div
             data-market-explorer-sidebar-section="asset-markets"
-            className="relative z-[70] px-3 pb-3"
+            className="relative px-3 pb-3"
           >
             {activeBrowseAsset === "cards" ? (
               <MarketExplorerRarityMarkets
@@ -1223,6 +1274,8 @@ export default function MarketExplorerClient({
                 // remove button was a silent no-op for them. Route by SOURCE, not key shape.
                 if (editingSeries?.key === key) setEditingSeriesId(null);
                 removeQuery(key);
+              } else if (directSeries.some((entry) => entry.key === key)) {
+                setDirectSeries((current) => current.filter((entry) => entry.key !== key));
               } else {
                 toggleSeries(key);
               }
@@ -1267,8 +1320,11 @@ export default function MarketExplorerClient({
               totalActiveCount={selectedSeries.length}
               timeframe={timeframe}
               timeframeLabel={timeframeLabel}
-              timeframeOptions={timeframeOptions}
+              timeframeOptions={chartTimeframeOptions}
               onTimeframeChange={setRequestedTimeframe}
+              viewMode={chartViewMode}
+              onViewModeChange={changeChartView}
+              activityViewState={focusToolStates.activity}
               detailsOpen={detailsOpen}
               onToggleDetails={() => setDetailsOpen(true)}
               constituentsAvailable={hasActiveMarkets}
@@ -1276,7 +1332,7 @@ export default function MarketExplorerClient({
               onClearFocus={clearFocus}
               focusTools={focusTools}
               overlays={chartOverlays}
-              activityState={activityOn ? activityState : null}
+              activityState={activityOn ? activityCanvasState : null}
               activityFixtureMode={activityFixtureMode}
             />
           </div>
@@ -1327,11 +1383,7 @@ export default function MarketExplorerClient({
                   hiddenSeriesKeys={hiddenSeriesKeys}
                   focusedSeriesKey={focusedSeriesKey}
                   pageCache={constituentPageCache}
-                  activityCapability={
-                    effectiveMarketCapabilities?.activity?.[
-                      activeDetailSeriesId
-                    ] || null
-                  }
+                  activityCapability={effectiveMarketCapabilities?.activity?.[activeDetailSeriesId] || effectiveMarketCapabilities?.activity?.["*"] || null}
                   activityChartRange={activityChartRange}
                   activityFixtureMode={activityFixtureMode}
                 />

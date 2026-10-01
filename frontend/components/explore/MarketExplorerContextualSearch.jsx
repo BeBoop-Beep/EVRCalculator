@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { SEARCH_MIN_LENGTH, SEARCH_PLACEHOLDER, createCatalogSearchController, leafContext, resolveSearchResultAction } from "@/lib/explore/marketExplorerCatalogSearch.mjs";
 
 const NONE = -1;
@@ -9,14 +9,14 @@ function Thumb({ url }) {
     : <span data-search-result-placeholder aria-hidden="true" className="h-10 w-8 flex-none rounded bg-white/5" />;
 }
 
-export default function MarketExplorerContextualSearch({ asset = "cards", onAddToBasket,
+export default function MarketExplorerContextualSearch({ asset = "cards", onAddToBasket, onDirectSelect,
   controllerFactory = createCatalogSearchController, disclosureOpen, onDisclosureChange, resetKey = 0 }) {
   const controller = useMemo(() => controllerFactory(), [controllerFactory]);
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const previousAssetRef = useRef(asset);
   const [text, setText] = useState(""); const [highlight, setHighlight] = useState(NONE); const [localOpen, setLocalOpen] = useState(false);
   const open = disclosureOpen ?? localOpen;
-  const setOpen = (value) => { setLocalOpen(value); onDisclosureChange?.(value); };
+  const setOpen = useCallback((value) => { setLocalOpen(value); onDisclosureChange?.(value); }, [onDisclosureChange]);
   const listboxId = useId(); const inputRef = useRef(null); const rootRef = useRef(null);
   useEffect(() => () => controller.dispose(), [controller]);
   useEffect(() => { setText(""); setHighlight(NONE); setLocalOpen(false); controller.clear(); }, [controller, resetKey]);
@@ -42,9 +42,9 @@ export default function MarketExplorerContextualSearch({ asset = "cards", onAddT
   }, [open, setOpen]);
   const results = snapshot.results; const actions = useMemo(() => results.map(resolveSearchResultAction), [results]);
   const showPanel = open && (snapshot.status !== "idle" || text.trim().length >= SEARCH_MIN_LENGTH);
-  const invoke = (index) => { const action = actions[index]?.primary; if (action?.kind === "basket") onAddToBasket?.(action.item); };
+  const invoke = (index) => { const action = actions[index]?.primary; if (action?.kind === "direct") onDirectSelect?.(action.item); else if (action?.kind === "basket") onAddToBasket?.(action.item); };
   const clear = () => { setText(""); setHighlight(NONE); controller.clear(); inputRef.current?.focus(); };
-  return <div ref={rootRef} data-market-explorer-contextual-search data-search-asset={asset} className="relative z-50 mb-2">
+  return <div ref={rootRef} data-market-explorer-contextual-search data-search-asset={asset} className={`relative mb-2 ${open ? "z-[82]" : "z-0"}`}>
     <label htmlFor={`${listboxId}-input`} className="sr-only">{SEARCH_PLACEHOLDER[asset]}</label>
     <div className="flex items-center rounded-md border border-[var(--border-subtle)] focus-within:ring-2 focus-within:ring-sky-400/70">
       <input ref={inputRef} id={`${listboxId}-input`} role="combobox" autoComplete="off" aria-expanded={showPanel} aria-controls={listboxId}
@@ -59,12 +59,12 @@ export default function MarketExplorerContextualSearch({ asset = "cards", onAddT
         }} className="min-h-10 w-full bg-transparent px-3 text-xs text-[var(--text-primary)] focus-visible:outline-none" />
       {text ? <button type="button" data-market-explorer-search-clear aria-label="Clear search" onClick={clear} className="px-2 text-sm text-[var(--text-secondary)]">×</button> : null}
     </div>
-    {showPanel ? <div data-market-explorer-search-panel className="absolute left-0 right-0 z-50 mt-1 max-h-[min(22rem,55vh)] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-1 shadow-2xl">
+    {showPanel ? <div data-market-explorer-search-panel className="absolute left-0 right-0 z-[83] mt-1 max-h-[min(22rem,55vh)] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-slate-950 p-1 shadow-2xl">
       {snapshot.status === "loading" ? <p role="status" className="px-3 py-2 text-xs text-[var(--text-secondary)]">Searching…</p> : null}
       {snapshot.status === "error" ? <div role="alert" data-market-explorer-search-state="error" className="flex items-center justify-between px-3 py-2 text-xs"><span>Search is temporarily unavailable.</span><button type="button" data-market-explorer-search-retry onClick={controller.retry}>Retry</button></div> : null}
       {snapshot.status === "ready" && !results.length ? <p className="px-3 py-2 text-xs text-[var(--text-secondary)]">No matches.</p> : null}
       <ul id={listboxId} role="listbox" aria-label={SEARCH_PLACEHOLDER[asset]}>{results.map((result, index) => {
-        const primary = actions[index].primary; const disabled = primary.kind !== "basket"; const context = leafContext(result);
+        const primary = actions[index].primary; const disabled = !["basket", "direct"].includes(primary.kind); const context = leafContext(result);
         return <li key={result.instrumentId || `unavailable:${index}`} id={`${listboxId}-${index}`} role="option" aria-selected={false} aria-disabled={disabled || undefined}
           data-search-result-kind="leaf" data-search-highlighted={index === highlight ? "true" : "false"}
           onClick={() => invoke(index)} className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 ${index === highlight ? "bg-white/[.08] ring-1 ring-sky-400/70" : "hover:bg-white/[.05]"}`}>
@@ -72,7 +72,7 @@ export default function MarketExplorerContextualSearch({ asset = "cards", onAddT
             {context ? <span data-search-result-context className="block truncate text-[10px] text-[var(--text-secondary)]">{context}</span> : null}
             {result.marketPrice != null ? <span data-search-result-price className="block text-[10px] font-semibold tabular-nums">{Number(result.marketPrice).toLocaleString(undefined, { style: "currency", currency: "USD" })}</span> : null}
             {primary.reason ? <span data-search-result-reason className="block text-[10px] text-[var(--text-secondary)]">{primary.reason}</span> : null}</span>
-          {primary.kind === "basket" ? <button type="button" data-search-primary="basket" onClick={(event) => { event.stopPropagation(); invoke(index); }} className="rounded border border-[rgba(45,212,191,.5)] px-2 py-1 text-[10px] font-semibold text-[rgb(45,212,191)]">+ Add</button> : null}
+          {primary.kind === "direct" ? <button type="button" data-search-primary="direct" onClick={(event) => { event.stopPropagation(); invoke(index); }} className="rounded border border-[rgba(45,212,191,.5)] px-2 py-1 text-[10px] font-semibold text-[rgb(45,212,191)]">View</button> : null}
         </li>;
       })}</ul>
     </div> : null}

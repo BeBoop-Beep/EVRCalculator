@@ -5,15 +5,16 @@ export const MARKET_EXPLORER_SCREENS = Object.freeze([
   { id: "sealed-format-leaders", label: "Sealed Format Leaders", description: "Prepared sealed-family markets ranked by 30-day index return.", category: "rotation", asset: "sealed", requiredPlan: "plus", type: "rankedPrepared", group: "sealed", metric: "30D", limit: 10 },
   { id: "momentum-leaders", label: "Momentum Leaders", description: "Prepared markets ranked by transparent trailing 30-day index return.", category: "behavior", asset: null, requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "30D", limit: 10 },
   { id: "largest-drawdowns", label: "Largest Drawdowns", description: "Prepared markets furthest below their own since-tracking index high.", category: "behavior", asset: null, requiredPlan: "plus", type: "rankedDrawdown", group: null, limit: 10 },
-  { id: "top-performers", label: "Top Performers", description: "Prepared markets with the strongest 7-day Market Index return.", category: "behavior", asset: null, requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
-  { id: "worst-performers", label: "Worst Performers", description: "Prepared markets with the weakest 7-day Market Index return.", category: "behavior", asset: null, requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
+  { id: "top-performers", label: "Top Performers — All", description: "Strongest 7-day returns across Explorer.", category: "performance", asset: null, requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
+  { id: "top-performers-cards", requestScreen: "top-performers", label: "Top Performers — Cards", description: "Strongest card-market 7-day returns.", category: "performance", asset: "cards", requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
+  { id: "top-performers-sealed", requestScreen: "top-performers", label: "Top Performers — Sealed", description: "Strongest sealed-market 7-day returns.", category: "performance", asset: "sealed", requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
+  { id: "worst-performers", label: "Worst Performers — All", description: "Weakest 7-day returns across Explorer.", category: "performance", asset: null, requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
+  { id: "worst-performers-cards", requestScreen: "worst-performers", label: "Worst Performers — Cards", description: "Weakest card-market 7-day returns.", category: "performance", asset: "cards", requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
+  { id: "worst-performers-sealed", requestScreen: "worst-performers", label: "Worst Performers — Sealed", description: "Weakest sealed-market 7-day returns.", category: "performance", asset: "sealed", requiredPlan: "plus", type: "rankedPrepared", group: null, metric: "7D", limit: 10 },
 ]);
 
 export function screenResultLabel(row) {
-  const label = String(row?.label || "Market");
-  const asset = String(row?.asset || "").toLowerCase();
-  const suffix = asset === "cards" ? "Cards" : asset === "sealed" ? "Sealed" : asset === "graded" ? "Graded" : null;
-  return suffix && !label.toLowerCase().endsWith(`— ${suffix.toLowerCase()}`) ? `${label} — ${suffix}` : label;
+  return formatExplorerMarketLabel(row);
 }
 
 export const MARKET_EXPLORER_QUICK_PRESETS = Object.freeze([
@@ -75,3 +76,4 @@ export function draftForQuickPreset(screen, currentDraft = {}) {
   }
   return clean;
 }
+import { formatExplorerMarketLabel } from "./marketExplorerLabels.mjs";

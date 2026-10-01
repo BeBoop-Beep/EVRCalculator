@@ -6,10 +6,10 @@ const root = new URL("../../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
 
 test("live UI keeps fixture language conditional and exposes bounded retry", () => {
-  const pane = read("components/explore/MarketActivityPane.jsx");
-  assert.match(pane, /fixtureMode \?/);
-  assert.match(pane, /Activity temporarily unavailable/);
-  assert.match(pane, /data-market-activity-retry/);
+  const chart = read("components/explore/MarketActivityChart.jsx");
+  assert.match(chart, /fixtureMode \?/);
+  assert.match(chart, /Market Activity temporarily unavailable/);
+  assert.match(chart, /data-market-activity-retry/);
 });
 
 test("constituent Activity is local, exact-variant joined, cursor paged, mobile, and detail-on-open", () => {
@@ -41,4 +41,5 @@ test("active-set discovery is outside focus and live group receives canonical ch
     /startDate: dates\[0\], endDate: dates\[dates.length - 1\]/,
   );
   assert.match(client, /fetchMarketActivityGroup/);
+  assert.match(client, /windowDays: activityWindowDays/);
 });

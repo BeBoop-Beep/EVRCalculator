@@ -3,6 +3,7 @@ import { buildMarketSparklineDomain } from "./marketSparklineDomain.mjs";
 export const MARKET_INDEX_REFERENCE_VALUE = 100;
 export const MARKET_CHART_VIEW_PERFORMANCE = "performance";
 export const MARKET_CHART_VIEW_INDEX = "index";
+export const MARKET_CHART_VIEW_ACTIVITY = "activity";
 export const MARKET_INDEX_SHORT_WINDOW_MINIMUM_PERCENT_SPAN = 0.0075;
 export const MARKET_INDEX_SHORT_WINDOWS = new Set(["1D", "7D", "30D", "3M"]);
 

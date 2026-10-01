@@ -53,7 +53,7 @@ export default function MarketExplorerAssetMarketSelector({
   }, [open, onOpenChange]);
 
   return (
-    <section ref={rootRef} data-market-explorer-asset-selector={disclosureId} data-market-explorer-rarity-markets={disclosureId === "rarities" ? true : undefined} data-market-explorer-sealed-types={disclosureId === "sealed-types" ? true : undefined} className="relative py-2">
+    <section ref={rootRef} data-market-explorer-asset-selector={disclosureId} data-market-explorer-rarity-markets={disclosureId === "rarities" ? true : undefined} data-market-explorer-sealed-types={disclosureId === "sealed-types" ? true : undefined} className={`relative py-2 ${open ? "z-[80]" : "z-0"}`}>
       <button
         ref={triggerRef}
         type="button"
@@ -75,7 +75,7 @@ export default function MarketExplorerAssetMarketSelector({
         data-market-directory-interaction-boundary
         onPointerDownCapture={(event) => event.stopPropagation()}
         onWheelCapture={(event) => event.stopPropagation()}
-        className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-2xl"
+        className="absolute left-0 right-0 z-[81] mt-1 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-slate-950 shadow-2xl"
       >
         <label htmlFor={`${panelId}-search`} className="sr-only">{searchPlaceholder}</label>
         <input ref={searchRef} id={`${panelId}-search`} data-rarity-market-search={disclosureId === "rarities" ? true : undefined} data-sealed-type-search={disclosureId === "sealed-types" ? true : undefined} type="search" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder={searchPlaceholder} className="min-h-10 w-full border-b border-[var(--border-subtle)] bg-transparent px-3 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgb(45,212,191)]" />

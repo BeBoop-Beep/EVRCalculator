@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { boundedFetch, BoundedRequestError } from "./marketExplorerBoundedRequest.mjs";
+import { boundedFetch, BoundedRequestError, EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
 
 const hangingFetch = (_url, init) => new Promise((_, reject) => {
   init.signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
@@ -37,6 +37,13 @@ test("success returns response and payload and clears its timer", async () => {
   });
   assert.deepEqual(result.payload, { a: 1 });
   assert.equal(cleared, true);
+});
+
+test("compact, prepared, direct, and Activity reads retain purpose-specific 3-8 second bounds", () => {
+  assert.deepEqual(EXPLORER_REQUEST_BOUNDS_MS, {
+    directory: 4000, search: 3000, screen: 4000, prepared: 8000,
+    constituents: 8000, directInstrument: 8000, activity: 6000, customBuild: 45000,
+  });
 });
 
 test("every query-backed caller goes through the one bounded hook primitive", () => {

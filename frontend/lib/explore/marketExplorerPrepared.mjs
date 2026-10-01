@@ -97,11 +97,13 @@ export function buildPreparedSeries(rows = [], history = []) {
  * silently empty success.
  */
 export async function fetchPreparedMarket(key, { contextKeys = [], signal } = {}) {
-  const response = await fetch("/api/market/explorer/prepared", {
+  const response = await boundedFetch("/api/market/explorer/prepared", {
     method: "POST", credentials: "include", cache: "no-store", signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ marketKeys: [key], contextMarketKeys: contextKeys.slice(0, 25) }),
-  });
+  }, { timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.prepared, signal,
+    timeoutCode: "PREPARED_COMPARISON_TIMEOUT",
+    timeoutMessage: "This prepared market took too long to load. Please try again." });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const detail = payload?.detail && typeof payload.detail === "object" ? payload.detail : null;
@@ -156,6 +158,7 @@ export function groupPreparedDirectory(rows = [], search = "") {
 }
 import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
 import { PreparedFetchError } from "./marketExplorerPreparedLoader.mjs";
+import { boundedFetch, EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
 
 /**
  * The ACTUAL published prepared Sealed markets (asset 'sealed', e.g. Booster

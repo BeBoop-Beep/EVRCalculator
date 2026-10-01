@@ -1,3 +1,5 @@
+import { boundedFetch, EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
+
 // Market Explorer contextual physical-leaf search. Aggregate markets belong in
 // the directory controls, never in this result list.
 export const SEARCH_ENDPOINT = "/api/market/explorer/leaf-search";
@@ -22,11 +24,13 @@ export function resolveSearchResultAction(result) {
   const item = result.asset === "sealed"
     ? { asset: "sealed", instrumentId: result.instrumentId, name: result.displayName, setName: result.setName, productFamily: result.productFamily, productType: result.productType, variantLabel: result.variantLabel, imageUrl: result.imageUrl }
     : { asset: "cards", instrumentId: result.instrumentId, name: result.displayName, setName: result.setName, cardNumber: result.cardNumber, rarity: result.rarity, edition: result.edition, printingType: result.printingType, specialType: result.specialType, variantLabel: result.variantLabel, imageUrl: result.imageUrl };
-  return { primary: { kind: "basket", item } };
+  return { primary: { kind: "direct", item } };
 }
 export async function fetchCatalogSearch({ asset, q, limit = SEARCH_LIMIT, signal }) {
   const query = new URLSearchParams({ asset, q, limit: String(limit) });
-  const response = await fetch(`${SEARCH_ENDPOINT}?${query}`, { credentials: "include", cache: "no-store", signal });
+  const response = await boundedFetch(`${SEARCH_ENDPOINT}?${query}`, { credentials: "include", cache: "no-store" },
+    { signal, timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.search,
+      timeoutCode: "LEAF_SEARCH_TIMEOUT", timeoutMessage: "Search took too long. Please try again." });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const error = new Error("Search is temporarily unavailable");

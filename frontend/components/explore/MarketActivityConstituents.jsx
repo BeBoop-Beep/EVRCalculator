@@ -263,7 +263,7 @@ function InstrumentDrawer({ row, scope, chartRange, fixtureMode, onClose }) {
             </p>
           </section>
           <section>
-            <h4 className="font-semibold text-white">Offered Supply</h4>
+            <h4 className="font-semibold text-white">Listed Supply</h4>
             <p>
               {reasonLabel(data.asks?.state)} · Lowest ask{" "}
               {formatMoney(data.asks?.lowestAsk?.price)} · Captured listings{" "}

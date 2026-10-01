@@ -20,6 +20,7 @@
 // ---------------------------------------------------------------------------
 
 import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
+import { formatExplorerMarketLabel } from "./marketExplorerLabels.mjs";
 import {
   MARKET_OVERVIEW_WINDOWS,
   MARKET_SERIES_DEFINITIONS,
@@ -286,8 +287,12 @@ export function buildExplorerChartModel(overview, series, windowKey) {
   if (drawable.length === 0) {
     return { windowKey, available: false, startDate: null, endDate: null, dates: [], series: [] };
   }
+  // The visual viewport follows the requested calendar window. An actual
+  // baseline may precede it and remains metadata only; it is never plotted as
+  // a synthetic/pre-window point.
   const startDate = drawable.reduce((earliest, { change }) => (
-    earliest === null || change.startDate < earliest ? change.startDate : earliest
+    earliest === null || (change.targetStartDate || change.startDate) < earliest
+      ? (change.targetStartDate || change.startDate) : earliest
   ), null);
   const endDate = drawable.reduce((latest, { change }) => (
     latest === null || change.endDate > latest ? change.endDate : latest
@@ -311,13 +316,13 @@ export function buildExplorerChartModel(overview, series, windowKey) {
         ? entry.oneDayComparisonTrend
         : entry.trend || [];
       const points = sourceTrend.filter(
-        (point) => point.date >= change.startDate && point.date <= change.endDate
+        (point) => point.date >= startDate && point.date <= endDate
       );
       const byDate = new Map(points.map((point) => [point.date, point.value]));
       const pointByDate = new Map(points.map((point) => [point.date, point]));
       return {
         key: entry.key,
-        label: entry.label,
+        label: formatExplorerMarketLabel(entry),
         color: entry.color,
         softColor: entry.softColor,
         change,

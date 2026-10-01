@@ -42,7 +42,7 @@ const PRODUCT = { asset: "sealed", instrumentId: "sp-9", displayName: "Evolving 
 
 test("search: concise placeholder, combobox/listbox semantics and keyboard leaf activation", async () => {
   const basket = [];
-  const { renderer, fetches } = await mountSearch({ asset: "cards", onAddToBasket: (item) => basket.push(item) }, [CARD_LEAF, { ...CARD_LEAF, instrumentId: "v-2", displayName: "Dragonite" }]);
+  const { renderer, fetches } = await mountSearch({ asset: "cards", onDirectSelect: (item) => basket.push(item) }, [CARD_LEAF, { ...CARD_LEAF, instrumentId: "v-2", displayName: "Dragonite" }]);
   const el = input(renderer);
   assert.equal(el.props.placeholder, "Search cards…");
   assert.equal(el.props.role, "combobox");
@@ -61,21 +61,21 @@ test("search: concise placeholder, combobox/listbox semantics and keyboard leaf 
 });
 
 test("search result is compact and exposes exactly one primary action", async () => {
-  const { renderer } = await mountSearch({ asset: "cards", onAddToBasket: noop }, [CARD_LEAF]);
+  const { renderer } = await mountSearch({ asset: "cards", onDirectSelect: noop }, [CARD_LEAF]);
   await type(renderer, "set");
-  assert.equal(renderer.root.findAllByProps({ "data-search-primary": "basket" }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-search-primary": "direct" }).length, 1);
   assert.equal(renderer.root.findAll((node) => node.type === "a").length, 0);
   assert.match(text(renderer), /Fossil/);
   renderer.unmount();
 });
 
-test("sealed leaf result has one Add action and never navigates away", async () => {
+test("sealed leaf result has one View action and never navigates away", async () => {
   const basket = []; const activated = [];
-  const { renderer } = await mountSearch({ asset: "sealed", onActivateMarket: (k) => activated.push(k), onAddToBasket: (i) => basket.push(i) }, [PRODUCT]);
+  const { renderer } = await mountSearch({ asset: "sealed", onActivateMarket: (k) => activated.push(k), onDirectSelect: (i) => basket.push(i) }, [PRODUCT]);
   assert.equal(input(renderer).props.placeholder, "Search sealed products…");
   await type(renderer, "evolving skies booster box");
   assert.equal(renderer.root.findAll((node) => node.type === "a").length, 0);
-  await act(async () => renderer.root.findByProps({ "data-search-primary": "basket" }).props.onClick({ stopPropagation: noop }));
+  await act(async () => renderer.root.findByProps({ "data-search-primary": "direct" }).props.onClick({ stopPropagation: noop }));
   assert.equal(basket.length, 1);
   assert.equal(basket[0].instrumentId, "sp-9");
   assert.deepEqual(activated, []);
@@ -257,18 +257,18 @@ test("V1 fallback keeps final Sealed Browse IA without resurrecting Sealed Marke
 
 const CARD = { asset: "cards", displayName: "Gengar", instrumentId: "var-1", setId: "set-1", setName: "Fossil", imageUrl: "https://img/x.png", cardNumber: "5", rarity: "Rare Holo" };
 
-test("card and sealed leaf search render one basket action and no detail links", async () => {
-  const { renderer } = await mountSearch({ asset: "cards", onAddToBasket: noop }, [CARD]);
+test("card and sealed leaf search render one direct action and no detail links", async () => {
+  const { renderer } = await mountSearch({ asset: "cards", onDirectSelect: noop }, [CARD]);
   await type(renderer, "gengar");
   assert.equal(renderer.root.findAll((n) => n.type === "a").length, 0, "no anchor of any kind");
   assert.equal(renderer.root.findAllByProps({ "data-search-primary": "detail" }).length, 0);
-  assert.equal(renderer.root.findAllByProps({ "data-search-primary": "basket" }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-search-primary": "direct" }).length, 1);
   renderer.unmount();
   const sealed = await mountSearch({ asset: "sealed" }, [PRODUCT]);
   await type(sealed.renderer, "evolving");
-  assert.equal(sealed.renderer.root.findAllByProps({ "data-search-primary": "basket" }).length, 1);
+  assert.equal(sealed.renderer.root.findAllByProps({ "data-search-primary": "direct" }).length, 1);
   sealed.renderer.unmount();
-  assert.equal(resolveSearchResultAction(CARD).primary.kind, "basket");
+  assert.equal(resolveSearchResultAction(CARD).primary.kind, "direct");
 });
 
 // ------------------------------------------------------------------ named set image fixtures

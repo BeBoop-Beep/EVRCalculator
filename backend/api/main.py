@@ -197,6 +197,9 @@ from backend.db.services.market_explorer_surface_v2 import (
     SurfaceV2Error, is_selectable_canonical_rarity, read_asset_options, read_comparison_v2_first,
     read_constituents_v2_first, read_directory_v2_first, search_catalog,
 )
+from backend.db.services.market_explorer_direct_instrument import (
+    DirectInstrumentError, read_direct_instrument,
+)
 from backend.db.services.market_explorer_exact_basket import (
     MarketExplorerExactBasketUnavailable, run_exact_basket_v2,
 )
@@ -910,6 +913,13 @@ class PreparedComparisonRequest(BaseModel):
     # solely so the Index+ "compare" entitlement is judged on the whole
     # workspace rather than being bypassed by one-market-at-a-time requests.
     contextMarketKeys: List[str] = Field(default_factory=list, max_length=25)
+    startDate: Optional[date] = None
+
+
+class DirectInstrumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    asset: Literal["cards", "sealed"]
+    instrumentId: str = Field(min_length=1, max_length=64)
     startDate: Optional[date] = None
 
 
@@ -2356,6 +2366,30 @@ def post_market_explorer_prepared_comparison(payload: PreparedComparisonRequest,
         if _is_statement_timeout(exc):
             return JSONResponse(content={"message": "This market took too long to load. Try again.", "code": "PREPARED_COMPARISON_TIMEOUT"}, status_code=504)
         return JSONResponse(content={"message": "Prepared comparison is temporarily unavailable", "code": "PREPARED_COMPARISON_FAILED"}, status_code=503)
+
+
+@app.post("/market/explorer/direct-instrument")
+def post_market_explorer_direct_instrument(payload: DirectInstrumentRequest):
+    """Public discovery read for exactly one server-verified physical item.
+
+    This route accepts no basket/spec/list and therefore does not weaken the
+    Premium explicit-instruments builder entitlement.
+    """
+    try:
+        return read_direct_instrument(
+            service_read_client, payload.asset, payload.instrumentId, payload.startDate,
+        )
+    except DirectInstrumentError as exc:
+        return JSONResponse(content={"message": exc.message, "code": exc.code},
+                            status_code=exc.status_code)
+    except Exception as exc:
+        logger.exception("/market/explorer/direct-instrument unexpected error",
+                         extra={"asset": payload.asset})
+        if _is_statement_timeout(exc):
+            return JSONResponse(content={"message": "Direct item history timed out. Try again.",
+                                         "code": "DIRECT_INSTRUMENT_TIMEOUT"}, status_code=504)
+        return JSONResponse(content={"message": "Direct item history is temporarily unavailable",
+                                     "code": "DIRECT_INSTRUMENT_FAILED"}, status_code=503)
 
 
 def _is_statement_timeout(exc: BaseException) -> bool:

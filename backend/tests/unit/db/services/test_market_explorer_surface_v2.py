@@ -39,16 +39,23 @@ class Q:
         self.rows = [r for r in self.rows if r.get(k) == v]
         return self
 
+    def limit(self, value):
+        self.rows = self.rows[:value]
+        return self
+
     def execute(self):
         return SimpleNamespace(data=self.rows)
 
 
 class Client:
-    def __init__(self, directory=None, history=None, aliases=None, fail=None, page=None):
+    def __init__(self, directory=None, history=None, aliases=None, fail=None, page=None, serving_generation=GEN):
         self.directory, self.history = directory or [], history or []
         self.aliases, self.fail, self.page, self.calls = aliases or [], fail or {}, page, []
+        self.serving_generation = serving_generation
 
     def table(self, name):
+        if name == v2.SERVING_TABLE_V2:
+            return Q([{"singleton": 1, "generation_id": self.serving_generation}])
         assert name == v2.ALIASES_TABLE_V2
         return Q([dict(a, generation_id=GEN) for a in self.aliases])
 
@@ -84,6 +91,20 @@ def test_directory_normalizes_and_maps_fields():
     assert (s["set_id"], s["parent_era_id"], s["comparison_value"], s["comparison_index_value"]) == ("s", "e", 100.5, 101.2)
     assert s["generation_id"] == GEN and s["metadata"]["marketScope"] == "first_edition"
     assert rows["sealed-set:s"]["available"] is False and rows["sealed-set:s"]["unavailable_reason"] == "x"
+
+
+def test_directory_and_alias_caches_are_generation_keyed_and_invalidated():
+    first = Client(directory=[drow("set:a", "set")], aliases=[{"alias_key": "old", "market_key": "set:a"}])
+    assert v2.read_v2_directory(first)[0]["generation_id"] == GEN
+    assert v2.read_v2_directory(first)[0]["generation_id"] == GEN
+    assert len([call for call in first.calls if call[0] == v2.DIRECTORY_RPC_V2]) == 1
+    assert v2.read_aliases(first, GEN) == {"old": "set:a"}
+    first.aliases = []
+    assert v2.read_aliases(first, GEN) == {"old": "set:a"}
+
+    promoted = Client(directory=[drow("set:b", "set", generation_id=OTHER)], serving_generation=OTHER)
+    assert v2.read_v2_directory(promoted)[0]["generation_id"] == OTHER
+    assert GEN not in v2._directory_cache and GEN not in v2._alias_cache
 
 
 def test_directory_passes_all_expanded_sealed_scopes_and_types_without_whitelist():

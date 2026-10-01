@@ -68,10 +68,10 @@ export function eligibleActivityMarkets(series = []) {
     .sort((left, right) => left.focusKey.localeCompare(right.focusKey));
 }
 
-export function activityCapabilityBatchKey(markets, identityKey, plan) {
+export function activityCapabilityBatchKey(markets, identityKey, plan, windowDays = 30) {
   if (!identityKey || !["plus", "premium"].includes(plan) || !markets.length)
     return null;
-  return `${identityKey}|${plan}|${markets.map((entry) => `${entry.focusKey}|${entry.marketKey}|${stableRoster(entry.rosterRef)}`).join(";")}`;
+  return `${identityKey}|${plan}|${windowDays}|${markets.map((entry) => `${entry.focusKey}|${entry.marketKey}|${stableRoster(entry.rosterRef)}`).join(";")}`;
 }
 
 export function normalizeCapabilityResponse(payload, requestedMarkets) {

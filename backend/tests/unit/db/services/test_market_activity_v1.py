@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+from backend.domain.pokemon.market_activity_contract import SchemaRegistry
 
 ROOT = Path(__file__).resolve().parents[5]
 SPEC = importlib.util.spec_from_file_location("market_activity_v1_under_test", ROOT / "backend/db/services/market_activity_v1.py")
@@ -34,7 +35,7 @@ class Query:
         self.client.query_count += 1
         if self.table == "market_activity_generations_v1":
             return Result([{"activity_generation_id":GEN,"state":"VALIDATED","serving_state":"RETAINED",
-                            "evidence_cutoff":"2026-09-30T12:00:00Z","validated_at":"2026-09-30T12:01:00Z",
+                            "evidence_cutoff":"2026-09-30T12:00:00Z","validated_at":"2026-09-30T12:01:00+00:00",
                             "policy":DETAIL["policy"]}])
         if self.table == "market_activity_rosters_v1":
             return Result([{"activity_generation_id":GEN,"market_key":self.filters.get("market_key"),"roster_revision":self.client.roster_ref,
@@ -84,3 +85,20 @@ def test_group_and_instrument_reads_each_use_three_calls():
     detail = read_instrument_activity(instrument_client, DETAIL["request"])
     assert detail["kind"] == "instrumentDetail"
     assert instrument_client.query_count == 3
+
+
+def test_former_offset_timestamp_page_and_all_three_responses_validate_frozen_schemas():
+    registry = SchemaRegistry(ROOT / "docs/research/market_activity_v1/contracts")
+    page_request = {"marketKey":"quick:core","activityGenerationId":GEN,
+        "rosterRef":REF,"asOf":"2026-09-29","windowDays":30,"cursor":None,"limit":1}
+    page = read_constituent_activity_page(Client(1), page_request)
+    assert page["evaluatedAt"] == "2026-09-30T12:01:00Z"
+    assert registry.validate(page, "constituent_page_response.schema.json") == []
+
+    group_client = Client(3, GROUP["request"]["rosterRef"])
+    group = read_group_activity(group_client, GROUP["request"])
+    assert registry.validate(group, "activity_response.schema.json") == []
+
+    detail_client = Client(3, DETAIL["request"]["rosterRef"])
+    detail = read_instrument_activity(detail_client, DETAIL["request"])
+    assert registry.validate(detail, "instrument_detail_response.schema.json") == []

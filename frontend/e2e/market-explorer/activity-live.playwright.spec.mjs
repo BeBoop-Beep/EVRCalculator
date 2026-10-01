@@ -16,11 +16,11 @@ test("live transport through Next proxies: Plus group, constituents, detail, and
   await pickRow(page, "sets", "Fossil");
   const cardChip = page.locator("[data-market-explorer-active-chip]", { hasText: "Fossil" });
   await cardChip.locator("[data-market-explorer-active-focus]").click();
-  const tool = page.locator("[data-market-explorer-focus-tool='market-activity']");
-  await expect(tool).toHaveAttribute("data-focus-tool-state", "available");
-  await page.locator("[data-market-explorer-focus-tool-button='market-activity']").click();
-  await expect(page.locator("[data-market-activity-series='sales']")).toBeVisible();
-  await expect(page.locator("[data-market-activity-pane]")).not.toContainText("Fixture-backed");
+  const activityMode = page.locator("[data-market-chart-view='activity']");
+  await expect(activityMode).toHaveAttribute("data-market-chart-view-state", "available");
+  await activityMode.click();
+  await expect(page.locator("[data-market-activity-chart]")).toBeVisible();
+  await expect(page.locator("[data-market-activity-pane]")).toHaveCount(0);
   const beforeHover = net.requests.length;
   await page.locator("[data-market-performance-chart]").hover();
   expect(net.requests.length).toBe(beforeHover);
@@ -48,7 +48,7 @@ test("Basic remains unavailable and mobile live Activity cards are compact", asy
   const basic = await newSession(browser, { base, viewport: { width: 1440, height: 900 } });
   await openExplorer(basic.page, base);
   await basic.page.locator("[data-market-explorer-active-focus]").first().click();
-  await expect(basic.page.locator("[data-market-explorer-focus-tool='market-activity']")).toHaveAttribute("data-focus-tool-state", "locked");
+  await expect(basic.page.locator("[data-market-chart-view='activity']")).toHaveAttribute("data-market-chart-view-state", "locked");
   await shot(basic.page, "1440x900-basic-activity-locked");
   await basic.context.close();
 
@@ -56,8 +56,8 @@ test("Basic remains unavailable and mobile live Activity cards are compact", asy
   await openExplorer(mobile.page, base);
   await pickRow(mobile.page, "sets", "Fossil");
   await mobile.page.locator("[data-market-explorer-active-chip]", { hasText: "Fossil" }).locator("[data-market-explorer-active-focus]").click();
-  await mobile.page.locator("[data-market-explorer-focus-tool-button='market-activity']").click();
-  await expect(mobile.page.locator("[data-market-activity-pane]")).toBeVisible();
+  await mobile.page.locator("[data-market-chart-view='activity']").click();
+  await expect(mobile.page.locator("[data-market-activity-chart]")).toBeVisible();
   await shot(mobile.page, "390x844-live-activity");
   await mobile.context.close();
 });

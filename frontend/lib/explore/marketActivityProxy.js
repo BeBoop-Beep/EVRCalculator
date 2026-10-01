@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
 
 const RESPONSE_HEADERS = {
   "Cache-Control": "private, no-store",
@@ -32,11 +33,15 @@ export async function proxyMarketActivity(request, backendPath) {
   if (cookie) headers.Cookie = cookie;
 
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), EXPLORER_REQUEST_BOUNDS_MS.activity);
+    try {
     const response = await fetch(`${getBackendApiBaseUrl()}${backendPath}`, {
       method: "POST",
       headers,
       body,
       cache: "no-store",
+      signal: controller.signal,
     });
     return new NextResponse(await response.text(), {
       status: response.status,
@@ -46,6 +51,7 @@ export async function proxyMarketActivity(request, backendPath) {
           response.headers.get("content-type") || "application/json",
       },
     });
+    } finally { clearTimeout(timer); }
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.error("Market Activity proxy failure", {
@@ -53,12 +59,13 @@ export async function proxyMarketActivity(request, backendPath) {
         errorName: error?.name || "Error",
       });
     }
+    const timedOut = error?.name === "AbortError";
     return NextResponse.json(
       {
-        message: "Market Activity is temporarily unavailable",
-        code: "MARKET_ACTIVITY_PROXY_UNAVAILABLE",
+        message: timedOut ? "Market Activity read timed out" : "Market Activity is temporarily unavailable",
+        code: timedOut ? "MARKET_ACTIVITY_TIMEOUT" : "MARKET_ACTIVITY_PROXY_UNAVAILABLE",
       },
-      { status: 503, headers: RESPONSE_HEADERS },
+      { status: timedOut ? 504 : 503, headers: RESPONSE_HEADERS },
     );
   }
 }
