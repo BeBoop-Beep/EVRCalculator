@@ -16,16 +16,15 @@ test("Set lens applies the entitlement-aware Set Rankings projection", () => {
   assert.doesNotMatch(sets, /canViewRankingsIntelligence:/);
 });
 
-test("legacy Era lens remains public while paid scorecards are gated before reading", () => {
+test("legacy Era route remains public while the current UI uses the narrow public headline authority", () => {
   const eras = route.slice(route.indexOf('if (lens === "eras")'), route.indexOf('if (lens === "products")'));
   assert.match(eras, /status: "available"/);
   assert.match(eras, /eraSetStrength/);
   assert.doesNotMatch(eras, /status: "locked"|rankingsIntelligence !== true/);
 
   const loader = lazy.slice(lazy.indexOf("const loadEra"), lazy.indexOf("const loadSets"));
-  assert.match(loader, /authStatus !== "resolved"/);
-  assert.match(loader, /!canViewRankingsIntelligence/);
-  assert.ok(loader.indexOf("!canViewRankingsIntelligence") < loader.indexOf("readRankingsScorecards"));
+  assert.match(loader, /readPublicRankingsHeadlines\("era"/);
+  assert.doesNotMatch(loader, /readRankingsScorecards|canViewRankingsIntelligence/);
 });
 
 test("Product and Card entitlement branches remain present", () => {

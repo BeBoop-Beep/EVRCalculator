@@ -85,6 +85,11 @@ export function shouldFetchFinancialRipHistory({ entitled, authStatus, selectedC
   );
 }
 
+export function financialRipRequestEntities(selected = [], lastSelected = []) {
+  if (selected.length) return selected;
+  return lastSelected.length ? [lastSelected[0]] : [];
+}
+
 export function toggleFinancialRipSelection(current = [], id, max = Infinity) {
   if (current.includes(id)) return current.filter((item) => item !== id);
   return current.length >= max ? current : [...current, id];
@@ -96,7 +101,8 @@ export function buildFinancialRipChartModel(rows = [], selectedEntities = [], ra
   for (const row of rows) {
     if (row?.metric_key && row.metric_key !== "financial") continue;
     const id = String(row?.entityId || row?.entity_id || "");
-    if (!selected.has(id)) continue;
+    const entitySelected = selected.has(id);
+    if (!entitySelected && selected.size) continue;
     const date = dateOnly(row?.marketDate || row?.market_date);
     if (!date || (range.startDate && date < range.startDate) || (range.endDate && date > range.endDate)) continue;
     const point = points.get(date) || { date, timestamp: new Date(`${date}T00:00:00Z`).getTime(), overallFinancialRip: null, entities: {} };
@@ -104,6 +110,7 @@ export function buildFinancialRipChartModel(rows = [], selectedEntities = [], ra
     const score = finite(row?.absoluteFinancialRipScore ?? row?.absolute_financial_rip_score);
     const reference = finite(row?.overallFinancialRipReference ?? row?.overall_financial_rip_reference);
     if (reference !== null) point.overallFinancialRip = reference;
+    if (!entitySelected) continue;
     if (score === null) continue;
     const key = entitySeriesKey(id);
     point[key] = score;
@@ -118,6 +125,18 @@ export function buildFinancialRipChartModel(rows = [], selectedEntities = [], ra
   }
   const series = selectedEntities.map((item) => ({ ...item, key: entitySeriesKey(item.entity_id), color: stableEntityColor(item.entity_id) }));
   return { points: [...points.values()].sort((a, b) => a.timestamp - b.timestamp), series };
+}
+
+export function financialRipTooltipRows(point = {}, series = []) {
+  const overall = finite(point.overallFinancialRip);
+  return series.flatMap((item) => {
+    const detail = point.entities?.[String(item.entity_id)];
+    const score = finite(detail?.financialRip);
+    if (score === null) return [];
+    return [{ ...item, score, deltaVsOverall: overall === null ? null : score - overall }];
+  }).sort((left, right) => right.score - left.score
+    || String(left.name || "").localeCompare(String(right.name || ""), "en", { sensitivity: "base" })
+    || String(left.entity_id).localeCompare(String(right.entity_id)));
 }
 
 export function financialRipYAxisDomain(points = [], series = []) {
@@ -146,4 +165,11 @@ export function formatFinancialRipDelta(value) {
   if (number === null) return "Unavailable";
   if (number === 0) return "— 0.00 vs Overall";
   return `${number > 0 ? "↑ +" : "↓ −"}${Math.abs(number).toFixed(2)} vs Overall`;
+}
+
+export function formatFinancialRipTooltipDelta(value) {
+  const number = finite(value);
+  if (number === null) return "Unavailable";
+  if (number === 0) return "±0.00";
+  return `${number > 0 ? "+" : "−"}${Math.abs(number).toFixed(2)} ${number > 0 ? "↑" : "↓"}`;
 }

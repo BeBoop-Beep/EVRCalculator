@@ -117,6 +117,21 @@ test("a set with no era still renders its name without a dangling separator", ()
   assert.ok(!text.includes("·"), "the era/verdict separator must not survive alone");
 });
 
+test("Set artwork prefers logo, falls back to symbol, then initials", () => {
+  const renderer = renderIdentity({ variant: "compact", target: {
+    name: "Fallback Set",
+    logo_image_url: "https://images.example/logo.png",
+    symbol_image_url: "https://images.example/symbol.png",
+  } });
+  const image = () => renderer.root.findAllByType("img")[0];
+  assert.match(image().props.src, /logo\.png/);
+  TestRenderer.act(() => image().props.onError());
+  assert.match(image().props.src, /symbol\.png/);
+  TestRenderer.act(() => image().props.onError());
+  assert.equal(renderer.root.findAllByType("img").length, 0);
+  assert.match(textOf(renderer), /FS/);
+});
+
 /* ------------------------------------------------------ logo delivery size --- */
 
 // A real optimizable host, unlike LOUD_TARGET's images.example: `optimizedImageUrl`

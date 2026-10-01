@@ -73,7 +73,8 @@ export default function SegmentedControl({
     return null;
   }
 
-  if (variant === "primary") {
+  if (variant === "primary" || variant === "rankingsPrimary") {
+    const rankingsNeutral = variant === "rankingsPrimary";
     return (
       <div className={className}>
         <div className="grid w-full items-center gap-0.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.72)] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(2,6,23,0.18)] backdrop-blur-md" style={{ gridTemplateColumns: `repeat(${controlOptions.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label={ariaLabel} onKeyDown={(event) => {
@@ -92,7 +93,7 @@ export default function SegmentedControl({
             const optionValue = option?.value ?? option?.key;
             const isActive = value === optionValue;
             return (
-              <button key={optionValue} type="button" onClick={() => onChange(optionValue)} onPointerEnter={() => option?.onIntent?.("pointerenter")} onFocus={() => option?.onIntent?.("focus")} onPointerDown={() => option?.onIntent?.("pointerdown")} role="radio" aria-checked={isActive} disabled={option?.disabled} tabIndex={isActive ? 0 : -1} data-segment-value={optionValue} className={`min-h-12 min-w-0 rounded-md px-1.5 py-1 text-[13px] font-semibold leading-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 disabled:cursor-not-allowed disabled:opacity-40 desk:min-h-0 desk:px-2 desk:py-1 desk:text-xs sm:px-2.5 sm:py-1.5 ${isActive ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]" : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"}`}>
+              <button key={optionValue} type="button" onClick={() => onChange(optionValue)} onPointerEnter={() => option?.onIntent?.("pointerenter")} onFocus={() => option?.onIntent?.("focus")} onPointerDown={() => option?.onIntent?.("pointerdown")} role="radio" aria-checked={isActive} disabled={option?.disabled} tabIndex={isActive ? 0 : -1} data-segment-value={optionValue} className={`min-h-12 min-w-0 rounded-md px-1.5 py-1 text-[13px] font-semibold leading-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(196,181,253,.78)] disabled:cursor-not-allowed disabled:opacity-40 desk:min-h-0 desk:px-2 desk:py-1 desk:text-xs sm:px-2.5 sm:py-1.5 ${isActive ? rankingsNeutral ? "bg-white/[.11] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.22)]" : "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]" : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"}`}>
                 <span className="block whitespace-nowrap">{option?.label ?? optionValue}</span>
               </button>
             );
@@ -170,7 +171,7 @@ export default function SegmentedControl({
                   : ""
               } ${
                 isActive
-                  ? "bg-[rgba(20,184,166,0.16)] text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(94,234,212,0.2)]"
+                  ? variant === "rankings" ? "bg-white/[.11] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.22)]" : "bg-[rgba(20,184,166,0.16)] text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(94,234,212,0.2)]"
                   : "text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
               }`}
             >

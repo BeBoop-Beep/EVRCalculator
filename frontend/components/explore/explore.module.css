@@ -984,12 +984,12 @@
   box-shadow: inset 0 1px rgba(255,255,255,.035);
   transition: border-color .16s ease, background-color .16s ease, color .16s ease, box-shadow .16s ease;
 }
-.productFamilyTab:hover { border-color: rgba(45,212,191,.38); background-color: rgba(45,212,191,.06); color: var(--text-primary); }
-.productFamilyTab:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(45,212,191,.65); }
-.productFamilyTabActive { border-color: rgba(45,212,191,.68); background: linear-gradient(180deg, rgba(45,212,191,.14), rgba(45,212,191,.07)); color: var(--text-primary); box-shadow: inset 0 1px rgba(153,246,228,.15), 0 0 14px rgba(45,212,191,.08); }
-.productFamilyTabOverall { border-color: rgba(45,212,191,.42); background: linear-gradient(180deg, rgba(45,212,191,.09), rgba(45,212,191,.025)), var(--surface-page); font-weight: 700; box-shadow: inset 0 1px rgba(153,246,228,.10); }
-.productFamilyTabOverallIcon { display: inline-block; margin-right: .35rem; color: rgba(94,234,212,.9); font-size: .82rem; }
-.productFamilyTabOverallActive { background: linear-gradient(180deg, rgba(45,212,191,.19), rgba(45,212,191,.08)); box-shadow: inset 0 1px rgba(204,251,241,.2), inset 0 0 12px rgba(45,212,191,.08), 0 0 14px rgba(45,212,191,.1); }
+.productFamilyTab:hover { border-color: rgba(255,255,255,.28); background-color: rgba(255,255,255,.055); color: #fff; }
+.productFamilyTab:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(196,181,253,.78); }
+.productFamilyTabActive { border-color: rgba(255,255,255,.32); background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.055)); color: #fff; box-shadow: inset 0 1px rgba(255,255,255,.12); }
+.productFamilyTabOverall { border-color: var(--border-subtle); background: var(--surface-page); font-weight: 700; }
+.productFamilyTabOverallIcon { display: inline-block; margin-right: .35rem; color: currentColor; font-size: .82rem; }
+.productFamilyTabOverallActive { border-color: rgba(255,255,255,.32); background: rgba(255,255,255,.09); box-shadow: inset 0 1px rgba(255,255,255,.12); }
 
 .analyticsTableShell { border-radius: .75rem; }
 .analyticsToolbar { border-bottom: 1px solid var(--border-subtle); background: linear-gradient(115deg, rgba(14,116,144,.10), rgba(13,148,136,.055) 55%, rgba(255,255,255,.012)); }

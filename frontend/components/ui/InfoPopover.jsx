@@ -16,7 +16,7 @@ export function PublicRipTierInfo() {
   );
 }
 
-export default function InfoPopover({ text, children = null, learnMoreHref = null, learnMoreLabel = "Learn more" }) {
+export default function InfoPopover({ text, children = null, learnMoreHref = null, learnMoreLabel = "Learn more", ariaLabel = "More info" }) {
   const [open, setOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ top: 36, left: 16, mobile: true });
   const triggerRef = useRef(null);
@@ -108,10 +108,10 @@ export default function InfoPopover({ text, children = null, learnMoreHref = nul
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="More info"
+        aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] transition-all hover:border-[rgba(20,184,166,0.6)] hover:text-[rgba(20,184,166,0.95)] hover:shadow-[0_0_6px_rgba(20,184,166,0.35)]"
+        className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] transition-all hover:border-[rgba(20,184,166,0.6)] hover:text-[rgba(20,184,166,0.95)] hover:shadow-[0_0_6px_rgba(20,184,166,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <circle cx="6" cy="6" r="5.5" stroke="currentColor" />

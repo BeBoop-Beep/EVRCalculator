@@ -9,7 +9,8 @@ const distribution = readFileSync(new URL("./OpeningEconomicsDistribution.jsx", 
 test("uses the Financial RIP history reader and no legacy benchmark reader", () => {
   assert.ok(source.includes("readFinancialRipHistory"));
   assert.ok(!source.includes("readBenchmarkHistory"));
-  assert.ok(source.indexOf("shouldFetchFinancialRipHistory") < source.indexOf("readFinancialRipHistory(selected"));
+  assert.ok(source.indexOf("shouldFetchFinancialRipHistory") < source.indexOf("readFinancialRipHistory(requestEntities"));
+  assert.match(source, /financialRipRequestEntities\(selected, request\.view\?\.selected\)/);
 });
 
 test("locked access is a synthetic frosted preview with no chart data dependency", () => {
@@ -30,7 +31,32 @@ test("controls, observed-date continuity, moving reference, and responsive frame
   assert.ok(source.includes('searchPlaceholder="Search Eras…"'));
   assert.ok(source.includes("setIdsForEra"));
   assert.ok(source.includes('stroke="#cbd5e1"'));
-  assert.ok(source.includes("strokeWidth={4}"));
+  assert.ok(source.includes("strokeWidth={3}"));
+  assert.ok(source.includes("strokeOpacity={0.72}"));
+  assert.equal((source.match(/connectNulls=\{false\}/g) || []).length, 2);
+});
+
+test("selector chips are absent and one complete removable legend preserves permanent Overall", () => {
+  assert.equal((source.match(/showChips=\{false\}/g) || []).length, 2);
+  assert.doesNotMatch(source, /chart\.series\.slice\(0, 5\)|selected Sets/);
+  assert.match(source, /chart\.series\.map\(\(item\).*Remove \$\{item\.name\} from Financial RIP chart/s);
+  assert.doesNotMatch(source, /Choose at least one .* to view Financial RIP history/);
+  assert.match(source, /min-w-max.*desk:flex-wrap/);
+});
+
+test("Era preset bypasses only the manual five cap and removals are local", () => {
+  assert.match(source, /presetEraId \? current : current\.slice\(0, MAX_FINANCIAL_RIP_SET_SELECTION\)/);
+  assert.match(source, /setSetSelection\(ids\)/);
+  assert.match(source, /setSetSelection\(\(current\) => current\.filter/);
+  assert.match(source, /selected\.every\(\(item\) => loadedIds\.has/);
+});
+
+test("compact tooltip uses one Overall, dynamic ordering helper, and no rank or cohort", () => {
+  const tooltip = source.slice(source.indexOf("function ChartTooltip"), source.indexOf("const MAX_FINANCIAL"));
+  assert.match(tooltip, /financialRipTooltipRows/);
+  assert.equal((tooltip.match(/>Overall<\/span>/g) || []).length, 1);
+  assert.doesNotMatch(tooltip, /Rank|cohort|Financial RIP <strong>/);
+  assert.match(tooltip, /backgroundColor: row\.color/);
 });
 
 test("refresh and failure preserve the last successful certified chart", () => {

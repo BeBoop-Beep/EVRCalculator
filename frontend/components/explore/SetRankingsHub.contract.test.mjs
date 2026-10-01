@@ -40,13 +40,14 @@ test("paid Benchmark lenses share one Plus lock and no legacy dense score table 
   assert.equal((hub.match(/<PlanLock requiredPlan=/g) || []).length, 1);
 });
 
-test("all Set tabs reuse one loaded cohort and Era handoff retains the filter", () => {
-  assert.equal((lazy.match(/readRankingsScorecards\("set"/g) || []).length, 1);
+test("public Set headlines and paid component scorecards stay separate while Era handoff retains the filter", () => {
+  assert.equal((lazy.match(/readPublicRankingsHeadlines\("set"/g) || []).length, 1);
+  assert.equal((hub.match(/readRankingsScorecards\("set"/g) || []).length, 1);
   assert.ok(hub.includes("sessionCache = null"));
   assert.ok(hub.includes("readPackEconomics"));
-  assert.ok(hub.includes("scorecards={scorecards}"));
+  assert.ok(hub.includes("scorecards={publicScorecards}"));
   assert.ok(!hub.includes("fetch("));
   assert.ok(lazy.includes("setSelectedEra(era?.eraName || null)"));
-  assert.ok(lazy.includes('initialView={setEntryView} scorecards={visibleSetsState.scorecards} sessionCache={sessionCache}'));
+  assert.ok(lazy.includes('initialView={setEntryView} publicScorecards={visibleSetsState.scorecards} sessionCache={sessionCache}'));
   assert.ok(lazy.includes("eraFilter={selectedEra}"));
 });

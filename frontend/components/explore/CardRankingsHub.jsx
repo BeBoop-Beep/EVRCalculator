@@ -17,7 +17,7 @@ export default function CardRankingsHub({
   const [lens, setLens] = useState("collector");
   return (
     <div className="space-y-4" data-card-rankings-hub>
-      <section className={`${styles.surface} set-glass-surface p-3`}>
+      <div className="flex justify-start" data-card-ranking-mode-control>
         <SegmentedControl
           options={[
             { value: "collector", label: "Collector Appeal" },
@@ -29,15 +29,18 @@ export default function CardRankingsHub({
           equalWidth
           mobileFullWidth
         />
-      </section>
-      {lens === "collector" ? (
+      </div>
+      {authStatus === "resolving" ? (
+        <div role="status" aria-live="polite" className="min-h-40 p-5 text-sm text-[var(--text-secondary)]">Checking card accessâ€¦</div>
+      ) : null}
+      {authStatus !== "resolving" && lens === "collector" ? (
         <Collector
           entitled={canViewCollectorAppeal}
           authStatus={authStatus}
           sessionCache={sessionCache}
         />
       ) : null}
-      {lens === "chase" ? (
+      {authStatus !== "resolving" && lens === "chase" ? (
         <Chase
           entitled={canViewChaseEfficiency}
           authStatus={authStatus}

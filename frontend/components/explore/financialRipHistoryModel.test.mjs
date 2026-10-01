@@ -6,8 +6,11 @@ import {
   buildFinancialRipChartModel,
   eraFinancialRipCandidates,
   entitySeriesKey,
+  financialRipRequestEntities,
   financialRipWindowRange,
+  financialRipTooltipRows,
   formatFinancialRipDelta,
+  formatFinancialRipTooltipDelta,
   shouldFetchFinancialRipHistory,
   stableEntityColor,
   setFinancialRipCandidates,
@@ -82,6 +85,41 @@ test("tooltip deltas use directional benchmark indicators", () => {
   assert.equal(formatFinancialRipDelta(0), "— 0.00 vs Overall");
 });
 
+test("compact tooltip rows sort by hovered score with stable ties and honest missing values", () => {
+  const series = [
+    { entity_id: "b", name: "Beta", color: "#b" },
+    { entity_id: "a", name: "Alpha", color: "#a" },
+    { entity_id: "missing", name: "Missing", color: "#m" },
+    { entity_id: "top", name: "Top", color: "#t" },
+  ];
+  const rows = financialRipTooltipRows({ overallFinancialRip: 30, entities: {
+    a: { financialRip: 32 }, b: { financialRip: 32 }, top: { financialRip: 35 }, missing: { financialRip: null },
+  } }, series);
+  assert.deepEqual(rows.map((row) => row.entity_id), ["top", "a", "b"]);
+  assert.deepEqual(rows.map((row) => row.deltaVsOverall), [5, 2, 2]);
+  assert.equal(formatFinancialRipTooltipDelta(5), "+5.00 \u2191");
+  assert.equal(formatFinancialRipTooltipDelta(-2), "\u22122.00 \u2193");
+  assert.equal(formatFinancialRipTooltipDelta(0), "\u00b10.00");
+  assert.equal(financialRipTooltipRows({ overallFinancialRip: null, entities: { a: { financialRip: 32 } } }, series)[0].deltaVsOverall, null);
+});
+
+test("Overall-only mode retains authoritative observed references without entity series", () => {
+  const model = buildFinancialRipChartModel([
+    { entity_id: "a", market_date: "2026-09-25", absolute_financial_rip_score: 31, overall_financial_rip_reference: 29 },
+    { entity_id: "a", market_date: "2026-09-27", absolute_financial_rip_score: 33, overall_financial_rip_reference: 30 },
+  ], []);
+  assert.deepEqual(model.series, []);
+  assert.deepEqual(model.points.map((point) => [point.date, point.overallFinancialRip]), [["2026-09-25", 29], ["2026-09-27", 30]]);
+  assert.ok(model.points.every((point) => Object.keys(point.entities).length === 0));
+});
+
+test("Overall-only window changes retain one transport anchor without rendering it", () => {
+  const prior = [{ entity_type: "set", entity_id: "a", name: "Anchor" }, { entity_type: "set", entity_id: "b", name: "Other" }];
+  assert.deepEqual(financialRipRequestEntities([], prior), [prior[0]]);
+  assert.deepEqual(financialRipRequestEntities([prior[1]], prior), [prior[1]]);
+  assert.deepEqual(financialRipRequestEntities([], []), []);
+});
+
 test("Basic and anonymous access cannot initiate history reads", () => {
   const ready = { selectedCount: 3, startDate: "2026-08-29", endDate: "2026-09-27" };
   assert.equal(shouldFetchFinancialRipHistory({ ...ready, entitled: false, authStatus: "resolved" }), false);
@@ -101,6 +139,13 @@ test("selection supports a manual cap while an Era shortcut can show every membe
   assert.deepEqual(setIdsForEra(candidates, "sv"), ["a", "b"]);
   assert.equal(candidates[0].eraName, "Scarlet & Violet");
   assert.equal(stableEntityColor("set-a"), stableEntityColor("set-a"));
+});
+
+test("Era presets exceed the manual five limit without truncation", () => {
+  const candidates = Array.from({ length: 8 }, (_, index) => ({ entity_id: `s${index}`, eraId: "era" }));
+  assert.equal(setIdsForEra(candidates, "era").length, 8);
+  assert.equal(new Set(candidates.map((item) => stableEntityColor(item.entity_id))).size > 1, true);
+  assert.equal(stableEntityColor("s6"), stableEntityColor("s6"));
 });
 
 test("the two public era identities are available together and requests stay typed", () => {

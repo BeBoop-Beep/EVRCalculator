@@ -16,7 +16,7 @@ const pending = <p className="mt-3 text-sm text-[var(--text-secondary)]">Tempora
 export default function RankingsOverviewHighlights({ overview, onOpenTopSet, onOpenTopEra, onOpenLowestCost }) {
   const ready = overview?.status === "available", topSet = overview?.topSet, topEra = overview?.topEra;
   const lowest = overview?.lowestAveragePackCost, coverage = overview?.modeledCoverage, financial = overview?.overallFinancialRip;
-  const setTarget = topSet ? { target_id: topSet.entityId, set_id: topSet.entityId, name: topSet.name, canonical_key: topSet.canonicalKey } : null;
+  const setTarget = topSet ? { target_id: topSet.entityId, set_id: topSet.entityId, name: topSet.name, canonical_key: topSet.canonicalKey, logo_image_url: topSet.logoImageUrl, symbol_image_url: topSet.symbolImageUrl } : null;
   return <>
     <section className="mb-5" data-rankings-overview-highlights><h2 className="text-base font-semibold">At a glance</h2><div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
       <Highlight label="Top Set" onClick={onOpenTopSet}>{ready && setTarget ? <div className="mt-2"><p className="text-xs font-semibold text-[var(--text-secondary)]">#1 Set to Open</p><div className="mt-2 flex min-w-0 items-center justify-between gap-2"><SetIdentity target={setTarget} variant="compact" eager /><RankingsRipScoreBadge metric={topSet.score} compact /></div></div> : pending}</Highlight>

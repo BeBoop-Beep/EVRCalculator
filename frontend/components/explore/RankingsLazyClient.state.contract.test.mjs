@@ -8,7 +8,8 @@ test("Rankings owns one publication and identity scoped session cache", () => {
   assert.match(lazy, /createRankingsSessionCache\(`\$\{requestKey\}:\$\{publicationIdentity\}`\)/);
   assert.match(lazy, /sessionCache\.peek\("eras:rankings"\)/);
   assert.match(lazy, /sessionCache\.peek\("sets:rankings"\)/);
-  assert.match(lazy, /sessionCache\.request\("products:full_market"/);
+  assert.match(lazy, /readPublicRankingsHeadlines\("era"/);
+  assert.match(lazy, /readPublicRankingsHeadlines\("set"/);
 });
 
 test("Overview idle warming is public-only and leaves Products/Cards to intent", () => {
@@ -19,7 +20,7 @@ test("Overview idle warming is public-only and leaves Products/Cards to intent",
   let cursor = -1;
   for (const item of order) { cursor = idleBlock.indexOf(item, cursor + 1); assert.ok(cursor >= 0, item); }
   assert.doesNotMatch(idleBlock, /warmProducts|warmCards|lensModules\.cards/);
-  assert.match(lazy, /if \(next === "products"\) warmProducts/);
+  assert.match(lazy, /lensModules\[next\]\?\.\(\)/);
   assert.doesNotMatch(lazy, /warmCards|card-chase-efficiency\?/);
   assert.match(lazy, /cards: \(\) => import\("\.\/CardRankingsHub"\)/);
 });
@@ -28,10 +29,10 @@ test("hover, focus, and click intent escalates the selected lens", () => {
   for (const lens of ["eras", "sets", "products", "cards"]) assert.ok(lazy.includes(`onIntent: () => signalIntent("${lens}")`));
 });
 
-test("Era Benchmark resolves paid denial to a deterministic lock", () => {
+test("Era and Set Overall headlines do not depend on paid entitlement", () => {
   const loader = lazy.slice(lazy.indexOf("const loadEra"), lazy.indexOf("const loadSets"));
-  assert.match(loader, /error\.status === 401 \|\| error\.status === 403/);
-  assert.match(loader, /status: "locked"/);
+  assert.match(loader, /readPublicRankingsHeadlines\("era"/);
+  assert.doesNotMatch(loader, /canViewRankingsIntelligence|status: "locked"/);
   assert.match(lazy, /canViewCardChaseEfficiency/);
   assert.match(lazy, /canViewCardCollectorAppeal/);
   assert.match(lazy, /canViewRankingsIntelligence=\{canViewRankingsIntelligence\}/);

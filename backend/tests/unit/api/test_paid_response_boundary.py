@@ -157,6 +157,29 @@ def test_detailed_pack_economics_gates_before_any_database_work(monkeypatch):
     assert reads == ["client", "read", "client", "read"]
 
 
+def test_public_b1_routes_are_anonymous_while_wide_scorecards_gate_before_reads(monkeypatch):
+    _install_auth(monkeypatch)
+    reads = []
+    monkeypatch.setattr(main, "_benchmark_client", lambda: reads.append("client") or object())
+    monkeypatch.setattr(main, "resolve_active_contract", lambda _client: type("Contract", (), {
+        "benchmark_key": "pokemon", "calibration_version": "v1"})())
+    monkeypatch.setattr(main, "read_public_headlines", lambda *_args, **_kwargs: reads.append("headlines") or {"rows": []})
+    monkeypatch.setattr(main, "read_public_pack_economics_preview", lambda *_args: reads.append("preview") or {"sets": []})
+    monkeypatch.setattr(main, "read_public_product_catalogue", lambda *_args: reads.append("catalogue") or {"rows": []})
+    monkeypatch.setattr(main, "read_scorecards", lambda *_args, **_kwargs: reads.append("scorecards") or {"rows": []})
+    client = TestClient(main.app)
+
+    assert client.get("/tcgs/pokemon/rankings/headlines?entity_type=set").status_code == 200
+    assert client.get("/tcgs/pokemon/rankings/pack-economics-preview").status_code == 200
+    assert client.get("/tcgs/pokemon/rankings/product-catalogue").status_code == 200
+    public_reads = list(reads)
+    assert client.get("/tcgs/pokemon/rankings/scorecards?entity_type=set").status_code == 401
+    assert client.get("/tcgs/pokemon/rankings/scorecards?entity_type=set", headers=_headers("base-token")).status_code == 403
+    assert reads == public_reads
+    assert client.get("/tcgs/pokemon/rankings/scorecards?entity_type=set", headers=_headers("plus-token")).status_code == 200
+    assert reads[-2:] == ["client", "scorecards"]
+
+
 def test_public_overview_matrix_reuses_only_shared_authority(monkeypatch):
     _install_auth(monkeypatch)
     main._rankings_overview_cache = None

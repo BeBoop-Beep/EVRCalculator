@@ -227,6 +227,9 @@ from backend.db.services.rankings_redesign_contract_service import (
     read_financial_history_page,
     read_overview_v2,
     read_pack_economics,
+    read_public_headlines,
+    read_public_pack_economics_preview,
+    read_public_product_catalogue,
     read_scorecards,
 )
 from backend.domain.pokemon.market_explorer_query import (
@@ -756,6 +759,25 @@ def pokemon_rankings_scorecards(
     contract = resolve_active_contract(client)
     return read_scorecards(client, entity_type=entity_type, benchmark_key=contract.benchmark_key,
                            calibration_version=contract.calibration_version)
+
+
+@app.get("/tcgs/pokemon/rankings/headlines")
+def pokemon_rankings_public_headlines(entity_type: Literal["set", "era"] = Query(...)):
+    """Public, publication-bound Overall score/rank only."""
+    client = _benchmark_client()
+    contract = resolve_active_contract(client)
+    return read_public_headlines(client, entity_type=entity_type, benchmark_key=contract.benchmark_key,
+                                 calibration_version=contract.calibration_version)
+
+
+@app.get("/tcgs/pokemon/rankings/pack-economics-preview")
+def pokemon_rankings_pack_economics_preview():
+    return read_public_pack_economics_preview(_benchmark_client())
+
+
+@app.get("/tcgs/pokemon/rankings/product-catalogue")
+def pokemon_rankings_product_catalogue():
+    return read_public_product_catalogue(_benchmark_client())
 
 
 @app.get("/tcgs/pokemon/rankings/pack-economics")

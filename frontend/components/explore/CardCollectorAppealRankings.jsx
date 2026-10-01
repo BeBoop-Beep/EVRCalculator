@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
@@ -48,38 +48,54 @@ export default function CardCollectorAppealRankings({ entitled, authStatus = "re
   const [facets, setFacets] = useState(null);
   const [facetError, setFacetError] = useState("");
   const [results, setResults] = useState({});
+  const [retry, setRetry] = useState(0);
+  const forceRetry = useRef(false);
+  const [facetRetry, setFacetRetry] = useState(0);
+  const requestGeneration = useRef(0);
   const active = COLLECTOR_LENSES.find((item) => item.value === lens);
   const result = results[lens] || { status: "idle", payload: null };
 
   useEffect(() => {
-    if (authStatus === "resolving" || !entitled) return undefined;
+    if (authStatus === "resolving") return undefined;
+    if (!entitled) {
+      requestGeneration.current += 1;
+      setResults({});
+      setFacets(null);
+      setFacetError("");
+      return undefined;
+    }
     let current = true;
     const key = "cards:facets:collector";
     const load = () => fetchCardRankingFacets("collector");
-    (sessionCache ? sessionCache.request(key, load) : load()).then((payload) => { if (current) setFacets(payload); }).catch((error) => { if (current) setFacetError(error.message); });
+    (sessionCache ? sessionCache.request(key, load, { force: facetRetry > 0 }) : load()).then((payload) => { if (current) { setFacets(payload); setFacetError(""); } }).catch((error) => { if (current) setFacetError(error.message); });
     return () => { current = false; };
-  }, [authStatus, entitled, sessionCache]);
+  }, [authStatus, entitled, sessionCache, facetRetry]);
 
   useEffect(() => {
-    if (authStatus === "resolving" || !entitled) return undefined;
+    if (authStatus === "resolving") return undefined;
+    if (!entitled) return undefined;
     let current = true;
+    const generation = ++requestGeneration.current;
+    const forced = forceRetry.current;
+    forceRetry.current = false;
     const timer = setTimeout(() => {
       const params = buildCardRowsParams({ lens, page, filters });
       const key = canonicalCardQueryKey(params, `collector:${lens}`);
       setResults((state) => ({ ...state, [lens]: { ...state[lens], status: "loading" } }));
       const load = () => fetchCollectorRows(params);
-      (sessionCache ? sessionCache.request(key, load) : load()).then((payload) => {
-        if (current) setResults((state) => ({ ...state, [lens]: { status: "ready", payload } }));
+      (sessionCache ? sessionCache.request(key, load, { force: forced }) : load()).then((payload) => {
+        if (current && generation === requestGeneration.current) setResults((state) => ({ ...state, [lens]: { status: "ready", payload } }));
       }).catch((error) => {
-        if (current) setResults((state) => ({ ...state, [lens]: { status: "error", error: error.message, payload: state[lens]?.payload || null } }));
+        if (current && generation === requestGeneration.current) setResults((state) => ({ ...state, [lens]: { status: "error", error: error.message, payload: state[lens]?.payload || null } }));
       });
     }, filters.search ? 250 : 0);
     return () => { current = false; clearTimeout(timer); };
-  }, [authStatus, entitled, lens, page, filters, sessionCache]);
+  }, [authStatus, entitled, lens, page, filters, sessionCache, retry]);
 
   const setMap = useMemo(() => new Map((facets?.sets || []).map((item) => [String(item.setId), item])), [facets]);
   if (!entitled) return <Lock />;
   const update = (key, value) => {
+    setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } }));
     setFilters((current) => {
       const next = { ...current, [key]: value };
       if (key === "era" && current.set) {
@@ -95,11 +111,11 @@ export default function CardCollectorAppealRankings({ entitled, authStatus = "re
     <header className="border-b border-[var(--border-subtle)] p-4 sm:p-5">
       <div className="flex items-center gap-2"><h2 className="font-semibold">Card Collector Appeal</h2><InfoPopover text={lens === "overall" ? "Overall Collector Appeal combines multiple card subject types under the current production model. Cross-domain calibration is still under evaluation." : "Ranks are global within the selected Collector component."} /></div>
       <p className="mt-1 text-xs text-[var(--text-secondary)]">Component tabs rank only cards with that component available. Ranks stay global within the component even when you filter by Era, Set, rarity, or search.</p>
-      <SegmentedControl options={COLLECTOR_LENSES} value={lens} onChange={(value) => { setLens(value); setPage(1); }} ariaLabel="Collector component" compact mobileScroll className="mt-3" />
+      <SegmentedControl options={COLLECTOR_LENSES} value={lens} onChange={(value) => { setResults((state) => ({ ...state, [value]: { ...state[value], status: "loading" } })); setLens(value); setPage(1); }} ariaLabel="Collector component" variant="rankings" compact mobileScroll className="mt-3" />
     </header>
-    <CardRankingsFilterBar filters={filters} facets={facets} onChange={update} onClear={() => { setFilters(INITIAL_FILTERS); setPage(1); }} />
-    {facetError ? <p className="px-5 pt-4 text-sm text-rose-300">{facetError}</p> : null}
-    {result.status === "error" ? <p className="px-5 pt-4 text-sm text-rose-300">{result.error}</p> : null}
+    <CardRankingsFilterBar filters={filters} facets={facets} onChange={update} onClear={() => { setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } })); setFilters(INITIAL_FILTERS); setPage(1); }} />
+    {facetError ? <p className="px-5 pt-4 text-sm text-rose-300">Filters could not be refreshed. <button type="button" className="underline" onClick={() => setFacetRetry((value) => value + 1)}>Retry filters</button></p> : null}
+    {result.status === "error" ? <p className="px-5 pt-4 text-sm text-rose-300">{result.payload ? "Refresh failed; showing the last successful result. " : `${result.error} `}<button type="button" className="underline" onClick={() => { forceRetry.current = true; setRetry((value) => value + 1); }}>Retry</button></p> : null}
     <div className="hidden desk:block">
       <table className="w-full table-fixed text-left text-xs"><colgroup><col className="w-[4.5rem]" /><col /><col className="w-[14rem]" /><col className="w-[9rem]" /></colgroup>
         <thead className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]"><tr><th className="px-3 py-3">Rank</th><th className="px-3 py-3">Card</th><th className="px-3 py-3">Set</th><th className="px-3 py-3">{active.heading}</th></tr></thead>
@@ -108,6 +124,6 @@ export default function CardCollectorAppealRankings({ entitled, authStatus = "re
     </div>
     <div className="divide-y divide-[var(--border-subtle)] desk:hidden">{rows.map((row) => <Link key={row.canonicalCardId} href={href(row) || "#"} className="flex gap-3 p-4"><Thumb row={row} /><div className="min-w-0 flex-1"><span className="text-[10px] font-bold">#{row.rank}</span><div className="flex items-start justify-between gap-2"><div className="min-w-0"><strong className="block truncate">{row.cardName}</strong><span className="text-xs text-[var(--text-secondary)]">{row.setName}{row.cardNumber ? ` · ${row.cardNumber}` : ""}</span></div><div className="shrink-0 text-right"><span className="block text-[10px] text-[var(--text-secondary)]">{active.heading}</span><strong className="text-base text-[var(--accent)]">{score(row[active.score])}</strong></div></div></div></Link>)}</div>
     {result.status === "loading" ? <div data-card-rankings-loading className="space-y-2 p-5"><span className="block h-12 animate-pulse rounded bg-white/[.04]" /><span className="block h-12 animate-pulse rounded bg-white/[.04]" /></div> : null}
-    <footer className="flex items-center justify-between border-t border-[var(--border-subtle)] p-3 text-xs text-[var(--text-secondary)]"><span>{result.payload?.total?.toLocaleString() || 0} ranked cards</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Previous</button><span>Page {page} of {result.payload?.totalPages || 1}</span><button type="button" disabled={page >= (result.payload?.totalPages || 1)} onClick={() => setPage((value) => value + 1)}>Next</button></div></footer>
+    <footer className="flex items-center justify-between border-t border-[var(--border-subtle)] p-3 text-xs text-[var(--text-secondary)]"><span>{result.payload?.total?.toLocaleString() || 0} ranked cards</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => { setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } })); setPage((value) => Math.max(1, value - 1)); }}>Previous</button><span>Page {page} of {result.payload?.totalPages || 1}</span><button type="button" disabled={page >= (result.payload?.totalPages || 1)} onClick={() => { setResults((state) => ({ ...state, [lens]: { status: "loading", payload: null } })); setPage((value) => value + 1); }}>Next</button></div></footer>
   </section>;
 }

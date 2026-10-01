@@ -25,11 +25,10 @@ test("Set RIP landscape uses only published public rank, score, tier, and identi
   for (const forbidden of ["financialRipV4", "collectorAppeal", "chaseAccessibility", "fetch("]) assert.ok(!distribution.includes(forbidden));
 });
 
-test("Overview replaces the old outcome chart and reuses the one cached Set request", () => {
+test("Overview replaces the old outcome chart and uses the public Set authority", () => {
   for (const removed of ["Opening Outcome Range", "normalizedReturnBuckets", "normalizedReturnPercentiles", "Sets represented"]) assert.ok(!distribution.includes(removed));
-  assert.ok(distribution.includes("How Sets Rank to Open"));
-  assert.ok(lazy.includes("targets={setTargets}"));
-  assert.equal((lazy.match(/lens\?lens=sets/g) || []).length, 1);
+  assert.ok(distribution.includes("FinancialRipHistoryChart"));
+  assert.ok(lazy.includes('readPublicRankingsHeadlines("set"'));
 });
 
 test("Set Pack Economics uses the requested vocabulary and canonical order", () => {
@@ -41,22 +40,22 @@ test("Set Pack Economics uses the requested vocabulary and canonical order", () 
   for (const removed of ["Break-Even / Pack", "Typical Opening", "Typical Retention"]) assert.ok(!setPack.includes(removed));
 });
 
-test("Era Pack Economics has the matching vocabulary and order", () => {
+test("Era Pack Economics uses the approved narrow current vocabulary", () => {
   const block = eraPack.slice(eraPack.indexOf("const COLUMNS = ["), eraPack.indexOf("const PUBLIC_ERA_COLUMN_KEYS"));
   const keys = [...block.matchAll(/key: "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(keys, ["eraName", "setCount", "productSkuCount", "meanPackCost", "expectedValue", "modeledReturn", "typicalOpening", "typicalRetention", "chanceToRecover", "entertainmentCost"]);
+  assert.deepEqual(keys, ["eraName", "setCount", "productSkuCount", "meanPackCost", "expectedValue", "modeledReturn", "chanceToRecover", "entertainmentCost"]);
   assert.ok(block.includes('label: "Expected Value / Pack"'));
   assert.ok(!eraPack.includes("Break-Even"));
 });
 
-test("Financial RIP renders persisted Expected Value before the supporting outcomes", () => {
-  assert.ok(financial.includes('["Expected Value", "Typical Opening", "Modeled Return", "Chance to Beat Cost"]'));
-  assert.ok(financial.includes("metric.modelBreakEven"));
+test("Financial RIP table renders the approved neutral score projection", () => {
+  assert.ok(financial.includes('metric: "financial"'));
+  assert.ok(financial.includes('presentation="neutral"'));
   assert.ok(!financial.includes("metric.typicalOpening /"));
 });
 
-test("Product Rankings removes strategy quantities without changing budget rank", () => {
+test("Product Rankings removes strategy quantities and uses published full-market rank", () => {
   for (const removed of [">Units<", ">Committed<", "row?.quantity", "row?.actualCommittedCapital", "<Strategy"]) assert.ok(!products.includes(removed));
-  assert.ok(products.includes("row?.budgetRank"));
-  assert.ok(products.includes("budgetKey"));
+  assert.ok(products.includes("row.rank"));
+  assert.ok(products.includes("row.cohortSize"));
 });

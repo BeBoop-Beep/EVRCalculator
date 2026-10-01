@@ -4,9 +4,11 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes.mjs";
 import AnalyticsTableShell from "./AnalyticsTableShell";
-import { displaySetPackFamily } from "./setPackFamilyPresentation.mjs";
-import { ECONOMIC_KEYS, SET_PACK_COLUMNS, familyBestOpenPresentation, filterPackEconomicsSets, formatPackEconomicsValue, sortPackEconomicsSets } from "./setPackMetricsSelector.mjs";
+import BestOpenDetailsPopover from "./BestOpenDetailsPopover";
+import SetIdentity from "./SetIdentity";
+import { ECONOMIC_KEYS, SET_PACK_COLUMNS, filterPackEconomicsSets, formatPackEconomicsValue, sortPackEconomicsSets } from "./setPackMetricsSelector.mjs";
 import styles from "./explore.module.css";
 
 const DEFINITIONS = {
@@ -23,52 +25,43 @@ const DEFINITIONS = {
 function setHref(row) {
   return buildTcgSetHrefFromTarget({ target_type: "set", target_id: row.setId, setId: row.setId, canonical_key: row.canonicalKey, name: row.setName });
 }
+const setTarget = (row) => ({ target_id: row.setId, set_id: row.setId, name: row.setName, canonical_key: row.canonicalKey, era: row.era?.eraName, logo_image_url: row.logoImageUrl, symbol_image_url: row.symbolImageUrl });
 
 function Numeric({ children, className = "" }) {
   return <td className={`${styles.numeric} tabular-nums ${className}`}>{children ?? "—"}</td>;
 }
 
-const familyLabel = (family) => family?.familyName && family.familyName !== family.familyKey ? family.familyName : displaySetPackFamily(family?.familyKey);
+const LockedMetric = () => <span className="text-xs font-medium text-[var(--text-secondary)]" aria-label="Requires Index Plus">Locked</span>;
 
-function SetRow({ row, expanded, toggle }) {
+function SetRow({ row, expanded, toggle, entitled }) {
   return <tr className={`${styles.row} bg-white/[.018]`} data-set-pack-parent-row={row.setId}>
-    <td><div className="flex min-w-0 items-center gap-2"><button type="button" onClick={toggle} aria-expanded={expanded} aria-controls={`pack-families-${row.setId}`} aria-label={`${expanded ? "Hide" : "View"} Product Families for ${row.setName}`} className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-white/5"><span aria-hidden="true" className={`text-lg transition-transform ${expanded ? "rotate-90" : ""}`}>›</span></button><Link href={setHref(row)} className="min-w-0 font-semibold text-[var(--text-primary)] hover:underline"><span className="block truncate">{row.setName}</span><small className="block truncate font-normal text-[var(--text-secondary)]">{row.era?.eraName || "—"}</small></Link></div></td>
+    <td><div className="flex min-w-0 items-center gap-2"><button type="button" onClick={toggle} aria-expanded={expanded} aria-controls={`pack-products-${row.setId}`} aria-label={`${expanded ? "Hide" : "View"} exact Products for ${row.setName}`} className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-white/5"><span aria-hidden="true" className={`text-lg transition-transform ${expanded ? "rotate-90" : ""}`}>›</span></button><Link href={setHref(row)} className="min-w-0 hover:underline"><SetIdentity target={setTarget(row)} variant="compact" /></Link></div></td>
     <Numeric>{formatPackEconomicsValue("productFamilyCount", row.productFamilyCount)}</Numeric>
     <Numeric>{formatPackEconomicsValue("productCount", row.productCount)}</Numeric>
-    {ECONOMIC_KEYS.map((key) => <Numeric key={key}>{formatPackEconomicsValue(key, row[key])}</Numeric>)}
-    <Numeric><span className="text-[var(--text-secondary)]">—</span><span className="sr-only">No Set-level Best-Open aggregate</span></Numeric>
+    {ECONOMIC_KEYS.map((key) => <Numeric key={key}>{entitled || key === "averagePackCostPerPack" ? formatPackEconomicsValue(key, row[key]) : <LockedMetric />}</Numeric>)}
+    <Numeric>{entitled ? <><span className="text-[var(--text-secondary)]">—</span><span className="sr-only">No Set-level Best-Open aggregate</span></> : <LockedMetric />}</Numeric>
   </tr>;
 }
 
-function FamilyRow({ family, setId, first }) {
-  return <tr id={first ? `pack-families-${setId}` : undefined} className="border-b border-white/[.035] bg-[rgba(2,8,23,.28)]" data-pack-family-row={family.familyKey}>
-    <th scope="row" className="px-2 py-2.5 text-left font-medium"><span className="ml-9 inline-flex items-center gap-2"><span aria-hidden="true" className="text-[var(--text-secondary)]">└</span>{familyLabel(family)}</span><span className="sr-only">Product Family</span></th>
-    <Numeric><span className="text-[var(--text-secondary)]">—</span></Numeric>
-    <Numeric>{formatPackEconomicsValue("productCount", family.productCount)}</Numeric>
-    {ECONOMIC_KEYS.map((key) => <Numeric key={key}>{formatPackEconomicsValue(key, family[key])}</Numeric>)}
-    <Numeric><span data-family-best-open-mode={family.bestOpenDisplayMode}>{familyBestOpenPresentation(family)}</span></Numeric>
-  </tr>;
-}
-
-function ProductRow({ product }) {
-  return <tr className="border-b border-white/[.025] bg-[rgba(2,8,23,.18)] text-[var(--text-secondary)]" data-pack-product-row={product.sealedProductId}>
-    <th scope="row" className="px-2 py-2 text-left text-xs font-normal"><span className="ml-16 inline-flex items-center gap-2"><span aria-hidden="true">└</span>{product.productName || "Exact Product"}</span><span className="sr-only">Exact Product</span></th>
+function ProductRow({ product, first, setId }) {
+  return <tr id={first ? `pack-products-${setId}` : undefined} className="border-b border-white/[.025] bg-[rgba(2,8,23,.18)] text-[var(--text-secondary)]" data-pack-product-row={product.sealedProductId}>
+    <th scope="row" className="px-2 py-2 text-left text-xs font-normal"><Link href={buildSealedProductHref(product) || "#"} className="ml-10 inline-flex hover:underline">{product.productName || "Exact Product"}</Link><span className="sr-only">Exact Product</span>{product.packCount ? <span className="ml-10 block text-[10px]">{product.packCount} packs · {product.familyKey || "Product"}</span> : null}</th>
     <Numeric><span className="text-[var(--text-secondary)]">—</span></Numeric><Numeric>1</Numeric>
-    {ECONOMIC_KEYS.map((key) => <Numeric key={key}><span className="text-[var(--text-secondary)]">—</span></Numeric>)}
-    <Numeric><strong className="text-[var(--text-primary)]">{formatPackEconomicsValue("bestOpenPrice", product.bestOpenPrice) || "—"}</strong>{product.marketPrice != null ? <span className="mt-0.5 block text-[10px] font-normal text-[var(--text-secondary)]">Market {formatPackEconomicsValue("marketPrice", product.marketPrice)}</span> : null}</Numeric>
+    {ECONOMIC_KEYS.map((key) => <Numeric key={key}>{formatPackEconomicsValue(key, product[key]) || <span className="text-[var(--text-secondary)]">—</span>}</Numeric>)}
+    <Numeric><BestOpenDetailsPopover row={product} /></Numeric>
   </tr>;
 }
 
-function MetricList({ source, includeBestOpen = false, bestOpen = null }) {
-  return <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">{ECONOMIC_KEYS.map((key) => <div key={key}><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">{SET_PACK_COLUMNS.find(([column]) => column === key)?.[1]}</dt><dd className="tabular-nums">{formatPackEconomicsValue(key, source?.[key]) || "—"}</dd></div>)}{includeBestOpen ? <div><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">Best-Open Price</dt><dd className="font-semibold tabular-nums">{bestOpen || "—"}</dd></div> : null}</dl>;
+function MetricList({ source, includeBestOpen = false, entitled = true }) {
+  return <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">{ECONOMIC_KEYS.map((key) => <div key={key}><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">{SET_PACK_COLUMNS.find(([column]) => column === key)?.[1]}</dt><dd className="tabular-nums">{entitled || key === "averagePackCostPerPack" ? formatPackEconomicsValue(key, source?.[key]) || "—" : <LockedMetric />}</dd></div>)}{includeBestOpen ? <div><dt className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">Best-Open Price</dt><dd className="font-semibold tabular-nums">{entitled ? <BestOpenDetailsPopover row={source} /> : <LockedMetric />}</dd></div> : null}</dl>;
 }
 
-function MobileSet({ row, expanded, toggle }) {
-  return <li className={`${styles.surfaceQuiet} rounded-xl p-3.5`} data-set-pack-mobile-row={row.setId}><div className="flex items-start justify-between gap-3"><div><Link href={setHref(row)} className="font-semibold hover:underline">{row.setName}</Link><p className="mt-1 text-xs text-[var(--text-secondary)]">{row.productFamilyCount} families · {row.productCount} products</p></div><button type="button" onClick={toggle} aria-expanded={expanded} aria-controls={`mobile-pack-families-${row.setId}`} aria-label={`${expanded ? "Hide" : "View"} Product Families for ${row.setName}`} className="min-h-11 shrink-0 text-xs font-semibold text-[rgb(var(--ex-teal))]">{expanded ? "Hide families" : "View families"}</button></div><MetricList source={row} />{expanded ? <ul id={`mobile-pack-families-${row.setId}`} className="mt-3 space-y-2 border-t border-[var(--border-subtle)] pt-3">{(row.families || []).map((family) => <li key={family.familyKey} className="rounded-lg bg-white/[.025] p-3" data-pack-family-mobile={family.familyKey}><div className="flex justify-between gap-2"><strong className="text-sm">{familyLabel(family)}</strong><span className="text-xs text-[var(--text-secondary)]">{family.productCount} product{family.productCount === 1 ? "" : "s"}</span></div><MetricList source={family} includeBestOpen bestOpen={familyBestOpenPresentation(family)} />{family.products?.length ? <ul className="mt-2 space-y-1.5 border-t border-white/[.05] pt-2">{family.products.map((product) => <li key={product.sealedProductId} className="flex items-start justify-between gap-3 text-xs" data-pack-product-mobile={product.sealedProductId}><span className="pl-2 text-[var(--text-secondary)]">{product.productName || "Exact Product"}</span><strong className="shrink-0 tabular-nums">{formatPackEconomicsValue("bestOpenPrice", product.bestOpenPrice) || "—"}</strong></li>)}</ul> : null}</li>)}</ul> : null}</li>;
+function MobileSet({ row, expanded, toggle, entitled }) {
+  return <li className={`${styles.surfaceQuiet} rounded-xl p-3.5`} data-set-pack-mobile-row={row.setId}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link href={setHref(row)} className="hover:underline"><SetIdentity target={setTarget(row)} variant="mobileRanking" /></Link><p className="mt-1 text-xs text-[var(--text-secondary)]">{row.productFamilyCount} families · {row.productCount} products</p></div>{entitled ? <button type="button" onClick={toggle} aria-expanded={expanded} aria-controls={`mobile-pack-products-${row.setId}`} aria-label={`${expanded ? "Hide" : "View"} exact Products for ${row.setName}`} className="min-h-11 shrink-0 text-xs font-semibold text-[var(--text-primary)]">{expanded ? "Hide products" : "View products"}</button> : null}</div><MetricList source={row} entitled={entitled} />{expanded ? <ul id={`mobile-pack-products-${row.setId}`} className="mt-3 space-y-2 border-t border-[var(--border-subtle)] pt-3">{(row.products || []).map((product) => <li key={product.sealedProductId} className="rounded-lg bg-white/[.025] p-3" data-pack-product-mobile={product.sealedProductId}><Link href={buildSealedProductHref(product) || "#"} className="text-sm font-semibold hover:underline">{product.productName || "Exact Product"}</Link><p className="mt-1 text-[10px] text-[var(--text-secondary)]">{product.packCount ? `${product.packCount} packs · ` : ""}{product.familyKey || "Product"}</p><MetricList source={product} includeBestOpen bestOpen={formatPackEconomicsValue("bestOpenPrice", product.bestOpenPrice)} /></li>)}</ul> : null}</li>;
 }
 
-export default function SetPackMetrics({ contract, eraFilter }) {
-  const [sort, setSort] = useState({ key: "modeledReturnOnSpend", direction: "desc" });
+export default function SetPackMetrics({ contract, eraFilter, entitled = true }) {
+  const [sort, setSort] = useState({ key: entitled ? "modeledReturnOnSpend" : "setName", direction: entitled ? "desc" : "asc" });
   const [query, setQuery] = useState("");
   const [expandedSetId, setExpandedSetId] = useState(null);
   const filtered = useMemo(() => filterPackEconomicsSets(contract?.sets, query, eraFilter), [contract, eraFilter, query]);
@@ -76,10 +69,10 @@ export default function SetPackMetrics({ contract, eraFilter }) {
   useEffect(() => { if (expandedSetId && !rows.some((row) => row.setId === expandedSetId)) setExpandedSetId(null); }, [expandedSetId, rows]);
   const changeSort = (key) => { if (key === "bestOpenPrice") return; setSort((current) => ({ key, direction: current.key === key && current.direction === "desc" ? "asc" : "desc" })); };
   const freshness = contract?.bestOpenSourceMarketDate ? `Best-Open as of ${contract.bestOpenSourceMarketDate}${contract.bestOpenFreshnessStatus === "older" ? " · independently dated" : ""}` : null;
-  return <AnalyticsTableShell title="Pack Economics by Set" info="Set and Product Family economics come directly from the prepared Pack Economics contract. Best-Open is an exact Product threshold and is never averaged across Products." query={query} onQueryChange={(event) => setQuery(event.target.value)} searchPlaceholder="Search Sets…" searchLabel="Search Sets" context={freshness} shown={rows.length} marketDate={contract?.openingEconomicsMarketDate || null}>
-    <section data-set-pack-metrics data-pack-economics-entitled="true">
-      <div className="hidden overflow-x-auto desk:block"><table className={`${styles.table} min-w-[68rem] table-fixed`}><caption className="sr-only">Pack Economics hierarchy. Expanded Product Family and exact Product rows share every parent Set column.</caption><colgroup><col className={styles.colPackEconomicsIdentity} /><col span="2" className={styles.colPackEconomicsCount} /><col span="5" className={styles.colPackEconomicsMetric} /><col className={styles.colPackEconomicsBestOpen} /></colgroup><thead className={`${styles.head} ${styles.analyticsTableHead}`}><tr><th><button type="button" className={styles.sortButton} onClick={() => changeSort("setName")}>Set</button></th>{SET_PACK_COLUMNS.map(([key, label]) => <th key={key} className={styles.numeric} aria-sort={sort.key === key ? sort.direction === "asc" ? "ascending" : "descending" : undefined}><span className="inline-flex items-center justify-end gap-1"><button type="button" disabled={key === "bestOpenPrice"} className={styles.sortButton} onClick={() => changeSort(key)}>{label}</button><InfoPopover text={DEFINITIONS[key]} /></span></th>)}</tr></thead><tbody>{rows.map((row) => { const expanded = expandedSetId === row.setId; return <Fragment key={row.setId}><SetRow row={row} expanded={expanded} toggle={() => setExpandedSetId((current) => current === row.setId ? null : row.setId)} />{expanded ? (row.families || []).map((family, familyIndex) => <Fragment key={family.familyKey}><FamilyRow family={family} setId={row.setId} first={familyIndex === 0} />{(family.products || []).map((product) => <ProductRow key={product.sealedProductId} product={product} />)}</Fragment>) : null}</Fragment>; })}</tbody></table></div>
-      <ul className="space-y-2.5 p-3 desk:hidden">{rows.map((row) => <MobileSet key={row.setId} row={row} expanded={expandedSetId === row.setId} toggle={() => setExpandedSetId((current) => current === row.setId ? null : row.setId)} />)}</ul>
+  return <AnalyticsTableShell title="Pack Economics by Set" info="Set identity, modeled counts, and average pack cost are public. Component economics and Best-Open require Index Plus." query={query} onQueryChange={(event) => setQuery(event.target.value)} searchPlaceholder="Search Sets…" searchLabel="Search Sets" context={freshness} shown={rows.length} marketDate={contract?.openingEconomicsMarketDate || null}>
+    <section data-set-pack-metrics data-pack-economics-entitled={entitled ? "true" : "false"}>
+      <div className="hidden overflow-x-auto desk:block"><table className={`${styles.table} min-w-[68rem] table-fixed`}><caption className="sr-only">Pack Economics hierarchy. Each expanded Set contains aligned exact Product rows.</caption><colgroup><col className={styles.colPackEconomicsIdentity} /><col span="2" className={styles.colPackEconomicsCount} /><col span="5" className={styles.colPackEconomicsMetric} /><col className={styles.colPackEconomicsBestOpen} /></colgroup><thead className={`${styles.head} ${styles.analyticsTableHead}`}><tr><th><button type="button" className={styles.sortButton} onClick={() => changeSort("setName")}>Set / Product</button></th>{SET_PACK_COLUMNS.map(([key, label]) => <th key={key} className={styles.numeric} aria-sort={sort.key === key ? sort.direction === "asc" ? "ascending" : "descending" : undefined}><span className="inline-flex items-center justify-end gap-1"><button type="button" disabled={key === "bestOpenPrice" || (!entitled && !["productFamilyCount", "productCount", "averagePackCostPerPack"].includes(key))} className={styles.sortButton} onClick={() => changeSort(key)}>{label}</button><InfoPopover text={DEFINITIONS[key]} /></span></th>)}</tr></thead><tbody>{rows.map((row) => { const expanded = entitled && expandedSetId === row.setId; return <Fragment key={row.setId}><SetRow row={row} expanded={expanded} entitled={entitled} toggle={() => entitled && setExpandedSetId((current) => current === row.setId ? null : row.setId)} />{expanded ? (row.products || []).map((product, productIndex) => <ProductRow key={product.sealedProductId} product={product} setId={row.setId} first={productIndex === 0} />) : null}</Fragment>; })}</tbody></table></div>
+      <ul className="space-y-2.5 p-3 desk:hidden">{rows.map((row) => <MobileSet key={row.setId} row={row} expanded={entitled && expandedSetId === row.setId} toggle={() => entitled && setExpandedSetId((current) => current === row.setId ? null : row.setId)} entitled={entitled} />)}</ul>
     </section>
   </AnalyticsTableShell>;
 }
