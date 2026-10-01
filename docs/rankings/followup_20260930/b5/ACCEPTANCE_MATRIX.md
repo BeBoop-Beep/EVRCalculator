@@ -19,4 +19,3 @@
 | Production build | PASS | optimized compile, lint/type with existing warnings, 85/85 pages |
 | Live route timing | BLOCKED_RUNTIME | no legitimate authenticated local database runtime supplied |
 | Card model/rank changes | N/A | explicitly out of scope; none made |
-

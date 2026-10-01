@@ -19,4 +19,3 @@ rank semantics, eligibility, or entitlements.
 Session-cache identity continues to include access/publication identity. A
 logout, downgrade, or publication change creates a new cache and remount key;
 request-generation guards prevent late responses repainting the old view.
-

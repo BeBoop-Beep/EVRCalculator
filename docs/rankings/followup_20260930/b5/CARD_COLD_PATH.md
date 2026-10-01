@@ -22,4 +22,3 @@ intent and cannot compete with the default Collector prewarm.
 
 Rows become semantically ready from text, ranks, scores, and controls; Next
 Image decoding is not awaited and no full-size image preload was added.
-
