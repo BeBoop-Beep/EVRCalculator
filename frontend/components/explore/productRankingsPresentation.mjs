@@ -1,6 +1,6 @@
 const number = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 
-export const PRODUCT_SCORE_COLUMNS = ["Rank", "Product", "Product Overall", "Financial", "Set Chase", "Set Collector"];
+export const PRODUCT_SCORE_COLUMNS = ["Rank", "Product", "Product Overall", "Financial", "Chase", "Collector Appeal"];
 export const PRODUCT_ECONOMICS_COLUMNS = ["Product", "Unit Price", "Best-Open Price", "EV / Pack", "Modeled Return", "Recover Cost"];
 
 export function productFamilyOptions(rows = []) {
@@ -25,6 +25,16 @@ export function sortProductRows(rows = [], key, direction = "asc") {
     if (right === null) return -1;
     return (left - right) * multiplier || String(a.productName).localeCompare(String(b.productName));
   });
+}
+
+export function formatRecoverCost(value) {
+  const ratio = number(value);
+  if (ratio === null) return "—";
+  if (ratio === 0) return "0%";
+  const percentage = Math.abs(ratio * 100);
+  let digits = percentage >= 1 ? 1 : percentage >= 0.1 ? 2 : percentage >= 0.01 ? 3 : percentage >= 0.001 ? 4 : 6;
+  while (digits < 6 && Number(percentage.toFixed(digits)) === 0) digits += 1;
+  return `${(ratio * 100).toFixed(digits).replace(/\.0+$|(?<=\.[0-9]*?)0+$/, "")}%`;
 }
 
 export function bestOpenGap(row) {

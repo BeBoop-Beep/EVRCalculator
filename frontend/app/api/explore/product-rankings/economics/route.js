@@ -11,7 +11,7 @@ export async function GET(request) {
   if (authorization) headers.Authorization = authorization;
   if (cookie) headers.Cookie = cookie;
   try {
-    const response = await fetch(`${getBackendApiBaseUrl()}/explore/product-rankings/economics`, { headers, cache: "no-store", signal: request.signal });
+    const response = await fetch(`${getBackendApiBaseUrl()}/explore/product-rankings/economics${request.nextUrl.search}`, { headers, cache: "no-store", signal: request.signal });
     return new NextResponse(await response.text(), { status: response.status, headers: { ...RESPONSE_HEADERS, "Content-Type": response.headers.get("content-type") || "application/json" } });
   } catch {
     return NextResponse.json({ message: "Product Economics are temporarily unavailable." }, { status: 503, headers: RESPONSE_HEADERS });

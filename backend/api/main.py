@@ -218,6 +218,11 @@ from backend.db.services.market_explorer_instrument_search import (
 )
 from backend.db.services.sitewide_search import search_sitewide
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
+from backend.db.services import rip_release
+from backend.db.services.budget_product_ranking_service import load_latest_snapshot
+from backend.db.services.product_rankings_v2_service import (
+    query_product_rankings, read_product_authority, read_public_product_catalogue_page,
+)
 from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.db.services.rankings_redesign_contract_service import (
     project_product_contract,
@@ -229,7 +234,6 @@ from backend.db.services.rankings_redesign_contract_service import (
     read_pack_economics,
     read_public_headlines,
     read_public_pack_economics_preview,
-    read_public_product_catalogue,
     read_scorecards,
 )
 from backend.domain.pokemon.market_explorer_query import (
@@ -776,8 +780,12 @@ def pokemon_rankings_pack_economics_preview():
 
 
 @app.get("/tcgs/pokemon/rankings/product-catalogue")
-def pokemon_rankings_product_catalogue():
-    return read_public_product_catalogue(_benchmark_client())
+def pokemon_rankings_product_catalogue(
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=25, ge=1, le=100),
+    search: Optional[str] = Query(default=None), family: Optional[str] = Query(default=None),
+):
+    return read_public_product_catalogue_page(
+        _benchmark_client(), page=page, page_size=page_size, search=search, family=family)
 
 
 @app.get("/tcgs/pokemon/rankings/pack-economics")
@@ -799,7 +807,7 @@ logger = logging.getLogger(__name__)
 # These contain only shared, publication-bound authority data. Entitlement is
 # still checked on every paid request and paid HTTP responses remain no-store.
 _rankings_overview_cache: tuple[float, Dict[str, Any]] | None = None
-_rankings_product_authority_cache: tuple[float, Dict[str, Any]] | None = None
+_rankings_product_authority_cache: tuple[tuple[str, str, str], Dict[str, Any]] | None = None
 
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
 _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
@@ -1998,7 +2006,9 @@ def get_card_ranking_facets(
 
 
 def _rankings_product_v2(
-    *, view: str, request: Request, authorization: Optional[str], token_cookie: Optional[str]
+    *, view: str, request: Request, authorization: Optional[str], token_cookie: Optional[str],
+    page: int, page_size: int, search: Optional[str], family: Optional[str],
+    sort: Optional[str], direction: str,
 ):
     user_id = _require_index_feature(
         feature=FEATURE_PRODUCT_RIP, code="INDEX_PLUS_REQUIRED",
@@ -2008,44 +2018,51 @@ def _rankings_product_v2(
     _enforce_paid_abuse(request, user_id=user_id, policy_class=POLICY_RANKED_INTELLIGENCE,
                         route=f"/explore/product-rankings/{view}")
     global _rankings_product_authority_cache
+    release = rip_release.resolve_release_or_marked_fallback(service_read_client)
+    ranking_kwargs = {} if release.ranking_method_version == "budget_product_ranking_v1" else {
+        "ranking_method_version": release.ranking_method_version}
+    snapshot = load_latest_snapshot(service_read_client, **ranking_kwargs)
+    identity = None if not snapshot else (str(snapshot.get("id")), str(snapshot.get("published_at")),
+                                          str(snapshot.get("cohort_fingerprint")))
     cached = _rankings_product_authority_cache
-    if cached and cached[0] > time.monotonic():
-        payload = cached[1]
+    if identity is not None and cached and cached[0] == identity:
+        authority = cached[1]
     else:
-        rankings = get_pokemon_explore_rankings_lens_payload(lens="products", limit=200)
-        payload = read_public_overall_product_rankings(
-            "full_market", product_family_rankings=rankings.get("productFamilyRankings") or {},
-            include_best_open=False,
-        )
-        _rankings_product_authority_cache = (time.monotonic() + 60.0, payload)
-    best_open_products = None
-    if view == "economics":
-        best_open_products = read_product_best_open_map(
-            service_read_client, reference_date=payload.get("marketDate")
-        )
-    return _tiered_response(project_product_contract(
-        payload, view=view, best_open_products=best_open_products
+        authority = read_product_authority(service_read_client, release=release)
+        if authority.get("available"):
+            _rankings_product_authority_cache = (authority["publicationIdentity"], authority)
+    return _tiered_response(query_product_rankings(
+        service_read_client, authority, view=view, page=page, page_size=page_size,
+        search=search, family=family, sort=sort, direction=direction,
     ))
 
 
 @app.get("/explore/product-rankings/scores")
 def get_product_ranking_scores(
     request: Request,
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=25, ge=1, le=100),
+    search: Optional[str] = Query(default=None), family: Optional[str] = Query(default=None),
+    sort: Optional[str] = Query(default=None), direction: str = Query(default="asc"),
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     return _rankings_product_v2(view="scores", request=request, authorization=authorization,
-                                token_cookie=token_cookie)
+                                token_cookie=token_cookie, page=page, page_size=page_size,
+                                search=search, family=family, sort=sort, direction=direction)
 
 
 @app.get("/explore/product-rankings/economics")
 def get_product_ranking_economics(
     request: Request,
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=25, ge=1, le=100),
+    search: Optional[str] = Query(default=None), family: Optional[str] = Query(default=None),
+    sort: Optional[str] = Query(default=None), direction: str = Query(default="asc"),
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     return _rankings_product_v2(view="economics", request=request, authorization=authorization,
-                                token_cookie=token_cookie)
+                                token_cookie=token_cookie, page=page, page_size=page_size,
+                                search=search, family=family, sort=sort, direction=direction)
 
 
 @app.get("/explore/product-chase-intelligence")
