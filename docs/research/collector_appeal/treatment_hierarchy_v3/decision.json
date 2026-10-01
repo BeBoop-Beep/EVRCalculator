@@ -1,0 +1,17 @@
+{
+  "decisionToken": "TREATMENT_HIERARCHY_V3_DIAGNOSTIC_ONLY",
+  "workflowRunId": 36930772601,
+  "recoveryWorkflowRunId": 36929725640,
+  "cards": 63,
+  "identities": 28,
+  "sets": 6,
+  "treatmentCoefficients": 9,
+  "temporalSpearman": 0.9833333333333333,
+  "passingSetFamilyCount": 0,
+  "eraSupportedFamilies": {},
+  "productionWrites": 0,
+  "providerCalls": 0,
+  "collectorMutation": false,
+  "overallRipMutation": false,
+  "nextStep": "TEST_SET_LOCAL_SCARCITY_IDENTIFIABILITY_WITH_SAME_FROZEN_PANEL"
+}
