@@ -1,0 +1,34 @@
+name: Sentinel fix targeted tests 2026-10-01
+
+on:
+  push:
+    branches:
+      - fix/sentinel-publication-recovery-20261001
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.test
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install -q -r backend/requirements.txt
+          python -m pip install -q pytest
+      - name: Run Sentinel publication recovery tests
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_publish_post_scrape_if_needed.py \
+            backend/tests/unit/sentinel/test_safe_recovery.py \
+            backend/tests/unit/scripts/test_refresh_stale_public_snapshots.py \
+            backend/tests/unit/scripts/test_global_set_value_refresh_contract.py

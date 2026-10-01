@@ -231,14 +231,14 @@ class RecoveryRunner:
                 "started_at": latest.started_at.isoformat(),
             }
 
-        if incident.recovery_attempt_count >= runbook.max_attempts:
-            return {
-                "action": "blocked",
-                "reason_code": "recovery_attempt_limit_reached",
-                "incident_id": incident.id,
-                "runbook": runbook.key,
-                "attempt_count": incident.recovery_attempt_count,
-            }
+        # BLOCKED means the execution contract proved that no mutation ran
+        # (for example, a DB-safety hold or another publisher owned the lock).
+        # Such a deferral must be retryable after cooldown; otherwise a
+        # max_attempts=1 runbook permanently disables its own self-healing path
+        # the first time production is intentionally fenced.
+        retryable_blocked_attempt = bool(
+            latest and latest.status is RecoveryAttemptStatus.BLOCKED
+        )
 
         if latest and latest.cooldown_until and latest.cooldown_until > now:
             return {
@@ -247,6 +247,18 @@ class RecoveryRunner:
                 "incident_id": incident.id,
                 "runbook": runbook.key,
                 "cooldown_until": latest.cooldown_until.isoformat(),
+            }
+
+        if (
+            incident.recovery_attempt_count >= runbook.max_attempts
+            and not retryable_blocked_attempt
+        ):
+            return {
+                "action": "blocked",
+                "reason_code": "recovery_attempt_limit_reached",
+                "incident_id": incident.id,
+                "runbook": runbook.key,
+                "attempt_count": incident.recovery_attempt_count,
             }
 
         context = RecoveryContext(now=now, runner_identity=identity)

@@ -219,6 +219,53 @@ def test_attempt_limit_blocks_second_mutation():
     assert called == []
 
 
+def test_blocked_no_mutation_attempt_retries_after_cooldown():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(store)
+    executions = iter(
+        [
+            RecoveryExecution.blocked(result={"status": "database_safety_hold"}),
+            RecoveryExecution.succeeded(
+                result={"status": "published"}, mutation_performed=True
+            ),
+        ]
+    )
+    calls = []
+
+    def execute(*_args):
+        calls.append(True)
+        return next(executions)
+
+    runbook = _generic_runbook(execute=execute, cooldown_seconds=60 * 60)
+    runner = _runner(store, runbook)
+
+    first = runner.attempt(incident, registered, identity=IDENTITY, now=NOW)
+    assert first["reason_code"] == "recovery_execution_blocked"
+    assert store.get_incident(incident.id).status is IncidentStatus.OPEN
+    assert store.get_incident(incident.id).recovery_attempt_count == 1
+
+    still_cooling = runner.attempt(
+        store.get_incident(incident.id),
+        registered,
+        identity=IDENTITY,
+        now=NOW + timedelta(minutes=30),
+    )
+    assert still_cooling["reason_code"] == "recovery_cooldown_active"
+    assert calls == [True]
+
+    recovered = runner.attempt(
+        store.get_incident(incident.id),
+        registered,
+        identity=IDENTITY,
+        now=NOW + timedelta(minutes=61),
+    )
+    assert recovered["action"] == "recovered"
+    assert calls == [True, True]
+    latest = store.get_latest_recovery_attempt(incident.id, runbook.key)
+    assert latest.attempt_number == 2
+    assert latest.status is RecoveryAttemptStatus.SUCCEEDED
+
+
 def test_cooldown_blocks_retry_before_precondition_or_mutation():
     store = MemoryStateStore()
     registered, incident = _open_incident(store)
@@ -325,6 +372,41 @@ def test_publication_recovery_refuses_incomplete_batch_before_publish():
     )
     assert report["reason_code"] == "publication_batch_gate_not_complete"
     assert publish_calls == []
+
+
+def test_publication_recovery_treats_database_safety_hold_as_blocked():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(store)
+    live_failure = lambda *a, **k: CheckResult.failure(
+        "market.freshness",
+        failure_code="market_publication_stale",
+        authority_identity="2026-09-11",
+        checked_at=NOW,
+    )
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        publish_if_needed_fn=lambda *_a, **_k: {
+            "market_date": "2026-09-11",
+            "status": "deferred_database_safety_hold",
+            "exit_code": 75,
+        },
+        gate_evaluator=lambda *a, **k: SimpleNamespace(
+            allowed=True, reason_code="allowed_complete", batch_id=48
+        ),
+        market_freshness_checker=live_failure,
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+    )
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+    assert report["reason_code"] == "recovery_execution_blocked"
+    assert store.get_incident(incident.id).status is IncidentStatus.OPEN
+    attempt = store.get_latest_recovery_attempt(incident.id, PUBLICATION_RUNBOOK)
+    assert attempt.status is RecoveryAttemptStatus.BLOCKED
+    assert attempt.result_json["execution"]["mutation_performed"] is False
 
 
 def test_publication_recovery_uses_canonical_wrapper_then_requires_healthy_verification():
