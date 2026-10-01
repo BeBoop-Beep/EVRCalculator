@@ -17,7 +17,7 @@ import sys
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient
+from backend.pricing_pipeline.pkmnprices_client import PkmnPricesAPIError, PkmnPricesClient
 from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
 from backend.desirability.treatment_market_prestige_v3 import normalize_label
 
@@ -222,6 +222,7 @@ def collect(db, provider, cohort, *, period: str, max_cards: int, credit_cap: in
     cards=cards[:max_cards] if max_cards else cards
     panels={}
     failures=[]
+    stop_reason=None
     start=provider.credits_charged
     for row in cards:
         if provider.credits_charged-start >= credit_cap: break
@@ -237,6 +238,11 @@ def collect(db, provider, cohort, *, period: str, max_cards: int, credit_cap: in
                 f"credits={provider.credits_charged-start}",
                 flush=True,
             )
+        except PkmnPricesAPIError as exc:
+            failures.append({"canonical_card_id":row["canonical_card_id"],"error":f"{type(exc).__name__}: {exc}"})
+            if exc.code == "credit_limit_exceeded":
+                stop_reason="credit_limit_exceeded"
+                break
         except Exception as exc:
             failures.append({"canonical_card_id":row["canonical_card_id"],"error":f"{type(exc).__name__}: {exc}"})
     readiness=[]
@@ -254,9 +260,13 @@ def collect(db, provider, cohort, *, period: str, max_cards: int, credit_cap: in
                     "status":"PANEL_READY_STRONG" if shared>=STRONG_DAYS else "PANEL_READY_MODERATE" if shared>=MODERATE_DAYS else "HISTORY_BLOCKED"})
     counts=defaultdict(int)
     for x in readiness: counts[x["status"]]+=1
-    return {"status":"COMPLETE","version":VERSION,"period":period,
+    status="PARTIAL_CREDIT_LIMIT" if stop_reason=="credit_limit_exceeded" else "COMPLETE"
+    return {"status":status,"version":VERSION,"period":period,
         "provider_calls":len(panels)+len(failures),"credits_used":provider.credits_charged-start,
-        "cards_requested":len(cards),"cards_returned":len(panels),"failures":failures,
+        "provider_credit_limit":provider.credits_limit,"provider_rate_remaining":provider.rate_remaining,
+        "request_attempt_count":provider.request_attempt_count,
+        "cards_requested":len(cards),"cards_attempted":len(panels)+len(failures),
+        "cards_returned":len(panels),"stop_reason":stop_reason,"failures":failures,
         "panels":panels,"readiness":readiness,"readiness_counts":dict(counts)}
 
 def main(argv=None):
@@ -271,7 +281,7 @@ def main(argv=None):
     load_dotenv(ROOT/"backend/.env",override=False)
     from backend.db.clients.supabase_client import supabase
     cohort=build_cohort(supabase,market_date=args.market_date)
-    result={"status":"PREFLIGHT_OK","cohort":cohort,"cohort_fingerprint":_hash(cohort),
+    result={"status":"PREFLIGHT_OK","cohort":cohort,"cohort_counts":cohort["counts"],"cohort_fingerprint":_hash(cohort),
             "provider_calls":0,"credits_used":0,"production_writes":0}
     if args.collect:
         creds=load_pkmnprices_credentials(allow_frontend_fallback=False)
