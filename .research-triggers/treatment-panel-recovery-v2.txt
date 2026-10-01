@@ -1,0 +1,4 @@
+triggered_at=2026-10-01T19:26:00Z
+purpose=bounded PkmnPrices Near-Mint Treatment panel recovery
+credit_cap=15000
+production_writes=0
