@@ -20,7 +20,7 @@ jobs:
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
     timeout-minutes: 45
     env:
-      RELEASE_SHA: 1f0c04e6a11643e65e7511dd92a62fb071245f0e
+      RELEASE_SHA: a4f6cc5dc237d19d07d8f3f439fc7ddf534794fc
       VM_REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
     steps:
       - name: Resolve fixed operation
