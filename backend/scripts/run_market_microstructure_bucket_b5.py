@@ -41,6 +41,7 @@ HORIZON_DAYS = 180
 EXPECTED_CORE_PANEL_READY = 207
 IDENTITY_RESOLUTION_VERSION = "b5_name_number_first_v2"
 MOVER_TABLE = "pokemon_explore_card_movers_snapshot_latest"
+B5_SCOPE_VERSION = "exact_target_variant_v2"
 
 
 def _chunks(values: list[Any], size: int = 150) -> Iterable[list[Any]]:
@@ -460,21 +461,31 @@ def _horizon() -> tuple[date, date]:
     return reference, reference - timedelta(days=HORIZON_DAYS)
 
 
-def _evidence_summary(db: Any, provider_card_id: int) -> dict[str, Any]:
+def _evidence_summary(
+    db: Any,
+    provider_card_id: int,
+    card_variant_id: str,
+) -> dict[str, Any]:
+    """Exact target-variant history only; never borrow age from sibling variants."""
     rows = (
         db.table("pkmnprices_ebay_sold_evidence_v1")
         .select("sold_at")
         .eq("provider_card_id", provider_card_id)
+        .eq("card_variant_id", card_variant_id)
+        .eq("attribution", "exact")
         .order("sold_at")
         .range(0, 999)
         .execute().data or []
     )
     if len(rows) == 1000:
-        # Oldest only: order ascending means the first row is already sufficient.
+        # Ordered oldest-first; one page is enough to establish the target's floor.
         oldest = str(rows[0]["sold_at"])[:10] if rows else None
     else:
         oldest = min((str(row["sold_at"])[:10] for row in rows), default=None)
-    return {"oldest_sold_at": oldest, "transaction_count_lower_bound": len(rows)}
+    return {
+        "oldest_sold_at": oldest,
+        "exact_target_transaction_count_lower_bound": len(rows),
+    }
 
 
 def _identity_row(target: dict[str, Any], provider_card: dict[str, Any]) -> dict[str, Any]:
@@ -597,7 +608,11 @@ def _state(
     if not sync:
         return {"identity": identity, "sync": None, "ready": False, "rows_seen": 0, "oldest": None}
     meta = dict(sync.get("metadata") or {})
-    if meta.get("b5_horizon_cutoff") == cutoff.isoformat() and "b5_ready" in meta:
+    if (
+        meta.get("b5_scope_version") == B5_SCOPE_VERSION
+        and meta.get("b5_horizon_cutoff") == cutoff.isoformat()
+        and "b5_ready" in meta
+    ):
         return {
             "identity": identity,
             "sync": sync,
@@ -605,10 +620,17 @@ def _state(
             "ready_reason": meta.get("b5_ready_reason"),
             "rows_seen": int(sync.get("rows_seen") or 0),
             "oldest": meta.get("b5_oldest_sold_at"),
+            "needs_scope_reconciliation": False,
         }
 
-    # Existing non-B5 evidence is reused, but never rewritten.
-    summary = _evidence_summary(db, int(identity["provider_card_id"]))
+    # Existing non-B5/v1 evidence is reused, but readiness is recomputed under
+    # the exact target-variant scope. This invalidates the former provider-card
+    # age shortcut without deleting any raw evidence.
+    summary = _evidence_summary(
+        db,
+        int(identity["provider_card_id"]),
+        str(target["card_variant_id"]),
+    )
     oldest = summary["oldest_sold_at"]
     drained = bool(
         sync.get("status") == "CURRENT"
@@ -625,7 +647,48 @@ def _state(
         "ready_reason": "PROVIDER_DRAINED" if drained else ("HORIZON_180D" if ready else None),
         "rows_seen": int(sync.get("rows_seen") or 0),
         "oldest": oldest,
+        "needs_scope_reconciliation": True,
     }
+
+
+def _persist_scope_reconciliation(
+    store: PkmnPricesStore,
+    target: dict[str, Any],
+    state: dict[str, Any],
+    *,
+    reference: date,
+    cutoff: date,
+) -> None:
+    sync = state.get("sync")
+    identity = state.get("identity")
+    if not sync or not identity:
+        return
+    meta = dict(sync.get("metadata") or {})
+    store.upsert_sync_state({
+        "provider_card_id": int(identity["provider_card_id"]),
+        "canonical_card_id": target["canonical_card_id"],
+        "last_ingested_at": sync.get("last_ingested_at"),
+        "last_sold_at": sync.get("last_sold_at"),
+        "last_attempt_at": sync.get("last_attempt_at"),
+        "last_success_at": sync.get("last_success_at"),
+        "status": sync.get("status"),
+        "consecutive_failures": int(sync.get("consecutive_failures") or 0),
+        "rows_seen": int(sync.get("rows_seen") or 0),
+        "rows_inserted": int(sync.get("rows_inserted") or 0),
+        "last_error_code": sync.get("last_error_code"),
+        "metadata": {
+            **meta,
+            "b5_scope_version": B5_SCOPE_VERSION,
+            "b5_reference_date": reference.isoformat(),
+            "b5_horizon_cutoff": cutoff.isoformat(),
+            "b5_oldest_sold_at": state.get("oldest"),
+            "b5_ready": bool(state.get("ready")),
+            "b5_ready_reason": state.get("ready_reason"),
+            "b5_priority_tier": target["priority_tier"],
+            "b5_priority_reason": target["priority_reason"],
+            "b5_selector_version": SELECTOR_VERSION,
+        },
+    })
 
 
 def _upsert_state(
@@ -792,6 +855,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "activation_credit_day": EXPANDED_B5_ACTIVATION_CREDIT_DAY,
             "prior_b5_credits_today": plan["prior_b5_credits_today"],
             "invocation_credit_cap": invocation_cap,
+            "b5_scope_version": B5_SCOPE_VERSION,
             "canonical_price_mutation": False,
         },
     })
@@ -810,6 +874,15 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             cid: _state(db, store, target, reference=reference, cutoff=cutoff)
             for cid, target in by_id.items()
         }
+        for cid, state in states.items():
+            if state.get("needs_scope_reconciliation"):
+                _persist_scope_reconciliation(
+                    store,
+                    by_id[cid],
+                    state,
+                    reference=reference,
+                    cutoff=cutoff,
+                )
         unresolved_t1 = [
             by_id[cid] for cid, state in states.items()
             if by_id[cid]["priority_tier"] == 1 and not state["ready"] and cid not in blocked
@@ -907,8 +980,15 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
                         )
                         item["run_id"] = run_id
                         normalized.append(item)
+                    exact_target_rows = [
+                        row
+                        for row in normalized
+                        if str(row.get("card_variant_id") or "") == str(target["card_variant_id"])
+                        and row.get("attribution") == "exact"
+                        and row.get("sold_at")
+                    ]
                     page_oldest = min(
-                        [str(row["sold_at"])[:10] for row in normalized if row.get("sold_at")],
+                        [str(row["sold_at"])[:10] for row in exact_target_rows],
                         default=None,
                     )
                     if page_oldest and (oldest is None or page_oldest < oldest):
@@ -1015,6 +1095,7 @@ def run(db: Any, provider: PkmnPricesClient) -> dict[str, Any]:
             "blocked_count": len(blocked),
             "pause": pause,
             "receipts": list(receipts.values()),
+            "b5_scope_version": B5_SCOPE_VERSION,
             "canonical_price_mutation": False,
         },
     })
