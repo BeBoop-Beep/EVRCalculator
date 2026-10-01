@@ -1,12 +1,14 @@
 """Append exact current RIP authorities after the existing daily publication.
 
-This command is deliberately not a scheduler.  The Windows daily publication
-owns cadence; this is its final, idempotent history step.  It refreshes only
-due sources, rebuilds frozen V7 from explicit run IDs, and fails closed.
+This command is deliberately not a scheduler. The Windows daily publication
+owns cadence; this is its final, idempotent history step. It refreshes only
+due sources, rebuilds the currently promoted Collector formula (V7 or V8)
+from explicit run IDs, and fails closed. It never changes formula versions.
 """
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import hashlib
 import json
 import subprocess
@@ -25,7 +27,16 @@ if str(ROOT) not in sys.path:
 from backend.scripts.plan_collector_appeal_refresh import freshness_plan
 
 V7 = "pokemon_collector_appeal_v7_expanded_price_blind_v1"
-FROZEN_FORMULA_FINGERPRINT = "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b"
+V8 = "pokemon_collector_appeal_v8_anchor25_cross_domain_v1"
+V7_FROZEN_FORMULA_FINGERPRINT = "06f5660047b9b8a4d7349d04b79547b1314c2be3720c245ba8780890db1c114b"
+V8_FROZEN_FORMULA_FINGERPRINT = "212bd6e679bfdb80e93ec8e8d831f242a950c628a375b89655942d6f6e970957"
+# Backward-compatible alias used by existing V7 tests and diagnostics.
+FROZEN_FORMULA_FINGERPRINT = V7_FROZEN_FORMULA_FINGERPRINT
+SUPPORTED_COLLECTOR_VERSIONS = {V7, V8}
+FORMULA_FINGERPRINTS = {
+    V7: V7_FROZEN_FORMULA_FINGERPRINT,
+    V8: V8_FROZEN_FORMULA_FINGERPRINT,
+}
 PLAYABILITY_KEY = "playability"
 CONTROL_PLAYABILITY_RUN = "9947aaf7-8647-484f-8c9c-2cec59792cdb"
 
@@ -56,8 +67,8 @@ def build_plan(client: Any, *, as_of: date, now: datetime) -> dict[str, Any]:
     current = (client.table("pokemon_collector_appeal_current")
                .select("model_run_id,model_version,as_of_date")
                .eq("scope", "pokemon").single().execute().data)
-    if not current or current.get("model_version") != V7:
-        raise RuntimeError("current Collector authority is not frozen V7")
+    if not current or current.get("model_version") not in SUPPORTED_COLLECTOR_VERSIONS:
+        raise RuntimeError("current Collector authority is not a supported V7/V8 model")
     model = (client.table("pokemon_collector_appeal_model_runs")
              .select("id,input_fingerprint,source_run_ids,scoring_config_json")
              .eq("id", current["model_run_id"]).single().execute().data)
@@ -67,10 +78,13 @@ def build_plan(client: Any, *, as_of: date, now: datetime) -> dict[str, Any]:
     set_ids = sorted(str(row["set_id"]) for row in scores)
     existing = (client.table("pokemon_rip_temporal_history").select("entity_id", count="exact")
                 .eq("domain", "collector").eq("as_of_date", as_of.isoformat())
-                .eq("model_version", V7).limit(0).execute().count or 0)
+                .eq("model_version", current["model_version"])
+                .eq("model_fingerprint", model["input_fingerprint"])
+                .limit(0).execute().count or 0)
     return {
         "asOfDate": as_of.isoformat(), "freshness": freshness,
         "providerCallsPlanned": 0, "modelRunId": current["model_run_id"],
+        "modelVersion": current["model_version"],
         "modelFingerprint": model["input_fingerprint"],
         "cohortFingerprint": hashlib.sha256(json.dumps(set_ids, separators=(",", ":")).encode()).hexdigest(),
         "rowsPlanned": len(scores),
@@ -119,26 +133,44 @@ def validate_source_run(client: Any, source_id: str, expected_key: str) -> dict[
     return row
 
 
+def _built_card_score(row: Mapping[str, Any]) -> float | None:
+    for key in ("card_collector_appeal_v8", "card_collector_appeal_v7"):
+        if row.get(key) is not None:
+            return float(row[key])
+    return None
+
+
 def delta_report(previous: Sequence[Mapping[str,Any]], built: Mapping[str,Any],
                  previous_cards: Sequence[Mapping[str,Any]] = ()) -> dict[str,Any]:
     old={str(x["set_id"]):x for x in previous}; new={str(x["set_id"]):x for x in built["sets"]}
     removed = set(old) - set(new)
     added = set(new) - set(old)
     if removed:
-        raise RuntimeError(f"Collector V7 set membership removed existing sets: {sorted(removed)}")
+        raise RuntimeError(f"Collector set membership removed existing sets: {sorted(removed)}")
     common = sorted(set(old) & set(new))
     changes=[abs(float(new[k].get("collector_appeal") or 0)-float(old[k].get("collector_appeal_score") or 0)) for k in common]
     old_available={k for k,v in old.items() if v.get("score_status")=="scored"}
     new_available={k for k,v in new.items() if v.get("collector_appeal") is not None}
     if len(new_available) < max(1,int(len(old_available)*.75)):
-        raise RuntimeError("Collector V7 massive availability collapse")
+        raise RuntimeError("Collector massive availability collapse")
     old_cards={str(x.get("pokemon_canonical_card_id")):x for x in previous_cards}
-    card_changes=[abs(float(x["card_collector_appeal_v7"])-float(old_cards[str(x["canonical_card_id"])]["collector_card_appeal_score"]))
-                  for x in built["cards"] if str(x["canonical_card_id"]) in old_cards]
+    card_changes=[]
+    for row in built.get("cards") or []:
+        card_id=str(row.get("canonical_card_id"))
+        score=_built_card_score(row)
+        if card_id in old_cards and score is not None:
+            card_changes.append(abs(score-float(old_cards[card_id]["collector_card_appeal_score"])))
     old_rank={k:i for i,(k,_) in enumerate(sorted(((k,float(v.get("collector_appeal_score") or -1)) for k,v in old.items()),key=lambda x:(-x[1],x[0])),1)}
     new_rank={k:i for i,(k,_) in enumerate(sorted(((k,float(v.get("collector_appeal") or -1)) for k,v in new.items()),key=lambda x:(-x[1],x[0])),1)}
     f_deltas=[abs(float(x["F_delta"])) for x in new.values() if x.get("F_delta") is not None]
-    return {"setCount":len(new),"cardCount":len(built["cards"]),
+    analysis=(built.get("manifest") or {}).get("analysis") or {}
+    artist_coverage=analysis.get("cardArtistStatusCounts")
+    if artist_coverage is None:
+        artist_coverage=dict(Counter(
+            str(row.get("artist_evidence_status") or "UNAVAILABLE")
+            for row in (built.get("cards") or [])
+        ))
+    return {"setCount":len(new),"cardCount":len(built.get("cards") or []),
             "membershipAdded":sorted(added),"membershipRemoved":[],
             "maxAbsoluteCardScoreDelta":max(card_changes,default=0),
             "maxAbsoluteSetScoreDelta":max(changes,default=0),
@@ -147,12 +179,12 @@ def delta_report(previous: Sequence[Mapping[str,Any]], built: Mapping[str,Any],
             "availabilityAdded":sorted(new_available-old_available),
             "availabilityRemoved":sorted(old_available-new_available),
             "fMembershipChanges":sum(bool(x.get("entering_cards") or x.get("leaving_cards")) for x in new.values()),
-            "artistCoverage":built["manifest"]["analysis"].get("cardArtistStatusCounts"),
-            "trainerCardCount":sum(x.get("subject_type")=="trainer" for x in built["cards"]),
-            "pokemonCardCount":sum(x.get("subject_type")=="pokemon" for x in built["cards"])}
+            "artistCoverage":artist_coverage,
+            "trainerCardCount":sum(x.get("subject_type")=="trainer" for x in (built.get("cards") or [])),
+            "pokemonCardCount":sum(x.get("subject_type")=="pokemon" for x in (built.get("cards") or []))}
 
 
-def _default_build(client, authority):
+def _default_build_v7(client, authority):
     from backend.scripts.build_pokemon_collector_appeal_v7_expanded import build
     return build(client,pokemon_trends_source_run_id=authority["pokemonTrends"],
         trainer_12m_source_run_id=authority["trainer12m"],trainer_5y_source_run_id=authority["trainer5y"],
@@ -160,8 +192,21 @@ def _default_build(client, authority):
         artist_5y_source_run_id=authority["artist5y"])
 
 
-def _default_persist(client,built,as_of):
+def _default_persist_v7(client,built,as_of):
     from backend.scripts.build_pokemon_collector_appeal_v7_expanded import persist_built_model
+    return persist_built_model(client,built,as_of_date=as_of)
+
+
+def _default_build_v8(client, authority):
+    from backend.scripts.build_pokemon_collector_appeal_v8_anchor25 import build
+    return build(client,pokemon_trends_source_run_id=authority["pokemonTrends"],
+        trainer_12m_source_run_id=authority["trainer12m"],trainer_5y_source_run_id=authority["trainer5y"],
+        playability_source_run_id=authority["playability"],artist_12m_source_run_id=authority["artist12m"],
+        artist_5y_source_run_id=authority["artist5y"])
+
+
+def _default_persist_v8(client,built,as_of):
+    from backend.scripts.build_pokemon_collector_appeal_v8_anchor25 import persist_built_model
     return persist_built_model(client,built,as_of_date=as_of)
 
 
@@ -200,8 +245,81 @@ def _default_set_pages(_client, model_run_id, commit):
     return {"status":"validated","generationId":result["generationId"]}
 
 
-def default_hooks():
-    return RefreshHooks(_default_refresh,_default_build,_default_persist,_default_set_pages)
+def default_hooks(model_version: str = V7):
+    if model_version == V7:
+        return RefreshHooks(_default_refresh,_default_build_v7,_default_persist_v7,_default_set_pages)
+    if model_version == V8:
+        return RefreshHooks(_default_refresh,_default_build_v8,_default_persist_v8,_default_set_pages)
+    raise RuntimeError(f"unsupported Collector model version: {model_version}")
+
+
+def _append_current_collector_history(client: Any, *, as_of: date, model_version: str) -> int:
+    """Append current Collector history without changing formula authority.
+
+    V7 retains its hardened database RPC. V8 uses the same append-only temporal
+    table with an exact current-run fingerprint; inserts are one PostgREST
+    statement and therefore atomic at the statement boundary.
+    """
+    if model_version == V7:
+        return int(client.rpc("append_current_collector_v7_history", {
+            "p_as_of_date": as_of.isoformat()
+        }).execute().data or 0)
+    if model_version != V8:
+        raise RuntimeError(f"unsupported Collector history version: {model_version}")
+
+    current=(client.table("pokemon_collector_appeal_current")
+             .select("model_run_id,model_version")
+             .eq("scope","pokemon").single().execute().data)
+    if not current or current.get("model_version") != V8:
+        raise RuntimeError("current Collector authority is not V8")
+    model=(client.table("pokemon_collector_appeal_model_runs")
+           .select("id,model_version,as_of_date,input_fingerprint,source_run_ids")
+           .eq("id",current["model_run_id"]).single().execute().data)
+    if as_of < date.fromisoformat(str(model["as_of_date"])):
+        raise RuntimeError("as-of date predates model authority")
+
+    source_ids=[str(x) for x in (model.get("source_run_ids") or [])]
+    sources=_paged(lambda: client.table("pokemon_collector_source_runs")
+                   .select("id,captured_at").in_("id",source_ids))
+    source_dates={}
+    for row in sources:
+        captured=str(row.get("captured_at") or "")
+        observation=captured[:10] if captured else None
+        if observation and date.fromisoformat(observation) > as_of:
+            raise RuntimeError("future source evidence")
+        source_dates[str(row["id"])]=observation
+
+    scores=_paged(lambda: client.table("pokemon_set_collector_appeal_scores")
+                  .select("set_id,collector_appeal_score,collector_appeal_rank,score_status")
+                  .eq("model_run_id",model["id"]))
+    if not scores:
+        raise RuntimeError("current V8 Collector run has no Set scores")
+    cohort=hashlib.sha256(",".join(sorted(str(row["set_id"]) for row in scores)).encode()).hexdigest()
+
+    existing=_paged(lambda: client.table("pokemon_rip_temporal_history")
+                    .select("entity_id")
+                    .eq("domain","collector")
+                    .eq("entity_type","set")
+                    .eq("as_of_date",as_of.isoformat())
+                    .eq("model_version",V8)
+                    .eq("model_fingerprint",model["input_fingerprint"]))
+    if existing:
+        if len(existing) == len(scores):
+            return 0
+        raise RuntimeError(f"partial V8 Collector history already exists: {len(existing)}/{len(scores)}")
+
+    rows=[{
+        "domain":"collector","entity_type":"set","entity_id":row["set_id"],"set_id":row["set_id"],
+        "as_of_date":as_of.isoformat(),"model_version":V8,
+        "score":row.get("collector_appeal_score"),"rank":row.get("collector_appeal_rank"),
+        "quality_status":"READY" if row.get("score_status")=="scored" else "UNAVAILABLE",
+        "reconstruction_status":"LIVE_OBSERVATION","model_run_id":model["id"],
+        "model_fingerprint":model["input_fingerprint"],"cohort_fingerprint":cohort,
+        "source_lineage":{"sourceRunIds":source_ids,"sourceObservationDates":source_dates},
+        "effective_from":as_of.isoformat(),"effective_until":None,
+    } for row in scores]
+    client.table("pokemon_rip_temporal_history").insert(rows).execute()
+    return len(rows)
 
 
 def execute(client: Any, *, as_of: date, now: datetime, commit: bool,
@@ -224,15 +342,17 @@ def execute(client: Any, *, as_of: date, now: datetime, commit: bool,
         )
         return plan
     if due or force_model_rebuild:
-        hooks=hooks or default_hooks(); authority=dict(plan["sourceAuthority"]); refreshed={}
+        hooks=hooks or default_hooks(plan["modelVersion"]); authority=dict(plan["sourceAuthority"]); refreshed={}
         aliases={"pokemon_trends":"pokemonTrends","trainer_12m":"trainer12m","trainer_5y":"trainer5y","artist_12m":"artist12m","artist_5y":"artist5y"}
         try:
             for key in due:
                 new_id=hooks.refresh_source(client,key,authority[aliases[key]],as_of)
                 validate_source_run(client,new_id,key); authority[aliases[key]]=new_id; refreshed[key]=new_id
             built=hooks.build_model(client,authority)
-            if built["manifest"].get("formulaFingerprint") != FROZEN_FORMULA_FINGERPRINT:
-                raise RuntimeError("V7_FROZEN_FORMULA_DRIFT_BLOCKER")
+            expected_formula = FORMULA_FINGERPRINTS[plan["modelVersion"]]
+            if built["manifest"].get("formulaFingerprint") != expected_formula:
+                code = "V7_FROZEN_FORMULA_DRIFT_BLOCKER" if plan["modelVersion"] == V7 else "V8_FROZEN_FORMULA_DRIFT_BLOCKER"
+                raise RuntimeError(code)
             prior=_paged(lambda: client.table("pokemon_set_collector_appeal_scores").select("*").eq("model_run_id",plan["modelRunId"]))
             prior_cards=_paged(lambda: client.table("pokemon_card_collector_appeal_scores").select(
                 "pokemon_canonical_card_id,collector_card_appeal_score").eq("model_run_id",plan["modelRunId"]))
@@ -243,7 +363,7 @@ def execute(client: Any, *, as_of: date, now: datetime, commit: bool,
                 raise RuntimeError("validated Set-page generation ID missing")
             client.rpc("promote_pokemon_collector_v7_with_set_page_generation",{
                 "p_model_run_id":new_run,"p_generation_id":pages["generationId"]}).execute()
-            inserted=client.rpc("append_current_collector_v7_history",{"p_as_of_date":as_of.isoformat()}).execute().data
+            inserted=_append_current_collector_history(client,as_of=as_of,model_version=plan["modelVersion"])
             plan.update(status="COLLECTOR_HISTORY_APPENDED",dueSources=due,refreshedSourceRuns=refreshed,
                 forceModelRebuild=force_model_rebuild,
                 previousModelRunId=plan["modelRunId"],newModelRunId=new_run,modelCreated=created,
@@ -260,9 +380,9 @@ def execute(client: Any, *, as_of: date, now: datetime, commit: bool,
     if not commit:
         plan.update(status="VALIDATED_DRY_RUN", mutationsPerformed=0)
         return plan
-    inserted = client.rpc("append_current_collector_v7_history", {
-        "p_as_of_date": as_of.isoformat()
-    }).execute().data
+    inserted = _append_current_collector_history(
+        client, as_of=as_of, model_version=plan["modelVersion"]
+    )
     plan.update(status="APPENDED" if inserted else "ALREADY_PRESENT",
                 mutationsPerformed=int(inserted or 0))
     return plan
@@ -281,8 +401,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--reuse-current-source-authority",
         action="store_true",
         help=(
-            "For bounded catalog-membership catch-up, rebuild from the currently promoted "
-            "Collector source authority without refreshing due external evidence. Requires "
+            "For bounded catalog-membership catch-up, rebuild the currently promoted "
+            "Collector version from its source authority without refreshing due external evidence. Requires "
             "--force-model-rebuild. Scheduled Collector freshness remains a separate concern."
         ),
     )

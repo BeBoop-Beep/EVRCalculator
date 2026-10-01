@@ -11,6 +11,11 @@ PUBLIC_CONTRACT_KEY = "publicCollectorAppealContractV1"
 PUBLIC_CONTRACT_VERSION = "public_collector_appeal_contract_v1"
 UNAVAILABLE_REASON = "collector_appeal_unavailable_no_generalized_frequency"
 COLLECTOR_APPEAL_V7_PREFIX = "pokemon_collector_appeal_v7_"
+COLLECTOR_APPEAL_V8_PREFIX = "pokemon_collector_appeal_v8_"
+
+
+def _is_expanded_collector_model(model_version: str) -> bool:
+    return model_version.startswith((COLLECTOR_APPEAL_V7_PREFIX, COLLECTOR_APPEAL_V8_PREFIX))
 
 
 def _one_in(value: Any) -> Optional[float]:
@@ -147,9 +152,9 @@ def build_public_card_collector_appeal(row: Optional[Dict[str, Any]]) -> Optiona
         return None
     components = row.get("component_inputs_json") or {}
     model_version = str(row.get("model_version") or "")
-    is_v7 = model_version.startswith(COLLECTOR_APPEAL_V7_PREFIX)
+    is_expanded = _is_expanded_collector_model(model_version)
     playability_status = components.get("playabilityStatus")
-    if is_v7 and not playability_status:
+    if is_expanded and not playability_status:
         playability_status = "scored" if row.get("playability_score") is not None else "unavailable"
     playability_score = row.get("playability_score")
     if playability_status in ("unknown", "insufficient", "unavailable"):
@@ -170,14 +175,14 @@ def build_public_card_collector_appeal(row: Optional[Dict[str, Any]]) -> Optiona
             "confidence": row.get("confidence"),
             "positiveLift": row.get("playability_lift"),
         },
-        "artistModeled": is_v7,
-        "treatmentExcluded": bool(row.get("treatment_input_excluded")) or is_v7,
+        "artistModeled": is_expanded,
+        "treatmentExcluded": bool(row.get("treatment_input_excluded")) or is_expanded,
         "hitEligibilityIndependent": bool(row.get("hit_eligibility_independent")),
         "modelRunId": row.get("model_run_id"),
         "modelVersion": row.get("model_version"),
         "explanation": "A high Card Collector Appeal does not by itself mean the card counts as a pack hit.",
     }
-    if is_v7:
+    if is_expanded:
         artist_status = components.get("artistEvidenceStatus")
         artist_score = row.get("artist_recognition_score")
         if artist_status not in ("SCORED", "scored"):
@@ -205,12 +210,21 @@ def build_public_collector_appeal_contract(row: Optional[Dict[str, Any]]) -> Opt
     groups = row.get("subject_rollups_json") or []
     model_version = str(row.get("model_version") or "")
     corrected_v6 = model_version.startswith("pokemon_collector_appeal_v6_corrected_")
-    if model_version.startswith(COLLECTOR_APPEAL_V7_PREFIX):
+    if _is_expanded_collector_model(model_version):
+        is_v8 = model_version.startswith(COLLECTOR_APPEAL_V8_PREFIX)
         subject_scope = {
             "modeled": ["Pokémon", "Trainers", "Playability", "Artist"],
             "diagnosticOnly": ["Treatment", "Pull Scarcity"],
             "excluded": ["Energy", "market value", "price"],
-            "note": "Pokémon, Trainers, Playability, and Artist evidence are modeled. Treatment and Pull Scarcity remain diagnostic-only; market value is excluded.",
+            "note": (
+                "Pokémon, Trainers, Playability, and Artist evidence are modeled. "
+                "Trainer appeal uses the validated ANCHOR25 cross-domain calibration; "
+                "the realized downstream V7 headroom effect is preserved. Treatment "
+                "and Pull Scarcity remain diagnostic-only; market value is excluded."
+                if is_v8 else
+                "Pokémon, Trainers, Playability, and Artist evidence are modeled. "
+                "Treatment and Pull Scarcity remain diagnostic-only; market value is excluded."
+            ),
         }
     elif corrected_v6:
         subject_scope = {

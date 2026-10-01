@@ -133,8 +133,9 @@ def _fresh_target(set_id, run_id, rank=1):
 
 
 def _patch_common(monkeypatch, *, live_set_ids, fresh_targets, collector_payloads=None,
-                   formula_fingerprint="fp-test"):
-    live_rows = [_live_row(sid) for sid in live_set_ids]
+                   formula_fingerprint="fp-test", live_payloads=None):
+    live_payloads = live_payloads or {}
+    live_rows = [_live_row(sid, live_payloads.get(sid)) for sid in live_set_ids]
     sets_rows = [{"id": sid, "name": f"Set {sid}"} for sid in live_set_ids]
     fake_client = FakeClient(live_rows, sets_rows)
 
@@ -311,4 +312,133 @@ def test_incomplete_collector_authority_raises(monkeypatch, capsys):
 
     monkeypatch.setattr(sys, "argv", ["build_atomic_set_page_snapshot_generation.py"])
     with pytest.raises(RuntimeError, match="canonical Collector authority is incomplete for frozen cohort"):
+        mod.main()
+
+
+
+def _model_row(set_id, run_id="run-v8", *, scored=True):
+    return {
+        "set_id": set_id,
+        "model_run_id": run_id,
+        "model_version": "pokemon_collector_appeal_v8_anchor25_cross_domain_v1",
+        "as_of_date": "2026-09-11",
+        "score_status": "scored" if scored else "unavailable",
+        "score_status_reason": None if scored else "collector_appeal_unavailable_no_generalized_frequency",
+        "collector_appeal_score": 60.0 if scored else None,
+        "collector_appeal_rank": 1 if scored else None,
+        "collector_roster_desirability_score": 70.0,
+        "collector_roster_desirability_rank": 1,
+        "generalized_desirable_outcome_frequency": 0.1 if scored else None,
+        "generalized_frequency_status": "available" if scored else "unavailable",
+        "generalized_frequency_status_reason": None if scored else "collector_appeal_unavailable_no_generalized_frequency",
+        "eligible_card_count": 10,
+        "scored_card_count": 10,
+        "score_coverage_ratio": 1.0,
+        "roster_diagnostics_json": {},
+        "subject_rollups_json": [],
+    }
+
+
+def test_model_run_cutover_overlays_carried_forward_collector_contracts(monkeypatch, capsys):
+    fresh = [_fresh_target(f"s{i}", f"run-{i}") for i in range(1, 23)]
+    live_ids = [f"s{i}" for i in range(1, 23)] + ["cf-v7", "cf-none"]
+    live_payloads = {
+        "cf-v7": {
+            "existing": True,
+            mod.PUBLIC_CONTRACT_KEY: {
+                "contractVersion": "public_collector_appeal_contract_v1",
+                "collectorAppeal": {
+                    "modelRunId": "old-v7-run",
+                    "modelVersion": "pokemon_collector_appeal_v7_expanded_price_blind_v1",
+                },
+            },
+        }
+    }
+    fake_client = _patch_common(
+        monkeypatch,
+        live_set_ids=live_ids,
+        fresh_targets=fresh,
+        live_payloads=live_payloads,
+    )
+    target = {sid: _model_row(sid) for sid in [f"s{i}" for i in range(1, 23)]}
+    target["cf-v7"] = _model_row("cf-v7", scored=False)
+    monkeypatch.setattr(mod, "load_set_collector_appeal_for_model", lambda _run, _ids, client=None: target)
+    monkeypatch.setattr(
+        mod,
+        "build_public_collector_appeal_contract",
+        lambda row: {
+            "contractVersion": "public_collector_appeal_contract_v1",
+            "collectorAppeal": {
+                "modelRunId": row["model_run_id"],
+                "modelVersion": row["model_version"],
+                "score": row["collector_appeal_score"],
+            },
+        },
+    )
+
+    built_rows = []
+    monkeypatch.setattr(
+        mod,
+        "run_snapshot_operation_with_retry",
+        lambda op, **_k: (lambda value: (built_rows.append(value), value)[1])(op(fake_client)),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_atomic_set_page_snapshot_generation.py",
+            "--collector-authority", "model-run",
+            "--collector-model-run-id", "run-v8",
+        ],
+    )
+    mod.main()
+    summary = json.loads(capsys.readouterr().out)
+
+    assert summary["collectorRows"] == 23
+    assert summary["scored"] == 22
+    assert summary["unavailable"] == 1
+    assert summary["existingCollectorContractRows"] == 1
+    assert summary["carriedForwardCollectorOverlays"] == 1
+    assert summary["expectedCollectorRows"] == 23
+
+    by_set = {row["set_id"]: row for row in built_rows}
+    carried = by_set["cf-v7"]
+    assert carried["source_updated_at"] == "2026-09-01T00:00:00Z"
+    contract = carried["payload_json"][mod.PUBLIC_CONTRACT_KEY]["collectorAppeal"]
+    assert contract["modelRunId"] == "run-v8"
+    assert contract["modelVersion"] == "pokemon_collector_appeal_v8_anchor25_cross_domain_v1"
+    assert mod.PUBLIC_CONTRACT_KEY not in by_set["cf-none"]["payload_json"]
+
+
+def test_model_run_cutover_refuses_to_drop_existing_collector_contract_membership(monkeypatch):
+    fresh = [_fresh_target(f"s{i}", f"run-{i}") for i in range(1, 23)]
+    live_ids = [f"s{i}" for i in range(1, 23)] + ["cf-v7"]
+    live_payloads = {
+        "cf-v7": {
+            mod.PUBLIC_CONTRACT_KEY: {
+                "contractVersion": "public_collector_appeal_contract_v1",
+                "collectorAppeal": {"modelRunId": "old-v7-run"},
+            }
+        }
+    }
+    _patch_common(
+        monkeypatch,
+        live_set_ids=live_ids,
+        fresh_targets=fresh,
+        live_payloads=live_payloads,
+    )
+    # Target has all 22 scored sets but omits the existing carry-forward
+    # Collector member. A cutover must fail rather than silently drop it.
+    target = {sid: _model_row(sid) for sid in [f"s{i}" for i in range(1, 23)]}
+    monkeypatch.setattr(mod, "load_set_collector_appeal_for_model", lambda _run, _ids, client=None: target)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_atomic_set_page_snapshot_generation.py",
+            "--collector-authority", "model-run",
+            "--collector-model-run-id", "run-v8",
+        ],
+    )
+    with pytest.raises(RuntimeError, match="target Collector model would drop existing Collector contract membership"):
         mod.main()
