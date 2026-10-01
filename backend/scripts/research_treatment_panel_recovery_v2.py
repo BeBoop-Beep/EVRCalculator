@@ -105,13 +105,22 @@ def build_cohort(db, *, market_date: str) -> dict[str,Any]:
     card_ids=sorted(cards)
     subjects=_subject_keys(db,card_ids,cards)
 
-    variants=[]
+    legacy_links=[]
     for i in range(0,len(card_ids),100):
+        legacy_links += list(db.table("pokemon_canonical_card_legacy_identity_links").select(
+            "canonical_card_id,legacy_card_id"
+        ).in_("canonical_card_id",card_ids[i:i+100]).execute().data or [])
+    legacy_to_canonical={str(x["legacy_card_id"]):str(x["canonical_card_id"]) for x in legacy_links}
+    variants=[]
+    legacy_ids=sorted(legacy_to_canonical)
+    for i in range(0,len(legacy_ids),100):
         variants += list(db.table("card_variants").select(
             "id,card_id,printing_type,special_type,edition"
-        ).in_("card_id",card_ids[i:i+100]).execute().data or [])
+        ).in_("card_id",legacy_ids[i:i+100]).execute().data or [])
     by_card=defaultdict(list)
-    for v in variants: by_card[str(v["card_id"])].append(v)
+    for v in variants:
+        cid=legacy_to_canonical.get(str(v["card_id"]))
+        if cid: by_card[cid].append(v)
 
     pull={}
     for set_id,run_id in latest.items():
