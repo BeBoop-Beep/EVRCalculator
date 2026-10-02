@@ -1,0 +1,35 @@
+name: FV Core Panel Final Validation
+
+on:
+  push:
+    branches:
+      - ci/fv-core-panel-final-validation-20261002
+
+permissions:
+  contents: read
+
+jobs:
+  focused-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install focused dependencies
+        run: python -m pip install -q pytest numpy==2.4.3 pandas==2.2.3 scipy psutil supabase==2.28.3 python-dotenv==1.2.2 requests
+      - name: Syntax checks
+        run: |
+          python -m py_compile backend/pricing_pipeline/pkmnprices_client.py backend/scripts/run_core_panel_daily_increment.py
+          bash -n infra/oracle/run_core_panel_daily_increment.sh
+          bash -n infra/oracle/run_core_panel_daily_increment_guarded.sh
+          bash -n infra/oracle/install_core_panel_daily_increment_cron.sh
+      - name: Focused tests
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/pricing_pipeline/test_pkmnprices.py \
+            backend/tests/unit/scripts/test_run_core_panel_daily_increment.py \
+            backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+            backend/tests/unit/scripts/test_index_fair_value_prospective_shadow_v1.py \
+            backend/tests/unit/scripts/test_index_fair_value_shadow_s3.py
