@@ -54,14 +54,14 @@ def test_planner_blocks_ineligible_cards(kwargs, reason):
     assert plan["state"] == "BLOCKED" and plan["block_reason"] == reason
 
 
-def test_ready_is_never_emitted_while_since_semantics_are_unverified(monkeypatch):
-    assert planner.SINCE_SEMANTICS_VERIFIED is False
+def test_verified_since_semantics_make_one_page_cards_ready(monkeypatch):
+    assert planner.SINCE_SEMANTICS_VERIFIED is True
     cards = [planner.plan_card(_state(i), {"rows_ingested_in_velocity_window": 3}, intended_activation=ACTIVATION)
              for i in range(1, 6)]
-    assert {c["state"] for c in cards} == {"NEEDS_CANARY_SEMANTICS"}
-    assert planner.summarize(cards)["ready_is_unreachable_until_canary"] is True
-    monkeypatch.setattr(planner, "SINCE_SEMANTICS_VERIFIED", True)
-    assert planner.plan_card(_state(1), {"rows_ingested_in_velocity_window": 3}, intended_activation=ACTIVATION)["state"] == "READY"
+    assert {c["state"] for c in cards} == {"READY"}
+    assert planner.summarize(cards)["ready_is_unreachable_until_canary"] is False
+    monkeypatch.setattr(planner, "SINCE_SEMANTICS_VERIFIED", False)
+    assert planner.plan_card(_state(1), {"rows_ingested_in_velocity_window": 3}, intended_activation=ACTIVATION)["state"] == "NEEDS_CANARY_SEMANTICS"
 
 
 def test_planner_credit_projection_is_capped_by_the_daily_ceiling():
