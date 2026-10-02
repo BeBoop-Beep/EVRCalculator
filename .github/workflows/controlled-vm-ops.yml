@@ -36,7 +36,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -5112,6 +5112,63 @@ jobs:
               echo "TREATMENT_PANEL_RECOVERY_V2=PASS"
               ;;
 
+
+            fv-canary-empty-diagnose)
+              # READ ONLY: diagnose why the first FV provider canary returned an empty page.
+              cd "$REPO"
+              set -a
+              . backend/.env
+              set +a
+              export PYTHONPATH="$REPO"
+              "$PY" - <<'PY'
+          import json
+          from datetime import datetime, timedelta, timezone
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          pid=18053
+          frontier="2026-09-22T02:31:05.703812Z"
+          c=create_service_role_client()
+
+          ident=(c.table("pkmnprices_card_identity_v1")
+                 .select("provider_card_id,canonical_card_id,tcgplayer_product_id,language")
+                 .eq("provider_card_id",pid).limit(5).execute().data or [])
+          sync=(c.table("pkmnprices_sold_sync_state_v1")
+                .select("provider_card_id,canonical_card_id,last_ingested_at,last_sold_at,status,rows_seen,rows_inserted,consecutive_failures,last_error_code,metadata")
+                .eq("provider_card_id",pid).limit(5).execute().data or [])
+          latest=(c.table("pkmnprices_ebay_sold_evidence_v1")
+                  .select("provider_listing_id,ingested_at,sold_at,grader,grade,graded,collected_at")
+                  .eq("provider_card_id",pid).order("ingested_at",desc=True).limit(10).execute().data or [])
+
+          def count(q):
+              r=q.select("provider_listing_id",count="exact").limit(1).execute()
+              return int(getattr(r,"count",0) or 0)
+
+          ft=datetime.fromisoformat(frontier.replace("Z","+00:00"))
+          start=(ft-timedelta(days=30)).isoformat()
+          after=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                      .eq("provider_card_id",pid).gt("ingested_at",ft.isoformat()))
+          at_or_after=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                            .eq("provider_card_id",pid).gte("ingested_at",ft.isoformat()))
+          velocity=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                         .eq("provider_card_id",pid).gte("ingested_at",start).lte("ingested_at",ft.isoformat()))
+          total=count(c.table("pkmnprices_ebay_sold_evidence_v1").eq("provider_card_id",pid))
+
+          print(json.dumps({
+              "provider_card_id":pid,
+              "frontier":frontier,
+              "identity":ident,
+              "sync":sync,
+              "persisted_total":total,
+              "persisted_after_frontier":after,
+              "persisted_at_or_after_frontier":at_or_after,
+              "persisted_30d_before_frontier":velocity,
+              "latest_evidence":latest,
+              "provider_calls":0,
+              "database_writes":0,
+          },indent=2,sort_keys=True,default=str))
+          print("FV_CANARY_EMPTY_DIAGNOSE=PASS")
+          PY
+              ;;
 
             db-safety-empty-hold-repair)
               # MUTATING but narrowly scoped: clear only an invalid zero-byte fail-closed hold.
