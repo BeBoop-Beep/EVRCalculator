@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="b30f8a6390d61e8eed05a5197cc369a4dac5743f"
+          EXPECTED_SHA="43c502b377c162776290a05a199bcb71f61096f1"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
@@ -47,16 +47,16 @@ jobs:
           test -n "${SUPABASE_URL:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           mkdir -p backend/artifacts/treatment_panel_recovery_v2
-          "$PY" backend/scripts/research_treatment_panel_recovery_v2.py \
+          "$PY" backend/scripts/research_treatment_gate_expansion_v2.py \
             --market-date 2026-09-29 \
             --period 180d \
-            --credit-cap 9000 \
-            --collect \
-            --output backend/artifacts/treatment_panel_recovery_v2/result.json
+            --credit-cap 3000 \
+            --capture \
+            --output backend/artifacts/treatment_panel_recovery_v2/gate_expansion.json
       - name: Upload recovery artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-panel-recovery-v2-vm
-          path: backend/artifacts/treatment_panel_recovery_v2/result.json
+          name: treatment-panel-gate-expansion-v2-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/gate_expansion.json
           if-no-files-found: warn
