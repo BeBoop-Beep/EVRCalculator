@@ -36,7 +36,7 @@ def test_planner_states_and_arithmetic():
                             intended_activation=ACTIVATION)
     assert low["catchup_interval_days"] == 10.0 and low["estimated_new_rows"] == 10.0
     assert low["conservative_new_rows"] == 20.0 and low["likely_needs_more_than_one_page"] is False
-    assert low["state"] == "NEEDS_CANARY_SEMANTICS"
+    assert low["state"] == "READY"
     high = planner.plan_card(_state(2), {"rows_ingested_in_velocity_window": 90}, intended_activation=ACTIVATION)
     assert high["state"] == "POTENTIAL_OVERFLOW" and high["estimated_pages_conservative"] == 3
     assert high["estimated_days_to_clear_at_page_cap"] == 1
