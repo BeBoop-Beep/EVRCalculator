@@ -115,6 +115,8 @@ def build_rows(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
             control = controls[str(card["canonical_card_id"])]
             if abs(control["subject"] - urc["subject"]) > 1e-9:
                 raise RuntimeError(f"subject control mismatch {set_name} {subject_key} {treatment}")
+            if abs(control["playability"] - urc["playability"]) > 1e-9:
+                raise RuntimeError(f"playability did not cancel {set_name} {subject_key} {treatment}")
             ratios = [
                 math.log(histories[treatment][day] / histories[UR][day])
                 for day in shared
@@ -134,7 +136,7 @@ def build_rows(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
                         float(ur["modeled_probability"]) / float(card["modeled_probability"])
                     ),
                     "artist_delta": control["artist"] - urc["artist"],
-                    "playability_delta": control["playability"] - urc["playability"],
+                    "playability_delta": 0.0,
                 }
             )
         subjects.append(
@@ -161,7 +163,6 @@ def fit(rows: list[dict[str, Any]], key: str = "mean_log_ratio"):
                 1.0 if row["contrast"] == "sir" else 0.0,
                 float(row["scarcity_log_ratio"]),
                 float(row["artist_delta"]) / 100.0,
-                float(row["playability_delta"]) / 100.0,
             ]
             for row in rows
         ],
@@ -183,7 +184,7 @@ def transform(beta: np.ndarray) -> dict[str, float]:
         "sir_vs_hyper_multiplier": math.exp(sir - hyper),
         "scarcity_beta": float(beta[2]),
         "artist_beta_per_100": float(beta[3]),
-        "playability_beta_per_100": float(beta[4]),
+        "playability_control": "exactly cancels within all matched triangles",
     }
 
 
@@ -194,7 +195,6 @@ def adjusted_rows(rows: list[dict[str, Any]], beta: np.ndarray):
             float(row["mean_log_ratio"])
             - float(beta[2]) * float(row["scarcity_log_ratio"])
             - float(beta[3]) * float(row["artist_delta"]) / 100.0
-            - float(beta[4]) * float(row["playability_delta"]) / 100.0
         )
         out.append({**row, "adjusted_log_effect": value})
     return out
@@ -241,12 +241,12 @@ def set_first_hierarchy(rows: list[dict[str, Any]], beta: np.ndarray):
 def estimate(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
     rows, subjects = build_rows(artifact, controls)
     beta, rank, condition = fit(rows)
-    if rank < 5:
+    if rank < 4:
         raise RuntimeError(f"Hyper full-family design rank deficient rank={rank}")
 
     early, erank, _ = fit(rows, "early_mean_log_ratio")
     late, lrank, _ = fit(rows, "late_mean_log_ratio")
-    if erank < 5 or lrank < 5:
+    if erank < 4 or lrank < 4:
         raise RuntimeError("Hyper temporal design rank deficient")
 
     hierarchy = set_first_hierarchy(rows, beta)
@@ -278,7 +278,7 @@ def estimate(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
                 for row in by_subject[subject_key]:
                     sample.append({**row, "_boot_set": boot_set})
         b, rk, _ = fit(sample)
-        if rk < 5 or not np.all(np.isfinite(b)):
+        if rk < 4 or not np.all(np.isfinite(b)):
             continue
         adjusted = adjusted_rows(sample, b)
         grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
@@ -324,7 +324,7 @@ def estimate(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
             if (row["set_name"], row["subject_key"]) != key
         ]
         b, rk, cond = fit(sample)
-        if rk < 5:
+        if rk < 4:
             continue
         h = set_first_hierarchy(sample, b)["global"]
         loo.append(
@@ -414,7 +414,7 @@ def render(result: dict[str, Any]) -> str:
         f"- SIR/Hyper: **{p['sir_vs_hyper_multiplier']:.2f}x**",
         f"- Scarcity beta: **{p['scarcity_beta']:.3f}**",
         f"- Artist beta /100: **{p['artist_beta_per_100']:.3f}**",
-        f"- Playability beta /100: **{p['playability_beta_per_100']:.3f}**",
+        f"- Playability: **{p['playability_control']}**",
         f"- Rank / condition: **{p['rank']} / {p['condition_number']:.2f}**",
         "",
         "## Set results",
