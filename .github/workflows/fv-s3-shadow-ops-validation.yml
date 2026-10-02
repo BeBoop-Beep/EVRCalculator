@@ -1,0 +1,53 @@
+name: FV-S3 Shadow Ops Validation
+
+on:
+  push:
+    branches:
+      - feat/fv-s3-daily-shadow-ops-20261002
+    paths:
+      - "backend/scripts/run_index_fair_value_prospective_shadow_v1.py"
+      - "backend/scripts/run_index_fair_value_forward_outcomes_v1.py"
+      - "backend/scripts/index_fair_value_shadow_*.py"
+      - "backend/scripts/run_core_panel_daily_increment.py"
+      - "backend/tests/unit/scripts/test_index_fair_value_*.py"
+      - "backend/tests/unit/scripts/test_fv_s3_*.py"
+      - "backend/tests/unit/scripts/test_run_core_panel_daily_increment.py"
+      - "infra/oracle/fair-value-shadow-ops.crontab"
+      - "infra/oracle/run_fair_value_*.sh"
+      - "infra/oracle/install_fair_value_shadow_ops_cron.sh"
+      - ".github/workflows/fv-s3-shadow-ops-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install focused dependencies
+        run: python -m pip install -q pytest numpy==2.4.3 pandas==2.2.3 scipy psutil supabase==2.28.3 python-dotenv==1.2.2 requests
+      - name: Syntax
+        run: |
+          python -m py_compile \
+            backend/scripts/run_index_fair_value_prospective_shadow_v1.py \
+            backend/scripts/run_index_fair_value_forward_outcomes_v1.py \
+            backend/scripts/run_core_panel_daily_increment.py
+          bash -n infra/oracle/run_fair_value_shadow_daily.sh
+          bash -n infra/oracle/run_fair_value_shadow_daily_guarded.sh
+          bash -n infra/oracle/run_fair_value_forward_outcomes.sh
+          bash -n infra/oracle/run_fair_value_forward_outcomes_guarded.sh
+          bash -n infra/oracle/install_fair_value_shadow_ops_cron.sh
+      - name: Focused FV-S3 tests
+        run: |
+          python -m pytest -q \
+            backend/tests/unit/scripts/test_index_fair_value_prospective_shadow_v1.py \
+            backend/tests/unit/scripts/test_index_fair_value_forward_outcomes_v1.py \
+            backend/tests/unit/scripts/test_index_fair_value_shadow_s3.py \
+            backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+            backend/tests/unit/scripts/test_fv_s3_daily_shadow_ops.py \
+            backend/tests/unit/scripts/test_run_core_panel_daily_increment.py
