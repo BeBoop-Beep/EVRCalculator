@@ -2,8 +2,8 @@
 
 READ-ONLY. No provider call, no credentials loaded, no database write, no watermark
 advanced, no B4/B5 state touched. The only database handle is the harness
-``ReadOnlyClient`` (select-only). ``since`` semantics are not live-verified, so this is a
-PLANNER: it never asserts a gap is recoverable.
+``ReadOnlyClient`` (select-only). ``since`` semantics were live-verified by the bounded
+provider canary; this planner still performs no provider calls and never mutates a gap.
 
 Per card it reports the B4 completion state, the stored frontier, the latest persisted
 provider observation and sale date, the potential catch-up interval between B4 completion
@@ -12,9 +12,8 @@ waiting, and a state:
 
   BLOCKED                  not eligible for the dormant collector (identity/backfill/frontier)
   POTENTIAL_OVERFLOW       conservative estimate exceeds one newest page
-  NEEDS_CANARY_SEMANTICS   fits in one page on paper, but `since`/billing semantics are unverified
-  READY                    only reachable once SINCE_SEMANTICS_VERIFIED is True (a reviewed change
-                           after the canary); it is False in this release, so READY is never emitted
+  NEEDS_CANARY_SEMANTICS   legacy state only; unreachable after the verified provider canary
+  READY                    eligible and fits in one page under the conservative estimate
 """
 from __future__ import annotations
 
@@ -35,8 +34,10 @@ from backend.scripts import run_core_panel_daily_increment as inc  # noqa: E402
 from backend.scripts import run_index_fair_value_sold_clearing_anchor_v1 as s2  # noqa: E402
 
 PLANNER_VERSION = "core_panel_catchup_planner_v1"
-#: Flipped only by a reviewed change after the live canary verifies `since` and billing.
-SINCE_SEMANTICS_VERIFIED = False
+#: Verified by core_panel_provider_semantics_canary_v2 on 2026-10-01: one bounded request,
+#: 10 returned rows / 10 credits, exclusive ingestion-time floor, correct pagination/order,
+#: mixed raw+graded stream, and zero DB-state mutation.
+SINCE_SEMANTICS_VERIFIED = True
 VELOCITY_WINDOW_DAYS = 30
 OVERFLOW_SAFETY_FACTOR = 2.0
 OUT_DIR = ROOT / "backend/artifacts/index_fair_value/shadow_s3"
@@ -117,7 +118,7 @@ def summarize(cards: list[dict[str, Any]]) -> dict[str, Any]:
         "first_day_credit_demand_uncapped": credits,
         "max_days_to_clear_any_card": max((c["estimated_days_to_clear_at_page_cap"] or 0 for c in cards), default=0),
         "since_semantics_verified": SINCE_SEMANTICS_VERIFIED,
-        "ready_is_unreachable_until_canary": True,
+        "ready_is_unreachable_until_canary": not SINCE_SEMANTICS_VERIFIED,
     }
 
 
@@ -200,7 +201,7 @@ def build_plan(db: Any, *, intended_activation: date) -> dict[str, Any]:
         "cards": cards,
         "read_select_requests": len(getattr(db, "read_requests", [])),
         "provider_calls": 0, "provider_credits_used": 0, "database_writes": 0,
-        "caveat": "Planner only. `since` semantics are not live-verified; no gap is asserted recoverable.",
+        "caveat": "Planner only. Provider semantics are live-verified; estimates remain planning projections, not guarantees.",
     }
 
 
