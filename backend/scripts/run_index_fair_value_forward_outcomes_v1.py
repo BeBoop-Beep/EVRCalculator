@@ -172,7 +172,7 @@ def fetch_existing_outcomes(db: Any, publication_ids: list[str]) -> set[tuple[st
     return out
 
 
-def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False) -> dict[str, Any]:
+def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False, bindings_only: bool = False) -> dict[str, Any]:
     publications = fetch_publications(db, today)
     ids = [str(p["publication_id"]) for p in publications]
     h0_by = fetch_h0(db, ids)
@@ -214,6 +214,8 @@ def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False) -> dict
         else:
             binding_status["EXISTING"] += 1
 
+        if bindings_only:
+            continue
         baseline = _positive(binding.get("baseline_market_price_usd"))
         for horizon in FORWARD_HORIZONS:
             key = (pid, horizon)
@@ -243,6 +245,7 @@ def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False) -> dict
     return {
         "status": "DRY_RUN" if dry_run else "COMPLETE",
         "today": today.isoformat(),
+        "bindings_only": bindings_only,
         "publication_count": len(publications),
         "binding_statuses": dict(binding_status),
         "binding_failures": binding_failures,
@@ -261,13 +264,16 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--commit", action="store_true")
     parser.add_argument("--today", type=date.fromisoformat, default=None)
+    parser.add_argument("--bindings-only", action="store_true")
     args = parser.parse_args(argv)
 
     from backend.db.clients.supabase_client import create_service_role_client
     db = create_service_role_client()
     ledger = ledger_mod.SupabaseShadowLedger(db)
     today = args.today or __import__("datetime").datetime.now(PHOENIX).date()
-    result = collect(db=db, ledger=ledger, today=today, dry_run=args.dry_run)
+    result = collect(
+        db=db, ledger=ledger, today=today, dry_run=args.dry_run, bindings_only=args.bindings_only
+    )
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
     return 0 if not result["binding_failures"] and not result["outcome_failures"] else 3
 
