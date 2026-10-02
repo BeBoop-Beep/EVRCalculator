@@ -1,5 +1,4 @@
 name: Treatment Set-Relative Expansion V2 Preflight
-# rerun: 2026-10-02
 
 on:
   push:
@@ -7,7 +6,12 @@ on:
       - research/treatment-panel-recovery-v2-current-20261001
     paths:
       - 'backend/scripts/research_treatment_set_relative_expansion_panel_v2.py'
+      - 'backend/scripts/research_treatment_set_relative_hierarchy_v2.py'
+      - 'backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py'
+      - 'backend/tests/unit/scripts/test_treatment_set_relative_v2_workflows.py'
       - '.github/workflows/treatment-set-relative-expansion-v2-preflight.yml'
+      - '.github/workflows/treatment-set-relative-expansion-v2-capture.yml'
+      - '.github/workflows/treatment-set-relative-hierarchy-v2.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,7 @@ permissions:
 jobs:
   preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -26,14 +30,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install -q numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
+
+      - name: Install focused dependencies
+        run: python -m pip install -q pytest==8.3.5 numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
+
+      - name: Workflow and estimator unit guards
+        run: |
+          python -m pytest -q             backend/tests/unit/scripts/test_treatment_set_relative_v2_workflows.py             backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py
+
       - name: Live DB preflight only
         run: |
-          python backend/scripts/research_treatment_set_relative_expansion_panel_v2.py \
-            --market-date 2026-09-29 \
-            --period 180d \
-            --output backend/artifacts/treatment_set_relative_v2/preflight.json
-      - uses: actions/upload-artifact@v4
+          python backend/scripts/research_treatment_set_relative_expansion_panel_v2.py             --market-date 2026-09-29             --period 180d             --output backend/artifacts/treatment_set_relative_v2/preflight.json
+
+      - name: Upload zero-provider preflight artifact
+        uses: actions/upload-artifact@v4
         with:
           name: treatment-set-relative-expansion-v2-preflight
           path: backend/artifacts/treatment_set_relative_v2/preflight.json
