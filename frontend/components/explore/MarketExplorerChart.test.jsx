@@ -20,7 +20,7 @@ test("chart keeps market identity color and never recolors a line by its return"
   assert.match(source, /Series identity is the market's own color/);
 });
 
-test("the Explorer chart follows its controlled Index/Performance mode", () => {
+test("the Explorer normal chart control is Index-only", () => {
   let renderer;
   function Harness() {
     const [viewMode, setViewMode] = React.useState("index");
@@ -30,8 +30,6 @@ test("the Explorer chart follows its controlled Index/Performance mode", () => {
   act(() => { renderer = TestRenderer.create(<Harness />); });
   const toggle = (value) => renderer.root.findByProps({ "data-market-chart-view": value });
   assert.equal(toggle("index").props["aria-pressed"], true);
-  assert.equal(toggle("performance").props["aria-pressed"], false);
-  act(() => toggle("performance").props.onClick());
-  assert.equal(toggle("performance").props["aria-pressed"], true);
+  assert.equal(renderer.root.findAllByProps({ "data-market-chart-view": "performance" }).length, 0);
   act(() => renderer.unmount());
 });

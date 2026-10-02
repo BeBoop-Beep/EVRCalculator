@@ -70,7 +70,7 @@ export default function MarketExplorerActiveMarkets({
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Active Markets</h2>
           <p className="min-w-0 text-[10px] text-[var(--text-secondary)] [@media(max-height:500px)]:hidden">
-            Select a chip to inspect it; use the magnifier to focus its chart line.
+            Select a chip to focus and inspect it; select it again to clear focus.
           </p>
         </div>
         <div
@@ -135,6 +135,7 @@ export default function MarketExplorerActiveMarkets({
                 data-market-explorer-active-chip-dimmed={isDimmed ? "true" : "false"}
                 data-market-explorer-active-chip-asset={entry.asset || undefined}
                 data-market-explorer-active-chip-source={entry.queryKey ? "query" : "prepared"}
+                onClick={() => { onFocus?.(entry.key); onInspect?.(entry.key); }}
                 className={[
                   "group flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
                   isFocused ? "ring-2 ring-sky-400/80 font-semibold" : "",
@@ -153,7 +154,7 @@ export default function MarketExplorerActiveMarkets({
                   data-market-explorer-active-focus={entry.key}
                   aria-pressed={isFocused}
                   aria-label={isFocused ? `Clear focus on ${displayLabel}` : `Focus on ${displayLabel}`}
-                  onClick={() => { onFocus?.(entry.key); onInspect?.(entry.key); }}
+                  onClick={(event) => { event?.stopPropagation?.(); onFocus?.(entry.key); onInspect?.(entry.key); }}
                   className={[
                     "flex-none rounded-full p-0.5 leading-none transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80",
                     "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100",
@@ -167,7 +168,7 @@ export default function MarketExplorerActiveMarkets({
                   data-market-explorer-active-visibility={entry.key}
                   aria-pressed={!isHidden}
                   aria-label={isHidden ? `Show ${displayLabel} on the chart` : `Hide ${displayLabel} from the chart`}
-                  onClick={() => onToggleVisibility?.(entry.key)}
+                  onClick={(event) => { event?.stopPropagation?.(); onToggleVisibility?.(entry.key); }}
                   className="flex-none rounded-full p-0.5 leading-none text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
                 >
                   <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-full" style={{ backgroundColor: isHidden ? "transparent" : entry.color, border: isHidden ? `1.5px solid ${entry.color}` : "none" }} />
@@ -177,7 +178,7 @@ export default function MarketExplorerActiveMarkets({
                   data-market-explorer-active-chip-body={entry.key}
                   data-market-explorer-active-focus-body={entry.key}
                   aria-pressed={isActive}
-                  onClick={() => onInspect?.(entry.key)}
+                  onClick={(event) => { event?.stopPropagation?.(); onFocus?.(entry.key); onInspect?.(entry.key); }}
                   className={[
                     "min-w-0 truncate text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
                     isActive ? "font-semibold text-[rgb(153,246,228)]" : "text-[var(--text-primary)]",
@@ -202,8 +203,8 @@ export default function MarketExplorerActiveMarkets({
                   // Graph is the dedicated path to a genuinely empty chart).
                   disabled={!canRemove}
                   aria-label={`Remove ${displayLabel} from the comparison`}
-                  onClick={() => onRemove?.(entry.key)}
-                  className="flex-none rounded-full px-1 text-[11px] leading-none text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+                  onClick={(event) => { event?.stopPropagation?.(); onRemove?.(entry.key); }}
+                  className="flex-none rounded-full border border-[rgba(45,212,191,.55)] bg-[rgba(45,212,191,.12)] px-1.5 py-0.5 text-[11px] font-bold leading-none text-[rgb(153,246,228)] transition-colors hover:bg-[rgba(45,212,191,.22)] disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
                 >
                   ×
                 </button>

@@ -202,15 +202,22 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
   const lineOrder = focusActive ? [...drawn.filter(isDimmed), ...drawn.filter((entry) => !isDimmed(entry))] : drawn;
 
   const activeDate = activeIndex === null ? null : dates[activeIndex] || null;
+  const valueAtOrBefore = (values, index) => {
+    for (let cursor = index; cursor >= 0; cursor -= 1) {
+      const value = values?.[cursor];
+      if (value !== null && value !== undefined) return value;
+    }
+    return null;
+  };
   const unorderedReadings = activeIndex === null
     ? []
     : drawn.map((entry) => ({
         key: entry.key,
         label: entry.label,
         color: entry.color,
-        value: entry.values?.[activeIndex] ?? null,
-        rawValue: entry.rawValues?.[activeIndex] ?? null,
-        performanceValue: entry.performanceValues?.[activeIndex] ?? null,
+        value: valueAtOrBefore(entry.values, activeIndex),
+        rawValue: valueAtOrBefore(entry.rawValues, activeIndex),
+        performanceValue: valueAtOrBefore(entry.performanceValues, activeIndex),
         point: entry.pointMeta?.[activeIndex] || null,
         focus: focusActive ? (isDimmed(entry) ? "dimmed" : "focused") : undefined,
       }));

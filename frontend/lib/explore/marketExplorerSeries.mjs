@@ -290,13 +290,22 @@ export function buildExplorerChartModel(overview, series, windowKey) {
   // The visual viewport follows the requested calendar window. An actual
   // baseline may precede it and remains metadata only; it is never plotted as
   // a synthetic/pre-window point.
-  const startDate = drawable.reduce((earliest, { change }) => (
+  let startDate = drawable.reduce((earliest, { change }) => (
     earliest === null || (change.targetStartDate || change.startDate) < earliest
       ? (change.targetStartDate || change.startDate) : earliest
   ), null);
   const endDate = drawable.reduce((latest, { change }) => (
     latest === null || change.endDate > latest ? change.endDate : latest
   ), null);
+  if (windowKey === "1Y") {
+    const earliestObservation = drawable.reduce((earliest, { entry }) => {
+      const first = (entry.trend || []).find((point) => point?.date && Number.isFinite(point.value))?.date;
+      return first && (earliest === null || first < earliest) ? first : earliest;
+    }, null);
+    const requestedStart = new Date(Date.parse(`${endDate}T00:00:00Z`) - 365 * 86400000)
+      .toISOString().slice(0, 10);
+    if (earliestObservation) startDate = requestedStart > earliestObservation ? requestedStart : earliestObservation;
+  }
   const dates = [];
   for (
     let cursor = new Date(`${startDate}T00:00:00Z`), end = new Date(`${endDate}T00:00:00Z`);
