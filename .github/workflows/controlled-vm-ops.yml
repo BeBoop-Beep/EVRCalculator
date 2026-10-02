@@ -5194,6 +5194,9 @@ jobs:
               else
                 echo "runtime_sha=ABSENT"
               fi
+              set -a
+              . "$REPO/backend/.env"
+              set +a
               "$PY" - <<'PY'
           from backend.db.clients.supabase_client import create_service_role_client
           c=create_service_role_client()
