@@ -2578,7 +2578,7 @@ def _run_market_quality_index_phase(
             raw_refresh_payload = getattr(raw_refresh, "data", None)
             raw_current = list(
                 client.table("pokemon_market_raw_edition_stable_daily_history_v1")
-                .select("market_date")
+                .select("market_date,card_count,basket_value,source_generation_fingerprint")
                 .eq("market_date", target)
                 .limit(1)
                 .execute()
@@ -2590,6 +2590,33 @@ def _run_market_quality_index_phase(
                     "edition-stable Raw authority did not reach the promoted "
                     f"market date {target} after prerequisite refresh "
                     f"(rpc={raw_refresh_payload!r})"
+                )
+
+            # Raw is not a complete Explorer prerequisite until its exact
+            # edition-stable card-variant composition is materialized. Refresh
+            # the sidecar immediately after the parent so every downstream
+            # snapshot sees one coherent authority date/fingerprint.
+            raw_leaf_refresh = (
+                client.rpc(
+                    "refresh_pokemon_market_raw_edition_stable_leaves_v1",
+                    {"p_market_date": target},
+                )
+                .execute()
+            )
+            raw_leaf_payload = getattr(raw_leaf_refresh, "data", None) or {}
+            expected_leaf_count = int(raw_current[0].get("card_count") or 0)
+            if (
+                not isinstance(raw_leaf_payload, dict)
+                or raw_leaf_payload.get("status") not in {"complete", "noop"}
+                or str(raw_leaf_payload.get("marketDate") or "")[:10] != target
+                or int(raw_leaf_payload.get("leafCount") or 0) != expected_leaf_count
+                or str(raw_leaf_payload.get("rawSourceGenerationFingerprint") or "")
+                    != str(raw_current[0].get("source_generation_fingerprint") or "")
+            ):
+                raise RuntimeError(
+                    "edition-stable Raw leaf sidecar did not reconcile to the "
+                    f"promoted market date {target} "
+                    f"(parent={raw_current[0]!r}, leaf_rpc={raw_leaf_payload!r})"
                 )
 
             from backend.alerts.pipeline_alerts import alert_market_index
