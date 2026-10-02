@@ -2,5 +2,6 @@
   "operation": "preflight",
   "pinned_sha": "63c3dde47b7c51960fb16805fa0cce8ec48846ff",
   "requested_at": "2026-10-01",
-  "retry": 5
+  "retry": 6,
+  "mode": "run"
 }
