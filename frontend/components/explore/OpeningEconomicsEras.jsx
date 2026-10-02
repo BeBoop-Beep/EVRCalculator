@@ -165,7 +165,7 @@ export default function OpeningEconomicsEras({
   // drift into a differently-formatted or differently-sourced number.
   const baseline = projectEraRow({
     ...(economics?.global || {}),
-    eraName: "All modeled sets",
+    eraName: "Pokémon Overall",
   });
 
   if (economics?.status === "loading") return <OpeningEconomicsSkeleton />;
@@ -407,7 +407,7 @@ export default function OpeningEconomicsEras({
         >
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-xs font-medium text-[var(--text-secondary)]">
-              All modeled sets
+              Pokémon Overall
             </span>
             <span className="text-[0.68rem] tabular-nums text-[var(--text-secondary)]">
               {baseline.setCount ?? <Dash />} sets

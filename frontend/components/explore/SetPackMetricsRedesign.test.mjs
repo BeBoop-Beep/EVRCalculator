@@ -7,8 +7,8 @@ const source = fs.readFileSync(new URL("./SetPackMetrics.jsx", import.meta.url),
 const hub = fs.readFileSync(new URL("./SetRankingsHub.jsx", import.meta.url), "utf8");
 
 test("Pack Economics exposes the exact redesigned column contract", () => {
-  assert.deepEqual(SET_PACK_COLUMNS.map((column) => column[1]), ["Families", "Products", "Avg Pack Cost", "EV / Pack", "Modeled Return", "Recover Cost", "Entertainment Cost", "Best-Open Price"]);
-  assert.ok(source.includes('changeSort("setName")}>Set'));
+  assert.deepEqual(SET_PACK_COLUMNS.map((column) => column[1]), ["Packs", "Products", "Avg Pack Cost", "EV / Pack", "Modeled Return", "Recover Cost", "Entertainment Cost", "Best-Open Price"]);
+  assert.match(source, /changeSort\("setName"\)[\s\S]{0,80}Set \/ Product/);
   assert.doesNotMatch(source, /Typical Opening|Typical Retention|typicalOpening|typicalRetention/);
 });
 

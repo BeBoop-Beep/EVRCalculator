@@ -1,12 +1,19 @@
 const DAY = 86_400_000;
 
 export const FINANCIAL_RIP_WINDOWS = Object.freeze([
+  { key: "1D", label: "1D", days: 0, ariaLabel: "Last day" },
+  { key: "7D", label: "7D", days: 6, ariaLabel: "Last 7 days" },
   { key: "30D", label: "30D", days: 29, ariaLabel: "Last 30 days" },
   { key: "3M", label: "3M", days: 89, ariaLabel: "Last 3 months" },
   { key: "6M", label: "6M", days: 179, ariaLabel: "Last 6 months" },
   { key: "1Y", label: "1Y", days: 365, ariaLabel: "Last year" },
   { key: "ALL", label: "ALL", days: null, ariaLabel: "All available history" },
 ]);
+
+export function nextSingleEraPreset(currentId, selectedIds = []) {
+  const next = selectedIds.find((id) => String(id) !== String(currentId));
+  return next || (selectedIds.includes(currentId) ? currentId : null);
+}
 
 export const FINANCIAL_RIP_COLORS = ["#38bdf8", "#c084fc", "#fbbf24", "#fb7185", "#818cf8", "#2dd4bf", "#f97316", "#a3e635", "#e879f9", "#60a5fa", "#f43f5e", "#14b8a6", "#d946ef", "#eab308", "#6366f1", "#22c55e"];
 

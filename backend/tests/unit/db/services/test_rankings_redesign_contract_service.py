@@ -372,6 +372,16 @@ def _era_benchmark_client():
                  row("era", entity, "chase", chase, rank), row("era", entity, "collector", collector, rank)]
     rows += [row("set", "s-sv", "financial", 6, 1, 22), row("set", "s-mega-1", "financial", 4, 2, 22),
              row("set", "s-mega-2", "financial", 4, 3, 22)]
+    # Collector and Chase public scores are presentation-only projections of
+    # each Set's raw component, then Era values are equal-Set aggregates.
+    rows += [
+        {**row("set", "s-sv", "collector", None, 1, 22), "raw_model_value": 70},
+        {**row("set", "s-mega-1", "collector", None, 2, 22), "raw_model_value": 40},
+        {**row("set", "s-mega-2", "collector", None, 3, 22), "raw_model_value": 60},
+        {**row("set", "s-sv", "chase", None, 1, 22), "raw_model_value": .04},
+        {**row("set", "s-mega-1", "chase", None, 2, 22), "raw_model_value": .01},
+        {**row("set", "s-mega-2", "chase", None, 3, 22), "raw_model_value": .03},
+    ]
     return Client({
         "pokemon_rip_benchmark_publications_v1": [{"id": "pub", "market_date": "2026-09-30", "benchmark_key": "pokemon",
             "calibration_version": "v1", "overall_model_version": "overall-v12", "publication_status": "published"}],
@@ -389,10 +399,11 @@ def test_paid_era_scorecards_carry_all_four_metrics_with_benchmark_tiers():
     assert [row["name"] for row in result["rows"]] == ["Scarlet & Violet", "Mega Evolution"]
     for key in ("overall", "financial", "collector", "chase"):
         assert mega[key]["score"] is not None and mega[key]["rank"] == 2 and mega[key]["cohortSize"] == 2
-    assert (mega["overall"]["score"], mega["financial"]["score"], mega["chase"]["score"], mega["collector"]["score"]) == (4.602, 4.604, 4.306, 4.989)
-    # B1 tier contract, per metric: neutral band C, +/-.25 around 5.0; tiny cohort never forces F.
-    assert [sv[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["C", "C", "C", "S"]
-    assert [mega[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["D", "D", "C", "D"]
+    assert (mega["overall"]["score"], mega["financial"]["score"], mega["collector"]["score"]) == (4.602, 4.604, 5.0)
+    assert abs(mega["chase"]["score"] - 8.85) < 1e-9
+    assert [sv[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["C", "C", "S", "S"]
+    assert [mega[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["D", "D", "F", "F"]
+    assert all(mega[key]["presentationKind"] == "cohort-relative" and mega[key]["benchmarkReferenceScore"] is None for key in ("collector", "chase"))
     assert mega["modeledSetCount"] == 2 and sv["modeledSetCount"] == 1
 
 

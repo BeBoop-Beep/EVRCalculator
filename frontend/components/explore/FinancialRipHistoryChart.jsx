@@ -11,61 +11,88 @@ import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
 import FinancialRipHistoryLegend from "./FinancialRipHistoryLegend";
 import ChartTooltip, { FinancialRipTooltipContent, TOOLTIP_SCROLL_ATTR } from "./FinancialRipHistoryTooltip";
-import {
-  FINANCIAL_RIP_DEFAULT_SET_COUNT,
-  FINANCIAL_RIP_WINDOWS,
-  buildFinancialRipCandidates,
-  buildFinancialRipChartModel,
-  financialRipRequestEntities,
-  financialRipWindowRange,
-  financialRipYAxisDomain,
-  formatFinancialRip,
-  formatFinancialRipDelta,
-  orderSeriesForDrawing,
-  resolveActiveFocus,
-  seriesEmphasis,
-  setIdsForEra,
-  shouldFetchFinancialRipHistory,
-  toggleFocus,
-} from "./financialRipHistoryModel.mjs";
+import { FINANCIAL_RIP_DEFAULT_SET_COUNT, FINANCIAL_RIP_WINDOWS, buildFinancialRipCandidates, buildFinancialRipChartModel, financialRipRequestEntities, financialRipWindowRange, financialRipYAxisDomain, formatFinancialRip, formatFinancialRipDelta, nextSingleEraPreset, orderSeriesForDrawing, resolveActiveFocus, seriesEmphasis, setIdsForEra, shouldFetchFinancialRipHistory, toggleFocus } from "./financialRipHistoryModel.mjs";
 
-const labelDate = (date) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
+const labelDate = (date) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
 
 function ModeControls({ mode, onChange, disabled = false }) {
-  return <div role="radiogroup" aria-label="Financial RIP entity type" className="inline-flex rounded-lg border border-[var(--border-subtle)] bg-black/10 p-1">
-    {[{ key: "sets", label: "Sets" }, { key: "eras", label: "Eras" }].map((item) => <button key={item.key} type="button" role="radio" aria-checked={mode === item.key} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 rounded-md px-3 text-xs font-semibold transition-colors ${mode === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "text-[var(--text-secondary)]"}`}>{item.label}</button>)}
-  </div>;
+  return (
+    <div role="radiogroup" aria-label="Financial RIP entity type" className="inline-flex rounded-lg border border-[var(--border-subtle)] bg-black/10 p-1">
+      {[
+        { key: "sets", label: "Sets" },
+        { key: "eras", label: "Eras" },
+      ].map((item) => (
+        <button key={item.key} type="button" role="radio" aria-checked={mode === item.key} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 rounded-md px-3 text-xs font-semibold transition-colors ${mode === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "text-[var(--text-secondary)]"}`}>
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function WindowControls({ value, onChange, disabled = false }) {
-  return <div role="radiogroup" aria-label="Financial RIP history time range" className="flex min-w-max gap-1">
-    {FINANCIAL_RIP_WINDOWS.map((item) => <button key={item.key} type="button" role="radio" aria-checked={value === item.key} aria-label={item.ariaLabel} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 min-w-11 rounded-md border px-2 text-[10px] font-semibold tracking-wide ${value === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>)}
-  </div>;
+  return (
+    <div role="radiogroup" aria-label="Financial RIP history time range" className="flex min-w-max gap-1">
+      {FINANCIAL_RIP_WINDOWS.map((item) => (
+        <button key={item.key} type="button" role="radio" aria-checked={value === item.key} aria-label={item.ariaLabel} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 min-w-11 rounded-md border px-2 text-[10px] font-semibold tracking-wide focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 ${value === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function LockedPreview() {
-  return <div data-financial-rip-history-locked className="relative mt-4 min-h-[20rem] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(30,41,59,.34),rgba(15,23,42,.2))]">
-    <svg aria-hidden="true" viewBox="0 0 800 320" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-25 blur-[3px]">
-      <path d="M0 220 C100 170 150 230 250 160 S420 120 510 170 S660 90 800 115" fill="none" stroke="#38bdf8" strokeWidth="5" />
-      <path d="M0 180 C120 205 205 135 300 175 S470 205 570 145 S700 175 800 130" fill="none" stroke="#c084fc" strokeWidth="5" />
-      <path d="M0 195 C180 188 300 202 450 176 S650 190 800 158" fill="none" stroke="#e2e8f0" strokeWidth="6" strokeDasharray="15 12" />
-    </svg>
-    <div className="absolute inset-0 bg-white/[.035] backdrop-blur-md" />
-    <div className="relative z-10 flex min-h-[20rem] flex-col items-center justify-center px-5 text-center">
-      <PlanBadge plan={INDEX_PLAN_PLUS} />
-      <p className="mt-4 max-w-md text-lg font-semibold text-[var(--text-primary)]">Track Financial RIP across Sets and Eras over time</p>
-      <p className="mt-2 max-w-md text-sm text-[var(--text-secondary)]">Compare exact certified publications with the moving Overall Financial RIP reference.</p>
-      <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="rankings" className="mt-5" />
+  return (
+    <div data-financial-rip-history-locked className="relative mt-4 min-h-[20rem] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(30,41,59,.34),rgba(15,23,42,.2))]">
+      <svg aria-hidden="true" viewBox="0 0 800 320" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-25 blur-[3px]">
+        <path d="M0 220 C100 170 150 230 250 160 S420 120 510 170 S660 90 800 115" fill="none" stroke="#38bdf8" strokeWidth="5" />
+        <path d="M0 180 C120 205 205 135 300 175 S470 205 570 145 S700 175 800 130" fill="none" stroke="#c084fc" strokeWidth="5" />
+        <path d="M0 195 C180 188 300 202 450 176 S650 190 800 158" fill="none" stroke="#e2e8f0" strokeWidth="6" strokeDasharray="15 12" />
+      </svg>
+      <div className="absolute inset-0 bg-white/[.035] backdrop-blur-md" />
+      <div className="relative z-10 flex min-h-[20rem] flex-col items-center justify-center px-5 text-center">
+        <PlanBadge plan={INDEX_PLAN_PLUS} />
+        <p className="mt-4 max-w-md text-lg font-semibold text-[var(--text-primary)]">Track Financial RIP across Sets and Eras over time</p>
+        <p className="mt-2 max-w-md text-sm text-[var(--text-secondary)]">Compare exact certified publications with the moving Overall Financial RIP reference.</p>
+        <PlanUpgradeLink requiredPlan={INDEX_PLAN_PLUS} source="rankings" className="mt-5" />
+      </div>
     </div>
-  </div>;
+  );
 }
 
 function EntitySelector({ candidates, selectedIds, onChange, mode, eraPresets = [], presetEraId, onPresetChange }) {
-  const options = candidates.map((item) => ({ id: item.entity_id, label: item.name }));
-  return <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start">
-    {mode === "sets" ? <MultiSelectFilter label="Era preset" name="financial-era-preset" options={eraPresets.map((era) => ({ id: era.entity_id, label: era.name }))} selectedIds={presetEraId ? [presetEraId] : []} onChange={(ids) => onPresetChange(ids.at(-1) || null)} allLabel="Manual Sets" summaryNoun="Era" searchPlaceholder="Search Eras…" showChips={false} /> : null}
-    <MultiSelectFilter label={mode === "sets" ? "Sets" : "Eras"} name={`financial-${mode}`} options={options} selectedIds={selectedIds} onChange={onChange} allLabel={`Choose ${mode === "sets" ? "Sets" : "Eras"}`} summaryNoun={mode === "sets" ? "Sets" : "Eras"} searchPlaceholder={`Search ${mode === "sets" ? "Sets…" : "Eras…"}`} showChips={false} />
-  </div>;
+  const options = candidates.map((item) => ({
+    id: item.entity_id,
+    label: item.name,
+  }));
+  return (
+    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start">
+      {mode === "sets" ? (
+        <MultiSelectFilter
+          label="Era preset"
+          name="financial-era-preset"
+          options={eraPresets.map((era) => ({
+            id: era.entity_id,
+            label: era.name,
+          }))}
+          selectedIds={presetEraId ? [presetEraId] : []}
+          onChange={(ids) => onPresetChange(nextSingleEraPreset(presetEraId, ids))}
+          allLabel="Manual Sets"
+          summaryNoun="Era"
+          searchPlaceholder="Search Eras…"
+          showChips={false}
+        />
+      ) : null}
+      <MultiSelectFilter label={mode === "sets" ? "Sets" : "Eras"} name={`financial-${mode}`} options={options} selectedIds={selectedIds} onChange={onChange} allLabel={`Choose ${mode === "sets" ? "Sets" : "Eras"}`} summaryNoun={mode === "sets" ? "Sets" : "Eras"} searchPlaceholder={`Search ${mode === "sets" ? "Sets…" : "Eras…"}`} showChips={false} />
+    </div>
+  );
 }
 
 const MAX_FINANCIAL_RIP_SET_SELECTION = 5;
@@ -78,7 +105,13 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   const [setSelection, setSetSelection] = useState([]);
   const [eraSelection, setEraSelection] = useState([]);
   const [presetEraId, setPresetEraId] = useState(null);
-  const [request, setRequest] = useState({ status: "idle", view: null, key: null, pendingKey: null, error: null });
+  const [request, setRequest] = useState({
+    status: "idle",
+    view: null,
+    key: null,
+    pendingKey: null,
+    error: null,
+  });
   const [retryNonce, setRetryNonce] = useState(0);
   const [focusId, setFocusId] = useState(null);
   const [hoverId, setHoverId] = useState(null);
@@ -86,7 +119,16 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   const seeded = useRef({ sets: false, eras: false });
   const [seededModes, setSeededModes] = useState({ sets: false, eras: false });
   const plotRef = useRef(null);
-  const { setCandidates, eraCandidates } = useMemo(() => buildFinancialRipCandidates({ financialCohort, targets, openingSets, eras }), [financialCohort, targets, openingSets, eras]);
+  const { setCandidates, eraCandidates } = useMemo(
+    () =>
+      buildFinancialRipCandidates({
+        financialCohort,
+        targets,
+        openingSets,
+        eras,
+      }),
+    [financialCohort, targets, openingSets, eras],
+  );
 
   // Defaults are seeded exactly once.  An empty selection afterwards (Clear All) is a valid
   // user state and must never be silently re-populated.
@@ -125,11 +167,23 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   const knownThrough = request.view?.payload?.historyAvailableThrough || marketDate;
   const range = useMemo(() => financialRipWindowRange(windowKey, knownThrough, knownFrom), [windowKey, knownThrough, knownFrom]);
   const fetchRange = useMemo(() => financialRipWindowRange(windowKey, marketDate, windowKey === "ALL" ? null : knownFrom), [windowKey, marketDate, knownFrom]);
-  const selectionKey = selected.map((item) => item.entity_id).sort().join(",");
+  const selectionKey = selected
+    .map((item) => item.entity_id)
+    .sort()
+    .join(",");
   const requestKey = `${mode}:${selectionKey}:${fetchRange.startDate}:${fetchRange.endDate}:${retryNonce}`;
 
   useEffect(() => {
-    if (!shouldFetchFinancialRipHistory({ entitled, authStatus, selectedCount: requestEntities.length, startDate: fetchRange.startDate, endDate: fetchRange.endDate })) return undefined;
+    if (
+      !shouldFetchFinancialRipHistory({
+        entitled,
+        authStatus,
+        selectedCount: requestEntities.length,
+        startDate: fetchRange.startDate,
+        endDate: fetchRange.endDate,
+      })
+    )
+      return undefined;
     const loadedIds = new Set((request.view?.selected || []).map((item) => item.entity_id));
     if (request.view?.mode === mode && request.view?.windowKey === windowKey && selected.every((item) => loadedIds.has(item.entity_id))) return undefined;
     const commit = (payload) => ({
@@ -145,7 +199,11 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
       pendingKey: null,
       error: null,
     });
-    const options = { sessionCache, startDate: fetchRange.startDate, endDate: fetchRange.endDate };
+    const options = {
+      sessionCache,
+      startDate: fetchRange.startDate,
+      endDate: fetchRange.endDate,
+    };
     // A completed exact or superset entry (e.g. the prefetched 22-Set cohort) is applied
     // synchronously: no spinner, no network.
     const cached = peekFinancialHistory(requestEntities, options);
@@ -154,44 +212,63 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
       return undefined;
     }
     let active = true;
-    setRequest((current) => ({ ...current, status: "loading", pendingKey: requestKey, error: null }));
+    setRequest((current) => ({
+      ...current,
+      status: "loading",
+      pendingKey: requestKey,
+      error: null,
+    }));
     readFinancialHistoryCached(requestEntities, options)
-      .then((payload) => { if (active) setRequest(commit(payload)); })
+      .then((payload) => {
+        if (active) setRequest(commit(payload));
+      })
       .catch((error) => {
-        if (active) setRequest((current) => ({
-          ...current,
-          status: "error",
-          pendingKey: null,
-          error: error?.message || "Financial RIP history is temporarily unavailable.",
-        }));
+        if (active)
+          setRequest((current) => ({
+            ...current,
+            status: "error",
+            pendingKey: null,
+            error: error?.message || "Financial RIP history is temporarily unavailable.",
+          }));
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, marketDate, mode, request.view, requestEntities, requestKey, selected, sessionCache, windowKey]);
 
   const display = request.view?.mode === mode ? request.view : null;
-  const chart = useMemo(
-    () => buildFinancialRipChartModel(display?.payload?.rows || [], selected, display?.range || range),
-    [display, range, selected],
-  );
-  const names = useMemo(
-    () => Object.fromEntries((display?.selected || []).map((item) => [item.entity_id, item.name])),
-    [display],
-  );
+  const chart = useMemo(() => buildFinancialRipChartModel(display?.payload?.rows || [], selected, display?.range || range), [display, range, selected]);
+  const names = useMemo(() => Object.fromEntries((display?.selected || []).map((item) => [item.entity_id, item.name])), [display]);
   const yDomain = useMemo(() => financialRipYAxisDomain(chart.points, chart.series), [chart]);
   const accessPending = authStatus !== "resolved" && authStatus !== "degraded";
   const seriesIds = useMemo(() => chart.series.map((item) => item.entity_id), [chart.series]);
-  const activeFocus = resolveActiveFocus({ persistentId: focusId, hoverId, seriesIds });
+  const activeFocus = resolveActiveFocus({
+    persistentId: focusId,
+    hoverId,
+    seriesIds,
+  });
   const drawSeries = useMemo(() => orderSeriesForDrawing(chart.series, activeFocus), [chart.series, activeFocus]);
   const pinnedPoint = useMemo(() => (pinnedDate ? chart.points.find((point) => point.date === pinnedDate) || null : null), [chart.points, pinnedDate]);
 
   // Focus is display-only; it follows what is actually plotted.
-  useEffect(() => { if (focusId != null && !seriesIds.includes(focusId)) setFocusId(null); }, [focusId, seriesIds]);
-  useEffect(() => { if (hoverId != null && !seriesIds.includes(hoverId)) setHoverId(null); }, [hoverId, seriesIds]);
-  useEffect(() => { setPinnedDate(null); }, [mode, windowKey, selectionKey]);
-  useEffect(() => { setFocusId(null); setHoverId(null); }, [mode]);
+  useEffect(() => {
+    if (focusId != null && !seriesIds.includes(focusId)) setFocusId(null);
+  }, [focusId, seriesIds]);
+  useEffect(() => {
+    if (hoverId != null && !seriesIds.includes(hoverId)) setHoverId(null);
+  }, [hoverId, seriesIds]);
+  useEffect(() => {
+    setPinnedDate(null);
+  }, [mode, windowKey, selectionKey]);
+  useEffect(() => {
+    setFocusId(null);
+    setHoverId(null);
+  }, [mode]);
   useEffect(() => {
     if (!pinnedDate) return undefined;
-    const onKey = (event) => { if (event.key === "Escape") setPinnedDate(null); };
+    const onKey = (event) => {
+      if (event.key === "Escape") setPinnedDate(null);
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [pinnedDate]);
@@ -217,15 +294,31 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
     return () => node.removeEventListener("wheel", onWheel);
   }, [display]);
 
-  const changeSelection = (ids) => { if (mode === "sets") { setPresetEraId(null); setSetSelection(ids.slice(0, MAX_FINANCIAL_RIP_SET_SELECTION)); } else setEraSelection(ids); };
-  const selectEraSets = (eraId) => { setPresetEraId(eraId); const ids = setIdsForEra(setCandidates, eraId); if (ids.length) setSetSelection(ids); };
-  const removeSeries = useCallback((id) => {
-    if (mode === "sets") setSetSelection((current) => current.filter((item) => item !== id)); else setEraSelection((current) => current.filter((item) => item !== id));
-    setFocusId((current) => (current === id ? null : current));
-    setHoverId((current) => (current === id ? null : current));
-  }, [mode]);
+  const changeSelection = (ids) => {
+    if (mode === "sets") {
+      setPresetEraId(null);
+      setSetSelection(ids.slice(0, MAX_FINANCIAL_RIP_SET_SELECTION));
+    } else setEraSelection(ids);
+  };
+  const selectEraSets = (eraId) => {
+    setPresetEraId(eraId);
+    const ids = setIdsForEra(setCandidates, eraId);
+    if (ids.length) setSetSelection(ids);
+  };
+  const removeSeries = useCallback(
+    (id) => {
+      if (mode === "sets") setSetSelection((current) => current.filter((item) => item !== id));
+      else setEraSelection((current) => current.filter((item) => item !== id));
+      setFocusId((current) => (current === id ? null : current));
+      setHoverId((current) => (current === id ? null : current));
+    },
+    [mode],
+  );
   const clearAll = useCallback(() => {
-    if (mode === "sets") { setPresetEraId(null); setSetSelection([]); } else setEraSelection([]);
+    if (mode === "sets") {
+      setPresetEraId(null);
+      setSetSelection([]);
+    } else setEraSelection([]);
     setFocusId(null);
     setHoverId(null);
     setPinnedDate(null);
@@ -235,71 +328,97 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
     if (date) setPinnedDate((current) => (current === date ? null : date));
   };
 
-  return <section className="mt-5 border-t border-[var(--border-subtle)] pt-5" data-financial-rip-history-chart>
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-      <div>
-        <h3 className="text-lg font-semibold text-[var(--text-primary)]">Financial RIP Over Time</h3>
-        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--text-secondary)]">Compare absolute Financial RIP scores with the Pokémon-wide Overall Financial RIP reference.</p>
+  return (
+    <section className="mt-5 border-t border-[var(--border-subtle)] pt-5" data-financial-rip-history-chart>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-[var(--text-primary)]">Financial RIP Over Time</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--text-secondary)]">Compare absolute Financial RIP scores with the Pokémon-wide Overall Financial RIP reference.</p>
+        </div>
+        <div className="flex max-w-full flex-col gap-2 overflow-x-auto sm:flex-row sm:items-center">
+          <ModeControls mode={mode} onChange={setMode} disabled={!entitled || accessPending} />
+          <WindowControls value={windowKey} onChange={setWindowKey} disabled={!entitled || accessPending} />
+        </div>
       </div>
-      <div className="flex max-w-full flex-col gap-2 overflow-x-auto sm:flex-row sm:items-center">
-        <ModeControls mode={mode} onChange={setMode} disabled={!entitled || accessPending} />
-        <WindowControls value={windowKey} onChange={setWindowKey} disabled={!entitled || accessPending} />
-      </div>
-    </div>
 
-    {accessPending ? (
-      <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">Loading access…</div>
-    ) : !entitled ? <LockedPreview /> : <>
-      <EntitySelector candidates={candidates} selectedIds={selectedIds} onChange={changeSelection} mode={mode} eraPresets={eraCandidates} presetEraId={presetEraId} onPresetChange={(eraId) => eraId ? selectEraSets(eraId) : setPresetEraId(null)} />
+      {accessPending ? (
+        <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">
+          Loading access…
+        </div>
+      ) : !entitled ? (
+        <LockedPreview />
+      ) : (
+        <>
+          <EntitySelector candidates={candidates} selectedIds={selectedIds} onChange={changeSelection} mode={mode} eraPresets={eraCandidates} presetEraId={presetEraId} onPresetChange={(eraId) => (eraId ? selectEraSets(eraId) : setPresetEraId(null))} />
 
-      <>
-        <FinancialRipHistoryLegend
-          series={chart.series}
-          showOverall={Boolean(display)}
-          persistentFocusId={focusId}
-          onToggleFocus={(id) => setFocusId((current) => toggleFocus(current, id))}
-          onHoverFocus={setHoverId}
-          onRemove={removeSeries}
-          onClearAll={clearAll}
-          updating={request.status === "loading" && Boolean(display)}
-        />
+          <>
+            <FinancialRipHistoryLegend series={chart.series} showOverall={Boolean(display)} persistentFocusId={focusId} onToggleFocus={(id) => setFocusId((current) => toggleFocus(current, id))} onHoverFocus={setHoverId} onRemove={removeSeries} onClearAll={clearAll} updating={request.status === "loading" && Boolean(display)} />
 
-        {!display && request.status === "loading" ? (
-          <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">Loading Financial RIP history…</div>
-        ) : !display && request.status === "error" ? (
-          <div className="mt-4 flex h-[20rem] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center sm:h-[24rem] desk:h-[28rem]">
-            <p className="text-sm text-[var(--text-secondary)]">Financial RIP history is temporarily unavailable.</p>
-            <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="mt-3 min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-sm font-semibold">Retry</button>
-          </div>
-        ) : display ? <>
-          <div ref={plotRef} className="relative" data-financial-history-plot data-active-focus={activeFocus || undefined}>
-            <ChartFrame className="mt-4 h-[20rem] sm:h-[24rem] desk:h-[28rem]">
-              <ResponsiveContainer>
-                <LineChart data={chart.points} margin={{ top: 12, right: 14, bottom: 6, left: 0 }} onClick={pinFromChart}>
-                  <CartesianGrid stroke="rgba(148,163,184,.16)" strokeDasharray="2 8" vertical={false} />
-                  <XAxis dataKey="timestamp" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={(value) => labelDate(new Date(value).toISOString().slice(0, 10)).replace(/, \d{4}/, "")} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 10 }} />
-                  <YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} />
-                  <Tooltip content={<ChartTooltip series={chart.series} focusId={activeFocus} suppressed={Boolean(pinnedPoint)} />} />
-                  <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#cbd5e1" strokeOpacity={0.72} strokeWidth={3} dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
-                  {drawSeries.map((item) => {
-                    const emphasis = seriesEmphasis(item.entity_id, activeFocus);
-                    return <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeOpacity={emphasis.strokeOpacity} strokeWidth={emphasis.strokeWidth} dot={emphasis.showDots ? { r: 2 } : false} activeDot={emphasis.showDots ? { r: 5 } : false} connectNulls={false} isAnimationActive={false} />;
-                  })}
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartFrame>
-            {pinnedPoint ? <div data-financial-history-pinned className="absolute right-2 top-5 z-30"><FinancialRipTooltipContent point={pinnedPoint} series={chart.series} focusId={activeFocus} pinned onClose={() => setPinnedDate(null)} /></div> : null}
-          </div>
-          <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Click or tap the chart to pin the values for a date; scroll the list for long selections.</p>
-          <ol className="sr-only" aria-label="Visible Financial RIP observations">
-            {chart.points.flatMap((point) => Object.entries(point.entities).map(([id, detail]) => <li key={`${point.date}:${id}`}>{labelDate(point.date)}, {names[id]} Financial RIP {formatFinancialRip(detail.financialRip)}, {formatFinancialRipDelta(detail.deltaVsOverall)}, Overall Financial RIP {formatFinancialRip(detail.overallFinancialRip)}, {detail.rank == null ? "rank unavailable" : `rank ${detail.rank} of ${detail.cohortSize}`}.</li>))}
-          </ol>
-          <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Exact certified publications only{display.payload?.historyAvailableFrom ? ` · History available from ${labelDate(display.payload.historyAvailableFrom)}` : ""}{display.payload?.historyAvailableThrough ? ` through ${labelDate(display.payload.historyAvailableThrough)}` : ""}. Missing publication dates remain gaps.</p>
-          {request.status === "error" ? <p role="alert" className="mt-2 text-xs text-red-300">The latest refresh failed, so the last successful history remains visible. <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="underline">Retry</button></p> : null}
-        </> : (
-          <div className="mt-4 h-[20rem] rounded-xl border border-[var(--border-subtle)] sm:h-[24rem] desk:h-[28rem]" />
-        )}
-      </>
-    </>}
-  </section>;
+            {!display && request.status === "loading" ? (
+              <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">
+                Loading Financial RIP history…
+              </div>
+            ) : !display && request.status === "error" ? (
+              <div className="mt-4 flex h-[20rem] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center sm:h-[24rem] desk:h-[28rem]">
+                <p className="text-sm text-[var(--text-secondary)]">Financial RIP history is temporarily unavailable.</p>
+                <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="mt-3 min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-sm font-semibold">
+                  Retry
+                </button>
+              </div>
+            ) : display ? (
+              <>
+                <div ref={plotRef} className="relative" data-financial-history-plot data-active-focus={activeFocus || undefined}>
+                  <ChartFrame className="mt-4 h-[20rem] sm:h-[24rem] desk:h-[28rem]">
+                    <ResponsiveContainer>
+                      <LineChart data={chart.points} margin={{ top: 12, right: 14, bottom: 6, left: 0 }} onClick={pinFromChart}>
+                        <CartesianGrid stroke="rgba(148,163,184,.16)" strokeDasharray="2 8" vertical={false} />
+                        <XAxis dataKey="timestamp" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={(value) => labelDate(new Date(value).toISOString().slice(0, 10)).replace(/, \d{4}/, "")} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 10 }} />
+                        <YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} />
+                        <Tooltip content={<ChartTooltip series={chart.series} focusId={activeFocus} suppressed={Boolean(pinnedPoint)} />} />
+                        <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#ffffff" strokeOpacity={0.9} strokeWidth={3} strokeDasharray="9 7" dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
+                        {drawSeries.map((item) => {
+                          const emphasis = seriesEmphasis(item.entity_id, activeFocus);
+                          return <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeOpacity={emphasis.strokeOpacity} strokeWidth={emphasis.strokeWidth} dot={emphasis.showDots ? { r: 2 } : false} activeDot={emphasis.showDots ? { r: 5 } : false} connectNulls={false} isAnimationActive={false} />;
+                        })}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartFrame>
+                  {pinnedPoint ? (
+                    <div data-financial-history-pinned className="absolute right-2 top-5 z-30">
+                      <FinancialRipTooltipContent point={pinnedPoint} series={chart.series} focusId={activeFocus} pinned onClose={() => setPinnedDate(null)} />
+                    </div>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Click or tap the chart to pin the values for a date; scroll the list for long selections.</p>
+                <ol className="sr-only" aria-label="Visible Financial RIP observations">
+                  {chart.points.flatMap((point) =>
+                    Object.entries(point.entities).map(([id, detail]) => (
+                      <li key={`${point.date}:${id}`}>
+                        {labelDate(point.date)}, {names[id]} Financial RIP {formatFinancialRip(detail.financialRip)}, {formatFinancialRipDelta(detail.deltaVsOverall)}, Overall Financial RIP {formatFinancialRip(detail.overallFinancialRip)}, {detail.rank == null ? "rank unavailable" : `rank ${detail.rank} of ${detail.cohortSize}`}.
+                      </li>
+                    )),
+                  )}
+                </ol>
+                <p className="mt-2 text-[10px] text-[var(--text-secondary)]">
+                  Exact certified publications only
+                  {display.payload?.historyAvailableFrom ? ` · History available from ${labelDate(display.payload.historyAvailableFrom)}` : ""}
+                  {display.payload?.historyAvailableThrough ? ` through ${labelDate(display.payload.historyAvailableThrough)}` : ""}. Missing publication dates remain gaps.
+                </p>
+                {request.status === "error" ? (
+                  <p role="alert" className="mt-2 text-xs text-red-300">
+                    The latest refresh failed, so the last successful history remains visible.{" "}
+                    <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="underline">
+                      Retry
+                    </button>
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="mt-4 h-[20rem] rounded-xl border border-[var(--border-subtle)] sm:h-[24rem] desk:h-[28rem]" />
+            )}
+          </>
+        </>
+      )}
+    </section>
+  );
 }
