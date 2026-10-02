@@ -101,7 +101,7 @@ export async function fetchConstituentPage(spec, options) {
 
 /** Backend hard cap, mirrored so a caller fails fast rather than on the wire. */
 export const CONSTITUENT_PAGE_MAX_LIMIT = 100;
-export const CONSTITUENT_PAGE_DEFAULT_LIMIT = 100;
+export const CONSTITUENT_PAGE_DEFAULT_LIMIT = 25;
 
 /**
  * The request body for one page. `spec` is the SAME normalized query spec
