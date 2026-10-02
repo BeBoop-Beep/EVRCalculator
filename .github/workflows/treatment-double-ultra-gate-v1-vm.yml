@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="3b799128600947c0d4d7e0fea7a911302aac1601"
+          EXPECTED_SHA="b90e2c201d2b1327c40cecd1db957703ce40b32a"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
