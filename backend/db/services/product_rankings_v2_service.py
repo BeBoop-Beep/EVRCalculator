@@ -145,13 +145,12 @@ def _best_open(client: Any, page_rows: list[dict[str, Any]], reference_date: Opt
         "sealed_product_id,source_calculation_run_id,current_market_price,status,best_open_price,"
         "price_gap_dollars,price_gap_percent"
     ).eq("snapshot_id", pointer[0]["snapshot_id"]).in_("sealed_product_id", ids).execute())
-    expected_runs = {row["sealedProductId"]: row.get("sourceCalculationRunId") for row in page_rows}
     return {str(row["sealed_product_id"]): {
         "bestOpenPrice": _number(row.get("best_open_price")), "bestOpenMarketPrice": _number(row.get("current_market_price")),
         "bestOpenStatus": row.get("status"), "bestOpenPriceGapDollars": _number(row.get("price_gap_dollars")),
         "bestOpenPriceGapPercent": _number(row.get("price_gap_percent")), "bestOpenSourceMarketDate": source_date,
         "bestOpenMarketSourceDate": source_date, "bestOpenFreshnessStatus": _freshness(source_date, reference_date),
-    } for row in rows if str(row.get("source_calculation_run_id") or "") == str(expected_runs.get(str(row["sealed_product_id"])) or "")}
+    } for row in rows}
 
 
 def query_product_rankings(client: Any, authority: Mapping[str, Any], *, view: str, page: int = 1,
@@ -172,6 +171,10 @@ def query_product_rankings(client: Any, authority: Mapping[str, Any], *, view: s
         for row in ordered:
             exact = exact_all.get((row["sealedProductId"], str(row.get("sourceCalculationRunId") or "")))
             if exact: _apply_exact(row, exact)
+        if sort == "bestOpenPrice":
+            best_all = _best_open(client, ordered, authority.get("marketDate"))
+            for row in ordered:
+                row.update(best_all.get(row["sealedProductId"], {}))
         ordered = _filter_sort(ordered, search=None, family=None, sort=sort, direction=direction)
     selected, meta = _page(ordered, page, page_size)
     if view == "economics":

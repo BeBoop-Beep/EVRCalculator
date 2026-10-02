@@ -6,7 +6,7 @@ import InfoPopover from "@/components/ui/InfoPopover";
 import PlanLock from "@/components/membership/PlanLock";
 import { INDEX_PLAN_PLUS, INDEX_PLAN_PREMIUM } from "@/lib/access/indexPlanAccess.mjs";
 import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes.mjs";
-import { readProductRankings } from "@/lib/rankings/productRankingsClient.mjs";
+import { prewarmDefaultProductEconomics, readProductRankings } from "@/lib/rankings/productRankingsClient.mjs";
 import { readPublicProductCatalogue } from "@/lib/rankings/rankingsPublicClient.mjs";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import AnalyticsTableShell from "./AnalyticsTableShell";
@@ -287,6 +287,9 @@ export default function RankingsProductLensClient({ sessionCache }) {
       setFamily(value);
       setPage(1);
     },
+    prewarmEconomics = () => {
+      if (!publicMode) prewarmDefaultProductEconomics({ sessionCache, canViewFullMarket: canViewFullMarketProductRankings, family: family === "all" ? null : family });
+    },
     chooseView = (value) => {
       setView(value);
       setPage(1);
@@ -332,7 +335,7 @@ export default function RankingsProductLensClient({ sessionCache }) {
         </section>
       </>
     );
-  const toggle = <SegmentedControl className="w-full max-w-[13rem]" ariaLabel="Product Rankings view" value={view} onChange={chooseView} options={VIEW_OPTIONS} variant="rankings" equalWidth mobileFullWidth />;
+  const toggle = <div onPointerEnter={prewarmEconomics} onFocus={prewarmEconomics} onPointerDown={prewarmEconomics}><SegmentedControl className="w-full max-w-[13rem]" ariaLabel="Product Rankings view" value={view} onChange={chooseView} options={VIEW_OPTIONS} variant="rankings" equalWidth mobileFullWidth /></div>;
   return (
     <>
       {controls}

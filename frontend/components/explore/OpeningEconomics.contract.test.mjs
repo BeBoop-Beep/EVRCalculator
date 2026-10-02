@@ -33,7 +33,7 @@ const chartVisualSystem = read("./chartVisualSystem.mjs");
 
 test("opening and set ranking dates name their distinct publication clocks", () => {
   const setRankings = read("./ExploreTableClient.jsx");
-  assert.match(overall, /Opening data as of \{marketDate\}/);
+  assert.match(distribution, /Opening data as of \{marketDate\}/);
   assert.match(setRankings, /Rankings data as of \{marketDate\}/);
   assert.doesNotMatch(overall, />As of \{marketDate\}</);
 });
@@ -198,8 +198,8 @@ test("Overall reuses the inDex frame for the financial history", () => {
   assert.ok(!financialHistory.includes("contentStyle="));
 });
 
-test("history tooltip exposes only the certified absolute Financial RIP contract", () => {
-  for (const value of ["Overall Financial RIP", "Financial RIP", "deltaVsOverall", "rank", "cohortSize"]) assert.ok(financialHistory.includes(value));
+test("history tooltip receives the generic Trend metric contract", () => {
+  for (const value of ["overallLabel", "metricKey", "activeMetric.label"]) assert.ok(financialHistory.includes(value));
   for (const forbidden of ["modeled_return_on_spend", "benchmark_raw_value", "benchmark_score"]) assert.ok(!financialHistory.includes(forbidden));
 });
 
@@ -392,9 +392,9 @@ test("percentiles are named as positions, never as probabilities", () => {
   }
 });
 
-test("the primary chart names absolute Financial RIP directly", () => {
-  assert.ok(financialHistory.includes("Financial RIP Over Time"));
-  assert.ok(financialHistory.includes("absolute Financial RIP scores"));
+test("the primary chart is the generalized Trend surface", () => {
+  assert.ok(financialHistory.includes(">Trend<"));
+  assert.ok(financialHistory.includes("TREND_METRICS"));
   assert.ok(!distribution.includes("How Sets Rank to Open"));
 });
 

@@ -11,7 +11,7 @@ import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import { PlanBadge, PlanUpgradeLink } from "@/components/membership/PlanLock";
 import FinancialRipHistoryLegend from "./FinancialRipHistoryLegend";
 import ChartTooltip, { FinancialRipTooltipContent, TOOLTIP_SCROLL_ATTR } from "./FinancialRipHistoryTooltip";
-import { FINANCIAL_RIP_DEFAULT_SET_COUNT, FINANCIAL_RIP_WINDOWS, buildFinancialRipCandidates, buildFinancialRipChartModel, financialRipRequestEntities, financialRipWindowRange, financialRipYAxisDomain, formatFinancialRip, formatFinancialRipDelta, nextSingleEraPreset, orderSeriesForDrawing, resolveActiveFocus, seriesEmphasis, setIdsForEra, shouldFetchFinancialRipHistory, toggleFocus } from "./financialRipHistoryModel.mjs";
+import { FINANCIAL_RIP_DEFAULT_SET_COUNT, FINANCIAL_RIP_WINDOWS, TREND_METRICS, buildFinancialRipCandidates, buildTrendChartModel, financialRipRequestEntities, financialRipWindowRange, financialRipYAxisDomain, formatTrendValue, nextSingleEraPreset, orderSeriesForDrawing, resolveActiveFocus, seriesEmphasis, setIdsForEra, shouldFetchFinancialRipHistory, toggleFocus, trendMetric } from "./financialRipHistoryModel.mjs";
 
 const labelDate = (date) =>
   new Intl.DateTimeFormat("en-US", {
@@ -46,6 +46,12 @@ function WindowControls({ value, onChange, disabled = false }) {
       ))}
     </div>
   );
+}
+
+function MetricControls({ value, onChange, disabled = false }) {
+  return <div role="radiogroup" aria-label="Trend metric" className="flex min-w-max gap-1">
+    {TREND_METRICS.map((item) => <button key={item.key} type="button" role="radio" aria-checked={value === item.key} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 rounded-md border px-2 text-[10px] font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 ${value === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>)}
+  </div>;
 }
 
 function LockedPreview() {
@@ -101,6 +107,7 @@ const WHEEL_LINE_PX = 16;
 export default function FinancialRipHistoryChart({ targets = [], financialCohort = null, openingSets = [], eras = [], marketDate = null, sessionCache = null }) {
   const { canViewRankingsIntelligence: entitled, authStatus } = useRankingsAccess();
   const [mode, setMode] = useState("sets");
+  const [metricKey, setMetricKey] = useState("financial");
   const [windowKey, setWindowKey] = useState("30D");
   const [setSelection, setSetSelection] = useState([]);
   const [eraSelection, setEraSelection] = useState([]);
@@ -237,7 +244,8 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
   }, [authStatus, entitled, fetchRange.endDate, fetchRange.startDate, marketDate, mode, request.view, requestEntities, requestKey, selected, sessionCache, windowKey]);
 
   const display = request.view?.mode === mode ? request.view : null;
-  const chart = useMemo(() => buildFinancialRipChartModel(display?.payload?.rows || [], selected, display?.range || range), [display, range, selected]);
+  const chart = useMemo(() => buildTrendChartModel(display?.payload?.rows || [], selected, display?.range || range, metricKey), [display, metricKey, range, selected]);
+  const activeMetric = trendMetric(metricKey);
   const names = useMemo(() => Object.fromEntries((display?.selected || []).map((item) => [item.entity_id, item.name])), [display]);
   const yDomain = useMemo(() => financialRipYAxisDomain(chart.points, chart.series), [chart]);
   const accessPending = authStatus !== "resolved" && authStatus !== "degraded";
@@ -332,11 +340,12 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
     <section className="mt-5 border-t border-[var(--border-subtle)] pt-5" data-financial-rip-history-chart>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-[var(--text-primary)]">Financial RIP Over Time</h3>
-          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--text-secondary)]">Compare absolute Financial RIP scores with the Pokémon-wide Overall Financial RIP reference.</p>
+          <h3 className="text-lg font-semibold text-[var(--text-primary)]">Trend</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--text-secondary)]">{activeMetric.subtitle}</p>
         </div>
         <div className="flex max-w-full flex-col gap-2 overflow-x-auto sm:flex-row sm:items-center">
           <ModeControls mode={mode} onChange={setMode} disabled={!entitled || accessPending} />
+          <MetricControls value={metricKey} onChange={setMetricKey} disabled={!entitled || accessPending} />
           <WindowControls value={windowKey} onChange={setWindowKey} disabled={!entitled || accessPending} />
         </div>
       </div>
@@ -352,11 +361,11 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
           <EntitySelector candidates={candidates} selectedIds={selectedIds} onChange={changeSelection} mode={mode} eraPresets={eraCandidates} presetEraId={presetEraId} onPresetChange={(eraId) => (eraId ? selectEraSets(eraId) : setPresetEraId(null))} />
 
           <>
-            <FinancialRipHistoryLegend series={chart.series} showOverall={Boolean(display)} persistentFocusId={focusId} onToggleFocus={(id) => setFocusId((current) => toggleFocus(current, id))} onHoverFocus={setHoverId} onRemove={removeSeries} onClearAll={clearAll} updating={request.status === "loading" && Boolean(display)} />
+            <FinancialRipHistoryLegend series={chart.series} overallLabel={activeMetric.overallLabel} showOverall={Boolean(display)} persistentFocusId={focusId} onToggleFocus={(id) => setFocusId((current) => toggleFocus(current, id))} onHoverFocus={setHoverId} onRemove={removeSeries} onClearAll={clearAll} updating={request.status === "loading" && Boolean(display)} />
 
             {!display && request.status === "loading" ? (
               <div className="mt-4 flex h-[20rem] items-center justify-center rounded-xl border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] sm:h-[24rem] desk:h-[28rem]" aria-busy="true">
-                Loading Financial RIP history…
+                Loading Trend history…
               </div>
             ) : !display && request.status === "error" ? (
               <div className="mt-4 flex h-[20rem] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center sm:h-[24rem] desk:h-[28rem]">
@@ -373,9 +382,9 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
                       <LineChart data={chart.points} margin={{ top: 12, right: 14, bottom: 6, left: 0 }} onClick={pinFromChart}>
                         <CartesianGrid stroke="rgba(148,163,184,.16)" strokeDasharray="2 8" vertical={false} />
                         <XAxis dataKey="timestamp" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={(value) => labelDate(new Date(value).toISOString().slice(0, 10)).replace(/, \d{4}/, "")} minTickGap={28} tick={{ fill: "#94a3b8", fontSize: 10 }} />
-                        <YAxis domain={yDomain} tickFormatter={(value) => Number(value).toFixed(1)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={42} />
-                        <Tooltip content={<ChartTooltip series={chart.series} focusId={activeFocus} suppressed={Boolean(pinnedPoint)} />} />
-                        <Line type="linear" dataKey="overallFinancialRip" name="Overall Financial RIP" stroke="#ffffff" strokeOpacity={0.9} strokeWidth={3} strokeDasharray="9 7" dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
+                        <YAxis domain={yDomain} tickFormatter={(value) => formatTrendValue(value, metricKey)} tick={{ fill: "#94a3b8", fontSize: 10 }} width={58} />
+                        <Tooltip content={<ChartTooltip series={chart.series} metricKey={metricKey} overallLabel={activeMetric.overallLabel} focusId={activeFocus} suppressed={Boolean(pinnedPoint)} />} />
+                        <Line type="linear" dataKey="overallTrend" name={activeMetric.overallLabel} stroke="#ffffff" strokeOpacity={0.9} strokeWidth={3} strokeDasharray="9 7" dot={false} activeDot={{ r: 4 }} connectNulls={false} isAnimationActive={false} />
                         {drawSeries.map((item) => {
                           const emphasis = seriesEmphasis(item.entity_id, activeFocus);
                           return <Line key={item.entity_id} type="linear" dataKey={item.key} name={item.name} stroke={item.color} strokeOpacity={emphasis.strokeOpacity} strokeWidth={emphasis.strokeWidth} dot={emphasis.showDots ? { r: 2 } : false} activeDot={emphasis.showDots ? { r: 5 } : false} connectNulls={false} isAnimationActive={false} />;
@@ -385,16 +394,17 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
                   </ChartFrame>
                   {pinnedPoint ? (
                     <div data-financial-history-pinned className="absolute right-2 top-5 z-30">
-                      <FinancialRipTooltipContent point={pinnedPoint} series={chart.series} focusId={activeFocus} pinned onClose={() => setPinnedDate(null)} />
+                      <FinancialRipTooltipContent point={pinnedPoint} series={chart.series} metricKey={metricKey} overallLabel={activeMetric.overallLabel} focusId={activeFocus} pinned onClose={() => setPinnedDate(null)} />
                     </div>
                   ) : null}
                 </div>
+                {windowKey === "1D" && chart.points.length === 1 ? <p role="status" className="mt-2 text-xs text-[var(--text-secondary)]">Previous certified observation unavailable.</p> : null}
                 <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Click or tap the chart to pin the values for a date; scroll the list for long selections.</p>
-                <ol className="sr-only" aria-label="Visible Financial RIP observations">
+                <ol className="sr-only" aria-label={`Visible ${activeMetric.label} observations`}>
                   {chart.points.flatMap((point) =>
                     Object.entries(point.entities).map(([id, detail]) => (
                       <li key={`${point.date}:${id}`}>
-                        {labelDate(point.date)}, {names[id]} Financial RIP {formatFinancialRip(detail.financialRip)}, {formatFinancialRipDelta(detail.deltaVsOverall)}, Overall Financial RIP {formatFinancialRip(detail.overallFinancialRip)}, {detail.rank == null ? "rank unavailable" : `rank ${detail.rank} of ${detail.cohortSize}`}.
+                        {labelDate(point.date)}, {names[id]} {activeMetric.label} {formatTrendValue(detail.trendValue, metricKey)}, {activeMetric.overallLabel} {formatTrendValue(detail.overallFinancialRip, metricKey)}.
                       </li>
                     )),
                   )}

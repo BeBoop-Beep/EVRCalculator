@@ -23,10 +23,12 @@ test("the unified table uses benchmark-10 primitives and a single pinned referen
   assert.equal((shared.match(/<tr data-rankings-reference-row/g) || []).length, 1);
 });
 
-test("Era and Set each issue exactly one public headline read; paid reads live in one shared hook", () => {
+test("Era and Set public reads remain singular and paid scorecards prewarm through their exact cache reader", () => {
   assert.equal((lazy.match(/readPublicRankingsHeadlines\("set"/g) || []).length, 1);
   assert.equal((lazy.match(/readPublicRankingsHeadlines\("era"/g) || []).length, 1);
-  assert.doesNotMatch(lazy, /readCurrentBenchmark|readRankingsScorecards/);
+  assert.doesNotMatch(lazy, /readCurrentBenchmark/);
+  assert.match(lazy, /readRankingsScorecards\("era", \{ sessionCache \}\)/);
+  assert.match(lazy, /readRankingsScorecards\("set", \{ sessionCache \}\)/);
   const hook = read("../../lib/rankings/usePaidScorecards.js");
   assert.equal((hook.match(/readRankingsScorecards\(/g) || []).length, 1);
   assert.match(hook, /if \(!entitled \|\| !sessionCache\)/);

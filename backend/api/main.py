@@ -233,7 +233,7 @@ from backend.db.services.rankings_redesign_contract_service import (
     read_product_best_open_map,
     read_card_facets,
     read_financial_cohort,
-    read_financial_history_page,
+    read_financial_history_page, read_trend_history,
     read_overview_v2,
     read_pack_economics,
     read_public_headlines,
@@ -716,11 +716,8 @@ def pokemon_financial_rip_history(
         })
     client = _benchmark_client()
     try:
-        return read_financial_history_page(
-            client, entities=entities, start_date=body.start_date,
-            end_date=body.end_date, limit=body.limit,
-            after=body.after.model_dump(mode="json", by_alias=True) if body.after else None,
-        )
+        return read_trend_history(client, entities=entities, start_date=body.start_date,
+                                  end_date=body.end_date)
     except BenchmarkContractUnavailable as exc:
         raise _benchmark_unavailable(exc) from exc
     except BenchmarkError as exc:
