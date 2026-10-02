@@ -1,4 +1,4 @@
 {
-  "operation": "code-red-db-load-restore-audit",
-  "request_id": "sentinel-recurring-snapshot-lag-20261002"
+  "operation": "db-safety-guard-repair",
+  "request_id": "sentinel-recurring-snapshot-lag-guard-repair-20261002"
 }
