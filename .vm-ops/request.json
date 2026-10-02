@@ -1,4 +1,4 @@
 {
-  "operation": "fv-core-panel-status",
-  "request_id": "fv-core-panel-post-install-status-20261002"
+  "operation": "fv-core-panel-run-now",
+  "request_id": "fv-core-panel-first-run-20261002"
 }
