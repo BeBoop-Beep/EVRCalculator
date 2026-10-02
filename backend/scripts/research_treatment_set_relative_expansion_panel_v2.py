@@ -350,8 +350,11 @@ def main(argv=None):
     p.add_argument("--period",default="180d")
     p.add_argument("--credit-cap",type=int,default=22000)
     p.add_argument("--capture",action="store_true")
+    p.add_argument("--capture-authorization")
     p.add_argument("--output",type=Path,required=True)
     args=p.parse_args(argv)
+    if args.capture and args.capture_authorization != "SET_RELATIVE_V2_FROZEN_CAPTURE_20261002":
+        raise SystemExit("REFUSING: frozen Treatment V2 capture authorization missing")
     load_dotenv(ROOT/"backend/.env",override=False)
     from backend.db.clients.supabase_client import supabase
     target=build_target(supabase,args.market_date)
