@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: treatment-panel-recovery-v2-vm
@@ -28,11 +29,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="2157bce053e403a657f52d497946314839a5e4a3"
+          EXPECTED_SHA="909fc50b4c6bce4723745b6f364ae7550e7e1887"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
-      - name: Capture PkmnPrices NM historical Treatment panels
+      - name: Download frozen SIR-Ultra gate artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-panel-gate-expansion-v2-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/base
+          github-token: ${{ github.token }}
+          repository: BeBoop-Beep/EVRCalculator
+          run-id: 36961641617
+      - name: Capture Double-Ultra-SIR three-level bridge
         shell: bash
         run: |
           set -euo pipefail
@@ -47,16 +56,16 @@ jobs:
           test -n "${SUPABASE_URL:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           mkdir -p backend/artifacts/treatment_panel_recovery_v2
-          "$PY" backend/scripts/research_treatment_gate_expansion_v2.py \
+          "$PY" backend/scripts/research_treatment_three_level_bridge_v1.py \
+            --base-gate-artifact backend/artifacts/treatment_panel_recovery_v2/base/gate_expansion.json \
             --market-date 2026-09-29 \
             --period 180d \
             --credit-cap 3000 \
-            --capture \
-            --output backend/artifacts/treatment_panel_recovery_v2/gate_expansion.json
-      - name: Upload recovery artifact
+            --output backend/artifacts/treatment_panel_recovery_v2/three_level_bridge_v1.json
+      - name: Upload three-level bridge artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-panel-gate-expansion-v2-vm
-          path: backend/artifacts/treatment_panel_recovery_v2/gate_expansion.json
+          name: treatment-three-level-bridge-v1-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/three_level_bridge_v1.json
           if-no-files-found: warn
