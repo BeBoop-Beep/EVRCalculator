@@ -467,6 +467,16 @@ def test_active_v2_search_and_options_errors_do_not_invent_legacy_results():
         v2.read_asset_options(Client(fail={v2.ASSET_OPTIONS_RPC_V2: RuntimeError("x")}), "sealed")
 
 
+def test_v2_read_receipts_identify_stage_elapsed_time_and_outcome(caplog):
+    with caplog.at_level("INFO", logger=v2.__name__):
+        assert v2._timed_read("history", lambda: [1], generation_id=GEN) == [1]
+    record = next(record for record in caplog.records if record.message == "market_explorer_v2_read")
+    assert record.stage == "history"
+    assert record.generation_id == GEN
+    assert record.outcome == "ok"
+    assert record.elapsed_ms >= 0
+
+
 # ---- Raw: no after-the-fact reconstruction ----
 def test_application_never_reconstructs_raw_or_freezes_outside_the_backfill():
     import pathlib

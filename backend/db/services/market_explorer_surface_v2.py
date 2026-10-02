@@ -86,6 +86,24 @@ def _one_row(result: Any) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
+def _timed_read(stage: str, operation: Any, **context: Any) -> Any:
+    """Emit one stage receipt without changing read or error semantics."""
+    started = time.perf_counter()
+    outcome = "ok"
+    try:
+        return operation()
+    except Exception:
+        outcome = "error"
+        raise
+    finally:
+        logger.info("market_explorer_v2_read", extra={
+            "stage": stage,
+            "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+            "outcome": outcome,
+            **context,
+        })
+
+
 def _is_rpc_missing(exc: BaseException) -> bool:
     text = f"{type(exc).__name__} {exc}".lower()
     return ("pgrst202" in text or "could not find the function" in text
@@ -152,8 +170,9 @@ def read_v2_directory(client: Any) -> list[dict[str, Any]] | None:
         if now < _absent_until:
             return None
     try:
-        serving = _one_row(client.table(SERVING_TABLE_V2).select("generation_id")
-                           .eq("singleton", 1).limit(1).execute())
+        serving = _timed_read("serving_pointer", lambda: _one_row(
+            client.table(SERVING_TABLE_V2).select("generation_id")
+            .eq("singleton", 1).limit(1).execute()))
         serving_generation = str((serving or {}).get("generation_id") or "")
         if serving_generation:
             with _surface_cache_lock:
@@ -166,7 +185,8 @@ def read_v2_directory(client: Any) -> list[dict[str, Any]] | None:
                     if generation != serving_generation:
                         _directory_cache.pop(generation, None)
                         _alias_cache.pop(generation, None)
-                rows = _rows(client.rpc(DIRECTORY_RPC_V2, {}).execute())
+                rows = _timed_read("directory", lambda: _rows(client.rpc(DIRECTORY_RPC_V2, {}).execute()),
+                                   generation_id=serving_generation)
                 if rows:
                     generations = {str(row.get("generation_id")) for row in rows}
                     if generations != {serving_generation}:
@@ -181,7 +201,7 @@ def read_v2_directory(client: Any) -> list[dict[str, Any]] | None:
                     )
                     return normalized
         else:
-            rows = _rows(client.rpc(DIRECTORY_RPC_V2, {}).execute())
+            rows = _timed_read("directory", lambda: _rows(client.rpc(DIRECTORY_RPC_V2, {}).execute()))
     except SurfaceV2Error:
         raise
     except Exception as exc:
@@ -217,8 +237,9 @@ def read_aliases(client: Any, generation_id: str) -> dict[str, str]:
         cached = _alias_cache.get(str(generation_id))
         if cached is not None:
             return dict(cached)
-    rows = _rows(client.table(ALIASES_TABLE_V2).select("alias_key,market_key")
-                 .eq("generation_id", generation_id).execute())
+    rows = _timed_read("aliases", lambda: _rows(
+        client.table(ALIASES_TABLE_V2).select("alias_key,market_key")
+        .eq("generation_id", generation_id).execute()), generation_id=generation_id)
     aliases = {str(r["alias_key"]): str(r["market_key"]) for r in rows}
     with _surface_cache_lock:
         _alias_cache[str(generation_id)] = dict(aliases)
@@ -282,8 +303,9 @@ def read_v2_comparison_bundle(client: Any, directory: list[dict[str, Any]], keys
     history_rows: list[dict[str, Any]] = []
     if canonical:
         try:
-            history_rows = _rows(client.rpc(HISTORY_RPC_V2, {
-                "p_market_keys": canonical, "p_start_date": start_date}).execute())
+            history_rows = _timed_read("history", lambda: _rows(client.rpc(HISTORY_RPC_V2, {
+                "p_market_keys": canonical, "p_start_date": start_date}).execute()),
+                generation_id=generation_id, market_count=len(canonical))
         except Exception as exc:
             logger.error("market_explorer_v2_history_failed", extra={"error": str(exc)[:300]})
             raise SurfaceV2Error("SURFACE_V2_HISTORY_FAILED", str(exc)) from exc
@@ -378,9 +400,10 @@ def read_v2_constituents(client: Any, directory: list[dict[str, Any]] | None, ma
         if market_key not in {row["market_key"] for row in directory}:
             market_key = read_aliases(client, directory_generation).get(market_key, market_key)
     try:
-        payload = client.rpc(CONSTITUENTS_RPC_V2, {
+        payload = _timed_read("constituent_page", lambda: client.rpc(CONSTITUENTS_RPC_V2, {
             "p_market_key": market_key, "p_generation_id": generation_id,
-            "p_after_rank": int(after_rank), "p_limit": int(limit)}).execute().data
+            "p_after_rank": int(after_rank), "p_limit": int(limit)}).execute().data,
+            generation_id=generation_id, market_key=market_key, after_rank=int(after_rank), limit=int(limit))
     except Exception as exc:
         if "GENERATION_MISMATCH" in str(exc):
             return {"code": "GENERATION_MISMATCH", "marketKey": market_key, "generationId": generation_id}
@@ -401,7 +424,8 @@ def read_asset_options(client: Any, asset: str) -> dict[str, Any]:
     if asset not in ASSETS:
         raise ValueError("asset must be cards, sealed or graded")
     try:
-        data = client.rpc(ASSET_OPTIONS_RPC_V2, {"p_asset": asset}).execute().data
+        data = _timed_read("asset_options", lambda: client.rpc(
+            ASSET_OPTIONS_RPC_V2, {"p_asset": asset}).execute().data, asset=asset)
     except Exception as exc:
         if _is_rpc_missing(exc):
             raise SurfaceV2Error("ASSET_OPTIONS_UNAVAILABLE", "asset options authority not installed") from exc
@@ -438,7 +462,9 @@ def validate_search_request(asset: str, q: str, limit: int) -> tuple[str, str, i
 def search_catalog(client: Any, asset: str, q: str, limit: int = 20) -> list[dict[str, Any]]:
     asset, query, limit = validate_search_request(asset, q, limit)
     try:
-        rows = _rows(client.rpc(SEARCH_RPC_V1, {"p_asset": asset, "p_query": query, "p_limit": limit}).execute())
+        rows = _timed_read("catalog_search", lambda: _rows(client.rpc(
+            SEARCH_RPC_V1, {"p_asset": asset, "p_query": query, "p_limit": limit}).execute()),
+            asset=asset, limit=limit)
     except Exception as exc:
         if _is_rpc_missing(exc):
             raise SurfaceV2Error("CATALOG_SEARCH_UNAVAILABLE", "catalog search authority not installed") from exc

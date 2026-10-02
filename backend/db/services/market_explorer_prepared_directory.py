@@ -143,14 +143,22 @@ def enrich_prepared_constituent_page(client: Any, page: dict[str, Any]) -> dict[
         result["movementReason"] = "Constituent movement is not published for this asset."
         return result
     from backend.db.services.market_explorer_constituent_movement import enrich_constituent_page
+    started = time.perf_counter()
+    outcome = "ok"
     try:
         enriched = enrich_constituent_page(
             client, {"items": rows, "as_of": result.get("priceAsOf")}, asset)
     except Exception:
+        outcome = "error"
         logger.exception("market_explorer_constituent_movement_failed", extra={"asset": asset})
         result["movementAvailable"] = False
         result["movementReason"] = "Constituent movement is temporarily unavailable."
         return result
+    finally:
+        logger.info("market_explorer_v2_read", extra={
+            "stage": "movement_enrichment", "asset": asset, "row_count": len(rows),
+            "elapsed_ms": round((time.perf_counter() - started) * 1000, 2), "outcome": outcome,
+        })
     result["rows"] = list(enriched.get("items") or rows)
     if enriched.get("movement_windows") is not None:
         result["movementWindows"] = enriched.get("movement_windows") or {}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { EXPLORER_PROXY_BOUNDS_MS, fetchExplorerRead } from "@/lib/explore/marketExplorerReadProxy.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +27,17 @@ export async function GET(request) {
   if (cookie) headers.cookie = cookie;
   if (authorization) headers.authorization = authorization;
   try {
-    const response = await fetch(url, { headers, cache: "no-store", signal: request.signal });
-    const payload = await response.json().catch(() => null);
+    const result = await fetchExplorerRead({ url, init: { headers }, requestSignal: request.signal,
+      timeoutMs: EXPLORER_PROXY_BOUNDS_MS.catalogSearch, operation: "catalog_search" });
+    const { response, payload } = result;
+    console.info("market_explorer_proxy_read", { operation: "catalog_search", elapsedMs: result.elapsedMs, attempts: result.attempts, status: response.status });
     if (!response.ok) {
       const code = typeof payload?.code === "string" ? payload.code : "CATALOG_SEARCH_FAILED";
       return NextResponse.json({ message: "Search is temporarily unavailable.", code }, { status: response.status === 400 ? 400 : response.status === 429 ? 429 : 503, headers: NO_STORE });
     }
     return NextResponse.json({ results: Array.isArray(payload?.results) ? payload.results : [] }, { status: 200, headers: NO_STORE });
-  } catch {
-    return NextResponse.json({ message: "Search is temporarily unavailable.", code: "CATALOG_SEARCH_PROXY_UNAVAILABLE" }, { status: 503, headers: NO_STORE });
+  } catch (error) {
+    const timedOut = error?.proxyTimedOut === true;
+    return NextResponse.json({ message: timedOut ? "Search took too long. Please try again." : "Search is temporarily unavailable.", code: timedOut ? "CATALOG_SEARCH_PROXY_TIMEOUT" : "CATALOG_SEARCH_PROXY_UNAVAILABLE" }, { status: timedOut ? 504 : 503, headers: NO_STORE });
   }
 }

@@ -5,10 +5,11 @@
 export const QUERY_REQUEST_TIMEOUT_MS = 45000;
 export const EXPLORER_REQUEST_BOUNDS_MS = Object.freeze({
   directory: 4000,
-  search: 3000,
+  search: 9000,
   screen: 4000,
-  prepared: 8000,
-  constituents: 8000,
+  prepared: 14000,
+  constituents: 14000,
+  assetOptions: 9000,
   directInstrument: 8000,
   activity: 6000,
   customBuild: QUERY_REQUEST_TIMEOUT_MS,
