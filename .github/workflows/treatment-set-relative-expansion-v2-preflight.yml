@@ -1,0 +1,39 @@
+name: Treatment Set-Relative Expansion V2 Preflight
+
+on:
+  push:
+    branches:
+      - research/treatment-panel-recovery-v2-current-20261001
+    paths:
+      - 'backend/scripts/research_treatment_set_relative_expansion_panel_v2.py'
+      - '.github/workflows/treatment-set-relative-expansion-v2-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -q numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
+      - name: Live DB preflight only
+        run: |
+          python backend/scripts/research_treatment_set_relative_expansion_panel_v2.py \
+            --market-date 2026-09-29 \
+            --period 180d \
+            --output backend/artifacts/treatment_set_relative_v2/preflight.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-expansion-v2-preflight
+          path: backend/artifacts/treatment_set_relative_v2/preflight.json
+          if-no-files-found: error
