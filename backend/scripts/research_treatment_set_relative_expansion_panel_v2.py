@@ -254,6 +254,7 @@ def resolve_provider_id(provider: PkmnPricesClient, row: dict[str,Any]) -> tuple
 def capture(provider: PkmnPricesClient,target:dict[str,Any],period:str,credit_cap:int)->dict[str,Any]:
     start=provider.credits_charged
     panels={}; failures=[]
+    provider_exhausted=False
     for triad in target["triads"]:
         for row in triad["cards"]:
             if provider.credits_charged-start>=credit_cap:
@@ -277,10 +278,12 @@ def capture(provider: PkmnPricesClient,target:dict[str,Any],period:str,credit_ca
                 )
             except PkmnPricesAPIError as exc:
                 failures.append({"card":row["canonical_card_id"],"error":str(exc)})
-                if exc.code=="credit_limit_exceeded": break
+                if exc.code=="credit_limit_exceeded":
+                    provider_exhausted=True
+                    break
             except Exception as exc:
                 failures.append({"card":row["canonical_card_id"],"error":f"{type(exc).__name__}: {exc}"})
-        if failures and failures[-1].get("error") in {"local_credit_cap"}:
+        if provider_exhausted or (failures and failures[-1].get("error")=="local_credit_cap"):
             break
 
     triad_results=[]
