@@ -1,7 +1,7 @@
 {
   "operation": "preflight",
-  "pinned_sha": "2d8cf3bc365081bc45b1c161b7a66097696cd703",
+  "pinned_sha": "63c3dde47b7c51960fb16805fa0cce8ec48846ff",
   "requested_at": "2026-10-01",
-  "retry": 7,
+  "retry": 8,
   "mode": "preflight"
 }
