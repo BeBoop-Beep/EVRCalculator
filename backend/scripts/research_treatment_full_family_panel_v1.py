@@ -3,7 +3,7 @@
 Supports frozen family configurations:
 - dr-ultra-sir: all eligible identities in Chaos Rising, Mega Evolution,
   Paldea Evolved, and Paradox Rift.
-- hyper-ultra-sir: all eligible identities in Paldea Evolved and Temporal Forces.
+- hyper-ultra-sir: all eligible identities in the eight simulation-supported S&V Sets with >=2 complete Hyper/Ultra/SIR identities.
 
 Reuses one or more prior artifacts and fetches only missing exact-NM histories.
 No production writes.
@@ -39,9 +39,9 @@ CONFIG={
  },
  "hyper-ultra-sir":{
    "version":"treatment_full_hyper_ultra_sir_v1",
-   "sets":["Paldea Evolved","Temporal Forces"],
+   "sets":["Paldea Evolved","Temporal Forces","Destined Rivals","Paradox Rift","Journey Together","Scarlet and Violet Base Set","Surging Sparks","Twilight Masquerade"],
    "treatments":["Hyper Rare","Ultra Rare","Special Illustration Rare"],
-   "eras":{"Paldea Evolved":"Scarlet and Violet","Temporal Forces":"Scarlet and Violet"},
+   "eras":{"Paldea Evolved":"Scarlet and Violet","Temporal Forces":"Scarlet and Violet","Destined Rivals":"Scarlet and Violet","Paradox Rift":"Scarlet and Violet","Journey Together":"Scarlet and Violet","Scarlet and Violet Base Set":"Scarlet and Violet","Surging Sparks":"Scarlet and Violet","Twilight Masquerade":"Scarlet and Violet"},
    "era_min_sets":{"Scarlet and Violet":2},
  },
 }
