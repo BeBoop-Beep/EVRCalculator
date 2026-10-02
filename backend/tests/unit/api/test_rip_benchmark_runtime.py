@@ -325,8 +325,8 @@ def test_financial_history_is_plus_gated_absolute_set_era_projection(monkeypatch
     }
     fake = _Client({"rows": [row], "has_more": False, "next_cursor": None})
     client, constructions = _client(monkeypatch, fake)
-    monkeypatch.setattr(main, "read_financial_history_page", lambda *_args, **_kwargs: {
-        "contractVersion": "financial-rip-history-v2", "status": "available",
+    monkeypatch.setattr(main, "read_trend_history", lambda *_args, **_kwargs: {
+        "contractVersion": "rankings-trend-history-v1", "status": "available",
         "historyAvailableFrom": "2026-08-22", "historyAvailableThrough": "2026-09-28",
         "rows": [{
             "marketDate": row["market_date"], "entityType": row["entity_type"],
@@ -352,7 +352,7 @@ def test_financial_history_is_plus_gated_absolute_set_era_projection(monkeypatch
     )
     assert accepted.status_code == 200
     payload = accepted.json()
-    assert payload["contractVersion"] == "financial-rip-history-v2"
+    assert payload["contractVersion"] == "rankings-trend-history-v1"
     assert payload["rows"][0]["absoluteFinancialRipScore"] == 44.9
     assert payload["rows"][0]["overallFinancialRipReference"] == 30.37
     assert payload["historyAvailableThrough"] == "2026-09-28"

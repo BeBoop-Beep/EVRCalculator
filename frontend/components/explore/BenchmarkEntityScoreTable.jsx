@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import PlanLock from "@/components/membership/PlanLock";
+import InfoPopover from "@/components/ui/InfoPopover";
 import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
 import { RankingsBenchmarkComponentScore, RankingsRipScoreBadge } from "./RankingsScorePrimitives";
 import {
@@ -44,11 +45,12 @@ function RankCell({ row, sortKey }) {
 
 function ReferenceCells({ entitled, showModeledSets }) {
   const plain = <strong className="tabular-nums text-[var(--text-primary)]">{REFERENCE_SCORE.toFixed(1)}</strong>;
+  const relativeReference = (label) => <span className="inline-flex items-center justify-center gap-1"><span aria-hidden="true">—</span><InfoPopover text={`${label} is cohort-relative rather than measured against a universal Pokémon Overall baseline.`} /></span>;
   return <>
-    <td className={styles.numeric}><span className="sr-only">No rank</span></td>
-    <td><span className="inline-flex items-center gap-2 font-medium"><span aria-hidden="true">◉</span>Pokémon Overall Average</span><span className="sr-only"> Benchmark reference; not ranked</span></td>
+    <td className={styles.numeric}><span aria-hidden="true">◉</span><span className="sr-only">Benchmark reference; not ranked</span></td>
+    <td><span className="font-medium">Pokémon Overall Average</span></td>
     <td className={styles.numeric}>{plain}</td>
-    {COMPONENT_COLUMNS.map((column) => <td className={styles.numeric} key={column.key}>{entitled ? plain : <LockedCell label={column.label} />}</td>)}
+    {COMPONENT_COLUMNS.map((column) => <td className={styles.numeric} key={column.key}>{entitled ? column.key === "financial" ? plain : relativeReference(column.label) : <LockedCell label={column.label} />}</td>)}
     {showModeledSets ? <td /> : null}
   </>;
 }

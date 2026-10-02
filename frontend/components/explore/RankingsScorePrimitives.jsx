@@ -7,8 +7,13 @@ export function RankingsRipScoreBadge({ metric, label = "RIP Score", compact = f
   const hasRank = Number.isFinite(rank) && Number.isFinite(cohortSize);
   return <span className="inline-flex flex-col items-center gap-1" data-rankings-rip-score data-rank={hasRank ? rank : undefined} data-cohort-size={hasRank ? cohortSize : undefined}>
     <RipScoreBadge score={metric?.score} tier={metric?.tier} compact={compact} label={label} showLabel={false} scoreScale={RIP_SCORE_SCALE_BENCHMARK_10} accentColor={getBenchmarkTierTone(metric?.tier)?.accentColor} />
-    {hasRank ? <span className="sr-only">Rank {rank} of {cohortSize}</span> : null}
+    {hasRank ? <RankTierLine rank={rank} tier={metric?.tier} cohortSize={cohortSize} /> : null}
   </span>;
+}
+
+export function RankTierLine({ rank, tier, cohortSize = null }) {
+  const tone = getBenchmarkTierTone(tier);
+  return <span data-rank-tier-line className="text-[10px] font-semibold leading-none" style={{ color: tone?.accentColor || "var(--text-secondary)" }} aria-label={`Rank ${rank}, Tier ${tier || "unavailable"}`}>#{rank} [{tier || "—"}]{cohortSize ? <span className="sr-only"> of {cohortSize}</span> : null}</span>;
 }
 
 export function RankingsCompactScore({ metric, label }) {
@@ -30,8 +35,10 @@ export function RankingsBenchmarkComponentScore({ metric, label }) {
   const score = Number(metric?.score);
   const available = metric?.score !== null && metric?.score !== undefined && Number.isFinite(score);
   const tone = getBenchmarkTierTone(metric?.tier);
-  return <span data-rankings-benchmark-component-score data-tier={metric?.tier || undefined} role="img" aria-label={`${label}: ${available ? score.toFixed(1) : "Unavailable"}`} className="inline-flex min-w-[2.75rem] items-center justify-center rounded-md border px-2 py-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]" style={{ borderColor: tone?.accentColor || "var(--border-subtle)", borderWidth: "1px" }}>
-    <span aria-hidden="true">{available ? score.toFixed(1) : "—"}</span>
+  const rank = Number(metric?.rank), hasRank = Number.isFinite(rank) && metric?.tier;
+  return <span data-rankings-benchmark-component-score data-tier={metric?.tier || undefined} role="img" aria-label={`${label}: ${available ? score.toFixed(1) : "Unavailable"}${hasRank ? `. Rank ${rank}, Tier ${metric.tier}` : ""}`} className="inline-flex flex-col items-center gap-1">
+    <span className="inline-flex min-w-[3.25rem] items-center justify-center rounded-md border px-2 py-1 text-sm font-semibold tabular-nums text-[var(--text-primary)]" style={{ borderColor: tone?.accentColor || "var(--border-subtle)", borderWidth: "1px" }}><span aria-hidden="true">{available ? score.toFixed(1) : "—"}</span></span>
+    {hasRank ? <RankTierLine rank={rank} tier={metric.tier} cohortSize={metric?.cohortSize} /> : null}
   </span>;
 }
 

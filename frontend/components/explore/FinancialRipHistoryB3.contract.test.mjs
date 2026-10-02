@@ -34,7 +34,7 @@ test("focus is display-only: it never touches selection or issues a request", ()
   for (const handler of [fn(chart, "onToggleFocus=", "onHoverFocus="), fn(chart, "onHoverFocus=", "onRemove=")]) {
     assert.doesNotMatch(handler, /setSetSelection|setEraSelection|setRequest|readFinancialHistoryCached/);
   }
-  assert.match(chart, /resolveActiveFocus\(\{ persistentId: focusId, hoverId, seriesIds \}\)/);
+  assert.match(chart, /resolveActiveFocus\(\{\s*persistentId: focusId,\s*hoverId,\s*seriesIds,?\s*\}\)/);
   assert.match(chart, /setFocusId\(\(current\) => \(current === id \? null : current\)\)/, "removing the focused entity clears focus");
   assert.match(chart, /if \(focusId != null && !seriesIds\.includes\(focusId\)\) setFocusId\(null\)/);
   assert.match(chart, /strokeOpacity=\{emphasis\.strokeOpacity\}/);
@@ -87,12 +87,12 @@ test("range changes keep the last truthful chart and never show one range as ano
   assert.match(chart, /display\?\.range \|\| range/);
   assert.match(chart, /windowKey,\s*\},\s*key: requestKey/);
   assert.match(chart, /if \(active\) setRequest\(commit\(payload\)\)|if \(active\)/);
-  assert.match(chart, /return \(\) => \{ active = false; \};/);
+  assert.match(chart, /return \(\) => \{\s*active = false;\s*\};/);
 });
 
 test("access safety: chart is keyed by session identity and locks when not entitled", () => {
-  assert.match(chart, /!entitled \? <LockedPreview \/>/);
-  assert.match(chart, /shouldFetchFinancialRipHistory\(\{ entitled, authStatus/);
+  assert.match(chart, /!entitled\s*\?\s*\(?\s*<LockedPreview \/>/);
+  assert.match(chart, /shouldFetchFinancialRipHistory\(\{\s*entitled,\s*authStatus/);
   assert.match(cache, /!entitled \|\| !\(authStatus === "resolved" \|\| authStatus === "degraded"\)/);
 });
 

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   FINANCIAL_RIP_WINDOWS,
   buildFinancialRipChartModel,
+  buildTrendChartModel,
   eraFinancialRipCandidates,
   entitySeriesKey,
   financialRipRequestEntities,
@@ -11,6 +12,7 @@ import {
   financialRipTooltipRows,
   formatFinancialRipDelta,
   formatFinancialRipTooltipDelta,
+  nextSingleEraPreset,
   shouldFetchFinancialRipHistory,
   stableEntityColor,
   setFinancialRipCandidates,
@@ -19,6 +21,12 @@ import {
 } from "./financialRipHistoryModel.mjs";
 
 const selected = [{ entity_type: "set", entity_id: "set-a", name: "Set A" }];
+
+test("single-era preset cycles bidirectionally through the available eras", () => {
+  assert.equal(nextSingleEraPreset("sv", ["mega", "sv"]), "mega");
+  assert.equal(nextSingleEraPreset("mega", ["mega", "sv"]), "sv");
+  assert.equal(nextSingleEraPreset("sv", []), null);
+});
 
 test("plots only the certified absolute Financial RIP contract", () => {
   const model = buildFinancialRipChartModel([{
@@ -38,6 +46,7 @@ test("plots only the certified absolute Financial RIP contract", () => {
   assert.equal(point.overallFinancialRip, 30.2);
   assert.deepEqual(point.entities["set-a"], {
     financialRip: 34.8,
+    trendValue: 34.8,
     overallFinancialRip: 30.2,
     deltaVsOverall: 4.6,
     rank: 2,
@@ -73,10 +82,21 @@ test("all twelve certified v2 observations and the moving Overall reference surv
   assert.ok(model.points.every((point) => Number.isFinite(point.timestamp)));
 });
 
-test("timeframes and authority date match the chart contract", () => {
-  assert.deepEqual(FINANCIAL_RIP_WINDOWS.map((item) => item.key), ["30D", "3M", "6M", "1Y", "ALL"]);
-  assert.deepEqual(financialRipWindowRange("30D", "2026-09-27"), { startDate: "2026-08-29", endDate: "2026-09-27" });
-  assert.deepEqual(financialRipWindowRange("ALL", "2026-09-27", "2026-01-04"), { startDate: "2026-01-04", endDate: "2026-09-27" });
+test("1D asks for and renders the newest two certified observations", () => {
+  assert.deepEqual(FINANCIAL_RIP_WINDOWS.map((item) => item.key), ["1D", "7D", "30D", "3M", "6M", "1Y", "ALL"]);
+  assert.deepEqual(financialRipWindowRange("1D", "2026-09-27", "2026-08-17"), { startDate: "2026-08-17", endDate: "2026-09-27", latestPoints: 2, windowKey: "1D" });
+  const rows = ["2026-09-29", "2026-09-30", "2026-10-01"].map((market_date, index) => ({ entity_id: "set-a", market_date, absolute_financial_rip_score: 30 + index, overall_financial_rip_reference: 28 + index }));
+  const consecutive = buildTrendChartModel(rows, selected, { startDate: "2026-09-01", endDate: "2026-10-01", latestPoints: 2 });
+  assert.deepEqual(consecutive.points.map((point) => point.date), ["2026-09-30", "2026-10-01"]);
+  const gap = buildTrendChartModel(rows.filter((row) => row.market_date !== "2026-09-30"), selected, { startDate: "2026-09-01", endDate: "2026-10-01", latestPoints: 2 });
+  assert.deepEqual(gap.points.map((point) => point.date), ["2026-09-29", "2026-10-01"]);
+  assert.equal(buildTrendChartModel(rows.slice(-1), selected, { latestPoints: 2 }).points.length, 1);
+});
+
+test("calendar windows remain unchanged", () => {
+  assert.deepEqual(financialRipWindowRange("7D", "2026-09-27"), { startDate: "2026-09-21", endDate: "2026-09-27", latestPoints: null, windowKey: "7D" });
+  assert.deepEqual(financialRipWindowRange("30D", "2026-09-27"), { startDate: "2026-08-29", endDate: "2026-09-27", latestPoints: null, windowKey: "30D" });
+  assert.deepEqual(financialRipWindowRange("ALL", "2026-09-27", "2026-01-04"), { startDate: "2026-01-04", endDate: "2026-09-27", latestPoints: null, windowKey: "ALL" });
 });
 
 test("tooltip deltas use directional benchmark indicators", () => {

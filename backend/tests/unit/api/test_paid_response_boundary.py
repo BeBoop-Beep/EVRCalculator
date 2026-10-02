@@ -123,6 +123,9 @@ def test_redesign_card_facets_and_product_contracts_keep_paid_boundaries(monkeyp
     monkeypatch.setattr(main, "read_public_overall_product_rankings", lambda *args, **kwargs: {
         "available": True, "marketDate": "2026-09-28", "rows": [],
     })
+    monkeypatch.setattr(main, "_rankings_product_authority", lambda: {
+        "available": True, "publicationIdentity": "fixture", "marketDate": "2026-09-28", "rows": [],
+    })
     monkeypatch.setattr(main, "read_pack_economics", lambda _client: {"sets": []})
     client = TestClient(main.app)
 
@@ -136,8 +139,10 @@ def test_redesign_card_facets_and_product_contracts_keep_paid_boundaries(monkeyp
 
     assert client.get("/explore/product-rankings/scores").status_code == 401
     assert client.get("/explore/product-rankings/economics", headers=_headers("base-token")).status_code == 403
-    products_plus = client.get("/explore/product-rankings/scores", headers=_headers("plus-token"))
+    products_plus = client.get("/explore/product-rankings/scores?family=booster_box", headers=_headers("plus-token"))
     assert products_plus.status_code == 200
+    assert client.get("/explore/product-rankings/scores", headers=_headers("plus-token")).status_code == 403
+    assert client.get("/explore/product-rankings/scores", headers=_headers("premium-token")).status_code == 200
     assert products_plus.headers["cache-control"] == "no-store"
     assert "Cookie" in products_plus.headers["vary"] and "Authorization" in products_plus.headers["vary"]
 
@@ -165,7 +170,8 @@ def test_public_b1_routes_are_anonymous_while_wide_scorecards_gate_before_reads(
         "benchmark_key": "pokemon", "calibration_version": "v1"})())
     monkeypatch.setattr(main, "read_public_headlines", lambda *_args, **_kwargs: reads.append("headlines") or {"rows": []})
     monkeypatch.setattr(main, "read_public_pack_economics_preview", lambda *_args: reads.append("preview") or {"sets": []})
-    monkeypatch.setattr(main, "read_public_product_catalogue", lambda *_args: reads.append("catalogue") or {"rows": []})
+    monkeypatch.setattr(main, "_rankings_product_authority", lambda: {"rows": []})
+    monkeypatch.setattr(main, "read_public_product_catalogue_page", lambda *_args, **_kwargs: reads.append("catalogue") or {"rows": []})
     monkeypatch.setattr(main, "read_scorecards", lambda *_args, **_kwargs: reads.append("scorecards") or {"rows": []})
     client = TestClient(main.app)
 
@@ -204,14 +210,18 @@ def test_product_views_share_authority_and_economics_reads_best_open_directly(mo
     _install_auth(monkeypatch)
     main._rankings_product_authority_cache = None
     calls = []
-    monkeypatch.setattr(main, "get_pokemon_explore_rankings_lens_payload", lambda **_kwargs: calls.append("identity") or {"productFamilyRankings": {}})
-    monkeypatch.setattr(main, "read_public_overall_product_rankings", lambda *_args, **_kwargs: calls.append("ranking") or {
-        "available": True, "marketDate": "2026-09-28", "rows": []})
-    monkeypatch.setattr(main, "read_product_best_open_map", lambda *_args, **_kwargs: calls.append("best-open") or {})
+    authority = {
+        "available": True, "publicationIdentity": "fixture", "marketDate": "2026-09-28", "rows": [],
+    }
+    monkeypatch.setattr(main, "_rankings_product_authority", lambda: authority)
+    monkeypatch.setattr(main, "query_product_rankings", lambda _client, received, **kwargs: (
+        calls.append((received, kwargs["view"])) or {"status": "available", "rows": []}
+    ))
     client = TestClient(main.app)
-    assert client.get("/explore/product-rankings/scores", headers=_headers("plus-token")).status_code == 200
-    assert client.get("/explore/product-rankings/economics", headers=_headers("plus-token")).status_code == 200
-    assert calls == ["identity", "ranking", "best-open"]
+    assert client.get("/explore/product-rankings/scores?family=booster_box", headers=_headers("plus-token")).status_code == 200
+    assert client.get("/explore/product-rankings/economics?family=booster_box", headers=_headers("plus-token")).status_code == 200
+    assert client.get("/explore/product-rankings/scores", headers=_headers("premium-token")).status_code == 200
+    assert calls == [(authority, "scores"), (authority, "economics"), (authority, "scores")]
 
 
 def test_rankings_lenses_are_projected_and_never_cross_tier_cache(monkeypatch):

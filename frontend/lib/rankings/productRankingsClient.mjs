@@ -21,3 +21,19 @@ export function readProductRankings(view, { fetchImpl = fetch, sessionCache = nu
   const load = () => fetchImpl(url, { credentials: "include", cache: "no-store" }).then(readJson);
   return sessionCache ? sessionCache.request(`products:${view}:${query}`, load, { force }) : load();
 }
+
+export function prewarmDefaultProduct({ sessionCache, canViewFullMarket = false } = {}) {
+  if (canViewFullMarket) return readProductRankings("scores", {
+    sessionCache, params: { page: 1, page_size: 25, sort: "rank", direction: "asc" },
+  });
+  return import("./rankingsPublicClient.mjs").then(({ readPublicProductCatalogue }) =>
+    readPublicProductCatalogue({ sessionCache, params: { page: 1, page_size: 25 } }));
+}
+
+export function prewarmDefaultProductEconomics({ sessionCache, canViewFullMarket = false, family = null } = {}) {
+  if (!sessionCache || (!canViewFullMarket && !family)) return Promise.resolve(null);
+  return readProductRankings("economics", {
+    sessionCache,
+    params: { page: 1, page_size: 25, ...(family ? { family } : {}), sort: "productName", direction: "asc" },
+  }).catch(() => null);
+}

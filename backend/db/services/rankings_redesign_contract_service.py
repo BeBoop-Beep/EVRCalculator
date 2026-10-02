@@ -8,11 +8,13 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
-from backend.rankings.public_relative import benchmark_relative_tier
+from backend.rankings.public_relative import absolute_rank_percentile_tier, benchmark_relative_tier
+from backend.desirability.chase_accessibility_overall_score import chase_accessibility_overall_score
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
 
 
 BENCHMARK_REFERENCE_SCORE = 5.0
+_pack_economics_cache: tuple[tuple[str, str, str, str], dict[str, Any]] | None = None
 
 
 def _rows(response: Any) -> list[dict[str, Any]]:
@@ -60,6 +62,23 @@ def benchmark_presentation(score: Any, *, rank: Any = None, cohort_size: Any = N
 
 def benchmark_reference() -> dict[str, Any]:
     return {"label": "Pokémon Overall Average", "score": BENCHMARK_REFERENCE_SCORE, "iconKey": "pokemon"}
+
+
+def _relative_public_score(metric_key: str, raw_value: Any) -> Optional[float]:
+    """Presentation-only 0-10 projection for cohort-relative components."""
+    raw = _number(raw_value)
+    if raw is None:
+        return None
+    public_100 = raw if metric_key == "collector" else chase_accessibility_overall_score(raw)
+    return None if public_100 is None else round(float(public_100) / 10.0, 1)
+
+
+def relative_presentation(score: Any, *, rank: Any, cohort_size: Any) -> dict[str, Any]:
+    return {
+        "score": _number(score), "rank": rank, "cohortSize": cohort_size,
+        "tier": absolute_rank_percentile_tier(rank, cohort_size),
+        "presentationKind": "cohort-relative", "benchmarkReferenceScore": None,
+    }
 
 
 def read_financial_history_page(client: Any, *, entities: Sequence[Mapping[str, str]],
@@ -118,6 +137,34 @@ def read_financial_history_page(client: Any, *, entities: Sequence[Mapping[str, 
     }
 
 
+def read_trend_history(client: Any, *, entities: Sequence[Mapping[str, str]],
+                       start_date: date, end_date: date) -> dict[str, Any]:
+    """One bounded RPC returns all Trend metrics for local metric switching."""
+    rows = _rows(client.rpc("get_pokemon_rankings_trend_history_v1", {
+        "p_entities": [{"entity_type": item["entity_type"], "entity_id": str(item["entity_id"])} for item in entities],
+        "p_start_date": start_date.isoformat(), "p_end_date": end_date.isoformat(),
+    }).execute())
+    projected = [{
+        "marketDate": _day(row.get("market_date")), "entityType": row.get("entity_type"),
+        "entityId": str(row.get("entity_id")),
+        "absoluteFinancialRipScore": _number(row.get("financial_rip")),
+        "financialRank": row.get("financial_rank"), "financialCohortSize": row.get("financial_cohort_size"),
+        "overallFinancialRipReference": _number(row.get("overall_financial_rip")),
+        "expectedValuePerPack": _number(row.get("expected_value_per_pack")),
+        "overallExpectedValuePerPack": _number(row.get("overall_expected_value_per_pack")),
+        "chanceToBeatPack": _number(row.get("chance_to_beat_pack")),
+        "overallChanceToBeatPack": _number(row.get("overall_chance_to_beat_pack")),
+        "chanceToRecoverCost": _number(row.get("chance_to_recover_cost")),
+        "overallChanceToRecoverCost": _number(row.get("overall_chance_to_recover_cost")),
+        "sourceSnapshotId": str(row.get("source_snapshot_id")),
+    } for row in rows]
+    dates = [row["marketDate"] for row in projected if row.get("marketDate")]
+    return {"contractVersion": "rankings-trend-history-v1", "status": "available",
+            "historyAvailableFrom": min(dates) if dates else None,
+            "historyAvailableThrough": max(dates) if dates else None,
+            "rows": projected, "hasMore": False, "nextCursor": None}
+
+
 def read_financial_cohort(client: Any) -> dict[str, Any]:
     latest = _rows(client.table("pokemon_financial_rip_history_publications_v1")
                    .select("market_date").order("market_date", desc=True).limit(1).execute())
@@ -168,19 +215,28 @@ def _freshness(source: Optional[str], reference: Optional[str]) -> str:
 
 
 def read_pack_economics(client: Any) -> dict[str, Any]:
-    latest = _rows(client.table("pokemon_rip_stats_snapshot_latest").select("market_date,payload_json").limit(1).execute())
+    global _pack_economics_cache
+    latest = _rows(client.table("pokemon_rip_stats_snapshot_latest").select(
+        "market_date,source_run_fingerprint,payload_json"
+    ).limit(1).execute())
     if not latest:
         return {"contractVersion": "rankings-pack-economics-v1", "status": "unavailable", "sets": []}
     opening_date = _day(latest[0].get("market_date"))
     economics = (latest[0].get("payload_json") or {}).get("openingEconomics") or {}
     opening_sets = economics.get("sets") or []
     opening_set_ids = sorted({str(row.get("setId")) for row in opening_sets if row.get("setId")})
-    set_artwork = {str(row["id"]): row for row in _rows(client.table("sets").select(
-        "id,logo_image_url,symbol_image_url"
-    ).in_("id", opening_set_ids).execute())} if opening_set_ids else {}
     best_pointer = _rows(client.table("budget_product_best_open_price_latest").select(
         "snapshot_id,source_budget_snapshot_id,source_market_date"
     ).limit(1).execute())
+    cache_identity = (str(latest[0].get("source_run_fingerprint") or ""), opening_date or "",
+                      str(best_pointer[0].get("snapshot_id") or "") if best_pointer else "",
+                      _day(best_pointer[0].get("source_market_date")) if best_pointer else "")
+    cacheable = bool(cache_identity[0] and cache_identity[2])
+    if cacheable and _pack_economics_cache and _pack_economics_cache[0] == cache_identity:
+        return _pack_economics_cache[1]
+    set_artwork = {str(row["id"]): row for row in _rows(client.table("sets").select(
+        "id,logo_image_url,symbol_image_url"
+    ).in_("id", opening_set_ids).execute())} if opening_set_ids else {}
     best_date = _day(best_pointer[0].get("source_market_date")) if best_pointer else None
     best_rows = _rows(client.table("budget_product_best_open_price_rows").select(
         "sealed_product_id,set_id,product_family,source_calculation_run_id,current_market_price,current_quantity,"
@@ -259,9 +315,12 @@ def read_pack_economics(client: Any) -> dict[str, Any]:
                                "products": sorted(products_by_set.get(set_id, []),
                                                   key=lambda product: ((product.get("productName") or "").casefold(),
                                                                        product["sealedProductId"]))})
-    return {"contractVersion": "rankings-pack-economics-v1", "status": "available",
+    result = {"contractVersion": "rankings-pack-economics-v1", "status": "available",
             "openingEconomicsMarketDate": opening_date, "bestOpenSourceMarketDate": best_date,
             "bestOpenFreshnessStatus": _freshness(best_date, opening_date), "sets": projected_sets}
+    if cacheable:
+        _pack_economics_cache = (cache_identity, result)
+    return result
 
 
 def read_public_pack_economics_preview(client: Any) -> dict[str, Any]:
@@ -448,7 +507,7 @@ def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,
     if not publications:
         return {"contractVersion": "rankings-scorecards-v1", "status": "unavailable", "rows": []}
     rows = _rows(client.table("pokemon_rip_benchmark_rows_v1").select(
-        "entity_id,metric_key,benchmark_score,rank,cohort_size,benchmark_status"
+        "entity_id,metric_key,raw_model_value,benchmark_score,rank,cohort_size,benchmark_status"
     ).eq("publication_id", publications[0]["id"]).eq("entity_type", entity_type)
                  .in_("metric_key", ["overall", "financial", "collector", "chase"]).execute())
     ids = sorted({str(row["entity_id"]) for row in rows})
@@ -464,13 +523,28 @@ def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,
             client.table("eras").select("id,name,canonical_key").in_("id", era_ids).execute()
         )} if era_ids else {}
     else:
-        financial_sets = _rows(client.table("pokemon_rip_benchmark_rows_v1").select("entity_id")
-                               .eq("publication_id", publications[0]["id"]).eq("entity_type", "set")
-                               .eq("metric_key", "financial").execute())
-        financial_set_ids = sorted({str(row["entity_id"]) for row in financial_sets})
-        modeled_sets = _rows(client.table("sets").select("id,era_id").in_("id", financial_set_ids).execute()) if financial_set_ids else []
+        # One bounded Set benchmark read supplies both modeled counts and the
+        # Collector/Chase equal-Set presentation. Identity mapping is loaded once.
+        all_set_metrics = _rows(client.table("pokemon_rip_benchmark_rows_v1").select(
+            "entity_id,metric_key,raw_model_value"
+        ).eq("publication_id", publications[0]["id"]).eq("entity_type", "set")
+         .in_("metric_key", ["financial", "collector", "chase"]).execute())
+        all_set_ids = sorted({str(row["entity_id"]) for row in all_set_metrics})
+        modeled_sets = _rows(client.table("sets").select("id,era_id").in_("id", all_set_ids).execute()) if all_set_ids else []
         for set_row in modeled_sets:
-            key = str(set_row.get("era_id")); modeled_counts[key] = modeled_counts.get(key, 0) + 1
+            if any(str(metric["entity_id"]) == str(set_row["id"]) and metric.get("metric_key") == "financial" for metric in all_set_metrics):
+                key = str(set_row.get("era_id")); modeled_counts[key] = modeled_counts.get(key, 0) + 1
+    era_relative: dict[tuple[str, str], float] = {}
+    if entity_type == "era":
+        set_metric_rows = [row for row in all_set_metrics if row.get("metric_key") in {"collector", "chase"}]
+        set_eras = {str(row["id"]): str(row.get("era_id")) for row in modeled_sets}
+        buckets: dict[tuple[str, str], list[float]] = {}
+        for source in set_metric_rows:
+            era_id = set_eras.get(str(source["entity_id"])); metric_key = source.get("metric_key")
+            display = _relative_public_score(metric_key, source.get("raw_model_value"))
+            if era_id and display is not None:
+                buckets.setdefault((era_id, metric_key), []).append(display)
+        era_relative = {key: sum(values) / len(values) for key, values in buckets.items() if values}
     grouped: dict[str, dict[str, Any]] = {}
     for row in rows:
         entity_id = str(row["entity_id"]); identity = names.get(entity_id, {})
@@ -484,8 +558,14 @@ def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,
         else:
             base["modeledSetCount"] = modeled_counts.get(entity_id, 0)
         item = grouped.setdefault(entity_id, base)
-        item[row["metric_key"]] = benchmark_presentation(row.get("benchmark_score"), rank=row.get("rank"),
-                                                           cohort_size=row.get("cohort_size"))
+        metric_key = row["metric_key"]
+        if metric_key in {"collector", "chase"}:
+            display = (era_relative.get((entity_id, metric_key)) if entity_type == "era"
+                       else _relative_public_score(metric_key, row.get("raw_model_value")))
+            item[metric_key] = relative_presentation(display, rank=row.get("rank"), cohort_size=row.get("cohort_size"))
+        else:
+            item[metric_key] = benchmark_presentation(row.get("benchmark_score"), rank=row.get("rank"),
+                                                       cohort_size=row.get("cohort_size"))
     return {"contractVersion": "rankings-scorecards-v1", "status": "available",
             "marketDate": _day(publications[0]["market_date"]), "entityType": entity_type,
             "benchmarkReference": benchmark_reference(), "rows": sorted(grouped.values(), key=lambda row: (row.get("overall") or {}).get("rank") or 999999)}
@@ -590,5 +670,6 @@ def read_overview_v2(client: Any, *, legacy_headlines: Mapping[str, Any]) -> dic
                                                      if global_economics.get("entertainmentCostPerPack") is not None
                                                      else global_economics.get("averageEntertainmentCostPerPack"))},
             "overallFinancialRip": None if not financial else {"absoluteScore": _number(current.get("overall_financial_rip_reference")),
+                "displayValue": _number(current.get("overall_financial_rip_reference")),
                 "marketDate": _day(current.get("market_date")), "financialModelVersion": current.get("financial_model_version"),
                 "definitionKey": "equal_set_absolute_financial_rip_reference_v1"}}

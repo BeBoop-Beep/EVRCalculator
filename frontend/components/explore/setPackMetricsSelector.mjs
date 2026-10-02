@@ -3,7 +3,7 @@ import { money, ratioAsPercent } from "./openingEconomicsSelector.mjs";
 const finite = (value) => value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) : null;
 
 export const SET_PACK_COLUMNS = Object.freeze([
-  ["productFamilyCount", "Families"], ["productCount", "Products"],
+  ["packCount", "Packs"], ["productCount", "Products"],
   ["averagePackCostPerPack", "Avg Pack Cost"], ["expectedValuePerPack", "EV / Pack"],
   ["modeledReturnOnSpend", "Modeled Return"], ["chanceToRecoverCost", "Recover Cost"],
   ["entertainmentCostPerPack", "Entertainment Cost"], ["bestOpenPrice", "Best-Open Price"],
@@ -23,7 +23,7 @@ export function sortPackEconomicsSets(sets = [], key = "modeledReturnOnSpend", d
 }
 
 export function formatPackEconomicsValue(key, value) {
-  if (["productFamilyCount", "productCount"].includes(key)) return finite(value) === null ? null : String(Number(value));
+  if (["packCount", "productCount"].includes(key)) return finite(value) === null ? null : String(Number(value));
   if (["modeledReturnOnSpend", "chanceToRecoverCost"].includes(key)) return ratioAsPercent(value);
   return money(value);
 }
