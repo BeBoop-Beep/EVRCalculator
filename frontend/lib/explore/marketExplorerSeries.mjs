@@ -287,12 +287,12 @@ export function buildExplorerChartModel(overview, series, windowKey) {
   if (drawable.length === 0) {
     return { windowKey, available: false, startDate: null, endDate: null, dates: [], series: [] };
   }
-  // The visual viewport follows the requested calendar window. An actual
-  // baseline may precede it and remains metadata only; it is never plotted as
-  // a synthetic/pre-window point.
+  // The visual viewport starts at the oldest ACTUAL observation available to
+  // the selected window. targetStartDate is an analytical target (for example,
+  // exactly one year ago); reserving empty calendar space back to that target
+  // compresses short-history markets into the right side of the plot.
   const startDate = drawable.reduce((earliest, { change }) => (
-    earliest === null || (change.targetStartDate || change.startDate) < earliest
-      ? (change.targetStartDate || change.startDate) : earliest
+    earliest === null || change.startDate < earliest ? change.startDate : earliest
   ), null);
   const endDate = drawable.reduce((latest, { change }) => (
     latest === null || change.endDate > latest ? change.endDate : latest
