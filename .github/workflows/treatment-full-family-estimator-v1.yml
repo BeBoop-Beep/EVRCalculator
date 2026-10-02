@@ -1,6 +1,13 @@
 name: Treatment Full Family Estimator V1
 
 on:
+  push:
+    branches:
+      - research/treatment-panel-recovery-v2-current-20261001
+    paths:
+      - '.github/workflows/treatment-full-family-estimator-v1.yml'
+      - 'backend/scripts/research_treatment_full_family_estimator_v1.py'
+      - 'backend/tests/unit/scripts/test_research_treatment_full_family_estimator_v1.py'
   workflow_dispatch:
 
 permissions:
