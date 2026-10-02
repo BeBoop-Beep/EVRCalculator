@@ -157,7 +157,7 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                         {/* Inspecting is a SEPARATE action from show/hide: the
                             checkbox controls what is drawn, this controls what
                             the constituent panel is describing. */}
-                        {onInspect && entry.isParent !== true ? (
+                        {onInspect ? (
                           <button
                             type="button"
                             data-market-explorer-inspect={entry.key}
