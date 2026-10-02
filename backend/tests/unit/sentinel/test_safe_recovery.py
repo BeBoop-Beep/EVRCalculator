@@ -337,13 +337,13 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
         ),
     )
     assert registry.matches() == (
+        ("database.safety_hold", "DATABASE_SAFETY_HOLD_INVALID_EMPTY"),
         ("market.freshness", "market_publication_stale"),
         ("market.freshness", "market_snapshot_date_divergence"),
         ("market_explorer.maintenance_progress", "MARKET_EXPLORER_CONVERGENCE_STALLED"),
         ("market_explorer.maintenance_scheduler", "MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING"),
         ("pricing.ebay.scheduler", "EBAY_DAILY_SCHEDULE_MISSING"),
         ("pricing.multi_source.run_freshness", "DAILY_RUN_STALE_OR_INCOMPLETE"),
-        ("database.safety_hold", "DATABASE_SAFETY_HOLD_INVALID_EMPTY"),
         ("scrape.queue_leases", "scrape_job_lease_expired"),
         ("sentinel.runtime_scheduler", "SENTINEL_RUNTIME_SCHEDULE_MISSING"),
     )
