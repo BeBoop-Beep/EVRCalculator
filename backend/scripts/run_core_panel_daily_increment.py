@@ -280,13 +280,19 @@ def preflight(db: Any, *, expected_date: str, credit_cap: int = DAILY_INCREMENT_
         budget["invocation_credit_cap"] = 0
     states = panel_states(db)
     reasons: Counter[str] = Counter()
-    eligible, gaps = [], 0
+    eligible, gaps, due, current_today = [], 0, 0, 0
     for state in states:
         ok, reason = card_eligibility(state)
         reasons[reason] += 1
         if ok:
             eligible.append(state)
-            gaps += bool(increment_state(state["sync"]).get("open_gap"))
+            state_inc = increment_state(state["sync"])
+            has_gap = bool(state_inc.get("open_gap"))
+            gaps += has_gap
+            if state_inc.get("last_run_date") == expected_date and not has_gap:
+                current_today += 1
+            else:
+                due += 1
     return {
         "status": "PREFLIGHT_OK",
         "mode": MODE,
@@ -301,6 +307,8 @@ def preflight(db: Any, *, expected_date: str, credit_cap: int = DAILY_INCREMENT_
         "provider_daily_credit_exhausted": provider_daily_credit_exhausted,
         "eligibility": dict(sorted(reasons.items())),
         "eligible_cards": len(eligible),
+        "due_cards": due,
+        "already_current_today": current_today,
         "open_gap_cards": gaps,
         "operational_pause": operational_pause_reason(db),
         "provider_requests": 0,
@@ -460,6 +468,9 @@ def run_increment(
             continue
         inc = increment_state(state["sync"])
         gap = inc.get("open_gap") or {}
+        if inc.get("last_run_date") == expected_date and not gap:
+            skipped["ALREADY_CURRENT_TODAY"] += 1
+            continue
         origin, _ = frontier_of(state["sync"])
         contexts.append({
             "state": state, "origin_frontier": origin,
