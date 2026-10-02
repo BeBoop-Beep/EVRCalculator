@@ -140,16 +140,33 @@ def test_planner_io_is_select_only_and_makes_no_provider_call(monkeypatch):
 # ------------------------------------------------------------------ canary
 def _plan(n=6):
     rows = []
+    batch_rows = [0, 5, 9, 12, 19, 10]
+    graded_rows = [0, 0, 1, 0, 1, 1]
     for i in range(n):
-        rows.append({"canonical_card_id": f"card-{i:02d}", "provider_card_id": 100 + i, "state": "POTENTIAL_OVERFLOW",
-                     "frontier_ingested_at": "2026-09-25T00:00:00Z", "estimated_new_rows": [5, 12, 19, 21, 40, 20][i % 6]})
+        batch = batch_rows[i % 6]
+        graded = graded_rows[i % 6]
+        rows.append({
+            "canonical_card_id": f"card-{i:02d}",
+            "provider_card_id": 100 + i,
+            "state": "POTENTIAL_OVERFLOW",
+            "frontier_ingested_at": "2026-09-25T00:00:00Z",
+            "canary_probe_since": "2026-09-24T23:59:59.999999Z" if batch else None,
+            "frontier_batch_rows": batch,
+            "frontier_batch_graded_rows": graded,
+            "frontier_batch_ungraded_rows": batch - graded,
+            "estimated_new_rows": [5, 12, 19, 21, 40, 20][i % 6],
+        })
     return rows
 
 
 def test_selection_is_deterministic_rule_based_and_not_hardcoded():
     plan = _plan()
     picked = canary.select_canary_card(plan)
-    assert picked["canonical_card_id"] == "card-05" and picked["estimated_new_rows"] == 20  # exact target wins
+    assert picked["canonical_card_id"] == "card-05"
+    assert picked["frontier_batch_rows"] == 10
+    assert picked["frontier_batch_graded_rows"] == 1
+    assert picked["frontier_batch_ungraded_rows"] == 9
+    assert picked["probe_since"] == "2026-09-24T23:59:59.999999Z"
     assert canary.select_canary_card(list(reversed(plan))) == picked
     tie = [{**plan[2], "canonical_card_id": "b"}, {**plan[2], "canonical_card_id": "a"}]
     assert canary.select_canary_card(tie)["canonical_card_id"] == "a"
@@ -157,7 +174,7 @@ def test_selection_is_deterministic_rule_based_and_not_hardcoded():
     with pytest.raises(canary.CanaryRefused, match="NO_SUITABLE"):
         canary.select_canary_card(blocked)
     with pytest.raises(canary.CanaryRefused):
-        canary.select_canary_card([{**plan[0]}])  # estimate below the minimum
+        canary.select_canary_card([{**plan[0]}])  # no replayable frontier batch
     assert "umbreon" not in inspect.getsource(canary).lower()
 
 
