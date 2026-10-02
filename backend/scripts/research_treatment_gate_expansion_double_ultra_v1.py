@@ -33,7 +33,7 @@ MODERATE_DAYS = 30
 TARGETS = {
     "Chaos Rising": ("pokemon:pokemon:658", "pokemon:pokemon:573"),
     "Mega Evolution": ("pokemon:pokemon:282", "pokemon:pokemon:448"),
-    "Paldea Evolved": ("pokemon:pokemon:959", "pokemon:pokemon:931"),
+    "Paldea Evolved": ("pokemon:pokemon:1001", "pokemon:pokemon:931"),
     "Surging Sparks": ("pokemon:pokemon:635", "pokemon:pokemon:25"),
 }
 ERA_BY_SET = {
