@@ -1,4 +1,4 @@
 {
-  "operation": "fv-shadow-publish-once",
-  "request_id": "fv-shadow-first-prospective-20261002"
+  "operation": "code-red-db-load-restore-audit",
+  "request_id": "sentinel-recurring-snapshot-lag-20261002"
 }
