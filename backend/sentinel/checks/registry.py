@@ -12,6 +12,10 @@ from backend.sentinel.checks.authorities import (
     check_scrape_queue_leases,
     check_set_page_generation,
 )
+from backend.sentinel.checks.db_safety import (
+    DB_SAFETY_HOLD_CHECK_KEY,
+    check_db_safety_hold,
+)
 from backend.sentinel.checks.deployment import check_release_identity
 from backend.sentinel.checks.explorer import (
     MARKET_EXPLORER_PROGRESS_CHECK_KEY,
@@ -52,6 +56,7 @@ from backend.sentinel.registry import CheckRegistry
 
 FAST_CHECK_KEYS = (
     "alerts.delivery",
+    DB_SAFETY_HOLD_CHECK_KEY,
     "market.freshness",
     "publication.batch_gate",
     "scrape.queue_leases",
@@ -84,6 +89,17 @@ def build_fast_registry(*, client: Any = None) -> CheckRegistry:
         "alerts.delivery",
         lambda ctx: check_alert_delivery(ctx),
         description="Alert dispatcher configuration and backlog health",
+        confirm_after=1,
+        exception_severity=Severity.CRITICAL,
+    )
+    # Host-local DB safety must be observed before market freshness so its
+    # allowlisted repair can run first in the recovery pass. That lets the same
+    # Sentinel tick continue into canonical snapshot publication after a safe
+    # malformed-hold repair.
+    registry.register(
+        DB_SAFETY_HOLD_CHECK_KEY,
+        lambda ctx: check_db_safety_hold(ctx),
+        description="Host-local production DB safety hold integrity",
         confirm_after=1,
         exception_severity=Severity.CRITICAL,
     )

@@ -20,7 +20,7 @@ def _managed_block() -> str:
 */5 * * * * /usr/bin/flock -n /tmp/index-market-freshness-watchdog.lock -c 'python -m backend.alerts.market_freshness_watchdog'
 1-59/5 * * * * /usr/bin/flock -n /tmp/index-sentinel-fast.lock -c 'python -m backend.sentinel.operational --profile fast'
 4-59/10 * * * * /usr/bin/flock -n /tmp/index-sentinel-public.lock -c 'python -m backend.sentinel.operational --profile public'
-30 6 * * * /usr/bin/flock -n /tmp/index-sentinel-audit.lock -c 'python -m backend.sentinel.operational --profile audit'
+30 6,9,12,15,18 * * * /usr/bin/flock -n /tmp/index-sentinel-audit.lock -c 'python -m backend.sentinel.operational --profile audit'
 # END sentinel-runtime
 """
 
@@ -55,7 +55,7 @@ def test_partial_or_unmanaged_runtime_schedule_fails_closed():
 
 def test_missing_audit_entry_fails_runtime_schedule_contract():
     text = _managed_block().replace(
-        "30 6 * * * /usr/bin/flock -n /tmp/index-sentinel-audit.lock -c 'python -m backend.sentinel.operational --profile audit'\n",
+        "30 6,9,12,15,18 * * * /usr/bin/flock -n /tmp/index-sentinel-audit.lock -c 'python -m backend.sentinel.operational --profile audit'\n",
         "",
     )
     result = check_sentinel_scheduler(CTX, crontab_loader=lambda: text)

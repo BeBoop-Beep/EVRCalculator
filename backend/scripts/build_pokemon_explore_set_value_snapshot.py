@@ -547,17 +547,39 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
 
 
     raw_edition_stable_receipt = None
+    raw_edition_stable_leaf_receipt = None
     if commit and str(market_date)[:10] >= "2026-09-27":
+        target_market_date = str(market_date)[:10]
         response = client.rpc(
             "refresh_pokemon_market_raw_edition_stable_history_v1",
-            {"p_through_date": str(market_date)[:10]},
+            {"p_through_date": target_market_date},
         ).execute()
         raw_edition_stable_receipt = response.data or {}
         if (not isinstance(raw_edition_stable_receipt, dict)
                 or raw_edition_stable_receipt.get("status") != "READY"
                 or str(raw_edition_stable_receipt.get("marketDate") or "")[:10]
-                    != str(market_date)[:10]):
+                    != target_market_date):
             raise RuntimeError("raw_edition_stable_refresh_failed")
+
+        # Explorer V2 stages Raw composition from the edition-stable leaf
+        # sidecar, not from the parent Set-level index row. Keep those two
+        # authorities atomic at the publication boundary: a current Raw parent
+        # without current leaves is not a publishable prerequisite.
+        leaf_response = client.rpc(
+            "refresh_pokemon_market_raw_edition_stable_leaves_v1",
+            {"p_market_date": target_market_date},
+        ).execute()
+        raw_edition_stable_leaf_receipt = leaf_response.data or {}
+        expected_leaf_count = int(raw_edition_stable_receipt.get("cardCount") or 0)
+        if (
+            not isinstance(raw_edition_stable_leaf_receipt, dict)
+            or raw_edition_stable_leaf_receipt.get("status") not in {"complete", "noop"}
+            or str(raw_edition_stable_leaf_receipt.get("marketDate") or "")[:10]
+                != target_market_date
+            or int(raw_edition_stable_leaf_receipt.get("leafCount") or 0)
+                != expected_leaf_count
+        ):
+            raise RuntimeError("raw_edition_stable_leaf_refresh_failed")
 
     overview = market_overview
     if overview is None:
@@ -594,7 +616,11 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         }
     if raw_edition_stable_receipt:
         publication_diagnostics["rawEditionStable"] = dict(raw_edition_stable_receipt)
-    if edition_receipts or raw_edition_stable_receipt:
+    if raw_edition_stable_leaf_receipt:
+        publication_diagnostics["rawEditionStableLeaves"] = dict(
+            raw_edition_stable_leaf_receipt
+        )
+    if edition_receipts or raw_edition_stable_receipt or raw_edition_stable_leaf_receipt:
         row["payload_size_bytes"] = len(
             json.dumps(row["payload_json"], separators=(",", ":")).encode()
         )
