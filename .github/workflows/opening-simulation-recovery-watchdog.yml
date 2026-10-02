@@ -27,7 +27,7 @@ concurrency:
   # watchdog so a stale recovery cannot monopolize the sole production runner.
   # Push-triggered jobs are skipped below, so this is a runner-release action,
   # not a second recovery execution.
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   recover-if-needed:
