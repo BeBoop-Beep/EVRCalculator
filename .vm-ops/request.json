@@ -1,4 +1,5 @@
 {
   "operation": "fv-shadow-foundation-tests",
-  "request_id": "fv-shadow-ledger-activation-20261002"
+  "request_id": "fv-shadow-ledger-activation-20261002",
+  "retry": 1
 }
