@@ -23,17 +23,17 @@ jobs:
       - name: Checkout pinned research branch
         uses: actions/checkout@v4
         with:
-          ref: 4d52bbb94764017a147784212ec6917f3fdfe162
+          ref: 1eca70035ac9aa3a535b3490eb2aa1f78e6e995c
           fetch-depth: 1
       - name: Verify pinned research SHA
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="4d52bbb94764017a147784212ec6917f3fdfe162"
+          EXPECTED_SHA="1eca70035ac9aa3a535b3490eb2aa1f78e6e995c"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
-      - name: Download frozen Double-Ultra-SIR bridge artifact
+      - name: Download frozen three-level pilot artifact
         uses: actions/download-artifact@v4
         with:
           name: treatment-three-level-bridge-v1-vm
@@ -41,7 +41,7 @@ jobs:
           github-token: ${{ github.token }}
           repository: BeBoop-Beep/EVRCalculator
           run-id: 36965906038
-      - name: Capture Hyper-Ultra-SIR bridge
+      - name: Capture exhaustive Double-Ultra-SIR family panel
         shell: bash
         run: |
           set -euo pipefail
@@ -56,16 +56,17 @@ jobs:
           test -n "${SUPABASE_URL:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           mkdir -p backend/artifacts/treatment_panel_recovery_v2
-          "$PY" backend/scripts/research_treatment_hyper_bridge_v1.py \
+          "$PY" backend/scripts/research_treatment_full_family_panel_v1.py \
+            --family dr-ultra-sir \
             --base-artifact backend/artifacts/treatment_panel_recovery_v2/base/three_level_bridge_v1.json \
             --market-date 2026-09-29 \
             --period 180d \
-            --credit-cap 3000 \
-            --output backend/artifacts/treatment_panel_recovery_v2/hyper_bridge_v1.json
-      - name: Upload Hyper bridge artifact
+            --credit-cap 10000 \
+            --output backend/artifacts/treatment_panel_recovery_v2/full_dr_ultra_sir_v1.json
+      - name: Upload exhaustive Double-Ultra-SIR artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-hyper-bridge-v1-vm
-          path: backend/artifacts/treatment_panel_recovery_v2/hyper_bridge_v1.json
+          name: treatment-full-dr-ultra-sir-v1-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/full_dr_ultra_sir_v1.json
           if-no-files-found: warn
