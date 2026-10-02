@@ -46,6 +46,7 @@ import {
 } from "@/lib/explore/marketExplorerWorkspace.mjs";
 import styles from "./explore.module.css";
 import useMarketExplorerQueries from "@/hooks/explore/useMarketExplorerQueries";
+import useMarketExplorerConstituentPage from "@/hooks/explore/useMarketExplorerConstituentPage";
 import useMarketExplorerFilterOptions from "@/hooks/explore/useMarketExplorerFilterOptions";
 import useMarketExplorerSelection from "@/hooks/explore/useMarketExplorerSelection";
 import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
@@ -715,6 +716,24 @@ export default function MarketExplorerClient({
   );
   const activeDetailMarket =
     selectedSeries.find((entry) => entry.key === activeDetailSeriesId) || null;
+  // Warm the first constituent page while the user is still looking at the
+  // chart. Focus writes the same detail target, and with no explicit target the
+  // resolver chooses the first enumerable active market. The details takeover
+  // therefore normally opens from the generation-pinned cache instead of
+  // beginning its first network request after the click.
+  const backgroundConstituentIdentity = useMemo(() => {
+    if (!activeDetailMarket || activeDetailMarket.available === false) return null;
+    if (activeDetailMarket.queryFingerprint) return activeDetailMarket.spec || null;
+    if (activeDetailMarket.generationId && activeDetailMarket.marketType) {
+      return { marketKey: activeDetailMarket.key, generationId: activeDetailMarket.generationId };
+    }
+    return null;
+  }, [activeDetailMarket]);
+  useMarketExplorerConstituentPage(backgroundConstituentIdentity, {
+    cache: constituentPageCache,
+    limit: 25,
+    autoLoad: Boolean(backgroundConstituentIdentity),
+  });
   // FOCUS is derived against what is active and visible, so a removed or hidden
   // market can never leave a stale focus behind.
   const focusedSeriesKey =
