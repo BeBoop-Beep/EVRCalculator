@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     env:
       REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
-      FV_CANARY_SHA: "63c3dde47b7c51960fb16805fa0cce8ec48846ff"
+      FV_CANARY_SHA: "2d8cf3bc365081bc45b1c161b7a66097696cd703"
       FV_CANARY_BRANCH: "research/index-fair-value-sold-clearing-anchor-v1-20261001"
       STATE: "/home/ubuntu/state/fv_provider_canary"
       RUNTIME: "/home/ubuntu/state/fv_provider_canary/runtime"
@@ -67,6 +67,17 @@ jobs:
           grep -qx 'ACTIVATION_ENABLED = False' "$RUNTIME/backend/scripts/run_core_panel_daily_increment.py" || { echo "daily_collector_enabled=unexpected" >> "$RECEIPT_LOG"; exit 16; }
           echo "canary_enabled=true" >> "$RECEIPT_LOG"
           echo "daily_collector_enabled=false" >> "$RECEIPT_LOG"
+
+      - name: Run focused FV canary tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY="$REPO/.venv/bin/python"
+          export PYTHONPATH="$RUNTIME"
+          cd "$RUNTIME"
+          "$PY" -m pytest -q \
+            backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+            backend/tests/unit/scripts/test_run_core_panel_daily_increment.py
 
       - name: Regenerate catch-up plan and zero-credit preflight
         shell: bash
