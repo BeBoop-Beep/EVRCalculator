@@ -389,6 +389,22 @@ def test_ledger_migration_is_reviewed_mirrored_and_hardened():
     backend_sql = MIGRATION_BACKEND.read_text(encoding="utf-8")
     supabase_sql = MIGRATION_SUPABASE.read_text(encoding="utf-8")
     assert backend_sql == supabase_sql
+    normalized = backend_sql.replace("\r\n", "\n")
+    assert normalized.endswith("COMMIT;\n")
+    assert normalized.count("BEGIN;") == 1
+    assert normalized.count("COMMIT;") == 1
+    assert normalized.rstrip().endswith("COMMIT;")
+    for table in (
+        "fair_value_shadow_anchor_publications_v1",
+        "fair_value_shadow_anchor_members_v1",
+        "fair_value_shadow_component_observations_v1",
+        "fair_value_shadow_evaluation_outcomes_v1",
+    ):
+        assert normalized.count(f"CREATE TABLE public.{table} (") == 1, table
+    assert normalized.count("CREATE OR REPLACE FUNCTION public.publish_fair_value_shadow_anchor_v1(") == 1
+    # Four PL/pgSQL functions: mutation guard, availability guard, outcome guard, publication RPC.
+    assert normalized.count("AS $") == 4
+    assert normalized.count("\n$;") == 4
     sql = backend_sql
     assert "GRANT SELECT, INSERT ON" in sql and "GRANT SELECT, INSERT, UPDATE" not in sql
     assert "BEFORE UPDATE OR DELETE" in sql and "BEFORE TRUNCATE" in sql and "ENABLE ROW LEVEL SECURITY" in sql
