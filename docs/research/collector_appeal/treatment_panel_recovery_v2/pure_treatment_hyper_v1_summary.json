@@ -1,0 +1,30 @@
+{
+  "estimator_token": "PURE_TREATMENT_HYPER_PILOT_ESTIMATED",
+  "research_disposition": "HYPER_RARE_PLACEMENT_DIAGNOSTIC_ONLY_NEEDS_EXPANSION",
+  "pure": {
+    "hyper_vs_ultra_multiplier": 2.4453440769731336,
+    "hyper_ci95": [0.000013343426214032367, 28.203586663081364],
+    "sir_vs_ultra_multiplier": 8.889541603850747,
+    "sir_ci95": [0.000015054455665951665, 76.51880732320693],
+    "sir_vs_hyper_multiplier": 3.6352927539155524,
+    "sir_vs_hyper_ci95": [1.1282301430287784, 5.017816780945302],
+    "scarcity_beta": 0.5870559083830535,
+    "artist_beta_per_100": 0.5401320388995308,
+    "design_rank": 4,
+    "condition_number": 6.028744886779936
+  },
+  "temporal": {
+    "early_hyper_vs_ultra_multiplier": 2.2924588026671784,
+    "late_hyper_vs_ultra_multiplier": 2.6049501617260367,
+    "early_sir_vs_ultra_multiplier": 8.809958075889842,
+    "late_sir_vs_ultra_multiplier": 8.968195161488447,
+    "early_sir_vs_hyper_multiplier": 3.843016967476069,
+    "late_sir_vs_hyper_multiplier": 3.4427511486615665,
+    "all_contrast_signs_stable": true
+  },
+  "identities": 4,
+  "sets": 2,
+  "artifact_digest": "a5675f4cf07280fd18198496e4e3d9d4a901add39215f0b8d24596669478af89",
+  "control_run_id": "e282f26e-2136-4105-b0a3-f0974c4d9d70",
+  "production_writes": 0
+}
