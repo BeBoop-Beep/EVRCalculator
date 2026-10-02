@@ -10,48 +10,73 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: treatment-set-relative-expansion-v2-capture
+  group: treatment-set-relative-expansion-v2-hosted-capture
   cancel-in-progress: false
 
 jobs:
   capture:
-    runs-on: self-hosted
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      PKMNPRICES_API_KEY: ${{ secrets.PKMNPRICES_API_KEY }}
     steps:
-      - name: Capture frozen 56-triad expansion on VM
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install focused dependencies
+        run: python -m pip install -q numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
+      - name: Verify secrets without disclosure
         shell: bash
         run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$PKMNPRICES_API_KEY"
+      - name: Wait for serialized provider predecessors
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           set -euo pipefail
-
-          exec 9>/tmp/pkmnprices-api.lock
-          flock -w 300 9 || { echo "PkmnPrices API lock remained held"; exit 21; }
-
-          REPO=/home/ubuntu/repos/EVRCalculator
-          PY="$REPO/.venv/bin/python"
-          WT=/tmp/EVRCalculator-treatment-set-relative-v2
-          REF=origin/research/treatment-panel-recovery-v2-current-20261001
-          OUT="$WT/backend/artifacts/treatment_set_relative_v2/capture.json"
-
-          cd "$REPO"
-          git fetch origin research/treatment-panel-recovery-v2-current-20261001 --quiet
-          rm -rf "$WT"
-          git worktree add --detach "$WT" "$REF"
-          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT"' EXIT
-
-          set -a
-          . "$REPO/backend/.env"
-          set +a
-          test -n "${PKMNPRICES_API_KEY:-}" || { echo "PKMNPRICES_API_KEY missing on VM"; exit 20; }
-          test -n "${SUPABASE_URL:-}" || { echo "SUPABASE_URL missing on VM"; exit 20; }
-          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo "SUPABASE_SERVICE_ROLE_KEY missing on VM"; exit 20; }
-
-          export PYTHONPATH="$WT"
-          cd "$WT"
-
-          echo "== provider availability probe =="
-          "$PY" - <<'PY'
+          python - <<'PY'
+          import json, os, time, urllib.request
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GH_TOKEN"]
+          predecessors = {
+              37060780585: "Fair Value Core Panel first run",
+              37060892293: "defanged Treatment VM capture",
+          }
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "inDex-Treatment-V2",
+          }
+          for run_id, label in predecessors.items():
+              while True:
+                  req = urllib.request.Request(
+                      f"https://api.github.com/repos/{repo}/actions/runs/{run_id}",
+                      headers=headers,
+                  )
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      payload = json.load(response)
+                  status = str(payload.get("status") or "")
+                  conclusion = payload.get("conclusion")
+                  print(f"predecessor={run_id} label={label!r} status={status} conclusion={conclusion}", flush=True)
+                  if status == "completed":
+                      break
+                  time.sleep(30)
+          print("provider_predecessors=COMPLETE", flush=True)
+          PY
+      - name: Provider credit availability probe
+        run: |
+          python - <<'PY'
           from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient, PkmnPricesAPIError
           from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
           creds = load_pkmnprices_credentials(allow_frontend_fallback=False)
@@ -68,40 +93,35 @@ jobs:
               f"rate_remaining={client.rate_remaining}"
           )
           PY
-
-          echo "== frozen Set-relative V2 capture =="
+      - name: Capture frozen 56-triad expansion
+        id: capture
+        shell: bash
+        run: |
           set +e
-          "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py \
+          python backend/scripts/research_treatment_set_relative_expansion_panel_v2.py \
             --market-date 2026-09-29 \
             --period 180d \
             --credit-cap 22000 \
             --capture \
-            --output "$OUT"
+            --capture-authorization SET_RELATIVE_V2_FROZEN_CAPTURE_20261002 \
+            --output backend/artifacts/treatment_set_relative_v2/capture.json
           code=$?
-          set -e
-
-          mkdir -p "$GITHUB_WORKSPACE"
-          if [ -f "$OUT" ]; then
-            cp "$OUT" "$GITHUB_WORKSPACE/capture.json"
-          fi
-          printf '%s\n' "$code" > "$GITHUB_WORKSPACE/capture_exit_code.txt"
-          echo "capture_exit_code=$code"
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
       - name: Upload capture artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: treatment-set-relative-expansion-v2-capture
-          path: |
-            capture.json
-            capture_exit_code.txt
+          path: backend/artifacts/treatment_set_relative_v2/capture.json
           if-no-files-found: warn
       - name: Enforce capture result
         if: always()
         shell: bash
         run: |
-          if [ ! -f capture_exit_code.txt ]; then
+          code="${{ steps.capture.outputs.exit_code }}"
+          if [ -z "$code" ]; then
             echo "capture did not start"
             exit 1
           fi
-          code="$(cat capture_exit_code.txt)"
           exit "$code"
