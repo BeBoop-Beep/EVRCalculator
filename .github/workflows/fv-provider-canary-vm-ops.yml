@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: index-production-vm-ops-v2
@@ -25,6 +26,9 @@ jobs:
       STATE: "/home/ubuntu/state/fv_provider_canary"
       RUNTIME: "/home/ubuntu/state/fv_provider_canary/runtime"
       REPO: "/home/ubuntu/repos/EVRCalculator"
+      RECEIPT_LOG: "/home/ubuntu/state/fv_provider_canary/workflow-receipt.md"
+      RECEIPT_ISSUE: "530"
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Validate fixed request
         shell: bash
@@ -40,24 +44,44 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$STATE"
+          : > "$RECEIPT_LOG"
+          STAGE="prepare_start"
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then printf "operation=%s\\nfailed_stage=%s\\nexit_code=%s\\n" "${FV_OPERATION:-unknown}" "$STAGE" "$rc" >> "$RECEIPT_LOG"; fi' EXIT
+          printf "## FV provider canary receipt\\noperation=%s\\npinned_sha=%s\\n" "${FV_OPERATION:-unknown}" "$FV_CANARY_SHA" >> "$RECEIPT_LOG"
           PY="$REPO/.venv/bin/python"
+          STAGE="production_repo"
           [ -d "$REPO/.git" ] || { echo "REFUSING production repo missing"; exit 10; }
+          echo "production_repo=PASS" >> "$RECEIPT_LOG"
+          STAGE="production_venv"
           [ -x "$PY" ] || { echo "REFUSING production venv missing"; exit 11; }
+          echo "production_venv=PASS" >> "$RECEIPT_LOG"
+          STAGE="db_safety_hold"
           [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
             echo "REFUSING DB safety hold present"; exit 12;
           }
+          echo "db_safety_hold=clear" >> "$RECEIPT_LOG"
+          STAGE="pseudo_tty"
           command -v script >/dev/null || { echo "REFUSING pseudo-TTY utility missing"; exit 13; }
+          echo "pseudo_tty=PASS" >> "$RECEIPT_LOG"
 
-          mkdir -p "$STATE"
+          STAGE="git_fetch"
           git -C "$REPO" fetch origin "$FV_CANARY_BRANCH" --quiet
+          echo "git_fetch=PASS" >> "$RECEIPT_LOG"
+          STAGE="commit_object"
           git -C "$REPO" cat-file -e "$FV_CANARY_SHA^{commit}"
+          echo "commit_object=PASS" >> "$RECEIPT_LOG"
           if [ -e "$RUNTIME/.git" ] || [ -d "$RUNTIME" ]; then
             git -C "$REPO" worktree remove --force "$RUNTIME" 2>/dev/null || rm -rf "$RUNTIME"
           fi
+          STAGE="worktree_prune"
           git -C "$REPO" worktree prune
+          STAGE="worktree_add"
           git -C "$REPO" worktree add --detach "$RUNTIME" "$FV_CANARY_SHA" >/dev/null
+          echo "worktree_add=PASS" >> "$RECEIPT_LOG"
           ACTUAL="$(git -C "$RUNTIME" rev-parse HEAD)"
           echo "runtime_sha=$ACTUAL"
+          echo "runtime_sha=$ACTUAL" >> "$RECEIPT_LOG"
           [ "$ACTUAL" = "$FV_CANARY_SHA" ] || { echo "REFUSING runtime SHA mismatch"; exit 14; }
           grep -qx 'CANARY_ENABLED = True' "$RUNTIME/backend/scripts/run_core_panel_provider_semantics_canary.py" || {
             echo "REFUSING canary not enabled in pinned runtime"; exit 15;
@@ -65,6 +89,9 @@ jobs:
           grep -qx 'ACTIVATION_ENABLED = False' "$RUNTIME/backend/scripts/run_core_panel_daily_increment.py" || {
             echo "REFUSING daily collector unexpectedly enabled"; exit 16;
           }
+          echo "canary_enabled=true" >> "$RECEIPT_LOG"
+          echo "daily_collector_enabled=false" >> "$RECEIPT_LOG"
+          STAGE="prepare_complete"
 
       - name: Regenerate catch-up plan and zero-credit preflight
         shell: bash
@@ -176,3 +203,24 @@ jobs:
               raise SystemExit("unexpected canary process exit")
           PY
           echo "FV_PROVIDER_CANARY_COMPLETED"
+
+      - name: Post sanitized receipt
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$STATE"
+          [ -f "$RECEIPT_LOG" ] || printf "## FV provider canary receipt\\noperation=%s\\nreceipt_file_missing=true\\n" "${FV_OPERATION:-unknown}" > "$RECEIPT_LOG"
+          python3 - <<'PY'
+          import json,os,urllib.request
+          token=os.environ["GH_TOKEN"]
+          issue=os.environ["RECEIPT_ISSUE"]
+          body=open(os.environ["RECEIPT_LOG"],encoding="utf-8").read()
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/BeBoop-Beep/EVRCalculator/issues/{issue}/comments",
+              data=json.dumps({"body":body}).encode(),
+              headers={"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","Content-Type":"application/json"},
+              method="POST")
+          with urllib.request.urlopen(req,timeout=30) as resp:
+              print("receipt_post_status="+str(resp.status))
+          PY
