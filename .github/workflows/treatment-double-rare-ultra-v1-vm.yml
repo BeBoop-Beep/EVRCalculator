@@ -19,20 +19,20 @@ jobs:
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
     timeout-minutes: 45
     steps:
-      - name: Checkout exact research SHA
+      - name: Checkout pinned research branch
         uses: actions/checkout@v4
         with:
-          ref: 03820771f509d6bfa77c95df287b7e997c47a04b
+          ref: research/treatment-panel-recovery-v2-current-20261001
           fetch-depth: 1
-      - name: Verify exact research SHA
+      - name: Verify pinned research SHA
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="03820771f509d6bfa77c95df287b7e997c47a04b"
+          EXPECTED_SHA="1b506076852884f3e9ede78844b60635c98cc99a"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
-      - name: Capture Double Rare to Ultra Rare NM history
+      - name: Capture Double Rare vs Ultra historical panels
         shell: bash
         run: |
           set -euo pipefail
@@ -53,10 +53,10 @@ jobs:
             --credit-cap 3000 \
             --capture \
             --output backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_ultra.json
-      - name: Upload Double Rare to Ultra Rare artifact
+      - name: Upload Double Rare vs Ultra artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-double-rare-ultra-v1-vm
+          name: treatment-double-rare-ultra-v1
           path: backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_ultra.json
           if-no-files-found: warn
