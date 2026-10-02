@@ -23,24 +23,24 @@ jobs:
       - name: Checkout pinned research branch
         uses: actions/checkout@v4
         with:
-          ref: f3aad957d0f0be555a687b9a589fc815348f94fe
+          ref: f47627a80bb7c96a010fe0f895b64d062c248844
           fetch-depth: 1
       - name: Verify pinned research SHA
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="f3aad957d0f0be555a687b9a589fc815348f94fe"
+          EXPECTED_SHA="f47627a80bb7c96a010fe0f895b64d062c248844"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
       - name: Download frozen Hyper pilot artifact
         uses: actions/download-artifact@v4
         with:
-          name: treatment-hyper-bridge-v1-vm
+          name: treatment-full-hyper-ultra-sir-v1-vm
           path: backend/artifacts/treatment_panel_recovery_v2/base
           github-token: ${{ github.token }}
           repository: BeBoop-Beep/EVRCalculator
-          run-id: 36966254304
+          run-id: 37044568594
       - name: Capture exhaustive Hyper-Ultra-SIR family panel
         shell: bash
         run: |
@@ -58,7 +58,7 @@ jobs:
           mkdir -p backend/artifacts/treatment_panel_recovery_v2
           "$PY" backend/scripts/research_treatment_full_family_panel_v1.py \
             --family hyper-ultra-sir \
-            --base-artifact backend/artifacts/treatment_panel_recovery_v2/base/hyper_bridge_v1.json \
+            --base-artifact backend/artifacts/treatment_panel_recovery_v2/base/full_hyper_ultra_sir_v1.json \
             --market-date 2026-09-29 \
             --period 180d \
             --credit-cap 7000 \
