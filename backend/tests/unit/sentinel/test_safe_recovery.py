@@ -343,7 +343,7 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
         ("market_explorer.maintenance_scheduler", "MARKET_EXPLORER_MAINTENANCE_SCHEDULE_MISSING"),
         ("pricing.ebay.scheduler", "EBAY_DAILY_SCHEDULE_MISSING"),
         ("pricing.multi_source.run_freshness", "DAILY_RUN_STALE_OR_INCOMPLETE"),
-        ("runtime.db_safety_hold", "DATABASE_SAFETY_HOLD_INVALID_EMPTY"),
+        ("database.safety_hold", "DATABASE_SAFETY_HOLD_INVALID_EMPTY"),
         ("scrape.queue_leases", "scrape_job_lease_expired"),
         ("sentinel.runtime_scheduler", "SENTINEL_RUNTIME_SCHEDULE_MISSING"),
     )
