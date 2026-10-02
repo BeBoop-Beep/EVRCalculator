@@ -8,7 +8,6 @@ import MarketActivityChart from "./MarketActivityChart";
 import {
   MARKET_CHART_VIEW_ACTIVITY,
   MARKET_CHART_VIEW_INDEX,
-  MARKET_CHART_VIEW_PERFORMANCE,
 } from "./marketPerformanceDomain.mjs";
 import { describeUnavailableWindow } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs";
@@ -29,8 +28,6 @@ import { buildExplorerChartModel } from "@/lib/explore/marketExplorerSeries.mjs"
 // The legend names each ACTIVE series and its return over the selected window.
 // Series identity is the market's own color; the return's green/red is
 // performance semantics only.
-const PERFORMANCE_NOTE =
-  "Selected-window performance. Each market starts at 0% at its first available observation; canonical Market Index remains available in the tooltip.";
 const INDEX_NOTE =
   "Canonical Market Index. Timeframe changes which dates are shown; index levels remain based on each market's lifetime chain-linked history.";
 
@@ -125,9 +122,9 @@ export default function MarketExplorerChart({
         <div className="mt-1 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-1.5 [@media(max-height:500px)]:hidden">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] text-[var(--text-secondary)]">
-              {viewMode === MARKET_CHART_VIEW_INDEX
-                ? INDEX_NOTE
-                : viewMode === MARKET_CHART_VIEW_ACTIVITY ? "Observed sales and sparse listed-supply evidence for the focused market. Market Index lines remain subdued context." : PERFORMANCE_NOTE}
+              {viewMode === MARKET_CHART_VIEW_ACTIVITY
+                ? "Observed sales and sparse listed-supply evidence for the focused market. Market Index lines remain subdued context."
+                : INDEX_NOTE}
             </p>
             {timeframe === "All" ? (
               <p
