@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sentinel-oct2-snapshot-repair-deployed-ordering-20261002"
+  "operation": "publication-live-debug",
+  "request_id": "sentinel-oct2-post-deploy-publication-progress-20261002"
 }
