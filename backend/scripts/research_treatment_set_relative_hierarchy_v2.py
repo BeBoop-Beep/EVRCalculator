@@ -556,6 +556,7 @@ def estimate(
         "condition_le_30": condition <= 30,
         "scarcity_positive_ci": beta[-2] > 0 and ci["beta::scarcity"][0] > 0,
     }
+    temporal_rank_complete = early_rank == expected_rank and late_rank == expected_rank
     for era in ("Mega Evolution", "Scarlet and Violet"):
         point = _era_row(summary["eras"], era)
         early = _era_row(early_summary["eras"], era)
@@ -565,10 +566,14 @@ def estimate(
         gates[f"{era}_sir_double_ci_positive"] = ci[f"era::{era}::sir_dr"][0] > 0
         gates[f"{era}_sir_ultra_ci_positive"] = ci[f"era::{era}::sir_ur"][0] > 0
         gates[f"{era}_temporal_sir_double_positive"] = (
-            early["sir_vs_double_log"] > 0 and late["sir_vs_double_log"] > 0
+            temporal_rank_complete
+            and early["sir_vs_double_log"] > 0
+            and late["sir_vs_double_log"] > 0
         )
         gates[f"{era}_temporal_sir_ultra_positive"] = (
-            early["sir_vs_ultra_log"] > 0 and late["sir_vs_ultra_log"] > 0
+            temporal_rank_complete
+            and early["sir_vs_ultra_log"] > 0
+            and late["sir_vs_ultra_log"] > 0
         )
         gates[f"{era}_loo_sir_double_positive"] = all(
             row["complete_rank"] and row["metrics"][f"era::{era}::sir_dr"] > 0
