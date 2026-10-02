@@ -1,4 +1,4 @@
 {
-  "operation": "fv-shadow-ops-install-cron",
-  "request_id": "fv-shadow-ops-install-20261002-f440"
+  "operation": "fv-shadow-ops-status",
+  "request_id": "fv-shadow-ops-status-20261002-postinstall"
 }
