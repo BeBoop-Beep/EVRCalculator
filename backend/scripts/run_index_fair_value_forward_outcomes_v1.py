@@ -24,6 +24,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -35,6 +36,7 @@ from backend.scripts import index_fair_value_shadow_ledger_v1 as ledger_mod
 BINDING_SCHEMA_VERSION = "fv_shadow_market_binding_v1"
 BINDING_METHOD = "UNIQUE_H0_EXACT_PRICE_MATCH_V1"
 PRICE_SOURCE = "TCGPlayer"
+PHOENIX = ZoneInfo("America/Phoenix")
 FORWARD_HORIZONS = (1, 7, 30)
 
 
@@ -140,7 +142,6 @@ def derive_binding(db: Any, publication: Mapping[str, Any], h0: Mapping[str, Any
         "currency": "USD",
         "binding_method": BINDING_METHOD,
     }
-    record["content_fingerprint"] = _fp(record)
     return record
 
 
@@ -259,13 +260,14 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--commit", action="store_true")
-    parser.add_argument("--today", type=date.fromisoformat, default=date.today())
+    parser.add_argument("--today", type=date.fromisoformat, default=None)
     args = parser.parse_args(argv)
 
     from backend.db.clients.supabase_client import create_service_role_client
     db = create_service_role_client()
     ledger = ledger_mod.SupabaseShadowLedger(db)
-    result = collect(db=db, ledger=ledger, today=args.today, dry_run=args.dry_run)
+    today = args.today or __import__("datetime").datetime.now(PHOENIX).date()
+    result = collect(db=db, ledger=ledger, today=today, dry_run=args.dry_run)
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
     return 0 if not result["binding_failures"] and not result["outcome_failures"] else 3
 
