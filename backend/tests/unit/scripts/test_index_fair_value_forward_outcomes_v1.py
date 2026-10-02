@@ -116,3 +116,28 @@ def test_binding_adapter_is_idempotent_and_conflict_safe(monkeypatch):
         "content_fingerprint": stored_fp,
     }]
     assert adapter.append_market_binding(rec)=="IDEMPOTENT_NOOP"
+
+
+def test_bindings_only_dry_run_never_evaluates_forward_horizons():
+    p = pub()
+    db = DB({
+        "fair_value_shadow_anchor_publications_v1": [p],
+        "fair_value_shadow_evaluation_outcomes_v1": [h0()],
+        "fair_value_shadow_market_bindings_v1": [],
+        "card_variant_price_observations": [
+            obs("2026-10-02", 100),
+            obs("2026-10-03", 105),
+        ],
+    })
+    result = forward.collect(
+        db=db,
+        ledger=ledger_mod.InMemoryShadowLedger(),
+        today=date(2026, 10, 3),
+        dry_run=True,
+        bindings_only=True,
+    )
+    assert result["bindings_only"] is True
+    assert result["binding_statuses"] == {"WOULD_INSERT": 1}
+    assert result["outcome_statuses"] == {}
+    assert result["binding_failures"] == []
+    assert result["outcome_failures"] == []
