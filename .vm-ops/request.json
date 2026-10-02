@@ -1,4 +1,4 @@
 {
-  "operation": "scrape-cycle-status",
-  "request_id": "sentinel-post-recovery-publication-status-20261002"
+  "operation": "publication-live-debug",
+  "request_id": "sentinel-oct2-publication-debug-20261002"
 }
