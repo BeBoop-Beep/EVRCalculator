@@ -1,4 +1,4 @@
 {
-  "operation": "fv-shadow-publish-dry-run",
-  "request_id": "fv-shadow-first-publication-preflight-20261002"
+  "operation": "fv-shadow-publish-once",
+  "request_id": "fv-shadow-first-prospective-20261002"
 }
