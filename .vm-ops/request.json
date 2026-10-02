@@ -1,4 +1,4 @@
 {
-  "operation": "publication-live-debug",
-  "request_id": "sentinel-oct2-publication-debug-20261002"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sentinel-oct2-snapshot-repair-after-raw-prereq-20261002"
 }
