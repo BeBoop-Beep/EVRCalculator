@@ -196,7 +196,7 @@ def main(argv=None):
     p=argparse.ArgumentParser(); p.add_argument("--family",choices=sorted(CONFIG),required=True); p.add_argument("--base-artifact",type=Path,action="append",default=[]); p.add_argument("--market-date",default=MARKET_DATE); p.add_argument("--period",default="180d"); p.add_argument("--credit-cap",type=int,default=15000); p.add_argument("--output",type=Path,required=True)
     a=p.parse_args(argv); load_dotenv(ROOT/"backend/.env",override=False)
     from backend.db.clients.supabase_client import supabase
-    target=build_target(supabase,a.market_date); base,digests=merge_panels(a.base_artifact)
+    target=build_target(supabase,a.market_date,a.family); base,digests=merge_panels(a.base_artifact)
     creds=load_pkmnprices_credentials(allow_frontend_fallback=False); provider=PkmnPricesClient(creds.api_key,min_request_interval=.55,timeout=10,max_retries=0)
     result=capture(provider,target,base,digests,a.period,a.credit_cap)
     a.output.parent.mkdir(parents=True,exist_ok=True); a.output.write_text(json.dumps(result,indent=2,sort_keys=True,default=str)+"\n",encoding="utf-8")
