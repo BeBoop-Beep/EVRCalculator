@@ -1,8 +1,9 @@
 {
   "operation": "treatment-double-rare-sir-v1",
-  "research_sha": "90a9e618945f641de4428a56b2af9ae2f63568d7",
+  "research_sha": "5a024e446f62ebbb80202cf77b2a343cd42e99cc",
   "market_date": "2026-09-29",
   "period": "180d",
   "credit_cap": 3000,
+  "request_seq": 1,
   "requested_at": "2026-10-02"
 }
