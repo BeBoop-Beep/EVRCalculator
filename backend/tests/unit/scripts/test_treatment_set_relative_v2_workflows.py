@@ -1,4 +1,7 @@
 from pathlib import Path
+import subprocess
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
 CAPTURE = ROOT / ".github/workflows/treatment-set-relative-expansion-v2-capture.yml"
@@ -11,6 +14,36 @@ TARGET_FINGERPRINT = "28b344ca8ea95ba8fbc9fa947cdb28a1a3d83408482572084ee83e1cf9
 def _read(path: Path) -> str:
     assert path.exists(), f"missing workflow: {path}"
     return path.read_text(encoding="utf-8")
+
+
+def _parse(path: Path) -> dict:
+    payload = yaml.safe_load(_read(path))
+    assert isinstance(payload, dict), f"invalid workflow mapping: {path}"
+    assert isinstance(payload.get("jobs"), dict) and payload["jobs"], f"missing jobs: {path}"
+    return payload
+
+
+def test_workflow_yaml_and_bash_blocks_parse():
+    for path in (CAPTURE, HIERARCHY):
+        payload = _parse(path)
+        for job_name, job in payload["jobs"].items():
+            assert isinstance(job, dict), f"invalid job={job_name} path={path}"
+            for step in job.get("steps") or []:
+                script = step.get("run") if isinstance(step, dict) else None
+                shell = str(step.get("shell") or "bash") if isinstance(step, dict) else "bash"
+                if not script or not shell.startswith("bash"):
+                    continue
+                proc = subprocess.run(
+                    ["bash", "-n"],
+                    input=str(script),
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                assert proc.returncode == 0, (
+                    f"bash syntax failure path={path} job={job_name} "
+                    f"step={step.get('name')} stderr={proc.stderr}"
+                )
 
 
 def test_capture_workflow_is_manual_vm_locked_and_reset_guarded():
