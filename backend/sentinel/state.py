@@ -84,6 +84,9 @@ class SentinelStateStore(Protocol):
     def get_latest_recovery_attempt(
         self, incident_id: str, runbook: str
     ) -> Optional[RecoveryAttemptRecord]: ...
+    def get_recovery_attempt_budget_count(
+        self, incident_id: str, runbook: str
+    ) -> int: ...
     def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None: ...
     def record_heartbeat(
         self,
@@ -122,6 +125,11 @@ class NoopStateStore:
         self, incident_id: str, runbook: str
     ) -> Optional[RecoveryAttemptRecord]:
         return None
+
+    def get_recovery_attempt_budget_count(
+        self, incident_id: str, runbook: str
+    ) -> int:
+        return 0
 
     def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None:
         return None
@@ -191,6 +199,17 @@ class MemoryStateStore:
             return None
         latest = max(candidates, key=lambda attempt: (attempt.attempt_number, attempt.started_at))
         return replace(latest)
+
+    def get_recovery_attempt_budget_count(
+        self, incident_id: str, runbook: str
+    ) -> int:
+        return sum(
+            1
+            for attempt in self.recovery_attempts.values()
+            if attempt.incident_id == incident_id
+            and attempt.runbook == runbook
+            and attempt.status is not RecoveryAttemptStatus.BLOCKED
+        )
 
     def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None:
         self.recovery_attempts[attempt.id] = replace(attempt)
@@ -431,6 +450,25 @@ class SupabaseStateStore:
         )
         rows = list(result.data or [])
         return self._recovery_from_row(rows[0]) if rows else None
+
+    def get_recovery_attempt_budget_count(
+        self, incident_id: str, runbook: str
+    ) -> int:
+        result = self._run(
+            "get_recovery_attempt_budget_count",
+            lambda client: (
+                client.table("sentinel_recovery_attempts")
+                .select("status")
+                .eq("incident_id", incident_id)
+                .eq("runbook", runbook)
+                .execute()
+            ),
+        )
+        return sum(
+            1
+            for row in list(result.data or [])
+            if str(row.get("status") or "") != RecoveryAttemptStatus.BLOCKED.value
+        )
 
     def save_recovery_attempt(self, attempt: RecoveryAttemptRecord) -> None:
         payload = {
