@@ -50,6 +50,30 @@ export function resolveAreaOpacity(seriesCount) {
   return Math.max(0.03, (BASE_AREA_OPACITY * AREA_OPACITY_FULL_AT) / count);
 }
 
+export function resolveMarketPerformanceReading(entry, activeIndex, dates = []) {
+  if (!entry || activeIndex == null || activeIndex < 0) return {
+    value: null, rawValue: null, performanceValue: null, point: null,
+  };
+  let resolvedIndex = activeIndex;
+  while (resolvedIndex >= 0 && (entry.rawValues?.[resolvedIndex] === null || entry.rawValues?.[resolvedIndex] === undefined)) {
+    resolvedIndex -= 1;
+  }
+  if (resolvedIndex < 0) return {
+    value: null, rawValue: null, performanceValue: null, point: null,
+  };
+  const carried = resolvedIndex !== activeIndex;
+  const sourceDate = dates[resolvedIndex] || entry.pointMeta?.[resolvedIndex]?.sourceDate || null;
+  const point = entry.pointMeta?.[resolvedIndex]
+    ? { ...entry.pointMeta[resolvedIndex], ...(carried ? { isCarriedForward: true, sourceDate } : {}) }
+    : (carried && sourceDate ? { isCarriedForward: true, sourceDate } : null);
+  return {
+    value: entry.values?.[resolvedIndex] ?? null,
+    rawValue: entry.rawValues?.[resolvedIndex] ?? null,
+    performanceValue: entry.performanceValues?.[resolvedIndex] ?? null,
+    point,
+  };
+}
+
 export default function MarketPerformanceChart({ model, timeframe = "All", viewMode = MARKET_CHART_VIEW_PERFORMANCE, className = "", plotClassName = "h-56 desk:h-[19rem]", minimal = false, focusedSeriesKey = null, overlays = [], onInspectedDateChange }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipAnchor, setTooltipAnchor] = useState(null);
@@ -208,10 +232,7 @@ export default function MarketPerformanceChart({ model, timeframe = "All", viewM
         key: entry.key,
         label: entry.label,
         color: entry.color,
-        value: entry.values?.[activeIndex] ?? null,
-        rawValue: entry.rawValues?.[activeIndex] ?? null,
-        performanceValue: entry.performanceValues?.[activeIndex] ?? null,
-        point: entry.pointMeta?.[activeIndex] || null,
+        ...resolveMarketPerformanceReading(entry, activeIndex, dates),
         focus: focusActive ? (isDimmed(entry) ? "dimmed" : "focused") : undefined,
       }));
   const activeReadings = orderMarketPerformanceReadings(
