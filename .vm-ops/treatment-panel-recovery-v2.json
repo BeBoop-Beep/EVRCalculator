@@ -1,11 +1,11 @@
 {
   "operation": "treatment-panel-recovery-v2",
-  "research_sha": "909fc50b4c6bce4723745b6f364ae7550e7e1887",
+  "research_sha": "4d52bbb94764017a147784212ec6917f3fdfe162",
   "market_date": "2026-09-29",
   "period": "180d",
   "credit_cap": 3000,
   "requested_at": "2026-10-01",
-  "request_seq": 8,
-  "mode": "three-level-bridge",
+  "request_seq": 9,
+  "mode": "hyper-bridge",
   "max_cards": 10
 }
