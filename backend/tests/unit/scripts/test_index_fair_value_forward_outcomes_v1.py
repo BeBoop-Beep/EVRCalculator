@@ -33,13 +33,14 @@ class Query:
     def limit(self, *_a): return self
 
     def execute(self):
+        self.db.executions.append(self.table)
         rows=[copy.deepcopy(r) for r in self.db.tables.get(self.table,[]) if all(f(r) for f in self.filters)]
         return Result(rows)
 
 
 class DB:
     def __init__(self,tables):
-        self.tables=tables; self.inserts=[]
+        self.tables=tables; self.inserts=[]; self.executions=[]
     def table(self,name): return Query(self,name)
 
 
@@ -220,3 +221,95 @@ def test_market_missing_is_only_recorded_after_authoritative_batch_complete():
     )
     assert result["outcome_statuses"] == {"WOULD_INSERT_MARKET_MISSING": 1}
     assert result["outcome_failures"] == []
+
+
+def test_bound_price_batching_scales_by_chunks_not_outcomes():
+    due = []
+    observations = []
+    for i in range(101):
+        variant = f"variant-{i:03d}"
+        condition = f"condition-{i:03d}"
+        binding_row = {
+            "card_variant_id": variant,
+            "condition_id": condition,
+            "price_source": "TCGPlayer",
+        }
+        due.append((binding_row, date(2026, 10, 3)))
+        observations.append({
+            "card_variant_id": variant,
+            "condition_id": condition,
+            "market_price": 10 + i,
+            "captured_at": "2026-10-03",
+            "source": "TCGPlayer",
+            "currency": "USD",
+        })
+    db = DB({"card_variant_price_observations": observations})
+    prices, ambiguous, requests = forward.fetch_bound_prices_batch(db, due, chunk_size=50)
+    assert len(prices) == 101
+    assert not ambiguous
+    assert requests == 3
+    assert db.executions.count("card_variant_price_observations") == 3
+
+
+def test_collect_uses_batched_bound_price_reads_for_due_outcomes():
+    pubs = []
+    h0s = []
+    bindings = []
+    observations = []
+    for i in range(3):
+        pid = f"00000000-0000-0000-0000-{i+1:012d}"
+        cid = f"10000000-0000-0000-0000-{i+1:012d}"
+        variant = f"20000000-0000-0000-0000-{i+1:012d}"
+        condition = f"30000000-0000-0000-0000-{i+1:012d}"
+        pubs.append({
+            "publication_id": pid,
+            "canonical_card_id": cid,
+            "card_variant_id": variant,
+            "evaluation_date": "2026-10-02",
+            "median": "110.0",
+            "status": "ANCHORED",
+            "evidence_status": "PROSPECTIVE_AS_KNOWN_AT_CUTOFF",
+        })
+        h0s.append({
+            "publication_id": pid,
+            "horizon_days": 0,
+            "comparison_date": "2026-10-02",
+            "comparison_market_price_usd": 100.0,
+            "comparison_price_source": "TCGPlayer",
+            "outcome_status": "COMPLETE",
+        })
+        bindings.append({
+            "publication_id": pid,
+            "schema_version": forward.BINDING_SCHEMA_VERSION,
+            "canonical_card_id": cid,
+            "card_variant_id": variant,
+            "condition_id": condition,
+            "baseline_date": "2026-10-02",
+            "baseline_market_price_usd": 100.0,
+            "price_source": "TCGPlayer",
+            "currency": "USD",
+            "binding_method": forward.BINDING_METHOD,
+        })
+        observations.append({
+            "card_variant_id": variant,
+            "condition_id": condition,
+            "market_price": 105.0 + i,
+            "captured_at": "2026-10-03",
+            "source": "TCGPlayer",
+            "currency": "USD",
+        })
+    db = DB({
+        "fair_value_shadow_anchor_publications_v1": pubs,
+        "fair_value_shadow_evaluation_outcomes_v1": h0s,
+        "fair_value_shadow_market_bindings_v1": bindings,
+        "card_variant_price_observations": observations,
+        "pokemon_scrape_batches": [batch("2026-10-03")],
+    })
+    result = forward.collect(
+        db=db,
+        ledger=ledger_mod.InMemoryShadowLedger(),
+        today=date(2026, 10, 3),
+        dry_run=True,
+    )
+    assert result["outcome_statuses"] == {"WOULD_INSERT_COMPLETE": 3}
+    assert result["bound_price_select_requests"] == 1

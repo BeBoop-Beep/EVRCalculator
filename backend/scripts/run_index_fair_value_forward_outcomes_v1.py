@@ -164,6 +164,66 @@ def read_bound_price(db: Any, binding: Mapping[str, Any], comparison_date: date)
     return {"market_price_usd": prices[0], "source": binding["price_source"]}
 
 
+def _bound_price_key(binding: Mapping[str, Any], comparison_date: date) -> tuple[str, str, str, str]:
+    return (
+        str(binding["card_variant_id"]),
+        str(binding["condition_id"]),
+        comparison_date.isoformat(),
+        str(binding["price_source"]),
+    )
+
+
+def fetch_bound_prices_batch(
+    db: Any,
+    due: Sequence[tuple[Mapping[str, Any], date]],
+    *,
+    chunk_size: int = 50,
+) -> tuple[dict[tuple[str, str, str, str], float | None], set[tuple[str, str, str, str]], int]:
+    """Fetch exact bound prices in date/source batches instead of one query per outcome."""
+    requested = {_bound_price_key(binding, comparison_date) for binding, comparison_date in due}
+    grouped: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for variant_id, _condition_id, day, source in requested:
+        grouped[(day, source)].add(variant_id)
+
+    price_sets: dict[tuple[str, str, str, str], set[float]] = defaultdict(set)
+    requests = 0
+    for (day, source), variant_ids in sorted(grouped.items()):
+        ids = sorted(variant_ids)
+        for i in range(0, len(ids), chunk_size):
+            chunk = ids[i:i + chunk_size]
+            rows = (
+                db.table("card_variant_price_observations")
+                .select("market_price,captured_at,source,currency,condition_id,card_variant_id")
+                .in_("card_variant_id", chunk)
+                .eq("captured_at", day)
+                .eq("source", source)
+                .eq("currency", "USD")
+                .execute().data or []
+            )
+            requests += 1
+            for row in rows:
+                if not row.get("condition_id") or not row.get("card_variant_id"):
+                    continue
+                key = (
+                    str(row["card_variant_id"]),
+                    str(row["condition_id"]),
+                    str(row.get("captured_at") or "")[:10],
+                    str(row.get("source") or ""),
+                )
+                if key not in requested:
+                    continue
+                price = _positive(row.get("market_price"))
+                if price is not None:
+                    price_sets[key].add(price)
+
+    ambiguous = {key for key, values in price_sets.items() if len(values) > 1}
+    prices = {
+        key: (next(iter(price_sets[key])) if key in price_sets and len(price_sets[key]) == 1 else None)
+        for key in requested
+    }
+    return prices, ambiguous, requests
+
+
 def fetch_existing_outcomes(db: Any, publication_ids: list[str]) -> set[tuple[str, int]]:
     out: set[tuple[str, int]] = set()
     for chunk in _chunks(publication_ids):
@@ -214,6 +274,7 @@ def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False, binding
         binding_writer = ledger
         outcome_ledger = ledger
 
+    bound_publications: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for pub in publications:
         pid = str(pub["publication_id"])
         binding = bindings.get(pid)
@@ -234,37 +295,60 @@ def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False, binding
             bindings[pid] = binding
         else:
             binding_status["EXISTING"] += 1
+        bound_publications.append((pub, binding))
 
-        if bindings_only:
+    due_items: list[tuple[dict[str, Any], dict[str, Any], int, date]] = []
+    if not bindings_only:
+        for pub, binding in bound_publications:
+            pid = str(pub["publication_id"])
+            for horizon in FORWARD_HORIZONS:
+                key = (pid, horizon)
+                comparison_date = date.fromisoformat(str(pub["evaluation_date"])[:10]) + timedelta(days=horizon)
+                if comparison_date > today or key in existing_outcomes:
+                    continue
+                if comparison_date.isoformat() not in completed_market_dates:
+                    outcome_status["DEFERRED_BATCH_NOT_COMPLETE"] += 1
+                    continue
+                due_items.append((pub, binding, horizon, comparison_date))
+
+    due_prices, ambiguous_keys, price_select_requests = fetch_bound_prices_batch(
+        db, [(binding, comparison_date) for _pub, binding, _horizon, comparison_date in due_items]
+    )
+
+    for pub, binding, horizon, comparison_date in due_items:
+        pid = str(pub["publication_id"])
+        price_key = _bound_price_key(binding, comparison_date)
+        if price_key in ambiguous_keys:
+            outcome_failures.append({
+                "publication_id": pid,
+                "horizon": str(horizon),
+                "reason": f"ForwardOutcomeError:BOUND_PRICE_AMBIGUOUS_{comparison_date.isoformat()}",
+            })
             continue
         baseline = _positive(binding.get("baseline_market_price_usd"))
-        for horizon in FORWARD_HORIZONS:
-            key = (pid, horizon)
-            comparison_date = date.fromisoformat(str(pub["evaluation_date"])[:10]) + timedelta(days=horizon)
-            if comparison_date > today or key in existing_outcomes:
-                continue
-            if comparison_date.isoformat() not in completed_market_dates:
-                outcome_status["DEFERRED_BATCH_NOT_COMPLETE"] += 1
-                continue
-            try:
-                market = read_bound_price(db, binding, comparison_date)
-                outcome = evaluation.build_evaluation_outcome(
-                    pub,
-                    {
-                        "horizon_days": horizon,
-                        "comparison_date": comparison_date.isoformat(),
-                        "market_price_usd": (market or {}).get("market_price_usd"),
-                        "source": (market or {}).get("source") or binding["price_source"],
-                    },
-                    baseline_market_price_usd=baseline,
-                    today=today,
-                )
-                if dry_run:
-                    outcome_status["WOULD_INSERT_" + outcome["outcome_status"]] += 1
-                else:
-                    outcome_status[outcome_ledger.append_outcome(outcome)] += 1
-            except Exception as exc:
-                outcome_failures.append({"publication_id": pid, "horizon": str(horizon), "reason": type(exc).__name__ + ":" + str(exc)[:180]})
+        market_price = due_prices.get(price_key)
+        try:
+            outcome = evaluation.build_evaluation_outcome(
+                pub,
+                {
+                    "horizon_days": horizon,
+                    "comparison_date": comparison_date.isoformat(),
+                    "market_price_usd": market_price,
+                    "source": binding["price_source"],
+                },
+                baseline_market_price_usd=baseline,
+                today=today,
+            )
+            if dry_run:
+                outcome_status["WOULD_INSERT_" + outcome["outcome_status"]] += 1
+            else:
+                outcome_status[outcome_ledger.append_outcome(outcome)] += 1
+        except Exception as exc:
+            outcome_failures.append({
+                "publication_id": pid,
+                "horizon": str(horizon),
+                "reason": type(exc).__name__ + ":" + str(exc)[:180],
+            })
 
     return {
         "status": "DRY_RUN" if dry_run else "COMPLETE",
@@ -275,12 +359,12 @@ def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False, binding
         "binding_failures": binding_failures,
         "outcome_statuses": dict(outcome_status),
         "outcome_failures": outcome_failures,
+        "bound_price_select_requests": price_select_requests,
         "provider_calls": 0,
         "provider_credits_used": 0,
         "anchor_writes": 0,
         "public_price_writes": 0,
     }
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
