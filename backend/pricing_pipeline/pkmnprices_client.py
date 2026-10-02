@@ -120,6 +120,12 @@ class PkmnPricesClient:
                 return payload
             except urllib.error.HTTPError as exc:
                 error = self._error(exc)
+                # Daily account-credit exhaustion is authoritative until the provider's
+                # midnight-UTC reset. Retrying it only burns requests/time and can turn one
+                # account-level stop into hundreds of identical failures. Per-minute 429s
+                # remain retryable.
+                if error.status == 429 and error.code == "credit_limit_exceeded":
+                    raise error from None
                 if error.status not in RETRYABLE_STATUS or attempt >= self.max_retries:
                     raise error from None
             except (urllib.error.URLError, TimeoutError):

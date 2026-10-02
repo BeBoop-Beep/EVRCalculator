@@ -30,6 +30,8 @@ class FakeProvider:
         self.calls.append({"provider_id": provider_id, **kwargs})
         self.request_attempt_count += 1
         payload = self.pages[(provider_id, kwargs.get("cursor"))]
+        if isinstance(payload, BaseException):
+            raise payload
         self.credits_charged += len(payload["data"]) if self.charge == "items" else kwargs["limit"]
         return payload
 
@@ -109,6 +111,7 @@ def _run(states, provider, store=None, **kw):
 def _activate_for_unit_tests(monkeypatch):
     monkeypatch.setattr(inc, "ACTIVATION_ENABLED", True)
     monkeypatch.setattr(inc, "_credits_used_today_by_mode", lambda db, day: {})
+    monkeypatch.setattr(inc, "_provider_daily_credit_exhausted_today", lambda db, day: False)
 
 
 # ------------------------------------------------------------------ dormancy
@@ -511,3 +514,67 @@ def test_guarded_scheduler_wrapper_uses_db_workload_guard():
     assert "--run-encoded" in guarded
     assert "--wait-lock-seconds 300" in guarded
     assert "run_core_panel_daily_increment.sh" in guarded
+
+
+def test_provider_daily_credit_exhaustion_halts_after_first_429_and_preserves_recoverability():
+    first = _state(1)
+    second = _state(2)
+    third = _state(3)
+    page = [_raw(i, "2026-09-25T00:00:00+00:00") for i in range(20)]
+    provider = FakeProvider({
+        (1001, None): _page(page, True, "c1"),
+        (1002, None): PkmnPricesAPIError(429, "credit_limit_exceeded", "daily credits spent"),
+    })
+    result, store = _run([first, second, third], provider)
+    assert result["status"] == "PARTIAL"
+    assert result["halted_reason"] == inc.PROVIDER_DAILY_CREDIT_HALT
+    assert len(provider.calls) == 2
+    assert len(result["failures"]) == 1
+    assert result["unvisited_cards"] == 2
+    saved = store.sync[1001]["metadata"][inc.STATE_KEY]
+    assert saved["frontier_ingested_at"] == FLOOR
+    assert saved["open_gap"]["reason"] == "BOUNDED_OVERFLOW"
+    assert inc.STATE_KEY not in store.sync[1002]["metadata"]
+    assert inc.STATE_KEY not in store.sync[1003]["metadata"]
+
+
+def test_prior_provider_daily_credit_exhaustion_blocks_without_provider_call(monkeypatch):
+    monkeypatch.setattr(inc, "_provider_daily_credit_exhausted_today", lambda db, day: True)
+    provider = FakeProvider({})
+    result, store = _run([_state(1)], provider)
+    assert result["status"] == "BLOCKED"
+    assert result["reason"] == inc.PROVIDER_DAILY_CREDIT_HALT
+    assert result["provider_daily_credit_exhausted"] is True
+    assert result["invocation_budget"]["invocation_credit_cap"] == 0
+    assert provider.calls == []
+    assert store.runs == {}
+
+
+def test_provider_daily_credit_exhaustion_detection_supports_legacy_failure_receipt():
+    class Result:
+        data = [{
+            "error_code": "PkmnPricesAPIError",
+            "started_at": "2026-10-02T20:28:20Z",
+            "metadata": {
+                "failures": [{
+                    "message": "PkmnPrices API error status=429 code=credit_limit_exceeded"
+                }]
+            },
+        }]
+
+    class Query:
+        def select(self, *_args):
+            return self
+        def gte(self, *_args):
+            return self
+        def lt(self, *_args):
+            return self
+        def execute(self):
+            return Result()
+
+    class DB:
+        def table(self, name):
+            assert name == "pkmnprices_sold_runs_v1"
+            return Query()
+
+    assert inc._provider_daily_credit_exhausted_today(DB(), "2026-10-02") is True

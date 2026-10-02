@@ -491,3 +491,47 @@ def test_sold_transaction_identity_rejects_price_revision():
     }
     changed = dict(first, price="29.99")
     assert _same_transaction(first, changed) is False
+
+
+def test_daily_credit_exhaustion_is_never_retried():
+    calls = {"n": 0}
+    sleeps = []
+
+    def exhausted(request, timeout=30):
+        calls["n"] += 1
+        body = io.BytesIO(json.dumps({
+            "error": {"code": "credit_limit_exceeded", "message": "daily credits spent"}
+        }).encode())
+        raise urllib.error.HTTPError(request.full_url, 429, "Too Many Requests", {}, body)
+
+    client = PkmnPricesClient(
+        "secret", opener=exhausted, sleep=lambda value: sleeps.append(value), max_retries=2
+    )
+    with pytest.raises(PkmnPricesAPIError) as exc:
+        client.get("/v1/cards")
+    assert exc.value.status == 429 and exc.value.code == "credit_limit_exceeded"
+    assert calls["n"] == 1
+    assert client.request_attempt_count == 1
+    assert sleeps == []
+
+
+def test_per_minute_rate_limit_remains_retryable():
+    calls = {"n": 0}
+    sleeps = []
+
+    def throttled_once(request, timeout=30):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            body = io.BytesIO(json.dumps({
+                "error": {"code": "rate_limit_exceeded", "message": "slow down"}
+            }).encode())
+            raise urllib.error.HTTPError(request.full_url, 429, "Too Many Requests", {}, body)
+        return Response(json.dumps({"data": []}).encode())
+
+    client = PkmnPricesClient(
+        "secret", opener=throttled_once, sleep=lambda value: sleeps.append(value), max_retries=2
+    )
+    assert client.get("/v1/cards") == {"data": []}
+    assert calls["n"] == 2
+    assert client.request_attempt_count == 2
+    assert sleeps == [1.0]

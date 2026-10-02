@@ -80,6 +80,7 @@ from backend.scripts.run_market_microstructure_bucket_b5 import (  # noqa: E402
 MODE = "core_panel_daily_increment_v1"
 SELECTOR_VERSION = "core_panel_daily_increment_selector_v1"
 STATE_KEY = "core_panel_daily_increment"
+PROVIDER_DAILY_CREDIT_HALT = "PROVIDER_DAILY_CREDIT_LIMIT_EXCEEDED"
 
 #: Reviewed activation for the research-only prospective Fair Value shadow evidence feed.
 ACTIVATION_ENABLED = True
@@ -230,6 +231,29 @@ def _credits_used_today_by_mode(db: Any, credit_day: str) -> dict[str, int]:
     return dict(out)
 
 
+def _provider_daily_credit_exhausted_today(db: Any, credit_day: str) -> bool:
+    """Remember an account-wide provider daily-credit 429 for this UTC day.
+
+    PkmnPrices credits are account-wide, so manual/research consumers can spend credits
+    outside the sold-run ledger. Once any sold run observes credit_limit_exceeded, later
+    increment retries must make zero provider calls until the next UTC credit day.
+    """
+    start = datetime.fromisoformat(credit_day + "T00:00:00+00:00")
+    rows = (
+        db.table("pkmnprices_sold_runs_v1").select("error_code,metadata,started_at")
+        .gte("started_at", start.isoformat())
+        .lt("started_at", (start + timedelta(days=1)).isoformat())
+        .execute().data or []
+    )
+    for row in rows:
+        meta = dict(row.get("metadata") or {})
+        if meta.get("halted_reason") == PROVIDER_DAILY_CREDIT_HALT:
+            return True
+        for failure in list(meta.get("failures") or []):
+            if "code=credit_limit_exceeded" in str((failure or {}).get("message") or ""):
+                return True
+    return False
+
 def invocation_budget(used_by_mode: dict[str, int], requested_cap: int) -> dict[str, int]:
     if not 1 <= requested_cap <= DAILY_INCREMENT_CREDIT_CAP:
         raise ValueError(f"credit cap must be 1..{DAILY_INCREMENT_CREDIT_CAP}")
@@ -250,7 +274,10 @@ def invocation_budget(used_by_mode: dict[str, int], requested_cap: int) -> dict[
 def preflight(db: Any, *, expected_date: str, credit_cap: int = DAILY_INCREMENT_CREDIT_CAP) -> dict[str, Any]:
     contract = budget_contract()
     credit_day = provider_credit_day_utc()
+    provider_daily_credit_exhausted = _provider_daily_credit_exhausted_today(db, credit_day)
     budget = invocation_budget(_credits_used_today_by_mode(db, credit_day), credit_cap)
+    if provider_daily_credit_exhausted:
+        budget["invocation_credit_cap"] = 0
     states = panel_states(db)
     reasons: Counter[str] = Counter()
     eligible, gaps = [], 0
@@ -271,6 +298,7 @@ def preflight(db: Any, *, expected_date: str, credit_cap: int = DAILY_INCREMENT_
         "provider_credit_day_utc": credit_day,
         "budget_contract": contract,
         "invocation_budget": budget,
+        "provider_daily_credit_exhausted": provider_daily_credit_exhausted,
         "eligibility": dict(sorted(reasons.items())),
         "eligible_cards": len(eligible),
         "open_gap_cards": gaps,
@@ -373,7 +401,10 @@ def _finish_card(store: Any, ctx: dict[str, Any], run_id: str, today: str) -> di
                 "head_ingested_at": ctx["head"],
                 "resume_cursor": ctx["cursor"],
                 "opened_on": (ctx["gap_opened_on"] or today),
-                "reason": "SINCE_FILTER_NOT_HONOURED" if ctx.get("since_not_honoured") else "BOUNDED_OVERFLOW",
+                "reason": (
+                    ctx.get("forced_gap_reason")
+                    or ("SINCE_FILTER_NOT_HONOURED" if ctx.get("since_not_honoured") else "BOUNDED_OVERFLOW")
+                ),
             },
         })
         outcome = "GAP_OPEN_" + inc["open_gap"]["reason"]
@@ -402,13 +433,21 @@ def run_increment(
         raise IncrementDormant("CORE_PANEL_DAILY_INCREMENT_DORMANT: activation is not enabled in this release")
     contract = budget_contract()
     credit_day = provider_credit_day_utc()
+    provider_daily_credit_exhausted = _provider_daily_credit_exhausted_today(db, credit_day)
     budget = invocation_budget(_credits_used_today_by_mode(db, credit_day), credit_cap)
+    if provider_daily_credit_exhausted:
+        budget["invocation_credit_cap"] = 0
     cap = budget["invocation_credit_cap"]
     pause_check = pause_check or operational_pause_reason
     pause = pause_check(db)
     if pause or cap <= 0:
-        return {"status": "BLOCKED", "reason": (pause or {}).get("reason", "INCREMENT_DAILY_BUDGET_EXHAUSTED"),
-                "invocation_budget": budget, "provider_credits_used": 0, "database_writes": 0}
+        reason = (
+            (pause or {}).get("reason")
+            or (PROVIDER_DAILY_CREDIT_HALT if provider_daily_credit_exhausted else "INCREMENT_DAILY_BUDGET_EXHAUSTED")
+        )
+        return {"status": "BLOCKED", "reason": reason,
+                "invocation_budget": budget, "provider_daily_credit_exhausted": provider_daily_credit_exhausted,
+                "provider_credits_used": 0, "database_writes": 0}
 
     store = store or PkmnPricesStore(db)
     states = states if states is not None else panel_states(db)
@@ -466,13 +505,21 @@ def run_increment(
             return False
         try:
             _run_card_page(provider=provider, store=store, ctx=ctx, run_id=run_id, totals=totals)
-        except Exception as exc:  # fail closed: leave/open the gap, keep going on other cards
+        except Exception as exc:  # fail closed: preserve already-fetched spans; never skip silently
             failures.append({"canonical_card_id": ctx["state"]["target"]["canonical_card_id"],
                              "code": type(exc).__name__, "message": str(exc)[:300]})
             ctx["has_more"] = True
             ctx["since_not_honoured"] = ctx.get("since_not_honoured", False)
             ctx["failed"] = True
             ctx["done"] = True
+            if (
+                isinstance(exc, PkmnPricesAPIError)
+                and exc.status == 429
+                and exc.code == "credit_limit_exceeded"
+            ):
+                halted = PROVIDER_DAILY_CREDIT_HALT
+                ctx["forced_gap_reason"] = PROVIDER_DAILY_CREDIT_HALT
+                return False
         return True
 
     # Pass 1: one mandatory page per card (open gaps first by ordering).
@@ -511,6 +558,7 @@ def run_increment(
         "set_value_nm_eligible_count": 0, "error_code": failures[0]["code"] if failures else None,
         "metadata": {"mode": MODE, "panel_fingerprint": PANEL_FINGERPRINT, "expected_date": expected_date,
                      "budget_contract": contract, "invocation_budget": budget, "halted_reason": halted or None,
+                     "provider_daily_credit_exhausted": halted == PROVIDER_DAILY_CREDIT_HALT,
                      "provider_credit_day_utc": credit_day, "identity_lookups_allowed": False,
                      "outcomes": dict(outcomes), "skipped": dict(skipped), "unvisited_cards": unvisited,
                      "overflow_cards": sum(r["overflow"] for r in receipts.values()),
