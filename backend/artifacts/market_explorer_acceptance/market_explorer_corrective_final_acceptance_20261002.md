@@ -40,6 +40,21 @@ The staged migration exists in source as
 `20261002090000_market_explorer_catalog_search_v2_paging.sql`; acceptance did
 not apply it because this bucket forbids deployment and production writes.
 
+### Repeat acceptance receipt
+
+The acceptance request was repeated after the initial blocked report. The live
+boundary was rechecked from unchanged integrated SHA `dfa458b6` before any
+browser-matrix work:
+
+- `GET /market/explorer/catalog/search?asset=cards&q=prismatic&limit=12`
+- HTTP `503`
+- elapsed time: `292 ms`
+- response code: `CATALOG_SEARCH_UNAVAILABLE`
+
+The same deterministic missing-authority condition therefore remains active.
+This repeat is not evidence of an intermittent upstream outage, and retrying
+the six viewport flows against fixtures would not establish live acceptance.
+
 ## Failure classification
 
 | Classification | Finding |
