@@ -24,15 +24,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify pinned VM runtime and secrets
+      - name: Verify pinned VM runtime and safety state
         shell: bash
         run: |
           set -euo pipefail
           PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          HOLD=/home/ubuntu/state/db-safety/hold.json
           test -x "$PY"
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_SERVICE_ROLE_KEY"
           test -n "$PKMNPRICES_API_KEY"
+          [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
+            echo "TREATMENT_V2_DB_SAFETY_HOLD"
+            exit 75
+          }
           "$PY" - <<'PY'
           import numpy, dotenv, supabase
           print("focused_runtime=READY")
@@ -75,6 +80,20 @@ jobs:
         run: |
           set +e
           PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+
+          credit_day="$(date -u +%F)"
+          if [[ "$credit_day" < "2026-10-03" ]]; then
+            echo "TREATMENT_V2_REFUSING_BEFORE_CREDIT_RESET credit_day=$credit_day"
+            echo "exit_code=76" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
+            echo "TREATMENT_V2_DB_SAFETY_HOLD"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
 
           # Match the VM provider-consumer lock ordering used by B5/Core Panel.
           # Holding active-supply + provider locks makes scheduled consumers yield
@@ -114,7 +133,13 @@ jobs:
             exit 0
           fi
 
-          echo "treatment_v2_provider_window=RESERVED"
+          [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
+            echo "TREATMENT_V2_DB_SAFETY_HOLD_AFTER_LOCK"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          echo "treatment_v2_provider_window=RESERVED credit_day=$credit_day"
           "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py             --market-date 2026-09-29             --period 180d             --credit-cap 22000             --capture             --capture-authorization SET_RELATIVE_V2_FROZEN_CAPTURE_20261002             --output backend/artifacts/treatment_set_relative_v2/capture.json
           code=$?
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
