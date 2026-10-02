@@ -185,3 +185,89 @@ def test_fallback_currency_delegates_to_combined_explorer_authority(monkeypatch)
     assert mod._already_current(client, "2026-09-20") == PublicationCurrencyStatus.STALE
     assert seen == {"client": client, "market_date": "2026-09-20"}
 
+
+
+
+def test_isolated_global_divergence_uses_bounded_repair(monkeypatch):
+    monkeypatch.setattr(mod, "_batch_gate_decision", lambda *_a, **_k: _gate())
+    _set_lock(monkeypatch, False)
+    monkeypatch.setattr(
+        mod, "_already_current", lambda *_a, **_k: PublicationCurrencyStatus.STALE,
+    )
+    dates = {
+        "accepted_market_quality": "2026-10-02",
+        "set_value": "2026-10-02",
+        "set_market_dashboard": "2026-10-02",
+        "sealed_snapshot": "2026-10-02",
+        "global_market_index": "2026-10-02",
+        "edition_stable_raw": "2026-10-01",
+        "explore_set_value": "2026-10-01",
+        "explore_card_movers": "2026-10-02",
+        "explorer_v2": "2026-10-01",
+        "card_market_current": "2026-10-02",
+        "sealed_product_current": "2026-10-02",
+    }
+    monkeypatch.setattr(
+        "backend.alerts.market_freshness_watchdog.load_watchdog_state",
+        lambda *_a, **_k: {"authority_dates": dates},
+    )
+    bounded = []
+    full = []
+    result = mod.publish_if_needed(
+        "2026-10-02",
+        client=object(),
+        run_divergence_repair=lambda md: bounded.append(md) or 0,
+        run_rebuild=lambda md: full.append(md) or 0,
+    )
+    assert result["status"] == mod.STATUS_PUBLISHED
+    assert result["recovery_path"] == "bounded_global_market_divergence"
+    assert bounded == ["2026-10-02"]
+    assert full == []
+
+
+def test_core_authority_divergence_falls_back_to_full_publication(monkeypatch):
+    monkeypatch.setattr(mod, "_batch_gate_decision", lambda *_a, **_k: _gate())
+    _set_lock(monkeypatch, False)
+    monkeypatch.setattr(
+        mod, "_already_current", lambda *_a, **_k: PublicationCurrencyStatus.STALE,
+    )
+    dates = {
+        "accepted_market_quality": "2026-10-02",
+        "set_value": "2026-10-01",
+        "explore_set_value": "2026-10-01",
+        "explorer_v2": "2026-10-01",
+    }
+    monkeypatch.setattr(
+        "backend.alerts.market_freshness_watchdog.load_watchdog_state",
+        lambda *_a, **_k: {"authority_dates": dates},
+    )
+    bounded = []
+    full = []
+    result = mod.publish_if_needed(
+        "2026-10-02",
+        client=object(),
+        run_divergence_repair=lambda md: bounded.append(md) or 0,
+        run_rebuild=lambda md: full.append(md) or 0,
+    )
+    assert result["status"] == mod.STATUS_PUBLISHED
+    assert result["recovery_path"] == "canonical_full_publication"
+    assert bounded == []
+    assert full == ["2026-10-02"]
+
+
+def test_bounded_repair_db_safety_deferral_remains_retryable(monkeypatch):
+    monkeypatch.setattr(mod, "_batch_gate_decision", lambda *_a, **_k: _gate())
+    _set_lock(monkeypatch, False)
+    monkeypatch.setattr(
+        mod, "_already_current", lambda *_a, **_k: PublicationCurrencyStatus.STALE,
+    )
+    monkeypatch.setattr(
+        mod, "_bounded_divergence_repair_eligible", lambda *_a, **_k: True,
+    )
+    result = mod.publish_if_needed(
+        "2026-10-02",
+        client=object(),
+        run_divergence_repair=lambda _md: mod.DATABASE_SAFETY_HOLD_EXIT_CODE,
+    )
+    assert result["status"] == mod.STATUS_DEFERRED_DATABASE_SAFETY_HOLD
+    assert result["recovery_path"] == "bounded_global_market_divergence"
