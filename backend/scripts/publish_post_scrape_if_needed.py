@@ -45,6 +45,12 @@ logger = logging.getLogger(__name__)
 TAG = "[publish-if-needed]"
 
 REBUILD_SCRIPT = _PROJECT_ROOT / "backend" / "scripts" / "rebuild_snapshots_after_scrape.sh"
+DIVERGENCE_REPAIR_SCRIPT = _PROJECT_ROOT / "backend" / "scripts" / "repair_divergent_market_surfaces.sh"
+FAST_REPAIRABLE_AUTHORITIES = frozenset({
+    "edition_stable_raw",
+    "explore_set_value",
+    "explorer_v2",
+})
 LOCK_HELD_EXIT_CODE = 4
 DATABASE_SAFETY_HOLD_EXIT_CODE = 75
 
@@ -138,7 +144,36 @@ def _already_current(client, market_date: str) -> "PublicationCurrencyStatus":
     return evaluate_post_scrape_publication_currency(client, market_date)
 
 
-def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dict:
+def _bounded_divergence_repair_eligible(client, market_date: str) -> bool:
+    """Use the cheap repair only when every core authority is already current."""
+    from backend.alerts.market_freshness_watchdog import load_watchdog_state
+
+    state = load_watchdog_state(client, market_date)
+    dates = dict(state.get("authority_dates") or {})
+    if not dates:
+        return False
+    divergent = {
+        key
+        for key, value in dates.items()
+        if str(value or "")[:10] != str(market_date)[:10]
+    }
+    return bool(divergent) and divergent.issubset(FAST_REPAIRABLE_AUTHORITIES)
+
+
+def _run_divergence_repair_script(market_date: str) -> int:
+    args = [str(DIVERGENCE_REPAIR_SCRIPT), market_date]
+    logger.info("%s bounded divergence command: %s", TAG, " ".join(args))
+    result = subprocess.run(args, cwd=str(_PROJECT_ROOT))
+    return int(result.returncode)
+
+
+def publish_if_needed(
+    market_date: str,
+    *,
+    client=None,
+    run_rebuild=None,
+    run_divergence_repair=None,
+) -> dict:
     from backend.db.services.post_scrape_publication_trigger import (
         PUBLICATION_LOCK_PATH,
         PublicationCurrencyStatus,
@@ -223,16 +258,40 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
         )
         return {"market_date": market_date, "status": STATUS_NOOP_CURRENCY_UNKNOWN}
 
+    try:
+        bounded_repair = _bounded_divergence_repair_eligible(client, market_date)
+    except Exception as exc:
+        logger.warning(
+            "%s bounded-divergence eligibility unavailable for market_date=%s; "
+            "falling back to canonical publisher: %s: %s",
+            TAG, market_date, type(exc).__name__, exc,
+        )
+        bounded_repair = False
+
     runner = run_rebuild or _run_rebuild_script
+    recovery_path = "canonical_full_publication"
+    if bounded_repair:
+        runner = run_divergence_repair or _run_divergence_repair_script
+        recovery_path = "bounded_global_market_divergence"
     exit_code = runner(market_date)
     if exit_code == 0:
         logger.info("%s publication complete for market_date=%s", TAG, market_date)
-        return {"market_date": market_date, "status": STATUS_PUBLISHED, "exit_code": exit_code}
+        return {
+            "market_date": market_date,
+            "status": STATUS_PUBLISHED,
+            "exit_code": exit_code,
+            "recovery_path": recovery_path,
+        }
     if exit_code == LOCK_HELD_EXIT_CODE:
         logger.info(
             "%s publication already running for market_date=%s; safe no-op", TAG, market_date
         )
-        return {"market_date": market_date, "status": STATUS_NOOP_ALREADY_RUNNING, "exit_code": exit_code}
+        return {
+            "market_date": market_date,
+            "status": STATUS_NOOP_ALREADY_RUNNING,
+            "exit_code": exit_code,
+            "recovery_path": recovery_path,
+        }
     if exit_code == DATABASE_SAFETY_HOLD_EXIT_CODE:
         logger.info(
             "%s publication deferred by production database safety hold market_date=%s",
@@ -242,12 +301,18 @@ def publish_if_needed(market_date: str, *, client=None, run_rebuild=None) -> dic
             "market_date": market_date,
             "status": STATUS_DEFERRED_DATABASE_SAFETY_HOLD,
             "exit_code": exit_code,
+            "recovery_path": recovery_path,
         }
 
     logger.error(
         "%s publication FAILED market_date=%s exit_code=%s", TAG, market_date, exit_code
     )
-    return {"market_date": market_date, "status": STATUS_PUBLISH_FAILED, "exit_code": exit_code}
+    return {
+        "market_date": market_date,
+        "status": STATUS_PUBLISH_FAILED,
+        "exit_code": exit_code,
+        "recovery_path": recovery_path,
+    }
 
 
 def _run_rebuild_script(market_date: str) -> int:
