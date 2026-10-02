@@ -8,22 +8,43 @@ AUDIT_SOURCE = (Path(__file__).resolve().parents[3] / "scripts" / "audit_pokemon
 
 def test_global_set_values_refresh_after_per_set_market_and_before_other_globals():
     coordinated = SOURCE.index("_maybe_rebuild_coordinated_market(", SOURCE.index("# Rebuild order for the remaining families"))
-    raw_prereq = SOURCE.index("refresh_pokemon_market_raw_edition_stable_history_v1")
+    raw_parent = SOURCE.index("refresh_pokemon_market_raw_edition_stable_history_v1")
+    raw_leaves = SOURCE.index(
+        "refresh_pokemon_market_raw_edition_stable_leaves_v1", raw_parent
+    )
     set_values = SOURCE.index("_maybe_rebuild_explore_set_values(", coordinated)
     movers = SOURCE.index("_maybe_rebuild_explore_card_movers(", set_values)
     rankings = SOURCE.index("_maybe_rebuild_rankings(", movers)
-    assert coordinated < raw_prereq < set_values < movers < rankings
+    assert coordinated < raw_parent < raw_leaves < set_values < movers < rankings
 
 
-def test_edition_stable_raw_is_materialized_before_global_set_value_reads():
+def test_edition_stable_raw_parent_and_leaf_sidecar_are_materialized_together():
     phase = SOURCE[
         SOURCE.index("def _run_market_quality_index_phase("):
         SOURCE.index("def _maybe_rebuild_set_page(")
     ]
     persist = phase.index("persist_rollout_market_index_rows(client, index_rows)")
-    raw_refresh = phase.index("refresh_pokemon_market_raw_edition_stable_history_v1")
-    verify = phase.index("pokemon_market_raw_edition_stable_daily_history_v1", raw_refresh)
-    assert persist < raw_refresh < verify
+    raw_parent = phase.index("refresh_pokemon_market_raw_edition_stable_history_v1")
+    parent_verify = phase.index(
+        "pokemon_market_raw_edition_stable_daily_history_v1", raw_parent
+    )
+    raw_leaves = phase.index(
+        "refresh_pokemon_market_raw_edition_stable_leaves_v1", parent_verify
+    )
+    assert persist < raw_parent < parent_verify < raw_leaves
+    assert "rawSourceGenerationFingerprint" in phase[raw_leaves:]
+    assert "source_generation_fingerprint" in phase[parent_verify:raw_leaves]
+
+
+def test_global_set_value_publisher_refreshes_raw_parent_before_leaf_sidecar():
+    block = PUBLISHER_SOURCE[
+        PUBLISHER_SOURCE.index("raw_edition_stable_receipt = None"):
+        PUBLISHER_SOURCE.index("overview = market_overview")
+    ]
+    parent = block.index("refresh_pokemon_market_raw_edition_stable_history_v1")
+    leaves = block.index("refresh_pokemon_market_raw_edition_stable_leaves_v1")
+    assert parent < leaves
+    assert "raw_edition_stable_leaf_refresh_failed" in block
 
 
 
