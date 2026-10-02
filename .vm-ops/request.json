@@ -1,4 +1,4 @@
 {
-  "operation": "scrape-cycle-status",
-  "request_id": "sentinel-snapshot-lag-status-20261002"
+  "operation": "sync-main-reviewed",
+  "request_id": "sentinel-db-safety-autorecovery-deploy-20261002"
 }
