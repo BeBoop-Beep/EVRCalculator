@@ -1,6 +1,6 @@
 #!/bin/bash
-# DORMANT / NOT INSTALLED. Core Panel daily sold-increment collector.
-# The Python entry point refuses --commit (exit 78) while ACTIVATION_ENABLED is False.
+# Managed Core Panel daily sold-increment collector for the research-only FV shadow feed.
+# Runtime is detached and SHA-pinned by install_core_panel_daily_increment_cron.sh.
 # Lock and DB-safety-hold ordering is intentionally identical to run_market_microstructure_bucket_b5.sh.
 # Core Panel daily increment (frozen 207-card panel; never restarts backfill).
 set -euo pipefail

@@ -134,14 +134,19 @@ def test_commit_refuses_before_credentials_or_database(monkeypatch, capsys):
     assert '"database_writes": 0' in capsys.readouterr().out
 
 
-def test_shipped_activation_flag_is_false_and_nothing_is_scheduled():
+def test_shipped_activation_flag_is_true_and_managed_schedule_present():
     source = (ROOT / "backend/scripts/run_core_panel_daily_increment.py").read_text(encoding="utf-8")
-    assert re.search(r"^ACTIVATION_ENABLED = False$", source, re.M)
-    cron = (ROOT / "infra/oracle/core-panel-daily-increment.crontab.DISABLED").read_text(encoding="utf-8")
+    assert re.search(r"^ACTIVATION_ENABLED = True$", source, re.M)
+    cron = (ROOT / "infra/oracle/core-panel-daily-increment.crontab").read_text(encoding="utf-8")
     live = [l for l in cron.splitlines() if l.strip() and not l.lstrip().startswith("#") and not l.startswith("CRON_TZ")]
-    assert live == []
-    assert not list((ROOT / "infra/oracle").glob("install_core_panel*"))
-    assert not list((ROOT / ".github/workflows").glob("*core-panel*"))
+    assert len(live) == 1
+    assert live[0].startswith("27 6,7,8,9 * * * ")
+    assert "run_core_panel_daily_increment.sh" in live[0]
+    installer = ROOT / "infra/oracle/install_core_panel_daily_increment_cron.sh"
+    assert installer.exists()
+    disabled = (ROOT / "infra/oracle/core-panel-daily-increment.crontab.DISABLED").read_text(encoding="utf-8")
+    disabled_live = [l for l in disabled.splitlines() if l.strip() and not l.lstrip().startswith("#") and not l.startswith("CRON_TZ")]
+    assert disabled_live == []
 
 
 # ------------------------------------------------------------------ budget contract
@@ -173,8 +178,8 @@ def test_no_unaccounted_scheduled_provider_consumer_exists_on_current_develop():
                     r"microstructure_bucket|active_supply_panel\.sh|pkmnprices|core_panel", line):
                 live.add(cron.name)
     assert live == {"market-microstructure-b4.crontab", "market-microstructure-b5.crontab",
-                    "active-supply-panel.crontab"}, live
-    assert len(inc.AUDITED_SCHEDULED_PROVIDER_CONSUMERS) == 4
+                    "active-supply-panel.crontab", "core-panel-daily-increment.crontab"}, live
+    assert len(inc.AUDITED_SCHEDULED_PROVIDER_CONSUMERS) == 5
 
 
 def test_current_source_caps_have_not_drifted_from_the_audited_values():
@@ -486,3 +491,13 @@ def test_wrapper_preserves_b5_lock_and_hold_ordering():
     order = lambda text: re.findall(r"/tmp/[a-z-]+\.lock", text)  # noqa: E731
     assert order(wrapper) == order(b5)
     assert "run_core_panel_daily_increment --commit" in wrapper and "BUCKET_B5" not in wrapper
+
+
+def test_managed_installer_is_verify_first_and_sha_pinned():
+    installer = (ROOT / "infra/oracle/install_core_panel_daily_increment_cron.sh").read_text(encoding="utf-8")
+    assert 'if [ "${1:-}" != "--apply" ]' in installer
+    assert "run_core_panel_daily_increment --preflight" in installer
+    assert 'worktree add --detach "$RUNTIME" "$SHA"' in installer
+    assert 'release.sha.tmp' in installer and 'mv "$STATE/release.sha.tmp" "$STATE/release.sha"' in installer
+    assert 'core-panel-daily-increment.crontab' in installer
+    assert 'run_core_panel_daily_increment.sh' in installer

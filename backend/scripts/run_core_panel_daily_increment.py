@@ -1,9 +1,10 @@
-"""DORMANT bounded daily sold-increment collector for the frozen 207-card Core Panel.
+"""ACTIVE bounded daily sold-increment collector for the frozen 207-card Core Panel.
 
-STATUS: DORMANT. ``ACTIVATION_ENABLED`` is False, so ``--commit`` refuses before any
-provider or database write. Only ``--preflight`` runs (zero provider calls, zero writes).
-Activation needs a separate, reviewed change: flip the constant, pin a release SHA,
-install the (not provided) scheduler entry.
+STATUS: ACTIVE FOR THE RESEARCH-ONLY FAIR VALUE SHADOW FEED. ``--preflight`` remains
+zero-provider / zero-write. Committed runs are bounded by the frozen daily credit budget,
+reuse cached identities only, preserve B4/B5 historical state, and never mutate canonical
+pricing or any public Fair Value surface. Production execution is SHA-pinned by the managed
+VM installer and wrapper.
 
 Why it exists
 -------------
@@ -80,8 +81,8 @@ MODE = "core_panel_daily_increment_v1"
 SELECTOR_VERSION = "core_panel_daily_increment_selector_v1"
 STATE_KEY = "core_panel_daily_increment"
 
-#: Dormant by construction. Flipping this is the activation act and needs its own review.
-ACTIVATION_ENABLED = False
+#: Reviewed activation for the research-only prospective Fair Value shadow evidence feed.
+ACTIVATION_ENABLED = True
 
 EXPECTED_PANEL_COUNT = 207
 PAGE_SIZE = 20
@@ -99,6 +100,7 @@ AUDITED_SCHEDULED_PROVIDER_CONSUMERS = {
     "b5_targeted_expansion": "infra/oracle/market-microstructure-b5.crontab (cap 55,000)",
     "active_supply_c": "infra/oracle/active-supply-panel.crontab (hard cap 4,500)",
     "vintage_gap_daily": ".github/workflows/pkmnprices-sold-evidence-daily.yml (cap 600)",
+    "core_panel_increment": "infra/oracle/core-panel-daily-increment.crontab (cap 8,000 shared across retries)",
 }
 RUNTIME_SAFETY_MARGIN = 2000
 MIN_UNALLOCATED_HEADROOM = 5000
@@ -544,7 +546,7 @@ def main() -> int:
     db = create_service_role_client()
     if args.preflight:
         result = preflight(db, expected_date=args.expected_date, credit_cap=args.credit_cap)
-    else:  # unreachable while dormant; kept so activation is a one-constant, reviewed change
+    else:
         from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
 
         credentials = load_pkmnprices_credentials(allow_frontend_fallback=False)
