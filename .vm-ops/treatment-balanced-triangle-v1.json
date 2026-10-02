@@ -1,0 +1,8 @@
+{
+  "operation": "treatment-balanced-triangle-v1",
+  "research_sha": "8cccfa1f1427e4ad44cdb014fff6175c43ac994d",
+  "market_date": "2026-09-29",
+  "period": "180d",
+  "credit_cap": 25000,
+  "requested_at": "2026-10-02"
+}
