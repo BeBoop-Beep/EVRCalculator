@@ -66,7 +66,7 @@ export default function MarketExplorerContextualSearch({ asset = "cards", onAddT
       <ul id={listboxId} role="listbox" aria-label={SEARCH_PLACEHOLDER[asset]}>{results.map((result, index) => {
         const primary = actions[index].primary; const disabled = !["basket", "direct", "market"].includes(primary.kind); const context = result.marketKey ? result.subtitle : leafContext(result);
         const startsLeafGroup = !result.marketKey && index > 0 && Boolean(results[index - 1]?.marketKey);
-        return <li key={result.instrumentId || `unavailable:${index}`} id={`${listboxId}-${index}`} role="option" aria-selected={false} aria-disabled={disabled || undefined}
+        return <li key={result.instrumentId || result.marketKey || `unavailable:${index}`} id={`${listboxId}-${index}`} role="option" aria-selected={false} aria-disabled={disabled || undefined}
           data-search-result-kind={result.marketKey ? "market" : "leaf"} data-search-highlighted={index === highlight ? "true" : "false"}
           onClick={() => invoke(index)} className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 ${startsLeafGroup ? "mt-2 border-t border-[var(--border-subtle)] pt-3" : ""} ${index === highlight ? "bg-white/[.08] ring-1 ring-sky-400/70" : "hover:bg-white/[.05]"}`}>
           <Thumb url={result.imageUrl} /><span className="min-w-0 flex-1"><strong className="block truncate text-xs">{result.displayName || "Graded cards unavailable"}</strong>
@@ -76,6 +76,10 @@ export default function MarketExplorerContextualSearch({ asset = "cards", onAddT
           {primary.kind === "market" ? <button type="button" data-search-primary="market" onClick={(event) => { event.stopPropagation(); invoke(index); }} className="rounded border border-sky-400/50 px-2 py-1 text-[10px] font-semibold text-sky-200">Select market</button> : primary.kind === "direct" ? <button type="button" data-search-primary="direct" onClick={(event) => { event.stopPropagation(); invoke(index); }} className="rounded border border-[rgba(45,212,191,.5)] px-2 py-1 text-[10px] font-semibold text-[rgb(45,212,191)]">View</button> : null}
         </li>;
       })}</ul>
+      {snapshot.nextCursor != null ? <button type="button" data-market-explorer-search-more disabled={snapshot.loadingMore}
+        onClick={() => controller.loadMore()} className="mt-1 w-full rounded-md border border-[var(--border-subtle)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-white/[.07] disabled:cursor-wait disabled:opacity-50">
+        {snapshot.loadingMore ? "Loading more…" : "Load more results"}
+      </button> : null}
     </div> : null}
   </div>;
 }

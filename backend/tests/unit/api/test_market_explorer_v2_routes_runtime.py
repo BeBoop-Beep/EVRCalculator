@@ -70,7 +70,7 @@ class Fake:
         if name in self.fail:
             raise self.fail[name]
         data = {v2.DIRECTORY_RPC_V2: self.directory, v2.HISTORY_RPC_V2: self.history,
-                v2.CONSTITUENTS_RPC_V2: self.page, v2.SEARCH_RPC_V1: self.search,
+                v2.CONSTITUENTS_RPC_V2: self.page, v2.SEARCH_RPC_V2: self.search,
                 v2.ASSET_OPTIONS_RPC_V2: self.options, leaf_search.LEAF_SEARCH_RPC: self.leaves,
                 v1.SCREEN_RPC: self.screen}.get(name)
         return Resp(data)
@@ -94,7 +94,7 @@ def api(monkeypatch):
 
 
 def test_catalog_search_validation_and_structured_errors(api):
-    client = api(Fake(search=[{"asset": "cards", "result_kind": "set", "label": "Fossil"}]))
+    client = api(Fake(search={"results": [{"asset": "cards", "result_kind": "set", "label": "Fossil"}], "nextCursor": "5", "context": "set"}))
     assert client.get("/market/explorer/catalog/search", params={"asset": "cards", "q": "g"}).status_code in (400, 422)
     assert client.get("/market/explorer/catalog/search", params={"asset": "cards", "q": "gengar", "limit": 51}).status_code in (400, 422)
     assert client.get("/market/explorer/catalog/search", params={"asset": "weapons", "q": "gengar"}).status_code == 400
@@ -105,7 +105,7 @@ def test_catalog_search_validation_and_structured_errors(api):
 
 def test_catalog_search_is_not_plan_gated_and_uses_abuse_control(monkeypatch, api):
     calls = []
-    client = api(Fake(search=[]))
+    client = api(Fake(search={"results": [], "nextCursor": None, "context": "name"}))
     monkeypatch.setattr(main, "_enforce_paid_abuse", lambda *a, **k: calls.append(k["route"]))
     monkeypatch.setattr(main, "_resolve_index_plan", lambda a, t: pytest.fail("search must not consult plan"))
     monkeypatch.setattr(main, "_require_authenticated_user_id", lambda **kw: pytest.fail("search must not require auth"))
@@ -114,7 +114,7 @@ def test_catalog_search_is_not_plan_gated_and_uses_abuse_control(monkeypatch, ap
 
 
 def test_catalog_search_failure_is_browser_safe_no_invented_results(api):
-    client = api(Fake(fail={v2.SEARCH_RPC_V1: RuntimeError('PostgREST relation "x" does not exist secret')}))
+    client = api(Fake(fail={v2.SEARCH_RPC_V2: RuntimeError('PostgREST relation "x" does not exist secret')}))
     r = client.get("/market/explorer/catalog/search", params={"asset": "cards", "q": "gengar"})
     assert r.status_code == 503
     assert "secret" not in r.text and "PostgREST" not in r.text

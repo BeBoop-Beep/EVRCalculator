@@ -2568,6 +2568,7 @@ def get_market_explorer_catalog_search(
     asset: str = Query(default="cards", max_length=16),
     q: str = Query(min_length=2, max_length=120),
     limit: int = Query(default=20, ge=1, le=50),
+    after: int = Query(default=0, ge=0, le=5000),
 ):
     """Contextual Explorer catalog search. General discovery: NOT plan-gated."""
     forwarded = str(request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
@@ -2575,7 +2576,7 @@ def get_market_explorer_catalog_search(
     _enforce_paid_abuse(request, user_id=f"explorer-catalog-search:{network_identity}",
                         policy_class=POLICY_SITE_SEARCH, route="/market/explorer/catalog/search")
     try:
-        return JSONResponse(content={"results": search_catalog(service_read_client, asset, q, limit)},
+        return JSONResponse(content=search_catalog(service_read_client, asset, q, limit, after),
                             headers={"Cache-Control": "no-store"})
     except ValueError as exc:
         return JSONResponse(content={"message": str(exc), "code": "CATALOG_SEARCH_INVALID"}, status_code=400)

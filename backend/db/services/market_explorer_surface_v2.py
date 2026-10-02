@@ -28,7 +28,7 @@ DIRECTORY_RPC_V2 = "get_pokemon_market_explorer_surface_directory_v2"
 HISTORY_RPC_V2 = "get_pokemon_market_explorer_surface_history_v2"
 CONSTITUENTS_RPC_V2 = "get_pokemon_market_explorer_surface_constituents_v2"
 ASSET_OPTIONS_RPC_V2 = "get_pokemon_market_explorer_asset_options_v2"
-SEARCH_RPC_V1 = "search_pokemon_market_explorer_catalog_v1"
+SEARCH_RPC_V2 = "search_pokemon_market_explorer_catalog_v2"
 ALIASES_TABLE_V2 = "pokemon_market_explorer_surface_aliases_v2"
 SERVING_TABLE_V2 = "pokemon_market_explorer_surface_serving_v2"
 
@@ -459,17 +459,31 @@ def validate_search_request(asset: str, q: str, limit: int) -> tuple[str, str, i
     return asset, query[:120], int(limit)
 
 
-def search_catalog(client: Any, asset: str, q: str, limit: int = 20) -> list[dict[str, Any]]:
+def search_catalog(client: Any, asset: str, q: str, limit: int = 20,
+                   after: int = 0) -> dict[str, Any]:
     asset, query, limit = validate_search_request(asset, q, limit)
+    after = int(after)
+    if not 0 <= after <= 5000:
+        raise ValueError("after must be 0..5000")
     try:
-        rows = _timed_read("catalog_search", lambda: _rows(client.rpc(
-            SEARCH_RPC_V1, {"p_asset": asset, "p_query": query, "p_limit": limit}).execute()),
-            asset=asset, limit=limit)
+        result = _timed_read("catalog_search", lambda: client.rpc(
+            SEARCH_RPC_V2, {"p_asset": asset, "p_query": query,
+                            "p_limit": limit, "p_after": after}).execute(),
+            asset=asset, limit=limit, after=after)
+        payload = getattr(result, "data", None)
     except Exception as exc:
         if _is_rpc_missing(exc):
             raise SurfaceV2Error("CATALOG_SEARCH_UNAVAILABLE", "catalog search authority not installed") from exc
         raise SurfaceV2Error("CATALOG_SEARCH_FAILED", str(exc)) from exc
-    return rows[:limit]
+    if not isinstance(payload, dict):
+        raise SurfaceV2Error("CATALOG_SEARCH_INVALID_RESPONSE")
+    rows = payload.get("results")
+    return {
+        "results": rows if isinstance(rows, list) else [],
+        "nextCursor": payload.get("nextCursor"),
+        "context": payload.get("context"),
+        "generationId": payload.get("generationId"),
+    }
 
 
 # ---------------------------------------------------------------------------
