@@ -33,24 +33,24 @@ jobs:
         run: python -m pip install -q pytest==8.3.5 numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
       - name: Unit tests
         run: python -m pytest -q backend/tests/unit/scripts/test_research_treatment_full_family_estimator_v1.py
-      - name: Download frozen exhaustive DR-Ultra-SIR artifact
+      - name: Download frozen exhaustive Hyper-Ultra-SIR artifact
         uses: actions/download-artifact@v4
         with:
-          name: treatment-full-dr-ultra-sir-v1-vm
+          name: treatment-full-hyper-ultra-sir-v1-vm
           path: backend/artifacts/treatment_panel_recovery_v2/input
           github-token: ${{ github.token }}
           repository: BeBoop-Beep/EVRCalculator
-          run-id: 36966772299
+          run-id: 36967251352
       - name: Estimate exhaustive family
         run: |
           python backend/scripts/research_treatment_full_family_estimator_v1.py \
-            --artifact backend/artifacts/treatment_panel_recovery_v2/input/full_dr_ultra_sir_v1.json \
-            --output backend/artifacts/treatment_panel_recovery_v2/full_dr_ultra_sir_estimate_v1.json \
-            --report backend/artifacts/treatment_panel_recovery_v2/FULL_DR_ULTRA_SIR_ESTIMATE_V1.md
+            --artifact backend/artifacts/treatment_panel_recovery_v2/input/full_hyper_ultra_sir_v1.json \
+            --output backend/artifacts/treatment_panel_recovery_v2/full_hyper_ultra_sir_estimate_v1.json \
+            --report backend/artifacts/treatment_panel_recovery_v2/FULL_HYPER_ULTRA_SIR_ESTIMATE_V1.md
       - name: Upload estimator artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: full-dr-ultra-sir-estimate-v1
+          name: full-hyper-ultra-sir-estimate-v1
           path: |
             backend/artifacts/treatment_panel_recovery_v2/full_dr_ultra_sir_estimate_v1.json
             backend/artifacts/treatment_panel_recovery_v2/FULL_DR_ULTRA_SIR_ESTIMATE_V1.md
