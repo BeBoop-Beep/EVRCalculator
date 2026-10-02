@@ -1,4 +1,4 @@
 {
-  "operation": "market-explorer-manual-one-shot",
-  "request_id": "explorer-oct2-recover-20261002"
+  "operation": "market-explorer-cron-observe",
+  "request_id": "explorer-lag-guard-evidence-20261002"
 }
