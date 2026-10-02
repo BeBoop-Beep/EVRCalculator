@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: index-production-vm-ops-v2
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   vm-ops:
