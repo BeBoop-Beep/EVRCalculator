@@ -1,4 +1,4 @@
 {
-  "operation": "status",
-  "request_id": "fv-s3-readiness-20261002"
+  "operation": "sentinel-status",
+  "request_id": "sentinel-snapshot-lag-diagnose-20261002"
 }
