@@ -93,3 +93,15 @@ The first post-migration Cards `prismatic` request took 24.4 s while processes/u
 ## Exact recommendation
 
 Do **not** merge or deploy yet. Provide an authorized, non-production-mutating Index+ acceptance session, rerun scenarios 2, 4–11, and 16–18 across the required desktop/mobile viewports, and require zero unexpected 5xx/console errors. If those live checks pass, the corrected migration identity, public search/read path, focused tests, and optimized build are ready for merge review. Do not reapply migration `20261002224218`, rebuild Activity authority, or alter production data.
+
+## Authenticated acceptance runner
+
+The current corrective runner is `frontend/scripts/market-explorer-corrective-authenticated-final.mjs` and may be invoked from `frontend` with:
+
+```text
+npm run acceptance:market-explorer:authenticated -- --token-file <absolute-path-outside-repository>
+```
+
+`EXPLORER_AUTH_TOKEN_FILE` supplies the same path non-interactively, and `EXPLORER_ACCEPTANCE_ORIGIN` overrides the default `http://127.0.0.1:3000`. The runner rejects token files inside the repository, performs `/api/auth/me` before Explorer navigation, accepts only Plus/Premium, and records no token, token path, cookie, request header, response body, or user identity. Missing/expired/unentitled sessions fail with `AUTHENTICATED_ACCEPTANCE_SESSION_REQUIRED`; fixtures and anonymous fallback are not used.
+
+At this commit the runner's source/security contract passes, but it has not been executed with a real token. The verdict therefore remains **INCOMPLETE** until its generated `corrective_authenticated_final_20261002/` evidence proves every outstanding scenario.
