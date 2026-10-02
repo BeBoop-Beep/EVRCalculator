@@ -92,6 +92,7 @@ class RecoveryRunbook:
     verify: Callable[[IncidentRecord, RecoveryContext], CheckResult]
     max_attempts: int = 1
     cooldown_seconds: int = 60 * 60
+    allow_escalated_retry: bool = False
 
     def __post_init__(self) -> None:
         if not self.key.strip() or not self.version.strip():
@@ -195,7 +196,12 @@ class RecoveryRunner:
                 "incident_id": incident.id,
                 "runbook": runbook.key,
             }
-        if incident.status is not IncidentStatus.OPEN:
+        escalated_retry_allowed = bool(
+            incident.status is IncidentStatus.ESCALATED
+            and runbook.allow_escalated_retry
+            and incident.recovery_attempt_count < runbook.max_attempts
+        )
+        if incident.status is not IncidentStatus.OPEN and not escalated_retry_allowed:
             return {
                 "action": "blocked",
                 "reason_code": "incident_not_open",
