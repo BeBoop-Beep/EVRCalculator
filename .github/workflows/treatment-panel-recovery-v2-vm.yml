@@ -23,13 +23,13 @@ jobs:
       - name: Checkout pinned research branch
         uses: actions/checkout@v4
         with:
-          ref: 1eca70035ac9aa3a535b3490eb2aa1f78e6e995c
+          ref: 30a2cdc5ea04c6bc2e30b32d5a1aac92b0219e2c
           fetch-depth: 1
       - name: Verify pinned research SHA
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="1eca70035ac9aa3a535b3490eb2aa1f78e6e995c"
+          EXPECTED_SHA="30a2cdc5ea04c6bc2e30b32d5a1aac92b0219e2c"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
