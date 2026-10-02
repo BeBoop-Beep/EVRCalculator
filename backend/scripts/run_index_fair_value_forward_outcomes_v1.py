@@ -21,6 +21,7 @@ import math
 import sys
 from collections import Counter, defaultdict
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -57,6 +58,14 @@ def _positive(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return out if math.isfinite(out) and out > 0 else None
+
+
+def _money(value: Any) -> Decimal | None:
+    try:
+        out = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return out if out.is_finite() and out > 0 else None
 
 
 def fetch_publications(db: Any, today: date) -> list[dict[str, Any]]:
@@ -100,6 +109,7 @@ def derive_binding(db: Any, publication: Mapping[str, Any], h0: Mapping[str, Any
     if price is None:
         raise ForwardOutcomeError("H0_MARKET_PRICE_MISSING")
     source = str(h0.get("comparison_price_source") or PRICE_SOURCE)
+    target_money = _money(h0.get("comparison_market_price_usd"))
     rows = (
         db.table("card_variant_price_observations")
         .select("card_variant_id,condition_id,market_price,captured_at,source,currency")
@@ -107,16 +117,17 @@ def derive_binding(db: Any, publication: Mapping[str, Any], h0: Mapping[str, Any
         .eq("captured_at", publication["evaluation_date"])
         .eq("source", source)
         .eq("currency", "USD")
-        .eq("market_price", price)
         .execute().data or []
     )
     unique = {
-        (str(r["condition_id"]), str(r["card_variant_id"]), str(r["captured_at"])[:10], str(r["source"]), float(r["market_price"]))
-        for r in rows if r.get("condition_id")
+        (str(r["condition_id"]), str(r["card_variant_id"]), str(r["captured_at"])[:10], str(r["source"]), _money(r.get("market_price")))
+        for r in rows if r.get("condition_id") and _money(r.get("market_price")) == target_money
     }
     if len(unique) != 1:
         raise ForwardOutcomeError(f"H0_BINDING_CARDINALITY_{len(unique)}")
-    condition_id, variant_id, baseline_date, bound_source, bound_price = next(iter(unique))
+    condition_id, variant_id, baseline_date, bound_source, bound_money = next(iter(unique))
+    assert bound_money is not None
+    bound_price = float(bound_money)
     record = {
         "publication_id": str(publication["publication_id"]),
         "schema_version": BINDING_SCHEMA_VERSION,
