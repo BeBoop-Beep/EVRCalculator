@@ -2860,7 +2860,7 @@ def post_market_explorer_query_constituents(
     if page is None:
         return JSONResponse(content={"message": "Market summary must be built first",
                                      "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
-    if normalized.get("asset") in {"cards", "sealed"}:
+    if normalized.get("asset") in {"cards", "sealed", "mixed"}:
         from backend.db.services.market_explorer_constituent_movement import enrich_constituent_page
         try:
             page = enrich_constituent_page(service_read_client, page, normalized["asset"])
