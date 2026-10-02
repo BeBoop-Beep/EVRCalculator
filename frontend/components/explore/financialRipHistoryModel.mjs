@@ -1,7 +1,7 @@
 const DAY = 86_400_000;
 
 export const FINANCIAL_RIP_WINDOWS = Object.freeze([
-  { key: "1D", label: "1D", days: 0, ariaLabel: "Last day" },
+  { key: "1D", label: "1D", days: null, latestPoints: 2, ariaLabel: "Latest daily change" },
   { key: "7D", label: "7D", days: 6, ariaLabel: "Last 7 days" },
   { key: "30D", label: "30D", days: 29, ariaLabel: "Last 30 days" },
   { key: "3M", label: "3M", days: 89, ariaLabel: "Last 3 months" },
@@ -9,6 +9,15 @@ export const FINANCIAL_RIP_WINDOWS = Object.freeze([
   { key: "1Y", label: "1Y", days: 365, ariaLabel: "Last year" },
   { key: "ALL", label: "ALL", days: null, ariaLabel: "All available history" },
 ]);
+
+export const TREND_METRICS = Object.freeze([
+  { key: "financial", label: "Financial RIP", subtitle: "Compare absolute Financial RIP with the Pokémon-wide reference.", valueField: "absoluteFinancialRipScore", overallField: "overallFinancialRipReference", format: "number", overallLabel: "Overall Financial RIP" },
+  { key: "expectedValue", label: "Expected Value / Pack", subtitle: "Compare published expected value per pack with Pokémon Overall.", valueField: "expectedValuePerPack", overallField: "overallExpectedValuePerPack", format: "currency", overallLabel: "Pokémon Overall EV / Pack" },
+  { key: "beatPack", label: "Chance to Beat Pack", subtitle: "Compare the chance an opening beats pack cost with Pokémon Overall.", valueField: "chanceToBeatPack", overallField: "overallChanceToBeatPack", format: "percent", overallLabel: "Pokémon Overall Chance to Beat Pack" },
+  { key: "recoverCost", label: "Chance to Recover Cost", subtitle: "Compare hierarchical Product-opening recovery probability with Pokémon Overall.", valueField: "chanceToRecoverCost", overallField: "overallChanceToRecoverCost", format: "percent", overallLabel: "Pokémon Overall Chance to Recover Cost" },
+]);
+
+export const trendMetric = (key) => TREND_METRICS.find((item) => item.key === key) || TREND_METRICS[0];
 
 export function nextSingleEraPreset(currentId, selectedIds = []) {
   const next = selectedIds.find((id) => String(id) !== String(currentId));
@@ -29,10 +38,12 @@ export function financialRipWindowRange(windowKey, availableThrough, availableFr
   const endDate = dateOnly(availableThrough);
   if (!endDate) return { startDate: null, endDate: null };
   const option = FINANCIAL_RIP_WINDOWS.find((item) => item.key === windowKey) || FINANCIAL_RIP_WINDOWS[0];
-  const startDate = option.days === null
+  const startDate = option.latestPoints
+    ? dateOnly(availableFrom) || subtractUtcDays(endDate, 3652)
+    : option.days === null
     ? dateOnly(availableFrom) || subtractUtcDays(endDate, 3652)
     : subtractUtcDays(endDate, option.days);
-  return { startDate, endDate };
+  return { startDate, endDate, latestPoints: option.latestPoints || null, windowKey: option.key };
 }
 
 export function setFinancialRipCandidates(targets = [], openingSets = []) {
@@ -161,35 +172,61 @@ export function toggleFinancialRipSelection(current = [], id, max = Infinity) {
 }
 
 export function buildFinancialRipChartModel(rows = [], selectedEntities = [], range = {}) {
+  return buildTrendChartModel(rows, selectedEntities, range, "financial");
+}
+
+export function buildTrendChartModel(rows = [], selectedEntities = [], range = {}, metricKey = "financial") {
+  const metric = trendMetric(metricKey);
   const selected = new Map(selectedEntities.map((item) => [String(item.entity_id), item]));
   const points = new Map();
   for (const row of rows) {
-    if (row?.metric_key && row.metric_key !== "financial") continue;
+    if (row?.metric_key && row.metric_key !== "financial" && metricKey === "financial") continue;
     const id = String(row?.entityId || row?.entity_id || "");
     const entitySelected = selected.has(id);
     if (!entitySelected && selected.size) continue;
     const date = dateOnly(row?.marketDate || row?.market_date);
     if (!date || (range.startDate && date < range.startDate) || (range.endDate && date > range.endDate)) continue;
-    const point = points.get(date) || { date, timestamp: new Date(`${date}T00:00:00Z`).getTime(), overallFinancialRip: null, entities: {} };
+    const point = points.get(date) || { date, timestamp: new Date(`${date}T00:00:00Z`).getTime(), overallFinancialRip: null, overallTrend: null, entities: {} };
     points.set(date, point);
-    const score = finite(row?.absoluteFinancialRipScore ?? row?.absolute_financial_rip_score);
-    const reference = finite(row?.overallFinancialRipReference ?? row?.overall_financial_rip_reference);
+    const score = finite(row?.[metric.valueField] ?? row?.[metric.valueField.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)]);
+    const reference = finite(row?.[metric.overallField] ?? row?.[metric.overallField.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)]);
     if (reference !== null) point.overallFinancialRip = reference;
+    if (reference !== null) point.overallTrend = reference;
     if (!entitySelected) continue;
     if (score === null) continue;
     const key = entitySeriesKey(id);
     point[key] = score;
     point.entities[id] = {
-      financialRip: score,
+      financialRip: score, trendValue: score,
       overallFinancialRip: reference,
-      deltaVsOverall: finite(row?.absoluteDeltaVsOverall ?? row?.absolute_delta_vs_overall),
-      rank: finite(row?.rank),
-      cohortSize: finite(row?.cohortSize ?? row?.cohort_size),
+      deltaVsOverall: metricKey === "financial" ? finite(row?.absoluteDeltaVsOverall ?? row?.absolute_delta_vs_overall) : reference === null ? null : score - reference,
+      rank: finite(row?.rank ?? row?.financialRank ?? row?.financial_rank),
+      cohortSize: finite(row?.cohortSize ?? row?.cohort_size ?? row?.financialCohortSize ?? row?.financial_cohort_size),
       status: row?.status || null,
     };
   }
   const series = selectedEntities.map((item) => ({ ...item, key: entitySeriesKey(item.entity_id), color: stableEntityColor(item.entity_id) }));
-  return { points: [...points.values()].sort((a, b) => a.timestamp - b.timestamp), series };
+  let ordered = [...points.values()].sort((a, b) => a.timestamp - b.timestamp);
+  if (range.latestPoints === 2) ordered = ordered.slice(-2);
+  return { points: ordered, series, metric };
+}
+
+export function formatTrendValue(value, metricKey = "financial") {
+  const number = finite(value); if (number === null) return "Unavailable";
+  const format = trendMetric(metricKey).format;
+  if (format === "currency") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(number);
+  if (format === "percent") return `${(number * 100).toFixed(1)}%`;
+  return number.toFixed(2);
+}
+
+export function formatTrendDelta(value, metricKey = "financial") {
+  const number = finite(value); if (number === null) return "Unavailable";
+  const sign = number > 0 ? "+" : number < 0 ? "−" : "±";
+  const magnitude = Math.abs(number);
+  const format = trendMetric(metricKey).format;
+  if (format === "currency") return `${sign}$${magnitude.toFixed(2)} vs Overall`;
+  if (format === "percent") return `${sign}${(magnitude * 100).toFixed(1)} pp vs Overall`;
+  return `${sign}${magnitude.toFixed(2)} vs Overall`;
 }
 
 export function financialRipTooltipRows(point = {}, series = [], focusId = null) {

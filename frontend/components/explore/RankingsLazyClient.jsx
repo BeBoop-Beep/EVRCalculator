@@ -6,13 +6,14 @@ import SegmentedControl from "@/components/ui/SegmentedControl";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { createRankingsSessionCache } from "@/lib/rankings/rankingsSessionCache.mjs";
 import { markRankingsLens } from "@/lib/rankings/rankingsLensPerf.mjs";
-import { scorecardSetTarget } from "@/lib/rankings/rankingsScorecardsClient.mjs";
+import { readRankingsScorecards, scorecardSetTarget } from "@/lib/rankings/rankingsScorecardsClient.mjs";
+import { readPackEconomics } from "@/lib/rankings/packEconomicsClient.mjs";
 import { readPublicRankingsHeadlines } from "@/lib/rankings/rankingsPublicClient.mjs";
 import { defaultFinancialHistoryRequest } from "./financialRipHistoryModel.mjs";
 import { planCohortPrefetch, prewarmFinancialHistory, readFinancialHistoryCached } from "@/lib/rankings/financialHistoryCache.mjs";
 import { beginLastGoodRefresh, failLastGoodRefresh, isRenderableEraState, isRenderableSetState } from "@/lib/rankings/rankingsLastGoodState.mjs";
-import { prewarmDefaultCollector } from "@/lib/rankings/cardRankingsClient.mjs";
-import { prewarmDefaultProduct } from "@/lib/rankings/productRankingsClient.mjs";
+import { prewarmDefaultChase, prewarmDefaultCollector } from "@/lib/rankings/cardRankingsClient.mjs";
+import { prewarmDefaultProduct, prewarmDefaultProductEconomics } from "@/lib/rankings/productRankingsClient.mjs";
 import styles from "./explore.module.css";
 
 const lensModules = {
@@ -144,9 +145,14 @@ export default function RankingsLazyClient({
         lensModules.eras(),
         lensModules.eraEconomics(),
         loadEra(),
+        canViewRankingsIntelligence ? readRankingsScorecards("era", { sessionCache }) : null,
       ]));
-      await idle(() => loadSets());
-      await idle(() => prewarmDefaultProduct({ sessionCache, canViewFullMarket: canViewFullMarketProductRankings }));
+      await idle(() => Promise.all([loadSets(), canViewRankingsIntelligence ? readRankingsScorecards("set", { sessionCache }) : null]));
+      await idle(() => canViewRankingsIntelligence ? readPackEconomics({ sessionCache }) : null);
+      await idle(async () => {
+        await prewarmDefaultProduct({ sessionCache, canViewFullMarket: canViewFullMarketProductRankings });
+        return prewarmDefaultProductEconomics({ sessionCache, canViewFullMarket: canViewFullMarketProductRankings });
+      });
     })();
     return () => { warmGeneration.current += 1; };
   }, [authStatus, canViewFullMarketProductRankings, canViewRankingsIntelligence, loadEra, loadSets, sessionCache]);
@@ -161,7 +167,13 @@ export default function RankingsLazyClient({
       Promise.all([
         lensModules.cards(),
         prewarmDefaultCollector({ sessionCache, entitled: canViewCardCollectorAppeal, authStatus }),
-      ]).then(() => { if (live) markRankingsLens("cards", "prewarm-ready"); });
+      ]).then(() => {
+        if (live) markRankingsLens("cards", "prewarm-ready");
+        if (live && canViewCardChaseEfficiency) {
+          const chase = () => prewarmDefaultChase({ sessionCache, entitled: true, authStatus });
+          if (typeof requestIdleCallback === "function") requestIdleCallback(chase, { timeout: 2400 }); else setTimeout(chase, 300);
+        }
+      });
     };
     const handle = typeof requestIdleCallback === "function" ? requestIdleCallback(run, { timeout: 1800 }) : setTimeout(run, 220);
     return () => {
@@ -169,7 +181,7 @@ export default function RankingsLazyClient({
       if (typeof cancelIdleCallback === "function" && typeof requestIdleCallback === "function") cancelIdleCallback(handle);
       else clearTimeout(handle);
     };
-  }, [authStatus, canViewCardCollectorAppeal, sessionCache]);
+  }, [authStatus, canViewCardChaseEfficiency, canViewCardCollectorAppeal, sessionCache]);
 
   // Default Financial RIP history: start the chart's own request (same session-cache key) as soon
   // as access, cohort identities and the publication date are known - before the chart mounts - and
@@ -207,8 +219,8 @@ export default function RankingsLazyClient({
 
   const signalIntent = (next) => {
     lensModules[next]?.().then(() => markRankingsLens(next, "module-ready"));
-    if (next === "eras") loadEra();
-    if (next === "sets") loadSets();
+    if (next === "eras") { loadEra(); if (canViewRankingsIntelligence) readRankingsScorecards("era", { sessionCache }).catch(() => null); }
+    if (next === "sets") { loadSets(); if (canViewRankingsIntelligence) Promise.all([readRankingsScorecards("set", { sessionCache }), readPackEconomics({ sessionCache })]).catch(() => null); }
     if (next === "products" && (authStatus === "resolved" || authStatus === "degraded")) prewarmDefaultProduct({ sessionCache, canViewFullMarket: canViewFullMarketProductRankings }).catch(() => null);
     if (next === "cards" && (authStatus === "resolved" || authStatus === "degraded")) prewarmDefaultCollector({ sessionCache, entitled: canViewCardCollectorAppeal, authStatus }).catch(() => null);
   };

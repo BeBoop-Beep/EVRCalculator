@@ -10,7 +10,7 @@ export const CLEAR_ALL_LABEL = "Clear all Financial RIP series";
 
 const mousePointer = (event) => event.pointerType === "mouse";
 
-export default function FinancialRipHistoryLegend({ series = [], showOverall = true, persistentFocusId = null, onToggleFocus, onHoverFocus, onRemove, onClearAll, updating = false }) {
+export default function FinancialRipHistoryLegend({ series = [], overallLabel = "Overall Financial RIP", showOverall = true, persistentFocusId = null, onToggleFocus, onHoverFocus, onRemove, onClearAll, updating = false }) {
   return (
     <div className="mt-3 flex items-start gap-2" data-financial-history-legend>
       <div className="max-h-36 min-w-0 flex-1 overflow-y-auto overscroll-contain" role="group" aria-label="Visible Financial RIP series">
@@ -18,7 +18,7 @@ export default function FinancialRipHistoryLegend({ series = [], showOverall = t
           {showOverall ? (
             <span data-legend-overall className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] px-2.5 text-[10px]">
               <span className="w-4 border-t-2 border-dashed border-white/90" />
-              Overall Financial RIP
+              {overallLabel}
             </span>
           ) : null}
           {series.map((item) => {

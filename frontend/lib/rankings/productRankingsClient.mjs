@@ -29,3 +29,11 @@ export function prewarmDefaultProduct({ sessionCache, canViewFullMarket = false 
   return import("./rankingsPublicClient.mjs").then(({ readPublicProductCatalogue }) =>
     readPublicProductCatalogue({ sessionCache, params: { page: 1, page_size: 25 } }));
 }
+
+export function prewarmDefaultProductEconomics({ sessionCache, canViewFullMarket = false, family = null } = {}) {
+  if (!sessionCache || (!canViewFullMarket && !family)) return Promise.resolve(null);
+  return readProductRankings("economics", {
+    sessionCache,
+    params: { page: 1, page_size: 25, ...(family ? { family } : {}), sort: "productName", direction: "asc" },
+  }).catch(() => null);
+}

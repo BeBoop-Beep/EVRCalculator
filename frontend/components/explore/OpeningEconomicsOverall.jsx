@@ -14,19 +14,6 @@ const METHODOLOGY = [
   "Card values are gross modeled market values before selling fees, shipping, grading, liquidity discounts, and taxes.",
 ];
 
-function Header({ scope, marketDate }) {
-  return <header className="mb-4">
-    <h2 className="text-xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">Pokémon Opening Economics</h2>
-    <p className="mt-1 text-sm text-[var(--text-secondary)]">All modeled sealed products normalized per pack.</p>
-    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-secondary)]">
-      <span className="tabular-nums">{scope.setCount} modeled sets</span><span aria-hidden="true" className="opacity-40">·</span>
-      <span className="tabular-nums">{scope.productFamilyCount} represented product families</span><span aria-hidden="true" className="opacity-40">·</span>
-      <span className="tabular-nums">{scope.productSkuCount} modeled products</span>
-      {marketDate ? <><span aria-hidden="true" className="opacity-40">·</span><span className="tabular-nums">Opening data as of {marketDate}</span></> : null}
-    </div>
-  </header>;
-}
-
 export function OpeningEconomicsEmpty({ economics, title, subject }) {
   const failed = economics?.reason === "request_failed" || economics?.reason === "backend_error";
   return <section className={`${styles.surface} rounded-xl p-5`} data-opening-economics-unavailable>
@@ -55,7 +42,6 @@ export default function OpeningEconomicsOverall({ economics, overview, financial
   };
   const marketDate = overview?.openingEconomics?.marketDate || economics?.marketDate || null;
   return <section data-opening-economics-overall>
-    <Header scope={scope} marketDate={marketDate} />
     <OpeningEconomicsDistribution scope={scope} overview={overview} financialCohort={financialCohort} targets={targets} openingSets={economics?.sets || []} eras={eras} marketDate={marketDate} sessionCache={sessionCache} />
     {legacyAvailable ? <details className={`${styles.surfaceQuiet} mt-3 rounded-xl px-4 py-3`} data-opening-economics-methodology>
       <summary className="cursor-pointer list-none text-xs font-medium text-[var(--text-primary)]">How this is calculated</summary>

@@ -5,7 +5,9 @@ from backend.db.services.rankings_redesign_contract_service import (
     read_card_facets, read_financial_history_page, read_overview_v2, read_pack_economics,
     read_product_best_open_map,
     read_public_headlines, read_public_pack_economics_preview, read_public_product_catalogue, read_scorecards,
+    read_trend_history,
 )
+import backend.db.services.rankings_redesign_contract_service as rankings_service
 
 
 class Response:
@@ -37,6 +39,48 @@ class Query:
 class Client:
     def __init__(self, tables): self.tables = tables; self.calls = []
     def table(self, name): self.calls.append(name); return Query(self.tables.get(name, []))
+
+
+class RpcClient:
+    def __init__(self, rows): self.rows = rows; self.params = None
+    def rpc(self, name, params):
+        assert name == "get_pokemon_rankings_trend_history_v1"
+        self.params = params
+        return Query(self.rows)
+
+
+def test_trend_history_projects_all_metrics_in_one_rpc_response():
+    client = RpcClient([{"market_date": "2026-10-01", "entity_type": "set", "entity_id": "00000000-0000-0000-0000-000000000001",
+        "financial_rip": 31, "financial_rank": 1, "financial_cohort_size": 22, "overall_financial_rip": 30,
+        "expected_value_per_pack": 6.7, "overall_expected_value_per_pack": 6.5,
+        "chance_to_beat_pack": .07, "overall_chance_to_beat_pack": .065,
+        "chance_to_recover_cost": .05, "overall_chance_to_recover_cost": .045,
+        "source_snapshot_id": "00000000-0000-0000-0000-000000000099"}])
+    result = read_trend_history(client, entities=[{"entity_type": "set", "entity_id": "00000000-0000-0000-0000-000000000001"}],
+                                start_date=date(2026, 9, 1), end_date=date(2026, 10, 1))
+    assert result["contractVersion"] == "rankings-trend-history-v1"
+    assert result["historyAvailableThrough"] == "2026-10-01"
+    assert result["rows"][0]["chanceToBeatPack"] == .07
+    assert result["rows"][0]["chanceToRecoverCost"] == .05
+    assert client.params["p_start_date"] == "2026-09-01"
+
+
+def test_pack_economics_cache_reuses_same_authority_and_invalidates_on_snapshot_identity():
+    rankings_service._pack_economics_cache = None
+    tables = {
+        "pokemon_rip_stats_snapshot_latest": [{"market_date": "2026-10-01", "source_run_fingerprint": "open-a", "payload_json": {"openingEconomics": {"sets": []}}}],
+        "budget_product_best_open_price_latest": [{"snapshot_id": "best-a", "source_market_date": "2026-09-08"}],
+        "budget_product_best_open_price_rows": [],
+    }
+    client = Client(tables)
+    first = read_pack_economics(client)
+    first_calls = len(client.calls)
+    assert read_pack_economics(client) is first
+    assert len(client.calls) == first_calls + 2
+    tables["budget_product_best_open_price_latest"][0]["snapshot_id"] = "best-b"
+    read_pack_economics(client)
+    assert len(client.calls) > first_calls + 4
+    rankings_service._pack_economics_cache = None
 
 
 def test_benchmark_presentation_proves_neutral_center_and_canonical_tiers():
@@ -193,6 +237,7 @@ def test_overview_v2_contains_absolute_financial_and_clean_economics_headlines()
         "topSet": {"entityId": "s1", "name": "Cheap", "canonicalKey": "cheap", "benchmarkScore": 7, "rank": 1, "cohortSize": 22},
         "topEra": {"entityId": "e1", "name": "Era", "benchmarkScore": 6, "rank": 1, "cohortSize": 2}})
     assert result["overallFinancialRip"]["absoluteScore"] == 30.36
+    assert result["overallFinancialRip"]["displayValue"] == 30.36
     assert result["lowestAveragePackCost"]["averagePackCost"] == 7.1
     assert result["modeledCoverage"] == {"setCount": 22, "productCount": 138, "productFamilyCount": 8}
     assert result["openingEconomics"]["overallExpectedValuePerPack"] == 6.7

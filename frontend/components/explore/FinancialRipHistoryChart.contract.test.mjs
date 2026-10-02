@@ -58,7 +58,7 @@ test("Era preset bypasses only the manual five cap and removals are local", () =
 test("compact tooltip uses one Overall, dynamic ordering helper, and no rank or cohort", () => {
   const tooltip = tooltipSource;
   assert.match(tooltip, /financialRipTooltipRows/);
-  assert.equal((tooltip.match(/>Overall<\/span>/g) || []).length, 1);
+  assert.match(tooltip, /\{overallLabel\}<\/span>/);
   assert.doesNotMatch(tooltip, /Rank|cohort|Financial RIP <strong>/);
   assert.match(tooltip, /backgroundColor: row\.color/);
 });
@@ -79,7 +79,7 @@ test("the retired Financial Return chart cannot return as a second authority", (
 });
 
 test("chart copy is valid UTF-8 and uses the canonical Rankings upgrade source", () => {
-  for (const expected of ["Pok\u00e9mon-wide", "Loading Financial RIP history\u2026", " \u00b7 History available from"]) {
+  for (const expected of ["Loading Trend history\u2026", " \u00b7 History available from"]) {
     assert.ok(source.includes(expected), `missing intended copy: ${expected}`);
   }
   assert.ok(source.includes('source="rankings"'));
