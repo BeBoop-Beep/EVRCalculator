@@ -524,11 +524,17 @@ export default function MarketExplorerClient({
   const selectPrepared = useCallback(
     (seriesId) => {
       if (canComparePreparedMarkets) {
-        // PRIMARY ROW ACTION = OPEN THIS MARKET. An already-active market becomes the
-        // constituent target (removal is the explicit secondary control).
+        // Directory rows behave like checkboxes: if the market is already on the
+        // chart, clicking the selected row removes it. Legacy parent identities
+        // (Raw / Sealed) and V2 prepared identities share this behavior.
         if (preparedLoader.getSnapshot().loaded[seriesId]) {
-          setRequestedDetailSeriesId(seriesId);
-          return "targeted";
+          preparedLoader.remove(seriesId);
+          constituentPageCache.evictMarket(seriesId);
+          return "removed";
+        }
+        if (selectedSeriesIds.includes(seriesId)) {
+          toggleAny(seriesId, removeQuery);
+          return "removed";
         }
         return comparePrepared(seriesId);
       }
@@ -548,7 +554,11 @@ export default function MarketExplorerClient({
       clearAllQueries,
       clearAllSelection,
       comparePrepared,
+      constituentPageCache,
       preparedLoader,
+      removeQuery,
+      selectedSeriesIds,
+      toggleAny,
     ],
   );
 
@@ -617,6 +627,10 @@ export default function MarketExplorerClient({
       ...directSeries,
     ]);
   }, [comparableSeries, directSeries, loadedPreparedSeries, selectedSeriesIds, querySeries]);
+  const browseActiveKeys = useMemo(
+    () => [...new Set([...selectedSeriesIds, ...preparedActiveKeys])],
+    [selectedSeriesIds, preparedActiveKeys],
+  );
   const activityIdentityKey = isAuthenticated
     ? `${liveUser?.id || liveUser?.email || "user"}:${indexPlan}`
     : null;
@@ -1042,7 +1056,7 @@ export default function MarketExplorerClient({
           <MarketExplorerBrowse
             directory={preparedDirectory}
             directoryStatus={preparedDirectoryStatus}
-            activeKeys={preparedActiveKeys}
+            activeKeys={browseActiveKeys}
             pendingKeys={preparedPendingKeys}
             failedKeys={preparedFailedKeys}
             canCompare={canComparePreparedMarkets}
@@ -1082,7 +1096,7 @@ export default function MarketExplorerClient({
                     : null
                 }
                 rarityOptions={options?.cardRarities?.rarities || []}
-                activeKeys={preparedActiveKeys}
+                activeKeys={browseActiveKeys}
                 pendingKeys={preparedPendingKeys}
                 activeSeries={querySeries}
                 canCompare={canComparePreparedMarkets}
@@ -1109,7 +1123,7 @@ export default function MarketExplorerClient({
                       row?.market_type,
                     ),
                 )}
-                activeKeys={preparedActiveKeys}
+                activeKeys={browseActiveKeys}
                 pendingKeys={preparedPendingKeys}
                 activeSeries={querySeries}
                 canCompare={canComparePreparedMarkets}
@@ -1125,7 +1139,7 @@ export default function MarketExplorerClient({
           >
             <MarketExplorerScreens
               canCompare={canComparePreparedMarkets}
-              activeKeys={preparedActiveKeys}
+              activeKeys={browseActiveKeys}
               pendingKeys={preparedPendingKeys}
               onSelect={selectPrepared}
             />
