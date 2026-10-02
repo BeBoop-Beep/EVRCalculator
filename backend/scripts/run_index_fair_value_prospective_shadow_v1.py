@@ -41,6 +41,16 @@ class ProspectiveShadowError(RuntimeError):
     pass
 
 
+def parse_information_cutoff(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("information cutoff must be ISO-8601") from exc
+    if parsed.tzinfo is None:
+        raise argparse.ArgumentTypeError("information cutoff must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
 def _chunks(values: list[str], size: int = 50) -> Iterable[list[str]]:
     for i in range(0, len(values), size):
         yield values[i:i + size]
@@ -108,16 +118,20 @@ def build_publications(
     for target in sorted(panel["rows"], key=lambda r: str(r["canonical_card_id"])):
         cid = str(target["canonical_card_id"])
         rows = list(evidence_by_card[cid])
+        # Freeze the publisher input to evidence that was actually knowable at the
+        # information cutoff. Rows collected/ingested later must not change a retry's
+        # rows_offered/input fingerprint/content fingerprint for the same fixed cutoff.
+        available_rows, _ = anchor_mod._partition_by_availability(rows, information_cutoff)
         input_fingerprints = {
             "panel_manifest": str(panel["panel_fingerprint"]),
             "identity_mapping": _fingerprint([cid, provider_by_card[cid]]),
-            "evidence_rowset": _fingerprint(rows),
+            "evidence_rowset": _fingerprint(available_rows),
         }
         publications.append(anchor_mod.build_anchor_publication(
             canonical_card_id=cid,
             card_variant_id=str(target["card_variant_id"]),
             card_number=target["card_number"],
-            evidence_rows=rows,
+            evidence_rows=available_rows,
             evaluation_date=evaluation_date,
             information_cutoff=information_cutoff,
             generated_at=generated_at,
@@ -263,13 +277,25 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--commit", action="store_true")
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument(
+        "--information-cutoff",
+        type=parse_information_cutoff,
+        default=None,
+        help="Fixed ISO-8601 information cutoff; makes retries for a daily publication deterministic.",
+    )
     args = parser.parse_args(argv)
 
     from backend.db.clients.supabase_client import create_service_role_client
 
     db = create_service_role_client()
     ledger = ledger_mod.SupabaseShadowLedger(db)
-    result = publish(db=db, ledger=ledger, source_commit=args.source_commit, dry_run=args.dry_run)
+    result = publish(
+        db=db,
+        ledger=ledger,
+        source_commit=args.source_commit,
+        now=args.information_cutoff,
+        dry_run=args.dry_run,
+    )
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
     return 0
 

@@ -234,3 +234,71 @@ def test_component_and_outcome_adapter_are_idempotent_and_conflict_safe(monkeypa
     assert adapter.append_outcome(outcome) == "IDEMPOTENT_NOOP"
     with pytest.raises(ledger_mod.ShadowLedgerConflict):
         adapter.append_outcome({**outcome, "value": 4})
+
+
+def test_fixed_cutoff_retry_ignores_post_cutoff_evidence_for_identity():
+    panel = s2.load_panel()
+    target = copy.deepcopy(panel["rows"][0])
+    cid = str(target["canonical_card_id"])
+    provider_id = 77777
+    base_rows = []
+    for n in range(10):
+        base_rows.append({
+            "provider_listing_id": 900000 + n,
+            "provider_card_id": provider_id,
+            "canonical_card_id": cid,
+            "title": f'{target["card_name"]} {target["card_number"]} NM Near Mint',
+            "price": str(50 + n),
+            "currency": "USD",
+            "grader": None,
+            "grade": None,
+            "graded": False,
+            "provider_variant": None,
+            "attribution": "exact",
+            "sold_at": "2026-10-02",
+            "ingested_at": "2026-10-02T23:30:00+00:00",
+            "collected_at": "2026-10-02T23:30:00+00:00",
+            "identity_state": "EXACT",
+            "fair_value_signal_eligible": True,
+            "exclusion_reason": None,
+            "run_id": "00000000-0000-0000-0000-000000000001",
+        })
+    cutoff = datetime(2026, 10, 3, 1, 0, tzinfo=timezone.utc)
+    p = {"panel_fingerprint": panel["panel_fingerprint"], "rows": [target]}
+    first = publisher.build_publications(
+        panel=p,
+        provider_by_card={cid: provider_id},
+        evidence_by_card={cid: base_rows},
+        evaluation_date=cutoff.astimezone(publisher.PHOENIX).date(),
+        information_cutoff=cutoff,
+        generated_at=cutoff,
+        source_commit="abc1234",
+    )[0]
+    later = {
+        **base_rows[0],
+        "provider_listing_id": 999999,
+        "price": "999.99",
+        "sold_at": "2026-10-02",
+        "ingested_at": "2026-10-03T01:05:00+00:00",
+        "collected_at": "2026-10-03T01:05:00+00:00",
+    }
+    retry = publisher.build_publications(
+        panel=p,
+        provider_by_card={cid: provider_id},
+        evidence_by_card={cid: base_rows + [later]},
+        evaluation_date=cutoff.astimezone(publisher.PHOENIX).date(),
+        information_cutoff=cutoff,
+        generated_at=cutoff,
+        source_commit="abc1234",
+    )[0]
+    assert retry["content_fingerprint"] == first["content_fingerprint"]
+    assert retry["publication_id"] == first["publication_id"]
+    assert retry["rows_offered"] == first["rows_offered"] == 10
+    assert retry["input_fingerprints"]["evidence_rowset"] == first["input_fingerprints"]["evidence_rowset"]
+
+
+def test_information_cutoff_parser_requires_timezone_and_normalizes_utc():
+    parsed = publisher.parse_information_cutoff("2026-10-02T18:00:00-07:00")
+    assert parsed == datetime(2026, 10, 3, 1, 0, tzinfo=timezone.utc)
+    with pytest.raises(Exception):
+        publisher.parse_information_cutoff("2026-10-02T18:00:00")
