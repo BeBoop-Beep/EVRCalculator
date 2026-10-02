@@ -36,7 +36,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -59,6 +59,8 @@ jobs:
           if op == "scrape-set-refresh" and not set_id:
               raise SystemExit("scrape-set-refresh requires set_id=<canonical_key>")
           if (op.startswith("pricing-") or op.startswith("pkmnprices-") or op == "treatment-panel-recovery-v2") and (market_date or set_id):
+              raise SystemExit(f"{op} accepts no market_date or set_id")
+          if op.startswith("fv-") and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
           if op == "treatment-panel-recovery-v2" and (not request_id or not request_id.isdigit()):
               raise SystemExit("treatment-panel-recovery-v2 requires numeric request_id=<issue number>")
@@ -5112,6 +5114,167 @@ jobs:
               echo "TREATMENT_PANEL_RECOVERY_V2=PASS"
               ;;
 
+
+            fv-core-panel-activation-tests)
+              set -euo pipefail
+              SHA="cb5dacec5db5627aff4915fbb4f593ebeb051d4a"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-tests-$GITHUB_RUN_ID"
+              cleanup_fv_core_panel_tests() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_core_panel_tests EXIT
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m py_compile \
+                backend/scripts/run_core_panel_daily_increment.py \
+                backend/scripts/plan_core_panel_catchup.py
+              bash -n infra/oracle/run_core_panel_daily_increment.sh
+              bash -n infra/oracle/run_core_panel_daily_increment_guarded.sh
+              bash -n infra/oracle/install_core_panel_daily_increment_cron.sh
+              "$PY" -m pytest -q \
+                backend/tests/unit/scripts/test_run_core_panel_daily_increment.py \
+                backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+                backend/tests/unit/scripts/test_index_fair_value_prospective_shadow_v1.py \
+                backend/tests/unit/scripts/test_index_fair_value_shadow_s3.py
+              echo "FV_CORE_PANEL_ACTIVATION_TESTS=PASS sha=$SHA"
+              ;;
+
+            fv-core-panel-plan)
+              set -euo pipefail
+              SHA="cb5dacec5db5627aff4915fbb4f593ebeb051d4a"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-plan-$GITHUB_RUN_ID"
+              OUT="/tmp/fv-core-panel-plan-$GITHUB_RUN_ID.json"
+              cleanup_fv_core_panel_plan() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT" "$OUT"
+              }
+              trap cleanup_fv_core_panel_plan EXIT
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              TODAY="$(TZ=America/Phoenix date +%F)"
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m backend.scripts.plan_core_panel_catchup \
+                --env-file "$REPO/backend/.env" \
+                --intended-activation-date "$TODAY" \
+                --out "$OUT"
+              PLAN_OUT="$OUT" "$PY" - <<'PY'
+          import json, os
+          p=json.load(open(os.environ["PLAN_OUT"],encoding="utf-8"))
+          print(json.dumps({
+              "generated_at_utc":p["generated_at_utc"],
+              "intended_activation_date":p["intended_activation_date"],
+              "summary":p["summary"],
+              "provider_calls":p["provider_calls"],
+              "provider_credits_used":p["provider_credits_used"],
+              "database_writes":p["database_writes"],
+          },indent=2,sort_keys=True))
+          PY
+              echo "FV_CORE_PANEL_PLAN=PASS provider_calls=0 provider_credits_used=0 database_writes=0"
+              ;;
+
+            fv-core-panel-preflight)
+              set -euo pipefail
+              SHA="cb5dacec5db5627aff4915fbb4f593ebeb051d4a"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-preflight-$GITHUB_RUN_ID"
+              cleanup_fv_core_panel_preflight() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_core_panel_preflight EXIT
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
+                echo "FV_CORE_PANEL_DB_SAFETY_HOLD"; exit 75;
+              }
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m backend.scripts.run_core_panel_daily_increment \
+                --preflight --expected-date "$(TZ=America/Phoenix date +%F)"
+              echo "FV_CORE_PANEL_PREFLIGHT=PASS provider_calls=0 provider_credits_used=0 database_writes=0"
+              ;;
+
+            fv-core-panel-install-cron)
+              set -euo pipefail
+              SHA="cb5dacec5db5627aff4915fbb4f593ebeb051d4a"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-install-$GITHUB_RUN_ID"
+              cleanup_fv_core_panel_install() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_core_panel_install EXIT
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
+                echo "FV_CORE_PANEL_DB_SAFETY_HOLD"; exit 75;
+              }
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              "$WT/infra/oracle/install_core_panel_daily_increment_cron.sh" --apply
+              [ "$(tr -d '[:space:]' < /home/ubuntu/state/core_panel_daily_increment/release.sha)" = "$SHA" ] || {
+                echo "REFUSING: installed FV release pin mismatch"; exit 91;
+              }
+              echo "FV_CORE_PANEL_INSTALL_CRON=PASS sha=$SHA"
+              ;;
+
+            fv-core-panel-run-now)
+              set -euo pipefail
+              SHA="cb5dacec5db5627aff4915fbb4f593ebeb051d4a"
+              STATE="/home/ubuntu/state/core_panel_daily_increment"
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
+                echo "FV_CORE_PANEL_DB_SAFETY_HOLD"; exit 75;
+              }
+              [ -r "$STATE/release.sha" ] || { echo "FV_CORE_PANEL_RELEASE_PIN_MISSING"; exit 92; }
+              [ "$(tr -d '[:space:]' < "$STATE/release.sha")" = "$SHA" ] || {
+                echo "FV_CORE_PANEL_RELEASE_PIN_DRIFT"; exit 93;
+              }
+              /bin/bash "$STATE/runtime/infra/oracle/run_core_panel_daily_increment_guarded.sh"
+              echo "FV_CORE_PANEL_RUN_NOW=PASS sha=$SHA"
+              ;;
+
+            fv-core-panel-status)
+              set -euo pipefail
+              SHA="cb5dacec5db5627aff4915fbb4f593ebeb051d4a"
+              STATE="/home/ubuntu/state/core_panel_daily_increment"
+              echo "expected_sha=$SHA"
+              if [ -r "$STATE/release.sha" ]; then
+                echo "installed_sha=$(tr -d '[:space:]' < "$STATE/release.sha")"
+              else
+                echo "installed_sha=ABSENT"
+              fi
+              echo "db_safety_hold=$([ -e /home/ubuntu/state/db-safety/hold.json ] || [ -L /home/ubuntu/state/db-safety/hold.json ] && echo active || echo clear)"
+              echo "cron_entries=$(crontab -l 2>/dev/null | grep -c 'run_core_panel_daily_increment_guarded.sh' || true)"
+              if [ -x "$STATE/runtime/infra/oracle/run_core_panel_daily_increment.sh" ]; then
+                set -a
+                . "$REPO/backend/.env"
+                set +a
+                export PYTHONPATH="$STATE/runtime"
+                cd "$STATE/runtime"
+                "$PY" -m backend.scripts.run_core_panel_daily_increment \
+                  --preflight --expected-date "$(TZ=America/Phoenix date +%F)"
+              fi
+              echo "FV_CORE_PANEL_STATUS=PASS"
+              ;;
 
             fv-canary-empty-diagnose)
               # READ ONLY: diagnose why the first FV provider canary returned an empty page.
