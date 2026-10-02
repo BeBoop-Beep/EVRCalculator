@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     env:
       REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
-      FV_CANARY_SHA: "2d8cf3bc365081bc45b1c161b7a66097696cd703"
+      FV_CANARY_SHA: "88165d1c9cc5a909f9d161dc5ebfd3e2811c9a0e"
       FV_CANARY_BRANCH: "research/index-fair-value-sold-clearing-anchor-v1-20261001"
       STATE: "/home/ubuntu/state/fv_provider_canary"
       RUNTIME: "/home/ubuntu/state/fv_provider_canary/runtime"
