@@ -302,3 +302,28 @@ def test_information_cutoff_parser_requires_timezone_and_normalizes_utc():
     assert parsed == datetime(2026, 10, 3, 1, 0, tzinfo=timezone.utc)
     with pytest.raises(Exception):
         publisher.parse_information_cutoff("2026-10-02T18:00:00")
+
+
+def test_future_information_cutoff_refuses_before_database_access():
+    class UntouchedDB:
+        def table(self, name):
+            raise AssertionError(f"database touched: {name}")
+    with pytest.raises(publisher.ProspectiveShadowError, match="INFORMATION_CUTOFF_IN_FUTURE"):
+        publisher.publish(
+            db=UntouchedDB(),
+            ledger=ledger_mod.InMemoryShadowLedger(),
+            source_commit="abc1234",
+            now=datetime(2099, 1, 1, tzinfo=timezone.utc),
+            dry_run=True,
+        )
+
+
+def test_naive_programmatic_cutoff_is_rejected():
+    with pytest.raises(publisher.ProspectiveShadowError, match="timezone-aware"):
+        publisher.publish(
+            db=object(),
+            ledger=ledger_mod.InMemoryShadowLedger(),
+            source_commit="abc1234",
+            now=datetime(2026, 10, 2, 18, 0),
+            dry_run=True,
+        )

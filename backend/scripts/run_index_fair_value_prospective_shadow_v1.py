@@ -200,14 +200,17 @@ def publish(
 ) -> dict[str, Any]:
     if not re.fullmatch(r"[0-9a-f]{7,40}", source_commit):
         raise ProspectiveShadowError("source_commit must be a hex git SHA")
-    cutoff = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    cutoff_input = now or datetime.now(timezone.utc)
+    if cutoff_input.tzinfo is None:
+        raise ProspectiveShadowError("information cutoff must be timezone-aware")
+    cutoff = cutoff_input.astimezone(timezone.utc)
+    generated_at = datetime.now(timezone.utc)
+    if generated_at < cutoff:
+        raise ProspectiveShadowError("INFORMATION_CUTOFF_IN_FUTURE")
     evaluation_date = cutoff.astimezone(PHOENIX).date()
     panel = s2.load_panel()
 
     provider_by_card, evidence_by_card = fetch_anchor_inputs(db, panel)
-    generated_at = datetime.now(timezone.utc)
-    if generated_at < cutoff:
-        generated_at = cutoff
     publications = build_publications(
         panel=panel,
         provider_by_card=provider_by_card,
