@@ -332,6 +332,7 @@ def test_loader_uses_canonical_columns_and_ignores_null_authority_dates():
         ("pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
         ("pokemon_set_sealed_market_snapshot_latest", "market_date"),
         ("pokemon_market_index_daily_history", "market_date"),
+        ("pokemon_market_raw_edition_stable_daily_history_v1", "market_date"),
         ("pokemon_explore_set_value_snapshot_latest", "market_date"),
         ("pokemon_explore_card_movers_snapshot_latest", "market_date"),
         ("card_market_usd_latest", "captured_at"),
