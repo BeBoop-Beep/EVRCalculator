@@ -22,6 +22,7 @@ REQUIRED_AUTHORITY_DATE_KEYS = (
     "set_market_dashboard",
     "sealed_snapshot",
     "global_market_index",
+    "edition_stable_raw",
     "explore_set_value",
     "explore_card_movers",
     "explorer_v2",
@@ -144,6 +145,9 @@ def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
             "set_market_dashboard": _latest_date(client, "pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
             "sealed_snapshot": _latest_date(client, "pokemon_set_sealed_market_snapshot_latest", "market_date"),
             "global_market_index": _latest_date(client, "pokemon_market_index_daily_history", "market_date", tcg="pokemon"),
+            "edition_stable_raw": _latest_date(
+                client, "pokemon_market_raw_edition_stable_daily_history_v1", "market_date",
+            ),
             "explore_set_value": _latest_date(
                 client, "pokemon_explore_set_value_snapshot_latest", "market_date",
                 tcg="pokemon", scope="market",

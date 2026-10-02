@@ -2559,6 +2559,39 @@ def _run_market_quality_index_phase(
 
         if commit:
             persist_rollout_market_index_rows(client, index_rows)
+
+            # The public Explore Set Value snapshot consumes read_index_history(),
+            # whose post-cutover Raw family is the edition-stable market-identity
+            # authority. Historically that authority was only refreshed later,
+            # inside Explorer V2 staging. That created a deterministic one-day
+            # dependency inversion: today's canonical index was published, but
+            # Explore Set Value still saw yesterday's edition-stable Raw row and
+            # failed closed. Materialize the prerequisite here, before any
+            # downstream global Market/Explorer snapshot is allowed to build.
+            raw_refresh = (
+                client.rpc(
+                    "refresh_pokemon_market_raw_edition_stable_history_v1",
+                    {"p_through_date": target},
+                )
+                .execute()
+            )
+            raw_refresh_payload = getattr(raw_refresh, "data", None)
+            raw_current = list(
+                client.table("pokemon_market_raw_edition_stable_daily_history_v1")
+                .select("market_date")
+                .eq("market_date", target)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            if not raw_current:
+                raise RuntimeError(
+                    "edition-stable Raw authority did not reach the promoted "
+                    f"market date {target} after prerequisite refresh "
+                    f"(rpc={raw_refresh_payload!r})"
+                )
+
             from backend.alerts.pipeline_alerts import alert_market_index
             latest = {key: max((str(row.get("market_date"))[:10] for row in index_rows
                                 if row.get("index_key") == key), default=None)
