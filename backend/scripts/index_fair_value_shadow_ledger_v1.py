@@ -166,6 +166,7 @@ class SupabaseShadowLedger:
         return "INSERTED"
 
     def append_outcome(self, outcome: Mapping[str, Any]) -> str:
+        self._require_enabled()
         return self._append_fingerprinted(
             table=self.OUTCOMES,
             key_filters={
@@ -180,6 +181,7 @@ class SupabaseShadowLedger:
         )
 
     def append_component(self, observation: Mapping[str, Any]) -> str:
+        self._require_enabled()
         return self._append_fingerprinted(
             table=self.COMPONENTS,
             key_filters={"publication_id": observation["publication_id"]},
