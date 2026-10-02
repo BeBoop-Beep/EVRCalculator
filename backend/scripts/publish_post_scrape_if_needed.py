@@ -161,7 +161,7 @@ def _bounded_divergence_repair_eligible(client, market_date: str) -> bool:
 
 
 def _run_divergence_repair_script(market_date: str) -> int:
-    args = [str(DIVERGENCE_REPAIR_SCRIPT), market_date]
+    args = ["bash", str(DIVERGENCE_REPAIR_SCRIPT), market_date]
     logger.info("%s bounded divergence command: %s", TAG, " ".join(args))
     result = subprocess.run(args, cwd=str(_PROJECT_ROOT))
     return int(result.returncode)
