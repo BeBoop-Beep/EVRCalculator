@@ -114,7 +114,7 @@ def build_pairs(gate: dict[str, Any], controls: dict[str, dict[str, Any]]) -> li
 
     pairs: list[dict[str, Any]] = []
     for (set_name, subject_key), group in sorted(grouped.items()):
-        if len(group) != 2 or {str(card["rarity"]) for card in group} != {SIR, DOUBLE}:
+        if len(group) != 2 or {str(card["rarity"]).casefold() for card in group} != {SIR.casefold(), DOUBLE.casefold()}:
             raise RuntimeError(f"unexpected treatment group {set_name} {subject_key}")
         sir = next(card for card in group if card["rarity"] == SIR)
         ultra = next(card for card in group if str(card["rarity"]).casefold() == DOUBLE.casefold())
