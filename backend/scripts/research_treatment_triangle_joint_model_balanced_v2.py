@@ -57,7 +57,7 @@ def build_contrasts(artifact,controls):
         for treatment,row in by.items():
             histories[treatment]={x["date"]:float(x["price"]) for x in panels[row["canonical_card_id"]]["history"]}
         shared=sorted(set(histories[DOUBLE]) & set(histories[ULTRA]) & set(histories[SIR]))
-        if len(shared)<90: raise RuntimeError(f"triangle below strong gate {set_name} {subject} {len(shared)}")
+        if len(shared)<30: raise RuntimeError(f"triangle below frozen moderate gate {set_name} {subject} {len(shared)}")
         dr=by[DOUBLE]; drc=controls[dr["canonical_card_id"]]
         subject_rows=[]
         for treatment,label in ((ULTRA,"ultra"),(SIR,"sir")):
@@ -73,7 +73,7 @@ def build_contrasts(artifact,controls):
                  "artist_delta":tc["artist"]-drc["artist"],
                  "treatment_probability":float(tr["modeled_probability"]),"double_probability":float(dr["modeled_probability"])}
             contrasts.append(row); subject_rows.append(row)
-        subjects.append({"era_name":rows[0]["era_name"],"set_name":set_name,"subject_key":subject,"shared_dates":len(shared)})
+        subjects.append({"era_name":rows[0]["era_name"],"set_name":set_name,"subject_key":subject,"shared_dates":len(shared),"panel_status":"PANEL_READY_STRONG" if len(shared)>=90 else "PANEL_READY_MODERATE"})
     if len(subjects)<8 or len(contrasts)!=2*len(subjects): raise RuntimeError("unexpected triangle size")
     return contrasts,subjects
 
