@@ -1,4 +1,4 @@
 {
-  "operation": "vm-cleanup-stale-tmp",
-  "request_id": "fv-disk-cleanup-20261001"
+  "operation": "code-red-db-load-restore-audit",
+  "request_id": "fv-hold-audit-20261001"
 }
