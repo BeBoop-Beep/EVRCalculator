@@ -1,4 +1,4 @@
 {
-  "operation": "fv-canary-empty-diagnose",
-  "request_id": "fvdiag2"
+  "operation": "db-safety-empty-hold-repair",
+  "request_id": "fv-empty-hold-repair-20261001"
 }
