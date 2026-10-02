@@ -8,12 +8,16 @@ Semantics, identical for every implementation:
 * an outcome is unique per (publication_id, horizon_days) with the same idempotent/conflict rule;
 * outcomes and components can only reference an existing publication.
 
-The Supabase adapter is DORMANT (``WRITE_ENABLED = False``) and targets tables from the
-UNAPPLIED proposal in docs/research/index_fair_value/fv_s3/migration_proposal_unapplied/.
+The Supabase adapter stays DORMANT (``WRITE_ENABLED = False``) until the reviewed
+production migration is applied. Publication header + members use one atomic database RPC.
+Components and outcomes carry persistence fingerprints so exact retries are no-ops and
+changed retries fail closed.
 """
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 from typing import Any, Mapping
 
 WRITE_ENABLED = False
@@ -96,45 +100,89 @@ class InMemoryShadowLedger:
     # Deliberately absent: update_*, delete_*, upsert_* .
 
 
+def _canonical_fingerprint(value: Mapping[str, Any]) -> str:
+    raw = json.dumps(dict(value), sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 class SupabaseShadowLedger:
-    """Insert-only adapter for the proposed tables. Dormant: refuses every write."""
+    """Insert-only adapter for the reviewed shadow tables. Dormant until DB activation."""
 
     PUBLICATIONS = "fair_value_shadow_anchor_publications_v1"
     MEMBERS = "fair_value_shadow_anchor_members_v1"
     COMPONENTS = "fair_value_shadow_component_observations_v1"
     OUTCOMES = "fair_value_shadow_evaluation_outcomes_v1"
+    PUBLISH_RPC = "publish_fair_value_shadow_anchor_v1"
 
     def __init__(self, client: Any) -> None:
         self.c = client
 
     def _require_enabled(self) -> None:
         if not WRITE_ENABLED:
-            raise ShadowLedgerDormant("FV_SHADOW_LEDGER_DORMANT: the proposed tables are not applied")
+            raise ShadowLedgerDormant("FV_SHADOW_LEDGER_DORMANT: production shadow writes are not enabled")
+
+    @staticmethod
+    def _one(rows: Any) -> dict[str, Any] | None:
+        data = getattr(rows, "data", None) or []
+        return dict(data[0]) if data else None
 
     def append_publication(self, publication: Mapping[str, Any]) -> str:
         self._require_enabled()
         header = {k: v for k, v in publication.items() if k != "members"}
-        rows = (self.c.table(self.PUBLICATIONS).select("publication_id,content_fingerprint")
-                .eq("rule_version", publication["rule_version"])
-                .eq("canonical_card_id", publication["canonical_card_id"])
-                .eq("evaluation_date", publication["evaluation_date"])
-                .eq("information_cutoff", publication["information_cutoff"]).execute().data or [])
-        if rows:
-            if rows[0]["content_fingerprint"] == publication["content_fingerprint"]:
+        result = self.c.rpc(
+            self.PUBLISH_RPC,
+            {"p_publication": header, "p_members": list(publication.get("members") or [])},
+        ).execute()
+        value = getattr(result, "data", None)
+        if isinstance(value, list) and value:
+            value = value[0]
+        if isinstance(value, dict):
+            value = next(iter(value.values()), None)
+        status = str(value or "")
+        if status not in {"INSERTED", "IDEMPOTENT_NOOP"}:
+            raise ShadowLedgerError(f"unexpected publication RPC result: {status!r}")
+        return status
+
+    def _append_fingerprinted(
+        self,
+        *,
+        table: str,
+        key_filters: Mapping[str, Any],
+        record: Mapping[str, Any],
+        conflict_name: str,
+    ) -> str:
+        self._require_enabled()
+        fingerprint = _canonical_fingerprint(record)
+        query = self.c.table(table).select("content_fingerprint")
+        for key, value in key_filters.items():
+            query = query.eq(key, value)
+        existing = self._one(query.limit(1).execute())
+        if existing is not None:
+            if existing.get("content_fingerprint") == fingerprint:
                 return "IDEMPOTENT_NOOP"
-            raise ShadowLedgerConflict("SHADOW_PUBLICATION_CONFLICT")
-        self.c.table(self.PUBLICATIONS).insert(header).execute()
-        members = [{"publication_id": publication["publication_id"], **m} for m in publication["members"]]
-        if members:
-            self.c.table(self.MEMBERS).insert(members).execute()
+            raise ShadowLedgerConflict(conflict_name)
+        payload = {**dict(record), "content_fingerprint": fingerprint}
+        self.c.table(table).insert(payload).execute()
         return "INSERTED"
 
     def append_outcome(self, outcome: Mapping[str, Any]) -> str:
-        self._require_enabled()
-        self.c.table(self.OUTCOMES).insert(dict(outcome)).execute()
-        return "INSERTED"
+        return self._append_fingerprinted(
+            table=self.OUTCOMES,
+            key_filters={
+                "publication_id": outcome["publication_id"],
+                "horizon_days": int(outcome["horizon_days"]),
+            },
+            record=outcome,
+            conflict_name=(
+                f"SHADOW_OUTCOME_CONFLICT publication={outcome['publication_id']} "
+                f"horizon={outcome['horizon_days']}"
+            ),
+        )
 
     def append_component(self, observation: Mapping[str, Any]) -> str:
-        self._require_enabled()
-        self.c.table(self.COMPONENTS).insert(dict(observation)).execute()
-        return "INSERTED"
+        return self._append_fingerprinted(
+            table=self.COMPONENTS,
+            key_filters={"publication_id": observation["publication_id"]},
+            record=observation,
+            conflict_name=f"SHADOW_COMPONENT_CONFLICT publication={observation['publication_id']}",
+        )
