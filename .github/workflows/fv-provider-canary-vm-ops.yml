@@ -1,0 +1,178 @@
+name: FV Provider Canary VM Ops
+
+on:
+  push:
+    branches:
+      - vm-ops-control
+    paths:
+      - ".vm-ops/fv-canary-request.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+
+jobs:
+  fv-canary:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 30
+    env:
+      REQUEST_MESSAGE: ${{ github.event.head_commit.message }}
+      FV_CANARY_SHA: "63c3dde47b7c51960fb16805fa0cce8ec48846ff"
+      FV_CANARY_BRANCH: "research/index-fair-value-sold-clearing-anchor-v1-20261001"
+      STATE: "/home/ubuntu/state/fv_provider_canary"
+      RUNTIME: "/home/ubuntu/state/fv_provider_canary/runtime"
+      REPO: "/home/ubuntu/repos/EVRCalculator"
+    steps:
+      - name: Validate fixed request
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$REQUEST_MESSAGE" in
+            "fv-canary: preflight") echo "FV_OPERATION=preflight" >> "$GITHUB_ENV" ;;
+            "fv-canary: run") echo "FV_OPERATION=run" >> "$GITHUB_ENV" ;;
+            *) echo "REFUSING unexpected request: $REQUEST_MESSAGE"; exit 2 ;;
+          esac
+
+      - name: Prepare pinned detached runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY="$REPO/.venv/bin/python"
+          [ -d "$REPO/.git" ] || { echo "REFUSING production repo missing"; exit 10; }
+          [ -x "$PY" ] || { echo "REFUSING production venv missing"; exit 11; }
+          [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
+            echo "REFUSING DB safety hold present"; exit 12;
+          }
+          command -v script >/dev/null || { echo "REFUSING pseudo-TTY utility missing"; exit 13; }
+
+          mkdir -p "$STATE"
+          git -C "$REPO" fetch origin "$FV_CANARY_BRANCH" --quiet
+          git -C "$REPO" cat-file -e "$FV_CANARY_SHA^{commit}"
+          if [ -e "$RUNTIME/.git" ] || [ -d "$RUNTIME" ]; then
+            git -C "$REPO" worktree remove --force "$RUNTIME" 2>/dev/null || rm -rf "$RUNTIME"
+          fi
+          git -C "$REPO" worktree prune
+          git -C "$REPO" worktree add --detach "$RUNTIME" "$FV_CANARY_SHA" >/dev/null
+          ACTUAL="$(git -C "$RUNTIME" rev-parse HEAD)"
+          echo "runtime_sha=$ACTUAL"
+          [ "$ACTUAL" = "$FV_CANARY_SHA" ] || { echo "REFUSING runtime SHA mismatch"; exit 14; }
+          grep -qx 'CANARY_ENABLED = True' "$RUNTIME/backend/scripts/run_core_panel_provider_semantics_canary.py" || {
+            echo "REFUSING canary not enabled in pinned runtime"; exit 15;
+          }
+          grep -qx 'ACTIVATION_ENABLED = False' "$RUNTIME/backend/scripts/run_core_panel_daily_increment.py" || {
+            echo "REFUSING daily collector unexpectedly enabled"; exit 16;
+          }
+
+      - name: Regenerate catch-up plan and zero-credit preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY="$REPO/.venv/bin/python"
+          PLAN="$STATE/catchup_debt_plan.json"
+          DRY="$STATE/canary_dry_run.json"
+          export PYTHONPATH="$RUNTIME"
+          cd "$RUNTIME"
+          "$PY" -m backend.scripts.plan_core_panel_catchup \
+            --env-file "$REPO/backend/.env" \
+            --intended-activation-date 2026-10-01 \
+            --out "$PLAN"
+          "$PY" -m backend.scripts.run_core_panel_provider_semantics_canary \
+            --plan "$PLAN" --dry-run > "$DRY"
+          "$PY" - "$DRY" <<'PY'
+          import json,sys
+          obj=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert obj["status"]=="OFFLINE"
+          assert obj["provider_requests"]==0
+          assert obj["provider_credits_used"]==0
+          assert obj["database_writes"]==0
+          assert obj["would_call"]["params"]["limit"]<=20
+          assert obj["would_call"]["credit_ceiling"]<=20
+          print("preflight=PASS")
+          print("selected_canonical_card_id="+str(obj["selection"]["canonical_card_id"]))
+          print("selected_provider_card_id="+str(obj["selection"]["provider_card_id"]))
+          print("frontier_ingested_at="+str(obj["selection"]["frontier_ingested_at"]))
+          print("estimated_new_rows="+str(obj["selection"]["estimated_new_rows"]))
+          PY
+
+      - name: Stop after preflight
+        if: ${{ env.FV_OPERATION == 'preflight' }}
+        shell: bash
+        run: |
+          echo "FV_CANARY_PREFLIGHT=PASS provider_requests=0 provider_credits_used=0"
+
+      - name: Run one-card one-page canary
+        if: ${{ env.FV_OPERATION == 'run' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY="$REPO/.venv/bin/python"
+          PLAN="$STATE/catchup_debt_plan.json"
+          SELECT="$STATE/canary_selection.json"
+          RECEIPT="$STATE/receipt.json"
+          export PYTHONPATH="$RUNTIME"
+          cd "$RUNTIME"
+
+          "$PY" -m backend.scripts.run_core_panel_provider_semantics_canary \
+            --plan "$PLAN" --select > "$SELECT"
+          CID="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["selection"]["canonical_card_id"])' "$SELECT")"
+          PID="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["selection"]["provider_card_id"])' "$SELECT")"
+          echo "canary_canonical_card_id=$CID"
+          echo "canary_provider_card_id=$PID"
+
+          set -a
+          . "$REPO/backend/.env"
+          set +a
+
+          snapshot_state() {
+            PROVIDER_ID="$PID" "$PY" - <<'PY'
+          import hashlib,json,os
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          pid=int(os.environ["PROVIDER_ID"])
+          sync=(c.table("pkmnprices_sold_sync_state_v1")
+                  .select("provider_card_id,canonical_card_id,last_ingested_at,last_sold_at,last_attempt_at,last_success_at,status,consecutive_failures,rows_seen,rows_inserted,last_error_code,metadata")
+                  .eq("provider_card_id",pid).limit(1).execute().data or [])
+          evidence=(c.table("pkmnprices_ebay_sold_evidence_v1")
+                      .select("provider_listing_id")
+                      .eq("provider_card_id",pid).order("provider_listing_id").execute().data or [])
+          payload={"sync":sync,"evidence_ids":[r["provider_listing_id"] for r in evidence]}
+          raw=json.dumps(payload,sort_keys=True,separators=(",",":"),default=str).encode()
+          print(hashlib.sha256(raw).hexdigest())
+          PY
+          }
+
+          BEFORE="$(snapshot_state)"
+          echo "state_hash_before=$BEFORE"
+
+          rm -f "$RECEIPT"
+          CMD="$PY -m backend.scripts.run_core_panel_provider_semantics_canary --plan $PLAN --commit --canonical-card-id $CID --authorization-ticket FVCANARY-20261001-GHOPS1 --receipt-out $RECEIPT"
+          set +e
+          script -q -e -c "$CMD" /dev/null
+          RC=$?
+          set -e
+          echo "canary_exit_code=$RC"
+          [ -f "$RECEIPT" ] || { echo "CANARY receipt missing"; exit 30; }
+
+          AFTER="$(snapshot_state)"
+          echo "state_hash_after=$AFTER"
+          [ "$BEFORE" = "$AFTER" ] || { echo "REFUSING B4/B5/evidence state changed"; exit 31; }
+
+          "$PY" - "$RECEIPT" "$RC" <<'PY'
+          import json,sys
+          obj=json.load(open(sys.argv[1],encoding="utf-8"))
+          rc=int(sys.argv[2])
+          print(json.dumps(obj,indent=2,sort_keys=True))
+          assert obj["provider_requests"]==1
+          assert obj["database_writes"]==0
+          assert obj["provider_credits_ceiling"]<=20
+          charged=int(obj["checks"]["5_credits_charged_delta"])
+          assert 0 <= charged <= 20
+          print("provider_credits_charged="+str(charged))
+          print("canary_verdict="+str(obj["verdict"]))
+          if rc not in (0,3):
+              raise SystemExit("unexpected canary process exit")
+          PY
+          echo "FV_PROVIDER_CANARY_COMPLETED"
