@@ -17,7 +17,7 @@ from backend.sentinel.models import CheckResult, Severity
 from backend.sentinel.registry import CheckContext
 
 
-DB_SAFETY_HOLD_CHECK_KEY = "runtime.db_safety_hold"
+DB_SAFETY_HOLD_CHECK_KEY = "database.safety_hold"
 DB_SAFETY_HOLD_AUTHORITY = "host-local-db-safety-hold-v1"
 
 FAILURE_ACTIVE = "DATABASE_SAFETY_HOLD_ACTIVE"
