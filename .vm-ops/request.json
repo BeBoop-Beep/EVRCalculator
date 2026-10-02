@@ -1,4 +1,4 @@
 {
-  "operation": "fv-core-panel-run-now",
-  "request_id": "fv-core-panel-first-run-20261002"
+  "operation": "fv-core-panel-install-cron",
+  "request_id": "fv-core-panel-reinstall-final-20261002"
 }
