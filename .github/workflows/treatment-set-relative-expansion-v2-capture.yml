@@ -1,0 +1,85 @@
+name: Treatment Set-Relative Expansion V2 Capture
+
+on:
+  push:
+    branches:
+      - research/treatment-panel-recovery-v2-current-20261001
+    paths:
+      - '.github/workflows/treatment-set-relative-expansion-v2-capture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      PKMNPRICES_API_KEY: ${{ secrets.PkmnPrices_Secret }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install focused dependencies
+        run: python -m pip install -q numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
+      - name: Verify secrets without disclosure
+        shell: bash
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$PKMNPRICES_API_KEY"
+      - name: Provider credit availability probe
+        run: |
+          python - <<'PY'
+          from backend.pricing_pipeline.pkmnprices_client import PkmnPricesClient, PkmnPricesAPIError
+          from backend.pricing_pipeline.pkmnprices_credentials import load_pkmnprices_credentials
+          creds = load_pkmnprices_credentials(allow_frontend_fallback=False)
+          client = PkmnPricesClient(creds.api_key, min_request_interval=.55, timeout=10, max_retries=0)
+          try:
+              client.card(156926)
+          except PkmnPricesAPIError as exc:
+              print(f"provider_probe=FAILED status={exc.status} code={exc.code}")
+              raise
+          print(
+              "provider_probe=OK "
+              f"probe_credits={client.credits_charged} "
+              f"credit_limit={client.credits_limit} "
+              f"rate_remaining={client.rate_remaining}"
+          )
+          PY
+      - name: Capture frozen 56-triad expansion
+        id: capture
+        shell: bash
+        run: |
+          set +e
+          python backend/scripts/research_treatment_set_relative_expansion_panel_v2.py \
+            --market-date 2026-09-29 \
+            --period 180d \
+            --credit-cap 22000 \
+            --capture \
+            --output backend/artifacts/treatment_set_relative_v2/capture.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload capture artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-expansion-v2-capture
+          path: backend/artifacts/treatment_set_relative_v2/capture.json
+          if-no-files-found: warn
+      - name: Enforce capture result
+        if: always()
+        shell: bash
+        run: |
+          code="${{ steps.capture.outputs.exit_code }}"
+          if [ -z "$code" ]; then
+            echo "capture did not start"
+            exit 1
+          fi
+          exit "$code"
