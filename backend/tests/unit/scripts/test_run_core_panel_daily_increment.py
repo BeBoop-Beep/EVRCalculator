@@ -579,3 +579,50 @@ def test_provider_daily_credit_exhaustion_detection_supports_legacy_failure_rece
             return Query()
 
     assert REAL_PROVIDER_DAILY_CREDIT_EXHAUSTED(DB(), "2026-10-02") is True
+
+
+def test_same_day_retry_skips_closed_cards_and_only_resumes_open_gap():
+    closed = _state(1, extra_meta={
+        inc.STATE_KEY: {
+            "last_run_date": "2026-10-02",
+            "frontier_ingested_at": "2026-09-26T00:00:00Z",
+            "open_gap": None,
+        }
+    })
+    gap = _state(2, extra_meta={
+        inc.STATE_KEY: {
+            "last_run_date": "2026-10-02",
+            "frontier_ingested_at": FLOOR,
+            "open_gap": {
+                "floor_ingested_at": FLOOR,
+                "head_ingested_at": "2026-09-25T00:00:00Z",
+                "resume_cursor": "resume",
+                "opened_on": "2026-10-02",
+                "reason": "BOUNDED_OVERFLOW",
+            },
+        }
+    })
+    provider = FakeProvider({(1002, "resume"): _page([])})
+    result, _ = _run([closed, gap], provider)
+    assert result["status"] == "COMPLETE"
+    assert result["skipped"] == {"ALREADY_CURRENT_TODAY": 1}
+    assert len(provider.calls) == 1
+    assert provider.calls[0]["provider_id"] == 1002
+    assert provider.calls[0]["cursor"] == "resume"
+
+
+def test_same_day_retry_with_every_card_current_makes_zero_provider_calls():
+    state = _state(1, extra_meta={
+        inc.STATE_KEY: {
+            "last_run_date": "2026-10-02",
+            "frontier_ingested_at": "2026-09-26T00:00:00Z",
+            "open_gap": None,
+        }
+    })
+    provider = FakeProvider({})
+    result, store = _run([state], provider)
+    assert result["status"] == "COMPLETE"
+    assert result["skipped"] == {"ALREADY_CURRENT_TODAY": 1}
+    assert provider.calls == []
+    run = store.runs[result["run_id"]]
+    assert run["target_count"] == 0 and run["credits_used"] == 0
