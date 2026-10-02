@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sentinel-snapshot-recovery-after-hold-fix-20261002"
+  "operation": "scrape-cycle-status",
+  "request_id": "sentinel-post-recovery-publication-status-20261002"
 }
