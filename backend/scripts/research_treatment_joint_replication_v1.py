@@ -122,8 +122,8 @@ def metrics(beta:np.ndarray):
 
 def estimate(panel:dict[str,Any],controls:dict[str,dict[str,float]])->dict[str,Any]:
     coverage=panel.get("coverage") or {}
-    if panel.get("status")!="COMPLETE" or int(panel.get("production_writes") or 0)!=0:
-        raise RuntimeError("replication panel incomplete or unsafe")
+    if panel.get("status") not in {"COMPLETE","PARTIAL"} or int(panel.get("production_writes") or 0)!=0:
+        raise RuntimeError("replication panel unsafe or invalid status")
     if not coverage.get("coverage_pass"):
         return {"decision_token":"JOINT_TREATMENT_LADDER_REPLICATION_INSUFFICIENT_COVERAGE","coverage":coverage,"production_writes":0}
     edges=build_edges(panel,controls)
