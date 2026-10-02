@@ -12,7 +12,11 @@ const capture = async (page, name) => {
 
 async function focusCards(page) {
   const cards = page.locator("[data-market-explorer-active-chip]").filter({ has: page.locator("[data-market-explorer-active-focus]") }).first();
-  await cards.locator("[data-market-explorer-active-focus]").click();
+  const focus = cards.locator("[data-market-explorer-active-focus]");
+  // A fixture capability may establish the first active card market as the
+  // current focus before hydration completes. Respect the toggle contract and
+  // click only when the chip is not already focused.
+  if ((await focus.getAttribute("aria-pressed")) !== "true") await focus.click();
   await expect(page.locator("[data-market-chart-view='activity']")).toHaveAttribute("data-market-chart-view-state", "available");
 }
 

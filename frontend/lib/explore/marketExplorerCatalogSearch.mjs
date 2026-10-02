@@ -1,8 +1,8 @@
 import { boundedFetch, EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
 
-// Market Explorer contextual physical-leaf search. Aggregate markets belong in
-// the directory controls, never in this result list.
-export const SEARCH_ENDPOINT = "/api/market/explorer/leaf-search";
+// Market Explorer contextual catalog search. Prepared markets are grouped
+// before their physical instruments.
+export const SEARCH_ENDPOINT = "/api/market/explorer/catalog-search";
 export const SEARCH_MIN_LENGTH = 2;
 export const SEARCH_LIMIT = 12;
 export const SEARCH_DEBOUNCE_MS = 250;
@@ -20,6 +20,7 @@ export function resolveSearchResultAction(result) {
   if (result.asset === "graded" || String(result.availability || "").toUpperCase() === "INSUFFICIENT_AUTHORITY") {
     return { primary: { kind: "unavailable", reason: usable(result.reason) || "Graded leaf search is not available yet." } };
   }
+  if (usable(result.marketKey)) return { primary: { kind: "market", marketKey: result.marketKey } };
   if (!usable(result.instrumentId)) return { primary: { kind: "none" } };
   const item = result.asset === "sealed"
     ? { asset: "sealed", instrumentId: result.instrumentId, name: result.displayName, setName: result.setName, productFamily: result.productFamily, productType: result.productType, variantLabel: result.variantLabel, imageUrl: result.imageUrl }
@@ -30,14 +31,29 @@ export async function fetchCatalogSearch({ asset, q, limit = SEARCH_LIMIT, signa
   const query = new URLSearchParams({ asset, q, limit: String(limit) });
   const response = await boundedFetch(`${SEARCH_ENDPOINT}?${query}`, { credentials: "include", cache: "no-store" },
     { signal, timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.search,
-      timeoutCode: "LEAF_SEARCH_TIMEOUT", timeoutMessage: "Search took too long. Please try again." });
+      timeoutCode: "CATALOG_SEARCH_TIMEOUT", timeoutMessage: "Search took too long. Please try again." });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const error = new Error("Search is temporarily unavailable");
-    error.status = response.status; error.code = payload?.code || "LEAF_SEARCH_FAILED"; throw error;
+    error.status = response.status; error.code = payload?.code || "CATALOG_SEARCH_FAILED"; throw error;
   }
-  if (String(payload?.availability || "").toUpperCase() === "INSUFFICIENT_AUTHORITY") return [{ asset, availability: payload.availability, reason: payload.reason }];
-  return Array.isArray(payload?.items) ? payload.items : [];
+  const rows = Array.isArray(payload?.results) ? payload.results : [];
+  return rows.map((row) => ({
+    ...row,
+    resultKind: row.result_kind,
+    displayName: row.market_key && !/\s[—-]\s(?:Cards|Sealed|Graded)$/i.test(String(row.label || ""))
+      ? `${row.label} — ${asset === "sealed" ? "Sealed" : asset === "graded" ? "Graded" : "Cards"}`
+      : row.label,
+    marketKey: row.market_key,
+    instrumentId: row.instrument_id,
+    setId: row.set_id,
+    imageUrl: row.image_url,
+    setName: row.subtitle,
+    ...(row.metadata || {}),
+  })).sort((left, right) => {
+    const group = (row) => row.marketKey ? 0 : 1;
+    return group(left) - group(right) || Number(right.relevance || 0) - Number(left.relevance || 0);
+  });
 }
 const isAbort = (error) => error?.name === "AbortError";
 export function createCatalogSearchController({ fetchResults = fetchCatalogSearch, debounceMs = SEARCH_DEBOUNCE_MS, limit = SEARCH_LIMIT, minLength = SEARCH_MIN_LENGTH, setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = (id) => clearTimeout(id) } = {}) {
@@ -57,7 +73,7 @@ export function createCatalogSearchController({ fetchResults = fetchCatalogSearc
         controller = null; emit({ status: "ready", results: (Array.isArray(results) ? results : []).slice(0, limit), error: null });
       } catch (error) {
         if (mine !== token || isAbort(error)) return;
-        controller = null; emit({ status: "error", results: [], error: { code: error?.code || "LEAF_SEARCH_FAILED", status: error?.status || 0 } });
+        controller = null; emit({ status: "error", results: [], error: { code: error?.code || "CATALOG_SEARCH_FAILED", status: error?.status || 0 } });
       }
     }, debounceMs);
   }

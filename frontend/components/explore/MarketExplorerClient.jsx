@@ -33,7 +33,7 @@ import {
   buildExplorerTimeframeOptions,
   resolveExplorerTimeframe,
 } from "@/lib/explore/marketExplorerState.mjs";
-import { resolveActiveDetailSeriesId } from "@/lib/explore/marketExplorerConstituents.mjs";
+import { isEnumerableSeries, resolveActiveDetailSeriesId } from "@/lib/explore/marketExplorerConstituents.mjs";
 import {
   buildComparableSeries,
   buildExplorerChartModel,
@@ -64,6 +64,17 @@ import { fetchMarketActivityGroup } from "@/lib/explore/marketActivityApi.mjs";
 import { fetchDirectInstrument } from "@/lib/explore/marketExplorerDirectInstrument.mjs";
 import { activityTimeframeAvailable, activityWindowForTimeframe, enterActivityView, reconcileActivityView } from "@/lib/explore/marketActivityView.mjs";
 import { MARKET_CHART_VIEW_ACTIVITY, MARKET_CHART_VIEW_INDEX } from "./marketPerformanceDomain.mjs";
+import useMarketExplorerConstituentPage from "@/hooks/explore/useMarketExplorerConstituentPage";
+
+function ConstituentPageOnePrefetch({ series, cache }) {
+  const identity = series?.queryFingerprint
+    ? series.spec || null
+    : series?.generationId && series?.marketType
+      ? { marketKey: series.key, generationId: series.generationId }
+      : null;
+  useMarketExplorerConstituentPage(identity, { cache, autoLoad: Boolean(identity) });
+  return null;
+}
 
 function PreparedMarketStatus({ pendingKeys, failedKeys, failures, labels, series, loader }) {
   if (!pendingKeys.length && !failedKeys.length && !series.some((entry) => entry.trend.length < 2)) return null;
@@ -725,6 +736,9 @@ export default function MarketExplorerClient({
       : null;
   const focusedSeries =
     selectedSeries.find((series) => series.key === focusedSeriesKey) || null;
+  const constituentPrefetchSeries = focusedSeries && isEnumerableSeries(focusedSeries)
+    ? focusedSeries
+    : null;
   const activityFocusKey = focusedSeries?.asset === "cards" ? focusedSeriesKey : null;
   useEffect(() => {
     dispatchView({
@@ -1238,6 +1252,7 @@ export default function MarketExplorerClient({
         className="order-2 flex h-full min-h-0 min-w-0 flex-col desk:order-none desk:col-start-2"
         aria-labelledby="compare-markets-zone-heading"
       >
+        <ConstituentPageOnePrefetch series={constituentPrefetchSeries} cache={constituentPageCache} />
         <div className="sr-only">
           <p className={styles.explorerZoneEyebrow}>02 / Research</p>
           <h2

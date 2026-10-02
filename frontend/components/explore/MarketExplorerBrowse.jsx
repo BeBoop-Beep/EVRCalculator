@@ -97,7 +97,11 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
     if (restoreFocus) requestAnimationFrame(() => trigger?.focus());
   };
   // One-market users are SWITCHING: the menu closes once they choose. Compare-capable users keep it open to add more.
-  const choose = (key) => { onSelect(key); if (!canCompare) close(); };
+  const choose = (key) => {
+    if (activeKeys.includes(key)) onCompare?.(key);
+    else onSelect(key);
+    if (!canCompare) close();
+  };
   const row = (market, index) => {
     const active = activeKeys.includes(market.market_key);
     // ACTIVE means LOADED. A requested market is "loading"; one that did not
@@ -122,7 +126,7 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
     <div role="group" aria-label="Browse context" data-market-directory-asset-layer className="mb-2 grid grid-cols-3 gap-1 rounded-lg border border-[var(--border-subtle)] p-0.5">
       {ASSET_LAYERS.map(([id, label]) => <button key={id} type="button" data-market-directory-asset={id} aria-pressed={assetLayer === id} onClick={() => { setAssetLayer(id); setOpen(null); setSearch(""); setHighlightedIndex(NO_HIGHLIGHT); }} className={`min-h-8 rounded-md px-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 ${assetLayer === id ? "bg-sky-400/15 text-sky-200" : "text-[var(--text-primary)] hover:bg-white/[.05]"}`}>{label}</button>)}
     </div>
-    {enableContextualSearch ? <MarketExplorerContextualSearch asset={assetLayer} onAddToBasket={onAddToBasket} onDirectSelect={onDirectSelect}
+    {enableContextualSearch ? <MarketExplorerContextualSearch asset={assetLayer} onAddToBasket={onAddToBasket} onDirectSelect={onDirectSelect} onPreparedSelect={choose}
       disclosureOpen={open === "search"} onDisclosureChange={(next) => setOpen(next ? "search" : null)} resetKey={resetKey} /> : null}
     {assetLayer === "graded"
       ? <div role="status" data-market-directory-state="graded-unavailable" className="rounded-md border border-[var(--border-subtle)] px-3 py-3 text-xs text-[var(--text-secondary)]"><strong className="block text-[var(--text-primary)]">Graded markets are unavailable</strong><span data-graded-reason>{gradedReason || GRADED_FALLBACK_REASON}</span></div>
