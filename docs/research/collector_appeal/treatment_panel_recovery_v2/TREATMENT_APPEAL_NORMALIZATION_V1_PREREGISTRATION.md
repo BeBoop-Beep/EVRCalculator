@@ -52,6 +52,48 @@ Current card price, TCGPlayer price, active ask, sold price, Fair Value, EV, Cha
 
 Historical price evidence is used only to learn the frozen Treatment authority offline.
 
+## Collector V7 semantic boundary
+
+Frozen Collector V7 remains the control authority:
+
+`pokemon_collector_appeal_v7_expanded_price_blind_v1`
+
+Its current formula is explicitly price-blind and Treatment-excluded. Its scoring order is:
+
+1. Subject
+2. positive-only Playability lift
+3. bounded Artist lift
+
+Pull Scarcity is diagnostic-only and contributes no direct Collector V7 score.
+
+Therefore:
+
+- V7 must remain reproducible bit-for-bit as the control.
+- Treatment V1 may not overwrite the V7 model version or V7 formula fingerprint.
+- A Treatment challenger learned from historical market prices is **market-calibrated offline**, not strictly price-blind.
+- The correct claim for the challenger is **price-independent at scoring time**, not **price-blind**.
+- A later shadow must use a new model/version name and explicitly disclose that Treatment authority was learned from historical market outcomes.
+- Scarcity beta, Artist beta, and Playability controls from the Treatment estimator are nuisance-adjustment terms only; none are re-added at scoring time.
+
+This distinction is mandatory because current V7 documentation explicitly excludes Treatment market premium from intrinsic Collector Appeal.
+
+## Fair Value / target-leakage boundary
+
+A price-trained Treatment authority must not be evaluated as a Fair Value predictor on the same historical outcomes used to estimate it.
+
+Any later Fair Value experiment that consumes the Treatment challenger must use an explicitly out-of-sample design, such as:
+
+- held-out Sets not used to fit the Treatment authority,
+- forward temporal periods after the Treatment fitting window,
+- or both.
+
+At minimum, no price observation may simultaneously:
+
+1. contribute to fitting a Treatment latent level, and
+2. count as an evaluation target for a Fair Value model using that Treatment level.
+
+Same-window in-sample price fit is diagnostic only and cannot justify Fair Value promotion.
+
 ## Set-first authority
 
 Treatment Appeal remains Set-relative.
@@ -201,15 +243,48 @@ A Collector Appeal shadow may be built only if:
 3. the normalized artifact has deterministic fingerprints,
 4. unsupported Treatment families remain unavailable,
 5. current price is absent from scoring-time inputs,
-6. the pre-Treatment Collector Appeal authority can be reproduced exactly as a control,
-7. shadow output is versioned separately from the existing Collector Appeal authority.
+6. the pre-Treatment Collector Appeal V7 authority can be reproduced exactly as a control,
+7. shadow output is versioned separately from the existing Collector Appeal authority,
+8. its metadata states that Treatment is market-calibrated offline.
+
+## Frozen shadow integration form
+
+No Treatment weight is selected here, but the functional form is frozen before the V2 result.
+
+Let:
+
+- `C` = frozen Collector V7 card score after Subject + Playability + Artist,
+- `A` = normalized Treatment Appeal in [0,100],
+- `T = (A - 50) / 50`, so Double Rare neutral maps to `T=0`,
+- `lambda_T` = a later preregistered Treatment strength in [0,1].
+
+The only permitted V1 shadow integration form is a signed bounded headroom transform:
+
+For `T >= 0`:
+
+`C_shadow = C + (100 - C) * lambda_T * T`
+
+For `T < 0`:
+
+`C_shadow = C + C * lambda_T * T`
+
+Properties:
+
+- neutral Treatment leaves V7 unchanged,
+- positive Treatment can only move toward 100,
+- negative Treatment can only move toward 0,
+- output remains bounded in [0,100],
+- Artist and Playability are not re-added,
+- scarcity is never directly scored.
+
+The value of `lambda_T` must be chosen and gated in a separate preregistered shadow experiment. It may not be selected by optimizing the same price outcomes used to fit Treatment V2.
 
 ## Collector Appeal shadow comparison
 
 The first shadow study must compare:
 
-- current price-blind Collector Appeal authority,
-- current authority + normalized Treatment Appeal challenger.
+- frozen Collector V7 control,
+- V7 + normalized Treatment Appeal challenger using the frozen signed integration form.
 
 It must report:
 
@@ -226,7 +301,7 @@ It must report:
 
 No production weight is preregistered here.
 
-A later experiment must choose and gate the Treatment weight before promotion.
+A later experiment must choose and gate `lambda_T` before promotion.
 
 ## Explicit non-goals
 
@@ -235,6 +310,7 @@ This study does not:
 - decide Ultra Rare vs Double Rare must have one universal ordering,
 - infer unsupported Treatment families,
 - use current price as a card feature,
+- call a market-trained challenger price-blind,
 - mutate Collector Appeal,
 - mutate Overall RIP,
 - mutate Rankings,
