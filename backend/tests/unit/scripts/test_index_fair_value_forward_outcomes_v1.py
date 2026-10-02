@@ -69,6 +69,25 @@ def obs(day,price,condition="44444444-4444-4444-4444-444444444444"):
     }
 
 
+def binding():
+    return {
+        "publication_id": pub()["publication_id"],
+        "schema_version": forward.BINDING_SCHEMA_VERSION,
+        "canonical_card_id": pub()["canonical_card_id"],
+        "card_variant_id": pub()["card_variant_id"],
+        "condition_id": "44444444-4444-4444-4444-444444444444",
+        "baseline_date": "2026-10-02",
+        "baseline_market_price_usd": 100.0,
+        "price_source": "TCGPlayer",
+        "currency": "USD",
+        "binding_method": forward.BINDING_METHOD,
+    }
+
+
+def batch(day, status="complete"):
+    return {"market_date": day, "status": status}
+
+
 def test_unique_h0_binding_is_frozen_and_future_price_uses_same_condition():
     db=DB({"card_variant_price_observations":[obs("2026-10-02",100),obs("2026-10-03",105)]})
     binding=forward.derive_binding(db,pub(),h0())
@@ -140,4 +159,64 @@ def test_bindings_only_dry_run_never_evaluates_forward_horizons():
     assert result["binding_statuses"] == {"WOULD_INSERT": 1}
     assert result["outcome_statuses"] == {}
     assert result["binding_failures"] == []
+    assert result["outcome_failures"] == []
+
+
+def test_due_horizon_defers_until_authoritative_batch_is_complete():
+    p = pub()
+    b = binding()
+    db = DB({
+        "fair_value_shadow_anchor_publications_v1": [p],
+        "fair_value_shadow_evaluation_outcomes_v1": [h0()],
+        "fair_value_shadow_market_bindings_v1": [b],
+        "card_variant_price_observations": [obs("2026-10-03", 105)],
+        "pokemon_scrape_batches": [],
+    })
+    result = forward.collect(
+        db=db,
+        ledger=ledger_mod.InMemoryShadowLedger(),
+        today=date(2026, 10, 3),
+        dry_run=True,
+    )
+    assert result["outcome_statuses"] == {"DEFERRED_BATCH_NOT_COMPLETE": 1}
+    assert result["outcome_failures"] == []
+
+
+def test_due_horizon_uses_bound_price_after_authoritative_batch_complete():
+    p = pub()
+    b = binding()
+    db = DB({
+        "fair_value_shadow_anchor_publications_v1": [p],
+        "fair_value_shadow_evaluation_outcomes_v1": [h0()],
+        "fair_value_shadow_market_bindings_v1": [b],
+        "card_variant_price_observations": [obs("2026-10-03", 105)],
+        "pokemon_scrape_batches": [batch("2026-10-03")],
+    })
+    result = forward.collect(
+        db=db,
+        ledger=ledger_mod.InMemoryShadowLedger(),
+        today=date(2026, 10, 3),
+        dry_run=True,
+    )
+    assert result["outcome_statuses"] == {"WOULD_INSERT_COMPLETE": 1}
+    assert result["outcome_failures"] == []
+
+
+def test_market_missing_is_only_recorded_after_authoritative_batch_complete():
+    p = pub()
+    b = binding()
+    db = DB({
+        "fair_value_shadow_anchor_publications_v1": [p],
+        "fair_value_shadow_evaluation_outcomes_v1": [h0()],
+        "fair_value_shadow_market_bindings_v1": [b],
+        "card_variant_price_observations": [],
+        "pokemon_scrape_batches": [batch("2026-10-03")],
+    })
+    result = forward.collect(
+        db=db,
+        ledger=ledger_mod.InMemoryShadowLedger(),
+        today=date(2026, 10, 3),
+        dry_run=True,
+    )
+    assert result["outcome_statuses"] == {"WOULD_INSERT_MARKET_MISSING": 1}
     assert result["outcome_failures"] == []

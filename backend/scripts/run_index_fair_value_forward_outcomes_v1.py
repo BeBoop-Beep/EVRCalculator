@@ -172,12 +172,33 @@ def fetch_existing_outcomes(db: Any, publication_ids: list[str]) -> set[tuple[st
     return out
 
 
+def fetch_completed_market_dates(db: Any, *, start: date, end: date) -> set[str]:
+    """Dates whose authoritative daily scrape batch is complete.
+
+    Forward outcomes are append-only. A missing price must therefore never be recorded
+    while that comparison day's source batch is still incomplete or absent; otherwise a
+    scheduling delay would become permanent research evidence.
+    """
+    rows = (
+        db.table("pokemon_scrape_batches")
+        .select("market_date,status")
+        .gte("market_date", start.isoformat())
+        .lte("market_date", end.isoformat())
+        .eq("status", "complete")
+        .execute().data or []
+    )
+    return {str(r["market_date"])[:10] for r in rows if r.get("market_date")}
+
+
 def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False, bindings_only: bool = False) -> dict[str, Any]:
     publications = fetch_publications(db, today)
     ids = [str(p["publication_id"]) for p in publications]
     h0_by = fetch_h0(db, ids)
     bindings = fetch_existing_bindings(db, ids)
     existing_outcomes = fetch_existing_outcomes(db, ids)
+    completed_market_dates = fetch_completed_market_dates(
+        db, start=today - timedelta(days=max(FORWARD_HORIZONS)), end=today
+    )
     binding_status = Counter()
     outcome_status = Counter()
     binding_failures: list[dict[str, str]] = []
@@ -221,6 +242,9 @@ def collect(*, db: Any, ledger: Any, today: date, dry_run: bool = False, binding
             key = (pid, horizon)
             comparison_date = date.fromisoformat(str(pub["evaluation_date"])[:10]) + timedelta(days=horizon)
             if comparison_date > today or key in existing_outcomes:
+                continue
+            if comparison_date.isoformat() not in completed_market_dates:
+                outcome_status["DEFERRED_BATCH_NOT_COMPLETE"] += 1
                 continue
             try:
                 market = read_bound_price(db, binding, comparison_date)
