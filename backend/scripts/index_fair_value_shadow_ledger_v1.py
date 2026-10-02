@@ -111,6 +111,7 @@ class SupabaseShadowLedger:
     MEMBERS = "fair_value_shadow_anchor_members_v1"
     COMPONENTS = "fair_value_shadow_component_observations_v1"
     OUTCOMES = "fair_value_shadow_evaluation_outcomes_v1"
+    BINDINGS = "fair_value_shadow_market_bindings_v1"
     PUBLISH_RPC = "publish_fair_value_shadow_anchor_v1"
 
     def __init__(self, client: Any) -> None:
@@ -186,4 +187,13 @@ class SupabaseShadowLedger:
             key_filters={"publication_id": observation["publication_id"]},
             record=observation,
             conflict_name=f"SHADOW_COMPONENT_CONFLICT publication={observation['publication_id']}",
+        )
+
+    def append_market_binding(self, binding: Mapping[str, Any]) -> str:
+        self._require_enabled()
+        return self._append_fingerprinted(
+            table=self.BINDINGS,
+            key_filters={"publication_id": binding["publication_id"]},
+            record=binding,
+            conflict_name=f"SHADOW_MARKET_BINDING_CONFLICT publication={binding['publication_id']}",
         )
