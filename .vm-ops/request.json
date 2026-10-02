@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sentinel-oct2-snapshot-repair-after-raw-prereq-20261002"
+  "operation": "sync-main-reviewed",
+  "request_id": "sentinel-oct2-snapshot-ordering-deploy-20261002"
 }
