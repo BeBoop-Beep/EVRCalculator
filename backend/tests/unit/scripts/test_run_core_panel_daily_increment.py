@@ -144,7 +144,7 @@ def test_shipped_activation_flag_is_true_and_managed_schedule_present():
     cron = (ROOT / "infra/oracle/core-panel-daily-increment.crontab").read_text(encoding="utf-8")
     live = [l for l in cron.splitlines() if l.strip() and not l.lstrip().startswith("#") and not l.startswith("CRON_TZ")]
     assert len(live) == 1
-    assert live[0].startswith("27 6,7,8,9 * * * ")
+    assert live[0].startswith("2,17,32,47 17 * * * ")
     assert "run_core_panel_daily_increment_guarded.sh" in live[0]
     installer = ROOT / "infra/oracle/install_core_panel_daily_increment_cron.sh"
     assert installer.exists()
