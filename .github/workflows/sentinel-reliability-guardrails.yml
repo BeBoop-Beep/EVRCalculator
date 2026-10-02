@@ -9,6 +9,8 @@ on:
       - main
     paths:
       - 'backend/sentinel/**'
+      - 'backend/db/services/production_db_safety.py'
+      - 'backend/tests/unit/db/services/test_production_db_safety.py'
       - 'infra/oracle/sentinel.crontab'
       - 'infra/oracle/install_sentinel_cron.sh'
       - 'backend/pricing_pipeline/health.py'
@@ -26,6 +28,8 @@ on:
     branches: [develop, main]
     paths:
       - 'backend/sentinel/**'
+      - 'backend/db/services/production_db_safety.py'
+      - 'backend/tests/unit/db/services/test_production_db_safety.py'
       - 'backend/pricing_pipeline/health.py'
       - 'backend/alerts/market_freshness_watchdog.py'
       - 'backend/scripts/run_market_explorer_maintained_cache_prewarm.py'
@@ -62,7 +66,9 @@ jobs:
         run: |
           python -m pytest -q \
             backend/tests/unit/sentinel/test_pricing_registration.py \
+            backend/tests/unit/sentinel/test_db_safety_hold.py \
             backend/tests/unit/sentinel/test_safe_recovery.py \
+            backend/tests/unit/db/services/test_production_db_safety.py \
             backend/tests/unit/sentinel/test_authority_adapters.py \
             backend/tests/unit/sentinel/test_explorer_scheduler.py \
             backend/tests/unit/sentinel/test_runtime_scheduler.py \
@@ -72,6 +78,8 @@ jobs:
           python -m py_compile \
             backend/pricing_pipeline/health.py \
             backend/alerts/market_freshness_watchdog.py \
+            backend/db/services/production_db_safety.py \
+            backend/sentinel/checks/db_safety.py \
             backend/sentinel/checks/pricing.py \
             backend/sentinel/checks/explorer.py \
             backend/sentinel/checks/registry.py \
