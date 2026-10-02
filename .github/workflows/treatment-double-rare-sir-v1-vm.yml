@@ -19,20 +19,20 @@ jobs:
     runs-on: [self-hosted, Linux, ARM64, index-production-vm]
     timeout-minutes: 45
     steps:
-      - name: Checkout exact research SHA
+      - name: Checkout pinned research branch
         uses: actions/checkout@v4
         with:
-          ref: 90a9e618945f641de4428a56b2af9ae2f63568d7
+          ref: research/treatment-panel-recovery-v2-current-20261001
           fetch-depth: 1
-      - name: Verify exact research SHA
+      - name: Verify pinned research SHA
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="90a9e618945f641de4428a56b2af9ae2f63568d7"
+          EXPECTED_SHA="5a024e446f62ebbb80202cf77b2a343cd42e99cc"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
-      - name: Capture Double Rare to SIR NM history
+      - name: Capture Double Rare vs SIR historical panels
         shell: bash
         run: |
           set -euo pipefail
@@ -53,10 +53,10 @@ jobs:
             --credit-cap 3000 \
             --capture \
             --output backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_sir.json
-      - name: Upload Double Rare to SIR artifact
+      - name: Upload Double Rare vs SIR artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-double-rare-sir-v1-vm
+          name: treatment-double-rare-sir-v1
           path: backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_sir.json
           if-no-files-found: warn
