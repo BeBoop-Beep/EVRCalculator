@@ -27,7 +27,6 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.db.clients.supabase_client import create_service_role_client  # noqa: E402
 from backend.scripts import index_fair_value_shadow_anchor_v1 as anchor_mod  # noqa: E402
 from backend.scripts import index_fair_value_shadow_evaluation_v1 as evaluation  # noqa: E402
 from backend.scripts import index_fair_value_shadow_ledger_v1 as ledger_mod  # noqa: E402
@@ -265,6 +264,8 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--commit", action="store_true")
     parser.add_argument("--source-commit", required=True)
     args = parser.parse_args(argv)
+
+    from backend.db.clients.supabase_client import create_service_role_client
 
     db = create_service_role_client()
     ledger = ledger_mod.SupabaseShadowLedger(db)
