@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-reviewed",
-  "request_id": "sentinel-oct2-bounded-divergence-deploy-20261002"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sentinel-oct2-bounded-divergence-repair-20261002"
 }
