@@ -1,4 +1,4 @@
 {
-  "operation": "publication-live-debug",
-  "request_id": "sentinel-oct2-post-deploy-publication-progress-20261002"
+  "operation": "sync-main-reviewed",
+  "request_id": "sentinel-oct2-bounded-divergence-deploy-20261002"
 }
