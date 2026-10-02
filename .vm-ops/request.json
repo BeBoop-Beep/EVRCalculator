@@ -1,4 +1,4 @@
 {
-  "operation": "db-safety-empty-hold-repair",
-  "request_id": "sentinel-zero-byte-hold-repair-20261002"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sentinel-snapshot-recovery-20261002"
 }
