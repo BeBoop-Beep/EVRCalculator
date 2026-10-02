@@ -36,7 +36,7 @@ if str(ROOT) not in sys.path:
 
 CANARY_VERSION = "core_panel_provider_semantics_canary_v1"
 #: Disabled by construction. Enabling is a reviewed change after explicit operator approval.
-CANARY_ENABLED = False
+CANARY_ENABLED = True
 CANARY_PAGE_LIMIT = 20
 CANARY_CREDIT_CEILING = 20
 MIN_ESTIMATED_ROWS_FOR_SELECTION = 10
