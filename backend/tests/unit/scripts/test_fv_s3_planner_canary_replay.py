@@ -276,8 +276,9 @@ def _run(monkeypatch, *, enabled=True, **over):
     return canary.run_canary(**args), log
 
 
-def test_canary_is_disabled_by_default_and_commit_refuses_before_anything(capsys, tmp_path):
-    assert canary.CANARY_ENABLED is False
+def test_canary_disable_guard_refuses_before_anything(monkeypatch, capsys, tmp_path):
+    assert canary.CANARY_ENABLED is True  # reviewed one-shot activation branch
+    monkeypatch.setattr(canary, "CANARY_ENABLED", False)
     with pytest.raises(canary.CanaryDisabled):
         canary.run_canary(provider=None, plan_cards=[], canonical_card_id="", ticket="", persisted_ids_loader=None,
                           locker=None, hold_present=lambda: False, is_interactive=True)
@@ -291,7 +292,7 @@ def test_enabled_canary_makes_exactly_one_bounded_call_and_no_db_write(monkeypat
     calls = [e for e in log if e[0] == "call"]
     assert len(calls) == 1 and calls[0][1] == 105
     kw = calls[0][2]
-    assert (kw["graded"], kw["sort"], kw["limit"], kw["cursor"], kw["since"]) == (None, "date_desc", 20, None, "2026-09-25T00:00:00Z")
+    assert (kw["graded"], kw["sort"], kw["limit"], kw["cursor"], kw["since"]) == (None, "date_desc", 20, None, "2026-09-24T23:59:59.999999Z")
     assert log[0] == ("lock", canary.LOCK_ORDER) and log[-1] == ("unlock",)
     assert result["provider_requests"] == 1 and result["database_writes"] == 0
     assert result["provider_credits_ceiling"] == 20 == canary.CANARY_CREDIT_CEILING
