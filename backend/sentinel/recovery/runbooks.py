@@ -368,21 +368,6 @@ def build_safe_recovery_registry(
                 live_authority=live.authority_identity,
             )
 
-        if expected_failure_code == "market_snapshot_date_divergence":
-            dates = dict(live.observed.get("authority_dates") or {})
-            lagging = sorted(
-                key for key, value in dates.items()
-                if value and str(value)[:10] != market_date
-            )
-            missing = sorted(key for key, value in dates.items() if not value)
-            divergent = sorted(set(lagging + missing))
-            if divergent and set(divergent).issubset({"explorer_v2"}):
-                return RecoveryDecision.block(
-                    "explorer_convergence_owned_by_maintained_worker",
-                    market_date=market_date,
-                    divergent_authorities=divergent,
-                )
-
         decision = gate_evaluator(
             resolved_client, market_date=market_date, override=False
         )
@@ -485,8 +470,9 @@ def build_safe_recovery_registry(
             precondition=publication_divergence_precondition,
             execute=publication_execute,
             verify=publication_verify,
-            max_attempts=1,
+            max_attempts=2,
             cooldown_seconds=60 * 60,
+            allow_escalated_retry=True,
         )
     )
 
