@@ -300,13 +300,20 @@ def test_outcomes_never_change_anchor_membership_or_estimate():
         ledger.append_outcome({**conflicting, "publication_id": "missing"})
 
 
-def test_dormant_database_adapter_refuses_every_write():
+def test_database_adapter_is_enabled_after_reviewed_migration():
+    assert ledger_mod.WRITE_ENABLED is True
+
+
+def test_database_adapter_can_still_fail_closed_when_disabled(monkeypatch):
     class Boom:
         def table(self, name):
             raise AssertionError("database touched")
 
+        def rpc(self, name, params):
+            raise AssertionError("database touched")
+
+    monkeypatch.setattr(ledger_mod, "WRITE_ENABLED", False)
     adapter = ledger_mod.SupabaseShadowLedger(Boom())
-    assert ledger_mod.WRITE_ENABLED is False
     for call in (lambda: adapter.append_publication(_build(_rows())), lambda: adapter.append_outcome({}),
                  lambda: adapter.append_component({})):
         with pytest.raises(ledger_mod.ShadowLedgerDormant):
@@ -403,8 +410,8 @@ def test_ledger_migration_is_reviewed_mirrored_and_hardened():
         assert normalized.count(f"CREATE TABLE public.{table} (") == 1, table
     assert normalized.count("CREATE OR REPLACE FUNCTION public.publish_fair_value_shadow_anchor_v1(") == 1
     # Four PL/pgSQL functions: mutation guard, availability guard, outcome guard, publication RPC.
-    assert normalized.count("AS $") == 4
-    assert normalized.count("\n$;") == 4
+    assert normalized.count("AS $$") == 4
+    assert normalized.count("\n$$;") == 4
     sql = backend_sql
     assert "GRANT SELECT, INSERT ON" in sql and "GRANT SELECT, INSERT, UPDATE" not in sql
     assert "BEFORE UPDATE OR DELETE" in sql and "BEFORE TRUNCATE" in sql and "ENABLE ROW LEVEL SECURITY" in sql
