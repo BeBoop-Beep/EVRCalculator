@@ -68,14 +68,14 @@ begin
   limit 1;
 
   if v_set_id is not null and v_asset='cards' then
-    with current_date as materialized (
+    with latest_market_date as materialized (
       select max(d.market_date) market_date
       from public.pokemon_market_explorer_card_daily_states_v2_shadow d
     ), page as materialized (
       select m.card_variant_id,m.card_name,m.card_number,m.rarity,m.edition,
              m.printing_type,m.special_type,m.image_url,s.name set_name,d.market_price
-      from current_date cd
-      join public.pokemon_market_explorer_card_daily_states_v2_shadow d on d.market_date=cd.market_date
+      from latest_market_date md
+      join public.pokemon_market_explorer_card_daily_states_v2_shadow d on d.market_date=md.market_date
       join public.pokemon_market_explorer_card_current_metadata m on m.card_variant_id=d.card_variant_id
       left join public.sets s on s.id=m.set_id
       where m.set_id=v_set_id and d.market_price>0

@@ -2,112 +2,94 @@
 
 ## Verdict
 
-**BLOCKED — do not merge or deploy the application branch.**
+**INCOMPLETE — do not merge or deploy.** The production catalog-search blocker is resolved and the public live matrix passes, but this workstation has no authorized Index+ browser session. The auth-gated Activity, Inspect, constituent paging, and Builder scenarios therefore remain unproven live. Per the acceptance rule, this is not a complete pass.
 
-The integrated application expects `search_pokemon_market_explorer_catalog_v2`,
-but that staged read-only catalog migration is not installed in the serving
-database. The live catalog route therefore fails before the six-viewport
-behavior matrix can truthfully pass.
+No production write, migration application/reapplication, Activity rebuild, merge, or application deployment was performed by this acceptance run.
 
-No production write, migration application, Activity rebuild, merge, or
-application deployment was performed during this acceptance attempt.
-
-## Integrated source baseline
+## Source and migration correction
 
 - Branch: `fix/market-explorer-corrective-final-acceptance-20261002`
-- Integrated starting SHA: `94ec07a188214cb5866f28cbfe8d526b60dd8a19`
-- Sequential ancestry:
-  - data/read path: `9172ba17`
-  - interactions: `f2ef1b86`
-  - search/constituents: `94ec07a1`
+- Remote head received at continuation: `b0af781f8156c276993824e705a9dcbe8c7ee2cb`
+- Installed production migration identity supplied by the operator: `20261002224218_market_explorer_catalog_search_v2_paging`
+- Source paths now match that identity in both migration trees.
+- Both copies use `latest_market_date` / alias `md`; the invalid `current_date` CTE identifier is absent.
+- SHA-256 parity: `4B0CC1035D6E365549D8F7DBFAC35A9C7CD4DE10A8954E4E6510CE64FF5B6C5F` for both files.
+- No second migration was created and the installed migration was not reapplied.
 
-## First failing boundary
+## Narrow acceptance fix
 
-Story under test:
+The first six-viewport run found a real code defect: default canonical initialization replaced the historical Raw + Sealed workspace with Raw only. The corrected path resolves Raw and Sealed as two independent public V2 reads (empty comparison context), preserving enumerable generation metadata without treating the baseline pair as a user-added entitled comparison. Anonymous constituent prefetch is suppressed, so the page does not issue known-to-fail auth-gated reads before inspection.
 
-`Market Explorer UI -> Next catalog proxy -> FastAPI catalog route -> serving Supabase RPC -> grouped search response`
+## Verification
 
-| Boundary | Result | Evidence |
-|---|---|---|
-| Serving directory | PASS | `GET /market/explorer/prepared-directory` returned HTTP 200 in 478 ms. |
-| Prismatic Cards directory authority | PASS | `set:7a3dd188-4375-41af-94de-c5247fe0b1a6`, generation `5caf929a-4962-4334-84a0-c75d3635135b`, `available`, 180 constituents, `index_and_composition`. |
-| Prismatic Sealed directory authority | PASS | `sealed-set:7a3dd188-4375-41af-94de-c5247fe0b1a6`, same generation, `available`, 26 constituents, `index_and_composition`. |
-| Catalog search data boundary | **FAIL** | `GET /market/explorer/catalog/search?asset=cards&q=prismatic&limit=12` returned HTTP 503 in 246 ms with `CATALOG_SEARCH_UNAVAILABLE`. |
-| Independent prepared screen read | PASS | `GET /market/explorer/prepared-screen?screen=top-performers&asset=sealed&limit=10` returned HTTP 200 in 66 ms with exactly 10 rows. |
+- Focused frontend component/contract slice: **84/84 passed**.
+- Migration source contract: **3/3 passed**.
+- Live public Playwright matrix: **6/6 passed in 22.5 s**.
+- Optimized Next production build: **PASS** (compiled in 73 s; existing lint warnings only).
+- Required viewports: `1728x1000`, `1440x900`, `1024x768`, `768x1024`, `390x844`, `844x390`.
+- Screenshots: Cards and Sealed page-2 grouped search receipts for all six viewports under `corrective_final_live_20261002/`.
+- Network receipts: matching `*-network.json` files; 48/48 Explorer requests returned HTTP 200, 71–382 ms.
+- Console: zero unexpected errors. Each anonymous session produced the expected `/api/auth/me` HTTP 401 probe, recorded separately and not classified as an application error.
 
-The FastAPI response code is the service's explicit missing-RPC classification.
-The staged migration exists in source as
-`20261002090000_market_explorer_catalog_search_v2_paging.sql`; acceptance did
-not apply it because this bucket forbids deployment and production writes.
+Representative warm live receipt (`1728x1000`):
 
-### Repeat acceptance receipt
+| Route | Status | Elapsed |
+|---|---:|---:|
+| asset options, Cards | 200 | 194 ms |
+| prepared Raw | 200 | 367 ms |
+| prepared Sealed | 200 | 382 ms |
+| Cards `prismatic`, page 1 | 200 | 108 ms |
+| Cards `prismatic`, continuation | 200 | 82 ms |
+| asset options, Sealed | 200 | 81 ms |
+| Sealed `prismatic`, page 1 | 200 | 96 ms |
+| Sealed `prismatic`, continuation | 200 | 93 ms |
 
-The acceptance request was repeated after the initial blocked report. The live
-boundary was rechecked from unchanged integrated SHA `dfa458b6` before any
-browser-matrix work:
+Additional direct live receipts after warmup:
 
-- `GET /market/explorer/catalog/search?asset=cards&q=prismatic&limit=12`
-- HTTP `503`
-- elapsed time: `292 ms`
-- response code: `CATALOG_SEARCH_UNAVAILABLE`
+- Top Sealed, limit 10: HTTP 200, 10 rows, 201 ms.
+- Worst Sealed, limit 10: HTTP 200, 10 rows, 66 ms.
+- Cards `charizard`, limit 12: HTTP 200, 233 ms.
+- Cards `pikachu`, limit 12: HTTP 200, 80 ms.
 
-The same deterministic missing-authority condition therefore remains active.
-This repeat is not evidence of an intermittent upstream outage, and retrying
-the six viewport flows against fixtures would not establish live acceptance.
+The first post-migration Cards `prismatic` request took 24.4 s while processes/upstream connections were cold; subsequent browser requests were 96–108 ms. This is classified as cold process/network settlement, not a persistent DB or catalog defect. The Next development server's first route compilation took about 121 s; warm navigation was about 152 ms.
 
-## Failure classification
+## Required scenario ledger
 
-| Classification | Finding |
-|---|---|
-| Code defect | No new code defect demonstrated before the stop boundary. The integrated application correctly fails closed when its required RPC is absent. |
-| Upstream outage | **No.** Directory and prepared-screen reads were healthy and fast during the same receipt window. |
-| Legitimate unavailable data | **No.** Both Prismatic catalog markets are explicitly `available` with current enumerable compositions. |
-| Expected dev cold compile | Not implicated. The failure was emitted directly by the already-running FastAPI read path in 246 ms. |
-| Release-order/schema mismatch | **Yes — blocking.** Application code requiring catalog V2 is ahead of the serving database contract. |
+`PASS (live)` means exercised against the live read authority. `PASS (source/component)` is supporting evidence only and does not satisfy the user's live gate.
 
-## Required scenario matrix
-
-Per the acceptance rule, scenarios after the first broken data boundary were
-not marked passed using fixture-only evidence.
-
-| # | Scenario | Final status |
+| # | Scenario | Result |
 |---:|---|---|
-| 1 | Raw + Sealed initial markets | UNPROVEN in this final live matrix |
-| 2 | Add Prismatic Cards | UNPROVEN |
-| 3 | Prismatic loads without timeout under healthy upstream | UNPROVEN |
-| 4 | Prismatic chip inspection + focus | UNPROVEN |
-| 5 | Activity available for focused supported market | UNPROVEN |
-| 6 | Enter/exit Activity without losing Index workspace | UNPROVEN |
-| 7 | Raw parent Inspect | UNPROVEN |
-| 8 | Sealed parent Inspect | UNPROVEN |
-| 9 | Raw/Sealed constituent pagination | UNPROVEN |
-| 10 | Movement selector has no gap after LT | UNPROVEN |
-| 11 | 1Y graph fills actual available history | UNPROVEN |
-| 12 | Prismatic Cards grouped priced search + continuation | **BLOCKED: live 503** |
-| 13 | Prismatic Sealed grouped priced search + continuation | **BLOCKED by same missing catalog V2 authority** |
-| 14 | Top Sealed: 10 | PASS at backend boundary; browser/viewports unproven |
-| 15 | Worst Sealed: 10 | UNPROVEN |
-| 16 | Generic market pills have asset suffixes | UNPROVEN |
-| 17 | Builder remove controls and secondary-button styling | UNPROVEN |
-| 18 | Tooltip authoritative values at/before hover date | UNPROVEN |
-| 19 | No unexpected 5xx | **FAIL: catalog search returned 503** |
-| 20 | No console errors | UNPROVEN |
+| 1 | Raw + Sealed initial markets | **PASS (live, 6/6 viewports)** |
+| 2 | Add Prismatic Cards | **UNPROVEN live — requires entitled comparison session** |
+| 3 | Prismatic loads without timeout under healthy upstream | **PASS (live read path)**; page-1 96–108 ms warm |
+| 4 | Prismatic chip inspection + focus | **UNPROVEN live — auth session unavailable**; component contract passes |
+| 5 | Activity available for focused supported market | **UNPROVEN live — auth session unavailable**; serving authority was not rebuilt |
+| 6 | Enter/exit Activity without losing Index workspace | **UNPROVEN live — auth session unavailable**; component contract passes |
+| 7 | Raw parent Inspect | **UNPROVEN live — auth session unavailable**; V2 composition contract passes |
+| 8 | Sealed parent Inspect | **UNPROVEN live — auth session unavailable**; V2 composition contract passes |
+| 9 | Raw/Sealed constituent pagination | **UNPROVEN live — endpoint requires auth**; paging contracts pass |
+| 10 | No gap after constituent LT | **UNPROVEN live**; intrinsic-width component contract passes |
+| 11 | 1Y fills actual available history | **UNPROVEN live**; short-history domain contract passes |
+| 12 | Prismatic Cards grouped priced search + continuation | **PASS (live, 6/6)**; 12 → 24 rows |
+| 13 | Prismatic Sealed grouped priced search + continuation | **PASS (live, 6/6)**; 12 → 24 rows |
+| 14 | Top Sealed: 10 | **PASS (live backend)**; browser surface not re-exercised |
+| 15 | Worst Sealed: 10 | **PASS (live backend)**; browser surface not re-exercised |
+| 16 | Generic pills carry asset suffixes | **UNPROVEN live**; source/component contract only |
+| 17 | Builder controls and secondary styling | **UNPROVEN live — Premium UI unavailable**; component contract only |
+| 18 | Tooltip includes all authoritative values at/before date | **UNPROVEN live**; chart contract only |
+| 19 | No unexpected 5xx | **PASS for public live matrix: 0/48** |
+| 20 | No console errors | **PASS for public live matrix**; only expected anonymous auth probes |
 
-## Viewport and screenshot status
+## Classification
 
-The required `1728x1000`, `1440x900`, `1024x768`, `768x1024`, `390x844`, and
-`844x390` screenshot matrix was not produced after the blocking live data-path
-failure. Producing fixture screenshots and labeling them as live acceptance
-would conceal the missing serving contract.
+| Class | Finding |
+|---|---|
+| Code defect | Raw-only default initialization; fixed narrowly and verified across all six viewports. |
+| Upstream outage | None during the successful matrix. Earlier local `ECONNREFUSED` occurred because the local FastAPI process had exited; rerun after restart was clean. |
+| Legitimate unavailable data | None encountered in the public scenarios. Auth-gated reads are not labeled unavailable data. |
+| Expected dev cold compile | First `/Market/Explorer` compile about 121 s; warm navigation about 152 ms. |
+| Acceptance environment gap | No authorized Index+ browser token/session was available, blocking truthful live proof of scenarios 2, 4–11, and 16–18. |
 
-## Exact release recommendation
+## Exact recommendation
 
-1. Do not merge or deploy the integrated application commit yet.
-2. Review and promote the already-staged catalog V2 migration through the
-   approved database release process; do not rebuild or replace Prismatic
-   Activity authority.
-3. Verify the live catalog endpoint returns HTTP 200 with a market group,
-   priced physical rows, and `nextCursor` for both Cards and Sealed.
-4. Re-run all 20 scenarios across all six viewports, capturing screenshots,
-   console output, and route/status/elapsed-time receipts.
-5. Only then issue a final pass verdict.
+Do **not** merge or deploy yet. Provide an authorized, non-production-mutating Index+ acceptance session, rerun scenarios 2, 4–11, and 16–18 across the required desktop/mobile viewports, and require zero unexpected 5xx/console errors. If those live checks pass, the corrected migration identity, public search/read path, focused tests, and optimized build are ready for merge review. Do not reapply migration `20261002224218`, rebuild Activity authority, or alter production data.

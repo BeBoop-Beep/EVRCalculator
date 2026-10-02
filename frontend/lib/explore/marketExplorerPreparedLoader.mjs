@@ -120,7 +120,7 @@ export function createPreparedMarketLoader({
     return next;
   };
 
-  function begin(key, { replaceOthers = false } = {}) {
+  function begin(key, { replaceOthers = false, independent = false } = {}) {
     if (state.loaded[key] || state.pending.includes(key)) return Promise.resolve("duplicate");
     if (!replaceOthers && state.order.filter((k) => state.loaded[k] || state.pending.includes(k)).length >= limit) {
       return Promise.resolve("limit");
@@ -136,7 +136,7 @@ export function createPreparedMarketLoader({
     // compare entitlement judge the whole workspace.
     // REPLACEMENT IS NOT COMPARISON: a replace request must never carry the line it
     // is about to swap out, or the backend counts two unique keys as a comparison.
-    const contextKeys = replaceOthers
+    const contextKeys = replaceOthers || independent
       ? []
       : state.order.filter((k) => k !== key && (state.loaded[k] || state.pending.includes(k)));
     if (replaceOthers) {
@@ -196,6 +196,8 @@ export function createPreparedMarketLoader({
     getSnapshot: () => state,
     /** Request a market. Resolves 'loaded' | 'failed' | 'duplicate' | 'limit' | 'stale'. */
     add: (key) => begin(key),
+    /** Canonical opening parents are public single-market reads, not a user-added comparison. */
+    addIndependent: (key) => begin(key, { independent: true }),
     /** Basic plan: one market at a time; the previous line stays until this one loads. */
     replace(key) {
       if (state.loaded[key]) {

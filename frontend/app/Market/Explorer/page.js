@@ -78,12 +78,7 @@ export default async function MarketExplorerPage({ searchParams }) {
   const cardReconciliation = resolveCardSegmentReconciliation(payload);
   const topChaseSegmentStatus = resolveTopChaseSegmentStatus(payload);
   // ONE parser owns the URL contract; no component reads searchParams itself.
-  const initialState = resolveInitialExplorerState(
-    overview,
-    resolvedSearchParams,
-    sealedSegments,
-    cardSegments,
-  );
+  const initialState = resolveInitialExplorerState(overview, resolvedSearchParams, sealedSegments, cardSegments);
   const requestedPreparedKey =
     typeof resolvedSearchParams?.prepared === "string"
       ? resolvedSearchParams.prepared.trim()
@@ -97,17 +92,18 @@ export default async function MarketExplorerPage({ searchParams }) {
           (market.legacy_aliases || []).includes(requestedPreparedKey),
       )
     : null;
-  // Once the V2 directory is serving, start the workspace from its canonical
-  // Raw parent rather than the legacy overview twin. The V2 row carries the
-  // enumerable composition capability and generation identity required by
-  // Inspect/prefetch; `unifySeriesByKey` still prevents duplicate chart lines.
-  const defaultPreparedRow = !requestedPreparedKey
-    ? preparedDirectory.find(
-        (market) =>
-          market.market_key === "raw" && market.surface_version === "v2",
+  const initialPreparedKey = requestedPreparedRow?.market_key || null;
+  // The default Asset Market workspace is the published Raw + Sealed pair.
+  // Resolve the legacy overview twins through these V2 rows so Inspect receives
+  // enumerable composition metadata. The client fetches each baseline parent
+  // independently; adding any further market keeps the normal entitlement.
+  const initialPreparedKeys = !requestedPreparedKey
+    ? ["raw", "sealedMarket"].filter((key) =>
+        preparedDirectory.some(
+          (market) => market.market_key === key && market.surface_version === "v2",
+        ),
       )
-    : null;
-  const initialPreparedKey = (requestedPreparedRow || defaultPreparedRow)?.market_key || null;
+    : [];
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
@@ -146,6 +142,7 @@ export default async function MarketExplorerPage({ searchParams }) {
           preparedDirectory={preparedDirectory}
           preparedDirectoryStatus={preparedDirectoryResult.status}
           initialPreparedKey={initialPreparedKey}
+          initialPreparedKeys={initialPreparedKeys}
           marketCapabilities={
             activityFixtureMode ? FMA3_FIXTURE_CAPABILITIES : undefined
           }

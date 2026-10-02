@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-NAME = "20261002090000_market_explorer_catalog_search_v2_paging.sql"
+NAME = "20261002224218_market_explorer_catalog_search_v2_paging.sql"
 
 
 def test_catalog_v2_migration_is_mirrored_byte_for_byte():
@@ -22,3 +22,12 @@ def test_catalog_v2_pages_set_context_by_current_price_without_client_recomputat
     assert "set statement_timeout = '2s'" in sql
     assert "to service_role" in sql
     assert "from public,anon,authenticated" in sql
+
+
+def test_catalog_v2_avoids_reserved_current_date_as_a_cte_identifier():
+    sql = (ROOT / "supabase" / "migrations" / NAME).read_text(encoding="utf-8").lower()
+    assert "with latest_market_date as materialized" in sql
+    assert "from latest_market_date md" in sql
+    assert "d.market_date=md.market_date" in sql
+    assert "with current_date" not in sql
+    assert "from current_date" not in sql
