@@ -1,6 +1,6 @@
 name: Opening Simulation Recovery Watchdog
 # Sep 26: honor the persistent incident hold before any database work.
-# Workflow maintenance pushes intentionally preempt an in-flight recovery to free VM ops.
+# Workflow maintenance pushes preempt an in-flight recovery to free VM ops.
 
 on:
   workflow_dispatch:
