@@ -1,4 +1,5 @@
 name: Treatment Set-Relative Expansion V2 Preflight
+# rerun: 2026-10-02
 
 on:
   push:
