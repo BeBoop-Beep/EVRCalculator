@@ -502,6 +502,7 @@ def test_managed_installer_is_verify_first_and_sha_pinned():
     assert 'core-panel-daily-increment.crontab' in installer
     assert 'run_core_panel_daily_increment.sh' in installer
     assert 'run_core_panel_daily_increment_guarded.sh' in installer
+    assert "grep -q 'run_core_panel_daily_increment'" in installer
 
 
 def test_guarded_scheduler_wrapper_uses_db_workload_guard():

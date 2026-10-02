@@ -43,7 +43,7 @@ echo "== lock sanity =="
 
 current="$(crontab -l 2>/dev/null || true)"
 outside="$(awk -v b="$BEGIN" -v e="$END" '$0==b{skip=1} !skip{print} $0==e{skip=0}' <<<"$current")"
-if grep -v '^#' <<<"$outside" | grep -q 'run_core_panel_daily_increment.sh'; then
+if grep -v '^#' <<<"$outside" | grep -q 'run_core_panel_daily_increment'; then
   echo "FAIL: conflicting Core Panel increment schedule exists outside managed block" >&2
   exit 2
 fi
