@@ -70,7 +70,7 @@ export default function MarketExplorerActiveMarkets({
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Active Markets</h2>
           <p className="min-w-0 text-[10px] text-[var(--text-secondary)] [@media(max-height:500px)]:hidden">
-            Select a chip to inspect it; use the magnifier to focus its chart line.
+            Click a chip to focus it; click it again to return to comparison.
           </p>
         </div>
         <div
@@ -113,6 +113,9 @@ export default function MarketExplorerActiveMarkets({
       <ul className="flex min-w-max flex-nowrap gap-1.5">
         {series.map((entry) => {
           const displayLabel = formatExplorerMarketLabel(entry);
+          const chipLabel = entry.shortLabel
+            ? formatExplorerMarketLabel({ ...entry, baseLabel: entry.shortLabel })
+            : displayLabel;
           const isActive = entry.key === activeSeriesId;
           const isHidden = hidden.has(entry.key);
           const isFocused = entry.key === focusedSeriesKey;
@@ -145,23 +148,18 @@ export default function MarketExplorerActiveMarkets({
                     : "border-[var(--border-subtle)] bg-[var(--surface-page)]/35 hover:border-[rgba(45,212,191,0.38)]",
                 ].join(" ")}
               >
-                {/* FOCUS. Shown on hover and on keyboard focus for pointer devices,
-                    and ALWAYS shown where hover does not exist (touch). Focusing never
-                    removes a market, changes the constituent target or rebuilds data. */}
-                <button
-                  type="button"
-                  data-market-explorer-active-focus={entry.key}
-                  aria-pressed={isFocused}
-                  aria-label={isFocused ? `Clear focus on ${displayLabel}` : `Focus on ${displayLabel}`}
-                  onClick={() => { onFocus?.(entry.key); onInspect?.(entry.key); }}
-                  className={[
-                    "flex-none rounded-full p-0.5 leading-none transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/80",
-                    "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100",
-                    isFocused ? "!opacity-100 text-sky-300" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
-                  ].join(" ")}
-                >
-                  <svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="6.5" cy="6.5" r="4.5" /><path d="M10 10l4 4" /></svg>
-                </button>
+                {/* Focus is owned by the chip body. The magnifier is now only a
+                    state indicator so there is one obvious click target instead of a
+                    second hidden action inside every pill. */}
+                {isFocused ? (
+                  <span
+                    data-market-explorer-active-focus-indicator={entry.key}
+                    aria-hidden="true"
+                    className="flex-none rounded-full p-0.5 leading-none text-sky-300"
+                  >
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="6.5" cy="6.5" r="4.5" /><path d="M10 10l4 4" /></svg>
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   data-market-explorer-active-visibility={entry.key}
@@ -177,13 +175,13 @@ export default function MarketExplorerActiveMarkets({
                   data-market-explorer-active-chip-body={entry.key}
                   data-market-explorer-active-focus-body={entry.key}
                   aria-pressed={isActive}
-                  onClick={() => onInspect?.(entry.key)}
+                  onClick={() => { onFocus?.(entry.key); onInspect?.(entry.key); }}
                   className={[
                     "min-w-0 truncate text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
                     isActive ? "font-semibold text-[rgb(153,246,228)]" : "text-[var(--text-primary)]",
                   ].join(" ")}
                 >
-                  {entry.shortLabel || displayLabel}
+                  {chipLabel}
                 </button>
                 {showsIndexValue ? (
                   <span data-market-explorer-active-chip-index={entry.key} className="flex-none tabular-nums text-[10px] text-[var(--text-secondary)]">
