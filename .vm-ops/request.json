@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sentinel-oct2-bounded-divergence-repair-20261002"
+  "operation": "publication-live-debug",
+  "request_id": "sentinel-oct2-lock-identity-debug-20261002"
 }
