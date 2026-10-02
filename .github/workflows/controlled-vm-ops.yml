@@ -36,7 +36,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-forward-bindings-dry-run|fv-forward-bindings-backfill|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-shadow-ops-tests|fv-shadow-ops-install-cron|fv-shadow-ops-status|fv-forward-bindings-dry-run|fv-forward-bindings-backfill|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -5114,6 +5114,101 @@ jobs:
               echo "TREATMENT_PANEL_RECOVERY_V2=PASS"
               ;;
 
+
+            fv-shadow-ops-tests)
+              set -euo pipefail
+              SHA="b636a86989a324cabd18372e82f30f948bd76a33"
+              BRANCH="feat/fv-s3-daily-shadow-ops-20261002"
+              WT="/tmp/fv-shadow-ops-tests-$GITHUB_RUN_ID"
+              cleanup_fv_shadow_ops_tests() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_shadow_ops_tests EXIT
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV shadow ops branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m py_compile \
+                backend/scripts/run_index_fair_value_prospective_shadow_v1.py \
+                backend/scripts/run_index_fair_value_forward_outcomes_v1.py \
+                backend/scripts/run_core_panel_daily_increment.py
+              bash -n infra/oracle/run_fair_value_shadow_daily.sh
+              bash -n infra/oracle/run_fair_value_shadow_daily_guarded.sh
+              bash -n infra/oracle/run_fair_value_forward_outcomes.sh
+              bash -n infra/oracle/run_fair_value_forward_outcomes_guarded.sh
+              bash -n infra/oracle/install_fair_value_shadow_ops_cron.sh
+              "$PY" -m pytest -q \
+                backend/tests/unit/scripts/test_index_fair_value_prospective_shadow_v1.py \
+                backend/tests/unit/scripts/test_index_fair_value_forward_outcomes_v1.py \
+                backend/tests/unit/scripts/test_index_fair_value_shadow_s3.py \
+                backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+                backend/tests/unit/scripts/test_fv_s3_daily_shadow_ops.py \
+                backend/tests/unit/scripts/test_run_core_panel_daily_increment.py
+              echo "FV_SHADOW_OPS_TESTS=PASS sha=$SHA"
+              ;;
+
+            fv-shadow-ops-install-cron)
+              set -euo pipefail
+              SHA="b636a86989a324cabd18372e82f30f948bd76a33"
+              BRANCH="feat/fv-s3-daily-shadow-ops-20261002"
+              WT="/tmp/fv-shadow-ops-install-$GITHUB_RUN_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              cleanup_fv_shadow_ops_install() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_shadow_ops_install EXIT
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "FV_SHADOW_OPS_DB_SAFETY_HOLD"; exit 75; }
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV shadow ops branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              "$WT/infra/oracle/install_fair_value_shadow_ops_cron.sh" --apply
+              [ "$(tr -d '[:space:]' < /home/ubuntu/state/fair_value_shadow/release.sha)" = "$SHA" ] || {
+                echo "REFUSING: installed FV shadow ops release pin mismatch"; exit 91;
+              }
+              echo "FV_SHADOW_OPS_INSTALL_CRON=PASS sha=$SHA"
+              ;;
+
+            fv-shadow-ops-status)
+              set -euo pipefail
+              SHA="b636a86989a324cabd18372e82f30f948bd76a33"
+              STATE="/home/ubuntu/state/fair_value_shadow"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              echo "expected_sha=$SHA"
+              if [ -r "$STATE/release.sha" ]; then
+                echo "installed_sha=$(tr -d '[:space:]' < "$STATE/release.sha")"
+              else
+                echo "installed_sha=ABSENT"
+              fi
+              echo "db_safety_hold=$([ -e "$HOLD" ] || [ -L "$HOLD" ] && echo active || echo clear)"
+              echo "shadow_cron_entries=$(crontab -l 2>/dev/null | grep -c 'run_fair_value_shadow_daily_guarded.sh' || true)"
+              echo "forward_cron_entries=$(crontab -l 2>/dev/null | grep -c 'run_fair_value_forward_outcomes_guarded.sh' || true)"
+              if [ -d "$STATE/runtime/.git" ] || [ -e "$STATE/runtime/.git" ]; then
+                echo "runtime_sha=$(git -C "$STATE/runtime" rev-parse HEAD)"
+              else
+                echo "runtime_sha=ABSENT"
+              fi
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          pubs=(c.table("fair_value_shadow_anchor_publications_v1")
+                .select("publication_id",count="exact").limit(1).execute())
+          bindings=(c.table("fair_value_shadow_market_bindings_v1")
+                   .select("publication_id",count="exact").limit(1).execute())
+          outcomes=(c.table("fair_value_shadow_evaluation_outcomes_v1")
+                   .select("publication_id",count="exact").gt("horizon_days",0).limit(1).execute())
+          print("shadow_publications=" + str(int(pubs.count or 0)))
+          print("market_bindings=" + str(int(bindings.count or 0)))
+          print("forward_outcomes=" + str(int(outcomes.count or 0)))
+          PY
+              echo "FV_SHADOW_OPS_STATUS=PASS"
+              ;;
 
             fv-forward-bindings-dry-run|fv-forward-bindings-backfill)
               set -euo pipefail
