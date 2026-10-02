@@ -72,6 +72,59 @@ def _paged(factory: Any, page: int = 1000) -> list[dict[str, Any]]:
         start += page
 
 
+def resolve_daily_information_cutoff(
+    db: Any,
+    *,
+    requested_cutoff: datetime,
+    evaluation_date: date,
+    panel: Mapping[str, Any],
+) -> tuple[datetime, str]:
+    """Enforce one prospective information cutoff per evaluation date.
+
+    A publisher can fail after some card publications are appended. Retrying must resume
+    that same cohort, not create a second cutoff for the day. This also preserves the
+    already-established Oct-2 prospective cohort rather than duplicating it when daily
+    automation begins later the same day.
+    """
+    rows = _paged(lambda: db.table("fair_value_shadow_anchor_publications_v1")
+        .select("canonical_card_id,information_cutoff,evidence_status")
+        .eq("evaluation_date", evaluation_date.isoformat())
+        .eq("evidence_status", anchor_mod.STATUS_PROSPECTIVE)
+        .order("canonical_card_id"))
+    if not rows:
+        return requested_cutoff, "REQUESTED_NEW_DAILY_CUTOFF"
+
+    panel_ids = {str(r["canonical_card_id"]) for r in panel["rows"]}
+    observed_ids = {str(r.get("canonical_card_id") or "") for r in rows}
+    foreign = sorted(observed_ids - panel_ids)
+    if foreign:
+        raise ProspectiveShadowError(
+            f"EXISTING_DAILY_COHORT_OUTSIDE_PANEL count={len(foreign)}"
+        )
+
+    cutoffs: set[datetime] = set()
+    for row in rows:
+        raw = row.get("information_cutoff")
+        if raw in (None, ""):
+            raise ProspectiveShadowError("EXISTING_DAILY_COHORT_CUTOFF_MISSING")
+        try:
+            parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ProspectiveShadowError("EXISTING_DAILY_COHORT_CUTOFF_INVALID") from exc
+        if parsed.tzinfo is None:
+            raise ProspectiveShadowError("EXISTING_DAILY_COHORT_CUTOFF_NAIVE")
+        cutoffs.add(parsed.astimezone(timezone.utc))
+
+    if len(cutoffs) != 1:
+        raise ProspectiveShadowError(
+            f"MULTIPLE_EXISTING_DAILY_CUTOFFS count={len(cutoffs)}"
+        )
+    existing = next(iter(cutoffs))
+    if existing.astimezone(PHOENIX).date() != evaluation_date:
+        raise ProspectiveShadowError("EXISTING_DAILY_CUTOFF_DATE_MISMATCH")
+    return existing, "REUSED_EXISTING_DAILY_CUTOFF"
+
+
 def fetch_anchor_inputs(db: Any, panel: Mapping[str, Any]) -> tuple[dict[str, int], dict[str, list[dict[str, Any]]]]:
     """ANCHOR PHASE ONLY. This function must never read a price table."""
     canonical_ids = sorted(str(r["canonical_card_id"]) for r in panel["rows"])
@@ -203,12 +256,18 @@ def publish(
     cutoff_input = now or datetime.now(timezone.utc)
     if cutoff_input.tzinfo is None:
         raise ProspectiveShadowError("information cutoff must be timezone-aware")
-    cutoff = cutoff_input.astimezone(timezone.utc)
+    requested_cutoff = cutoff_input.astimezone(timezone.utc)
     generated_at = datetime.now(timezone.utc)
-    if generated_at < cutoff:
+    if generated_at < requested_cutoff:
         raise ProspectiveShadowError("INFORMATION_CUTOFF_IN_FUTURE")
-    evaluation_date = cutoff.astimezone(PHOENIX).date()
+    evaluation_date = requested_cutoff.astimezone(PHOENIX).date()
     panel = s2.load_panel()
+    cutoff, cutoff_resolution = resolve_daily_information_cutoff(
+        db,
+        requested_cutoff=requested_cutoff,
+        evaluation_date=evaluation_date,
+        panel=panel,
+    )
 
     provider_by_card, evidence_by_card = fetch_anchor_inputs(db, panel)
     publications = build_publications(
@@ -259,6 +318,8 @@ def publish(
         "mode": "DRY_RUN_NOT_A_PUBLICATION" if dry_run else "PROSPECTIVE_SHADOW_PUBLICATION",
         "evaluation_date": evaluation_date.isoformat(),
         "information_cutoff": cutoff.isoformat(),
+        "requested_information_cutoff": requested_cutoff.isoformat(),
+        "cutoff_resolution": cutoff_resolution,
         "source_commit": source_commit,
         "panel_count": len(publications),
         "anchored": anchored,

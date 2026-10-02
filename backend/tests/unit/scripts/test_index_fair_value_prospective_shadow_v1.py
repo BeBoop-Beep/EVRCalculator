@@ -327,3 +327,54 @@ def test_naive_programmatic_cutoff_is_rejected():
             now=datetime(2026, 10, 2, 18, 0),
             dry_run=True,
         )
+
+
+def test_existing_daily_cohort_reuses_original_cutoff():
+    panel = s2.load_panel()
+    cid = str(panel["rows"][0]["canonical_card_id"])
+    existing = "2026-10-02T16:04:53.916879+00:00"
+    db = FakeDB({
+        "fair_value_shadow_anchor_publications_v1": [{
+            "canonical_card_id": cid,
+            "information_cutoff": existing,
+            "evidence_status": "PROSPECTIVE_AS_KNOWN_AT_CUTOFF",
+            "evaluation_date": "2026-10-02",
+        }]
+    })
+    cutoff, resolution = publisher.resolve_daily_information_cutoff(
+        db,
+        requested_cutoff=datetime(2026, 10, 3, 1, 0, tzinfo=timezone.utc),
+        evaluation_date=__import__("datetime").date(2026, 10, 2),
+        panel=panel,
+    )
+    assert cutoff == datetime.fromisoformat(existing)
+    assert resolution == "REUSED_EXISTING_DAILY_CUTOFF"
+
+
+def test_multiple_existing_daily_cutoffs_fail_closed():
+    panel = s2.load_panel()
+    cid1 = str(panel["rows"][0]["canonical_card_id"])
+    cid2 = str(panel["rows"][1]["canonical_card_id"])
+    db = FakeDB({
+        "fair_value_shadow_anchor_publications_v1": [
+            {
+                "canonical_card_id": cid1,
+                "information_cutoff": "2026-10-02T16:04:53+00:00",
+                "evidence_status": "PROSPECTIVE_AS_KNOWN_AT_CUTOFF",
+                "evaluation_date": "2026-10-02",
+            },
+            {
+                "canonical_card_id": cid2,
+                "information_cutoff": "2026-10-02T17:00:00+00:00",
+                "evidence_status": "PROSPECTIVE_AS_KNOWN_AT_CUTOFF",
+                "evaluation_date": "2026-10-02",
+            },
+        ]
+    })
+    with pytest.raises(publisher.ProspectiveShadowError, match="MULTIPLE_EXISTING_DAILY_CUTOFFS"):
+        publisher.resolve_daily_information_cutoff(
+            db,
+            requested_cutoff=datetime(2026, 10, 3, 1, 0, tzinfo=timezone.utc),
+            evaluation_date=__import__("datetime").date(2026, 10, 2),
+            panel=panel,
+        )
