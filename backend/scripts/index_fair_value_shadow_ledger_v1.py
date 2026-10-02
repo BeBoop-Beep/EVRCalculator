@@ -8,8 +8,7 @@ Semantics, identical for every implementation:
 * an outcome is unique per (publication_id, horizon_days) with the same idempotent/conflict rule;
 * outcomes and components can only reference an existing publication.
 
-The Supabase adapter stays DORMANT (``WRITE_ENABLED = False``) until the reviewed
-production migration is applied. Publication header + members use one atomic database RPC.
+The Supabase adapter is enabled only after the reviewed production migration has been applied. Publication header + members use one atomic database RPC.
 Components and outcomes carry persistence fingerprints so exact retries are no-ops and
 changed retries fail closed.
 """
@@ -20,7 +19,7 @@ import hashlib
 import json
 from typing import Any, Mapping
 
-WRITE_ENABLED = False
+WRITE_ENABLED = True
 
 
 class ShadowLedgerError(RuntimeError):
@@ -106,7 +105,7 @@ def _canonical_fingerprint(value: Mapping[str, Any]) -> str:
 
 
 class SupabaseShadowLedger:
-    """Insert-only adapter for the reviewed shadow tables. Dormant until DB activation."""
+    """Insert-only adapter for the reviewed, applied research-only shadow tables."""
 
     PUBLICATIONS = "fair_value_shadow_anchor_publications_v1"
     MEMBERS = "fair_value_shadow_anchor_members_v1"
