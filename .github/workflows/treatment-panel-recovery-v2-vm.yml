@@ -23,25 +23,25 @@ jobs:
       - name: Checkout pinned research branch
         uses: actions/checkout@v4
         with:
-          ref: research/treatment-panel-recovery-v2-current-20261001
+          ref: 4d52bbb94764017a147784212ec6917f3fdfe162
           fetch-depth: 1
       - name: Verify pinned research SHA
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="909fc50b4c6bce4723745b6f364ae7550e7e1887"
+          EXPECTED_SHA="4d52bbb94764017a147784212ec6917f3fdfe162"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
-      - name: Download frozen SIR-Ultra gate artifact
+      - name: Download frozen Double-Ultra-SIR bridge artifact
         uses: actions/download-artifact@v4
         with:
-          name: treatment-panel-gate-expansion-v2-vm
+          name: treatment-three-level-bridge-v1-vm
           path: backend/artifacts/treatment_panel_recovery_v2/base
           github-token: ${{ github.token }}
           repository: BeBoop-Beep/EVRCalculator
-          run-id: 36961641617
-      - name: Capture Double-Ultra-SIR three-level bridge
+          run-id: 36965906038
+      - name: Capture Hyper-Ultra-SIR bridge
         shell: bash
         run: |
           set -euo pipefail
@@ -56,16 +56,16 @@ jobs:
           test -n "${SUPABASE_URL:-}"
           test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
           mkdir -p backend/artifacts/treatment_panel_recovery_v2
-          "$PY" backend/scripts/research_treatment_three_level_bridge_v1.py \
-            --base-gate-artifact backend/artifacts/treatment_panel_recovery_v2/base/gate_expansion.json \
+          "$PY" backend/scripts/research_treatment_hyper_bridge_v1.py \
+            --base-artifact backend/artifacts/treatment_panel_recovery_v2/base/three_level_bridge_v1.json \
             --market-date 2026-09-29 \
             --period 180d \
             --credit-cap 3000 \
-            --output backend/artifacts/treatment_panel_recovery_v2/three_level_bridge_v1.json
-      - name: Upload three-level bridge artifact
+            --output backend/artifacts/treatment_panel_recovery_v2/hyper_bridge_v1.json
+      - name: Upload Hyper bridge artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: treatment-three-level-bridge-v1-vm
-          path: backend/artifacts/treatment_panel_recovery_v2/three_level_bridge_v1.json
+          name: treatment-hyper-bridge-v1-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/hyper_bridge_v1.json
           if-no-files-found: warn
