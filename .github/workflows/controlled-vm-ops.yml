@@ -629,7 +629,7 @@ jobs:
           }
 
           # ---- pinned pricing runtime overlay (reviewed manifest; nothing here is request-supplied) ----
-          PRICING_SOURCE_SHA="4c042be597ccf41d5996c12007c5c2fcd534ed85"
+          PRICING_SOURCE_SHA="138897dc795df91a4a13be7b35df0a28d5aeedd5"
           PRICING_TEST_SOURCE_SHA="c8acb916bf147dd446e3dc1e492100470a39ce53"
           SENTINEL_PRICING_SHA="6313116b62845e1211e93215393a9609701a935c"
           PRICING_OVERLAY_PRICE_PATHS="
@@ -5243,7 +5243,7 @@ jobs:
 
             fv-shadow-foundation-tests)
               set -euo pipefail
-              SHA="d75261bacc25dcb5ad442f5855a6116b1caf95fc"
+              SHA="4c042be597ccf41d5996c12007c5c2fcd534ed85"
               WT="/tmp/fv-shadow-foundation-tests-$GITHUB_RUN_ID"
               cleanup() { rm -rf "$WT"; }
               trap cleanup EXIT
