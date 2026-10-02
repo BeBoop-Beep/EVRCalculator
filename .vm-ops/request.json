@@ -1,4 +1,4 @@
 {
-  "operation": "post-scrape-recovery-now",
-  "request_id": "sentinel-snapshot-recovery-20261002"
+  "operation": "scrape-cycle-status",
+  "request_id": "sentinel-snapshot-lag-status-20261002"
 }
