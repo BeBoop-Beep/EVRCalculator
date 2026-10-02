@@ -142,7 +142,13 @@ def budget_contract() -> dict[str, Any]:
         "account_daily_credit_limit": ACCOUNT_DAILY_CREDIT_LIMIT,
         **committed,
         "total_committed": total,
+        "scheduled_committed_total": total,
         "unallocated_headroom": headroom,
+        "scheduled_unallocated_headroom": headroom,
+        "headroom_scope": "AUDITED_SCHEDULED_CONSUMERS_ONLY",
+        "account_wide_remaining_credits_known": False,
+        "unscheduled_research_consumers_may_share_account": True,
+        "provider_exhaustion_authority": "HTTP_429_credit_limit_exceeded",
         "one_page_pass_credits": ONE_PAGE_PASS_CREDITS,
         "overflow_budget_credits": DAILY_INCREMENT_CREDIT_CAP - ONE_PAGE_PASS_CREDITS,
         "uncapped_worst_case_credits": absolute_worst_case,
@@ -267,6 +273,9 @@ def invocation_budget(used_by_mode: dict[str, int], requested_cap: int) -> dict[
         "prior_increment_credits_today": prior_increment,
         "other_sold_run_credits_today": other,
         "account_room_credits": account_room,
+        "local_ledger_room_upper_bound_credits": account_room,
+        "account_room_scope": "LOCAL_PERSISTED_SOLD_RUNS_PLUS_RESERVED_ACTIVE_SUPPLY_ONLY",
+        "account_wide_remaining_credits_known": False,
         "invocation_credit_cap": remaining,
     }
 
@@ -305,6 +314,11 @@ def preflight(db: Any, *, expected_date: str, credit_cap: int = DAILY_INCREMENT_
         "budget_contract": contract,
         "invocation_budget": budget,
         "provider_daily_credit_exhausted": provider_daily_credit_exhausted,
+        "provider_account_balance_authority": (
+            "EXHAUSTED_FROM_AUTHORITATIVE_429_RECEIPT"
+            if provider_daily_credit_exhausted
+            else "UNKNOWN_UNTIL_PROVIDER_RESPONSE"
+        ),
         "eligibility": dict(sorted(reasons.items())),
         "eligible_cards": len(eligible),
         "due_cards": due,

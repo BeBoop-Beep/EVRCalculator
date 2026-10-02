@@ -144,7 +144,7 @@ def test_shipped_activation_flag_is_true_and_managed_schedule_present():
     cron = (ROOT / "infra/oracle/core-panel-daily-increment.crontab").read_text(encoding="utf-8")
     live = [l for l in cron.splitlines() if l.strip() and not l.lstrip().startswith("#") and not l.startswith("CRON_TZ")]
     assert len(live) == 1
-    assert live[0].startswith("27 6,7,8,9 * * * ")
+    assert live[0].startswith("2,17,32,47 17 * * * ")
     assert "run_core_panel_daily_increment_guarded.sh" in live[0]
     installer = ROOT / "infra/oracle/install_core_panel_daily_increment_cron.sh"
     assert installer.exists()
@@ -162,7 +162,11 @@ def test_budget_contract_coexists_with_b5_and_active_supply():
     assert c["core_panel_increment_daily_cap"] == 8000
     assert c["one_page_pass_credits"] == 207 * 20 == 4140
     assert c["total_committed"] == 55000 + 4500 + 600 + 8000 == 68100
-    assert c["unallocated_headroom"] == 6900 >= inc.MIN_UNALLOCATED_HEADROOM
+    assert c["unallocated_headroom"] == c["scheduled_unallocated_headroom"] == 6900 >= inc.MIN_UNALLOCATED_HEADROOM
+    assert c["headroom_scope"] == "AUDITED_SCHEDULED_CONSUMERS_ONLY"
+    assert c["account_wide_remaining_credits_known"] is False
+    assert c["unscheduled_research_consumers_may_share_account"] is True
+    assert c["provider_exhaustion_authority"] == "HTTP_429_credit_limit_exceeded"
     assert c["worst_case_credits_enforced"] == 8000 < c["uncapped_worst_case_credits"] == 16560
 
 
@@ -210,6 +214,10 @@ def test_budget_contract_fails_if_it_would_break_the_account_ceiling(monkeypatch
 
 
 def test_invocation_budget_accounts_prior_spend_and_other_consumers():
+    fresh = inc.invocation_budget({}, 8000)
+    assert fresh["invocation_credit_cap"] == 8000
+    assert fresh["local_ledger_room_upper_bound_credits"] == fresh["account_room_credits"]
+    assert fresh["account_wide_remaining_credits_known"] is False
     assert inc.invocation_budget({}, 8000)["invocation_credit_cap"] == 8000
     assert inc.invocation_budget({inc.MODE: 3000}, 8000)["invocation_credit_cap"] == 5000
     assert inc.invocation_budget({inc.MODE: 8000}, 8000)["invocation_credit_cap"] == 0
