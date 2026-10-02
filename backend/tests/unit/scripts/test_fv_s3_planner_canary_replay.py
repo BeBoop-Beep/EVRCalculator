@@ -191,7 +191,7 @@ def test_selection_is_deterministic_rule_based_and_not_hardcoded():
     tie = [{**plan[2], "canonical_card_id": "b"}, {**plan[2], "canonical_card_id": "a"}]
     assert canary.select_canary_card(tie)["canonical_card_id"] == "a"
     blocked = [{**plan[5], "state": "BLOCKED"}]
-    with pytest.raises(canary.CanaryRefused, match="NO_SUITABLE"):
+    with pytest.raises(canary.CanaryRefused, match="NO_REPLAYABLE"):
         canary.select_canary_card(blocked)
     with pytest.raises(canary.CanaryRefused):
         canary.select_canary_card([{**plan[0]}])  # no replayable frontier batch
