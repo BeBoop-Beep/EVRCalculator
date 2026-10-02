@@ -190,10 +190,73 @@ def enrich_sealed_constituent_page(client: Any, page: Mapping[str, Any]) -> dict
     return result
 
 
-def enrich_constituent_page(client: Any, page: Mapping[str, Any], asset: str) -> dict[str, Any]:
-    """Dispatch movement enrichment by asset without crossing authorities."""
+def _movement_identity(row: Mapping[str, Any], asset: str) -> str:
     if asset == "cards":
-        return enrich_card_constituent_page(client, page)
+        return str(row.get("cardVariantId") or row.get("instrumentId") or "")
     if asset == "sealed":
-        return enrich_sealed_constituent_page(client, page)
-    return dict(page)
+        return str(row.get("sealedProductId") or row.get("instrumentId") or "")
+    return ""
+
+
+def _normalize_movement_identity(row: Mapping[str, Any], asset: str) -> dict[str, Any]:
+    """Adapt explicit-basket generic instrumentId to each movement authority.
+
+    Prepared rosters already carry cardVariantId/sealedProductId. Exact baskets
+    intentionally carry the cross-asset identity as asset + instrumentId.
+    Movement enrichment should understand both shapes rather than forcing the
+    basket RPC to duplicate asset-specific identity fields.
+    """
+    item = dict(row)
+    identity = str(item.get("instrumentId") or "")
+    if asset == "cards" and not item.get("cardVariantId") and identity:
+        item["cardVariantId"] = identity
+    elif asset == "sealed" and not item.get("sealedProductId") and identity:
+        item["sealedProductId"] = identity
+    return item
+
+
+def enrich_constituent_page(client: Any, page: Mapping[str, Any], asset: str) -> dict[str, Any]:
+    """Dispatch movement enrichment by asset, including qualified mixed baskets."""
+    result = dict(page)
+    items = [dict(row) for row in result.get("items") or []]
+
+    if asset in {"cards", "sealed"}:
+        result["items"] = [_normalize_movement_identity(row, asset) for row in items]
+        return (enrich_card_constituent_page(client, result)
+                if asset == "cards"
+                else enrich_sealed_constituent_page(client, result))
+
+    if asset != "mixed":
+        result["items"] = items
+        return result
+
+    # Mixed exact baskets remain one market, but movement is resolved by the
+    # canonical authority for each physical asset. Recombine in original basket
+    # order after the two bounded enrichments.
+    grouped: dict[str, list[dict[str, Any]]] = {"cards": [], "sealed": []}
+    for row in items:
+        row_asset = str(row.get("asset") or "").strip().lower()
+        if row_asset in grouped:
+            grouped[row_asset].append(_normalize_movement_identity(row, row_asset))
+
+    enriched_by_identity: dict[tuple[str, str], dict[str, Any]] = {}
+    movement_windows: dict[str, Any] = {}
+    if grouped["cards"]:
+        card_page = enrich_card_constituent_page(client, {**result, "items": grouped["cards"]})
+        movement_windows.update(card_page.get("movement_windows") or {})
+        for row in card_page.get("items") or []:
+            enriched_by_identity[("cards", _movement_identity(row, "cards"))] = dict(row)
+    if grouped["sealed"]:
+        sealed_page = enrich_sealed_constituent_page(client, {**result, "items": grouped["sealed"]})
+        for row in sealed_page.get("items") or []:
+            enriched_by_identity[("sealed", _movement_identity(row, "sealed"))] = dict(row)
+
+    merged: list[dict[str, Any]] = []
+    for row in items:
+        row_asset = str(row.get("asset") or "").strip().lower()
+        identity = _movement_identity(row, row_asset)
+        merged.append(enriched_by_identity.get((row_asset, identity), dict(row)))
+    result["items"] = merged
+    if movement_windows:
+        result["movement_windows"] = movement_windows
+    return result
