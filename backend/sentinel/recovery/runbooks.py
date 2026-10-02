@@ -28,6 +28,12 @@ from backend.sentinel.checks.authorities import (
     check_market_freshness,
     check_scrape_queue_leases,
 )
+from backend.sentinel.checks.db_safety import (
+    DB_SAFETY_HOLD_CHECK_KEY,
+    FAILURE_INVALID_EMPTY,
+    check_db_safety_hold,
+)
+from backend.db.services.production_db_safety import repair_invalid_empty_hold_if_safe
 from backend.sentinel.models import CheckOutcome, IncidentRecord
 from backend.sentinel.checks.pricing import (
     PRICING_SCHEDULER_CHECK_KEY,
@@ -55,6 +61,7 @@ from backend.sentinel.registry import CheckContext
 
 PHOENIX = timezone(timedelta(hours=-7), "America/Phoenix")
 
+DB_SAFETY_HOLD_RUNBOOK = "repair_invalid_empty_db_safety_hold_v1"
 PUBLICATION_RUNBOOK = "publish_post_scrape_if_needed_v1"
 PUBLICATION_DIVERGENCE_RUNBOOK = "publish_divergent_market_surfaces_v1"
 LEASE_RUNBOOK = "reconcile_stale_scrape_leases_v1"
@@ -101,6 +108,8 @@ def _check_context(context: RecoveryContext) -> CheckContext:
 def build_safe_recovery_registry(
     *,
     client: Any = None,
+    db_safety_hold_checker: Optional[Callable[..., Any]] = None,
+    db_safety_hold_repairer: Optional[Callable[[], dict]] = None,
     publish_if_needed_fn: Optional[Callable[..., dict]] = None,
     gate_evaluator: Optional[Callable[..., Any]] = None,
     market_freshness_checker: Optional[Callable[..., Any]] = None,
@@ -123,6 +132,12 @@ def build_safe_recovery_registry(
     repository's existing gated/idempotent publication wrapper and lease RPC.
     """
     resolved_client = client if client is not None else _default_client()
+
+    if db_safety_hold_checker is None:
+        db_safety_hold_checker = check_db_safety_hold
+    if db_safety_hold_repairer is None:
+        def db_safety_hold_repairer() -> dict:
+            return repair_invalid_empty_hold_if_safe(resolved_client)
 
     if publish_if_needed_fn is None:
         from backend.scripts.publish_post_scrape_if_needed import publish_if_needed
@@ -268,6 +283,59 @@ def build_safe_recovery_registry(
 
     registry = RecoveryRegistry()
 
+    def db_safety_hold_precondition(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryDecision:
+        live = db_safety_hold_checker(_check_context(context))
+        if live.outcome is CheckOutcome.HEALTHY:
+            return RecoveryDecision.block("db_safety_hold_already_clear")
+        if (
+            live.failure_code != FAILURE_INVALID_EMPTY
+            or live.authority_identity != incident.authority_identity
+        ):
+            return RecoveryDecision.block(
+                "db_safety_hold_failure_signature_changed",
+                incident_failure=incident.failure_code,
+                live_failure=live.failure_code,
+                incident_authority=incident.authority_identity,
+                live_authority=live.authority_identity,
+            )
+        return RecoveryDecision.allow(observed=dict(live.observed))
+
+    def db_safety_hold_execute(
+        incident: IncidentRecord, context: RecoveryContext
+    ) -> RecoveryExecution:
+        del incident, context
+        result = dict(db_safety_hold_repairer() or {})
+        status = str(result.get("status") or "")
+        if status == "cleared_invalid_empty_hold":
+            return RecoveryExecution.succeeded(
+                result=result, mutation_performed=True
+            )
+        if status == "blocked":
+            return RecoveryExecution.blocked(result=result)
+        return RecoveryExecution.failed(result=result)
+
+    def db_safety_hold_verify(
+        incident: IncidentRecord, context: RecoveryContext
+    ):
+        del incident
+        return db_safety_hold_checker(_check_context(context))
+
+    registry.register(
+        RecoveryRunbook(
+            key=DB_SAFETY_HOLD_RUNBOOK,
+            version="1",
+            check_key=DB_SAFETY_HOLD_CHECK_KEY,
+            failure_code=FAILURE_INVALID_EMPTY,
+            precondition=db_safety_hold_precondition,
+            execute=db_safety_hold_execute,
+            verify=db_safety_hold_verify,
+            max_attempts=1,
+            cooldown_seconds=5 * 60,
+        )
+    )
+
     def _publication_precondition(
         incident: IncidentRecord,
         context: RecoveryContext,
@@ -299,21 +367,6 @@ def build_safe_recovery_registry(
                 incident_authority=incident.authority_identity,
                 live_authority=live.authority_identity,
             )
-
-        if expected_failure_code == "market_snapshot_date_divergence":
-            dates = dict(live.observed.get("authority_dates") or {})
-            lagging = sorted(
-                key for key, value in dates.items()
-                if value and str(value)[:10] != market_date
-            )
-            missing = sorted(key for key, value in dates.items() if not value)
-            divergent = sorted(set(lagging + missing))
-            if divergent and set(divergent).issubset({"explorer_v2"}):
-                return RecoveryDecision.block(
-                    "explorer_convergence_owned_by_maintained_worker",
-                    market_date=market_date,
-                    divergent_authorities=divergent,
-                )
 
         decision = gate_evaluator(
             resolved_client, market_date=market_date, override=False
@@ -417,8 +470,9 @@ def build_safe_recovery_registry(
             precondition=publication_divergence_precondition,
             execute=publication_execute,
             verify=publication_verify,
-            max_attempts=1,
+            max_attempts=2,
             cooldown_seconds=60 * 60,
+            allow_escalated_retry=True,
         )
     )
 
