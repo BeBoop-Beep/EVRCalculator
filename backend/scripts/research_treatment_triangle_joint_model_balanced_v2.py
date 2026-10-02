@@ -63,7 +63,6 @@ def build_contrasts(artifact,controls):
         for treatment,label in ((ULTRA,"ultra"),(SIR,"sir")):
             tr=by[treatment]; tc=controls[tr["canonical_card_id"]]
             if abs(tc["subject"]-drc["subject"])>1e-9: raise RuntimeError("subject control mismatch")
-            if abs(tc["playability"]-drc["playability"])>1e-9: raise RuntimeError("playability control mismatch")
             ratios=[math.log(histories[treatment][d]/histories[DOUBLE][d]) for d in shared]
             cut=len(shared)//2
             row={"era_name":tr["era_name"],"set_name":set_name,"subject_key":subject,"contrast":label,
@@ -71,6 +70,7 @@ def build_contrasts(artifact,controls):
                  "early_mean_log_ratio":float(np.mean(ratios[:cut])),"late_mean_log_ratio":float(np.mean(ratios[cut:])),
                  "scarcity_log_ratio":math.log(float(dr["modeled_probability"])/float(tr["modeled_probability"])),
                  "artist_delta":tc["artist"]-drc["artist"],
+                 "playability_delta":tc["playability"]-drc["playability"],
                  "treatment_probability":float(tr["modeled_probability"]),"double_probability":float(dr["modeled_probability"])}
             contrasts.append(row); subject_rows.append(row)
         subjects.append({"era_name":rows[0]["era_name"],"set_name":set_name,"subject_key":subject,"shared_dates":len(shared),"panel_status":"PANEL_READY_STRONG" if len(shared)>=90 else "PANEL_READY_MODERATE"})
@@ -82,14 +82,15 @@ def fit(rows,key="mean_log_ratio"):
     X=np.array([[1.0 if r["contrast"]=="ultra" else 0.0,
                  1.0 if r["contrast"]=="sir" else 0.0,
                  float(r["scarcity_log_ratio"]),
-                 float(r["artist_delta"])/100.0] for r in rows])
+                 float(r["artist_delta"])/100.0,
+                 float(r["playability_delta"])/100.0] for r in rows])
     beta=np.linalg.lstsq(X,y,rcond=None)[0]
     return beta,int(np.linalg.matrix_rank(X)),float(np.linalg.cond(X))
 
 def hierarchical_effects(rows,beta,set_key="set_name"):
     adjusted=[]
     for r in rows:
-        value=float(r["mean_log_ratio"])-float(beta[2])*float(r["scarcity_log_ratio"])-float(beta[3])*(float(r["artist_delta"])/100.0)
+        value=float(r["mean_log_ratio"])-float(beta[2])*float(r["scarcity_log_ratio"])-float(beta[3])*(float(r["artist_delta"])/100.0)-float(beta[4])*(float(r["playability_delta"])/100.0)
         adjusted.append({**r,"adjusted_log_effect":value})
     grouped=defaultdict(list)
     for r in adjusted:
@@ -130,7 +131,7 @@ def hierarchical_effects(rows,beta,set_key="set_name"):
 def estimate(artifact,controls):
     rows,subjects=build_contrasts(artifact,controls)
     beta,rank,cond=fit(rows)
-    if rank<4: raise RuntimeError(f"joint design rank deficient rank={rank}")
+    if rank<5: raise RuntimeError(f"joint design rank deficient rank={rank}")
     early,_,_=fit(rows,"early_mean_log_ratio"); late,_,_=fit(rows,"late_mean_log_ratio")
     by_subject=defaultdict(list)
     by_set_subjects=defaultdict(list)
@@ -155,7 +156,7 @@ def estimate(artifact,controls):
                     for row in by_subject[subject_key]:
                         sample.append({**row,"_boot_set":boot_set})
         b,rk,_=fit(sample)
-        if rk==4:
+        if rk==5:
             boots.append(b)
             h=hierarchical_effects(sample,b,set_key="_boot_set")["global"]
             hierarchy_boots.append([h["ultra_vs_double_log"],h["sir_vs_double_log"],h["sir_vs_ultra_log"]])
@@ -175,7 +176,7 @@ def estimate(artifact,controls):
         return {"ultra_vs_double_log":float(b[0]),"ultra_vs_double_multiplier":math.exp(float(b[0])),
                 "sir_vs_double_log":float(b[1]),"sir_vs_double_multiplier":math.exp(float(b[1])),
                 "sir_vs_ultra_log":float(b[1]-b[0]),"sir_vs_ultra_multiplier":math.exp(float(b[1]-b[0])),
-                "scarcity_beta":float(b[2]),"artist_beta_per_100":float(b[3])}
+                "scarcity_beta":float(b[2]),"artist_beta_per_100":float(b[3]),"playability_beta_per_100":float(b[4])}
     era=[]
     for e in sorted({r["era_name"] for r in rows}):
         er=[r for r in rows if r["era_name"]==e]
@@ -228,6 +229,8 @@ def render(r):
            f"- SIR vs Double Rare: **{g['sir_vs_double_multiplier']:.2f}x** (95% bootstrap {g['sir_multiplier_ci95'][0]:.2f}x–{g['sir_multiplier_ci95'][1]:.2f}x)",
            f"- Implied SIR vs Ultra Rare: **{g['sir_vs_ultra_multiplier']:.2f}x**",
            f"- Shared scarcity coefficient: **{g['scarcity_beta']:.3f}**",
+           f"- Artist nuisance coefficient /100: **{g['artist_beta_per_100']:.3f}**",
+           f"- Playability nuisance coefficient /100: **{g['playability_beta_per_100']:.3f}**",
            f"- Design rank/condition: **{g['rank']} / {g['condition_number']:.2f}**","",
            "## Temporal","",
            f"- Early: Ultra {t['early']['ultra_vs_double_multiplier']:.2f}x; SIR {t['early']['sir_vs_double_multiplier']:.2f}x; SIR/Ultra {t['early']['sir_vs_ultra_multiplier']:.2f}x",
