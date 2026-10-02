@@ -86,20 +86,79 @@ def fit(rows,key="mean_log_ratio"):
     beta=np.linalg.lstsq(X,y,rcond=None)[0]
     return beta,int(np.linalg.matrix_rank(X)),float(np.linalg.cond(X))
 
+def hierarchical_effects(rows,beta,set_key="set_name"):
+    adjusted=[]
+    for r in rows:
+        value=float(r["mean_log_ratio"])-float(beta[2])*float(r["scarcity_log_ratio"])-float(beta[3])*(float(r["artist_delta"])/100.0)
+        adjusted.append({**r,"adjusted_log_effect":value})
+    grouped=defaultdict(list)
+    for r in adjusted:
+        grouped[(r["era_name"],r[set_key],r["contrast"])].append(r["adjusted_log_effect"])
+    set_map=defaultdict(dict)
+    for (era,set_name,contrast),values in grouped.items():
+        set_map[(era,set_name)][contrast]=float(np.mean(values))
+    set_rows=[]
+    for (era,set_name),vals in sorted(set_map.items()):
+        if set(vals)!={"ultra","sir"}: raise RuntimeError(f"incomplete hierarchical set {era} {set_name}")
+        set_rows.append({
+            "era_name":era,"set_name":set_name,
+            "ultra_vs_double_log":vals["ultra"],"ultra_vs_double_multiplier":math.exp(vals["ultra"]),
+            "sir_vs_double_log":vals["sir"],"sir_vs_double_multiplier":math.exp(vals["sir"]),
+            "sir_vs_ultra_log":vals["sir"]-vals["ultra"],"sir_vs_ultra_multiplier":math.exp(vals["sir"]-vals["ultra"]),
+        })
+    era_rows=[]
+    for era in sorted({r["era_name"] for r in set_rows}):
+        subset=[r for r in set_rows if r["era_name"]==era]
+        u=float(np.mean([r["ultra_vs_double_log"] for r in subset]))
+        ss=float(np.mean([r["sir_vs_double_log"] for r in subset]))
+        era_rows.append({
+            "era_name":era,"set_count":len(subset),
+            "ultra_vs_double_log":u,"ultra_vs_double_multiplier":math.exp(u),
+            "sir_vs_double_log":ss,"sir_vs_double_multiplier":math.exp(ss),
+            "sir_vs_ultra_log":ss-u,"sir_vs_ultra_multiplier":math.exp(ss-u),
+        })
+    u=float(np.mean([r["ultra_vs_double_log"] for r in era_rows]))
+    ss=float(np.mean([r["sir_vs_double_log"] for r in era_rows]))
+    global_row={
+        "era_count":len(era_rows),"set_count":len(set_rows),
+        "ultra_vs_double_log":u,"ultra_vs_double_multiplier":math.exp(u),
+        "sir_vs_double_log":ss,"sir_vs_double_multiplier":math.exp(ss),
+        "sir_vs_ultra_log":ss-u,"sir_vs_ultra_multiplier":math.exp(ss-u),
+    }
+    return {"global":global_row,"eras":era_rows,"sets":set_rows}
+
 def estimate(artifact,controls):
     rows,subjects=build_contrasts(artifact,controls)
     beta,rank,cond=fit(rows)
     if rank<4: raise RuntimeError(f"joint design rank deficient rank={rank}")
     early,_,_=fit(rows,"early_mean_log_ratio"); late,_,_=fit(rows,"late_mean_log_ratio")
     by_subject=defaultdict(list)
-    for r in rows: by_subject[(r["set_name"],r["subject_key"])].append(r)
+    by_set_subjects=defaultdict(list)
+    for r in rows:
+        by_subject[(r["set_name"],r["subject_key"])].append(r)
+    for key in sorted(by_subject):
+        by_set_subjects[(by_subject[key][0]["era_name"],key[0])].append(key)
     keys=sorted(by_subject)
-    rng=np.random.default_rng(SEED); boots=[]
+    rng=np.random.default_rng(SEED); boots=[]; hierarchy_boots=[]
+    era_sets=defaultdict(list)
+    for era,set_name in sorted(by_set_subjects): era_sets[era].append(set_name)
     for _ in range(BOOTSTRAP_DRAWS):
         sample=[]
-        for idx in rng.integers(0,len(keys),len(keys)): sample.extend(by_subject[keys[int(idx)]])
+        for era in sorted(era_sets):
+            sets=era_sets[era]
+            sampled_sets=[sets[int(i)] for i in rng.integers(0,len(sets),len(sets))]
+            for set_index,set_name in enumerate(sampled_sets):
+                subject_keys=by_set_subjects[(era,set_name)]
+                sampled_subjects=[subject_keys[int(i)] for i in rng.integers(0,len(subject_keys),len(subject_keys))]
+                boot_set=f"{era}|bootset{set_index}"
+                for subject_key in sampled_subjects:
+                    for row in by_subject[subject_key]:
+                        sample.append({**row,"_boot_set":boot_set})
         b,rk,_=fit(sample)
-        if rk==4: boots.append(b)
+        if rk==4:
+            boots.append(b)
+            h=hierarchical_effects(sample,b,set_key="_boot_set")["global"]
+            hierarchy_boots.append([h["ultra_vs_double_log"],h["sir_vs_double_log"],h["sir_vs_ultra_log"]])
     B=np.array(boots)
     ci=np.percentile(B,[2.5,50,97.5],axis=0)
     sir_ultra_bootstrap=B[:,1]-B[:,0]
@@ -122,8 +181,15 @@ def estimate(artifact,controls):
         er=[r for r in rows if r["era_name"]==e]
         b,rk,c=fit(er)
         era.append({"era_name":e,"rank":rk,"condition_number":c,**block(b)})
+    hierarchy=hierarchical_effects(rows,beta)
+    HB=np.array(hierarchy_boots)
+    hci=np.percentile(HB,[2.5,50,97.5],axis=0)
+    hierarchy["global"]["bootstrap_ultra_multiplier_ci95"]=[math.exp(float(hci[0,0])),math.exp(float(hci[2,0]))]
+    hierarchy["global"]["bootstrap_sir_multiplier_ci95"]=[math.exp(float(hci[0,1])),math.exp(float(hci[2,1]))]
+    hierarchy["global"]["bootstrap_sir_vs_ultra_multiplier_ci95"]=[math.exp(float(hci[0,2])),math.exp(float(hci[2,2]))]
+    hierarchy["global"]["bootstrap_valid_draws"]=len(hierarchy_boots)
     result={"study_id":"treatment_triangle_joint_balanced_v2",
-            "decision_token":"TREATMENT_TRIANGLE_BALANCED_MODEL_ESTIMATED",
+            "decision_token":"TREATMENT_TRIANGLE_BALANCED_HIERARCHY_ESTIMATED",
             "inputs":{"artifact_fingerprint":stable_hash(artifact),"collector_model_run_id":MODEL_RUN_ID,
                       "collector_model_version":MODEL_VERSION,"collector_as_of_date":MODEL_AS_OF_DATE,
                       "subjects":len(subjects),"contrasts":len(rows),"sets":len({r["set_name"] for r in rows}),"eras":len({r["era_name"] for r in rows})},
@@ -136,6 +202,7 @@ def estimate(artifact,controls):
                       "sir_vs_ultra_log_ci95":[float(sir_ultra_ci[0]),float(sir_ultra_ci[2])],
                       "sir_vs_ultra_multiplier_ci95":[math.exp(float(sir_ultra_ci[0])),math.exp(float(sir_ultra_ci[2]))]},
             "temporal":{"early":block(early),"late":block(late)},
+            "hierarchy":hierarchy,
             "eras":era,"subjects":subjects,"contrasts_detail":rows,"leave_one_subject_out":loo,
             "robustness":{"early_late_ultra_same_sign":bool(early[0]*late[0]>0),
                           "early_late_sir_same_sign":bool(early[1]*late[1]>0),
@@ -146,10 +213,16 @@ def estimate(artifact,controls):
     return result
 
 def render(r):
-    g=r["global"]; t=r["temporal"]; rob=r["robustness"]
+    g=r["global"]; h=r["hierarchy"]["global"]; t=r["temporal"]; rob=r["robustness"]
     lines=["# Balanced Joint Treatment Triangle V2 — Double Rare / Ultra Rare / SIR","",
            f"Decision token: `{r['decision_token']}`","",
-           "## Global scarcity-controlled treatment ladder","",
+           "## Set-first hierarchical Treatment ladder","",
+           f"- Double Rare baseline: **1.00x**",
+           f"- Ultra Rare vs Double Rare: **{h['ultra_vs_double_multiplier']:.2f}x** (nested bootstrap {h['bootstrap_ultra_multiplier_ci95'][0]:.2f}x–{h['bootstrap_ultra_multiplier_ci95'][1]:.2f}x)",
+           f"- SIR vs Double Rare: **{h['sir_vs_double_multiplier']:.2f}x** (nested bootstrap {h['bootstrap_sir_multiplier_ci95'][0]:.2f}x–{h['bootstrap_sir_multiplier_ci95'][1]:.2f}x)",
+           f"- SIR vs Ultra Rare: **{h['sir_vs_ultra_multiplier']:.2f}x** (nested bootstrap {h['bootstrap_sir_vs_ultra_multiplier_ci95'][0]:.2f}x–{h['bootstrap_sir_vs_ultra_multiplier_ci95'][1]:.2f}x)",
+           f"- Hierarchy: {h['set_count']} Sets across {h['era_count']} eras, equal Set weight within era","",
+           "## Raw pooled nuisance-model coefficients","",
            f"- Double Rare baseline: **1.00x**",
            f"- Ultra Rare vs Double Rare: **{g['ultra_vs_double_multiplier']:.2f}x** (95% bootstrap {g['ultra_multiplier_ci95'][0]:.2f}x–{g['ultra_multiplier_ci95'][1]:.2f}x)",
            f"- SIR vs Double Rare: **{g['sir_vs_double_multiplier']:.2f}x** (95% bootstrap {g['sir_multiplier_ci95'][0]:.2f}x–{g['sir_multiplier_ci95'][1]:.2f}x)",
