@@ -11,6 +11,7 @@ import pytest
 from backend.pricing_pipeline.pkmnprices_store import PkmnPricesStore
 from backend.scripts import run_core_panel_daily_increment as inc
 
+REAL_PROVIDER_DAILY_CREDIT_EXHAUSTED = inc._provider_daily_credit_exhausted_today
 ROOT = Path(__file__).resolve().parents[4]
 FLOOR = "2026-09-20T00:00:00+00:00"
 
@@ -523,7 +524,7 @@ def test_provider_daily_credit_exhaustion_halts_after_first_429_and_preserves_re
     page = [_raw(i, "2026-09-25T00:00:00+00:00") for i in range(20)]
     provider = FakeProvider({
         (1001, None): _page(page, True, "c1"),
-        (1002, None): PkmnPricesAPIError(429, "credit_limit_exceeded", "daily credits spent"),
+        (1002, None): inc.PkmnPricesAPIError(429, "credit_limit_exceeded", "daily credits spent"),
     })
     result, store = _run([first, second, third], provider)
     assert result["status"] == "PARTIAL"
@@ -577,4 +578,4 @@ def test_provider_daily_credit_exhaustion_detection_supports_legacy_failure_rece
             assert name == "pkmnprices_sold_runs_v1"
             return Query()
 
-    assert inc._provider_daily_credit_exhausted_today(DB(), "2026-10-02") is True
+    assert REAL_PROVIDER_DAILY_CREDIT_EXHAUSTED(DB(), "2026-10-02") is True
