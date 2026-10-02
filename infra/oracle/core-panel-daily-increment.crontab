@@ -1,7 +1,8 @@
 # Core Panel daily newest-sold increment for the research-only Fair Value shadow feed.
 # Four retry slots protect against transient scrape/publication/provider locks. The Python
 # collector enforces ONE shared 8,000-credit cap across all invocations in the UTC credit day,
-# so retries cannot multiply the daily provider budget.
+# and the outer DB workload guard continuously monitors Supabase pressure while a run is active.
+# Retries cannot multiply the daily provider budget.
 # Offset from B4 (:00/:15/:30/:45) and B5 (:07/:22/:37/:52).
 CRON_TZ=America/Phoenix
-27 6,7,8,9 * * * /bin/bash /home/ubuntu/state/core_panel_daily_increment/runtime/infra/oracle/run_core_panel_daily_increment.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/core_panel_daily_increment.log 2>&1
+27 6,7,8,9 * * * /bin/bash /home/ubuntu/state/core_panel_daily_increment/runtime/infra/oracle/run_core_panel_daily_increment_guarded.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/core_panel_daily_increment.log 2>&1

@@ -64,6 +64,9 @@ git -C "$SOURCE_REPO" worktree add --detach "$RUNTIME" "$SHA"
 [ -x "$RUNTIME/infra/oracle/run_core_panel_daily_increment.sh" ] || {
   echo "FAIL: pinned Core Panel increment wrapper missing/not executable" >&2; exit 2;
 }
+[ -x "$RUNTIME/infra/oracle/run_core_panel_daily_increment_guarded.sh" ] || {
+  echo "FAIL: pinned Core Panel guarded wrapper missing/not executable" >&2; exit 2;
+}
 
 export PYTHONPATH="$RUNTIME"
 echo "== repeat preflight from detached pinned runtime =="
@@ -82,4 +85,4 @@ mv "$STATE/release.sha.tmp" "$STATE/release.sha"
 crontab - <<<"$new"
 
 echo "CORE_PANEL_INCREMENT_CRON_INSTALLED source_sha=$SHA runtime=$RUNTIME"
-crontab -l | grep 'run_core_panel_daily_increment.sh'
+crontab -l | grep 'run_core_panel_daily_increment_guarded.sh'

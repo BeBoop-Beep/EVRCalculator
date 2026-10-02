@@ -141,7 +141,7 @@ def test_shipped_activation_flag_is_true_and_managed_schedule_present():
     live = [l for l in cron.splitlines() if l.strip() and not l.lstrip().startswith("#") and not l.startswith("CRON_TZ")]
     assert len(live) == 1
     assert live[0].startswith("27 6,7,8,9 * * * ")
-    assert "run_core_panel_daily_increment.sh" in live[0]
+    assert "run_core_panel_daily_increment_guarded.sh" in live[0]
     installer = ROOT / "infra/oracle/install_core_panel_daily_increment_cron.sh"
     assert installer.exists()
     disabled = (ROOT / "infra/oracle/core-panel-daily-increment.crontab.DISABLED").read_text(encoding="utf-8")
@@ -501,3 +501,12 @@ def test_managed_installer_is_verify_first_and_sha_pinned():
     assert 'release.sha.tmp' in installer and 'mv "$STATE/release.sha.tmp" "$STATE/release.sha"' in installer
     assert 'core-panel-daily-increment.crontab' in installer
     assert 'run_core_panel_daily_increment.sh' in installer
+    assert 'run_core_panel_daily_increment_guarded.sh' in installer
+
+
+def test_guarded_scheduler_wrapper_uses_db_workload_guard():
+    guarded = (ROOT / "infra/oracle/run_core_panel_daily_increment_guarded.sh").read_text(encoding="utf-8")
+    assert "/home/ubuntu/state/db-safety/db_workload_guard.py" in guarded
+    assert "--run-encoded" in guarded
+    assert "--wait-lock-seconds 300" in guarded
+    assert "run_core_panel_daily_increment.sh" in guarded
