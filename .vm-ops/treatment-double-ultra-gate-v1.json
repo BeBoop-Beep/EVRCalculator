@@ -1,10 +1,10 @@
 {
   "operation": "treatment-double-ultra-gate-v1",
-  "research_sha": "3b799128600947c0d4d7e0fea7a911302aac1601",
+  "research_sha": "b90e2c201d2b1327c40cecd1db957703ce40b32a",
   "market_date": "2026-09-29",
   "period": "180d",
   "credit_cap": 3000,
   "requested_at": "2026-10-02",
-  "request_seq": 2,
-  "note": "replace Paldean Fates with Paldea Evolved for complete DR-SIR-UR triangle"
+  "request_seq": 3,
+  "note": "Paldea Evolved uses Squawkabilly + Wo-Chien complete DR-UR-SIR chains"
 }
