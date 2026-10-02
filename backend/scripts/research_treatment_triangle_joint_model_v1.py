@@ -102,6 +102,8 @@ def estimate(artifact,controls):
         if rk==4: boots.append(b)
     B=np.array(boots)
     ci=np.percentile(B,[2.5,50,97.5],axis=0)
+    sir_ultra_bootstrap=B[:,1]-B[:,0]
+    sir_ultra_ci=np.percentile(sir_ultra_bootstrap,[2.5,50,97.5])
     loo=[]
     for key in keys:
         sample=[r for r in rows if (r["set_name"],r["subject_key"])!=key]
@@ -131,7 +133,8 @@ def estimate(artifact,controls):
                       "ultra_multiplier_ci95":[math.exp(float(ci[0,0])),math.exp(float(ci[2,0]))],
                       "sir_log_ci95":[float(ci[0,1]),float(ci[2,1])],
                       "sir_multiplier_ci95":[math.exp(float(ci[0,1])),math.exp(float(ci[2,1]))],
-                      "sir_vs_ultra_log_ci95":[float(ci[0,1]-ci[2,0]),float(ci[2,1]-ci[0,0])]},
+                      "sir_vs_ultra_log_ci95":[float(sir_ultra_ci[0]),float(sir_ultra_ci[2])],
+                      "sir_vs_ultra_multiplier_ci95":[math.exp(float(sir_ultra_ci[0])),math.exp(float(sir_ultra_ci[2]))]},
             "temporal":{"early":block(early),"late":block(late)},
             "eras":era,"subjects":subjects,"contrasts_detail":rows,"leave_one_subject_out":loo,
             "robustness":{"early_late_ultra_same_sign":bool(early[0]*late[0]>0),
