@@ -36,7 +36,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|vm-cleanup-stale-tmp|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -5112,6 +5112,73 @@ jobs:
               echo "TREATMENT_PANEL_RECOVERY_V2=PASS"
               ;;
 
+
+            db-safety-empty-hold-repair)
+              # MUTATING but narrowly scoped: clear only an invalid zero-byte fail-closed hold.
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
+              BACKUP_DIR="/home/ubuntu/ops-backups"
+              echo "== invalid empty DB-safety hold repair =="
+              [ -f "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: hold missing/not regular/or symlink"; exit 80; }
+              OWNER=$(stat -c '%U' "$HOLD")
+              MODE=$(stat -c '%a' "$HOLD")
+              SIZE=$(stat -c '%s' "$HOLD")
+              echo "hold_owner=$OWNER hold_mode=$MODE hold_bytes=$SIZE"
+              [ "$OWNER" = "ubuntu" ] || { echo "REFUSING: hold owner mismatch"; exit 81; }
+              [ "$MODE" = "600" ] || { echo "REFUSING: hold mode mismatch"; exit 82; }
+              [ "$SIZE" -eq 0 ] || { echo "REFUSING: hold is not empty"; exit 83; }
+              [ -f "$GUARD" ] || { echo "REFUSING: workload guard missing"; exit 84; }
+
+              AVAIL=$(df -B1 --output=avail / | tail -1 | tr -d ' ')
+              echo "root_available_bytes=$AVAIL"
+              [ "$AVAIL" -ge 5368709120 ] || { echo "REFUSING: less than 5 GiB root headroom"; exit 85; }
+
+              PRESSURE=$("$PY" - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          p=Path("/home/ubuntu/state/db-safety/db_workload_guard.py")
+          spec=importlib.util.spec_from_file_location("guard_live",p)
+          guard=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+          print(guard.live_pressure() or "NONE")
+          PY
+              )
+              echo "live_pressure=$PRESSURE"
+              [ "$PRESSURE" = "NONE" ] || { echo "REFUSING: live DB pressure active"; exit 86; }
+
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              for probe in 1 2 3; do
+                "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          rows=(c.table("pokemon_scrape_batches")
+                .select("id,market_date,status")
+                .order("market_date",desc=True).limit(1).execute().data or [])
+          if not rows:
+              raise SystemExit("database probe returned no scrape-batch authority")
+          print("db_probe_latest_batch="+str(rows[0]))
+          PY
+                echo "db_probe_${probe}=PASS"
+                sleep 2
+              done
+
+              DISABLED=$(crontab -l 2>/dev/null | grep -c '^# CODE_RED_DISABLED ' || true)
+              echo "code_red_disabled_entries=$DISABLED"
+              [ "$DISABLED" -eq 0 ] || { echo "REFUSING: code-red entries still disabled"; exit 87; }
+
+              mkdir -p "$BACKUP_DIR"
+              chmod 700 "$BACKUP_DIR"
+              BACKUP="$BACKUP_DIR/hold.invalid-empty.$(date -u +%Y%m%dT%H%M%SZ).bak"
+              cp "$HOLD" "$BACKUP"
+              chmod 600 "$BACKUP"
+              rm -f "$HOLD"
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: hold removal failed"; exit 88; }
+              echo "hold_backup=$BACKUP"
+              echo "database_safety_empty_hold_cleared=true"
+              echo "DB_SAFETY_EMPTY_HOLD_REPAIR=PASS"
+              ;;
 
             vm-cleanup-stale-tmp)
               echo "== stale /tmp workspace cleanup =="
