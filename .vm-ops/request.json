@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-status",
-  "request_id": "sentinel-snapshot-lag-diagnose-20261002b"
+  "operation": "market-explorer-manual-one-shot",
+  "request_id": "explorer-oct2-recover-20261002"
 }
