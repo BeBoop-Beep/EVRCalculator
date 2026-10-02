@@ -109,5 +109,10 @@ def test_binding_adapter_is_idempotent_and_conflict_safe(monkeypatch):
         "baseline_market_price_usd":100.0,"price_source":"TCGPlayer","currency":"USD",
         "binding_method":forward.BINDING_METHOD,
     }
-    rec["content_fingerprint"]=forward._fp({k:v for k,v in rec.items() if k!="content_fingerprint"})
     assert adapter.append_market_binding(rec)=="INSERTED"
+    stored_fp = ledger_mod._canonical_fingerprint(rec)
+    db.tables["fair_value_shadow_market_bindings_v1"] = [{
+        "publication_id": rec["publication_id"],
+        "content_fingerprint": stored_fp,
+    }]
+    assert adapter.append_market_binding(rec)=="IDEMPOTENT_NOOP"
