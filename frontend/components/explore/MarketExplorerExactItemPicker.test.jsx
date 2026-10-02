@@ -31,6 +31,33 @@ test("top close preserves selection while Cancel Edits is distinct", async () =>
   assert.deepEqual(calls, ["close", "cancel-edit"]);
 });
 
+test("edit footer keeps secondary actions neutral and Update Market primary", async () => {
+  const selected = [{ asset: "cards", instrumentId: "v1", name: "Charizard" }];
+  let renderer;
+  await act(async () => {
+    renderer = TestRenderer.create(
+      <MarketExplorerExactItemPicker
+        selectedItems={selected}
+        onChange={() => {}}
+        onCancelEdit={() => {}}
+        onSaveAsNew={() => {}}
+        onBuild={() => {}}
+        buildLabel="Update Market"
+      />,
+    );
+  });
+  const cancel = renderer.root.findByProps({ "data-market-exact-cancel-edit": true });
+  const save = renderer.root.findByProps({ "data-market-exact-save-as-new": true });
+  const update = renderer.root.findAllByType("button").find((node) => node.children.includes("Update Market"));
+  for (const secondary of [cancel, save]) {
+    assert.match(secondary.props.className, /border-white\/25/);
+    assert.match(secondary.props.className, /text-\[var\(--text-primary\)\]/);
+    assert.match(secondary.props.className, /hover:bg-white\/\[\.09\]/);
+    assert.doesNotMatch(secondary.props.className, /45,212,191/);
+  }
+  assert.match(update.props.className, /45,212,191/);
+});
+
 test("execution lock leaves selection removable and locks only execution", async () => {
   const item = { asset: "sealed", instrumentId: "sealed-1", name: "Elite Trainer Box", productFamily: "ETB" };
   let selected = [];

@@ -56,3 +56,12 @@ Both families have configured TCGplayer sealed identities/mappings and no Explor
 ## Remaining issues and recommendation
 
 The requested Explorer closure is suitable for code review and merge once CI agrees with the focused evidence. The production cache itself is current, so the earlier stale Explorer release blocker is no longer present. First Partner Pack and World Championship Deck pricing remain stale and should be tracked as an upstream ingestion/provider-coverage issue; do not represent them as current until authoritative prices resume. No application or migration deployment should occur from this acceptance task.
+
+## Final acceptance correction
+
+- `Cancel Edits` and `Save as New` now use the established neutral secondary-action language: text-primary copy, a visible white/gray outline, subtle neutral fill, restrained hover brightening, and preserved disabled treatment. `Update Market` remains the teal primary CTA.
+- The reported empty region beside Lifetime required no additional layout change. The former toolbar composition was already resolved by the Index-only control: the timeframe group ends cleanly at `All` on desktop and renders all seven options as a complete row on mobile. Selecting `All` supplies the real since-tracking explanation below the toolbar rather than placeholder content.
+- Visual receipts are stored in `backend/artifacts/market_explorer_acceptance/final_correction_20261002/` for the desktop edit footer and desktop/mobile `All` timeframe state.
+- Focused component/contract verification: **180 total; 146 passed, 34 intentional skips, 0 failed**.
+- Targeted Playwright acceptance: **2 passed, 0 failed** across the edit footer and desktop/mobile timeframe scenarios.
+- Optimized production build: **passed** with the repository's existing non-fatal warnings.

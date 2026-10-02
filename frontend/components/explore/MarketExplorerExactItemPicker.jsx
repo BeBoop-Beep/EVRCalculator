@@ -344,8 +344,9 @@ export default function MarketExplorerExactItemPicker({
           {onCancelEdit ? (
             <button
               type="button"
+              data-market-exact-cancel-edit
               onClick={onCancelEdit}
-              className="min-h-11 rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-semibold"
+              className="min-h-11 rounded-lg border border-white/25 bg-white/[.04] px-4 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-white/40 hover:bg-white/[.09] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel Edits
             </button>
@@ -353,9 +354,10 @@ export default function MarketExplorerExactItemPicker({
           {onSaveAsNew ? (
             <button
               type="button"
+              data-market-exact-save-as-new
               disabled={!selectedItems.length || buildStatus === "building"}
               onClick={onSaveAsNew}
-              className="min-h-11 rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-semibold disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-white/25 bg-white/[.04] px-4 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:border-white/40 hover:bg-white/[.09] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save as New
             </button>
