@@ -283,6 +283,72 @@ def test_escalated_incident_remains_blocked_without_explicit_runbook_opt_in():
     assert report["reason_code"] == "incident_not_open"
 
 
+def test_escalated_retry_budget_ignores_historical_blocked_attempts():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="market.freshness",
+        code="market_snapshot_date_divergence",
+    )
+
+    for attempt_number in range(1, 5):
+        store.save_recovery_attempt(
+            RecoveryAttemptRecord(
+                id=f"blocked-{attempt_number}",
+                incident_id=incident.id,
+                runbook="test_runbook_v1",
+                runbook_version="1",
+                started_at=NOW - timedelta(minutes=20 - attempt_number),
+                completed_at=NOW - timedelta(minutes=19 - attempt_number),
+                status=RecoveryAttemptStatus.BLOCKED,
+                attempt_number=attempt_number,
+            )
+        )
+    store.save_recovery_attempt(
+        RecoveryAttemptRecord(
+            id="failed-5",
+            incident_id=incident.id,
+            runbook="test_runbook_v1",
+            runbook_version="1",
+            started_at=NOW - timedelta(minutes=5),
+            completed_at=NOW - timedelta(minutes=4),
+            status=RecoveryAttemptStatus.FAILED,
+            attempt_number=5,
+        )
+    )
+    incident.status = IncidentStatus.ESCALATED
+    incident.recovery_attempt_count = 5
+    store.upsert_incident(incident)
+
+    calls = []
+    runbook = _generic_runbook(
+        code="market_snapshot_date_divergence",
+        max_attempts=2,
+        cooldown_seconds=0,
+        allow_escalated_retry=True,
+        execute=lambda *_a: (
+            calls.append(True),
+            RecoveryExecution.succeeded(
+                result={"status": "published"}, mutation_performed=True
+            ),
+        )[1],
+    )
+
+    report = _runner(store, runbook).attempt(
+        store.get_incident(incident.id),
+        registered,
+        identity=IDENTITY,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert report["action"] == "recovered"
+    assert report["attempt_number"] == 6
+    assert calls == [True]
+    latest = store.get_latest_recovery_attempt(incident.id, runbook.key)
+    assert latest.attempt_number == 6
+    assert latest.status is RecoveryAttemptStatus.SUCCEEDED
+
+
 def test_blocked_no_mutation_attempt_retries_after_cooldown():
     store = MemoryStateStore()
     registered, incident = _open_incident(store)
