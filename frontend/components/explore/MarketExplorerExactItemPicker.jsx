@@ -29,6 +29,7 @@ export default function MarketExplorerExactItemPicker({ selectedItems = [], onCh
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const requestId = useRef(0);
+  const searchCacheRef = useRef(new Map());
   const searchRef = useRef(null);
   const selectedIds = useMemo(() => new Set(selectedItems.map(identity)), [selectedItems]);
   const atMaximum = selectedItems.length >= MAX_EXPLICIT_INSTRUMENTS;
@@ -36,17 +37,23 @@ export default function MarketExplorerExactItemPicker({ selectedItems = [], onCh
   useEffect(() => {
     const needle = query.trim(); const token = ++requestId.current;
     if (needle.length < 2) { setResults([]); setStatus("idle"); setMessage(""); return undefined; }
+    const cacheKey = `${scope}:${needle.toLocaleLowerCase()}`;
+    const cached = searchCacheRef.current.get(cacheKey);
+    if (cached) { setResults(cached); setStatus("ready"); setMessage(""); return undefined; }
     const controller = new AbortController();
+    setStatus("loading"); setMessage("");
     const timer = setTimeout(async () => {
-      setStatus("loading"); setMessage("");
       try {
         const response = await fetch(`/api/market/explorer/instruments/search?q=${encodeURIComponent(needle)}&asset=${scope}&limit=20`, { signal: controller.signal, credentials: "include" });
         const payload = await response.json().catch(() => null);
         if (token !== requestId.current) return;
         if (!response.ok) throw new Error(payload?.detail?.message || payload?.message || "Unable to search Cards and Products.");
-        setResults(payload?.items || []); setStatus("ready");
+        const items = payload?.items || [];
+        searchCacheRef.current.set(cacheKey, items);
+        if (searchCacheRef.current.size > 40) searchCacheRef.current.delete(searchCacheRef.current.keys().next().value);
+        setResults(items); setStatus("ready");
       } catch (error) { if (error?.name !== "AbortError" && token === requestId.current) { setResults([]); setStatus("error"); setMessage(error?.message || "Unable to search Cards and Products."); } }
-    }, 300);
+    }, 150);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [scope, query]);
   if (!open) return null;
