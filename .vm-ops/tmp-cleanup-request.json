@@ -1,9 +1,0 @@
-{
-  "operation": "stale_tmp_cleanup",
-  "scope": [
-    "/tmp/EVRCalculator-*",
-    "/tmp/index-*",
-    "/tmp/pokemon-opening-v3-*"
-  ],
-  "requested_at": "2026-10-01"
-}
