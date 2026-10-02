@@ -363,8 +363,10 @@ def test_forward_diagnostics_label_small_samples_and_skip_inference():
     assert ev.forward_diagnostics([], horizon_days=1)["n"] == 0
 
 
-# ------------------------------------------------------------------ unapplied migration proposal
+# ------------------------------------------------------------------ reviewed migration
 PROPOSAL = ROOT / "docs/research/index_fair_value/fv_s3/migration_proposal_unapplied/20261001000000_fair_value_shadow_ledger_v1.sql.proposed"
+MIGRATION_BACKEND = ROOT / "backend/db/migrations/20261002060000_fair_value_shadow_ledger_v1.sql"
+MIGRATION_SUPABASE = ROOT / "supabase/migrations/20261002060000_fair_value_shadow_ledger_v1.sql"
 
 
 NEWLINE_CLOSE = chr(10) + ");"
@@ -381,20 +383,26 @@ def _ddl_columns(sql: str, table: str) -> set[str]:
     return cols
 
 
-def test_ledger_migration_is_proposed_only_and_not_in_any_migration_directory():
+def test_ledger_migration_is_reviewed_mirrored_and_hardened():
     assert PROPOSAL.exists()
-    for directory in ("supabase/migrations", "backend/db/migrations"):
-        assert not [p for p in (ROOT / directory).glob("*") if "fair_value_shadow" in p.name]
-    sql = PROPOSAL.read_text(encoding="utf-8")
-    assert sql.lstrip().startswith("-- PROPOSED / NOT APPLIED")
+    assert MIGRATION_BACKEND.exists() and MIGRATION_SUPABASE.exists()
+    backend_sql = MIGRATION_BACKEND.read_text(encoding="utf-8")
+    supabase_sql = MIGRATION_SUPABASE.read_text(encoding="utf-8")
+    assert backend_sql == supabase_sql
+    sql = backend_sql
     assert "GRANT SELECT, INSERT ON" in sql and "GRANT SELECT, INSERT, UPDATE" not in sql
     assert "BEFORE UPDATE OR DELETE" in sql and "BEFORE TRUNCATE" in sql and "ENABLE ROW LEVEL SECURITY" in sql
     assert "UNIQUE (rule_version, canonical_card_id, evaluation_date, information_cutoff)" in sql
     assert "CHECK (blended_value IS NULL)" in sql
+    assert "publish_fair_value_shadow_anchor_v1" in sql
+    assert "SECURITY DEFINER" in sql and "SET search_path = public, pg_temp" in sql
+    assert "REVOKE ALL ON FUNCTION public.publish_fair_value_shadow_anchor_v1" in sql
+    assert "GRANT EXECUTE ON FUNCTION public.publish_fair_value_shadow_anchor_v1(jsonb, jsonb) TO service_role" in sql
+    assert sql.count("content_fingerprint text NOT NULL") >= 3
 
 
 def test_ledger_columns_cover_everything_the_python_records_carry():
-    sql = PROPOSAL.read_text(encoding="utf-8")
+    sql = MIGRATION_BACKEND.read_text(encoding="utf-8")
     pub = _build(_rows())
     publication_cols = _ddl_columns(sql, "fair_value_shadow_anchor_publications_v1")
     assert set(pub) - {"members"} <= publication_cols, set(pub) - {"members"} - publication_cols
