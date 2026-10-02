@@ -6,6 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 import backend.sentinel.operational as operational
+from backend.sentinel.checks.db_safety import (
+    DB_SAFETY_HOLD_AUTHORITY,
+    DB_SAFETY_HOLD_CHECK_KEY,
+    FAILURE_ACTIVE as DB_SAFETY_HOLD_ACTIVE,
+    FAILURE_INVALID_EMPTY as DB_SAFETY_HOLD_INVALID_EMPTY,
+)
 from backend.sentinel.checks.registry import build_fast_registry
 from backend.sentinel.config import SentinelConfig
 from backend.sentinel.incidents import IncidentManager
@@ -26,6 +32,7 @@ from backend.sentinel.recovery.engine import (
     RecoveryRunner,
 )
 from backend.sentinel.recovery.runbooks import (
+    DB_SAFETY_HOLD_RUNBOOK,
     LEASE_RUNBOOK,
     MARKET_EXPLORER_PROGRESS_RUNBOOK,
     MARKET_EXPLORER_SCHEDULER_RUNBOOK,
@@ -85,6 +92,7 @@ def _generic_runbook(
     verify=None,
     max_attempts=1,
     cooldown_seconds=3600,
+    allow_escalated_retry=False,
 ):
     return RecoveryRunbook(
         key="test_runbook_v1",
@@ -105,6 +113,7 @@ def _generic_runbook(
         ),
         max_attempts=max_attempts,
         cooldown_seconds=cooldown_seconds,
+        allow_escalated_retry=allow_escalated_retry,
     )
 
 
@@ -219,6 +228,127 @@ def test_attempt_limit_blocks_second_mutation():
     assert called == []
 
 
+def test_escalated_incident_can_retry_only_when_runbook_explicitly_allows_it():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="market.freshness",
+        code="market_snapshot_date_divergence",
+    )
+    incident.status = IncidentStatus.ESCALATED
+    incident.recovery_attempt_count = 1
+    store.upsert_incident(incident)
+    calls = []
+
+    runbook = _generic_runbook(
+        code="market_snapshot_date_divergence",
+        max_attempts=2,
+        cooldown_seconds=0,
+        allow_escalated_retry=True,
+        execute=lambda *_a: (
+            calls.append(True),
+            RecoveryExecution.succeeded(
+                result={"status": "published"}, mutation_performed=True
+            ),
+        )[1],
+    )
+    report = _runner(store, runbook).attempt(
+        store.get_incident(incident.id),
+        registered,
+        identity=IDENTITY,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert report["action"] == "recovered"
+    assert calls == [True]
+    assert store.get_incident(incident.id).status is IncidentStatus.RESOLVED
+
+
+def test_escalated_incident_remains_blocked_without_explicit_runbook_opt_in():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(store)
+    incident.status = IncidentStatus.ESCALATED
+    store.upsert_incident(incident)
+
+    report = _runner(
+        store,
+        _generic_runbook(max_attempts=2, allow_escalated_retry=False),
+    ).attempt(
+        store.get_incident(incident.id),
+        registered,
+        identity=IDENTITY,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert report["reason_code"] == "incident_not_open"
+
+
+def test_escalated_retry_budget_ignores_historical_blocked_attempts():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key="market.freshness",
+        code="market_snapshot_date_divergence",
+    )
+
+    for attempt_number in range(1, 5):
+        store.save_recovery_attempt(
+            RecoveryAttemptRecord(
+                id=f"blocked-{attempt_number}",
+                incident_id=incident.id,
+                runbook="test_runbook_v1",
+                runbook_version="1",
+                started_at=NOW - timedelta(minutes=20 - attempt_number),
+                completed_at=NOW - timedelta(minutes=19 - attempt_number),
+                status=RecoveryAttemptStatus.BLOCKED,
+                attempt_number=attempt_number,
+            )
+        )
+    store.save_recovery_attempt(
+        RecoveryAttemptRecord(
+            id="failed-5",
+            incident_id=incident.id,
+            runbook="test_runbook_v1",
+            runbook_version="1",
+            started_at=NOW - timedelta(minutes=5),
+            completed_at=NOW - timedelta(minutes=4),
+            status=RecoveryAttemptStatus.FAILED,
+            attempt_number=5,
+        )
+    )
+    incident.status = IncidentStatus.ESCALATED
+    incident.recovery_attempt_count = 5
+    store.upsert_incident(incident)
+
+    calls = []
+    runbook = _generic_runbook(
+        code="market_snapshot_date_divergence",
+        max_attempts=2,
+        cooldown_seconds=0,
+        allow_escalated_retry=True,
+        execute=lambda *_a: (
+            calls.append(True),
+            RecoveryExecution.succeeded(
+                result={"status": "published"}, mutation_performed=True
+            ),
+        )[1],
+    )
+
+    report = _runner(store, runbook).attempt(
+        store.get_incident(incident.id),
+        registered,
+        identity=IDENTITY,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert report["action"] == "recovered"
+    assert report["attempt_number"] == 6
+    assert calls == [True]
+    latest = store.get_latest_recovery_attempt(incident.id, runbook.key)
+    assert latest.attempt_number == 6
+    assert latest.status is RecoveryAttemptStatus.SUCCEEDED
+
+
 def test_blocked_no_mutation_attempt_retries_after_cooldown():
     store = MemoryStateStore()
     registered, incident = _open_incident(store)
@@ -330,6 +460,7 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
         ),
     )
     assert registry.matches() == (
+        ("database.safety_hold", "DATABASE_SAFETY_HOLD_INVALID_EMPTY"),
         ("market.freshness", "market_publication_stale"),
         ("market.freshness", "market_snapshot_date_divergence"),
         ("market_explorer.maintenance_progress", "MARKET_EXPLORER_CONVERGENCE_STALLED"),
@@ -340,6 +471,83 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
         ("sentinel.runtime_scheduler", "SENTINEL_RUNTIME_SCHEDULE_MISSING"),
     )
 
+
+
+def test_empty_db_safety_hold_recovery_is_exact_and_verified():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key=DB_SAFETY_HOLD_CHECK_KEY,
+        code=DB_SAFETY_HOLD_INVALID_EMPTY,
+        authority=DB_SAFETY_HOLD_AUTHORITY,
+    )
+    live_results = iter(
+        [
+            CheckResult.failure(
+                DB_SAFETY_HOLD_CHECK_KEY,
+                failure_code=DB_SAFETY_HOLD_INVALID_EMPTY,
+                severity=Severity.CRITICAL,
+                authority_identity=DB_SAFETY_HOLD_AUTHORITY,
+                observed={"state": "invalid_empty"},
+                checked_at=NOW,
+            ),
+            CheckResult.healthy(
+                DB_SAFETY_HOLD_CHECK_KEY,
+                authority_identity=DB_SAFETY_HOLD_AUTHORITY,
+                observed={"state": "absent"},
+                checked_at=NOW,
+            ),
+        ]
+    )
+    repair_calls = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        db_safety_hold_checker=lambda *_a, **_k: next(live_results),
+        db_safety_hold_repairer=lambda: (
+            repair_calls.append(True),
+            {
+                "status": "cleared_invalid_empty_hold",
+                "mutation_performed": True,
+            },
+        )[1],
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+    )
+
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+
+    assert report["action"] == "recovered"
+    assert repair_calls == [True]
+    attempt = store.get_latest_recovery_attempt(incident.id, DB_SAFETY_HOLD_RUNBOOK)
+    assert attempt.status is RecoveryAttemptStatus.SUCCEEDED
+    assert store.get_incident(incident.id).status is IncidentStatus.RESOLVED
+
+
+def test_valid_db_safety_hold_is_not_allowlisted_for_auto_clear():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key=DB_SAFETY_HOLD_CHECK_KEY,
+        code=DB_SAFETY_HOLD_ACTIVE,
+        authority=DB_SAFETY_HOLD_AUTHORITY,
+    )
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+    )
+
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+
+    assert report["action"] == "not_allowlisted"
 
 def test_publication_recovery_refuses_incomplete_batch_before_publish():
     store = MemoryStateStore()
@@ -548,15 +756,14 @@ def test_pricing_daily_recovery_requires_complete_promoted_source_batch():
     assert calls == []
 
 
-def test_explorer_only_divergence_defers_to_bounded_maintenance_worker():
+def test_explorer_only_divergence_uses_bounded_publication_repair():
     store = MemoryStateStore()
     registered, incident = _open_incident(
         store,
         key="market.freshness",
         code="market_snapshot_date_divergence",
     )
-    publish_calls = []
-    live = CheckResult.failure(
+    stale = CheckResult.failure(
         "market.freshness",
         failure_code="market_snapshot_date_divergence",
         severity=Severity.CRITICAL,
@@ -568,6 +775,7 @@ def test_explorer_only_divergence_defers_to_bounded_maintenance_worker():
                 "set_market_dashboard": "2026-09-11",
                 "sealed_snapshot": "2026-09-11",
                 "global_market_index": "2026-09-11",
+                "edition_stable_raw": "2026-09-11",
                 "explore_set_value": "2026-09-11",
                 "explore_card_movers": "2026-09-11",
                 "card_market_current": "2026-09-11",
@@ -577,13 +785,29 @@ def test_explorer_only_divergence_defers_to_bounded_maintenance_worker():
         },
         checked_at=NOW,
     )
+    live_results = iter([
+        stale,
+        CheckResult.healthy(
+            "market.freshness",
+            authority_identity="2026-09-11",
+            checked_at=NOW,
+        ),
+    ])
+    publish_calls = []
     recovery = build_safe_recovery_registry(
         client=object(),
-        publish_if_needed_fn=lambda *a, **k: publish_calls.append(True),
+        publish_if_needed_fn=lambda market_date, **kwargs: (
+            publish_calls.append(market_date),
+            {
+                "market_date": market_date,
+                "status": "published",
+                "recovery_path": "bounded_global_market_divergence",
+            },
+        )[1],
         gate_evaluator=lambda *a, **k: SimpleNamespace(
             allowed=True, reason_code="allowed_complete", batch_id=48
         ),
-        market_freshness_checker=lambda *a, **k: live,
+        market_freshness_checker=lambda *a, **k: next(live_results),
         lease_reconciler=lambda: 0,
         lease_checker=lambda *a, **k: CheckResult.healthy(
             "scrape.queue_leases", checked_at=NOW
@@ -605,9 +829,10 @@ def test_explorer_only_divergence_defers_to_bounded_maintenance_worker():
     report = RecoveryRunner(store, recovery).attempt(
         incident, registered, identity=IDENTITY, now=NOW
     )
-    assert report["reason_code"] == "explorer_convergence_owned_by_maintained_worker"
-    assert publish_calls == []
-    assert store.get_incident(incident.id).recovery_attempt_count == 0
+
+    assert report["action"] == "recovered"
+    assert publish_calls == ["2026-09-11"]
+    assert store.get_incident(incident.id).status is IncidentStatus.RESOLVED
 
 
 def test_sentinel_scheduler_recovery_uses_managed_installer_then_verifies():
