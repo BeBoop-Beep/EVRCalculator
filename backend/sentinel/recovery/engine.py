@@ -196,10 +196,20 @@ class RecoveryRunner:
                 "incident_id": incident.id,
                 "runbook": runbook.key,
             }
+        latest = self.store.get_latest_recovery_attempt(incident.id, runbook.key)
+        budget_attempt_count = self.store.get_recovery_attempt_budget_count(
+            incident.id, runbook.key
+        )
+        # Older incidents may have a persisted aggregate counter without matching
+        # attempt rows (for example after a deployment boundary). Fail closed in
+        # that case instead of silently granting extra mutation attempts.
+        if latest is None and incident.recovery_attempt_count > budget_attempt_count:
+            budget_attempt_count = incident.recovery_attempt_count
+
         escalated_retry_allowed = bool(
             incident.status is IncidentStatus.ESCALATED
             and runbook.allow_escalated_retry
-            and incident.recovery_attempt_count < runbook.max_attempts
+            and budget_attempt_count < runbook.max_attempts
         )
         if incident.status is not IncidentStatus.OPEN and not escalated_retry_allowed:
             return {
@@ -223,7 +233,6 @@ class RecoveryRunner:
                 "runbook": runbook.key,
             }
 
-        latest = self.store.get_latest_recovery_attempt(incident.id, runbook.key)
         if latest and latest.status is RecoveryAttemptStatus.STARTED:
             # A process may have died after persisting STARTED but before it could
             # record whether the mutation ran. Replaying automatically would risk
@@ -239,13 +248,9 @@ class RecoveryRunner:
 
         # BLOCKED means the execution contract proved that no mutation ran
         # (for example, a DB-safety hold or another publisher owned the lock).
-        # Such a deferral must be retryable after cooldown; otherwise a
-        # max_attempts=1 runbook permanently disables its own self-healing path
-        # the first time production is intentionally fenced.
-        retryable_blocked_attempt = bool(
-            latest and latest.status is RecoveryAttemptStatus.BLOCKED
-        )
-
+        # It remains audit-visible and cooldown-controlled, but the state store
+        # excludes it from budget_attempt_count so safety deferrals cannot burn
+        # the bounded mutation budget.
         if latest and latest.cooldown_until and latest.cooldown_until > now:
             return {
                 "action": "blocked",
@@ -255,16 +260,14 @@ class RecoveryRunner:
                 "cooldown_until": latest.cooldown_until.isoformat(),
             }
 
-        if (
-            incident.recovery_attempt_count >= runbook.max_attempts
-            and not retryable_blocked_attempt
-        ):
+        if budget_attempt_count >= runbook.max_attempts:
             return {
                 "action": "blocked",
                 "reason_code": "recovery_attempt_limit_reached",
                 "incident_id": incident.id,
                 "runbook": runbook.key,
-                "attempt_count": incident.recovery_attempt_count,
+                "attempt_count": budget_attempt_count,
+                "recorded_attempt_count": incident.recovery_attempt_count,
             }
 
         context = RecoveryContext(now=now, runner_identity=identity)
