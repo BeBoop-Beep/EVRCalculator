@@ -36,7 +36,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|vm-cleanup-stale-tmp|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -5112,6 +5112,57 @@ jobs:
               echo "TREATMENT_PANEL_RECOVERY_V2=PASS"
               ;;
 
+
+            vm-cleanup-stale-tmp)
+              echo "== stale /tmp workspace cleanup =="
+              command -v lsof >/dev/null || { echo "REFUSING: lsof missing"; exit 70; }
+              BEFORE_AVAIL=$(df -B1 --output=avail / | tail -1 | tr -d ' ')
+              echo "disk_before=$(df -h / | tail -1)"
+              shopt -s nullglob
+              CANDIDATES=(/tmp/EVRCalculator-* /tmp/index-* /tmp/pokemon-opening-v3-*)
+              DELETED=0
+              SKIPPED_RECENT=0
+              SKIPPED_BUSY=0
+              DELETED_BYTES=0
+              for d in "${CANDIDATES[@]}"; do
+                [ -d "$d" ] || continue
+                [ ! -L "$d" ] || { echo "skip_symlink=$d"; continue; }
+                REAL=$(realpath -e "$d") || { echo "skip_unresolved=$d"; continue; }
+                case "$REAL" in
+                  /tmp/EVRCalculator-*|/tmp/index-*|/tmp/pokemon-opening-v3-*) ;;
+                  *) echo "REFUSING: unexpected resolved path $REAL"; exit 71 ;;
+                esac
+                if find "$REAL" -mmin -30 -print -quit | grep -q .; then
+                  echo "skip_recent=$REAL"
+                  SKIPPED_RECENT=$((SKIPPED_RECENT+1))
+                  continue
+                fi
+                if lsof +D "$REAL" 2>/dev/null | tail -n +2 | grep -q .; then
+                  echo "skip_busy=$REAL"
+                  SKIPPED_BUSY=$((SKIPPED_BUSY+1))
+                  continue
+                fi
+                BYTES=$(du -sb "$REAL" 2>/dev/null | awk '{print $1}')
+                BYTES=${BYTES:-0}
+                echo "delete=$REAL bytes=$BYTES"
+                rm -rf --one-file-system -- "$REAL"
+                [ ! -e "$REAL" ] || { echo "REFUSING: deletion incomplete $REAL"; exit 72; }
+                DELETED=$((DELETED+1))
+                DELETED_BYTES=$((DELETED_BYTES+BYTES))
+              done
+              AFTER_AVAIL=$(df -B1 --output=avail / | tail -1 | tr -d ' ')
+              RECLAIMED=$((AFTER_AVAIL-BEFORE_AVAIL))
+              echo "deleted_dirs=$DELETED"
+              echo "skipped_recent=$SKIPPED_RECENT"
+              echo "skipped_busy=$SKIPPED_BUSY"
+              echo "deleted_tree_bytes=$DELETED_BYTES"
+              echo "filesystem_reclaimed_bytes=$RECLAIMED"
+              echo "disk_after=$(df -h / | tail -1)"
+              echo "db_safety_hold_touched=false"
+              echo "state_directories_touched=false"
+              echo "actions_runner_work_touched=false"
+              echo "VM_CLEANUP_STALE_TMP=PASS"
+              ;;
 
             *)
               echo "Unexpected operation after validation: $VM_OPERATION"
