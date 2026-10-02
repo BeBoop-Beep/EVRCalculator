@@ -1,5 +1,4 @@
 {
-  "operation": "fv-shadow-foundation-tests",
-  "request_id": "fv-shadow-ledger-activation-20261002",
-  "retry": 2
+  "operation": "fv-shadow-publish-dry-run",
+  "request_id": "fv-shadow-first-publication-preflight-20261002"
 }
