@@ -1,0 +1,8 @@
+{
+  "operation": "treatment-double-ultra-gate-v1",
+  "research_sha": "45ea100602528f103af8b308b88dda5c6b84d780",
+  "market_date": "2026-09-29",
+  "period": "180d",
+  "credit_cap": 3000,
+  "requested_at": "2026-10-02"
+}
