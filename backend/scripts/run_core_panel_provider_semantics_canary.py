@@ -41,6 +41,7 @@ CANARY_PAGE_LIMIT = 20
 CANARY_CREDIT_CEILING = 20
 MIN_ESTIMATED_ROWS_FOR_SELECTION = 10
 TARGET_ESTIMATED_ROWS = 20
+TARGET_REPLAY_ROWS = 10
 HOLD_PATH = "/home/ubuntu/state/db-safety/hold.json"
 #: Identical order to infra/oracle/run_market_microstructure_bucket_b5.sh (tested).
 LOCK_ORDER = (
