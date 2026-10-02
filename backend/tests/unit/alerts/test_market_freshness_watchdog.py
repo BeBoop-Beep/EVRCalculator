@@ -10,6 +10,7 @@ FRESH_DATES = {
     "set_market_dashboard": "2026-08-30",
     "sealed_snapshot": "2026-08-30",
     "global_market_index": "2026-08-30",
+    "edition_stable_raw": "2026-08-30",
     "explore_set_value": "2026-08-30",
     "explore_card_movers": "2026-08-30",
     "explorer_v2": "2026-08-30",
@@ -87,6 +88,7 @@ class _ContractClient:
         "pokemon_set_market_dashboard_snapshot_latest": {"latest_market_date"},
         "pokemon_set_sealed_market_snapshot_latest": {"market_date"},
         "pokemon_market_index_daily_history": {"market_date", "tcg"},
+        "pokemon_market_raw_edition_stable_daily_history_v1": {"market_date"},
         "pokemon_explore_set_value_snapshot_latest": {"market_date", "tcg", "scope"},
         "pokemon_explore_card_movers_snapshot_latest": {"market_date", "tcg", "scope", "window_key"},
         "pokemon_market_explorer_surface_serving_v2": {"singleton", "generation_id"},
@@ -127,6 +129,10 @@ class _ContractClient:
             "pokemon_market_index_daily_history": [
                 {"market_date": None, "tcg": "pokemon"},
                 {"market_date": "2026-08-30", "tcg": "pokemon"},
+            ],
+            "pokemon_market_raw_edition_stable_daily_history_v1": [
+                {"market_date": None},
+                {"market_date": "2026-08-30"},
             ],
             "pokemon_explore_set_value_snapshot_latest": [
                 {"market_date": "2026-08-30", "tcg": "pokemon", "scope": "market"},
@@ -174,6 +180,19 @@ def test_stale_public_date_and_snapshot_divergence_are_independent(monkeypatch):
         "market_publication_stale", "market_snapshot_date_divergence"
     }
 
+
+
+
+def test_stale_edition_stable_raw_is_detected_as_publication_divergence():
+    dates = dict(FRESH_DATES, edition_stable_raw="2026-08-29")
+    failures = watchdog.evaluate_watchdog_state(
+        _state({"status": "complete"}, dates), now=NOW
+    )
+    divergence = next(
+        row for row in failures if row["alert_type"] == "market_snapshot_date_divergence"
+    )
+    assert divergence["failure_class"] == "authority_date_mismatch"
+    assert divergence["actual_dates"]["edition_stable_raw"] == "2026-08-29"
 
 def test_explorer_v2_has_bounded_convergence_grace_then_becomes_required(monkeypatch):
     monkeypatch.setenv("MARKET_EXPLORER_CONVERGENCE_DEADLINE_AZ", "10:30")
@@ -225,6 +244,7 @@ def test_loader_uses_canonical_columns_and_ignores_null_authority_dates():
         ("pokemon_set_market_dashboard_snapshot_latest", "latest_market_date"),
         ("pokemon_set_sealed_market_snapshot_latest", "market_date"),
         ("pokemon_market_index_daily_history", "market_date"),
+        ("pokemon_market_raw_edition_stable_daily_history_v1", "market_date"),
         ("pokemon_explore_set_value_snapshot_latest", "market_date"),
         ("pokemon_explore_card_movers_snapshot_latest", "market_date"),
         ("card_market_usd_latest", "captured_at"),
