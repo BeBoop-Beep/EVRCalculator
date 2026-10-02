@@ -1,4 +1,4 @@
 {
-  "operation": "sync-main-reviewed",
-  "request_id": "sentinel-db-safety-autorecovery-deploy-20261002"
+  "operation": "post-scrape-recovery-now",
+  "request_id": "sentinel-snapshot-recovery-after-hold-fix-20261002"
 }
