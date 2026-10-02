@@ -5243,7 +5243,7 @@ jobs:
 
             fv-shadow-foundation-tests)
               set -euo pipefail
-              SHA="019b854778b3b3551d987fa9a25f53b8a6271a54"
+              SHA="519b50c09eac13a66ffec18bd8659f96a26aa959"
               WT="/tmp/fv-shadow-foundation-tests-$GITHUB_RUN_ID"
               cleanup() { rm -rf "$WT"; }
               trap cleanup EXIT
