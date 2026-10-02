@@ -5117,7 +5117,7 @@ jobs:
 
             fv-core-panel-activation-tests)
               set -euo pipefail
-              SHA="cd9e3c153b48672a809373eb7175853238cceec2"
+              SHA="df0a2eee25ca307ffb1a59c3a8155f0c2be12a79"
               BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
               WT="/tmp/fv-core-panel-tests-$GITHUB_RUN_ID"
               cleanup_fv_core_panel_tests() {
@@ -5148,7 +5148,7 @@ jobs:
 
             fv-core-panel-plan)
               set -euo pipefail
-              SHA="cd9e3c153b48672a809373eb7175853238cceec2"
+              SHA="df0a2eee25ca307ffb1a59c3a8155f0c2be12a79"
               BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
               WT="/tmp/fv-core-panel-plan-$GITHUB_RUN_ID"
               OUT="/tmp/fv-core-panel-plan-$GITHUB_RUN_ID.json"
@@ -5186,7 +5186,7 @@ jobs:
 
             fv-core-panel-preflight)
               set -euo pipefail
-              SHA="cd9e3c153b48672a809373eb7175853238cceec2"
+              SHA="df0a2eee25ca307ffb1a59c3a8155f0c2be12a79"
               BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
               WT="/tmp/fv-core-panel-preflight-$GITHUB_RUN_ID"
               cleanup_fv_core_panel_preflight() {
@@ -5214,7 +5214,7 @@ jobs:
 
             fv-core-panel-install-cron)
               set -euo pipefail
-              SHA="cd9e3c153b48672a809373eb7175853238cceec2"
+              SHA="df0a2eee25ca307ffb1a59c3a8155f0c2be12a79"
               BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
               WT="/tmp/fv-core-panel-install-$GITHUB_RUN_ID"
               cleanup_fv_core_panel_install() {
@@ -5239,7 +5239,7 @@ jobs:
 
             fv-core-panel-run-now)
               set -euo pipefail
-              SHA="cd9e3c153b48672a809373eb7175853238cceec2"
+              SHA="df0a2eee25ca307ffb1a59c3a8155f0c2be12a79"
               STATE="/home/ubuntu/state/core_panel_daily_increment"
               [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
                 echo "FV_CORE_PANEL_DB_SAFETY_HOLD"; exit 75;
@@ -5254,7 +5254,7 @@ jobs:
 
             fv-core-panel-status)
               set -euo pipefail
-              SHA="cd9e3c153b48672a809373eb7175853238cceec2"
+              SHA="df0a2eee25ca307ffb1a59c3a8155f0c2be12a79"
               STATE="/home/ubuntu/state/core_panel_daily_increment"
               echo "expected_sha=$SHA"
               if [ -r "$STATE/release.sha" ]; then
