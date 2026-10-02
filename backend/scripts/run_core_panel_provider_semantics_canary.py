@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-CANARY_VERSION = "core_panel_provider_semantics_canary_v1"
+CANARY_VERSION = "core_panel_provider_semantics_canary_v2"
 #: Disabled by construction. Enabling is a reviewed change after explicit operator approval.
 CANARY_ENABLED = True
 CANARY_PAGE_LIMIT = 20
@@ -62,27 +62,44 @@ class CanaryRefused(RuntimeError):
 
 # ------------------------------------------------------------ deterministic selection
 def select_canary_card(plan_cards: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Pure and deterministic; never names a card.
+    """Pure deterministic semantic-probe selection; never names a card.
 
-    Candidate = eligible (not BLOCKED, has a cached provider id and a frontier) card whose
-    velocity-estimated number of newer rows is at least MIN_ESTIMATED_ROWS_FOR_SELECTION,
-    so the single page is expected to contain rows. Among candidates choose the estimate
-    closest to one full page (TARGET_ESTIMATED_ROWS) so ``since``/stop-at-frontier and the
-    ``has_more`` structure are both likely observable; ties break on canonical_card_id.
+    The operational frontier itself may legitimately have no newer rows, which made the V1
+    velocity selector capable of producing an empty but non-contradictory page. V2 selects
+    only a card with a *known persisted frontier batch* smaller than one provider page and
+    probes one microsecond before that immutable frontier. Mixed raw+graded batches are
+    preferred so the same single call can verify combined-stream behavior.
     """
     candidates = [
         c for c in plan_cards
-        if c.get("state") != "BLOCKED" and c.get("provider_card_id") is not None
-        and c.get("frontier_ingested_at") and (c.get("estimated_new_rows") or 0) >= MIN_ESTIMATED_ROWS_FOR_SELECTION
+        if c.get("state") != "BLOCKED"
+        and c.get("provider_card_id") is not None
+        and c.get("frontier_ingested_at")
+        and c.get("canary_probe_since")
+        and 0 < int(c.get("frontier_batch_rows") or 0) < CANARY_PAGE_LIMIT
     ]
     if not candidates:
-        raise CanaryRefused("NO_SUITABLE_CANARY_CARD")
-    best = min(candidates, key=lambda c: (abs(float(c["estimated_new_rows"]) - TARGET_ESTIMATED_ROWS),
-                                          str(c["canonical_card_id"])))
+        raise CanaryRefused("NO_REPLAYABLE_CANARY_CARD")
+    def key(c: Mapping[str, Any]) -> tuple[Any, ...]:
+        rows = int(c.get("frontier_batch_rows") or 0)
+        graded = int(c.get("frontier_batch_graded_rows") or 0)
+        ungraded = int(c.get("frontier_batch_ungraded_rows") or 0)
+        mixed_penalty = 0 if graded > 0 and ungraded > 0 else 1
+        return (mixed_penalty, abs(rows - TARGET_REPLAY_ROWS), -rows, str(c["canonical_card_id"]))
+    best = min(candidates, key=key)
     return {
-        "canonical_card_id": best["canonical_card_id"], "provider_card_id": int(best["provider_card_id"]),
-        "frontier_ingested_at": best["frontier_ingested_at"], "estimated_new_rows": best["estimated_new_rows"],
-        "selection_rule": "closest estimated_new_rows to 20 among eligible cards with >= 10; tie -> canonical_card_id",
+        "canonical_card_id": best["canonical_card_id"],
+        "provider_card_id": int(best["provider_card_id"]),
+        "frontier_ingested_at": best["frontier_ingested_at"],
+        "probe_since": best["canary_probe_since"],
+        "frontier_batch_rows": int(best.get("frontier_batch_rows") or 0),
+        "frontier_batch_graded_rows": int(best.get("frontier_batch_graded_rows") or 0),
+        "frontier_batch_ungraded_rows": int(best.get("frontier_batch_ungraded_rows") or 0),
+        "estimated_new_rows": best.get("estimated_new_rows"),
+        "selection_rule": (
+            "replay known sub-page frontier batch via since=frontier-1us; "
+            "prefer mixed raw+graded, then rows closest to 10, then canonical_card_id"
+        ),
         "candidates_considered": len(candidates),
     }
 
@@ -149,13 +166,15 @@ def analyze_canary_response(
         "5_within_ceiling": delta <= CANARY_CREDIT_CEILING,
         "6_billing_model": classify_billing(len(data), limit, delta),
         "7_combined_stream_has_graded_rows": bool(graded_rows),
+        "7_combined_stream_has_ungraded_rows": len(data) > len(graded_rows),
         "7_graded_row_count": len(graded_rows),
         "7_ungraded_row_count": len(data) - len(graded_rows),
         "8_rows_already_persisted": len(ids & persisted_listing_ids),
-        "8_dedupe_overlap_expected_zero_if_since_honoured": True,
     }
-    verdict_failures = [k for k in ("1_date_desc_by_sold_at", "2_since_filter_honoured", "4_pagination_consistent",
-                                    "5_within_ceiling") if not checks[k]]
+    verdict_failures = [k for k in (
+        "1_date_desc_by_sold_at", "2_since_filter_honoured", "4_pagination_consistent",
+        "5_within_ceiling", "7_combined_stream_has_graded_rows", "7_combined_stream_has_ungraded_rows",
+    ) if not checks[k]]
     return {
         "canary_version": CANARY_VERSION, "rows_returned": len(data), "has_more": has_more,
         "checks": checks, "failed_checks": verdict_failures,
@@ -204,15 +223,23 @@ def run_canary(
             raise CanaryRefused("CANARY_CREDIT_CEILING")
         before = provider.credits_charged
         payload = provider.ebay_sold_page(
-            selection["provider_card_id"], graded=None, since=selection["frontier_ingested_at"],
+            selection["provider_card_id"], graded=None, since=selection["probe_since"],
             sort="date_desc", limit=CANARY_PAGE_LIMIT, cursor=None,
         )
         after = provider.credits_charged
     result = analyze_canary_response(
-        since=selection["frontier_ingested_at"], limit=CANARY_PAGE_LIMIT, payload=payload,
+        since=selection["probe_since"], limit=CANARY_PAGE_LIMIT, payload=payload,
         credits_before=before, credits_after=after,
         persisted_listing_ids=persisted_ids_loader(selection["provider_card_id"]),
     )
+    expected_overlap = int(selection["frontier_batch_rows"])
+    actual_overlap = int(result["checks"]["8_rows_already_persisted"])
+    overlap_ok = actual_overlap >= expected_overlap
+    result["checks"]["8_expected_persisted_overlap"] = expected_overlap
+    result["checks"]["8_probe_overlap_matches_expected"] = overlap_ok
+    if not overlap_ok:
+        result["failed_checks"].append("8_probe_overlap_matches_expected")
+        result["verdict"] = "SEMANTICS_NOT_CONFIRMED"
     return {**result, "selection": selection, "provider_requests": 1, "database_writes": 0,
             "provider_credits_ceiling": CANARY_CREDIT_CEILING}
 
@@ -295,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
                                "provider_requests": 0, "provider_credits_used": 0, "database_writes": 0}
         if args.dry_run:
             out["would_call"] = {"path": "/v1/cards/<provider_card_id>/listings/ebay",
-                                 "params": {"graded": None, "since": selection["frontier_ingested_at"],
+                                 "params": {"graded": None, "since": selection["probe_since"],
                                             "sort": "date_desc", "limit": CANARY_PAGE_LIMIT, "cursor": None},
                                  "credit_ceiling": CANARY_CREDIT_CEILING}
         print(json.dumps(out, indent=2, sort_keys=True))
