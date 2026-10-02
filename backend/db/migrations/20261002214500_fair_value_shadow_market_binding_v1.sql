@@ -10,9 +10,12 @@ CREATE TABLE public.fair_value_shadow_market_bindings_v1 (
     REFERENCES public.fair_value_shadow_anchor_publications_v1(publication_id) ON DELETE RESTRICT,
   schema_version text NOT NULL CHECK (schema_version = 'fv_shadow_market_binding_v1'),
   content_fingerprint text NOT NULL CHECK (content_fingerprint ~ '^[0-9a-f]{64}$'),
-  canonical_card_id uuid NOT NULL,
-  card_variant_id uuid NOT NULL,
-  condition_id uuid NOT NULL,
+  canonical_card_id uuid NOT NULL
+    REFERENCES public.pokemon_canonical_cards(id) ON DELETE RESTRICT,
+  card_variant_id uuid NOT NULL
+    REFERENCES public.card_variants(id) ON DELETE RESTRICT,
+  condition_id uuid NOT NULL
+    REFERENCES public.conditions(id) ON DELETE RESTRICT,
   baseline_date date NOT NULL,
   baseline_market_price_usd numeric(12,2) NOT NULL CHECK (baseline_market_price_usd > 0),
   price_source text NOT NULL CHECK (btrim(price_source) <> ''),
