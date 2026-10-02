@@ -80,8 +80,17 @@ def build_rows(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
 
     cards = list(artifact["target"]["cards"])
     panels = dict(artifact["panels"])
+    valid_sets = {
+        str(row["set_name"])
+        for row in artifact.get("set_results", [])
+        if row.get("passes_G1_G4") is True
+    }
+    if len(valid_sets) < 2:
+        raise RuntimeError(f"insufficient passing Hyper Sets: {sorted(valid_sets)}")
     groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for card in cards:
+        if str(card["set_name"]) not in valid_sets:
+            continue
         groups[(str(card["set_name"]), str(card["subject_key"]))].append(card)
 
     rows: list[dict[str, Any]] = []
@@ -149,7 +158,7 @@ def build_rows(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
             }
         )
 
-    if len(subjects) != 11 or len(rows) != 22:
+    if len(subjects) < 4 or len(rows) != 2 * len(subjects):
         raise RuntimeError(f"unexpected exhaustive Hyper size subjects={len(subjects)} rows={len(rows)}")
     return rows, subjects
 
@@ -348,6 +357,13 @@ def estimate(artifact: dict[str, Any], controls: dict[str, dict[str, float]]):
             "subjects": len(subjects),
             "contrasts": len(rows),
             "sets": len(hierarchy["sets"]),
+            "excluded_nonpassing_sets": sorted(
+                {
+                    str(row["set_name"])
+                    for row in artifact.get("set_results", [])
+                    if row.get("passes_G1_G4") is not True
+                }
+            ),
             "era": "Scarlet and Violet",
         },
         "pooled": {
