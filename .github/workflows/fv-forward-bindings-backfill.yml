@@ -1,0 +1,69 @@
+name: FV Forward Binding Backfill
+
+on:
+  push:
+    branches:
+      - ops/fv-forward-bindings-backfill-20261002
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install focused runtime
+        run: python -m pip install -q numpy==2.4.3 supabase==2.28.3 python-dotenv==1.2.2
+      - name: Refuse without production binding schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          rows=(c.table("fair_value_shadow_market_bindings_v1")
+                .select("publication_id",count="exact").limit(1).execute())
+          print("binding_table_access=PASS existing_rows=" + str(rows.count or 0))
+          PY
+      - name: Dry-run exact October 2 bindings
+        run: |
+          python -m backend.scripts.run_index_fair_value_forward_outcomes_v1 \
+            --dry-run --bindings-only --today 2026-10-02
+      - name: Commit exact October 2 bindings only
+        run: |
+          python -m backend.scripts.run_index_fair_value_forward_outcomes_v1 \
+            --commit --bindings-only --today 2026-10-02
+      - name: Verify 207 immutable bindings and no forward outcomes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          bindings=(c.table("fair_value_shadow_market_bindings_v1")
+                    .select("publication_id,condition_id,baseline_date,binding_method",count="exact")
+                    .eq("baseline_date","2026-10-02").range(0,999).execute())
+          rows=bindings.data or []
+          if bindings.count != 207 or len(rows) != 207:
+              raise SystemExit(f"binding_count_mismatch count={bindings.count} rows={len(rows)}")
+          if len({r["publication_id"] for r in rows}) != 207:
+              raise SystemExit("duplicate_publication_binding")
+          if any(r["binding_method"] != "UNIQUE_H0_EXACT_PRICE_MATCH_V1" for r in rows):
+              raise SystemExit("binding_method_drift")
+          outcomes=(c.table("fair_value_shadow_evaluation_outcomes_v1")
+                    .select("publication_id",count="exact")
+                    .gt("horizon_days",0).limit(1).execute())
+          if (outcomes.count or 0) != 0:
+              raise SystemExit(f"unexpected_forward_outcomes count={outcomes.count}")
+          print("FV_FORWARD_BINDINGS_BACKFILL=PASS bindings=207 forward_outcomes=0")
+          PY
