@@ -90,6 +90,10 @@ def plan_card(
         "open_gap": bool(inc.increment_state(sync).get("open_gap")),
         "latest_persisted_ingested_at": persisted.get("latest_ingested_at"),
         "latest_persisted_sold_at": persisted.get("latest_sold_at"),
+        "frontier_batch_rows": int(persisted.get("frontier_batch_rows") or 0),
+        "frontier_batch_graded_rows": int(persisted.get("frontier_batch_graded_rows") or 0),
+        "frontier_batch_ungraded_rows": int(persisted.get("frontier_batch_ungraded_rows") or 0),
+        "canary_probe_since": persisted.get("canary_probe_since"),
         "catchup_interval_days": None if interval_days is None else round(interval_days, 3),
         "rows_ingested_in_velocity_window": recent,
         "estimated_new_rows": None if expected is None else round(expected, 2),
@@ -149,23 +153,37 @@ def fetch_persisted(db: Any, state: Mapping[str, Any]) -> dict[str, Any]:
     if not ident:
         return {}
     pid = int(ident["provider_card_id"])
-    latest = (db.table("pkmnprices_ebay_sold_evidence_v1").select("ingested_at,sold_at")
-              .eq("provider_card_id", pid).order("ingested_at", desc=True).limit(1).execute().data or [])
+    latest = (db.table("pkmnprices_ebay_sold_evidence_v1")
+              .select("provider_listing_id,ingested_at,sold_at,graded,grader,grade")
+              .eq("provider_card_id", pid).order("ingested_at", desc=True).limit(inc.PAGE_SIZE).execute().data or [])
     latest_sold = (db.table("pkmnprices_ebay_sold_evidence_v1").select("sold_at")
                    .eq("provider_card_id", pid).order("sold_at", desc=True).limit(1).execute().data or [])
     frontier, _ = inc.frontier_of(state.get("sync"))
     frontier_ts = _ts(frontier)
     recent = 0
+    frontier_batch: list[dict[str, Any]] = []
     if frontier_ts:
+        frontier_batch = [dict(row) for row in latest if _ts(row.get("ingested_at")) == frontier_ts]
         start = (frontier_ts - timedelta(days=VELOCITY_WINDOW_DAYS)).isoformat()
         res = (db.table("pkmnprices_ebay_sold_evidence_v1").select("provider_listing_id", count="exact")
                .eq("provider_card_id", pid).gte("ingested_at", start).lte("ingested_at", frontier_ts.isoformat())
                .limit(1).execute())
         recent = int(getattr(res, "count", 0) or 0)
+    graded = sum(1 for row in frontier_batch if row.get("graded") is True or row.get("grader") or row.get("grade"))
+    ungraded = len(frontier_batch) - graded
+    probe_since = None
+    if frontier_ts and 0 < len(frontier_batch) < inc.PAGE_SIZE:
+        # Semantic probe only: one microsecond before the immutable operational frontier.
+        # This should replay the known frontier batch iff provider `since` is ingestion-time based.
+        probe_since = (frontier_ts - timedelta(microseconds=1)).isoformat().replace("+00:00", "Z")
     return {
         "latest_ingested_at": (latest[0]["ingested_at"] if latest else None),
         "latest_sold_at": (latest_sold[0]["sold_at"] if latest_sold else None),
         "rows_ingested_in_velocity_window": recent,
+        "frontier_batch_rows": len(frontier_batch),
+        "frontier_batch_graded_rows": graded,
+        "frontier_batch_ungraded_rows": ungraded,
+        "canary_probe_since": probe_since,
     }
 
 
