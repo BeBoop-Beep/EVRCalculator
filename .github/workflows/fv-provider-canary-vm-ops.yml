@@ -24,7 +24,7 @@ jobs:
       FV_CANARY_SHA: "63c3dde47b7c51960fb16805fa0cce8ec48846ff"
       FV_CANARY_BRANCH: "research/index-fair-value-sold-clearing-anchor-v1-20261001"
       STATE: "/home/ubuntu/state/fv_provider_canary"
-      RUNTIME: "${{ github.workspace }}/fv-runtime"
+      RUNTIME: "/home/ubuntu/state/fv_provider_canary/runtime"
       REPO: "/home/ubuntu/repos/EVRCalculator"
       RECEIPT_LOG: "/home/ubuntu/state/fv_provider_canary/workflow-receipt.md"
       RECEIPT_ISSUE: "530"
@@ -39,13 +39,6 @@ jobs:
             "fv-canary: run") echo "FV_OPERATION=run" >> "$GITHUB_ENV" ;;
             *) echo "REFUSING unexpected request: $REQUEST_MESSAGE"; exit 2 ;;
           esac
-
-      - name: Checkout pinned FV canary runtime
-        uses: actions/checkout@v4
-        with:
-          ref: 63c3dde47b7c51960fb16805fa0cce8ec48846ff
-          path: fv-runtime
-          fetch-depth: 1
 
       - name: Prepare pinned detached runtime
         shell: bash
@@ -63,9 +56,13 @@ jobs:
           echo "db_safety_hold=clear" >> "$RECEIPT_LOG"
           command -v script >/dev/null || { echo "pseudo_tty=FAIL" >> "$RECEIPT_LOG"; exit 13; }
           echo "pseudo_tty=PASS" >> "$RECEIPT_LOG"
-          ACTUAL="$(git -C "$RUNTIME" rev-parse HEAD)"
-          echo "runtime_sha=$ACTUAL" >> "$RECEIPT_LOG"
-          [ "$ACTUAL" = "$FV_CANARY_SHA" ] || { echo "runtime_sha_match=false" >> "$RECEIPT_LOG"; exit 14; }
+          rm -rf "$RUNTIME"
+          mkdir -p "$RUNTIME"
+          command -v curl >/dev/null || { echo "source_archive_curl=missing" >> "$RECEIPT_LOG"; exit 14; }
+          command -v tar >/dev/null || { echo "source_archive_tar=missing" >> "$RECEIPT_LOG"; exit 14; }
+          curl -fsSL "https://codeload.github.com/BeBoop-Beep/EVRCalculator/tar.gz/$FV_CANARY_SHA" | tar -xz --strip-components=1 -C "$RUNTIME"
+          echo "runtime_sha=$FV_CANARY_SHA" >> "$RECEIPT_LOG"
+          echo "runtime_source=codeload_sha_archive" >> "$RECEIPT_LOG"
           grep -qx 'CANARY_ENABLED = True' "$RUNTIME/backend/scripts/run_core_panel_provider_semantics_canary.py" || { echo "canary_enabled=false" >> "$RECEIPT_LOG"; exit 15; }
           grep -qx 'ACTIVATION_ENABLED = False' "$RUNTIME/backend/scripts/run_core_panel_daily_increment.py" || { echo "daily_collector_enabled=unexpected" >> "$RECEIPT_LOG"; exit 16; }
           echo "canary_enabled=true" >> "$RECEIPT_LOG"
