@@ -736,8 +736,8 @@ export default function MarketExplorerClient({
       : null;
   const focusedSeries =
     selectedSeries.find((series) => series.key === focusedSeriesKey) || null;
-  const constituentPrefetchSeries = focusedSeries && isEnumerableSeries(focusedSeries)
-    ? focusedSeries
+  const constituentPrefetchSeries = activeDetailMarket && isEnumerableSeries(activeDetailMarket)
+    ? activeDetailMarket
     : null;
   const activityFocusKey = focusedSeries?.asset === "cards" ? focusedSeriesKey : null;
   useEffect(() => {
@@ -811,7 +811,11 @@ export default function MarketExplorerClient({
     : null;
   const activityOn = chartViewMode === MARKET_CHART_VIEW_ACTIVITY;
   useEffect(() => {
-    if (!focusedSeries || focusedSeries.asset !== "cards") setChartViewMode(MARKET_CHART_VIEW_INDEX);
+    if (!focusedSeries || focusedSeries.asset !== "cards") {
+      setChartViewMode((current) => current === MARKET_CHART_VIEW_ACTIVITY
+        ? MARKET_CHART_VIEW_INDEX
+        : current);
+    }
     else if (activityFixtureMode || discoveredActivity.status === "ready") setChartViewMode((current) => reconcileActivityView(current, focusedSeries, activityCapability));
   }, [focusedSeries, activityCapability, activityFixtureMode, discoveredActivity.status]);
   const changeChartView = useCallback((next) => {

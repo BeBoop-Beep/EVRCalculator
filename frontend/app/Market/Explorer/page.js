@@ -97,9 +97,17 @@ export default async function MarketExplorerPage({ searchParams }) {
           (market.legacy_aliases || []).includes(requestedPreparedKey),
       )
     : null;
-  const initialPreparedKey = requestedPreparedRow
-    ? requestedPreparedRow.market_key
+  // Once the V2 directory is serving, start the workspace from its canonical
+  // Raw parent rather than the legacy overview twin. The V2 row carries the
+  // enumerable composition capability and generation identity required by
+  // Inspect/prefetch; `unifySeriesByKey` still prevents duplicate chart lines.
+  const defaultPreparedRow = !requestedPreparedKey
+    ? preparedDirectory.find(
+        (market) =>
+          market.market_key === "raw" && market.surface_version === "v2",
+      )
     : null;
+  const initialPreparedKey = (requestedPreparedRow || defaultPreparedRow)?.market_key || null;
   const coverageSummary = buildCoverageSummary(overview);
 
   return (

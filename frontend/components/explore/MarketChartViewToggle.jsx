@@ -1,10 +1,15 @@
 "use client";
 
-import { MARKET_CHART_VIEW_ACTIVITY, MARKET_CHART_VIEW_INDEX } from "./marketPerformanceDomain.mjs";
+import {
+  MARKET_CHART_VIEW_ACTIVITY,
+  MARKET_CHART_VIEW_INDEX,
+  MARKET_CHART_VIEW_PERFORMANCE,
+} from "./marketPerformanceDomain.mjs";
 import { FOCUS_TOOL_STATE } from "@/lib/explore/marketExplorerAccess.mjs";
 
 const VIEW_OPTIONS = [
   { value: MARKET_CHART_VIEW_INDEX, label: "Index" },
+  { value: MARKET_CHART_VIEW_PERFORMANCE, label: "Performance" },
 ];
 
 export default function MarketChartViewToggle({ value = MARKET_CHART_VIEW_INDEX, onChange, activity = null }) {

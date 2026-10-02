@@ -88,10 +88,25 @@ test("chip focus is not hover-only: hidden by default only where a real hover ex
   assert.doesNotMatch(button, /(^|\s)(desk|tab|sm|md|lg):(hidden|opacity-0)/, "no viewport-width gating of the focus action");
 });
 
-test("chip body selects inspecting without activating chart focus", () => {
-  const { renderer } = mountChips();
+test("chip body inspects and focuses with pointer/keyboard click semantics", () => {
+  const { renderer, calls } = mountChips();
   assert.equal(one(renderer, "data-market-explorer-active-focus-body", "A").props["aria-pressed"], true);
   assert.equal(one(renderer, "data-market-explorer-active-focus-body", "B").props["aria-pressed"], false);
+  click(renderer, "data-market-explorer-active-focus-body", "B");
+  assert.deepEqual(calls, { focus: ["B"], remove: [], visibility: [], inspect: ["B"], clear: 0 });
+});
+
+test("visibility, edit, and remove actions are isolated from focus and inspect", () => {
+  const edits = [];
+  const { renderer, calls } = mountChips({
+    series: [chipSeries("A", { instanceId: "custom-A" }), chipSeries("B")],
+    onEdit: (entry) => edits.push(entry.key),
+  });
+  click(renderer, "data-market-explorer-active-visibility", "A");
+  click(renderer, "data-market-explorer-active-edit", "A");
+  click(renderer, "data-market-explorer-active-remove", "A");
+  assert.deepEqual(calls, { focus: [], remove: ["A"], visibility: ["A"], inspect: [], clear: 0 });
+  assert.deepEqual(edits, ["A"]);
 });
 
 test("exactly ONE workspace-level Clear All exists, red, and it is available at every width", () => {

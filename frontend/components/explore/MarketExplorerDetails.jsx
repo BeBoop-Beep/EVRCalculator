@@ -17,6 +17,7 @@ import { MARKET_EXPLORER_DETAIL_WINDOWS } from "@/lib/explore/marketExplorerStat
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
 import { describeRelativePerformance } from "@/lib/explore/marketExplorerComparison.mjs";
+import { isEnumerableSeries } from "@/lib/explore/marketExplorerConstituents.mjs";
 
 // The selected-market detail strip — parent markets and Sealed submarkets in
 // the same table, because a submarket is a market.
@@ -157,7 +158,7 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                         {/* Inspecting is a SEPARATE action from show/hide: the
                             checkbox controls what is drawn, this controls what
                             the constituent panel is describing. */}
-                        {onInspect && entry.isParent !== true ? (
+                        {onInspect && isEnumerableSeries(entry) ? (
                           <button
                             type="button"
                             data-market-explorer-inspect={entry.key}
@@ -206,7 +207,24 @@ export default function MarketExplorerDetails({ series = [], activeSeriesId = nu
                 <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
                   <span aria-hidden="true" className="inline-block h-2.5 w-2.5 flex-none rounded-[3px]" style={{ backgroundColor: entry.color }} />
                   <span className="text-[var(--text-primary)]">{entry.label}</span>
-                  {entry.productCount ? <span className="ml-auto normal-case tracking-normal">{entry.productCount} products</span> : null}
+                  {entry.productCount ? <span className="normal-case tracking-normal">{entry.productCount} products</span> : null}
+                  {onInspect && isEnumerableSeries(entry) ? (
+                    <button
+                      type="button"
+                      data-market-explorer-inspect-mobile={entry.key}
+                      aria-pressed={entry.key === activeSeriesId}
+                      onClick={() => onInspect(entry.key)}
+                      className={[
+                        "ml-auto min-h-9 rounded border px-2 text-[9px] font-semibold uppercase tracking-[0.06em] transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
+                        entry.key === activeSeriesId
+                          ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]"
+                          : "border-[var(--border-subtle)] text-[var(--text-secondary)]",
+                      ].join(" ")}
+                    >
+                      {entry.key === activeSeriesId ? "Inspecting" : "Inspect"}
+                    </button>
+                  ) : null}
                 </span>
                 {definitionChips(entry).length ? <div className="mt-1 flex flex-wrap gap-1">{definitionChips(entry).map((chip) => <span key={chip} className="rounded border border-[var(--border-subtle)] px-1 py-0.5 text-[8px] font-medium normal-case tracking-normal text-[var(--text-secondary)]">{chip}</span>)}</div> : null}
                 <div className="mt-1.5 grid grid-cols-2 gap-x-3">
