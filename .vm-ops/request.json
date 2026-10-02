@@ -1,4 +1,4 @@
 {
-  "operation": "sentinel-audit-now",
-  "request_id": "sentinel-post-hotfix-audit-20261001"
+  "operation": "vm-cleanup-stale-tmp",
+  "request_id": "fv-disk-cleanup-20261001"
 }
