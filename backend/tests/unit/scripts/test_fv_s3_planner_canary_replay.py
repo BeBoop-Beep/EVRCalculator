@@ -129,12 +129,32 @@ def test_planner_io_is_select_only_and_makes_no_provider_call(monkeypatch):
     assert len(states) == 207 and states[0]["identity"]["provider_card_id"] == 77
     persisted = planner.fetch_persisted(ro, states[0])
     assert persisted["latest_sold_at"] == "2026-09-23" and persisted["rows_ingested_in_velocity_window"] == 1
+    assert persisted["canary_probe_since"] is None
     assert {op for op, _ in db.ops} == {"select"}
     source = inspect.getsource(planner)
     for forbidden in ("PkmnPricesClient", "pkmnprices_client", "load_pkmnprices_credentials", "upsert",
                       "create_service_role_client", "requests.", "subprocess"):
         assert forbidden not in source, forbidden
     assert not re.search(r"\)\s*\.(insert|update|upsert|delete|rpc)\(", source)
+
+
+def test_planner_derives_replay_probe_one_microsecond_before_known_frontier_batch():
+    st = _state(1, frontier="2026-09-25T00:00:00Z")
+    db = _FakeDB({
+        "pkmnprices_ebay_sold_evidence_v1": [
+            {"provider_card_id": 1001, "provider_listing_id": 1, "ingested_at": "2026-09-25T00:00:00Z",
+             "sold_at": "2026-09-24", "graded": False, "grader": None, "grade": None},
+            {"provider_card_id": 1001, "provider_listing_id": 2, "ingested_at": "2026-09-25T00:00:00Z",
+             "sold_at": "2026-09-23", "graded": True, "grader": "PSA", "grade": "9"},
+            {"provider_card_id": 1001, "provider_listing_id": 3, "ingested_at": "2026-09-25T00:00:00Z",
+             "sold_at": "2026-09-22", "graded": False, "grader": None, "grade": None},
+        ],
+    })
+    persisted = planner.fetch_persisted(db, st)
+    assert persisted["frontier_batch_rows"] == 3
+    assert persisted["frontier_batch_graded_rows"] == 1
+    assert persisted["frontier_batch_ungraded_rows"] == 2
+    assert persisted["canary_probe_since"] == "2026-09-24T23:59:59.999999Z"
 
 
 # ------------------------------------------------------------------ canary
