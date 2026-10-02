@@ -5140,18 +5140,22 @@ jobs:
                   .eq("provider_card_id",pid).order("ingested_at",desc=True).limit(10).execute().data or [])
 
           def count(q):
-              r=q.select("provider_listing_id",count="exact").limit(1).execute()
+              r=q.limit(1).execute()
               return int(getattr(r,"count",0) or 0)
 
           ft=datetime.fromisoformat(frontier.replace("Z","+00:00"))
           start=(ft-timedelta(days=30)).isoformat()
           after=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                      .select("provider_listing_id",count="exact")
                       .eq("provider_card_id",pid).gt("ingested_at",ft.isoformat()))
           at_or_after=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                            .select("provider_listing_id",count="exact")
                             .eq("provider_card_id",pid).gte("ingested_at",ft.isoformat()))
           velocity=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                         .select("provider_listing_id",count="exact")
                          .eq("provider_card_id",pid).gte("ingested_at",start).lte("ingested_at",ft.isoformat()))
-          total=count(c.table("pkmnprices_ebay_sold_evidence_v1").eq("provider_card_id",pid))
+          total=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                      .select("provider_listing_id",count="exact").eq("provider_card_id",pid))
 
           print(json.dumps({
               "provider_card_id":pid,
