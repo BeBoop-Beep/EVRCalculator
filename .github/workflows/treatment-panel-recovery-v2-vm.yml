@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_SHA="f47627a80bb7c96a010fe0f895b64d062c248844"
+          EXPECTED_SHA="5a024e446f62ebbb80202cf77b2a343cd42e99cc"
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "research_sha=$ACTUAL_SHA"
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
@@ -37,7 +37,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: treatment-full-hyper-ultra-sir-v1-vm
-          path: backend/artifacts/treatment_panel_recovery_v2/base
+          path: backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_sir.json
           github-token: ${{ github.token }}
           repository: BeBoop-Beep/EVRCalculator
           run-id: 37044568594
@@ -62,7 +62,7 @@ jobs:
             --market-date 2026-09-29 \
             --period 180d \
             --credit-cap 7000 \
-            --output backend/artifacts/treatment_panel_recovery_v2/full_hyper_ultra_sir_v1.json
+            --output backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_sir.json
       - name: Upload exhaustive Hyper-Ultra-SIR artifact
         if: always()
         uses: actions/upload-artifact@v4
