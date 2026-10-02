@@ -6,6 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 import backend.sentinel.operational as operational
+from backend.sentinel.checks.db_safety import (
+    DB_SAFETY_HOLD_AUTHORITY,
+    DB_SAFETY_HOLD_CHECK_KEY,
+    FAILURE_ACTIVE as DB_SAFETY_HOLD_ACTIVE,
+    FAILURE_INVALID_EMPTY as DB_SAFETY_HOLD_INVALID_EMPTY,
+)
 from backend.sentinel.checks.registry import build_fast_registry
 from backend.sentinel.config import SentinelConfig
 from backend.sentinel.incidents import IncidentManager
@@ -26,6 +32,7 @@ from backend.sentinel.recovery.engine import (
     RecoveryRunner,
 )
 from backend.sentinel.recovery.runbooks import (
+    DB_SAFETY_HOLD_RUNBOOK,
     LEASE_RUNBOOK,
     MARKET_EXPLORER_PROGRESS_RUNBOOK,
     MARKET_EXPLORER_SCHEDULER_RUNBOOK,
@@ -330,6 +337,7 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
         ),
     )
     assert registry.matches() == (
+        ("database.safety_hold", "DATABASE_SAFETY_HOLD_INVALID_EMPTY"),
         ("market.freshness", "market_publication_stale"),
         ("market.freshness", "market_snapshot_date_divergence"),
         ("market_explorer.maintenance_progress", "MARKET_EXPLORER_CONVERGENCE_STALLED"),
@@ -340,6 +348,83 @@ def test_p6_allowlist_contains_only_bounded_canonical_recoveries():
         ("sentinel.runtime_scheduler", "SENTINEL_RUNTIME_SCHEDULE_MISSING"),
     )
 
+
+
+def test_empty_db_safety_hold_recovery_is_exact_and_verified():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key=DB_SAFETY_HOLD_CHECK_KEY,
+        code=DB_SAFETY_HOLD_INVALID_EMPTY,
+        authority=DB_SAFETY_HOLD_AUTHORITY,
+    )
+    live_results = iter(
+        [
+            CheckResult.failure(
+                DB_SAFETY_HOLD_CHECK_KEY,
+                failure_code=DB_SAFETY_HOLD_INVALID_EMPTY,
+                severity=Severity.CRITICAL,
+                authority_identity=DB_SAFETY_HOLD_AUTHORITY,
+                observed={"state": "invalid_empty"},
+                checked_at=NOW,
+            ),
+            CheckResult.healthy(
+                DB_SAFETY_HOLD_CHECK_KEY,
+                authority_identity=DB_SAFETY_HOLD_AUTHORITY,
+                observed={"state": "absent"},
+                checked_at=NOW,
+            ),
+        ]
+    )
+    repair_calls = []
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        db_safety_hold_checker=lambda *_a, **_k: next(live_results),
+        db_safety_hold_repairer=lambda: (
+            repair_calls.append(True),
+            {
+                "status": "cleared_invalid_empty_hold",
+                "mutation_performed": True,
+            },
+        )[1],
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+    )
+
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+
+    assert report["action"] == "recovered"
+    assert repair_calls == [True]
+    attempt = store.get_latest_recovery_attempt(incident.id, DB_SAFETY_HOLD_RUNBOOK)
+    assert attempt.status is RecoveryAttemptStatus.SUCCEEDED
+    assert store.get_incident(incident.id).status is IncidentStatus.RESOLVED
+
+
+def test_valid_db_safety_hold_is_not_allowlisted_for_auto_clear():
+    store = MemoryStateStore()
+    registered, incident = _open_incident(
+        store,
+        key=DB_SAFETY_HOLD_CHECK_KEY,
+        code=DB_SAFETY_HOLD_ACTIVE,
+        authority=DB_SAFETY_HOLD_AUTHORITY,
+    )
+    recovery = build_safe_recovery_registry(
+        client=object(),
+        lease_reconciler=lambda: 0,
+        lease_checker=lambda *a, **k: CheckResult.healthy(
+            "scrape.queue_leases", checked_at=NOW
+        ),
+    )
+
+    report = RecoveryRunner(store, recovery).attempt(
+        incident, registered, identity=IDENTITY, now=NOW
+    )
+
+    assert report["action"] == "not_allowlisted"
 
 def test_publication_recovery_refuses_incomplete_batch_before_publish():
     store = MemoryStateStore()
