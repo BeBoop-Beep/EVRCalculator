@@ -1,0 +1,9 @@
+{
+  "operation": "treatment-double-rare-ultra-v1",
+  "research_sha": "1b506076852884f3e9ede78844b60635c98cc99a",
+  "market_date": "2026-09-29",
+  "period": "180d",
+  "credit_cap": 3000,
+  "request_seq": 1,
+  "requested_at": "2026-10-02"
+}

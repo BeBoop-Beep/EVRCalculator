@@ -1,0 +1,62 @@
+name: Treatment Double Rare Ultra Gate V1 VM
+
+on:
+  push:
+    branches:
+      - vm-ops-control
+    paths:
+      - '.vm-ops/treatment-double-ultra-gate-v1.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treatment-double-ultra-gate-v1-vm
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout pinned research branch
+        uses: actions/checkout@v4
+        with:
+          ref: research/treatment-panel-recovery-v2-current-20261001
+          fetch-depth: 1
+      - name: Verify pinned research SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="b90e2c201d2b1327c40cecd1db957703ce40b32a"
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          echo "research_sha=$ACTUAL_SHA"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+      - name: Capture Double Rare versus Ultra Rare gate panel
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_REPO="/home/ubuntu/repos/EVRCalculator"
+          PY="$PROD_REPO/.venv/bin/python"
+          test -x "$PY"
+          test -f "$PROD_REPO/backend/.env"
+          set -a
+          . "$PROD_REPO/backend/.env"
+          set +a
+          test -n "${PKMNPRICES_API_KEY:-}"
+          test -n "${SUPABASE_URL:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          mkdir -p backend/artifacts/treatment_panel_recovery_v2
+          "$PY" backend/scripts/research_treatment_gate_expansion_double_ultra_v1.py \
+            --market-date 2026-09-29 \
+            --period 180d \
+            --credit-cap 3000 \
+            --capture \
+            --output backend/artifacts/treatment_panel_recovery_v2/double_ultra_gate.json
+      - name: Upload Double Rare Ultra gate artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-double-ultra-gate-v1-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/double_ultra_gate.json
+          if-no-files-found: warn

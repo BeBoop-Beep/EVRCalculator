@@ -1,0 +1,56 @@
+name: Edition Market Repair
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/edition-market-repair.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 20
+    steps:
+      - name: Prepare pinned tested source and execute one bounded phase
+        env:
+          OPERATION_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/home/ubuntu/repos/EVRCalculator
+          STATE=/home/ubuntu/state/db-safety
+          PY="$APP/.venv/bin/python"
+          TMP=$(mktemp -d)
+          trap 'rm -rf "$TMP"' EXIT
+          git -C "$APP" fetch --quiet origin vm-ops-control fix/vintage-edition-history-recovery-20260926
+          git -C "$APP" show "$OPERATION_SHA:.vm-ops/edition-market-repair.json" > "$TMP/request.json"
+          git -C "$APP" show "$OPERATION_SHA:.vm-ops/edition_market_repair.py" > "$TMP/runner.py"
+          "$PY" -m py_compile "$TMP/runner.py"
+          "$PY" - "$TMP/request.json" "$TMP/runner.py" <<'PY'
+          import json,re,subprocess,sys
+          from datetime import date
+          from pathlib import Path
+          app=Path('/home/ubuntu/repos/EVRCalculator')
+          state=Path('/home/ubuntu/state/db-safety/edition-market')
+          request=json.loads(Path(sys.argv[1]).read_text())
+          assert request['operation']=='edition-market-repair'
+          assert request['preserve_incident_hold'] is True
+          sha=request['code_sha'];assert re.fullmatch('[a-f0-9]{40}',sha)
+          day=date.fromisoformat(request['market_date']).isoformat()
+          phase=request['phase'];assert phase in ('read-proof','history','publish')
+          parent=state/'sources';parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+          source=parent/sha
+          if not source.exists():subprocess.run(['git','-C',str(app),'worktree','add','--detach',str(source),sha],check=True)
+          assert subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()==sha
+          assert subprocess.run(['git','-C',str(source),'diff','--quiet'],check=False).returncode==0
+          print(json.dumps({'phase':phase,'market_date':day,'tested_source':sha}),flush=True)
+          rc=subprocess.run([sys.executable,sys.argv[2],'--source',str(source),'--market-date',day,'--phase',phase],check=False).returncode
+          diagnostic=state/(day+'.'+phase+'.error.json')
+          if rc and diagnostic.exists():
+              data=json.loads(diagnostic.read_text())
+              error=re.sub(r'eyJ[A-Za-z0-9_.-]+','<REDACTED>',str(data.get('error','')))[:1500]
+              print(json.dumps({'phase_error':data.get('error_type'),'detail':error}),flush=True)
+          raise SystemExit(rc)
+          PY

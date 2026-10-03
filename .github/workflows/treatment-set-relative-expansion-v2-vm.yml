@@ -1,0 +1,62 @@
+name: Treatment Set-Relative Expansion V2 VM
+
+on:
+  push:
+    branches:
+      - vm-ops-control
+    paths:
+      - '.vm-ops/treatment-set-relative-expansion-v2.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treatment-set-relative-expansion-v2-vm
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact research SHA
+        uses: actions/checkout@v4
+        with:
+          ref: 2aaa2c7945d75d794b3db6b7372850252245963a
+          fetch-depth: 1
+      - name: Verify exact research SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="2aaa2c7945d75d794b3db6b7372850252245963a"
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          echo "research_sha=$ACTUAL_SHA"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+      - name: Capture broad Set-relative expansion panel
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_REPO="/home/ubuntu/repos/EVRCalculator"
+          PY="$PROD_REPO/.venv/bin/python"
+          test -x "$PY"
+          test -f "$PROD_REPO/backend/.env"
+          set -a
+          . "$PROD_REPO/backend/.env"
+          set +a
+          test -n "${PKMNPRICES_API_KEY:-}"
+          test -n "${SUPABASE_URL:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          mkdir -p backend/artifacts/treatment_set_relative_v2
+          "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py \
+            --market-date 2026-09-29 \
+            --period 180d \
+            --credit-cap 22000 \
+            --capture \
+            --output backend/artifacts/treatment_set_relative_v2/expansion_panel.json
+      - name: Upload broad expansion artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-expansion-v2-vm
+          path: backend/artifacts/treatment_set_relative_v2/expansion_panel.json
+          if-no-files-found: warn

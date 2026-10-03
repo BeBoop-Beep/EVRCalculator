@@ -1,0 +1,64 @@
+name: Safe Reactivation Patch
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/db-safe-reactivation-patch.json']
+permissions:
+  contents: write
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  patch:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 5
+    steps:
+      - name: Test anchored safety fixes and deploy only reviewed files
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          STATE=/home/ubuntu/state/db-safety
+          BASE=9c22ffade3763780381bf799080b1b8cea2a3140
+          BRANCH=fix/guarded-daily-recovery-20260925
+          TMP=$(mktemp -d)
+          WT="$TMP/candidate"
+          trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
+          git -C "$REPO" fetch --quiet origin main vm-ops-control
+          git -C "$REPO" worktree add --detach "$WT" "$BASE"
+          for FILE in patch_safe_reactivation.py db_workload_guard.py test_db_workload_guard.py; do
+            git -C "$REPO" show "$SOURCE_SHA:.vm-ops/$FILE" > "$TMP/$FILE"
+          done
+          "$PY" "$TMP/patch_safe_reactivation.py" "$WT" "$TMP"
+          (cd "$TMP" && "$PY" -m unittest -v test_db_workload_guard test_guard_wait)
+          (
+            cd "$WT"
+            export SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_SERVICE_ROLE_KEY=test-key SUPABASE_ANON_KEY=test-key
+            export INDEX_DB_SAFETY_HOLD_PATH="$TMP/absent" PYTHONPATH="$WT:/tmp/evr-pytest-deps"
+            "$PY" -m unittest -v backend.tests.unit.scripts.test_opening_compact_recovery_audit
+            "$PY" -m pytest -q -p no:cacheprovider backend/tests/unit/db/services/test_post_scrape_publication_trigger.py backend/tests/unit/db/services/test_publication_db_safety.py
+            bash -n backend/scripts/rebuild_snapshots_after_scrape.sh
+          )
+          FILES=(backend/scripts/run_daily_opening_publication.py backend/scripts/rebuild_snapshots_after_scrape.sh backend/db/services/post_scrape_publication_trigger.py backend/tests/unit/scripts/test_opening_compact_recovery_audit.py)
+          git -C "$WT" add -- "${FILES[@]}"
+          git -C "$WT" diff --cached --check
+          git -C "$WT" -c user.name=index-vm-ops -c user.email=vm-ops@index.invalid commit -m 'fix(ops): serialize detached publication and use compact opening audit'
+          CANDIDATE=$(git -C "$WT" rev-parse HEAD)
+          AUTH=$(printf 'x-access-token:%s' "$REPO_TOKEN" | base64 -w0)
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $AUTH" git -C "$WT" push https://github.com/BeBoop-Beep/EVRCalculator.git "HEAD:refs/heads/$BRANCH"
+          unset AUTH REPO_TOKEN
+          git -C "$REPO" diff --quiet "$BASE" HEAD -- "${FILES[@]}" || { echo 'REFUSING runtime source differs'; exit 21; }
+          git -C "$REPO" diff --quiet -- "${FILES[@]}"
+          git -C "$REPO" diff --cached --quiet
+          test ! -e "$REPO/backend/tests/unit/scripts/test_opening_compact_recovery_audit.py"
+          cp "$STATE/db_workload_guard.py" "$STATE/db_workload_guard.before-wait.py"
+          install -m 600 "$TMP/db_workload_guard.py" "$STATE/db_workload_guard.py.new"
+          mv "$STATE/db_workload_guard.py.new" "$STATE/db_workload_guard.py"
+          git -C "$REPO" checkout "$CANDIDATE" -- "${FILES[@]}"
+          git -C "$REPO" -c user.name=index-vm-ops -c user.email=vm-ops@index.invalid commit -m "fix(ops): deploy safe reactivation $CANDIDATE" -- "${FILES[@]}"
+          echo "candidate=$CANDIDATE branch=$BRANCH runtime=$(git -C "$REPO" rev-parse HEAD)"
+          echo 'SAFETY_PATCH_DEPLOYED=true; global hold unchanged; no workloads restored by patch'

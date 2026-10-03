@@ -1,0 +1,53 @@
+name: Treatment Balanced Triangle V1 VM
+
+on:
+  push:
+    branches:
+      - vm-ops-control
+    paths:
+      - '.vm-ops/treatment-balanced-triangle-v1.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: treatment-balanced-triangle-v1-vm
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/treatment-panel-recovery-v2-current-20261001
+          fetch-depth: 1
+      - name: Verify pinned research SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="8cccfa1f1427e4ad44cdb014fff6175c43ac994d"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Capture balanced 10-Set triangle panel
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_REPO="/home/ubuntu/repos/EVRCalculator"
+          PY="$PROD_REPO/.venv/bin/python"
+          set -a
+          . "$PROD_REPO/backend/.env"
+          set +a
+          "$PY" backend/scripts/research_treatment_triangle_balanced_capture_v1.py \
+            --market-date 2026-09-29 \
+            --period 180d \
+            --credit-cap 25000 \
+            --capture \
+            --output backend/artifacts/treatment_panel_recovery_v2/balanced_triangle_v1.json
+      - name: Upload balanced triangle artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-balanced-triangle-v1-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/balanced_triangle_v1.json
+          if-no-files-found: warn

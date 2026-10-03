@@ -1,0 +1,122 @@
+name: Edition Catalog Source Refresh
+
+on:
+  push:
+    branches: [vm-ops-control]
+    paths:
+      - '.vm-ops/edition-catalog-source-refresh.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 20
+    steps:
+      - name: Refresh approved Base edition source catalogues
+        shell: bash
+        env:
+          OPERATION_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          REPO=/home/ubuntu/repos/EVRCalculator
+          PY="$REPO/.venv/bin/python"
+          REQUEST=$(mktemp)
+          trap 'rm -f "$REQUEST"' EXIT
+
+          test -d "$REPO/.git" || { echo "production repo missing"; exit 2; }
+          test -x "$PY" || { echo "production venv missing"; exit 2; }
+
+          git -C "$REPO" fetch --quiet origin vm-ops-control main
+          git -C "$REPO" show "$OPERATION_SHA:.vm-ops/edition-catalog-source-refresh.json" > "$REQUEST"
+
+          MARKET_DATE="$("$PY" - "$REQUEST" <<'PY'
+          import json,re,sys
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          req=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert req.get("operation")=="edition-catalog-source-refresh"
+          assert req.get("catalog_sets")==["baseSetShadowless","deckExclusives"]
+          day=str(req.get("market_date") or "")
+          assert re.fullmatch(r"\d{4}-\d{2}-\d{2}",day)
+          assert day==datetime.now(ZoneInfo("America/Phoenix")).date().isoformat()
+          assert req.get("preserve_daily_cohort") is True
+          print(day)
+          PY
+          )"
+          echo "market_date=$MARKET_DATE"
+
+          exec 9>/tmp/pokemon-catalog-recheck.lock
+          flock -w 300 9 || { echo "catalog refresh lock unavailable"; exit 75; }
+
+          exec 7>/tmp/pokemon-post-scrape-publication.lock
+          flock -w 300 7 || { echo "post-scrape publication lock unavailable"; exit 75; }
+
+          echo "== active scrape guard =="
+          "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          client=create_service_role_client()
+          jobs=list(client.table("scrape_jobs").select("id,status,batch_id,market_date").in_("status",["pending","running"]).limit(5).execute().data or [])
+          runs=list(client.table("scrape_job_runs").select("id,status,job_type,market_date,batch_id").eq("status","running").eq("job_type","price_scrape").limit(5).execute().data or [])
+          print({"active_jobs":len(jobs),"active_price_runs":len(runs)})
+          if jobs or runs:
+              raise SystemExit(75)
+          PY
+
+          cd "$REPO"
+          git restore -- payload_debug.json backend/constants/tcg/pokemon/pokemon_era_set_sync_report.json 2>/dev/null || true
+          git switch main
+          git fetch --quiet origin main
+          git pull --ff-only origin main
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "unexpected tracked production modifications"
+            git status --short
+            exit 20
+          fi
+          grep -q -- '--catalog-set' backend/scripts/run_pokemon_set_scrape.py || { echo "catalog mode missing"; exit 21; }
+
+          run_catalog() {
+            key="$1"
+            report="/tmp/edition-catalog-${key}-${MARKET_DATE}.json"
+            rm -f "$report"
+            echo "== scrape $key =="
+            "$PY" backend/scripts/run_pokemon_set_scrape.py               --run               --catalog-set "$key"               --report-path "$report"
+            "$PY" - "$report" "$key" "$MARKET_DATE" <<'PY'
+          import json,sys
+          path,key,day=sys.argv[1:]
+          report=json.load(open(path,encoding="utf-8"))
+          if report.get("target_mode")!="catalog_set_manual":
+              raise SystemExit("wrong target mode")
+          if report.get("catalog_set")!=key:
+              raise SystemExit("wrong catalog set")
+          if report.get("daily_cohort_modified"):
+              raise SystemExit("daily cohort was modified")
+          if int(report.get("sets_failed") or 0)!=0 or int(report.get("sets_succeeded") or 0)!=1:
+              raise SystemExit("catalog scrape did not succeed exactly once")
+          rows=report.get("results") or []
+          if len(rows)!=1 or rows[0].get("status")!="success":
+              raise SystemExit("catalog scrape result missing success")
+          meta=rows[0].get("metadata") or {}
+          if str(meta.get("marketDate") or "")[:10] != day:
+              raise SystemExit("catalog scrape wrote wrong market date")
+          summary={k:meta.get(k) for k in (
+              "marketDate","setId","rawRows","commercialProducts","sourceVariantGroups",
+              "acceptedVariantGroups","rejectedMissingNmVariantGroups",
+              "positiveNmObservationCount","priceRowsInserted","priceRowsUpdated",
+              "priceRowsSkippedDuplicates","sourceCoverageRatio"
+          )}
+          print({"catalog_set":key,"result":"PASS","summary":summary})
+          PY
+          }
+
+          run_catalog baseSetShadowless
+          run_catalog deckExclusives
+
+          echo "EDITION_CATALOG_SOURCE_REFRESH=PASS"

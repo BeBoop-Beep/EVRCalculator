@@ -1,0 +1,72 @@
+name: Treatment Panel Recovery V2 VM
+
+on:
+  push:
+    branches:
+      - vm-ops-control
+    paths:
+      - '.vm-ops/treatment-panel-recovery-v2.json'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: treatment-panel-recovery-v2-vm
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout pinned research branch
+        uses: actions/checkout@v4
+        with:
+          ref: f47627a80bb7c96a010fe0f895b64d062c248844
+          fetch-depth: 1
+      - name: Verify pinned research SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="5a024e446f62ebbb80202cf77b2a343cd42e99cc"
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          echo "research_sha=$ACTUAL_SHA"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+      - name: Download frozen Hyper pilot artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-full-hyper-ultra-sir-v1-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_sir.json
+          github-token: ${{ github.token }}
+          repository: BeBoop-Beep/EVRCalculator
+          run-id: 37044568594
+      - name: Capture exhaustive Hyper-Ultra-SIR family panel
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROD_REPO="/home/ubuntu/repos/EVRCalculator"
+          PY="$PROD_REPO/.venv/bin/python"
+          test -x "$PY"
+          test -f "$PROD_REPO/backend/.env"
+          set -a
+          . "$PROD_REPO/backend/.env"
+          set +a
+          test -n "${PKMNPRICES_API_KEY:-}"
+          test -n "${SUPABASE_URL:-}"
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          mkdir -p backend/artifacts/treatment_panel_recovery_v2
+          "$PY" backend/scripts/research_treatment_full_family_panel_v1.py \
+            --family hyper-ultra-sir \
+            --base-artifact backend/artifacts/treatment_panel_recovery_v2/base/full_hyper_ultra_sir_v1.json \
+            --market-date 2026-09-29 \
+            --period 180d \
+            --credit-cap 7000 \
+            --output backend/artifacts/treatment_panel_recovery_v2/gate_expansion_double_rare_sir.json
+      - name: Upload exhaustive Hyper-Ultra-SIR artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-full-hyper-ultra-sir-v1-vm
+          path: backend/artifacts/treatment_panel_recovery_v2/full_hyper_ultra_sir_v1.json
+          if-no-files-found: warn

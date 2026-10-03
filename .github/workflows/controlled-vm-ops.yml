@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  issues: write
 
 concurrency:
   group: index-production-vm-ops-v2
@@ -24,6 +26,7 @@ jobs:
       ACTIONS_SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       ACTIONS_POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
       ACTIONS_SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+      VM_GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Validate request
         shell: bash
@@ -34,7 +37,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pricing-sync-main|pricing-run-full-now)"
+              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-shadow-ops-tests|fv-shadow-ops-install-cron|fv-shadow-ops-status|fv-forward-bindings-dry-run|fv-forward-bindings-backfill|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-set-relative-v2-estimate|treatment-set-relative-v2|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -48,12 +51,24 @@ jobs:
           set_id = set_id or ""
           request_id = request_id or ""
 
-          if op in {"set-market-snapshot", "explorer-prewarm-one", "explorer-prewarm-five", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher", "stop-sep24-global-card-segment-publisher", "restart-sep24-publisher-optimized", "sync-launch-sep24-publisher-optimized", "run-sep24-publisher-optimized"} and not market_date:
+          if op in {"set-market-snapshot", "explorer-prewarm-one", "explorer-prewarm-five", "market-dashboard-set", "repair-cards-market-errors", "repair-sep22-base-publication", "repair-sep22-market-publication-direct", "scrape-create-missing-batch", "scrape-kill-stuck-dispatcher", "scrape-hard-kill-stuck-dispatcher", "scrape-hard-kill-live-stale-dispatcher", "stop-sep24-global-card-segment-publisher", "restart-sep24-publisher-optimized", "sync-launch-sep24-publisher-optimized", "run-sep24-publisher-optimized", "rip-benchmark-publish"} and not market_date:
               raise SystemExit(f"{op} requires market_date")
           if op == "market-dashboard-set" and not set_id:
               raise SystemExit("market-dashboard-set requires set_id")
-          if op.startswith("pricing-") and (market_date or set_id):
+          if op == "scrape-catalog-set-refresh" and not set_id:
+              raise SystemExit("scrape-catalog-set-refresh requires set_id=<canonical_key>")
+          if op == "scrape-set-refresh" and not set_id:
+              raise SystemExit("scrape-set-refresh requires set_id=<canonical_key>")
+          if (op.startswith("pricing-") or op.startswith("pkmnprices-") or op in {"treatment-panel-recovery-v2", "treatment-set-relative-v2", "treatment-set-relative-v2-estimate"}) and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
+          if op.startswith("fv-") and (market_date or set_id):
+              raise SystemExit(f"{op} accepts no market_date or set_id")
+          if op == "treatment-panel-recovery-v2" and (not request_id or not request_id.isdigit()):
+              raise SystemExit("treatment-panel-recovery-v2 requires numeric request_id=<issue number>")
+          if op == "treatment-set-relative-v2" and request_id != "20261003":
+              raise SystemExit("treatment-set-relative-v2 requires request_id=20261003")
+          if op == "treatment-set-relative-v2-estimate" and request_id != "20261003-estimate":
+              raise SystemExit("treatment-set-relative-v2-estimate requires request_id=20261003-estimate")
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write(f"VM_OPERATION={op}\n")
@@ -70,11 +85,12 @@ jobs:
           PY
 
       - name: Execute credential operation
-        if: ${{ env.VM_OPERATION == 'pricing-credential-status' || env.VM_OPERATION == 'pricing-install-credentials' }}
+        if: ${{ env.VM_OPERATION == 'pricing-credential-status' || env.VM_OPERATION == 'pricing-install-credentials' || env.VM_OPERATION == 'pkmnprices-credential-status' || env.VM_OPERATION == 'pkmnprices-install-credential' || env.VM_OPERATION == 'pkmnprices-probe' }}
         shell: bash
         env:
           ACTIONS_EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           ACTIONS_EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          ACTIONS_PKMNPRICES_API_KEY: ${{ secrets.PKMNPRICES_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -83,6 +99,143 @@ jobs:
           echo "request_id=$VM_REQUEST_ID"
 
           case "$VM_OPERATION" in
+            pkmnprices-credential-status)
+              # READ ONLY: presence only; never print value, prefix, length, or hash.
+              python3 - <<'PY'
+          import os,re
+          path="/home/ubuntu/repos/EVRCalculator/backend/.env"
+          secret=os.environ.get("ACTIONS_PKMNPRICES_API_KEY","")
+          print("actions_pkmnprices_api_key_present=" + ("true" if secret else "false"))
+          found=False
+          assign=re.compile(rb"^\s*(?:export\s+)?PKMNPRICES_API_KEY\s*=(.*)$")
+          if os.path.isfile(path):
+              with open(path,"rb") as h:
+                  for line in h.read().splitlines():
+                      m=assign.match(line)
+                      if m and m.group(1).strip().strip(b"'\"").strip():
+                          found=True
+          print("backend_env_pkmnprices_api_key_present=" + ("true" if found else "false"))
+          PY
+              ;;
+
+            pkmnprices-install-credential)
+              # MUTATING: atomically installs only PKMNPRICES_API_KEY into backend/.env.
+              cd "$REPO"
+              git fetch origin main --quiet
+              PRE_BRANCH="$(git branch --show-current)"
+              [ -z "$PRE_BRANCH" ] || [ "$PRE_BRANCH" = "main" ] || { echo "REFUSING: unexpected production branch $PRE_BRANCH"; exit 20; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "REFUSING: production HEAD is not current origin/main"; exit 21; }
+              [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "REFUSING: tracked production changes exist"; git status --short --untracked-files=no; exit 22; }
+              python3 - <<'PY'
+          import os,pwd,re,sys,tempfile,subprocess
+          repo="/home/ubuntu/repos/EVRCalculator"
+          path=repo+"/backend/.env"
+          key=os.environ.get("ACTIONS_PKMNPRICES_API_KEY","")
+          if not key:
+              raise SystemExit("REFUSING: PKMNPRICES_API_KEY Actions secret is empty")
+          if "\n" in key or "\r" in key:
+              raise SystemExit("REFUSING: PKMNPRICES_API_KEY contains a newline")
+          if not re.fullmatch(r"[A-Za-z0-9._:/+=@-]+",key):
+              raise SystemExit("REFUSING: PKMNPRICES_API_KEY contains characters unsafe for .env")
+          request=(os.environ.get("VM_REQUEST_MESSAGE","")+"\n"+os.environ.get("VM_REQUEST_ID",""))
+          if key in request:
+              raise SystemExit("REFUSING: credential value appears in request metadata")
+          if not os.path.isfile(path):
+              raise SystemExit("REFUSING: backend/.env does not exist")
+          st=os.stat(path)
+          if pwd.getpwuid(st.st_uid).pw_name!="ubuntu" or os.geteuid()!=st.st_uid:
+              raise SystemExit("REFUSING: backend/.env ownership mismatch")
+          if st.st_mode & 0o004:
+              raise SystemExit("REFUSING: backend/.env is world-readable")
+          with open(path,"rb") as h:
+              original=h.read()
+          assign=re.compile(rb"^\s*(?:export\s+)?PKMNPRICES_API_KEY\s*=(.*)$")
+          def strip_key(data):
+              return b"".join(line for line in data.splitlines(keepends=True) if not assign.match(line.rstrip(b"\r\n")))
+          eol=b"\r\n" if b"\r\n" in original else b"\n"
+          base=strip_key(original)
+          if base and not base.endswith(b"\n"):
+              base+=eol
+          new=base+b"PKMNPRICES_API_KEY="+key.encode()+eol
+          fd,tmp=tempfile.mkstemp(prefix=".env.pkmnprices.",dir=os.path.dirname(path))
+          try:
+              with os.fdopen(fd,"wb") as h:
+                  h.write(new); h.flush(); os.fsync(h.fileno())
+              os.chmod(tmp,st.st_mode & 0o7777)
+              ts=os.stat(tmp)
+              if ts.st_uid!=st.st_uid or ts.st_gid!=st.st_gid:
+                  os.chown(tmp,st.st_uid,st.st_gid)
+              os.replace(tmp,path)
+          except BaseException:
+              try: os.unlink(tmp)
+              except FileNotFoundError: pass
+              raise
+          with open(path,"rb") as h:
+              after=h.read()
+          matches=[m for line in after.splitlines() if (m:=assign.match(line))]
+          if len(matches)!=1 or not matches[0].group(1).strip():
+              raise SystemExit("PKMNPRICES_INSTALL_VERIFY=FAIL assignment")
+          if strip_key(after)!=base:
+              raise SystemExit("PKMNPRICES_INSTALL_VERIFY=FAIL non-provider content changed")
+          ast=os.stat(path)
+          if (ast.st_mode & 0o7777)!=(st.st_mode & 0o7777) or ast.st_uid!=st.st_uid or ast.st_gid!=st.st_gid:
+              raise SystemExit("PKMNPRICES_INSTALL_VERIFY=FAIL metadata")
+          print("PKMNPRICES_CREDENTIAL_INSTALLED=PASS")
+          PY
+              ;;
+
+            pkmnprices-probe)
+              # READ ONLY provider probe except provider-side credit usage (<=2 credits).
+              cd "$REPO"
+              python3 - <<'PY'
+          import json,os,urllib.parse,urllib.request
+          from pathlib import Path
+          def dotenv_value(path,key):
+              if not path.is_file():
+                  return ""
+              for raw in path.read_text(encoding="utf-8-sig").splitlines():
+                  line=raw.strip()
+                  if not line or line.startswith("#") or "=" not in line:
+                      continue
+                  k,v=line.split("=",1)
+                  k=k.strip()
+                  if k.startswith("export "):
+                      k=k[len("export "):].strip()
+                  if k==key:
+                      return v.strip().strip('"').strip("'")
+              return ""
+          key=dotenv_value(Path("backend/.env"),"PKMNPRICES_API_KEY")
+          if not key:
+              raise SystemExit("PKMNPRICES_PROBE=FAIL credential_missing")
+          base="https://api.pkmnprices.com"
+          def get(path):
+              req=urllib.request.Request(base+path,headers={"X-API-Key":key,"Accept":"application/json","User-Agent":"inDex-PkmnPrices/1"})
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  return r.status,json.load(r)
+          status,cards=get("/v1/cards?tcg_player_id=89168&language=English&per_page=1")
+          rows=cards.get("data") or []
+          if status!=200 or len(rows)!=1:
+              raise SystemExit("PKMNPRICES_PROBE=FAIL card_lookup")
+          card=rows[0]
+          cid=str(card.get("id"))
+          status,sales=get("/v1/cards/"+urllib.parse.quote(cid,safe="")+"/listings/ebay?graded=false&limit=1")
+          if status!=200:
+              raise SystemExit("PKMNPRICES_PROBE=FAIL sold_endpoint")
+          sold=sales.get("data") or []
+          attrs=sorted({str(x.get("attribution")) for x in sold if x.get("attribution")})
+          print(json.dumps({
+              "status":"PASS",
+              "card_lookup_count":len(rows),
+              "pkmnprices_card_id":cid,
+              "tcg_player_id":card.get("tcg_player_id"),
+              "sold_rows_returned":len(sold),
+              "attribution_states":attrs,
+              "has_more":bool((sales.get("pagination") or {}).get("has_more")),
+          },sort_keys=True))
+          print("PKMNPRICES_PROBE=PASS")
+          PY
+              ;;
+
             pricing-credential-status)
               # READ ONLY: reports presence flags only; no values, lengths, prefixes or hashes.
               python3 - <<'PY'
@@ -364,7 +517,7 @@ jobs:
           echo "SUPABASE_PROJECT_RESTART=PASS"
 
       - name: Execute approved operation
-        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' && env.VM_OPERATION != 'supabase-project-restart' }}
+        if: ${{ env.VM_OPERATION != 'pricing-credential-status' && env.VM_OPERATION != 'pricing-install-credentials' && env.VM_OPERATION != 'pkmnprices-credential-status' && env.VM_OPERATION != 'pkmnprices-install-credential' && env.VM_OPERATION != 'pkmnprices-probe' && env.VM_OPERATION != 'supabase-project-restart' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -835,6 +988,54 @@ jobs:
           }
 
           case "$VM_OPERATION" in
+            treatment-panel-preflight|treatment-panel-pilot)
+              TREATMENT_BRANCH="research/treatment-panel-recovery-v2-pkmnprices-20261001"
+              TREATMENT_SHA="772e827b8174acbc397c68eb51d9e320f9c23493"
+              TREATMENT_STATE="/home/ubuntu/state/treatment-panel-recovery-v2"
+              TREATMENT_WT="/tmp/EVRCalculator-treatment-panel-recovery-v2"
+              cd "$REPO"
+              mkdir -p "$TREATMENT_STATE"
+              git fetch --quiet origin "$TREATMENT_BRANCH"
+              FETCHED="$(git rev-parse FETCH_HEAD)"
+              [ "$FETCHED" = "$TREATMENT_SHA" ] || { echo "REFUSING: treatment research branch moved expected=$TREATMENT_SHA fetched=$FETCHED"; exit 2; }
+              git worktree prune >/dev/null 2>&1 || true
+              if [ -e "$TREATMENT_WT" ]; then
+                git worktree remove --force "$TREATMENT_WT" >/dev/null 2>&1 || rm -rf "$TREATMENT_WT"
+              fi
+              git worktree add --detach "$TREATMENT_WT" "$TREATMENT_SHA" >/dev/null
+              trap 'git -C "$REPO" worktree remove --force "$TREATMENT_WT" >/dev/null 2>&1 || rm -rf "$TREATMENT_WT"; git -C "$REPO" worktree prune >/dev/null 2>&1 || true' EXIT
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$TREATMENT_WT"
+              echo "== research helper tests =="
+              (cd "$TREATMENT_WT" && "$PY" -m pytest -q -p no:cacheprovider backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py)
+              echo "== treatment panel preflight =="
+              (cd "$TREATMENT_WT" && "$PY" backend/scripts/research_treatment_panel_recovery_v2.py --market-date 2026-09-29 --period 180d --output "$TREATMENT_STATE/preflight.json")
+              "$PY" - "$TREATMENT_STATE/preflight.json" <<'PY'
+          import json,sys
+          x=json.load(open(sys.argv[1],encoding="utf-8"))
+          print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],"counts":x["cohort"]["counts"],
+                 "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],"productionWrites":x["production_writes"]})
+          PY
+              if [ "$VM_OPERATION" = "treatment-panel-pilot" ]; then
+                echo "== bounded 12-card / 2500-credit NM history pilot =="
+                if ! /usr/bin/flock -n /tmp/pkmnprices-api.lock -c "cd '$TREATMENT_WT' && PYTHONPATH='$TREATMENT_WT' '$PY' backend/scripts/research_treatment_panel_recovery_v2.py --market-date 2026-09-29 --period 180d --collect --max-cards 12 --credit-cap 2500 --output '$TREATMENT_STATE/pilot.json'"; then
+                  echo "TREATMENT_PANEL_PILOT_BLOCKED_OR_FAILED"
+                  exit 75
+                fi
+                "$PY" - "$TREATMENT_STATE/pilot.json" <<'PY'
+          import json,sys
+          x=json.load(open(sys.argv[1],encoding="utf-8"))
+          print({"status":x["status"],"cohortFingerprint":x["cohort_fingerprint"],
+                 "providerCalls":x["provider_calls"],"creditsUsed":x["credits_used"],
+                 "cardsRequested":x.get("cards_requested"),"cardsReturned":x.get("cards_returned"),
+                 "readinessCounts":x.get("readiness_counts"),"failureCount":len(x.get("failures") or []),
+                 "productionWrites":x["production_writes"]})
+          PY
+              fi
+              echo "TREATMENT_PANEL_RECOVERY_OPERATION=PASS"
+              ;;
             repair-sep22-market-publication-direct)
               cd "$REPO"
               test "$VM_MARKET_DATE" = "2026-09-22" || { echo "This repair is scoped only to 2026-09-22"; exit 8; }
@@ -1610,6 +1811,26 @@ jobs:
               echo "SCRAPE_CREATE_MISSING_BATCH=PASS"
               ;;
 
+            rip-benchmark-publish)
+              cd "$REPO"
+              export PYTHONPATH="$REPO"
+              echo "== certified RIP Benchmark publication =="
+              echo "request_id=$VM_REQUEST_ID"
+              echo "market_date=$VM_MARKET_DATE"
+              git fetch origin main --quiet
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "REFUSING: production HEAD is not canonical origin/main"; exit 20; }
+              [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "REFUSING: tracked production modifications exist"; git status --short --untracked-files=no; exit 21; }
+              OUT="/tmp/rip-benchmark-publish-$VM_REQUEST_ID"
+              rm -rf "$OUT"
+              mkdir -p "$OUT"
+              "$PY" -m backend.scripts.run_rip_benchmark_publisher_v1 \
+                --publish \
+                --market-date "$VM_MARKET_DATE" \
+                --output-dir "$OUT" \
+                --json
+              echo "RIP_BENCHMARK_PUBLISH=PASS"
+              ;;
+
             post-scrape-recovery-now)
               cd "$REPO"
               export PYTHONPATH="$REPO"
@@ -1664,6 +1885,126 @@ jobs:
               raise SystemExit(f"watchdog recovery failed status={first.get('status')}")
 
           print("POST_SCRAPE_RECOVERY_NOW=PASS", flush=True)
+          PY
+              ;;
+
+            scrape-set-refresh)
+              # MUTATING but tightly bounded: manually refresh exactly one normal
+              # daily-eligible Set through the canonical scraper, outside batch state.
+              cd "$REPO"
+              HOLD=/home/ubuntu/state/db-safety/hold.json
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold active"; exit 20; }
+              PRE_BRANCH="$(git branch --show-current)"
+              [ -z "$PRE_BRANCH" ] || [ "$PRE_BRANCH" = "main" ] || { echo "REFUSING: unexpected production branch $PRE_BRANCH"; exit 21; }
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+                echo "REFUSING: production checkout is not current origin/main"
+                echo "head=$(git rev-parse HEAD)"
+                echo "origin_main=$(git rev-parse origin/main)"
+                exit 23
+              }
+              [ -z "$(git status --porcelain --untracked-files=no)" ] || {
+                echo "REFUSING: tracked production changes exist"
+                git status --short --untracked-files=no
+                exit 24
+              }
+              set -a
+              . backend/.env
+              set +a
+              export PYTHONPATH="$REPO"
+              REPORT_BASE="/tmp/set-refresh-$VM_SET_ID-$VM_REQUEST_ID"
+              echo "== single-set dry-run gate =="
+              "$PY" backend/scripts/run_pokemon_set_scrape.py                 --set "$VM_SET_ID"                 --report-path "$REPORT_BASE.dry-run.json"
+              "$PY" - "$REPORT_BASE.dry-run.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert int(p.get("sets_selected") or 0)==1, p
+          assert p.get("run_aborted_early") is False, p
+          print("SET_REFRESH_DRY_RUN=PASS")
+          PY
+              echo "== single-set live refresh =="
+              /usr/bin/flock -w 180 /tmp/pokemon-scrape-dispatcher.lock                 "$PY" backend/scripts/run_pokemon_set_scrape.py                   --run                   --set "$VM_SET_ID"                   --report-path "$REPORT_BASE.live.json"
+              "$PY" - "$REPORT_BASE.live.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding="utf-8"))
+          print(json.dumps({
+              "market_date":p.get("market_date"),
+              "sets_selected":p.get("sets_selected"),
+              "sets_succeeded":p.get("sets_succeeded"),
+              "sets_failed":p.get("sets_failed"),
+              "http_requests_total":p.get("http_requests_total"),
+              "rate_limit_events":p.get("rate_limit_events"),
+              "retry_count_total":p.get("retry_count_total"),
+          },sort_keys=True))
+          assert int(p.get("sets_succeeded") or 0)==1, p
+          assert int(p.get("sets_failed") or 0)==0, p
+          assert p.get("run_aborted_early") is False, p
+          print("SET_REFRESH=PASS")
+          PY
+              ;;
+
+            scrape-catalog-set-refresh)
+              # MUTATING but tightly bounded: refresh exactly one catalog-only source
+              # through the runner's explicit --catalog-set safety gate. This NEVER
+              # changes catalog_only / ready_for_daily_scrape / simulation flags.
+              cd "$REPO"
+              HOLD=/home/ubuntu/state/db-safety/hold.json
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold active"; exit 20; }
+              PRE_BRANCH="$(git branch --show-current)"
+              [ -z "$PRE_BRANCH" ] || [ "$PRE_BRANCH" = "main" ] || { echo "REFUSING: unexpected production branch $PRE_BRANCH"; exit 21; }
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || {
+                echo "REFUSING: production checkout is not current origin/main"
+                echo "head=$(git rev-parse HEAD)"
+                echo "origin_main=$(git rev-parse origin/main)"
+                exit 23
+              }
+              [ -z "$(git status --porcelain --untracked-files=no)" ] || {
+                echo "REFUSING: tracked production changes exist"
+                git status --short --untracked-files=no
+                exit 24
+              }
+              set -a
+              . backend/.env
+              set +a
+              export PYTHONPATH="$REPO"
+              REPORT_BASE="/tmp/catalog-set-refresh-$VM_SET_ID-$VM_REQUEST_ID"
+              echo "== catalog-only dry-run gate =="
+              "$PY" backend/scripts/run_pokemon_set_scrape.py                 --catalog-set "$VM_SET_ID"                 --report-path "$REPORT_BASE.dry-run.json"
+              "$PY" - "$REPORT_BASE.dry-run.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert p.get("target_mode")=="catalog_set_manual", p
+          assert p.get("catalog_only") is True, p
+          assert p.get("ready_for_daily_scrape") is False, p
+          assert p.get("supports_opening_simulation") is False, p
+          assert int(p.get("sets_selected") or 0)==1, p
+          assert p.get("run_aborted_early") is False, p
+          print("CATALOG_SET_DRY_RUN=PASS")
+          PY
+
+              echo "== catalog-only live refresh =="
+              /usr/bin/flock -w 10 /tmp/index-catalog-set-refresh.lock                 "$PY" backend/scripts/run_pokemon_set_scrape.py                   --run                   --catalog-set "$VM_SET_ID"                   --report-path "$REPORT_BASE.live.json"
+              "$PY" - "$REPORT_BASE.live.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding="utf-8"))
+          print(json.dumps({
+              "market_date":p.get("market_date"),
+              "sets_selected":p.get("sets_selected"),
+              "sets_succeeded":p.get("sets_succeeded"),
+              "sets_failed":p.get("sets_failed"),
+              "http_requests_total":p.get("http_requests_total"),
+              "rate_limit_events":p.get("rate_limit_events"),
+              "retry_count_total":p.get("retry_count_total"),
+              "target_mode":p.get("target_mode"),
+              "daily_cohort_modified":p.get("daily_cohort_modified"),
+          },sort_keys=True))
+          assert p.get("target_mode")=="catalog_set_manual", p
+          assert p.get("daily_cohort_modified") is False, p
+          assert int(p.get("sets_succeeded") or 0)==1, p
+          assert int(p.get("sets_failed") or 0)==0, p
+          assert p.get("run_aborted_early") is False, p
+          print("CATALOG_SET_REFRESH=PASS")
           PY
               ;;
 
@@ -1747,31 +2088,614 @@ jobs:
               echo "CODE_RED_DB_LOAD_SHED=PASS"
               ;;
 
+            sentinel-explorer-convergence-dry-run)
+              REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$REPO/.venv/bin/python"
+              WT="/tmp/EVRCalculator-sentinel-explorer-convergence-dry-run"
+              TARGET="origin/fix/sentinel-autonomous-pricing-publication-20260927"
+              cd "$REPO"
+              git fetch origin fix/sentinel-autonomous-pricing-publication-20260927 --quiet
+              if [ -d "$WT" ]; then
+                git worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+              fi
+              git worktree add --detach "$WT" "$TARGET"
+              cp backend/.env "$WT/backend/.env"
+              chmod 600 "$WT/backend/.env"
+              cd "$WT"
+              echo "candidate_head=$(git rev-parse HEAD)"
+              echo "== read-only live convergence plan =="
+              PYTHONPATH="$WT" "$PY" -m backend.scripts.run_market_explorer_convergence --dry-run
+              RC=$?
+              rm -f "$WT/backend/.env"
+              cd "$REPO"
+              git worktree remove --force "$WT"
+              [ "$RC" -eq 0 ] || exit "$RC"
+              echo "SENTINEL_EXPLORER_CONVERGENCE_DRY_RUN=PASS"
+              ;;
+
+            sentinel-reliability-tests)
+              REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$REPO/.venv/bin/python"
+              WT="/tmp/EVRCalculator-sentinel-reliability-tests"
+              REF="origin/fix/sentinel-autonomous-pricing-publication-20260927"
+              cd "$REPO"
+              git fetch origin fix/sentinel-autonomous-pricing-publication-20260927 --quiet
+              rm -rf "$WT"
+              git worktree add --detach "$WT" "$REF"
+              trap 'git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true; rm -rf "$WT"' EXIT
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              cd "$WT"
+              "$PY" -m py_compile \
+                backend/sentinel/checks/pricing.py \
+                backend/pricing_pipeline/health.py \
+                backend/sentinel/checks/registry.py \
+                backend/alerts/market_freshness_watchdog.py \
+                backend/sentinel/recovery/runbooks.py \
+                backend/alerts/post_scrape_publication_watchdog.py
+              "$PY" -m pytest -q \
+                backend/tests/unit/sentinel/test_pricing_registration.py \
+                backend/tests/unit/sentinel/test_safe_recovery.py \
+                backend/tests/unit/sentinel/test_recovery_contract_guardrails.py \
+                backend/tests/unit/alerts/test_market_freshness_watchdog.py \
+                backend/tests/unit/alerts/test_post_scrape_publication_watchdog.py \
+                backend/tests/unit/pricing_pipeline/test_daily_multi_source_pipeline.py
+              echo "SENTINEL_RELIABILITY_TESTS=PASS"
+              ;;
+
+            db-safety-guard-repair)
+              cd "$REPO"
+              GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              BACKUP_DIR="/home/ubuntu/ops-backups"
+              test -f "$GUARD" || { echo "REFUSING: workload guard missing"; exit 42; }
+              mkdir -p "$BACKUP_DIR"
+
+              echo "== patch tracked runtime safety policy with exact-byte guards =="
+              GUARD="$GUARD" BACKUP_DIR="$BACKUP_DIR" python3 - <<'PY'
+          import importlib.util
+          import os
+          import py_compile
+          import shutil
+          import tempfile
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          path = Path(os.environ["GUARD"])
+          backup_dir = Path(os.environ["BACKUP_DIR"])
+          original = path.read_text(encoding="utf-8")
+          old_available = "    if available / total < .25:\n        return 'available_memory_below_25_percent'\n"
+          new_available = (
+              "    # Hard stop only on genuinely low AVAILABLE memory. The worker lock already\n"
+              "    # serializes DB-heavy jobs, and run_command rechecks this every 30 seconds.\n"
+              "    if available / total < .15:\n"
+              "        return 'available_memory_below_15_percent'\n"
+          )
+          old_commit = "    if committed / commit_limit > .95:\n        return 'memory_commitment_above_95_percent'\n"
+          new_commit = (
+              "    # Linux Committed_AS may legitimately exceed CommitLimit under overcommit;\n"
+              "    # it is diagnostic, not a standalone proof of physical-memory pressure.\n"
+          )
+          old_swap = "    if swap > 0 and (swap - swap_free) / swap > .40:\n        return 'swap_usage_above_40_percent'\n"
+          intermediate_swap = (
+              "    # Swap occupancy persists after a pressure event; treat it as corroborating\n"
+              "    # evidence only when AVAILABLE memory is also constrained.\n"
+              "    if swap > 0 and (swap - swap_free) / swap > .40 and available / total < .20:\n"
+              "        return 'swap_usage_above_40_percent_with_low_available_memory'\n"
+          )
+          new_swap = (
+              "    # Absolute swap occupancy can remain high after pressure has cleared.\n"
+              "    # MemAvailable is the hard physical-memory admission signal; swap is diagnostic.\n"
+          )
+          updated = original
+          if old_available in updated:
+              updated = updated.replace(old_available, new_available)
+          elif new_available not in updated:
+              raise SystemExit("REFUSING: available-memory policy bytes differ from reviewed source")
+          if old_commit in updated:
+              updated = updated.replace(old_commit, new_commit)
+          elif new_commit not in updated:
+              raise SystemExit("REFUSING: commit-memory policy bytes differ from reviewed source")
+          if old_swap in updated:
+              updated = updated.replace(old_swap, new_swap)
+          elif intermediate_swap in updated:
+              updated = updated.replace(intermediate_swap, new_swap)
+          elif new_swap not in updated:
+              raise SystemExit("REFUSING: swap policy bytes differ from reviewed source")
+          old_prestart = (
+              "        reason = pressure()\n"
+              "        if reason:\n"
+              "            hold(reason, state)\n"
+              "            return DEFERRED\n"
+          )
+          new_prestart = (
+              "        reason = pressure()\n"
+              "        if reason:\n"
+              "            print(json.dumps({'status': 'deferred_pressure', 'reason': reason}, sort_keys=True), flush=True)\n"
+              "            return DEFERRED\n"
+          )
+          old_runtime = (
+              "                    if reason:\n"
+              "                        hold(reason, state)\n"
+              "                        stop_process_group(child)\n"
+              "                        stopped = True\n"
+              "                        break\n"
+          )
+          new_runtime = (
+              "                    if reason:\n"
+              "                        if reason == 'maintenance_exceeded_two_hours':\n"
+              "                            hold(reason, state)\n"
+              "                        elif reason != 'operator_hold':\n"
+              "                            print(json.dumps({'status': 'stopped_for_pressure', 'reason': reason}, sort_keys=True), flush=True)\n"
+              "                        stop_process_group(child)\n"
+              "                        stopped = True\n"
+              "                        break\n"
+          )
+          if old_prestart in updated:
+              updated = updated.replace(old_prestart, new_prestart)
+          elif new_prestart not in updated:
+              raise SystemExit("REFUSING: pre-start pressure handling bytes differ from reviewed source")
+          if old_runtime in updated:
+              updated = updated.replace(old_runtime, new_runtime)
+          elif new_runtime not in updated:
+              raise SystemExit("REFUSING: runtime pressure handling bytes differ from reviewed source")
+          stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          backup = backup_dir / ("db_workload_guard.before_memory_policy_" + stamp + ".py")
+          shutil.copy2(path, backup)
+          os.chmod(backup, 0o600)
+          fd, tmp_name = tempfile.mkstemp(prefix=".db_workload_guard.", dir=str(path.parent))
+          try:
+              with os.fdopen(fd, "w", encoding="utf-8") as out:
+                  out.write(updated)
+                  out.flush()
+                  os.fsync(out.fileno())
+              os.chmod(tmp_name, 0o700)
+              os.replace(tmp_name, path)
+          finally:
+              try:
+                  os.unlink(tmp_name)
+              except FileNotFoundError:
+                  pass
+          py_compile.compile(str(path), doraise=True)
+
+          spec = importlib.util.spec_from_file_location("guard_verify", path)
+          guard = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+
+          def metrics(available_ratio, *, swap_ratio=0.0, commit_ratio=1.5):
+              total = 1000.0
+              swap = 1000.0 if swap_ratio else 0.0
+              return {
+                  "node_memory_MemTotal_bytes": total,
+                  "node_memory_MemAvailable_bytes": total * available_ratio,
+                  "node_memory_SwapTotal_bytes": swap,
+                  "node_memory_SwapFree_bytes": swap * (1.0 - swap_ratio),
+                  "node_memory_Committed_AS_bytes": total * commit_ratio,
+                  "node_memory_CommitLimit_bytes": total,
+              }
+
+          assert guard.pressure_reason(metrics(.30, commit_ratio=1.5)) is None
+          assert guard.pressure_reason(metrics(.149)) == "available_memory_below_15_percent"
+          assert guard.pressure_reason(metrics(.30, swap_ratio=.5)) is None
+          assert guard.pressure_reason(metrics(.19, swap_ratio=.5)) is None
+          print("guard_backup=" + str(backup))
+          print("guard_policy_validation=PASS")
+          PY
+
+              echo "== live Supabase pressure after policy repair =="
+              PRESSURE=$("$PY" - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          p = Path("/home/ubuntu/state/db-safety/db_workload_guard.py")
+          spec = importlib.util.spec_from_file_location("guard_live", p)
+          guard = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+          print(guard.live_pressure() or "NONE")
+          PY
+              )
+              echo "live_pressure=$PRESSURE"
+              [ "$PRESSURE" = "NONE" ] || { echo "REFUSING: Supabase remains under hard memory pressure"; exit 43; }
+
+              if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
+                HOLD_REASON=$(python3 -c 'import json; print(json.load(open("/home/ubuntu/state/db-safety/hold.json")).get("reason",""))' 2>/dev/null || true)
+                case "$HOLD_REASON" in
+                  available_memory_below_25_percent|memory_commitment_above_95_percent|swap_usage_above_40_percent|swap_usage_above_40_percent_with_low_available_memory)
+                    HOLD_BACKUP="$BACKUP_DIR/hold.before-guard-repair.$(date -u +%Y%m%dT%H%M%SZ).json"
+                    cp "$HOLD" "$HOLD_BACKUP"
+                    chmod 600 "$HOLD_BACKUP"
+                    rm -f "$HOLD"
+                    echo "stale_policy_hold_cleared=true"
+                    echo "hold_backup=$HOLD_BACKUP"
+                    ;;
+                  *)
+                    echo "REFUSING: hold reason is not owned by the repaired memory policy: $HOLD_REASON"
+                    exit 44
+                    ;;
+                esac
+              fi
+              echo "DB_SAFETY_GUARD_REPAIR=PASS"
+              ;;
+
             code-red-db-load-restore-audit)
               cd "$REPO"
-              BACKUP="/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup"
-              test -f "$BACKUP" || { echo "REFUSING: code-red crontab backup missing"; exit 42; }
-              echo "== backup metadata =="
-              stat -c 'path=%n owner=%U group=%G mode=%a bytes=%s mtime=%y' "$BACKUP"
-              echo "== backup critical EVR entries =="
-              grep -E 'run_next_scrape_job.py|publish_post_scrape_if_needed.py|post_scrape_publication_watchdog|run_market_explorer_maintained_cache_prewarm|check_market_explorer_maintained_cache_health|market_freshness_watchdog|backend.sentinel.operational|backend.alerts.dispatcher' "$BACKUP" || true
-              echo "== backup counts =="
-              printf 'explorer_prewarm='; grep -c 'run_market_explorer_maintained_cache_prewarm' "$BACKUP" || true
-              printf 'explorer_health='; grep -c 'check_market_explorer_maintained_cache_health' "$BACKUP" || true
-              printf 'scrape_dispatcher='; grep -c 'run_next_scrape_job.py' "$BACKUP" || true
-              printf 'post_scrape_watchdog='; grep -c 'post_scrape_publication_watchdog' "$BACKUP" || true
-              printf 'six_am_publication='; grep -c 'publish_post_scrape_if_needed.py' "$BACKUP" || true
+              CURRENT="/tmp/index-code-red-restore-audit.cron"
+              crontab -l > "$CURRENT"
+              echo "== database safety hold =="
+              if [ -e /home/ubuntu/state/db-safety/hold.json ] || [ -L /home/ubuntu/state/db-safety/hold.json ]; then
+                stat -c 'hold_path=%n owner=%U mode=%a bytes=%s mtime=%y' /home/ubuntu/state/db-safety/hold.json || true
+                python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("/home/ubuntu/state/db-safety/hold.json")
+          try:
+              obj = json.loads(p.read_text(encoding="utf-8"))
+          except Exception as exc:
+              print({"hold_read_error": type(exc).__name__})
+          else:
+              safe = {k: obj.get(k) for k in ("reason", "created_at", "updated_at", "source", "status", "incident", "detail") if k in obj}
+              print({"hold": safe})
+          PY
+              else
+                echo "database_safety_hold=absent"
+              fi
+              echo "== current code-red state =="
+              printf 'disabled_evr_entries='; grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true
+              printf 'bounded_collection_markers='; grep -c '^# INDEX_BOUNDED_COLLECTION_V1$' "$CURRENT" || true
+              printf 'bounded_projection_markers='; grep -c '^# INDEX_BOUNDED_PRICE_PROJECTION_V1$' "$CURRENT" || true
+              printf 'bounded_publication_markers='; grep -c '^# INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1$' "$CURRENT" || true
+              echo "== disabled canonical entries =="
+              grep '^# CODE_RED_DISABLED ' "$CURRENT" | grep -E 'run_next_scrape_job.py|publish_post_scrape_if_needed.py|post_scrape_publication_watchdog|market_freshness_watchdog|backend.sentinel.operational|backend.alerts.dispatcher' || true
+              echo "== pricing schedule =="
+              pricing_cron_report
+              rm -f "$CURRENT"
               echo "CODE_RED_DB_LOAD_RESTORE_AUDIT=PASS"
+              ;;
+
+            code-red-db-load-restore-merge)
+              cd "$REPO"
+              CURRENT="/tmp/index-code-red-merge.current"
+              RESTORED="/tmp/index-code-red-merge.restored"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              test ! -e "$HOLD" && test ! -L "$HOLD" || { echo "REFUSING: database safety hold is active"; exit 43; }
+              crontab -l > "$CURRENT"
+              DISABLED_BEFORE=$(grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true)
+              [ "$DISABLED_BEFORE" -gt 0 ] || { echo "REFUSING: no CODE_RED_DISABLED entries to restore"; exit 44; }
+              sed 's/^# CODE_RED_DISABLED //' "$CURRENT" > "$RESTORED"
+
+              python3 - "$CURRENT" "$RESTORED" <<'PY'
+          import sys
+          from pathlib import Path
+          before = Path(sys.argv[1]).read_text().splitlines()
+          after = Path(sys.argv[2]).read_text().splitlines()
+          if len(before) != len(after):
+              raise SystemExit("line count changed")
+          changed = 0
+          for old, new in zip(before, after):
+              if old.startswith("# CODE_RED_DISABLED "):
+                  if new != old[len("# CODE_RED_DISABLED "):]:
+                      raise SystemExit("invalid restored code-red line")
+                  changed += 1
+              elif old != new:
+                  raise SystemExit("non-code-red crontab line changed")
+          if changed == 0:
+              raise SystemExit("no code-red lines changed")
+          print(f"restored_line_count={changed}")
+          PY
+
+              set -a
+              . backend/.env
+              set +a
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          c.table("pokemon_scrape_batches").select("id").limit(1).execute()
+          print("database_reachable=true")
+          PY
+
+              crontab "$RESTORED"
+              rm -f "$CURRENT" "$RESTORED"
+              DISABLED_AFTER=$(crontab -l | grep -c '^# CODE_RED_DISABLED ' || true)
+              echo "code_red_disabled_before=$DISABLED_BEFORE"
+              echo "code_red_disabled_after=$DISABLED_AFTER"
+              [ "$DISABLED_AFTER" -eq 0 ] || { echo "RESTORE FAILED: disabled entries remain"; exit 45; }
+              echo "== preserved managed/recovery blocks =="
+              crontab -l | grep -E 'BEGIN multi-source-pricing|INDEX_BOUNDED_COLLECTION_V1|INDEX_BOUNDED_PRICE_PROJECTION_V1|INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1' || true
+              echo "== restored canonical jobs =="
+              crontab -l | grep -E 'create_daily_scrape_batch|run_next_scrape_job|publish_post_scrape_if_needed|post_scrape_publication_watchdog|market_freshness_watchdog|backend.sentinel.operational' || true
+              echo "CODE_RED_DB_LOAD_RESTORE_MERGE=PASS"
               ;;
 
             code-red-db-load-restore)
               cd "$REPO"
-              BACKUP="/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup"
-              test -f "$BACKUP" || { echo "REFUSING: code-red crontab backup missing"; exit 42; }
-              crontab "$BACKUP"
-              echo "== restored EVRCalculator cron entries =="
-              crontab -l | grep -F '/home/ubuntu/repos/EVRCalculator' || true
+              CURRENT="/tmp/index-code-red-restore.current"
+              RESTORED="/tmp/index-code-red-restore.restored"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
+
+              test -f "$GUARD" || { echo "REFUSING: database workload guard missing"; exit 43; }
+
+              if [ -e "$HOLD" ] || [ -L "$HOLD" ]; then
+                echo "== validate and clear the explicit recurring-outage hold =="
+                HOLD_REASON=$(python3 -c 'import json; print(json.load(open("/home/ubuntu/state/db-safety/hold.json")).get("reason",""))' 2>/dev/null || true)
+                HOLD_CREATED=$(python3 -c 'import json; print(int(float(json.load(open("/home/ubuntu/state/db-safety/hold.json")).get("created_at",0))))' 2>/dev/null || echo 0)
+                NOW_EPOCH=$(date +%s)
+                HOLD_AGE=$((NOW_EPOCH-HOLD_CREATED))
+                echo "hold_reason=$HOLD_REASON"
+                echo "hold_age_seconds=$HOLD_AGE"
+                [ "$HOLD_REASON" = "recurring_database_outage_manual_clear_required" ] || { echo "REFUSING: unknown database hold reason"; exit 42; }
+                [ "$HOLD_AGE" -ge 21600 ] || { echo "REFUSING: outage hold is younger than six hours"; exit 42; }
+
+                for probe in 1 2 3; do
+                  "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          rows = c.table("pokemon_scrape_batches").select("id,market_date,status").order("market_date", desc=True).limit(1).execute().data or []
+          if not rows:
+              raise SystemExit("database probe returned no scrape-batch authority")
+          print("db_probe_latest_batch=" + str(rows[0]))
+          PY
+                  echo "db_probe_${probe}=pass"
+                  sleep 2
+                done
+
+                HOLD_BACKUP="/home/ubuntu/ops-backups/hold.recurring-outage.$(date -u +%Y%m%dT%H%M%SZ).json"
+                mkdir -p /home/ubuntu/ops-backups
+                cp "$HOLD" "$HOLD_BACKUP"
+                chmod 600 "$HOLD_BACKUP"
+                rm -f "$HOLD"
+                echo "database_safety_hold_cleared=true"
+                echo "hold_backup=$HOLD_BACKUP"
+              fi
+
+              crontab -l > "$CURRENT"
+              DISABLED=$(grep -c '^# CODE_RED_DISABLED ' "$CURRENT" || true)
+              echo "code_red_disabled_entries_before=$DISABLED"
+
+              if [ "$DISABLED" -gt 0 ]; then
+                python3 - "$CURRENT" "$RESTORED" <<'PY'
+          import sys
+          from pathlib import Path
+
+          source = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+          skip_headers = {
+              "# INDEX_BOUNDED_COLLECTION_V1",
+              "# INDEX_BOUNDED_PRICE_PROJECTION_V1",
+              "# INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1",
+          }
+          out = []
+          skipping = False
+          for line in source:
+              if line.strip() in skip_headers:
+                  skipping = True
+                  continue
+              if skipping:
+                  if not line.strip():
+                      skipping = False
+                      out.append("")
+                  continue
+              prefix = "# CODE_RED_DISABLED "
+              if line.startswith(prefix):
+                  line = line[len(prefix):]
+              out.append(line)
+          Path(sys.argv[2]).write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+          PY
+                crontab "$RESTORED"
+              else
+                echo "code-red workload entries already restored; validating current scheduler"
+              fi
+
+              echo "== ensure managed eBay pricing schedule exists =="
+              timeout 600 bash infra/oracle/install_multi_source_pricing_cron.sh --apply
+
+              echo "== restored scheduler proof =="
+              ACTIVE="$(crontab -l)"
+              grep -F 'run_next_scrape_job.py' <<<"$ACTIVE" >/dev/null || { echo "FAIL: scrape dispatcher missing"; exit 50; }
+              grep -F 'publish_post_scrape_if_needed.py' <<<"$ACTIVE" >/dev/null || { echo "FAIL: 06:00 publication fallback missing"; exit 51; }
+              grep -F 'post_scrape_publication_watchdog' <<<"$ACTIVE" >/dev/null || { echo "FAIL: publication watchdog missing"; exit 52; }
+              grep -F 'backend.alerts.market_freshness_watchdog' <<<"$ACTIVE" >/dev/null || { echo "FAIL: market freshness watchdog missing"; exit 53; }
+              grep -F 'backend.sentinel.operational --profile fast' <<<"$ACTIVE" >/dev/null || { echo "FAIL: Sentinel fast schedule missing"; exit 54; }
+              grep -F 'backend.sentinel.operational --profile public' <<<"$ACTIVE" >/dev/null || { echo "FAIL: Sentinel public schedule missing"; exit 55; }
+              grep -F 'backend.alerts.dispatcher' <<<"$ACTIVE" >/dev/null || { echo "FAIL: alert dispatcher missing"; exit 56; }
+              ! grep -q '^# CODE_RED_DISABLED ' <<<"$ACTIVE" || { echo "FAIL: code-red disabled entries remain"; exit 57; }
+              ! grep -q '^# INDEX_BOUNDED_COLLECTION_V1$\|^# INDEX_BOUNDED_PRICE_PROJECTION_V1$\|^# INDEX_SOURCE_GATED_MARKET_PUBLICATION_V1$' <<<"$ACTIVE" || { echo "FAIL: emergency bounded recovery entries remain"; exit 58; }
+
+              REPORT=$(pricing_cron_report)
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "FAIL: managed pricing block missing"; exit 59; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT" || { echo "FAIL: pricing run entries != 2"; exit 59; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT" || { echo "FAIL: pricing health entry != 1"; exit 59; }
+
+              rm -f "$CURRENT" "$RESTORED"
               echo "CODE_RED_DB_LOAD_RESTORE=PASS"
+              ;;
+
+            sentinel-status)
+              cd "$REPO"
+              echo "== Sentinel runtime status =="
+              echo "branch=$(git branch --show-current)"
+              echo "head=$(git rev-parse HEAD)"
+              echo "origin_main=$(git rev-parse origin/main 2>/dev/null || true)"
+              echo "safety_hold=$([ -e /home/ubuntu/state/db-safety/hold.json ] || [ -L /home/ubuntu/state/db-safety/hold.json ] && echo active || echo clear)"
+              for key in SENTINEL_STATE_WRITES_ENABLED SENTINEL_PERSISTENCE_SCHEMA_READY SENTINEL_RECOVERY_ENABLED SENTINEL_RECOVERY_EXECUTION_READY SENTINEL_COMPONENT SENTINEL_WATCH_HOST; do
+                value=$(grep "^$key=" backend/.env 2>/dev/null | tail -1 | cut -d= -f2- || true)
+                if [ -z "$value" ]; then echo "$key=absent"; else echo "$key=$value"; fi
+              done
+              if grep -q '^SENTINEL_BACKEND_BASE_URL=.' backend/.env 2>/dev/null; then echo "SENTINEL_BACKEND_BASE_URL=present"; else echo "SENTINEL_BACKEND_BASE_URL=absent"; fi
+              echo "== registered fast checks =="
+              "$PY" -m backend.sentinel.operational --profile fast --list-checks
+              echo "== persisted heartbeat =="
+              "$PY" - <<'PY'
+          import json
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          hb = c.table("sentinel_component_heartbeats").select(
+              "component,host,build_sha,heartbeat_at,metadata"
+          ).order("heartbeat_at", desc=True).limit(3).execute().data or []
+          print(json.dumps(hb, default=str, sort_keys=True))
+          PY
+              echo "== schedule probes =="
+              crontab -l 2>/dev/null | grep -E 'backend.sentinel.operational|BEGIN multi-source-pricing|BEGIN market-explorer-prewarm' || true
+              ;;
+
+            sentinel-audit-now)
+              cd "$REPO"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production checkout is not main"; exit 20; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold is active"; exit 21; }
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "REFUSING: production HEAD is not canonical origin/main"; exit 23; }
+
+              echo "== execute one canonical heavy Sentinel audit pass =="
+              set -a
+              . backend/.env
+              set +a
+              set +e
+              SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" \
+              SENTINEL_RECOVERY_ENABLED=false \
+              SENTINEL_RECOVERY_EXECUTION_READY=false \
+              /usr/bin/flock -n --conflict-exit-code 99 /tmp/index-sentinel-audit.lock \
+                "$PY" -m backend.sentinel.operational --profile audit
+              RC=$?
+              set -e
+              echo "sentinel_audit_exit=$RC"
+              if [ "$RC" -eq 99 ]; then
+                echo "SENTINEL_AUDIT_NOW=SKIPPED_LOCK_HELD"
+                exit 0
+              fi
+              [ "$RC" -eq 0 ] || exit "$RC"
+              echo "SENTINEL_AUDIT_NOW=PASS"
+              ;;
+
+            sentinel-enable-recovery)
+              cd "$REPO"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              [ "$(git branch --show-current)" = "main" ] || { echo "REFUSING: production checkout is not main"; exit 20; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold is active"; exit 21; }
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 22; }
+              [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "REFUSING: production HEAD is not canonical origin/main"; exit 23; }
+
+              echo "== Sentinel schema + runtime gates =="
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          required = (
+              "sentinel_check_state",
+              "sentinel_incidents",
+              "sentinel_recovery_attempts",
+              "sentinel_component_heartbeats",
+          )
+          for table in required:
+              c.table(table).select("*").limit(1).execute()
+          print("sentinel_schema_readable=true")
+          PY
+              "$PY" -m backend.sentinel.operational --profile fast --list-checks >/tmp/sentinel-fast-checks.json
+              grep -q '"pricing.ebay.scheduler"' /tmp/sentinel-fast-checks.json || { echo "REFUSING: new pricing scheduler check missing"; exit 24; }
+              grep -q '"market_explorer.maintenance_scheduler"' /tmp/sentinel-fast-checks.json || { echo "REFUSING: new Explorer scheduler check missing"; exit 24; }
+
+              echo "== atomically enable recovery gates =="
+              "$PY" - <<'PY'
+          import os
+          import pwd
+          import re
+          import tempfile
+
+          path = "/home/ubuntu/repos/EVRCalculator/backend/.env"
+          keys = {
+              "SENTINEL_STATE_WRITES_ENABLED": "true",
+              "SENTINEL_PERSISTENCE_SCHEMA_READY": "true",
+              "SENTINEL_RECOVERY_ENABLED": "true",
+              "SENTINEL_RECOVERY_EXECUTION_READY": "true",
+              "SENTINEL_COMPONENT": "sentinel_vm",
+              "SENTINEL_WATCH_HOST": "tcgplayer-scraper-pokemon-v2",
+              "SENTINEL_BACKEND_BASE_URL": "https://evrcalculator.onrender.com",
+          }
+          with open(path, "rb") as handle:
+              original = handle.read()
+          st = os.stat(path)
+          owner = pwd.getpwuid(st.st_uid).pw_name
+          if owner != "ubuntu":
+              raise SystemExit("REFUSING: backend/.env owner is not ubuntu")
+          text = original.decode("utf-8")
+          for key, value in keys.items():
+              pattern = re.compile(rf"(?m)^\s*(?:export\s+)?{re.escape(key)}=.*$")
+              replacement = f"{key}={value}"
+              if pattern.search(text):
+                  text = pattern.sub(replacement, text)
+              else:
+                  if text and not text.endswith("\n"):
+                      text += "\n"
+                  text += replacement + "\n"
+          fd, tmp = tempfile.mkstemp(prefix=".env.sentinel.", dir=os.path.dirname(path))
+          try:
+              with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                  handle.write(text)
+                  handle.flush()
+                  os.fsync(handle.fileno())
+              os.chmod(tmp, st.st_mode & 0o7777)
+              if os.stat(tmp).st_uid != st.st_uid or os.stat(tmp).st_gid != st.st_gid:
+                  os.chown(tmp, st.st_uid, st.st_gid)
+              os.replace(tmp, path)
+          finally:
+              try:
+                  os.unlink(tmp)
+              except FileNotFoundError:
+                  pass
+          print("sentinel_recovery_gates_written=true")
+          PY
+
+              echo "== execute Fast profile twice (confirmation then recovery) =="
+              set -a
+              . backend/.env
+              set +a
+              set +e
+              SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" "$PY" -m backend.sentinel.operational --profile fast >/tmp/sentinel-fast-1.json
+              RC1=$?
+              SENTINEL_RUNNER_BUILD_SHA="$(git rev-parse HEAD)" "$PY" -m backend.sentinel.operational --profile fast >/tmp/sentinel-fast-2.json
+              RC2=$?
+              set -e
+              echo "fast_run_1_exit=$RC1"
+              echo "fast_run_2_exit=$RC2"
+              "$PY" - <<'PY'
+          import json
+          for path in ("/tmp/sentinel-fast-1.json", "/tmp/sentinel-fast-2.json"):
+              with open(path, encoding="utf-8") as handle:
+                  payload = json.load(handle)
+              print(json.dumps({
+                  "status": payload.get("status"),
+                  "healthy": payload.get("healthy"),
+                  "recovery": payload.get("recovery"),
+                  "failedChecks": [
+                      r.get("check", {}).get("check_key")
+                      for r in payload.get("results", [])
+                      if r.get("check", {}).get("outcome") != "healthy"
+                  ],
+              }, sort_keys=True))
+          PY
+
+              echo "== prove recovery is enabled in persisted heartbeat =="
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c = create_service_role_client()
+          rows = c.table("sentinel_component_heartbeats").select(
+              "component,host,build_sha,heartbeat_at,metadata"
+          ).eq("component","sentinel_vm").eq("host","tcgplayer-scraper-pokemon-v2").order(
+              "heartbeat_at", desc=True
+          ).limit(1).execute().data or []
+          if not rows:
+              raise SystemExit("Sentinel heartbeat missing after activation")
+          row = rows[0]
+          metadata = row.get("metadata") or {}
+          print({
+              "heartbeat_at": row.get("heartbeat_at"),
+              "build_sha": row.get("build_sha"),
+              "recovery_enabled": metadata.get("recovery_enabled"),
+              "check_count": metadata.get("check_count"),
+          })
+          if metadata.get("recovery_enabled") is not True:
+              raise SystemExit("Sentinel heartbeat does not prove recovery_enabled=true")
+          PY
+              echo "SENTINEL_RECOVERY_ENABLE=PASS"
               ;;
 
             status)
@@ -1786,6 +2710,54 @@ jobs:
               uname -m
               free -h
               df -h /
+              echo "== db workload guard memory policy =="
+              if [ -f /home/ubuntu/state/db-safety/db_workload_guard.py ]; then
+                grep -nE 'Mem(Free|Available)|available_memory|memory|25|0\.25|metrics|prometheus|node_exporter|localhost|127\.0\.0\.1' /home/ubuntu/state/db-safety/db_workload_guard.py | head -160 || true
+                echo "-- memory policy implementation --"
+                sed -n '45,110p' /home/ubuntu/state/db-safety/db_workload_guard.py || true
+                echo "-- workload guard execution policy --"
+                sed -n '110,285p' /home/ubuntu/state/db-safety/db_workload_guard.py || true
+                echo "-- current Supabase memory ratios (safe aggregate only) --"
+                "$PY" - <<'PY'
+          import base64
+          import importlib.util
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from dotenv import dotenv_values
+
+          guard_path = Path("/home/ubuntu/state/db-safety/db_workload_guard.py")
+          spec = importlib.util.spec_from_file_location("db_workload_guard_status", guard_path)
+          guard = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+          config = dotenv_values(Path("/home/ubuntu/repos/EVRCalculator/backend/.env"), interpolate=False)
+          key = config.get("SUPABASE_SERVICE_ROLE_KEY")
+          if not key:
+              raise SystemExit("service-role metric credential unavailable")
+          auth = base64.b64encode(("service_role:" + key).encode()).decode()
+          req = Request(
+              "https://" + guard.PROJECT + ".supabase.co/customer/v1/privileged/metrics",
+              headers={"Authorization": "Basic " + auth},
+          )
+          with urlopen(req, timeout=6) as response:
+              metrics = guard.parse_metrics(response.read(2_000_000).decode())
+          total = metrics["node_memory_MemTotal_bytes"]
+          available = metrics["node_memory_MemAvailable_bytes"]
+          committed = metrics["node_memory_Committed_AS_bytes"]
+          commit_limit = metrics["node_memory_CommitLimit_bytes"]
+          print("supabase_mem_total_gib=%.3f" % (total / 1024**3))
+          print("supabase_mem_available_gib=%.3f" % (available / 1024**3))
+          print("supabase_mem_available_pct=%.2f" % (100 * available / total))
+          swap_total = metrics["node_memory_SwapTotal_bytes"]
+          swap_free = metrics["node_memory_SwapFree_bytes"]
+          swap_used = max(0.0, swap_total - swap_free)
+          print("supabase_commit_pct=%.2f" % (100 * committed / commit_limit))
+          print("supabase_swap_total_gib=%.3f" % (swap_total / 1024**3))
+          print("supabase_swap_used_gib=%.3f" % (swap_used / 1024**3))
+          print("supabase_swap_used_pct=%.2f" % (100 * swap_used / swap_total if swap_total else 0.0))
+          PY
+              else
+                echo "db_workload_guard.py missing"
+              fi
               ;;
 
             market-vintage-db-migrate)
@@ -2415,6 +3387,7 @@ jobs:
               "$PY" -m pytest \
                 backend/tests/unit/db/services/test_market_explorer_direct_publisher.py \
                 backend/tests/unit/scripts/test_run_market_explorer_maintained_cache_prewarm.py \
+              backend/tests/unit/scripts/test_run_market_explorer_convergence.py \
                 -q
               ;;
 
@@ -2929,14 +3902,29 @@ jobs:
 
             market-explorer-v2-repair)
               cd "$REPO"
+              TARGET_DATE="${VM_MARKET_DATE:-2026-09-20}"
               echo "== V2 repair preflight =="
+              echo "target_market_date=$TARGET_DATE"
               git status --short
               git log -3 --oneline
               "$PY" -m backend.scripts.run_market_explorer_daily_publication \
                 --commit \
-                --market-date 2026-09-20
+                --market-date "$TARGET_DATE"
               echo "== V2 repair complete =="
-              "$PY" -c 'from backend.db.clients.supabase_client import create_service_role_client; from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids; c=create_service_role_client(); tracked=set(resolve_tracked_set_ids(c)); cov=list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").execute().data or []); by={str(r.get("set_id")):str(r.get("computed_through") or "")[:10] for r in cov if r.get("set_id")}; missing=sorted(tracked-set(by)); stale=sorted(s for s in tracked if by.get(s,"")<"2026-09-20"); print({"tracked":len(tracked),"coverageRows":len(cov),"missing":len(missing),"stale":len(stale),"minThrough":min((by.get(s,"") for s in tracked),default=None),"maxThrough":max((by.get(s,"") for s in tracked),default=None)}); raise SystemExit(0 if not missing and not stale else 7)'
+              TARGET_DATE="$TARGET_DATE" "$PY" - <<'PY'
+          import os
+          from backend.db.clients.supabase_client import create_service_role_client
+          from backend.db.services.pokemon_market_explorer_query_service import resolve_tracked_set_ids
+          target = os.environ["TARGET_DATE"][:10]
+          c = create_service_role_client()
+          tracked = set(resolve_tracked_set_ids(c))
+          cov = list(c.table("pokemon_market_explorer_card_daily_coverage_v2_shadow").select("set_id,computed_through").execute().data or [])
+          by = {str(r.get("set_id")): str(r.get("computed_through") or "")[:10] for r in cov if r.get("set_id")}
+          missing = sorted(tracked - set(by))
+          stale = sorted(s for s in tracked if by.get(s, "") < target)
+          print({"target":target,"tracked":len(tracked),"coverageRows":len(cov),"missing":len(missing),"stale":len(stale),"minThrough":min((by.get(s,"") for s in tracked),default=None),"maxThrough":max((by.get(s,"") for s in tracked),default=None)})
+          raise SystemExit(0 if not missing and not stale else 7)
+          PY
               ;;
 
             market-explorer-coverage-rpc-cutover)
@@ -3084,6 +4072,55 @@ jobs:
           PY
               echo "WAIT_SYNC_MAIN_AFTER_PUBLICATION=PASS"
               ;;
+            sync-main-reviewed)
+              cd "$REPO"
+              echo "== reviewed canonical main sync =="
+              echo "request_id=$VM_REQUEST_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: database safety hold is active"; exit 20; }
+              PRE_BRANCH="$(git branch --show-current)"
+              if [ -n "$PRE_BRANCH" ] && [ "$PRE_BRANCH" != "main" ]; then
+                echo "REFUSING: production checkout is on unexpected branch $PRE_BRANCH"
+                exit 21
+              fi
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+                echo "REFUSING: tracked modifications exist"
+                git status --short --untracked-files=no
+                exit 22
+              fi
+
+              exec {PUB_FD}>/tmp/pokemon-post-scrape-publication.lock
+              flock -w 180 "$PUB_FD" || { echo "REFUSING: publication lock remained held"; exit 23; }
+              exec {SCRAPE_FD}>/tmp/pokemon-scrape-dispatcher.lock
+              flock -w 120 "$SCRAPE_FD" || { echo "REFUSING: scrape dispatcher lock remained held"; exit 24; }
+
+              git fetch origin main --quiet || { echo "REFUSING: fetch origin/main failed"; exit 25; }
+              PRE_HEAD="$(git rev-parse HEAD)"
+              TARGET_HEAD="$(git rev-parse origin/main)"
+              echo "pre_sync_head=$PRE_HEAD"
+              echo "target_origin_main=$TARGET_HEAD"
+              git switch -C main origin/main
+              [ "$(git rev-parse HEAD)" = "$TARGET_HEAD" ] || { echo "FAIL: HEAD did not reach origin/main"; exit 26; }
+
+              # Runtime contracts that must survive every production sync.
+              pricing_runtime_present || { echo "FAIL: pricing runtime missing after sync"; exit 27; }
+              pricing_credentials_probe || { echo "FAIL: pricing credentials unavailable after sync"; exit 28; }
+              REPORT="$(pricing_cron_report)"
+              echo "$REPORT"
+              grep -qx 'managed_blocks=1' <<<"$REPORT" || { echo "FAIL: managed eBay pricing cron missing"; exit 29; }
+              grep -qx 'managed_run_entries=2' <<<"$REPORT" || { echo "FAIL: eBay pricing run entries != 2"; exit 29; }
+              grep -qx 'managed_health_entries=1' <<<"$REPORT" || { echo "FAIL: eBay pricing health entry != 1"; exit 29; }
+
+              CHECKS="$("$PY" -m backend.sentinel.operational --profile fast --list-checks)"
+              grep -q '"pricing.ebay.scheduler"' <<<"$CHECKS" || { echo "FAIL: merged Sentinel pricing scheduler check missing"; exit 30; }
+              grep -q '"market_explorer.maintenance_scheduler"' <<<"$CHECKS" || { echo "FAIL: merged Sentinel Explorer scheduler check missing"; exit 30; }
+
+              echo "post_sync_head=$(git rev-parse HEAD)"
+              flock -u "$SCRAPE_FD"; exec {SCRAPE_FD}>&-
+              flock -u "$PUB_FD"; exec {PUB_FD}>&-
+              echo "SYNC_MAIN_REVIEWED=PASS"
+              ;;
+
             sync-main)
               cd "$REPO"
               if [ -n "$(git status --porcelain)" ]; then
@@ -3372,6 +4409,12 @@ jobs:
               echo "== repair command complete =="
               ;;
 
+            sealed-market-snapshots-all)
+              cd "$REPO"
+              echo "== rebuild all sealed market snapshots sequentially =="
+              "$PY" backend/scripts/build_pokemon_set_sealed_market_snapshots.py --all --commit
+              ;;
+
             set-market-snapshot)
               cd "$REPO"
               "$PY" backend/scripts/build_pokemon_explore_set_value_snapshot.py \
@@ -3508,6 +4551,35 @@ jobs:
               echo "post_sync_head=$(git rev-parse HEAD)"
               echo "pricing_runtime_files_present=true"
               echo "PRICING_MAIN_SYNC=PASS"
+              ;;
+
+            pkmnprices-migration-scaffold)
+              # READ ONLY with respect to repo/DB: generate a canonical migration
+              # filename in a throwaway Supabase project after discovering CLI syntax.
+              TMP="$(mktemp -d /tmp/pkmnprices-migration-scaffold.XXXXXX)"
+              trap 'rm -rf "$TMP"' EXIT
+              if command -v supabase >/dev/null 2>&1; then
+                SB="$(command -v supabase)"
+              elif command -v npx >/dev/null 2>&1; then
+                SB="npx --yes supabase"
+              else
+                echo "PKMNPRICES_MIGRATION_SCAFFOLD=FAIL no_supabase_cli"
+                exit 20
+              fi
+              echo "== supabase command discovery =="
+              $SB --version
+              $SB --help >/tmp/pkmnprices-supabase-help.txt
+              $SB migration --help >/tmp/pkmnprices-supabase-migration-help.txt
+              $SB migration new --help >/tmp/pkmnprices-supabase-migration-new-help.txt
+              grep -q 'migration' /tmp/pkmnprices-supabase-help.txt
+              grep -q 'new' /tmp/pkmnprices-supabase-migration-help.txt
+              cd "$TMP"
+              mkdir -p supabase/migrations
+              $SB migration new pkmnprices_sold_evidence_v1 >/tmp/pkmnprices-migration-new.out
+              FILE="$(find "$TMP/supabase/migrations" -maxdepth 1 -type f -name '*_pkmnprices_sold_evidence_v1.sql' -printf '%f\n' | head -1)"
+              test -n "$FILE" || { echo "PKMNPRICES_MIGRATION_SCAFFOLD=FAIL no_file"; exit 21; }
+              echo "pkmnprices_migration_filename=$FILE"
+              echo "PKMNPRICES_MIGRATION_SCAFFOLD=PASS"
               ;;
 
             pricing-status)
@@ -3930,8 +5002,899 @@ jobs:
               if grep -qx 'runtime_provenance_configured=false' <<<"$PROV"; then echo "RUNTIME_PROVENANCE_PROFILE_NOT_CONFIGURED"; fi
               ;;
 
+            treatment-set-relative-v2-estimate)
+              set -euo pipefail
+              RESEARCH_SHA="1b3816bc4f18ca46bb31573bd9b4bab9b094262a"
+              RESEARCH_BRANCH="research/treatment-panel-recovery-v2-current-20261001"
+              CAPTURE_ARTIFACT_ID="11260560244"
+              CAPTURE_ARTIFACT_SHA256="a47a4ca4c5814b1318df89eb63fedae61dd2f15f34d4024116d539cb9587abbd"
+              PRIOR_ARTIFACT_ID="11211877714"
+              PRIOR_ARTIFACT_SHA256="f38d7ac419cc7ac4272c813636d42fbf4254834eb3345be4f346c8e136e41a64"
+              TARGET_FINGERPRINT="28b344ca8ea95ba8fbc9fa947cdb28a1a3d83408482572084ee83e1cf992563d"
+              WT="/tmp/EVRCalculator-treatment-set-relative-v2-estimate-$GITHUB_RUN_ID"
+              OUT="/tmp/treatment-set-relative-v2-estimate-$GITHUB_RUN_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              ENV_REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$ENV_REPO/.venv/bin/python"
+
+              cleanup_treatment_v2_estimate() {
+                if [ -e "$WT" ]; then
+                  git -C "$ENV_REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+                fi
+                git -C "$ENV_REPO" worktree prune >/dev/null 2>&1 || true
+              }
+              trap cleanup_treatment_v2_estimate EXIT
+
+              [ -x "$PY" ] || { echo "TREATMENT_V2_ESTIMATE_PYTHON_MISSING"; exit 2; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "TREATMENT_V2_ESTIMATE_DB_SAFETY_HOLD"; exit 75; }
+
+              cd "$ENV_REPO"
+              git fetch origin "$RESEARCH_BRANCH" --quiet
+              git cat-file -e "$RESEARCH_SHA^{commit}"
+              [ "$(git rev-parse "origin/$RESEARCH_BRANCH")" = "$RESEARCH_SHA" ] || {
+                echo "TREATMENT_V2_ESTIMATE_RESEARCH_SHA_DRIFT_REFUSED"
+                exit 20
+              }
+
+              rm -rf "$OUT"
+              mkdir -p "$OUT/capture" "$OUT/prior"
+              cleanup_treatment_v2_estimate
+              git worktree add --detach "$WT" "$RESEARCH_SHA" >/dev/null
+              [ "$(git -C "$WT" rev-parse HEAD)" = "$RESEARCH_SHA" ] || exit 21
+
+              set -a
+              . "$ENV_REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+
+              echo "== estimator unit tests =="
+              (cd "$WT" && "$PY" -m pytest -q backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py)
+
+              echo "== fetch and verify frozen capture artifact =="
+              CAPTURE_ZIP="$OUT/capture.zip"
+              curl -fsSL                 -H "Authorization: Bearer $VM_GITHUB_TOKEN"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$CAPTURE_ARTIFACT_ID/zip"                 -o "$CAPTURE_ZIP"
+
+              CAPTURE_ZIP="$CAPTURE_ZIP" CAPTURE_SHA="$CAPTURE_ARTIFACT_SHA256" CAPTURE_OUT="$OUT/capture" "$PY" - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          z=pathlib.Path(os.environ["CAPTURE_ZIP"])
+          digest=hashlib.sha256(z.read_bytes()).hexdigest()
+          if digest != os.environ["CAPTURE_SHA"]:
+              raise SystemExit(f"CAPTURE_ARTIFACT_DIGEST_MISMATCH got={digest}")
+          out=pathlib.Path(os.environ["CAPTURE_OUT"])
+          with zipfile.ZipFile(z) as archive:
+              archive.extractall(out)
+          if not (out/"capture.json").is_file():
+              raise SystemExit("CAPTURE_JSON_MISSING")
+          print(f"CAPTURE_ARTIFACT_VERIFIED sha256={digest}")
+          PY
+
+              CAPTURE_JSON="$OUT/capture/capture.json" TARGET_FINGERPRINT="$TARGET_FINGERPRINT" "$PY" - <<'PY'
+          import json, os
+          p=json.load(open(os.environ["CAPTURE_JSON"],encoding="utf-8"))
+          assert p["production_writes"] == 0
+          assert p["target"]["fingerprint"] == os.environ["TARGET_FINGERPRINT"]
+          assert p["coverage"]["coverage_pass"] is True
+          assert p["coverage"]["ready_triads"] == 50
+          assert p["coverage"]["fresh_cards_returned"] == 162
+          print(
+              "FROZEN_CAPTURE_RECEIPT=PASS "
+              f"credits_used={p['credits_used']} provider_calls={p['provider_calls']} "
+              f"history_ready_triads={p['coverage']['ready_triads']}"
+          )
+          PY
+
+              echo "== fetch and verify prior independent panel =="
+              PRIOR_ZIP="$OUT/prior.zip"
+              curl -fsSL                 -H "Authorization: Bearer $VM_GITHUB_TOKEN"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$PRIOR_ARTIFACT_ID/zip"                 -o "$PRIOR_ZIP"
+
+              PRIOR_ZIP="$PRIOR_ZIP" PRIOR_SHA="$PRIOR_ARTIFACT_SHA256" PRIOR_OUT="$OUT/prior" "$PY" - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          z=pathlib.Path(os.environ["PRIOR_ZIP"])
+          digest=hashlib.sha256(z.read_bytes()).hexdigest()
+          if digest != os.environ["PRIOR_SHA"]:
+              raise SystemExit(f"PRIOR_ARTIFACT_DIGEST_MISMATCH got={digest}")
+          out=pathlib.Path(os.environ["PRIOR_OUT"])
+          with zipfile.ZipFile(z) as archive:
+              archive.extractall(out)
+          if not (out/"panel.json").is_file():
+              raise SystemExit("PRIOR_PANEL_MISSING")
+          print(f"PRIOR_PANEL_VERIFIED sha256={digest}")
+          PY
+
+              echo "== fit preregistered Set-relative Treatment V2 from frozen artifacts =="
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_hierarchy_v2.py                 --prior-panel "$OUT/prior/panel.json"                 --fresh-panel "$OUT/capture/capture.json"                 --output "$OUT/result.json"                 --report "$OUT/FINAL_REPORT.md")
+
+              echo "== final Treatment V2 report =="
+              cat "$OUT/FINAL_REPORT.md"
+              echo "TREATMENT_SET_RELATIVE_V2_ESTIMATE=PASS provider_calls=0 production_writes=0"
+              ;;
+
+            treatment-set-relative-v2)
+              set -euo pipefail
+              RESEARCH_SHA="4fcded68a59aebee95eeb5a0e7c002f76f1858e3"
+              RESEARCH_BRANCH="research/treatment-panel-recovery-v2-current-20261001"
+              TARGET_FINGERPRINT="28b344ca8ea95ba8fbc9fa947cdb28a1a3d83408482572084ee83e1cf992563d"
+              PRIOR_ARTIFACT_ID="11211877714"
+              PRIOR_ARTIFACT_SHA256="f38d7ac419cc7ac4272c813636d42fbf4254834eb3345be4f346c8e136e41a64"
+              WT="/tmp/EVRCalculator-treatment-set-relative-v2-$GITHUB_RUN_ID"
+              OUT="/tmp/treatment-set-relative-v2-$GITHUB_RUN_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              ENV_REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$ENV_REPO/.venv/bin/python"
+
+              cleanup_treatment_v2() {
+                if [ -e "$WT" ]; then
+                  git -C "$ENV_REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+                fi
+                git -C "$ENV_REPO" worktree prune >/dev/null 2>&1 || true
+              }
+              trap cleanup_treatment_v2 EXIT
+
+              [ -x "$PY" ] || { echo "TREATMENT_V2_PYTHON_MISSING"; exit 2; }
+              [ "$(date -u +%F)" = "2026-10-03" ] || { echo "TREATMENT_V2_WRONG_CREDIT_DAY"; exit 76; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "TREATMENT_V2_DB_SAFETY_HOLD"; exit 75; }
+
+              cd "$ENV_REPO"
+              git fetch origin "$RESEARCH_BRANCH" --quiet
+              git cat-file -e "$RESEARCH_SHA^{commit}"
+              [ "$(git rev-parse "origin/$RESEARCH_BRANCH")" = "$RESEARCH_SHA" ] || {
+                echo "TREATMENT_V2_RESEARCH_SHA_DRIFT_REFUSED"
+                exit 20
+              }
+
+              rm -rf "$OUT"
+              mkdir -p "$OUT"
+              cleanup_treatment_v2
+              git worktree add --detach "$WT" "$RESEARCH_SHA" >/dev/null
+              [ "$(git -C "$WT" rev-parse HEAD)" = "$RESEARCH_SHA" ] || exit 21
+
+              set -a
+              . "$ENV_REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+
+              echo "== estimator unit tests =="
+              (cd "$WT" && "$PY" -m pytest -q backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py)
+
+              echo "== frozen zero-provider preflight =="
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py                 --market-date 2026-09-29                 --period 180d                 --output "$OUT/preflight.json")
+
+              TREATMENT_PREFLIGHT="$OUT/preflight.json" TARGET_FINGERPRINT="$TARGET_FINGERPRINT" "$PY" - <<'PY'
+          import json, os
+          p=json.load(open(os.environ["TREATMENT_PREFLIGHT"],encoding="utf-8"))
+          t=p["target"]
+          assert p["status"]=="PREFLIGHT_OK"
+          assert p["production_writes"]==0
+          assert t["triad_count"]==56
+          assert t["card_count"]==168
+          assert t["fingerprint"]==os.environ["TARGET_FINGERPRINT"]
+          print("TREATMENT_V2_FROZEN_PREFLIGHT=PASS provider_calls=0 production_writes=0")
+          PY
+
+              echo "== reserve shared provider window =="
+              exec 6>/tmp/active-supply-panel.lock
+              /usr/bin/flock -w 600 6 || { echo "TREATMENT_V2_ACTIVE_SUPPLY_LOCK_TIMEOUT"; exit 75; }
+
+              /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c true || {
+                echo "TREATMENT_V2_SCRAPE_DISPATCHER_BUSY"; exit 75;
+              }
+
+              exec 8>/tmp/pkmnprices-api.lock
+              /usr/bin/flock -w 600 8 || { echo "TREATMENT_V2_PROVIDER_LOCK_TIMEOUT"; exit 75; }
+
+              exec 9>/tmp/pokemon-post-scrape-publication.lock
+              /usr/bin/flock -n 9 || { echo "TREATMENT_V2_HEAVY_PUBLISHER_BUSY"; exit 75; }
+
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "TREATMENT_V2_DB_SAFETY_HOLD_AFTER_LOCK"; exit 75; }
+              echo "TREATMENT_V2_PROVIDER_WINDOW=RESERVED credit_day=$(date -u +%F)"
+
+              set +e
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py                 --market-date 2026-09-29                 --period 180d                 --credit-cap 22000                 --capture                 --capture-authorization SET_RELATIVE_V2_FROZEN_CAPTURE_20261002                 --output "$OUT/capture.json")
+              CAPTURE_CODE=$?
+              set -e
+
+              /usr/bin/flock -u 9 || true
+              /usr/bin/flock -u 8 || true
+              /usr/bin/flock -u 6 || true
+
+              if [ "$CAPTURE_CODE" -ne 0 ]; then
+                echo "TREATMENT_V2_CAPTURE_EXIT_CODE=$CAPTURE_CODE"
+                exit "$CAPTURE_CODE"
+              fi
+
+              echo "== fetch frozen prior independent panel =="
+              PRIOR_ZIP="$OUT/prior.zip"
+              curl -fsSL                 -H "Authorization: Bearer $VM_GITHUB_TOKEN"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$PRIOR_ARTIFACT_ID/zip"                 -o "$PRIOR_ZIP"
+
+              PRIOR_ZIP="$PRIOR_ZIP" PRIOR_SHA="$PRIOR_ARTIFACT_SHA256" PRIOR_OUT="$OUT/prior" "$PY" - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          z=pathlib.Path(os.environ["PRIOR_ZIP"])
+          digest=hashlib.sha256(z.read_bytes()).hexdigest()
+          if digest != os.environ["PRIOR_SHA"]:
+              raise SystemExit(f"PRIOR_ARTIFACT_DIGEST_MISMATCH got={digest}")
+          out=pathlib.Path(os.environ["PRIOR_OUT"])
+          out.mkdir(parents=True,exist_ok=True)
+          with zipfile.ZipFile(z) as archive:
+              archive.extractall(out)
+          panel=out/"panel.json"
+          if not panel.is_file():
+              raise SystemExit("PRIOR_PANEL_MISSING")
+          print(f"PRIOR_PANEL_VERIFIED sha256={digest}")
+          PY
+
+              echo "== fit preregistered Set-relative Treatment V2 =="
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_hierarchy_v2.py                 --prior-panel "$OUT/prior/panel.json"                 --fresh-panel "$OUT/capture.json"                 --output "$OUT/result.json"                 --report "$OUT/FINAL_REPORT.md")
+
+              echo "== final Treatment V2 report =="
+              cat "$OUT/FINAL_REPORT.md"
+              echo "TREATMENT_SET_RELATIVE_V2=PASS"
+              ;;
+
+            treatment-panel-recovery-v2)
+              set -euo pipefail
+              RESEARCH_SHA="33445b6b12b5c168361ffc1a82beb72e72623101"
+              RESEARCH_BRANCH="research/collector-treatment-panel-recovery-v2-20261001"
+              WT="/tmp/EVRCalculator-treatment-panel-recovery-v2-$GITHUB_RUN_ID"
+              OUT="/tmp/treatment-panel-recovery-v2-$GITHUB_RUN_ID"
+              ENV_REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$ENV_REPO/.venv/bin/python"
+              ISSUE="$VM_REQUEST_ID"
+
+              cleanup_treatment_recovery() {
+                if [ -e "$WT" ]; then
+                  git -C "$ENV_REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+                fi
+                git -C "$ENV_REPO" worktree prune >/dev/null 2>&1 || true
+              }
+              trap cleanup_treatment_recovery EXIT
+
+              post_treatment_comment() {
+                local body_file="$1"
+                VM_COMMENT_BODY="$body_file" VM_COMMENT_ISSUE="$ISSUE" VM_COMMENT_REPO="$GITHUB_REPOSITORY" \
+                  VM_COMMENT_TOKEN="$VM_GITHUB_TOKEN" python3 - <<'PY'
+          import json, os, urllib.request
+          path=os.environ["VM_COMMENT_BODY"]
+          body=open(path,encoding="utf-8").read()
+          payload=json.dumps({"body": body}).encode()
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{os.environ['VM_COMMENT_REPO']}/issues/{os.environ['VM_COMMENT_ISSUE']}/comments",
+              data=payload,
+              headers={
+                  "Authorization": "Bearer " + os.environ["VM_COMMENT_TOKEN"],
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=30) as response:
+              print("issue_comment_http_status=" + str(response.status))
+          PY
+              }
+
+              [ -x "$PY" ] || { echo "TREATMENT_RECOVERY_PYTHON_MISSING"; exit 2; }
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] || { echo "TREATMENT_RECOVERY_DB_SAFETY_HOLD"; exit 75; }
+
+              cd "$ENV_REPO"
+              git fetch origin "$RESEARCH_BRANCH" --quiet
+              git cat-file -e "$RESEARCH_SHA^{commit}"
+              [ "$(git rev-parse "origin/$RESEARCH_BRANCH")" = "$RESEARCH_SHA" ] || {
+                echo "TREATMENT_RECOVERY_SHA_DRIFT_REFUSED"
+                exit 20
+              }
+              rm -rf "$OUT"
+              mkdir -p "$OUT"
+              cleanup_treatment_recovery
+              git worktree add --detach "$WT" "$RESEARCH_SHA" >/dev/null
+              [ "$(git -C "$WT" rev-parse HEAD)" = "$RESEARCH_SHA" ] || exit 21
+
+              set -a
+              . "$ENV_REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+
+              echo "== focused tests =="
+              "$PY" -m pytest -q "$WT/backend/tests/unit/scripts/test_research_treatment_panel_recovery_v2.py"
+
+              echo "== read-only preflight =="
+              (cd "$WT" && "$PY" -m backend.scripts.research_treatment_panel_recovery_v2 \
+                --preflight --cohort-date 2026-09-29 --output-dir "$OUT") | tee "$OUT/preflight.json"
+
+              exec 8>/tmp/pkmnprices-api.lock
+              if ! /usr/bin/flock -n 8; then
+                printf '## Treatment Panel Recovery V2\n\nStatus: **DEFERRED_PROVIDER_BUSY**\n\nThe shared PkmnPrices lock was held; zero provider credits were used and no production writes occurred.\n' > "$OUT/issue-comment.md"
+                post_treatment_comment "$OUT/issue-comment.md"
+                exit 75
+              fi
+
+              echo "== collect 180d PkmnPrices TCGPlayer Near Mint history =="
+              (cd "$WT" && "$PY" -m backend.scripts.research_treatment_panel_recovery_v2 \
+                --collect --cohort-date 2026-09-29 --period 180d --condition "Near Mint" \
+                --credit-cap 15000 --output-dir "$OUT") | tee "$OUT/summary.json"
+
+              TREATMENT_OUT="$OUT" "$PY" - <<'PY'
+          import json, os
+          from pathlib import Path
+          out=Path(os.environ["TREATMENT_OUT"])
+          result=json.loads((out/"result.json").read_text(encoding="utf-8"))
+          ev=result["evaluation"]["statusCounts"]
+          col=result["collection"]
+          lines=[
+              "## Treatment Panel Recovery V2",
+              "",
+              "Status: **COMPLETED**",
+              "",
+              f"- research SHA: `33445b6b12b5c168361ffc1a82beb72e72623101`",
+              f"- provider cards queried: **{col['providerCardsQueried']} / {col['providerCardsPlanned']}**",
+              f"- credits used: **{col['creditsUsed']} / {col['creditCap']}**",
+              f"- Near-Mint history rows retained: **{col['historyRows']}**",
+              f"- PANEL_READY_STRONG: **{ev.get('PANEL_READY_STRONG',0)}**",
+              f"- PANEL_READY_MODERATE: **{ev.get('PANEL_READY_MODERATE',0)}**",
+              f"- HISTORY_BLOCKED: **{ev.get('HISTORY_BLOCKED',0)}**",
+              f"- result fingerprint: `{result['resultFingerprint']}`",
+              "",
+              "Safety: production DB writes = **0**; canonical price mutation = **none**; Collector Appeal mutation = **none**; Overall RIP mutation = **none**.",
+              "",
+              "<details><summary>Per-Set readiness</summary>",
+              "",
+          ]
+          for key,value in result["evaluation"]["bySetAndStatus"].items():
+              lines.append(f"- {key}: {value}")
+          lines += ["", "</details>", ""]
+          (out/"issue-comment.md").write_text("\n".join(lines),encoding="utf-8")
+          PY
+              post_treatment_comment "$OUT/issue-comment.md"
+              echo "TREATMENT_PANEL_RECOVERY_V2=PASS"
+              ;;
+
+
+            fv-shadow-ops-tests)
+              set -euo pipefail
+              SHA="f440ef80aae06d5b3a6276be4321b2c5edffdb49"
+              BRANCH="feat/fv-s3-daily-shadow-ops-20261002"
+              WT="/tmp/fv-shadow-ops-tests-$GITHUB_RUN_ID"
+              cleanup_fv_shadow_ops_tests() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_shadow_ops_tests EXIT
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV shadow ops branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m py_compile \
+                backend/scripts/run_index_fair_value_prospective_shadow_v1.py \
+                backend/scripts/run_index_fair_value_forward_outcomes_v1.py \
+                backend/scripts/run_core_panel_daily_increment.py
+              bash -n infra/oracle/run_fair_value_shadow_daily.sh
+              bash -n infra/oracle/run_fair_value_shadow_daily_guarded.sh
+              bash -n infra/oracle/run_fair_value_forward_outcomes.sh
+              bash -n infra/oracle/run_fair_value_forward_outcomes_guarded.sh
+              bash -n infra/oracle/install_fair_value_shadow_ops_cron.sh
+              "$PY" -m pytest -q \
+                backend/tests/unit/scripts/test_index_fair_value_prospective_shadow_v1.py \
+                backend/tests/unit/scripts/test_index_fair_value_forward_outcomes_v1.py \
+                backend/tests/unit/scripts/test_index_fair_value_shadow_s3.py \
+                backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+                backend/tests/unit/scripts/test_fv_s3_daily_shadow_ops.py \
+                backend/tests/unit/scripts/test_run_core_panel_daily_increment.py
+              echo "FV_SHADOW_OPS_TESTS=PASS sha=$SHA"
+              ;;
+
+            fv-shadow-ops-install-cron)
+              set -euo pipefail
+              SHA="f440ef80aae06d5b3a6276be4321b2c5edffdb49"
+              BRANCH="feat/fv-s3-daily-shadow-ops-20261002"
+              WT="/tmp/fv-shadow-ops-install-$GITHUB_RUN_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              cleanup_fv_shadow_ops_install() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_shadow_ops_install EXIT
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "FV_SHADOW_OPS_DB_SAFETY_HOLD"; exit 75; }
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV shadow ops branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              "$WT/infra/oracle/install_fair_value_shadow_ops_cron.sh" --apply
+              [ "$(tr -d '[:space:]' < /home/ubuntu/state/fair_value_shadow/release.sha)" = "$SHA" ] || {
+                echo "REFUSING: installed FV shadow ops release pin mismatch"; exit 91;
+              }
+              echo "FV_SHADOW_OPS_INSTALL_CRON=PASS sha=$SHA"
+              ;;
+
+            fv-shadow-ops-status)
+              set -euo pipefail
+              SHA="f440ef80aae06d5b3a6276be4321b2c5edffdb49"
+              STATE="/home/ubuntu/state/fair_value_shadow"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              echo "expected_sha=$SHA"
+              if [ -r "$STATE/release.sha" ]; then
+                echo "installed_sha=$(tr -d '[:space:]' < "$STATE/release.sha")"
+              else
+                echo "installed_sha=ABSENT"
+              fi
+              echo "db_safety_hold=$([ -e "$HOLD" ] || [ -L "$HOLD" ] && echo active || echo clear)"
+              echo "shadow_cron_entries=$(crontab -l 2>/dev/null | grep -c 'run_fair_value_shadow_daily_guarded.sh' || true)"
+              echo "forward_cron_entries=$(crontab -l 2>/dev/null | grep -c 'run_fair_value_forward_outcomes_guarded.sh' || true)"
+              if [ -d "$STATE/runtime/.git" ] || [ -e "$STATE/runtime/.git" ]; then
+                echo "runtime_sha=$(git -C "$STATE/runtime" rev-parse HEAD)"
+              else
+                echo "runtime_sha=ABSENT"
+              fi
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          pubs=(c.table("fair_value_shadow_anchor_publications_v1")
+                .select("publication_id",count="exact").limit(1).execute())
+          bindings=(c.table("fair_value_shadow_market_bindings_v1")
+                   .select("publication_id",count="exact").limit(1).execute())
+          outcomes=(c.table("fair_value_shadow_evaluation_outcomes_v1")
+                   .select("publication_id",count="exact").gt("horizon_days",0).limit(1).execute())
+          print("shadow_publications=" + str(int(pubs.count or 0)))
+          print("market_bindings=" + str(int(bindings.count or 0)))
+          print("forward_outcomes=" + str(int(outcomes.count or 0)))
+          PY
+              echo "FV_SHADOW_OPS_STATUS=PASS"
+              ;;
+
+            fv-forward-bindings-dry-run|fv-forward-bindings-backfill)
+              set -euo pipefail
+              SHA="5b3aedd34cf0e0824f8855439abd806132e0d82b"
+              BRANCH="feat/fv-shadow-forward-outcomes-v1-20261002"
+              WT="/tmp/fv-forward-bindings-$GITHUB_RUN_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              cleanup_fv_forward_bindings() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_forward_bindings EXIT
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "FV_FORWARD_DB_SAFETY_HOLD"; exit 75; }
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV forward branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "FV_FORWARD_DB_SAFETY_HOLD"; exit 75; }
+              if [ "$VM_OPERATION" = "fv-forward-bindings-dry-run" ]; then
+                "$PY" -m backend.scripts.run_index_fair_value_forward_outcomes_v1 \
+                  --dry-run --bindings-only --today 2026-10-02
+                echo "FV_FORWARD_BINDINGS_DRY_RUN=PASS provider_calls=0 provider_credits_used=0 anchor_writes=0 public_price_writes=0"
+              else
+                "$PY" -m backend.scripts.run_index_fair_value_forward_outcomes_v1 \
+                  --commit --bindings-only --today 2026-10-02
+                echo "FV_FORWARD_BINDINGS_BACKFILL=PASS provider_calls=0 provider_credits_used=0 anchor_writes=0 public_price_writes=0"
+              fi
+              ;;
+
+            fv-core-panel-activation-tests)
+              set -euo pipefail
+              SHA="6a3056786011cadeba388cced890e2a204420e2b"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-tests-$GITHUB_RUN_ID"
+              cleanup_fv_core_panel_tests() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_core_panel_tests EXIT
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m py_compile \
+                backend/scripts/run_core_panel_daily_increment.py \
+                backend/scripts/plan_core_panel_catchup.py
+              bash -n infra/oracle/run_core_panel_daily_increment.sh
+              bash -n infra/oracle/run_core_panel_daily_increment_guarded.sh
+              bash -n infra/oracle/install_core_panel_daily_increment_cron.sh
+              "$PY" -m pytest -q \
+                backend/tests/unit/scripts/test_run_core_panel_daily_increment.py \
+                backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+                backend/tests/unit/scripts/test_index_fair_value_prospective_shadow_v1.py \
+                backend/tests/unit/scripts/test_index_fair_value_shadow_s3.py
+              echo "FV_CORE_PANEL_ACTIVATION_TESTS=PASS sha=$SHA"
+              ;;
+
+            fv-core-panel-plan)
+              set -euo pipefail
+              SHA="6a3056786011cadeba388cced890e2a204420e2b"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-plan-$GITHUB_RUN_ID"
+              OUT="/tmp/fv-core-panel-plan-$GITHUB_RUN_ID.json"
+              cleanup_fv_core_panel_plan() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT" "$OUT"
+              }
+              trap cleanup_fv_core_panel_plan EXIT
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              TODAY="$(TZ=America/Phoenix date +%F)"
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m backend.scripts.plan_core_panel_catchup \
+                --env-file "$REPO/backend/.env" \
+                --intended-activation-date "$TODAY" \
+                --out "$OUT"
+              PLAN_OUT="$OUT" "$PY" - <<'PY'
+          import json, os
+          p=json.load(open(os.environ["PLAN_OUT"],encoding="utf-8"))
+          print(json.dumps({
+              "generated_at_utc":p["generated_at_utc"],
+              "intended_activation_date":p["intended_activation_date"],
+              "summary":p["summary"],
+              "provider_calls":p["provider_calls"],
+              "provider_credits_used":p["provider_credits_used"],
+              "database_writes":p["database_writes"],
+          },indent=2,sort_keys=True))
+          PY
+              echo "FV_CORE_PANEL_PLAN=PASS provider_calls=0 provider_credits_used=0 database_writes=0"
+              ;;
+
+            fv-core-panel-preflight)
+              set -euo pipefail
+              SHA="6a3056786011cadeba388cced890e2a204420e2b"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-preflight-$GITHUB_RUN_ID"
+              cleanup_fv_core_panel_preflight() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_core_panel_preflight EXIT
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
+                echo "FV_CORE_PANEL_DB_SAFETY_HOLD"; exit 75;
+              }
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m backend.scripts.run_core_panel_daily_increment \
+                --preflight --expected-date "$(TZ=America/Phoenix date +%F)"
+              echo "FV_CORE_PANEL_PREFLIGHT=PASS provider_calls=0 provider_credits_used=0 database_writes=0"
+              ;;
+
+            fv-core-panel-install-cron)
+              set -euo pipefail
+              SHA="6a3056786011cadeba388cced890e2a204420e2b"
+              BRANCH="feat/fv-core-panel-daily-increment-activation-20261002"
+              WT="/tmp/fv-core-panel-install-$GITHUB_RUN_ID"
+              cleanup_fv_core_panel_install() {
+                git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || true
+                rm -rf "$WT"
+              }
+              trap cleanup_fv_core_panel_install EXIT
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
+                echo "FV_CORE_PANEL_DB_SAFETY_HOLD"; exit 75;
+              }
+              git -C "$REPO" fetch origin "$BRANCH" --quiet
+              [ "$(git -C "$REPO" rev-parse FETCH_HEAD)" = "$SHA" ] || {
+                echo "REFUSING: FV activation branch SHA drift"; exit 90;
+              }
+              git -C "$REPO" worktree add --detach "$WT" "$SHA"
+              "$WT/infra/oracle/install_core_panel_daily_increment_cron.sh" --apply
+              [ "$(tr -d '[:space:]' < /home/ubuntu/state/core_panel_daily_increment/release.sha)" = "$SHA" ] || {
+                echo "REFUSING: installed FV release pin mismatch"; exit 91;
+              }
+              echo "FV_CORE_PANEL_INSTALL_CRON=PASS sha=$SHA"
+              ;;
+
+            fv-core-panel-run-now)
+              set -euo pipefail
+              SHA="6a3056786011cadeba388cced890e2a204420e2b"
+              STATE="/home/ubuntu/state/core_panel_daily_increment"
+              [ ! -e /home/ubuntu/state/db-safety/hold.json ] && [ ! -L /home/ubuntu/state/db-safety/hold.json ] || {
+                echo "FV_CORE_PANEL_DB_SAFETY_HOLD"; exit 75;
+              }
+              [ -r "$STATE/release.sha" ] || { echo "FV_CORE_PANEL_RELEASE_PIN_MISSING"; exit 92; }
+              [ "$(tr -d '[:space:]' < "$STATE/release.sha")" = "$SHA" ] || {
+                echo "FV_CORE_PANEL_RELEASE_PIN_DRIFT"; exit 93;
+              }
+              /bin/bash "$STATE/runtime/infra/oracle/run_core_panel_daily_increment_guarded.sh"
+              echo "FV_CORE_PANEL_RUN_NOW=PASS sha=$SHA"
+              ;;
+
+            fv-core-panel-status)
+              set -euo pipefail
+              SHA="6a3056786011cadeba388cced890e2a204420e2b"
+              STATE="/home/ubuntu/state/core_panel_daily_increment"
+              echo "expected_sha=$SHA"
+              if [ -r "$STATE/release.sha" ]; then
+                echo "installed_sha=$(tr -d '[:space:]' < "$STATE/release.sha")"
+              else
+                echo "installed_sha=ABSENT"
+              fi
+              echo "db_safety_hold=$([ -e /home/ubuntu/state/db-safety/hold.json ] || [ -L /home/ubuntu/state/db-safety/hold.json ] && echo active || echo clear)"
+              echo "cron_entries=$(crontab -l 2>/dev/null | grep -c 'run_core_panel_daily_increment_guarded.sh' || true)"
+              if [ -x "$STATE/runtime/infra/oracle/run_core_panel_daily_increment.sh" ]; then
+                set -a
+                . "$REPO/backend/.env"
+                set +a
+                export PYTHONPATH="$STATE/runtime"
+                cd "$STATE/runtime"
+                "$PY" -m backend.scripts.run_core_panel_daily_increment \
+                  --preflight --expected-date "$(TZ=America/Phoenix date +%F)"
+              fi
+              echo "FV_CORE_PANEL_STATUS=PASS"
+              ;;
+
+            fv-canary-empty-diagnose)
+              # READ ONLY: diagnose why the first FV provider canary returned an empty page.
+              cd "$REPO"
+              set -a
+              . backend/.env
+              set +a
+              export PYTHONPATH="$REPO"
+              "$PY" - <<'PY'
+          import json
+          from datetime import datetime, timedelta, timezone
+          from backend.db.clients.supabase_client import create_service_role_client
+
+          pid=18053
+          frontier="2026-09-22T02:31:05.703812Z"
+          c=create_service_role_client()
+
+          ident=(c.table("pkmnprices_card_identity_v1")
+                 .select("provider_card_id,canonical_card_id,tcgplayer_product_id,language")
+                 .eq("provider_card_id",pid).limit(5).execute().data or [])
+          sync=(c.table("pkmnprices_sold_sync_state_v1")
+                .select("provider_card_id,canonical_card_id,last_ingested_at,last_sold_at,status,rows_seen,rows_inserted,consecutive_failures,last_error_code,metadata")
+                .eq("provider_card_id",pid).limit(5).execute().data or [])
+          latest=(c.table("pkmnprices_ebay_sold_evidence_v1")
+                  .select("provider_listing_id,ingested_at,sold_at,grader,grade,graded,collected_at")
+                  .eq("provider_card_id",pid).order("ingested_at",desc=True).limit(10).execute().data or [])
+
+          def count(q):
+              r=q.limit(1).execute()
+              return int(getattr(r,"count",0) or 0)
+
+          ft=datetime.fromisoformat(frontier.replace("Z","+00:00"))
+          start=(ft-timedelta(days=30)).isoformat()
+          after=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                      .select("provider_listing_id",count="exact")
+                      .eq("provider_card_id",pid).gt("ingested_at",ft.isoformat()))
+          at_or_after=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                            .select("provider_listing_id",count="exact")
+                            .eq("provider_card_id",pid).gte("ingested_at",ft.isoformat()))
+          velocity=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                         .select("provider_listing_id",count="exact")
+                         .eq("provider_card_id",pid).gte("ingested_at",start).lte("ingested_at",ft.isoformat()))
+          total=count(c.table("pkmnprices_ebay_sold_evidence_v1")
+                      .select("provider_listing_id",count="exact").eq("provider_card_id",pid))
+
+          print(json.dumps({
+              "provider_card_id":pid,
+              "frontier":frontier,
+              "identity":ident,
+              "sync":sync,
+              "persisted_total":total,
+              "persisted_after_frontier":after,
+              "persisted_at_or_after_frontier":at_or_after,
+              "persisted_30d_before_frontier":velocity,
+              "latest_evidence":latest,
+              "provider_calls":0,
+              "database_writes":0,
+          },indent=2,sort_keys=True,default=str))
+          print("FV_CANARY_EMPTY_DIAGNOSE=PASS")
+          PY
+              ;;
+
+            db-safety-empty-hold-repair)
+              # MUTATING but narrowly scoped: clear only an invalid zero-byte fail-closed hold.
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              GUARD="/home/ubuntu/state/db-safety/db_workload_guard.py"
+              BACKUP_DIR="/home/ubuntu/ops-backups"
+              echo "== invalid empty DB-safety hold repair =="
+              [ -f "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: hold missing/not regular/or symlink"; exit 80; }
+              OWNER=$(stat -c '%U' "$HOLD")
+              MODE=$(stat -c '%a' "$HOLD")
+              SIZE=$(stat -c '%s' "$HOLD")
+              echo "hold_owner=$OWNER hold_mode=$MODE hold_bytes=$SIZE"
+              [ "$OWNER" = "ubuntu" ] || { echo "REFUSING: hold owner mismatch"; exit 81; }
+              [ "$MODE" = "600" ] || { echo "REFUSING: hold mode mismatch"; exit 82; }
+              [ "$SIZE" -eq 0 ] || { echo "REFUSING: hold is not empty"; exit 83; }
+              [ -f "$GUARD" ] || { echo "REFUSING: workload guard missing"; exit 84; }
+
+              AVAIL=$(df -B1 --output=avail / | tail -1 | tr -d ' ')
+              echo "root_available_bytes=$AVAIL"
+              [ "$AVAIL" -ge 5368709120 ] || { echo "REFUSING: less than 5 GiB root headroom"; exit 85; }
+
+              PRESSURE=$("$PY" - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          p=Path("/home/ubuntu/state/db-safety/db_workload_guard.py")
+          spec=importlib.util.spec_from_file_location("guard_live",p)
+          guard=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(guard)
+          print(guard.live_pressure() or "NONE")
+          PY
+              )
+              echo "live_pressure=$PRESSURE"
+              [ "$PRESSURE" = "NONE" ] || { echo "REFUSING: live DB pressure active"; exit 86; }
+
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              for probe in 1 2 3; do
+                "$PY" - <<'PY'
+          from backend.db.clients.supabase_client import create_service_role_client
+          c=create_service_role_client()
+          rows=(c.table("pokemon_scrape_batches")
+                .select("id,market_date,status")
+                .order("market_date",desc=True).limit(1).execute().data or [])
+          if not rows:
+              raise SystemExit("database probe returned no scrape-batch authority")
+          print("db_probe_latest_batch="+str(rows[0]))
+          PY
+                echo "db_probe_${probe}=PASS"
+                sleep 2
+              done
+
+              DISABLED=$(crontab -l 2>/dev/null | grep -c '^# CODE_RED_DISABLED ' || true)
+              echo "code_red_disabled_entries=$DISABLED"
+              [ "$DISABLED" -eq 0 ] || { echo "REFUSING: code-red entries still disabled"; exit 87; }
+
+              mkdir -p "$BACKUP_DIR"
+              chmod 700 "$BACKUP_DIR"
+              BACKUP="$BACKUP_DIR/hold.invalid-empty.$(date -u +%Y%m%dT%H%M%SZ).bak"
+              cp "$HOLD" "$BACKUP"
+              chmod 600 "$BACKUP"
+              rm -f "$HOLD"
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "REFUSING: hold removal failed"; exit 88; }
+              echo "hold_backup=$BACKUP"
+              echo "database_safety_empty_hold_cleared=true"
+              echo "DB_SAFETY_EMPTY_HOLD_REPAIR=PASS"
+              ;;
+
+            fv-shadow-publish-dry-run|fv-shadow-publish-once)
+              set -euo pipefail
+              SHA="519b50c09eac13a66ffec18bd8659f96a26aa959"
+              WT="/tmp/fv-shadow-publisher-$GITHUB_RUN_ID"
+              LOCK="/tmp/fv-shadow-publisher.lock"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              cleanup_fv_shadow_publish() { rm -rf "$WT"; }
+              trap cleanup_fv_shadow_publish EXIT
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "FV_SHADOW_DB_SAFETY_HOLD"; exit 75; }
+              mkdir -p "$WT"
+              curl -fsSL "https://codeload.github.com/BeBoop-Beep/EVRCalculator/tar.gz/$SHA" \
+                | tar -xz --strip-components=1 -C "$WT"
+              grep -qx 'WRITE_ENABLED = True' "$WT/backend/scripts/index_fair_value_shadow_ledger_v1.py" || {
+                echo "REFUSING: shadow ledger adapter not enabled at pinned SHA"; exit 90;
+              }
+              if grep -Eq 'PkmnPricesClient|load_pkmnprices_credentials|ebay_sold_page' "$WT/backend/scripts/run_index_fair_value_prospective_shadow_v1.py"; then
+                echo "REFUSING: publisher contains provider-call surface"; exit 91;
+              fi
+              set -a
+              . "$REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              exec 7>"$LOCK"
+              /usr/bin/flock -n 7 || { echo "FV_SHADOW_PUBLISHER_BUSY"; exit 75; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "FV_SHADOW_DB_SAFETY_HOLD"; exit 75; }
+              if [ "$VM_OPERATION" = "fv-shadow-publish-dry-run" ]; then
+                "$PY" -m backend.scripts.run_index_fair_value_prospective_shadow_v1 \
+                  --dry-run --source-commit "$SHA"
+                echo "FV_SHADOW_PUBLISH_DRY_RUN=PASS provider_calls=0 provider_credits_used=0"
+              else
+                "$PY" -m backend.scripts.run_index_fair_value_prospective_shadow_v1 \
+                  --commit --source-commit "$SHA"
+                echo "FV_SHADOW_PUBLISH_ONCE=PASS provider_calls=0 provider_credits_used=0"
+              fi
+              ;;
+
+            fv-shadow-foundation-tests)
+              set -euo pipefail
+              SHA="519b50c09eac13a66ffec18bd8659f96a26aa959"
+              WT="/tmp/fv-shadow-foundation-tests-$GITHUB_RUN_ID"
+              cleanup() { rm -rf "$WT"; }
+              trap cleanup EXIT
+              mkdir -p "$WT"
+              curl -fsSL "https://codeload.github.com/BeBoop-Beep/EVRCalculator/tar.gz/$SHA" \
+                | tar -xz --strip-components=1 -C "$WT"
+              export PYTHONPATH="$WT"
+              cd "$WT"
+              "$PY" -m pytest -q \
+                backend/tests/unit/scripts/test_index_fair_value_shadow_s3.py \
+                backend/tests/unit/scripts/test_fv_s3_planner_canary_replay.py \
+                backend/tests/unit/scripts/test_run_core_panel_daily_increment.py \
+                backend/tests/unit/scripts/test_index_fair_value_prospective_shadow_v1.py
+              echo "FV_SHADOW_FOUNDATION_TESTS=PASS sha=$SHA"
+              ;;
+
+            vm-cleanup-stale-tmp)
+              echo "== stale /tmp workspace cleanup =="
+              command -v lsof >/dev/null || { echo "REFUSING: lsof missing"; exit 70; }
+              BEFORE_AVAIL=$(df -B1 --output=avail / | tail -1 | tr -d ' ')
+              echo "disk_before=$(df -h / | tail -1)"
+              shopt -s nullglob
+              CANDIDATES=(/tmp/EVRCalculator-* /tmp/index-* /tmp/pokemon-opening-v3-*)
+              DELETED=0
+              SKIPPED_RECENT=0
+              SKIPPED_BUSY=0
+              DELETED_BYTES=0
+              for d in "${CANDIDATES[@]}"; do
+                [ -d "$d" ] || continue
+                [ ! -L "$d" ] || { echo "skip_symlink=$d"; continue; }
+                REAL=$(realpath -e "$d") || { echo "skip_unresolved=$d"; continue; }
+                case "$REAL" in
+                  /tmp/EVRCalculator-*|/tmp/index-*|/tmp/pokemon-opening-v3-*) ;;
+                  *) echo "REFUSING: unexpected resolved path $REAL"; exit 71 ;;
+                esac
+                if find "$REAL" -mmin -30 -print -quit | grep -q .; then
+                  echo "skip_recent=$REAL"
+                  SKIPPED_RECENT=$((SKIPPED_RECENT+1))
+                  continue
+                fi
+                if lsof +D "$REAL" 2>/dev/null | tail -n +2 | grep -q .; then
+                  echo "skip_busy=$REAL"
+                  SKIPPED_BUSY=$((SKIPPED_BUSY+1))
+                  continue
+                fi
+                BYTES=$(du -sb "$REAL" 2>/dev/null | awk '{print $1}')
+                BYTES=${BYTES:-0}
+                echo "delete=$REAL bytes=$BYTES"
+                rm -rf --one-file-system -- "$REAL"
+                [ ! -e "$REAL" ] || { echo "REFUSING: deletion incomplete $REAL"; exit 72; }
+                DELETED=$((DELETED+1))
+                DELETED_BYTES=$((DELETED_BYTES+BYTES))
+              done
+              AFTER_AVAIL=$(df -B1 --output=avail / | tail -1 | tr -d ' ')
+              RECLAIMED=$((AFTER_AVAIL-BEFORE_AVAIL))
+              echo "deleted_dirs=$DELETED"
+              echo "skipped_recent=$SKIPPED_RECENT"
+              echo "skipped_busy=$SKIPPED_BUSY"
+              echo "deleted_tree_bytes=$DELETED_BYTES"
+              echo "filesystem_reclaimed_bytes=$RECLAIMED"
+              echo "disk_after=$(df -h / | tail -1)"
+              echo "db_safety_hold_touched=false"
+              echo "state_directories_touched=false"
+              echo "actions_runner_work_touched=false"
+              echo "VM_CLEANUP_STALE_TMP=PASS"
+              ;;
+
             *)
               echo "Unexpected operation after validation: $VM_OPERATION"
               exit 4
               ;;
           esac
+
+      - name: Upload Treatment Set-Relative V2 artifacts
+        if: ${{ always() && env.VM_OPERATION == 'treatment-set-relative-v2' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-v2-controlled-${{ github.run_id }}
+          path: /tmp/treatment-set-relative-v2-${{ github.run_id }}
+          if-no-files-found: warn
+
+      - name: Upload Treatment Set-Relative V2 estimator artifacts
+        if: ${{ always() && env.VM_OPERATION == 'treatment-set-relative-v2-estimate' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-v2-estimate-${{ github.run_id }}
+          path: /tmp/treatment-set-relative-v2-estimate-${{ github.run_id }}
+          if-no-files-found: warn
+

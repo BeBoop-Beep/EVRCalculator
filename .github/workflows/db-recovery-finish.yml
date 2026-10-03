@@ -1,0 +1,76 @@
+name: Finish Guarded Recovery
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/finish-recovery.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  finish:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 3
+    steps:
+      - name: Validate and launch receipt-driven recovery sequence
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO=/home/ubuntu/repos/EVRCalculator
+          STATE=/home/ubuntu/state/db-safety
+          git -C "$REPO" fetch --quiet origin vm-ops-control
+          for NAME in finish_recovery db_recovery_control explorer_recovery; do
+            git -C "$REPO" show "$SOURCE_SHA:.vm-ops/$NAME.py" > "$STATE/$NAME.$SOURCE_SHA.py"
+            chmod 600 "$STATE/$NAME.$SOURCE_SHA.py"
+            "$REPO/.venv/bin/python" -m py_compile "$STATE/$NAME.$SOURCE_SHA.py"
+          done
+          "$REPO/.venv/bin/python" - "$SOURCE_SHA" <<'PY'
+          import base64,importlib.util,json,os,subprocess,sys,time,unittest
+          from pathlib import Path
+          from datetime import date
+          sha=sys.argv[1];root=Path('/home/ubuntu/repos/EVRCalculator');state=Path('/home/ubuntu/state/db-safety')
+          def load(n,p):
+              s=importlib.util.spec_from_file_location(n,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+          finish=load('finish',state/f'finish_recovery.{sha}.py')
+          guard=load('guard',state/'db_workload_guard.py')
+          class CronTests(unittest.TestCase):
+              def fixture(self):
+                  raw=''.join(f'* * * * * cd {root} && python job{i}.py\n' for i in range(14))
+                  wrapped,n=guard.guarded_crontab(raw)
+                  return '\n'.join('# CODE_RED_DISABLED '+l for l in wrapped.splitlines())+'\n'
+              def test_restore_is_guarded(self):
+                  actual,n=finish.prepare_cron(self.fixture(),guard)
+                  self.assertEqual(n,15);self.assertNotIn('CODE_RED_DISABLED',actual)
+                  jobs=[l for l in actual.splitlines() if l and not l.startswith('#')]
+                  self.assertEqual(len(jobs),15)
+                  self.assertTrue(all('--run-encoded ' in l for l in jobs))
+              def test_missing_jobs_refused(self):
+                  with self.assertRaises(ValueError):finish.prepare_cron('',guard)
+              def test_unwrapped_job_refused(self):
+                  with self.assertRaises(ValueError):finish.prepare_cron(self.fixture()+f'* * * * * cd {root} && python unsafe.py\n',guard)
+              def test_unrelated_tasks_preserved(self):
+                  actual,_=finish.prepare_cron('SHELL=/bin/bash\n0 0 * * * echo unrelated\n'+self.fixture(),guard)
+                  self.assertTrue(actual.startswith('SHELL=/bin/bash\n0 0 * * * echo unrelated\n'))
+          result=unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromTestCase(CronTests))
+          if not result.wasSuccessful():raise SystemExit(1)
+          request=json.loads(subprocess.check_output(['git','-C',str(root),'show',sha+':.vm-ops/finish-recovery.json'],text=True))
+          day=request['market_date'];date.fromisoformat(day)
+          assert request['operation']=='finish-approved-recovery'
+          target=state/'recovery'/day;target.mkdir(parents=True,exist_ok=True)
+          receipt=target/'sequence.json'
+          if receipt.exists():
+              prior=json.loads(receipt.read_text())
+              pid=prior.get('pid')
+              if pid and (Path('/proc')/str(pid)/'cmdline').exists() and b'finish_recovery' in (Path('/proc')/str(pid)/'cmdline').read_bytes():
+                  raise SystemExit('sequence already running; refusing duplicate')
+          env=os.environ.copy();env['RUNNER_TRACKING_ID']='';env['PYTHONUNBUFFERED']='1'
+          logfile=target/'sequence.log'
+          with logfile.open('a') as out:
+              p=subprocess.Popen([sys.executable,str(state/f'finish_recovery.{sha}.py'),'--market-date',day,'--controller',str(state/f'db_recovery_control.{sha}.py')],cwd=root,env=env,start_new_session=True,stdin=subprocess.DEVNULL,stdout=out,stderr=out)
+          os.chmod(logfile,0o600);time.sleep(2)
+          print(json.dumps({'sequence_pid':p.pid,'running':p.poll() is None,'receipt':json.loads(receipt.read_text()) if receipt.exists() else None}))
+          if p.poll() not in (None,0):raise SystemExit(p.returncode)
+          PY

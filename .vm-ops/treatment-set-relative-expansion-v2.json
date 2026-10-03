@@ -1,0 +1,10 @@
+{
+  "operation": "treatment-set-relative-expansion-v2",
+  "research_sha": "2aaa2c7945d75d794b3db6b7372850252245963a",
+  "market_date": "2026-09-29",
+  "period": "180d",
+  "credit_cap": 22000,
+  "expected_triads": 56,
+  "expected_cards": 168,
+  "requested_at": "2026-10-02"
+}

@@ -1,0 +1,115 @@
+name: Restore Guarded Market Publication
+on:
+  push:
+    branches: [vm-ops-control]
+    paths: ['.vm-ops/restore-market-publication.json']
+permissions:
+  contents: read
+concurrency:
+  group: index-production-vm-ops-v2
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: [self-hosted, Linux, ARM64, index-production-vm]
+    timeout-minutes: 22
+    steps:
+      - name: Test and deploy only the reviewed Market path
+        env:
+          OPERATION_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/home/ubuntu/repos/EVRCalculator
+          PY="$APP/.venv/bin/python"
+          TMP=$(mktemp -d)
+          trap 'rm -rf "$TMP"' EXIT
+          git -C "$APP" fetch --quiet origin main vm-ops-control
+          for FILE in market_publication_recovery.py test_market_publication_recovery.py; do
+            git -C "$APP" show "$OPERATION_SHA:.vm-ops/$FILE" > "$TMP/$FILE"
+          done
+          (cd "$TMP" && "$PY" -m unittest -v test_market_publication_recovery)
+          "$PY" -m py_compile "$TMP/market_publication_recovery.py"
+          "$PY" - "$TMP/market_publication_recovery.py" <<'PY'
+          import fcntl,hashlib,importlib.util,json,os,subprocess,sys,time
+          from pathlib import Path
+          app=Path('/home/ubuntu/repos/EVRCalculator');state=Path('/home/ubuntu/state/db-safety');lane=state/'market-publication'
+          tested='4ad9dad03d6d5d60f289476c57585627ad290ee4'
+          def mod(name,path):
+              spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
+          guard=mod('guard',state/'db_workload_guard.py');policy=mod('policy',state/'collection_recovery.py');policy.LANE=lane
+          script=mod('candidate_market_lane',Path(sys.argv[1]))
+          lane.mkdir(parents=True,exist_ok=True,mode=0o700)
+          subprocess.run(['git','-C',str(app),'merge-base','--is-ancestor',tested,'origin/main'],check=True)
+          with (state/'worker.lock').open('a') as lock:
+              deadline=time.monotonic()+180
+              while True:
+                  try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);break
+                  except BlockingIOError:
+                      if time.monotonic()>deadline:raise RuntimeError('worker busy; no deployment performed')
+                      time.sleep(.5)
+              current=guard.load(state/'price-projection/authorization.json')
+              if not (state/'hold.json').is_file() or not policy.expected_hold(current,state/'hold.json'):
+                  raise RuntimeError('incident state changed')
+              config={**current,'version':'2026-09-26.market-publication-v1','enabled':True,'tested_source':tested,'authorized_at':time.time()}
+              reason=policy.make_pressure(guard,config)()
+              if reason:raise RuntimeError(reason)
+              paths=['backend/db/services/pokemon_edition_history.py','backend/scripts/build_pokemon_explore_set_value_snapshot.py']
+              contents={p:subprocess.check_output(['git','-C',str(app),'show',tested+':'+p]) for p in paths}
+              builder=app/paths[1]
+              current_blob=subprocess.check_output(['git','-C',str(app),'hash-object',str(builder)],text=True).strip()
+              candidate_blob=subprocess.check_output(['git','-C',str(app),'rev-parse',tested+':'+paths[1]],text=True).strip()
+              if current_blob not in ('5ab57567ed0d63ea62c57462493d6f8546c054b7',candidate_blob):raise RuntimeError('publisher changed; refusing overwrite')
+              helper=app/paths[0]
+              if helper.exists() and helper.read_bytes()!=contents[paths[0]]:raise RuntimeError('helper changed; refusing overwrite')
+              subprocess.run(['git','-C',str(app),'diff','--quiet','--',*paths],check=True)
+              subprocess.run(['git','-C',str(app),'diff','--cached','--quiet'],check=True)
+              original_cron=subprocess.check_output(['crontab','-l'],text=True,timeout=5)
+              if sum(line.startswith('# CODE_RED_DISABLED ') for line in original_cron.splitlines())!=14:raise RuntimeError('legacy cron state changed')
+              if not any('collection_recovery.py --tick' in l and not l.lstrip().startswith('#') for l in original_cron.splitlines()):raise RuntimeError('collection schedule missing')
+              if not any('price_projection_recovery.py --tick' in l and not l.lstrip().startswith('#') for l in original_cron.splitlines()):raise RuntimeError('projection schedule missing')
+              stamp=str(time.time_ns())
+              guard.atomic_write(lane/('crontab.before.'+stamp),original_cron)
+              guard.atomic_write(lane/('builder.before.'+stamp),builder.read_text())
+              subprocess.run(['git','-C',str(app),'checkout',tested,'--',*paths],check=True)
+              if subprocess.run(['git','-C',str(app),'diff','--cached','--quiet']).returncode:
+                  subprocess.run(['git','-C',str(app),'-c','user.name=index-vm-ops','-c','user.email=vm-ops@index.invalid','commit','-m','fix(market): deploy merged edition-history repair','--',*paths],check=True)
+              for p in paths:
+                  if (app/p).read_bytes()!=contents[p]:raise RuntimeError('deployment byte verification failed')
+              guard.atomic_write(state/'market_publication_recovery.py',Path(sys.argv[1]).read_text())
+              new_cron=script.prepare_cron(original_cron)
+              backup=Path('/home/ubuntu/ops-backups/crontab.code-red-db-load-shed.backup')
+              if backup.exists():guard.atomic_write(lane/('restore-backup.before.'+stamp),backup.read_text())
+              guard.atomic_write(lane/'authorization.json',json.dumps(config)+'\n')
+              try:
+                  subprocess.run(['crontab','-'],input=new_cron,text=True,check=True,timeout=5)
+                  if subprocess.check_output(['crontab','-l'],text=True)!=new_cron:raise RuntimeError('cron verification failed')
+                  guard.atomic_write(backup,new_cron)
+              except Exception:
+                  guard.atomic_write(lane/'authorization.json',json.dumps({**config,'enabled':False})+'\n')
+                  subprocess.run(['crontab','-'],input=original_cron,text=True,check=True)
+                  raise
+              print(json.dumps({'status':'market_schedule_restored','app_sha':subprocess.check_output(['git','-C',str(app),'rev-parse','HEAD'],text=True).strip(),'global_hold_preserved':True,'legacy_disabled':14,'source_stages_unchanged':True,'tested_source':tested}),flush=True)
+          PY
+      - name: Run one guarded Market tick and report actual result
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATE=/home/ubuntu/state/db-safety
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          set +e
+          "$PY" "$STATE/market_publication_recovery.py" --tick > "$STATE/market-publication/first-tick.log" 2>&1
+          RC=$?
+          set -e
+          "$PY" - "$RC" <<'PY'
+          import json,re,sys
+          from pathlib import Path
+          lane=Path('/home/ubuntu/state/db-safety/market-publication')
+          print(json.dumps({'first_tick_exit_code':int(sys.argv[1])}))
+          for p in sorted(lane.glob('*.progress.json'))+sorted(lane.glob('*.complete.json'))+[lane/'last_error.json',lane/'latest_resources.json',lane/'hold.json']:
+              if p.exists():print(json.dumps({'file':p.name,'state':json.loads(p.read_text())}),flush=True)
+          p=lane/'first-tick.log'
+          with p.open('rb') as f:
+              f.seek(max(0,p.stat().st_size-16000));lines=f.read().decode(errors='replace').splitlines()
+          for line in lines[-25:]:print(re.sub(r'eyJ[A-Za-z0-9_.-]+','<REDACTED>',line[:1200]))
+          PY
+          test "$RC" = 0 -o "$RC" = 3 -o "$RC" = 75

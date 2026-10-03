@@ -1,0 +1,10 @@
+{
+  "operation": "treatment-joint-replication-v1",
+  "research_sha": "03cc4348c6da338d5e220abde13d1b93583da219",
+  "expected_triads": 21,
+  "expected_cards": 63,
+  "market_date": "2026-09-29",
+  "period": "180d",
+  "credit_cap": 8000,
+  "requested_at": "2026-10-02"
+}
