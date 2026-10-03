@@ -2,11 +2,6 @@ name: Treatment Set-Relative Expansion V2 Capture
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - research/treatment-panel-recovery-v2-current-20261001
-    paths:
-      - 'docs/research/collector_appeal/treatment_panel_recovery_v2/TREATMENT_V2_CAPTURE_TRIGGER_20261003.md'
 
 permissions:
   contents: read
