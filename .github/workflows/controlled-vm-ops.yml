@@ -5210,6 +5210,10 @@ jobs:
           print("market_bindings=" + str(int(bindings.count or 0)))
           print("forward_outcomes=" + str(int(outcomes.count or 0)))
           PY
+              echo "== fair_value_shadow_daily.log tail =="
+              tail -n 160 "$REPO/backend/logs/fair_value_shadow_daily.log" 2>/dev/null || true
+              echo "== fair_value_forward_outcomes.log tail =="
+              tail -n 80 "$REPO/backend/logs/fair_value_forward_outcomes.log" 2>/dev/null || true
               echo "FV_SHADOW_OPS_STATUS=PASS"
               ;;
 
