@@ -1,0 +1,73 @@
+name: FV-S3 Plus1 Offline Diagnostics
+
+on:
+  push:
+    branches:
+      - research/fv-plus1-snapshot-20261003
+    paths:
+      - "backend/artifacts/index_fair_value/fv_s3_plus1_forward_snapshot_20261003.json"
+      - "backend/scripts/index_fair_value_shadow_evaluation_v1.py"
+      - ".github/workflows/fv-s3-plus1-offline-diagnostics.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install frozen diagnostic dependency
+        run: python -m pip install -q numpy==2.4.3
+      - name: Run preregistered +1 diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from backend.scripts import index_fair_value_shadow_evaluation_v1 as evaluation
+
+          path = Path("backend/artifacts/index_fair_value/fv_s3_plus1_forward_snapshot_20261003.json")
+          raw = path.read_bytes()
+          snapshot = json.loads(raw)
+          rows = [
+              {
+                  "anchor_usd": r["anchor_usd"],
+                  "market_t0_usd": r["market_t0_usd"],
+                  "market_th_usd": r["market_th_usd"],
+                  "cluster": r["root_set_id"],
+              }
+              for r in snapshot["rows"]
+          ]
+          result = {
+              "study": "FV_S3_PROSPECTIVE_FORWARD_DIAGNOSTICS_V1",
+              "preregistration_version": evaluation.PREREGISTRATION["preregistration_version"],
+              "snapshot_sha256": hashlib.sha256(raw).hexdigest(),
+              "evaluation_date": snapshot["evaluation_date"],
+              "comparison_date": snapshot["comparison_date"],
+              "horizon_days": snapshot["horizon_days"],
+              "row_count": len(rows),
+              "root_set_clusters": len({r["cluster"] for r in rows}),
+              "diagnostics_by_market_stratum": {},
+              "provider_calls": 0,
+              "provider_credits_used": 0,
+              "database_reads": 0,
+              "database_writes": 0,
+              "public_price_writes": 0,
+              "blended_values_produced": 0,
+          }
+          for name, floor in evaluation.STRATA_FLOORS_USD:
+              subset = [r for r in rows if float(r["market_t0_usd"]) >= floor]
+              result["diagnostics_by_market_stratum"][name] = evaluation.forward_diagnostics(
+                  subset, horizon_days=snapshot["horizon_days"]
+              )
+          print("FV_PLUS1_DIAGNOSTICS_BEGIN")
+          print(json.dumps(result, indent=2, sort_keys=True))
+          print("FV_PLUS1_DIAGNOSTICS_END")
+          PY
