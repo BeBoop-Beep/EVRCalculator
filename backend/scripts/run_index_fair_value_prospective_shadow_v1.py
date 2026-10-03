@@ -125,6 +125,66 @@ def resolve_daily_information_cutoff(
     return existing, "REUSED_EXISTING_DAILY_CUTOFF"
 
 
+def fetch_existing_daily_publications(
+    db: Any,
+    *,
+    evaluation_date: date,
+    information_cutoff: datetime,
+    panel: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Load immutable anchors already published for this exact daily cohort.
+
+    Existing rows are authoritative. A retry must never rebuild and re-append them under
+    newer code or a newer source commit: the ledger is first-write-wins by design.
+    """
+    rows = _paged(lambda: db.table("fair_value_shadow_anchor_publications_v1")
+        .select("*")
+        .eq("evaluation_date", evaluation_date.isoformat())
+        .eq("evidence_status", anchor_mod.STATUS_PROSPECTIVE)
+        .eq("information_cutoff", information_cutoff.isoformat())
+        .order("canonical_card_id"))
+    expected = {str(r["canonical_card_id"]): r for r in panel["rows"]}
+    by_card: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        cid = str(row.get("canonical_card_id") or "")
+        target = expected.get(cid)
+        if target is None:
+            raise ProspectiveShadowError(f"EXISTING_DAILY_COHORT_OUTSIDE_PANEL cid={cid}")
+        if cid in by_card:
+            raise ProspectiveShadowError(f"DUPLICATE_EXISTING_DAILY_PUBLICATION cid={cid}")
+        if str(row.get("rule_version") or "") != anchor_mod.RULE_VERSION:
+            raise ProspectiveShadowError(f"EXISTING_DAILY_RULE_VERSION_MISMATCH cid={cid}")
+        if str(row.get("card_variant_id") or "") != str(target["card_variant_id"]):
+            raise ProspectiveShadowError(f"EXISTING_DAILY_VARIANT_MISMATCH cid={cid}")
+        by_card[cid] = dict(row)
+    return [by_card[cid] for cid in sorted(by_card)]
+
+
+def fetch_existing_evaluation_state(
+    db: Any,
+    publication_ids: list[str],
+) -> tuple[set[str], dict[str, dict[str, Any]]]:
+    component_ids: set[str] = set()
+    h0_by_publication: dict[str, dict[str, Any]] = {}
+    for chunk in _chunks(publication_ids):
+        components = (
+            db.table("fair_value_shadow_component_observations_v1")
+            .select("publication_id").in_("publication_id", chunk).execute().data or []
+        )
+        component_ids.update(str(r["publication_id"]) for r in components)
+        outcomes = (
+            db.table("fair_value_shadow_evaluation_outcomes_v1")
+            .select("publication_id,horizon_days,comparison_market_price_usd,outcome_status")
+            .in_("publication_id", chunk).eq("horizon_days", 0).execute().data or []
+        )
+        for row in outcomes:
+            pid = str(row["publication_id"])
+            if pid in h0_by_publication:
+                raise ProspectiveShadowError(f"DUPLICATE_EXISTING_H0_OUTCOME publication={pid}")
+            h0_by_publication[pid] = dict(row)
+    return component_ids, h0_by_publication
+
+
 def fetch_anchor_inputs(db: Any, panel: Mapping[str, Any]) -> tuple[dict[str, int], dict[str, list[dict[str, Any]]]]:
     """ANCHOR PHASE ONLY. This function must never read a price table."""
     canonical_ids = sorted(str(r["canonical_card_id"]) for r in panel["rows"])
@@ -269,49 +329,103 @@ def publish(
         panel=panel,
     )
 
-    provider_by_card, evidence_by_card = fetch_anchor_inputs(db, panel)
-    publications = build_publications(
-        panel=panel,
-        provider_by_card=provider_by_card,
-        evidence_by_card=evidence_by_card,
+    existing_publications = fetch_existing_daily_publications(
+        db,
         evaluation_date=evaluation_date,
         information_cutoff=cutoff,
-        generated_at=generated_at,
-        source_commit=source_commit,
+        panel=panel,
     )
+    panel_rows = sorted(panel["rows"], key=lambda r: str(r["canonical_card_id"]))
+    existing_by_card = {str(r["canonical_card_id"]): r for r in existing_publications}
+    missing_rows = [r for r in panel_rows if str(r["canonical_card_id"]) not in existing_by_card]
+
+    # Never mix a partial cohort created by another release with newly-built anchors.
+    # A complete older cohort is safe: its immutable rows are reused exactly as written.
+    existing_commits = {str(r.get("source_commit") or "") for r in existing_publications}
+    if existing_publications and missing_rows and existing_commits != {source_commit}:
+        raise ProspectiveShadowError(
+            "PARTIAL_EXISTING_DAILY_COHORT_RELEASE_MISMATCH "
+            f"existing={sorted(existing_commits)} current={source_commit}"
+        )
 
     anchor_statuses: dict[str, int] = defaultdict(int)
+    anchor_statuses["EXISTING_IMMUTABLE"] = len(existing_publications)
     if dry_run:
         shadow_ledger: Any = ledger_mod.InMemoryShadowLedger()
+        for pub in existing_publications:
+            key = (
+                pub["rule_version"], pub["canonical_card_id"],
+                pub["evaluation_date"], pub["information_cutoff"],
+            )
+            shadow_ledger._publications[key] = dict(pub)
+            shadow_ledger._by_id[str(pub["publication_id"])] = dict(pub)
     else:
         shadow_ledger = ledger
-    for pub in publications:
-        anchor_statuses[shadow_ledger.append_publication(pub)] += 1
 
-    # CRITICAL anti-leakage boundary: no price table is read before every anchor append succeeds.
-    market = fetch_market_comparisons(db, panel, evaluation_date=evaluation_date)
+    new_publications: list[dict[str, Any]] = []
+    if missing_rows:
+        missing_panel = {"panel_fingerprint": panel["panel_fingerprint"], "rows": missing_rows}
+        provider_by_card, evidence_by_card = fetch_anchor_inputs(db, missing_panel)
+        new_publications = build_publications(
+            panel=missing_panel,
+            provider_by_card=provider_by_card,
+            evidence_by_card=evidence_by_card,
+            evaluation_date=evaluation_date,
+            information_cutoff=cutoff,
+            generated_at=generated_at,
+            source_commit=source_commit,
+        )
+        for pub in new_publications:
+            anchor_statuses[shadow_ledger.append_publication(pub)] += 1
 
+    publications = sorted(
+        [*existing_publications, *new_publications],
+        key=lambda r: str(r["canonical_card_id"]),
+    )
+    if len(publications) != len(panel_rows):
+        raise ProspectiveShadowError(
+            f"DAILY_COHORT_INCOMPLETE expected={len(panel_rows)} actual={len(publications)}"
+        )
+
+    # CRITICAL anti-leakage boundary: no price table is read until the full immutable
+    # anchor cohort is proven present. Existing first-write-wins anchors are never rebuilt.
+    publication_ids = [str(p["publication_id"]) for p in publications]
+    existing_component_ids, existing_h0 = fetch_existing_evaluation_state(db, publication_ids)
     component_statuses: dict[str, int] = defaultdict(int)
     outcome_statuses: dict[str, int] = defaultdict(int)
-    anchored = 0
-    market_available = 0
+    component_statuses["EXISTING_IMMUTABLE"] = len(existing_component_ids)
+    outcome_statuses["EXISTING_IMMUTABLE"] = len(existing_h0)
+
+    needs_market = any(
+        str(pub["publication_id"]) not in existing_component_ids
+        or str(pub["publication_id"]) not in existing_h0
+        for pub in publications
+    )
+    market = fetch_market_comparisons(db, panel, evaluation_date=evaluation_date) if needs_market else {}
+
+    anchored = sum(pub["status"] == "ANCHORED" for pub in publications)
+    market_available = sum(
+        row.get("comparison_market_price_usd") not in (None, "") for row in existing_h0.values()
+    )
     for pub in publications:
+        pid = str(pub["publication_id"])
         cid = str(pub["canonical_card_id"])
-        m = market.get(cid)
-        component = evaluation.build_component_observation(
-            pub, market=m, structural=None, scarcity=None, appeal=None,
-        )
-        component_statuses[shadow_ledger.append_component(component)] += 1
-        comparison = {
-            "horizon_days": 0,
-            "comparison_date": evaluation_date.isoformat(),
-            "market_price_usd": (m or {}).get("market_price_usd"),
-            "source": (m or {}).get("source"),
-        }
-        outcome = evaluation.build_evaluation_outcome(pub, comparison, today=evaluation_date)
-        outcome_statuses[shadow_ledger.append_outcome(outcome)] += 1
-        anchored += pub["status"] == "ANCHORED"
-        market_available += m is not None
+        m = market.get(cid) if needs_market else None
+        if pid not in existing_component_ids:
+            component = evaluation.build_component_observation(
+                pub, market=m, structural=None, scarcity=None, appeal=None,
+            )
+            component_statuses[shadow_ledger.append_component(component)] += 1
+        if pid not in existing_h0:
+            comparison = {
+                "horizon_days": 0,
+                "comparison_date": evaluation_date.isoformat(),
+                "market_price_usd": (m or {}).get("market_price_usd"),
+                "source": (m or {}).get("source"),
+            }
+            outcome = evaluation.build_evaluation_outcome(pub, comparison, today=evaluation_date)
+            outcome_statuses[shadow_ledger.append_outcome(outcome)] += 1
+            market_available += m is not None
 
     return {
         "publisher_version": PUBLISHER_VERSION,
