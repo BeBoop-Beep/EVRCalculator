@@ -80,7 +80,8 @@ select o.market_date, o.entity_type, o.entity_id,
 from opening_rows o
 join requested r using(entity_type,entity_id)
 join global_opening g on g.snapshot_id=o.snapshot_id
-left join financial f using(market_date,entity_type,entity_id)
+left join financial f
+  on f.market_date=o.market_date and f.entity_type=o.entity_type and f.entity_id=o.entity_id
 order by o.market_date,o.entity_type,o.entity_id
 $$;
 
@@ -88,4 +89,3 @@ revoke execute on function public.get_pokemon_rankings_trend_history_v1(jsonb,da
   from public, anon, authenticated;
 grant execute on function public.get_pokemon_rankings_trend_history_v1(jsonb,date,date)
   to service_role;
-
