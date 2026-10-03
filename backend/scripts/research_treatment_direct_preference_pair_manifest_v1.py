@@ -212,36 +212,86 @@ def build_manifest(db: Any, market_date: str) -> dict[str, Any]:
             continue
         eligible.append(triad)
 
-    pairs: list[dict[str, Any]] = []
-    for triad in eligible:
-        by = {card["rarity"]: card for card in triad["cards"]}
-        for treatment_a, treatment_b in EDGES:
-            a = by[treatment_a]
-            b = by[treatment_b]
-            payload = {
-                "study_version": "treatment_direct_preference_v1",
-                "set_id": triad["set_id"],
-                "set_name": triad["set_name"],
-                "era_name": triad["era_name"],
-                "subject_key": triad["subject_key"],
-                "treatment_a": treatment_a,
-                "treatment_b": treatment_b,
-                "card_a_id": a["canonical_card_id"],
-                "card_a_name": a["card_name"],
-                "card_a_number": a["number"],
-                "card_a_image_large_url": a["image_large_url"],
-                "card_b_id": b["canonical_card_id"],
-                "card_b_name": b["card_name"],
-                "card_b_number": b["number"],
-                "card_b_image_large_url": b["image_large_url"],
-            }
-            payload["underlying_pair_id"] = stable_hash(payload)[:24]
-            pairs.append(payload)
+    def build_pairs(triads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for triad in triads:
+            by = {card["rarity"]: card for card in triad["cards"]}
+            for treatment_a, treatment_b in EDGES:
+                a = by[treatment_a]
+                b = by[treatment_b]
+                payload = {
+                    "study_version": "treatment_direct_preference_v1",
+                    "set_id": triad["set_id"],
+                    "set_name": triad["set_name"],
+                    "era_name": triad["era_name"],
+                    "subject_key": triad["subject_key"],
+                    "treatment_a": treatment_a,
+                    "treatment_b": treatment_b,
+                    "card_a_id": a["canonical_card_id"],
+                    "card_a_name": a["card_name"],
+                    "card_a_number": a["number"],
+                    "card_a_image_large_url": a["image_large_url"],
+                    "card_b_id": b["canonical_card_id"],
+                    "card_b_name": b["card_name"],
+                    "card_b_number": b["number"],
+                    "card_b_image_large_url": b["image_large_url"],
+                }
+                payload["underlying_pair_id"] = stable_hash(payload)[:24]
+                out.append(payload)
+        return sorted(out, key=lambda x: (
+            x["era_name"], x["set_name"], x["subject_key"],
+            x["treatment_a"], x["treatment_b"]
+        ))
 
-    pairs.sort(key=lambda x: (
-        x["era_name"], x["set_name"], x["subject_key"],
-        x["treatment_a"], x["treatment_b"]
-    ))
+    pairs = build_pairs(eligible)
+
+    # Frozen outcome-blind study subset:
+    # - keep every eligible Mega Evolution triad;
+    # - in Scarlet & Violet, select one deterministic hash-min triad per Set;
+    # - allocate one additional triad to the ten Sets with the largest eligible
+    #   triad pools (ties by Set name), taking the second hash-min triad.
+    # This yields 21 Mega + 24 SV = 45 triads / 135 pair comparisons.
+    mega_triads = sorted(
+        [t for t in eligible if t["era_name"] == "Mega Evolution"],
+        key=lambda t: (t["set_name"], t["subject_key"]),
+    )
+    sv_by_set: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
+    for triad in eligible:
+        if triad["era_name"] != "Scarlet and Violet":
+            continue
+        key = stable_hash({
+            "set_name": triad["set_name"],
+            "subject_key": triad["subject_key"],
+        })
+        sv_by_set[triad["set_name"]].append((key, triad))
+    for rows in sv_by_set.values():
+        rows.sort(key=lambda x: x[0])
+
+    selected_sv: list[dict[str, Any]] = [
+        rows[0][1] for _, rows in sorted(sv_by_set.items())
+    ]
+    extra_sets = [
+        set_name
+        for set_name, _ in sorted(
+            ((name, len(rows)) for name, rows in sv_by_set.items()),
+            key=lambda x: (-x[1], x[0]),
+        )[:10]
+    ]
+    for set_name in extra_sets:
+        rows = sv_by_set[set_name]
+        if len(rows) < 2:
+            raise RuntimeError(f"frozen SV allocation requires second triad set={set_name}")
+        selected_sv.append(rows[1][1])
+
+    study_triads = mega_triads + selected_sv
+    if len(mega_triads) != 21 or len(selected_sv) != 24 or len(study_triads) != 45:
+        raise RuntimeError(
+            f"frozen study subset drift mega={len(mega_triads)} "
+            f"sv={len(selected_sv)} total={len(study_triads)}"
+        )
+    study_pairs = build_pairs(study_triads)
+    if len(study_pairs) != 135:
+        raise RuntimeError(f"frozen study pair count drift {len(study_pairs)}")
 
     edge_counts = Counter(f"{p['treatment_a']}__{p['treatment_b']}" for p in pairs)
     era_counts = Counter(p["era_name"] for p in pairs)
@@ -261,6 +311,31 @@ def build_manifest(db: Any, market_date: str) -> dict[str, Any]:
         per_edge_subject_share[edge] = (
             max(counts.values()) / len(edge_pairs) if edge_pairs else 0.0
         )
+
+    study_edge_counts = Counter(
+        f"{p['treatment_a']}__{p['treatment_b']}" for p in study_pairs
+    )
+    study_era_counts = Counter(p["era_name"] for p in study_pairs)
+    study_set_counts = Counter(p["set_name"] for p in study_pairs)
+    study_subject_counts = Counter(p["subject_key"] for p in study_pairs)
+    study_max_subject_share = (
+        max(study_subject_counts.values()) / len(study_triads)
+        if study_subject_counts else 0.0
+    )
+    study_per_edge_subject_share: dict[str, float] = {}
+    for edge in sorted(study_edge_counts):
+        edge_pairs = [
+            p for p in study_pairs
+            if f"{p['treatment_a']}__{p['treatment_b']}" == edge
+        ]
+        counts = Counter(p["subject_key"] for p in edge_pairs)
+        study_per_edge_subject_share[edge] = (
+            max(counts.values()) / len(edge_pairs) if edge_pairs else 0.0
+        )
+    study_concentration_pass = (
+        study_max_subject_share <= 0.10
+        and all(v <= 0.10 for v in study_per_edge_subject_share.values())
+    )
 
     manifest_core = {
         "study_version": "treatment_direct_preference_v1",
@@ -283,8 +358,26 @@ def build_manifest(db: Any, market_date: str) -> dict[str, Any]:
         "resolution_exclusions": resolution_exclusions,
         "control_exclusions": control_exclusions,
         "pairs": pairs,
+        "study_subset": {
+            "selection_rule": (
+                "all eligible Mega Evolution triads; one stable-hash-min triad per "
+                "Scarlet and Violet Set; plus second hash-min triad for the ten SV "
+                "Sets with largest eligible pools, ties by Set name"
+            ),
+            "triad_count": len(study_triads),
+            "pair_count": len(study_pairs),
+            "edge_counts": dict(study_edge_counts),
+            "era_counts": dict(study_era_counts),
+            "set_counts": dict(study_set_counts),
+            "unique_subjects": len(study_subject_counts),
+            "maximum_subject_triad_share": study_max_subject_share,
+            "maximum_subject_pair_share_by_edge": study_per_edge_subject_share,
+            "subject_concentration_gate_le_10pct": study_concentration_pass,
+            "pairs": study_pairs,
+        },
     }
     manifest_core["manifest_fingerprint"] = stable_hash(manifest_core["pairs"])
+    manifest_core["study_subset"]["manifest_fingerprint"] = stable_hash(study_pairs)
     return manifest_core
 
 
@@ -303,7 +396,16 @@ def render(result: dict[str, Any]) -> str:
         f"- Subject concentration gate <=10%: **{'PASS' if result['subject_concentration_gate_le_10pct'] else 'FAIL'}**",
         f"- Manifest fingerprint: `{result['manifest_fingerprint']}`",
         "",
-        "## Pair edges",
+        "## Frozen study subset",
+        "",
+        f"- Triads: **{result['study_subset']['triad_count']}**",
+        f"- Pair comparisons: **{result['study_subset']['pair_count']}**",
+        f"- Unique Subjects: **{result['study_subset']['unique_subjects']}**",
+        f"- Maximum Subject triad share: **{100*result['study_subset']['maximum_subject_triad_share']:.2f}%**",
+        f"- Subject concentration gate <=10%: **{'PASS' if result['study_subset']['subject_concentration_gate_le_10pct'] else 'FAIL'}**",
+        f"- Subset fingerprint: `{result['study_subset']['manifest_fingerprint']}`",
+        "",
+        "## Candidate-pool pair edges",
         "",
     ]
     for edge, count in sorted(result["edge_counts"].items()):
@@ -334,7 +436,14 @@ def main(argv=None) -> int:
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(render(result), encoding="utf-8")
-    print(json.dumps({k:v for k,v in result.items() if k != "pairs"}, indent=2, sort_keys=True))
+    printable = {
+        k: v for k, v in result.items()
+        if k not in {"pairs", "study_subset"}
+    }
+    printable["study_subset"] = {
+        k: v for k, v in result["study_subset"].items() if k != "pairs"
+    }
+    print(json.dumps(printable, indent=2, sort_keys=True))
     return 0
 
 
