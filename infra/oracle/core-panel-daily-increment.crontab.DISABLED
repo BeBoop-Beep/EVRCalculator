@@ -1,0 +1,11 @@
+# DISABLED / NOT INSTALLED / DO NOT INSTALL.
+# Core Panel daily sold-increment collector. No install script is provided on purpose:
+# activation requires (1) flipping ACTIVATION_ENABLED in
+# backend/scripts/run_core_panel_daily_increment.py in a reviewed change, (2) a pinned
+# release.sha on the VM, and (3) explicit approval. The entry below is commented out.
+#
+# Proposed placement: after the C continuity window and the daily scrape batch, offset
+# from B4 (*/15) and B5 (7,22,37,52). The Python entry point still enforces the scrape /
+# C-continuity pause rules and a hard 8,000-credit daily cap.
+CRON_TZ=America/Phoenix
+# 27 5 * * * /bin/bash /home/ubuntu/state/core_panel_daily_increment/runtime/infra/oracle/run_core_panel_daily_increment.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/core_panel_daily_increment.log 2>&1

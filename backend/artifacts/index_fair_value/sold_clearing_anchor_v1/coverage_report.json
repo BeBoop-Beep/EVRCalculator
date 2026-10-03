@@ -1,0 +1,199 @@
+{
+  "anchored_cards": 194,
+  "cards_missing_observation_date_price": 0,
+  "cards_with_market_price": 207,
+  "comp_count_quantiles": {
+    "max": 54,
+    "median": 16.0,
+    "min": 10,
+    "q1": 13.0,
+    "q3": 22.0
+  },
+  "coverage_ge_100": "52 / 52",
+  "coverage_ge_25": "115 / 115",
+  "coverage_overall": "194 / 207",
+  "insufficient_cards": 13,
+  "panel_cards": 207,
+  "selected_window_distribution": {
+    "180": 8,
+    "30": 89,
+    "60": 63,
+    "7": 7,
+    "90": 27
+  },
+  "uncovered_cards": [
+    {
+      "card": "Ryme 194",
+      "eligible_counts_by_window": {
+        "180": 1,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 0
+      },
+      "eligible_rows_all_time": 2,
+      "market_price_usd": 0.23,
+      "set_name": "Obsidian Flames"
+    },
+    {
+      "card": "Marnie's Purrloin 130",
+      "eligible_counts_by_window": {
+        "180": 8,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 0
+      },
+      "eligible_rows_all_time": 8,
+      "market_price_usd": 0.18,
+      "set_name": "Destined Rivals"
+    },
+    {
+      "card": "Tepig 11",
+      "eligible_counts_by_window": {
+        "180": 3,
+        "30": 2,
+        "60": 3,
+        "7": 0,
+        "90": 3
+      },
+      "eligible_rows_all_time": 8,
+      "market_price_usd": 0.16,
+      "set_name": "White Flare"
+    },
+    {
+      "card": "Walrein 45",
+      "eligible_counts_by_window": {
+        "180": 8,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 4
+      },
+      "eligible_rows_all_time": 8,
+      "market_price_usd": 0.15,
+      "set_name": "Surging Sparks"
+    },
+    {
+      "card": "Granbull 88",
+      "eligible_counts_by_window": {
+        "180": 3,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 1
+      },
+      "eligible_rows_all_time": 5,
+      "market_price_usd": 0.15,
+      "set_name": "Obsidian Flames"
+    },
+    {
+      "card": "Levincia 150",
+      "eligible_counts_by_window": {
+        "180": 5,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 1
+      },
+      "eligible_rows_all_time": 5,
+      "market_price_usd": 0.12,
+      "set_name": "Journey Together"
+    },
+    {
+      "card": "Heracross 6",
+      "eligible_counts_by_window": {
+        "180": 5,
+        "30": 0,
+        "60": 1,
+        "7": 0,
+        "90": 2
+      },
+      "eligible_rows_all_time": 5,
+      "market_price_usd": 0.12,
+      "set_name": "Paldea Evolved"
+    },
+    {
+      "card": "Toedscool 15",
+      "eligible_counts_by_window": {
+        "180": 8,
+        "30": 1,
+        "60": 2,
+        "7": 0,
+        "90": 2
+      },
+      "eligible_rows_all_time": 13,
+      "market_price_usd": 0.11,
+      "set_name": "Paradox Rift"
+    },
+    {
+      "card": "Dragon Elixir 172",
+      "eligible_counts_by_window": {
+        "180": 1,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 0
+      },
+      "eligible_rows_all_time": 1,
+      "market_price_usd": 0.11,
+      "set_name": "Surging Sparks"
+    },
+    {
+      "card": "Wattrel 78",
+      "eligible_counts_by_window": {
+        "180": 1,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 0
+      },
+      "eligible_rows_all_time": 3,
+      "market_price_usd": 0.09,
+      "set_name": "Scarlet and Violet Base Set"
+    },
+    {
+      "card": "Golett 87",
+      "eligible_counts_by_window": {
+        "180": 2,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 1
+      },
+      "eligible_rows_all_time": 3,
+      "market_price_usd": 0.07,
+      "set_name": "Temporal Forces"
+    },
+    {
+      "card": "Team Rocket's Blipbug 15",
+      "eligible_counts_by_window": {
+        "180": 5,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 3
+      },
+      "eligible_rows_all_time": 5,
+      "market_price_usd": 0.07,
+      "set_name": "Destined Rivals"
+    },
+    {
+      "card": "Octillery 34",
+      "eligible_counts_by_window": {
+        "180": 4,
+        "30": 0,
+        "60": 0,
+        "7": 0,
+        "90": 1
+      },
+      "eligible_rows_all_time": 6,
+      "market_price_usd": 0.06,
+      "set_name": "Journey Together"
+    }
+  ],
+  "uncovered_market_price_range_usd": [
+    0.06,
+    0.23
+  ]
+}

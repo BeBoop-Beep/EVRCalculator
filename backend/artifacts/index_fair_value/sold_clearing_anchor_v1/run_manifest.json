@@ -1,0 +1,22 @@
+{
+  "database_writes": 0,
+  "evidence_rows_in_snapshot": 59050,
+  "evidence_semantics": "RETROSPECTIVE_BACKFILLED_EVIDENCE",
+  "methodology_contract_sha256": "1690416e0723e4bb6d066d8305cd58ef5a56782601ed94140ed111307ecb4b6a",
+  "observation_date": "2026-09-30",
+  "panel_fingerprint": "9e3068ffb2e644e3dab2f5c237271afa4efe061ed8f3139187dc9e8331bd1d1f",
+  "provider_calls": 0,
+  "provider_credits_used": 0,
+  "rule_version": "EXPLICIT_NM_SOLD_CLEARING_ANCHOR_V1",
+  "snapshot_fetched_at_utc": "2026-10-01T21:37:54.526212+00:00",
+  "snapshot_sha256": "4becdbbed8bcb7d434c0d763e10125dacc0db4e901100bd772d468c4e507215c",
+  "structural_sources": {
+    "f1_dataset": "0aaf5ce42f6b4d7f7ec5807c4212581d10993d4a475122dbb7222c908055115c",
+    "f2_oof": "3e7071baa99a1968328b5b1858d811d38e15b63bd20b908bc2fbe5eab0adcc01",
+    "f2r_predictions": "225ed6031e9ea6bb78b5ebd877fe2a01f8a1308182c253d8621813ea49529baa"
+  },
+  "target_price_captured_at_distribution": {
+    "2026-09-30": 207
+  },
+  "target_price_inputs_to_anchor_construction": 0
+}

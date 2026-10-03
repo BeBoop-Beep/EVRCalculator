@@ -1,0 +1,74 @@
+{
+  "construct": "EXPLICIT_NM_SOLD_CLEARING_ANCHOR_V1",
+  "contract_version": "fv_s2_explicit_nm_sold_clearing_anchor_v1.0",
+  "database_writes": 0,
+  "eligibility": {
+    "attribution": "exact",
+    "currency": "USD",
+    "fail_closed": true,
+    "graded": false,
+    "identity_state": "EXACT",
+    "known_unapplied_tightening": "titles that also carry a DIFFERENT card number are accepted by V1 (matches the reproduced study); strict rejection is reported as a sensitivity only",
+    "panel": "canonical card in frozen Core Panel",
+    "provider_identity": "evidence.provider_card_id must equal the persisted exact identity for the canonical card",
+    "title_rejects": {
+      "grade_evidence": "PSA, BGS, Beckett, CGC, SGC, AGS; TAG/ACE + numeric grade; Gem Mint; Black Label; Pristine",
+      "worse_condition": "LP, Lightly Played, MP, Moderately Played, HP, Heavily Played, Damaged, DMG, crease(s), torn, water damage",
+      "wrong_object": "proxy, fan art, custom card/case, extended-art case, no card, sticker, digital, code card, lot, bundle, repack, metal card"
+    },
+    "title_requires": [
+      "explicit card number as a standalone numeric token (N/M numerator, #N, or bare); slash denominators never count; non-numeric numbers never match",
+      "explicit NM or Near Mint"
+    ]
+  },
+  "evidence_semantics": "RETROSPECTIVE_BACKFILLED_EVIDENCE",
+  "forward_replay_requirements": [
+    "record sold_at",
+    "record collected_at/ingested_at",
+    "record evaluation timestamp",
+    "exclude rows with collected_at > evaluation timestamp (information_cutoff)"
+  ],
+  "independent_of": [
+    "D3 condition research",
+    "TCGplayer market price",
+    "structural Fair Value model"
+  ],
+  "min_eligible_comps": 10,
+  "not_a_condition_normalization_authority": true,
+  "not_blended_with": [
+    "TCGplayer price",
+    "structural Fair Value model"
+  ],
+  "observation_date": "2026-09-30",
+  "point_estimate": "median of eligible completed-sale prices in the selected window",
+  "provider_calls": 0,
+  "provider_credits": 0,
+  "reported_statistics": [
+    "count",
+    "window",
+    "oldest/newest sold_at",
+    "median",
+    "q1/q3/iqr (linear percentile)",
+    "mad (unscaled, about median)",
+    "distinct sale days",
+    "exclusion counts"
+  ],
+  "status": "RESEARCH_ONLY_NOT_PRODUCTION_FAIR_VALUE",
+  "window_definition": "trailing window of exactly N calendar days: observation_date-N+1 <= sold_at <= observation_date",
+  "window_selection_forbidden_inputs": [
+    "target TCGplayer market price",
+    "any value derived from it"
+  ],
+  "window_selection_inputs": [
+    "eligible comp count",
+    "sold dates",
+    "fixed observation date"
+  ],
+  "windows_days_in_order": [
+    7,
+    30,
+    60,
+    90,
+    180
+  ]
+}
