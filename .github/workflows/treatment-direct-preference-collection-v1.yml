@@ -1,0 +1,98 @@
+name: Treatment Direct Preference Collection V1
+
+on:
+  push:
+    branches:
+      - research/treatment-panel-recovery-v2-current-20261001
+    paths:
+      - 'backend/domain/pokemon/treatment_preference_v1.py'
+      - 'backend/api/treatment_preference_v1.py'
+      - 'backend/api/main.py'
+      - 'backend/scripts/export_treatment_direct_preference_v1_responses.py'
+      - 'backend/scripts/check_treatment_direct_preference_v1_collection.py'
+      - 'backend/tests/unit/domain/pokemon/test_treatment_preference_v1_collection.py'
+      - 'backend/db/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql'
+      - 'supabase/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql'
+      - 'frontend/app/research/treatment-preference/**'
+      - 'frontend/app/api/research/treatment-preference-v1/**'
+      - '.github/workflows/treatment-direct-preference-collection-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install focused Python dependencies
+        run: python -m pip install -q pytest==8.3.5 numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3 fastapi==0.115.14 pydantic==2.11.7
+
+      - name: Backend collection and analyzer tests
+        run: |
+          python -m pytest -q             backend/tests/unit/domain/pokemon/test_treatment_preference_v1_collection.py             backend/tests/unit/scripts/test_research_treatment_direct_preference_analyzer_v1.py
+
+      - name: Compile research collection modules
+        run: |
+          python -m py_compile             backend/domain/pokemon/treatment_preference_v1.py             backend/api/treatment_preference_v1.py             backend/scripts/export_treatment_direct_preference_v1_responses.py             backend/scripts/check_treatment_direct_preference_v1_collection.py
+
+      - name: Migration parity and safety guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp             backend/db/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql             supabase/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql
+          grep -q "enable row level security" backend/db/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql
+          grep -q "revoke all.*anon" backend/db/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql
+          grep -q "4b08be6bd2fe4c3b1dde4627da0780f3832740c53ee411c7df81a2f976830055" backend/db/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql
+
+      - name: Frontend blinding contract tests
+        run: |
+          node --test             frontend/app/research/treatment-preference/TreatmentPreferenceStudyClient.contract.test.mjs             frontend/app/api/research/treatment-preference-v1/route.contract.test.mjs
+
+      - name: Live frozen-authority reconstruction
+        run: |
+          python - <<'PY'
+          from backend.db.clients.supabase_client import service_read_client
+          from backend.domain.pokemon.treatment_preference_v1 import (
+              EXPECTED_MANIFEST_FINGERPRINT,
+              EXPECTED_SCHEDULE_FINGERPRINT,
+              build_runtime_authority,
+          )
+
+          authority = build_runtime_authority(service_read_client)
+          subset = authority["manifest"]["study_subset"]
+          schedule = authority["schedule"]
+          assert subset["manifest_fingerprint"] == EXPECTED_MANIFEST_FINGERPRINT
+          assert subset["triad_count"] == 45
+          assert subset["pair_count"] == 135
+          assert schedule["schedule_fingerprint"] == EXPECTED_SCHEDULE_FINGERPRINT
+          assert schedule["block_count"] == 450
+          assert schedule["questions_per_block"] == 12
+          assert schedule["exposures_per_pair"] == 40
+          assert schedule["orientations_per_side"] == 20
+          assert schedule["max_subject_repetition_in_any_block"] == 1
+          assert schedule["production_writes"] == 0
+          print({
+              "status": "TREATMENT_DIRECT_PREFERENCE_COLLECTION_AUTHORITY_READY",
+              "manifest_fingerprint": subset["manifest_fingerprint"],
+              "schedule_fingerprint": schedule["schedule_fingerprint"],
+              "triads": subset["triad_count"],
+              "pairs": subset["pair_count"],
+              "blocks": schedule["block_count"],
+              "provider_calls": 0,
+              "production_writes": 0,
+          })
+          PY
