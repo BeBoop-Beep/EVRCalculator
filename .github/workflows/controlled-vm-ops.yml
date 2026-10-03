@@ -37,7 +37,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-shadow-ops-tests|fv-shadow-ops-install-cron|fv-shadow-ops-status|fv-forward-bindings-dry-run|fv-forward-bindings-backfill|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-set-relative-v2|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-shadow-ops-tests|fv-shadow-ops-install-cron|fv-shadow-ops-status|fv-forward-bindings-dry-run|fv-forward-bindings-backfill|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-set-relative-v2-estimate|treatment-set-relative-v2|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -59,7 +59,7 @@ jobs:
               raise SystemExit("scrape-catalog-set-refresh requires set_id=<canonical_key>")
           if op == "scrape-set-refresh" and not set_id:
               raise SystemExit("scrape-set-refresh requires set_id=<canonical_key>")
-          if (op.startswith("pricing-") or op.startswith("pkmnprices-") or op in {"treatment-panel-recovery-v2", "treatment-set-relative-v2"}) and (market_date or set_id):
+          if (op.startswith("pricing-") or op.startswith("pkmnprices-") or op in {"treatment-panel-recovery-v2", "treatment-set-relative-v2", "treatment-set-relative-v2-estimate"}) and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
           if op.startswith("fv-") and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
@@ -67,6 +67,8 @@ jobs:
               raise SystemExit("treatment-panel-recovery-v2 requires numeric request_id=<issue number>")
           if op == "treatment-set-relative-v2" and request_id != "20261003":
               raise SystemExit("treatment-set-relative-v2 requires request_id=20261003")
+          if op == "treatment-set-relative-v2-estimate" and request_id != "20261003-estimate":
+              raise SystemExit("treatment-set-relative-v2-estimate requires request_id=20261003-estimate")
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write(f"VM_OPERATION={op}\n")
@@ -5000,6 +5002,113 @@ jobs:
               if grep -qx 'runtime_provenance_configured=false' <<<"$PROV"; then echo "RUNTIME_PROVENANCE_PROFILE_NOT_CONFIGURED"; fi
               ;;
 
+            treatment-set-relative-v2-estimate)
+              set -euo pipefail
+              RESEARCH_SHA="1b3816bc4f18ca46bb31573bd9b4bab9b094262a"
+              RESEARCH_BRANCH="research/treatment-panel-recovery-v2-current-20261001"
+              CAPTURE_ARTIFACT_ID="11260560244"
+              CAPTURE_ARTIFACT_SHA256="a47a4ca4c5814b1318df89eb63fedae61dd2f15f34d4024116d539cb9587abbd"
+              PRIOR_ARTIFACT_ID="11211877714"
+              PRIOR_ARTIFACT_SHA256="f38d7ac419cc7ac4272c813636d42fbf4254834eb3345be4f346c8e136e41a64"
+              TARGET_FINGERPRINT="28b344ca8ea95ba8fbc9fa947cdb28a1a3d83408482572084ee83e1cf992563d"
+              WT="/tmp/EVRCalculator-treatment-set-relative-v2-estimate-$GITHUB_RUN_ID"
+              OUT="/tmp/treatment-set-relative-v2-estimate-$GITHUB_RUN_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              ENV_REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$ENV_REPO/.venv/bin/python"
+
+              cleanup_treatment_v2_estimate() {
+                if [ -e "$WT" ]; then
+                  git -C "$ENV_REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+                fi
+                git -C "$ENV_REPO" worktree prune >/dev/null 2>&1 || true
+              }
+              trap cleanup_treatment_v2_estimate EXIT
+
+              [ -x "$PY" ] || { echo "TREATMENT_V2_ESTIMATE_PYTHON_MISSING"; exit 2; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "TREATMENT_V2_ESTIMATE_DB_SAFETY_HOLD"; exit 75; }
+
+              cd "$ENV_REPO"
+              git fetch origin "$RESEARCH_BRANCH" --quiet
+              git cat-file -e "$RESEARCH_SHA^{commit}"
+              [ "$(git rev-parse "origin/$RESEARCH_BRANCH")" = "$RESEARCH_SHA" ] || {
+                echo "TREATMENT_V2_ESTIMATE_RESEARCH_SHA_DRIFT_REFUSED"
+                exit 20
+              }
+
+              rm -rf "$OUT"
+              mkdir -p "$OUT/capture" "$OUT/prior"
+              cleanup_treatment_v2_estimate
+              git worktree add --detach "$WT" "$RESEARCH_SHA" >/dev/null
+              [ "$(git -C "$WT" rev-parse HEAD)" = "$RESEARCH_SHA" ] || exit 21
+
+              set -a
+              . "$ENV_REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+
+              echo "== estimator unit tests =="
+              (cd "$WT" && "$PY" -m pytest -q backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py)
+
+              echo "== fetch and verify frozen capture artifact =="
+              CAPTURE_ZIP="$OUT/capture.zip"
+              curl -fsSL                 -H "Authorization: Bearer $VM_GITHUB_TOKEN"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$CAPTURE_ARTIFACT_ID/zip"                 -o "$CAPTURE_ZIP"
+
+              CAPTURE_ZIP="$CAPTURE_ZIP" CAPTURE_SHA="$CAPTURE_ARTIFACT_SHA256" CAPTURE_OUT="$OUT/capture" "$PY" - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          z=pathlib.Path(os.environ["CAPTURE_ZIP"])
+          digest=hashlib.sha256(z.read_bytes()).hexdigest()
+          if digest != os.environ["CAPTURE_SHA"]:
+              raise SystemExit(f"CAPTURE_ARTIFACT_DIGEST_MISMATCH got={digest}")
+          out=pathlib.Path(os.environ["CAPTURE_OUT"])
+          with zipfile.ZipFile(z) as archive:
+              archive.extractall(out)
+          if not (out/"capture.json").is_file():
+              raise SystemExit("CAPTURE_JSON_MISSING")
+          print(f"CAPTURE_ARTIFACT_VERIFIED sha256={digest}")
+          PY
+
+              CAPTURE_JSON="$OUT/capture/capture.json" TARGET_FINGERPRINT="$TARGET_FINGERPRINT" "$PY" - <<'PY'
+          import json, os
+          p=json.load(open(os.environ["CAPTURE_JSON"],encoding="utf-8"))
+          assert p["production_writes"] == 0
+          assert p["target"]["fingerprint"] == os.environ["TARGET_FINGERPRINT"]
+          assert p["coverage"]["coverage_pass"] is True
+          assert p["coverage"]["ready_triads"] == 50
+          assert p["coverage"]["fresh_cards_returned"] == 162
+          print(
+              "FROZEN_CAPTURE_RECEIPT=PASS "
+              f"credits_used={p['credits_used']} provider_calls={p['provider_calls']} "
+              f"history_ready_triads={p['coverage']['ready_triads']}"
+          )
+          PY
+
+              echo "== fetch and verify prior independent panel =="
+              PRIOR_ZIP="$OUT/prior.zip"
+              curl -fsSL                 -H "Authorization: Bearer $VM_GITHUB_TOKEN"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$PRIOR_ARTIFACT_ID/zip"                 -o "$PRIOR_ZIP"
+
+              PRIOR_ZIP="$PRIOR_ZIP" PRIOR_SHA="$PRIOR_ARTIFACT_SHA256" PRIOR_OUT="$OUT/prior" "$PY" - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          z=pathlib.Path(os.environ["PRIOR_ZIP"])
+          digest=hashlib.sha256(z.read_bytes()).hexdigest()
+          if digest != os.environ["PRIOR_SHA"]:
+              raise SystemExit(f"PRIOR_ARTIFACT_DIGEST_MISMATCH got={digest}")
+          out=pathlib.Path(os.environ["PRIOR_OUT"])
+          with zipfile.ZipFile(z) as archive:
+              archive.extractall(out)
+          if not (out/"panel.json").is_file():
+              raise SystemExit("PRIOR_PANEL_MISSING")
+          print(f"PRIOR_PANEL_VERIFIED sha256={digest}")
+          PY
+
+              echo "== fit preregistered Set-relative Treatment V2 from frozen artifacts =="
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_hierarchy_v2.py                 --prior-panel "$OUT/prior/panel.json"                 --fresh-panel "$OUT/capture/capture.json"                 --output "$OUT/result.json"                 --report "$OUT/FINAL_REPORT.md")
+
+              echo "== final Treatment V2 report =="
+              cat "$OUT/FINAL_REPORT.md"
+              echo "TREATMENT_SET_RELATIVE_V2_ESTIMATE=PASS provider_calls=0 production_writes=0"
+              ;;
+
             treatment-set-relative-v2)
               set -euo pipefail
               RESEARCH_SHA="4fcded68a59aebee95eeb5a0e7c002f76f1858e3"
@@ -5779,5 +5888,13 @@ jobs:
         with:
           name: treatment-set-relative-v2-controlled-${{ github.run_id }}
           path: /tmp/treatment-set-relative-v2-${{ github.run_id }}
+          if-no-files-found: warn
+
+      - name: Upload Treatment Set-Relative V2 estimator artifacts
+        if: ${{ always() && env.VM_OPERATION == 'treatment-set-relative-v2-estimate' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-v2-estimate-${{ github.run_id }}
+          path: /tmp/treatment-set-relative-v2-estimate-${{ github.run_id }}
           if-no-files-found: warn
 
