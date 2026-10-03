@@ -3,5 +3,5 @@
 # Forward outcomes: exact +1/+7/+30 condition-bound comparisons; script defers until the
 # authoritative comparison-date scrape batch is complete.
 CRON_TZ=America/Phoenix
-10,25,40,55 18 * * * /bin/bash /home/ubuntu/state/fair_value_shadow/runtime/infra/oracle/run_fair_value_shadow_daily_guarded.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/fair_value_shadow_daily.log 2>&1
+5,20,35,50 18 * * * /bin/bash /home/ubuntu/state/fair_value_shadow/runtime/infra/oracle/run_fair_value_shadow_daily_guarded.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/fair_value_shadow_daily.log 2>&1
 12 5,7,9 * * * /bin/bash /home/ubuntu/state/fair_value_shadow/runtime/infra/oracle/run_fair_value_forward_outcomes_guarded.sh >> /home/ubuntu/repos/EVRCalculator/backend/logs/fair_value_forward_outcomes.log 2>&1
