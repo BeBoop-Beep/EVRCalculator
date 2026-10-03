@@ -1,0 +1,41 @@
+name: Treatment Direct Preference Assignment V1
+
+on:
+  push:
+    branches:
+      - research/treatment-panel-recovery-v2-current-20261001
+    paths:
+      - 'backend/scripts/research_treatment_direct_preference_assignment_v1.py'
+      - '.github/workflows/treatment-direct-preference-assignment-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download frozen preference pair manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-direct-preference-pair-manifest-v1
+          path: backend/artifacts/treatment_direct_preference_v1/input
+          github-token: ${{ github.token }}
+          repository: BeBoop-Beep/EVRCalculator
+          run-id: 37100537870
+      - name: Generate frozen balanced assignment schedule
+        run: |
+          python backend/scripts/research_treatment_direct_preference_assignment_v1.py             --manifest backend/artifacts/treatment_direct_preference_v1/input/pair_manifest.json             --output backend/artifacts/treatment_direct_preference_v1/assignment_schedule.json
+      - name: Upload assignment schedule
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-direct-preference-assignment-v1
+          path: backend/artifacts/treatment_direct_preference_v1/assignment_schedule.json
+          if-no-files-found: error
