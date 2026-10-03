@@ -5117,7 +5117,7 @@ jobs:
 
             fv-shadow-ops-tests)
               set -euo pipefail
-              SHA="f440ef80aae06d5b3a6276be4321b2c5edffdb49"
+              SHA="528ba9012f032d5441445fec407c41d68650da89"
               BRANCH="feat/fv-s3-daily-shadow-ops-20261002"
               WT="/tmp/fv-shadow-ops-tests-$GITHUB_RUN_ID"
               cleanup_fv_shadow_ops_tests() {
@@ -5153,7 +5153,7 @@ jobs:
 
             fv-shadow-ops-install-cron)
               set -euo pipefail
-              SHA="f440ef80aae06d5b3a6276be4321b2c5edffdb49"
+              SHA="528ba9012f032d5441445fec407c41d68650da89"
               BRANCH="feat/fv-s3-daily-shadow-ops-20261002"
               WT="/tmp/fv-shadow-ops-install-$GITHUB_RUN_ID"
               HOLD="/home/ubuntu/state/db-safety/hold.json"
@@ -5177,7 +5177,7 @@ jobs:
 
             fv-shadow-ops-status)
               set -euo pipefail
-              SHA="f440ef80aae06d5b3a6276be4321b2c5edffdb49"
+              SHA="528ba9012f032d5441445fec407c41d68650da89"
               STATE="/home/ubuntu/state/fair_value_shadow"
               HOLD="/home/ubuntu/state/db-safety/hold.json"
               echo "expected_sha=$SHA"
