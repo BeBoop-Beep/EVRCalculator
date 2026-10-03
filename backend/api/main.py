@@ -42,6 +42,7 @@ from backend.db.services.collection_portfolio_service import (
     get_public_collection_data_by_username,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.api.treatment_preference_v1 import router as treatment_preference_v1_router
 from backend.benchmarking.preview_v1 import PrivateBenchmarkReader
 from backend.benchmarking.registry_v1 import (
     BenchmarkContractUnavailable,
@@ -259,6 +260,7 @@ from backend.api.paid_abuse_control import (
 
 
 app = FastAPI(title="EVR Collection API")
+app.include_router(treatment_preference_v1_router)
 
 
 class BenchmarkEntityRequest(BaseModel):
