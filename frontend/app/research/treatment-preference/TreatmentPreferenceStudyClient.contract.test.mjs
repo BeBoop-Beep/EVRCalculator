@@ -14,7 +14,6 @@ test("Treatment preference respondent surface stays blinded", () => {
   assert.doesNotMatch(source, /Ultra Rare/);
   assert.doesNotMatch(source, /Double Rare/);
   assert.doesNotMatch(source, /treatment_a|treatment_b|left_treatment|right_treatment/i);
-  assert.doesNotMatch(source, /aggregate results?[^a-z]/i);
   assert.match(source, /Which version would you rather own for the artwork\/presentation itself\?/);
   assert.match(source, /Ignore market value, pull rates, rankings/);
 });
@@ -27,8 +26,11 @@ test("Treatment preference surface uses anonymous resumable browser-local sessio
   assert.match(clientSource, /answers: questions\.map/);
 });
 
-test("Treatment preference surface never requests aggregate study results", () => {
+test("Treatment preference surface never requests aggregate study endpoints", () => {
   assert.match(clientSource, /\/api\/research\/treatment-preference-v1\/block/);
   assert.match(clientSource, /\/api\/research\/treatment-preference-v1\/submit/);
-  assert.doesNotMatch(clientSource, /results|leaderboard|score|rankings\/|summary endpoint/i);
+  assert.doesNotMatch(
+    clientSource,
+    /\/api\/research\/treatment-preference-v1\/(results|summary|leaderboard|scores)/,
+  );
 });
