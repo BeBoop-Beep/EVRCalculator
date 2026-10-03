@@ -113,6 +113,63 @@ def _fresh_panel():
     }
 
 
+def _controls(panel):
+    return {
+        card["canonical_card_id"]: {
+            "subject": 50.0,
+            "artist": 0.0,
+            "playability": 0.0,
+            "collector": 50.0,
+        }
+        for triad in panel["target"]["triads"]
+        for card in triad["cards"]
+    }
+
+
+def test_control_mismatch_is_mechanical_fresh_triads_exclusion():
+    panel = _fresh_panel()
+    controls = _controls(panel)
+    triad = next(
+        row for row in panel["target"]["triads"]
+        if row["set_name"] == "Pitch Black"
+    )
+    double = next(card for card in triad["cards"] if card["rarity"] == DOUBLE)
+    controls[double["canonical_card_id"]]["playability"] = 58.19568575255092
+
+    result = fresh_coverage(panel, controls)
+
+    assert result["history_ready_triads"] == 56
+    assert result["ready_triads"] == 55
+    assert result["control_eligible_ready_triads"] == 55
+    assert result["pitch_black_ready"] == 3
+    assert result["qualifying_sv_sets"] == 9
+    assert result["fresh_cards_returned"] == 168
+    assert result["pass"] is True
+    assert result["control_exclusions"] == [{
+        "set_name": "Pitch Black",
+        "era_name": "Mega Evolution",
+        "subject_key": triad["subject_key"],
+        "reasons": ["PLAYABILITY_CONTROL_MISMATCH"],
+        "controls_by_treatment": {
+            DOUBLE: {
+                "card_id": double["canonical_card_id"],
+                "subject": 50.0,
+                "playability": 58.19568575255092,
+            },
+            ULTRA: {
+                "card_id": next(card for card in triad["cards"] if card["rarity"] == ULTRA)["canonical_card_id"],
+                "subject": 50.0,
+                "playability": 0.0,
+            },
+            SIR: {
+                "card_id": next(card for card in triad["cards"] if card["rarity"] == SIR)["canonical_card_id"],
+                "subject": 50.0,
+                "playability": 0.0,
+            },
+        },
+    }]
+
+
 def test_fresh_coverage_gate_passes_frozen_full_panel():
     result = fresh_coverage(_fresh_panel())
     assert result["pass"] is True
