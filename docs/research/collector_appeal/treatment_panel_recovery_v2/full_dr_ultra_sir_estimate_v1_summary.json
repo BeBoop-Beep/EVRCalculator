@@ -1,0 +1,49 @@
+{
+  "decision_token": "PURE_TREATMENT_FULL_FAMILY_ESTIMATED",
+  "family": "dr-ultra-sir",
+  "inputs": {
+    "identities": 27,
+    "cards": 81,
+    "sets": 4,
+    "artifact_digest": "7f6d6014b750593dfa9f130c162f8b29894c2a8839af2207b72e828c9aa87526",
+    "control_run_id": "e282f26e-2136-4105-b0a3-f0974c4d9d70"
+  },
+  "pure": {
+    "double_vs_ultra_multiplier": 0.6826051743350414,
+    "double_vs_ultra_ci95": [0.45720515721368776, 1.0975041722497612],
+    "sir_vs_ultra_multiplier": 6.378401750961019,
+    "sir_vs_ultra_ci95": [4.813455668455942, 7.840099530003359],
+    "sir_vs_double_multiplier": 9.344203634516141,
+    "sir_vs_double_ci95": [4.602182227896477, 16.581992243011115],
+    "scarcity_beta": 0.8274101351106047,
+    "artist_beta_per_100": 0.23135306771990008,
+    "design_rank": 4,
+    "condition_number": 7.4509288708003885
+  },
+  "temporal": {
+    "early_double_vs_ultra_multiplier": 0.6807314638823607,
+    "late_double_vs_ultra_multiplier": 0.6847936772279711,
+    "early_sir_vs_ultra_multiplier": 6.545140231292062,
+    "late_sir_vs_ultra_multiplier": 6.217998482361798,
+    "early_sir_vs_double_multiplier": 9.614863684959843,
+    "late_sir_vs_double_multiplier": 9.08010498509874,
+    "all_contrast_signs_stable": true
+  },
+  "eras": [
+    {
+      "era_name": "Mega Evolution",
+      "identity_count": 10,
+      "double_vs_ultra_multiplier": 0.4623959862232996,
+      "sir_vs_ultra_multiplier": 5.754151770078155,
+      "sir_vs_double_multiplier": 12.444207868403446
+    },
+    {
+      "era_name": "Scarlet and Violet",
+      "identity_count": 17,
+      "double_vs_ultra_multiplier": 0.8583666255775867,
+      "sir_vs_ultra_multiplier": 6.776788989247551,
+      "sir_vs_double_multiplier": 7.894981919511975
+    }
+  ],
+  "production_writes": 0
+}

@@ -1,0 +1,111 @@
+name: Treatment Set-Relative Hierarchy V2
+
+on:
+  workflow_dispatch:
+    inputs:
+      capture_run_id:
+        description: Successful Treatment Set-Relative Expansion V2 Capture run id
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: treatment-set-relative-hierarchy-v2
+  cancel-in-progress: false
+
+jobs:
+  estimate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install focused dependencies
+        run: python -m pip install -q pytest==8.3.5 numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
+
+      - name: Unit tests
+        run: python -m pytest -q backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py
+
+      - name: Validate selected frozen capture run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAPTURE_RUN_ID: ${{ inputs.capture_run_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, urllib.request
+          run_id = str(os.environ["CAPTURE_RUN_ID"]).strip()
+          if not run_id.isdigit():
+              raise SystemExit("capture_run_id must be numeric")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GH_TOKEN"]
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/runs/{run_id}",
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "inDex-Treatment-V2-estimator",
+              },
+          )
+          with urllib.request.urlopen(req, timeout=20) as response:
+              p = json.load(response)
+          expected_branch = "research/treatment-panel-recovery-v2-current-20261001"
+          expected_workflow = ".github/workflows/treatment-set-relative-expansion-v2-capture.yml"
+          checks = {
+              "status_completed": p.get("status") == "completed",
+              "conclusion_success": p.get("conclusion") == "success",
+              "branch_match": p.get("head_branch") == expected_branch,
+              "workflow_match": p.get("path") == expected_workflow,
+          }
+          print(json.dumps({
+              "capture_run_id": run_id,
+              "head_sha": p.get("head_sha"),
+              "checks": checks,
+          }, indent=2, sort_keys=True))
+          if not all(checks.values()):
+              raise SystemExit("REFUSING: selected capture run is not an authorized successful Treatment V2 capture")
+          PY
+
+      - name: Download selected frozen fresh expansion capture
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-set-relative-expansion-v2-capture
+          path: backend/artifacts/treatment_set_relative_v2/fresh
+          github-token: ${{ github.token }}
+          repository: BeBoop-Beep/EVRCalculator
+          run-id: ${{ inputs.capture_run_id }}
+
+      - name: Download frozen prior independent replication panel
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-joint-replication-v1-panel
+          path: backend/artifacts/treatment_set_relative_v2/prior
+          github-token: ${{ github.token }}
+          repository: BeBoop-Beep/EVRCalculator
+          run-id: 36971438903
+
+      - name: Fit preregistered Set-relative Treatment V2
+        run: |
+          python backend/scripts/research_treatment_set_relative_hierarchy_v2.py             --prior-panel backend/artifacts/treatment_set_relative_v2/prior/panel.json             --fresh-panel backend/artifacts/treatment_set_relative_v2/fresh/capture.json             --output backend/artifacts/treatment_set_relative_v2/result.json             --report backend/artifacts/treatment_set_relative_v2/FINAL_REPORT.md
+
+      - name: Upload V2 estimator artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-hierarchy-v2
+          path: |
+            backend/artifacts/treatment_set_relative_v2/result.json
+            backend/artifacts/treatment_set_relative_v2/FINAL_REPORT.md
+          if-no-files-found: warn

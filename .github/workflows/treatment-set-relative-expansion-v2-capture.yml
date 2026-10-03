@@ -1,0 +1,216 @@
+name: Treatment Set-Relative Expansion V2 Capture
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: treatment-set-relative-expansion-v2-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      PKMNPRICES_API_KEY: ${{ secrets.PKMNPRICES_API_KEY }}
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify pinned VM runtime and safety state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+          test -x "$PY"
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$PKMNPRICES_API_KEY"
+          [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
+            echo "TREATMENT_V2_DB_SAFETY_HOLD"
+            exit 75
+          }
+          "$PY" - <<'PY'
+          import numpy, dotenv, supabase
+          print("focused_runtime=READY")
+          PY
+
+      - name: Reconfirm frozen 56-triad target without provider calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          OUT=backend/artifacts/treatment_set_relative_v2/preflight.json
+          "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py             --market-date 2026-09-29             --period 180d             --output "$OUT"
+          OUT="$OUT" "$PY" - <<'PY'
+          import json, os
+          p=json.load(open(os.environ["OUT"],encoding="utf-8"))
+          t=p["target"]
+          assert p["status"] == "PREFLIGHT_OK"
+          assert p["production_writes"] == 0
+          assert t["triad_count"] == 56
+          assert t["card_count"] == 168
+          assert t["fingerprint"] == "28b344ca8ea95ba8fbc9fa947cdb28a1a3d83408482572084ee83e1cf992563d"
+          assert t["by_set"] == {
+              "Pitch Black": 4,
+              "Destined Rivals": 8,
+              "Surging Sparks": 7,
+              "Black Bolt": 6,
+              "Journey Together": 6,
+              "Scarlet and Violet Base Set": 6,
+              "Temporal Forces": 6,
+              "White Flare": 6,
+              "Shrouded Fable": 4,
+              "Stellar Crown": 3,
+          }
+          print("frozen_target=PASS provider_calls=0 production_writes=0")
+          PY
+
+      - name: Capture frozen expansion under shared provider locks
+        id: capture
+        shell: bash
+        run: |
+          set +e
+          PY=/home/ubuntu/repos/EVRCalculator/.venv/bin/python
+          HOLD=/home/ubuntu/state/db-safety/hold.json
+
+          credit_day="$(date -u +%F)"
+          if [[ "$credit_day" < "2026-10-03" ]]; then
+            echo "TREATMENT_V2_REFUSING_BEFORE_CREDIT_RESET credit_day=$credit_day"
+            echo "exit_code=76" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
+            echo "TREATMENT_V2_DB_SAFETY_HOLD"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          # Match the VM provider-consumer lock ordering used by B5/Core Panel.
+          # Holding active-supply + provider locks makes scheduled consumers yield
+          # while this preregistered 22k research capture is active.
+          exec 6>/tmp/active-supply-panel.lock
+          /usr/bin/flock -w 600 6
+          lock_code=$?
+          if [ "$lock_code" -ne 0 ]; then
+            echo "TREATMENT_V2_ACTIVE_SUPPLY_LOCK_TIMEOUT"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c true
+          scrape_code=$?
+          if [ "$scrape_code" -ne 0 ]; then
+            echo "TREATMENT_V2_SCRAPE_DISPATCHER_BUSY"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          exec 8>/tmp/pkmnprices-api.lock
+          /usr/bin/flock -w 600 8
+          provider_lock_code=$?
+          if [ "$provider_lock_code" -ne 0 ]; then
+            echo "TREATMENT_V2_PROVIDER_LOCK_TIMEOUT"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          exec 9>/tmp/pokemon-post-scrape-publication.lock
+          /usr/bin/flock -n 9
+          publication_code=$?
+          if [ "$publication_code" -ne 0 ]; then
+            echo "TREATMENT_V2_HEAVY_PUBLISHER_BUSY"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || {
+            echo "TREATMENT_V2_DB_SAFETY_HOLD_AFTER_LOCK"
+            echo "exit_code=75" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          echo "treatment_v2_provider_window=RESERVED credit_day=$credit_day"
+          "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py             --market-date 2026-09-29             --period 180d             --credit-cap 22000             --capture             --capture-authorization SET_RELATIVE_V2_FROZEN_CAPTURE_20261002             --output backend/artifacts/treatment_set_relative_v2/capture.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload frozen capture artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-expansion-v2-capture
+          path: |
+            backend/artifacts/treatment_set_relative_v2/preflight.json
+            backend/artifacts/treatment_set_relative_v2/capture.json
+          if-no-files-found: warn
+
+      - name: Enforce frozen capture result
+        if: always()
+        shell: bash
+        run: |
+          code="${{ steps.capture.outputs.exit_code }}"
+          if [ -z "$code" ]; then
+            echo "capture did not start"
+            exit 1
+          fi
+          exit "$code"
+
+  estimate:
+    needs: capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install focused dependencies
+        run: python -m pip install -q pytest==8.3.5 numpy==2.4.3 python-dotenv==1.2.2 supabase==2.28.3
+
+      - name: Unit tests
+        run: python -m pytest -q backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py
+
+      - name: Download this run's frozen fresh capture
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-set-relative-expansion-v2-capture
+          path: backend/artifacts/treatment_set_relative_v2/fresh
+
+      - name: Download frozen prior independent replication panel
+        uses: actions/download-artifact@v4
+        with:
+          name: treatment-joint-replication-v1-panel
+          path: backend/artifacts/treatment_set_relative_v2/prior
+          github-token: ${{ github.token }}
+          repository: BeBoop-Beep/EVRCalculator
+          run-id: 36971438903
+
+      - name: Fit preregistered Set-relative Treatment V2
+        run: |
+          python backend/scripts/research_treatment_set_relative_hierarchy_v2.py             --prior-panel backend/artifacts/treatment_set_relative_v2/prior/panel.json             --fresh-panel backend/artifacts/treatment_set_relative_v2/fresh/capture.json             --output backend/artifacts/treatment_set_relative_v2/result.json             --report backend/artifacts/treatment_set_relative_v2/FINAL_REPORT.md
+
+      - name: Upload V2 estimator artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-hierarchy-v2
+          path: |
+            backend/artifacts/treatment_set_relative_v2/result.json
+            backend/artifacts/treatment_set_relative_v2/FINAL_REPORT.md
+          if-no-files-found: warn
