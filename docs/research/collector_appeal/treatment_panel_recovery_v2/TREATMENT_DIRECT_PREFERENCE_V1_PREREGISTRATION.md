@@ -270,12 +270,14 @@ Fit/report:
 
 aggregated across randomized assignments.
 
-Flag the experiment if:
+The frozen orientation diagnostic has two gates:
 
-- absolute left-choice deviation from 50% exceeds 7.5 percentage points, or
-- orientation predicts choice after Treatment assignment is included.
+1. absolute non-tie left-choice deviation from 50% must be <= **7.5 percentage points**;
+2. in a logistic model of whether Treatment A wins, with one intercept per Treatment edge plus an indicator for Treatment A being displayed on the left, the **95% Wald interval for the A-on-left coefficient must include zero**.
 
-A flagged orientation result blocks promotion of the preference authority until corrected/replicated.
+Both gates must pass.
+
+A failed orientation result blocks promotion of the preference authority until corrected and independently recollected.
 
 ## Subject concentration gate
 
@@ -342,7 +344,7 @@ Each response should minimally contain:
 - right_card_id
 - left_treatment
 - right_treatment
-- randomized_orientation_receipt
+- randomized_orientation_receipt: exactly `A_LEFT` or `B_LEFT`
 - response: LEFT / RIGHT / TIE
 - submitted_at
 
