@@ -5045,7 +5045,7 @@ jobs:
               export PYTHONPATH="$WT"
 
               echo "== estimator unit tests =="
-              "$PY" -m pytest -q "$WT/backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py"
+              (cd "$WT" && "$PY" -m pytest -q backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py)
 
               echo "== frozen zero-provider preflight =="
               (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py                 --market-date 2026-09-29                 --period 180d                 --output "$OUT/preflight.json")
