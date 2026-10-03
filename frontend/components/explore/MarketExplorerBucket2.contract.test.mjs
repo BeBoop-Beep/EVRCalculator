@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
 
-test("Bucket 2 sidebar keeps Browse and Analyze while Custom Filters live in Build Your Market", async () => {
+test("sidebar keeps Browse and Analyze while the visible Builder is exact-only", async () => {
   const client = await read("./MarketExplorerClient.jsx");
   const picker = await read("./MarketExplorerExactItemPicker.jsx");
   const explore = client.indexOf('data-market-explorer-zone="explore"');
@@ -14,16 +14,13 @@ test("Bucket 2 sidebar keeps Browse and Analyze while Custom Filters live in Bui
   const screens = client.indexOf("<MarketExplorerScreens", rarity);
   const sidebarEnd = client.indexOf("</aside>", screens);
   const build = client.indexOf('data-market-explorer-zone="build"', sidebarEnd);
-  const query = client.indexOf("<MarketExplorerQueryBuilder", build);
-  assert.ok(explore < browse && browse < analyze && analyze < rarity && rarity < screens && screens < sidebarEnd && sidebarEnd < build && build < query);
+  const exact = client.indexOf("<MarketExplorerExactBasket", build);
+  assert.ok(explore < browse && browse < analyze && analyze < rarity && rarity < screens && screens < sidebarEnd && sidebarEnd < build && build < exact);
   assert.doesNotMatch(client, /data-market-explorer-sidebar-section="filter"|Filter · Premium|setFiltersOpen/);
-  assert.equal(client.match(/<MarketExplorerQueryBuilder/g)?.length, 1);
-  assert.match(client, /presentation="sidebar"/);
-  // Custom Filters is a tab of the Build Your Market modal in the client (accepted contract).
-  assert.match(client, /Custom Filters/);
-  assert.match(client, /builderMode === "filters"/);
+  assert.equal(client.match(/<MarketExplorerQueryBuilder/g)?.length || 0, 0);
+  assert.doesNotMatch(client, /Custom Filters|builderMode/);
   assert.match(picker, /MAX_EXPLICIT_INSTRUMENTS/);
-  assert.match(client, /canBuildCustomMarkets/);
+  assert.match(client, /data-market-explorer-build-path="exact"/);
 });
 
 test("Rarity Markets uses every prepared rarity dynamically with search and compare/remove", async () => {
@@ -56,18 +53,18 @@ test("Screens are public prepared discovery with local result state", async () =
   assert.doesNotMatch(screens, /onAddQuery|preflight|Build Market/);
 });
 
-test("Build modal unifies exact Cards/Products and Custom Filters", async () => {
+test("Build modal exposes Cards & Products only while retaining the filter component off-path", async () => {
   const client = await read("./MarketExplorerClient.jsx");
   const picker = await read("./MarketExplorerExactItemPicker.jsx");
   const query = await read("./MarketExplorerQueryBuilder.jsx");
   const build = client.slice(client.indexOf('data-market-explorer-zone="build"'), client.indexOf('data-market-explorer-zone="compare"'));
   assert.match(build, /<MarketExplorerExactBasket/);
-  assert.match(build, /<MarketExplorerQueryBuilder/);
+  assert.doesNotMatch(build, /<MarketExplorerQueryBuilder/);
   assert.match(picker, /All/);
   assert.match(picker, /Cards/);
   assert.match(picker, /Products/);
-  assert.match(build, /Custom Filters/);
-  assert.match(client, /setBuilderMode\([\s\S]*series\.spec\?\.membershipMode === "explicit"[\s\S]*"exact"[\s\S]*"filters"/);
+  assert.doesNotMatch(build, /Custom Filters/);
+  assert.match(client, /series\.spec\?\.membershipMode !== "explicit"\) return/);
   assert.match(client, /setBuilderOpen\(true\)/);
   assert.match(query, /presentation === "sidebar"/);
 });

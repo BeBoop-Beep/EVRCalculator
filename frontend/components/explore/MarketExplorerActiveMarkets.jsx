@@ -191,7 +191,7 @@ export default function MarketExplorerActiveMarkets({
                   </span>
                 ) : null}
                 <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums" style={{ color: returnColor(periodChange) }}>{formatChangePercent(periodChange)}</span>
-                {entry.instanceId ? (
+                {entry.instanceId && entry.spec?.membershipMode === "explicit" ? (
                   <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${displayLabel}`} onClick={(event) => { event?.stopPropagation?.(); onEdit?.(entry); }} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
                 ) : null}
                 <button

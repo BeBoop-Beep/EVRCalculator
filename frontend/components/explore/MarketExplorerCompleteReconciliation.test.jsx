@@ -30,28 +30,31 @@ const renderTools = async (plan, capabilities) => {
   return { renderer, control };
 };
 
-test("Basic: Demand Pressure and Fair Value are locked, disabled, and never show a value", async () => {
+test("Basic: unpublished Demand Pressure is hidden while Fair Value remains honestly locked", async () => {
   const { renderer, control } = await renderTools(null);
-  assert.equal(control("demand-pressure").props["data-focus-tool-state"], "locked");
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-market-explorer-focus-tool"] === "demand-pressure").length, 0);
   assert.equal(control("fair-value").props["data-focus-tool-state"], "locked");
-  assert.match(texts(renderer), /Demand Pressure requires Index\+/);
   assert.match(texts(renderer), /Premium/);
   for (const button of renderer.root.findAll((n) => n.props?.["data-market-explorer-focus-tool-button"])) assert.equal(button.props.disabled, true);
 });
 
-test("Index+: Demand Pressure UNAVAILABLE (disabled with reason), Fair Value Premium-locked", async () => {
+test("Index+: unpublished Demand Pressure is absent and Fair Value is Premium-locked", async () => {
   const { renderer, control } = await renderTools("plus");
-  assert.equal(control("demand-pressure").props["data-focus-tool-state"], "unavailable");
-  assert.match(texts(renderer), /Demand Pressure data is not available for this market yet\./);
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-market-explorer-focus-tool"] === "demand-pressure").length, 0);
   assert.equal(control("fair-value").props["data-focus-tool-state"], "locked");
 });
 
-test("Premium without published authority: both controls unavailable and disabled", async () => {
+test("Premium without published authority: Demand Pressure is absent and Fair Value is disabled", async () => {
   const { renderer, control } = await renderTools("premium");
-  assert.equal(control("demand-pressure").props["data-focus-tool-state"], "unavailable");
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-market-explorer-focus-tool"] === "demand-pressure").length, 0);
   assert.equal(control("fair-value").props["data-focus-tool-state"], "unavailable");
   assert.match(texts(renderer), /inDex Fair Value is not available for this market yet\./);
   for (const button of renderer.root.findAll((n) => n.props?.["data-market-explorer-focus-tool-button"])) assert.equal(button.props.disabled, true);
+});
+
+test("Demand Pressure appears only with explicit READY publication authority", async () => {
+  const { control } = await renderTools("plus", { demandPressure: { "set:a": { available: true } }, fairValue: {} });
+  assert.equal(control("demand-pressure").props["data-focus-tool-state"], "available");
 });
 
 test("Premium with an explicitly published Fair Value: control is live and reflects the ON state", async () => {
@@ -188,8 +191,8 @@ test("Graded browse shows neither Cards rarity nor Sealed Types", async () => {
 
 // --- Asset context labels ------------------------------------------------------------------------
 test("asset context labels qualify Set/Era/Rarity/Type identities but leave natural names alone", () => {
-  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "cards" }), "Fossil — Cards");
-  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "sealed" }), "Fossil — Sealed");
+  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "cards" }), "Fossil Card Market");
+  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "sealed" }), "Fossil Sealed Market");
   assert.equal(assetContextLabel({ label: "Sword & Shield", market_type: "era", asset: "sealed" }), "Sword & Shield — Sealed");
   assert.equal(assetContextLabel({ label: "Rare Ultra", market_type: "prepared_rarity", asset: "cards" }), "Rare Ultra — Cards");
   assert.equal(assetContextLabel({ label: "Booster Boxes", market_type: "prepared_format", asset: "sealed" }), "Booster Boxes — Sealed");

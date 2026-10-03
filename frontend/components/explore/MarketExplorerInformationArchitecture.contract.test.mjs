@@ -12,7 +12,7 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
   assert.match(source, /data-market-explorer-sidebar/);
   assert.match(source, /data-market-explorer-mobile-tools/);
   assert.match(source, /desk:hidden/);
-  assert.match(source, /mobileToolsOpen \? "block" : "hidden"/);
+  assert.match(source, /mobileToolsOpen \? "fixed" : "hidden"/);
 
   const explore = source.indexOf('data-market-explorer-zone="explore"');
   const compare = source.indexOf('data-market-explorer-zone="compare"');
@@ -34,12 +34,12 @@ test("Market Explorer uses a graph-first desktop workspace and compact mobile co
   assert.match(source, /data-market-explorer-methodology-takeover/);
   assert.doesNotMatch(source, /order-6 desk:col-span-2/);
   assert.equal(source.indexOf('data-market-explorer-sidebar-section="filter"'), -1);
-  assert.ok(source.indexOf("<MarketExplorerQueryBuilder", build) > build);
+  assert.equal(source.indexOf("<MarketExplorerQueryBuilder", build), -1);
   assert.ok(source.indexOf("<MarketExplorerExactBasket", build) > build);
   assert.match(source, /data-market-explorer-hide-details/);
   assert.equal(source.match(/<MarketExplorerBrowse/g)?.length, 1);
   assert.equal(source.match(/<MarketExplorerScreens/g)?.length, 1);
-  assert.equal(source.match(/<MarketExplorerQueryBuilder/g)?.length, 1);
+  assert.equal(source.match(/<MarketExplorerQueryBuilder/g)?.length || 0, 0);
   assert.equal(source.match(/<MarketExplorerExactBasket/g)?.length, 1);
 });
 
@@ -51,7 +51,7 @@ test("chart toolbar keeps the primary toggle left and responsive timeframes righ
   assert.ok(chart.indexOf("<MarketChartViewToggle") < chart.indexOf("<MarketExplorerTimeframeSelector"));
   assert.ok(chart.indexOf("<MarketChartViewToggle") < chart.indexOf("data-market-explorer-analysis-tools"));
   assert.match(chart, /data-market-explorer-view-details/);
-  assert.match(chart, /desk:h-\[clamp\(19rem,calc\(100dvh-24rem\),42rem\)\]/);
+  assert.match(chart, /plotClassName="min-h-\[4rem\] flex-1 desk:min-h-\[12rem\]/);
   assert.doesNotMatch(chart, /desk:h-\[40rem\]/);
   assert.doesNotMatch(chart, /2xl:h-\[46rem\]/);
   assert.match(chart, /desk:flex-row/);

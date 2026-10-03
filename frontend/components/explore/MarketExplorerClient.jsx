@@ -10,7 +10,6 @@ import {
 } from "react";
 import MarketExplorerChart from "./MarketExplorerChart";
 import MarketExplorerDetails from "./MarketExplorerDetails";
-import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
 import MarketExplorerConstituents from "./MarketExplorerConstituents";
 import MarketExplorerActiveMarkets from "./MarketExplorerActiveMarkets";
 import MarketExplorerMethodology from "./MarketExplorerMethodology";
@@ -29,7 +28,6 @@ import {
   PREPARED_FAILURE,
 } from "@/lib/explore/marketExplorerPreparedLoader.mjs";
 import {
-  buildBenchmarkModel,
   buildExplorerTimeframeOptions,
   resolveExplorerTimeframe,
 } from "@/lib/explore/marketExplorerState.mjs";
@@ -166,12 +164,10 @@ export default function MarketExplorerClient({
     indexPlan,
     isAuthenticated,
     canComparePreparedMarkets,
-    canBuildCustomMarkets,
   } = useMemo(() => resolveMarketExplorerPlanAccess(liveUser), [liveUser]);
   const {
     selection: { assetUniverse, sealedFamilyIds, segmentIds },
     selectedSeriesIds,
-    toggleMarket,
     toggleAny,
     replacePrepared,
     clearAll: clearAllSelection,
@@ -191,7 +187,6 @@ export default function MarketExplorerClient({
   const [limitNotice, setLimitNotice] = useState(null);
   const slotCountRef = useRef(0);
   const [builderOpen, setBuilderOpen] = useState(false);
-  const [builderMode, setBuilderMode] = useState("exact");
   // activeBrowseAsset is BROWSING state (search scope, categories, rarity/type controls,
   // Builder default asset). It is deliberately NOT the chart selection: switching it
   // never adds or removes an active market.
@@ -446,7 +441,6 @@ export default function MarketExplorerClient({
     setCompareUpgradeVisible(false);
     setLimitNotice(null);
     setBuilderOpen(false);
-    setBuilderMode("exact");
     setBasketSeed(null);
     setActiveBrowseAsset("cards");
     setSidebarDisclosure(null);
@@ -467,13 +461,7 @@ export default function MarketExplorerClient({
 
   // Era & Sets and Build a Market read the SAME canonical option payload, in
   // one shared request.
-  const {
-    status: optionsStatus,
-    options,
-    message: optionsMessage,
-    retry: retryOptions,
-    isRetrying: optionsRetrying,
-  } = useMarketExplorerFilterOptions({
+  const { options } = useMarketExplorerFilterOptions({
     isAuthenticated,
     authRevision: auth?.authRevision || 0,
     enabled: isAuthenticated && canComparePreparedMarkets,
@@ -486,26 +474,6 @@ export default function MarketExplorerClient({
   const toggleSeries = useCallback(
     (seriesId) => toggleAny(seriesId, removeQuery),
     [toggleAny, removeQuery],
-  );
-  const addPrepared = useCallback(
-    (seriesId) => {
-      if (selectedSeriesIds.includes(seriesId)) return "duplicate";
-      if (!canComparePreparedMarkets) {
-        replacePrepared(seriesId);
-        clearAllQueries();
-        return "replaced";
-      }
-      toggleAny(seriesId, removeQuery);
-      return "added";
-    },
-    [
-      canComparePreparedMarkets,
-      clearAllQueries,
-      replacePrepared,
-      selectedSeriesIds,
-      toggleAny,
-      removeQuery,
-    ],
   );
   const comparePrepared = useCallback(
     (seriesId) => {
@@ -624,11 +592,6 @@ export default function MarketExplorerClient({
     }
   }, [canComparePreparedMarkets, replacePrepared, selectedSeriesIds]);
 
-  // Per-Set Chase remains available as a benchmark inside Custom Filters.
-  const benchmarkEntries = useMemo(
-    () => buildBenchmarkModel(overview, assetUniverse),
-    [overview, assetUniverse],
-  );
   const comparableSeries = useMemo(
     () => buildComparableSeries(overview, sealedSegments, cardSegments),
     [overview, sealedSegments, cardSegments],
@@ -924,14 +887,10 @@ export default function MarketExplorerClient({
     [querySeries, editingSeriesId],
   );
   const beginEdit = useCallback((series) => {
+    if (series.spec?.membershipMode !== "explicit") return;
     setEditingSeriesId(series.instanceId);
     setRequestedDetailSeriesId(series.key);
-    // Custom Filters live in Build Your Market: open the tab that owns this spec.
-    setBuilderMode(
-      series.spec?.membershipMode === "explicit" ? "exact" : "filters",
-    );
     setBuilderOpen(true);
-    if (series.spec?.membershipMode !== "explicit") setMobileToolsOpen(true);
   }, []);
 
   if (!overview || !overview.families?.length) {
@@ -1079,11 +1038,9 @@ export default function MarketExplorerClient({
             onDirectSelect={selectDirectInstrument}
             onAddToBasket={(item) => {
               setBasketSeed({ item, nonce: (basketSeed?.nonce || 0) + 1 });
-              setBuilderMode("exact");
               setBuilderOpen(true);
             }}
             onBuild={() => {
-              setBuilderMode("exact");
               setBuilderOpen(true);
             }}
           />
@@ -1177,91 +1134,22 @@ export default function MarketExplorerClient({
         <div
           className={`${styles.explorerZone} ${styles.surfaceQuiet} set-glass-surface flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[var(--surface-page)] shadow-2xl desk:h-[86vh] desk:max-h-[90vh] desk:w-[min(78rem,calc(100vw-3rem))] desk:rounded-2xl`}
         >
-          <div
-            className="flex flex-none items-center gap-2 border-b border-[var(--border-subtle)] px-4 py-2 sm:px-6"
-            role="tablist"
-            aria-label="Build Your Market method"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={builderMode === "exact"}
-              onClick={() => setBuilderMode("exact")}
-              className={`min-h-10 rounded-md border px-4 text-xs font-semibold ${builderMode === "exact" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}
-            >
-              Cards &amp; Products
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={builderMode === "filters"}
-              onClick={() => setBuilderMode("filters")}
-              className={`min-h-10 rounded-md border px-4 text-xs font-semibold ${builderMode === "filters" ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,.14)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}
-            >
-              Custom Filters{!canBuildCustomMarkets ? " · Premium" : ""}
-            </button>
+          <div className="flex flex-none items-center border-b border-[var(--border-subtle)] px-4 py-3 text-xs font-semibold text-[var(--text-primary)] sm:px-6">
+            Cards &amp; Products
           </div>
-          {builderMode === "exact" ? (
-            <div
-              data-market-explorer-build-path="exact"
-              className="flex min-h-0 flex-1 flex-col"
-            >
-              <MarketExplorerExactBasket
-                key={`exact:${sessionResetKey}`}
-                currentPlan={indexPlan}
-                editingSeries={editingSeries}
-                initialScope={activeBrowseAsset === "sealed" ? "sealed" : "all"}
-                seedItem={basketSeed}
-                onAddQuery={addQuery}
-                onUpdateQuery={updateQuery}
-                onCancelEdit={() => setEditingSeriesId(null)}
-                onClose={() => setBuilderOpen(false)}
-              />
-            </div>
-          ) : (
-            <div
-              data-market-explorer-build-path="filters"
-              className="min-h-0 flex-1 overflow-y-auto"
-            >
-              <MarketExplorerQueryBuilder
-                key={`filters:${sessionResetKey}`}
-                presentation="sidebar"
-                optionsProvided
-                options={options}
-                optionsStatus={optionsStatus}
-                optionsMessage={optionsMessage}
-                onRetryOptions={retryOptions}
-                optionsRetrying={optionsRetrying}
-                benchmarkEntries={benchmarkEntries}
-                preparedSeries={comparableSeries}
-                activeSeries={selectedSeries}
-                onAddPrepared={addPrepared}
-                onAddQuery={addQuery}
-                onUpdateQuery={updateQuery}
-                editingSeries={
-                  editingSeries?.spec?.membershipMode === "explicit"
-                    ? null
-                    : editingSeries
-                }
-                onCancelEdit={() => setEditingSeriesId(null)}
-                onToggleBenchmark={toggleMarket}
-                selectedSeriesCount={selectedSeries.length}
-                isAuthenticated={isAuthenticated}
-                currentPlan={indexPlan}
-                accessMode={accessMode}
-                coverageSummary={coverageSummary}
-              />
-              <div className="sticky bottom-0 flex justify-end border-t border-[var(--border-subtle)] bg-[var(--surface-page)]/95 px-4 py-3 backdrop-blur sm:px-6">
-                <button
-                  type="button"
-                  onClick={() => setBuilderOpen(false)}
-                  className="min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-xs font-semibold text-[var(--text-primary)]"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          )}
+          <div data-market-explorer-build-path="exact" className="flex min-h-0 flex-1 flex-col">
+            <MarketExplorerExactBasket
+              key={`exact:${sessionResetKey}`}
+              currentPlan={indexPlan}
+              editingSeries={editingSeries}
+              initialScope={activeBrowseAsset === "sealed" ? "sealed" : "all"}
+              seedItem={basketSeed}
+              onAddQuery={addQuery}
+              onUpdateQuery={updateQuery}
+              onCancelEdit={() => setEditingSeriesId(null)}
+              onClose={() => setBuilderOpen(false)}
+            />
+          </div>
         </div>
       </dialog>
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks

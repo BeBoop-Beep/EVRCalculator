@@ -103,7 +103,7 @@ export default function InfoPopover({ text, children = null, learnMoreHref = nul
   ) : null;
 
   return (
-    <div className="relative flex-none">
+    <span className="relative inline-flex flex-none">
       <button
         ref={triggerRef}
         type="button"
@@ -119,6 +119,6 @@ export default function InfoPopover({ text, children = null, learnMoreHref = nul
         </svg>
       </button>
       {open && typeof document !== "undefined" ? createPortal(popover, document.body) : null}
-    </div>
+    </span>
   );
 }

@@ -17,6 +17,13 @@ test("TableSearchInput owns the canonical Set Market search shape", () => {
   assert.match(shared, /Set Market is the visual authority/);
 });
 
+test("a controlled search without an action is honestly read-only and disabled", () => {
+  assert.match(shared, /const actionable = typeof onChange === "function"/);
+  assert.match(shared, /readOnly=\{!actionable\}/);
+  assert.match(shared, /disabled=\{!actionable\}/);
+  assert.doesNotMatch(shared, /onChange=\{\(\) => \{\}\}/);
+});
+
 test("all table-ranking surfaces use the shared search without local dimensions", () => {
   for (const [name, source] of [["Market", market], ["Sets", sets], ["Products", products]]) {
     assert.match(source, /import TableSearchInput from "@\/components\/ui\/TableSearchInput"/);

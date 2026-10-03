@@ -42,14 +42,14 @@ function ToolControl({ id, label, tool, badge, pressed, onToggle }) {
  */
 export function buildFocusTools({ states, fairValueOn = false, demandPressureOn = false, onToggle }) {
   return [
-    {
+    states.demandPressure.state === FOCUS_TOOL_STATE.available ? {
       id: "demand-pressure",
       render: () => (
         <ToolControl id="demand-pressure" label="Demand Pressure" tool={states.demandPressure}
           badge={states.demandPressure.state === FOCUS_TOOL_STATE.locked ? "Index+" : null}
           pressed={demandPressureOn} onToggle={onToggle} />
       ),
-    },
+    } : null,
     {
       id: "fair-value",
       render: () => (
@@ -58,5 +58,5 @@ export function buildFocusTools({ states, fairValueOn = false, demandPressureOn 
           pressed={fairValueOn} onToggle={onToggle} />
       ),
     },
-  ];
+  ].filter(Boolean);
 }

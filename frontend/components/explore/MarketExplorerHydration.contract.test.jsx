@@ -23,6 +23,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { readFile } from "node:fs/promises";
 
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
+import InfoPopover from "@/components/ui/InfoPopover";
+import OpeningEconomicsDistribution from "./OpeningEconomicsDistribution";
 import { colorForQueryFingerprint, sortEraOptions, sortSetOptions } from "@/lib/explore/marketExplorerQuery.mjs";
 
 const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
@@ -45,6 +47,19 @@ const control = (props = {}) => (
     {...props}
   />
 );
+
+test("the affected Rankings opening surface renders without nesting or controlled-input warnings", () => {
+  const errors = [];
+  const original = console.error;
+  console.error = (...args) => errors.push(args.map(String).join(" "));
+  try {
+    renderToStaticMarkup(<OpeningEconomicsDistribution scope={{ setCount: 0, productFamilyCount: 0, productSkuCount: 0 }} overview={{}} />);
+    renderToStaticMarkup(<p>Inline help <InfoPopover text="Safe inline help" /></p>);
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(errors.filter((message) => /hydration|cannot be a descendant|cannot contain|without an onChange/i.test(message)), []);
+});
 
 test("the filter control renders identical markup on every render", () => {
   const first = renderToStaticMarkup(control());

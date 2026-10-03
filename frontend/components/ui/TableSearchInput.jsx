@@ -16,6 +16,7 @@ export default function TableSearchInput({
   // field without forking the component or reintroducing local dimensions.
   inputProps = {},
 }) {
+  const actionable = typeof onChange === "function";
   return (
     <label className={`min-w-0 w-full flex-1 desk:max-w-[16rem] ${containerClassName} ${className}`.trim()}>
       <span className="sr-only">{ariaLabel}</span>
@@ -24,6 +25,8 @@ export default function TableSearchInput({
         type="search"
         value={value}
         onChange={onChange}
+        readOnly={!actionable}
+        disabled={!actionable}
         placeholder={placeholder}
         aria-label={ariaLabel}
         className={`${styles.setMarketControl} min-h-11 w-full px-2.5 py-1 text-xs desk:min-h-0 desk:py-1.5`}

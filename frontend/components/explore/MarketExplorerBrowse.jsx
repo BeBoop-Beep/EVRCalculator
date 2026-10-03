@@ -81,7 +81,9 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
   const groups = open === "sets" ? [...parentGroup, ...grouped.sets] : null;
   useEffect(() => { if (open) requestAnimationFrame(() => searchRef.current?.focus()); }, [open]);
   useEffect(() => {
-    if (typeof document === "undefined") return undefined;
+    // Browse shares disclosure state with sibling selectors, so it owns the
+    // document listener only while one of its own panels is open.
+    if (!open || typeof document === "undefined") return undefined;
     const outside = (event) => {
       const root = rootRef.current;
       const path = typeof event.composedPath === "function" ? event.composedPath() : [];
@@ -90,7 +92,7 @@ export default function MarketExplorerBrowse({ directory = [], directoryStatus =
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [setOpen]);
+  }, [open, setOpen]);
   const close = (restoreFocus = false) => {
     const trigger = triggerRefs.current.get(open);
     setOpen(null); setSearch(""); setHighlightedIndex(NO_HIGHLIGHT);

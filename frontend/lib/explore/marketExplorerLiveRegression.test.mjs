@@ -11,14 +11,14 @@ import { resolveCompositionCapability } from "./marketExplorerComposition.mjs";
 const read = (p) => fs.readFileSync(new URL(p, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
 test("Set and Era chips carry the PUBLISHED asset, other markets stay quiet", () => {
-  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "cards" }), "Fossil — Cards");
-  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "sealed" }), "Fossil — Sealed");
-  assert.equal(assetContextLabel({ label: "Base Set 2", scope_kind: "set", asset: "cards" }), "Base Set 2 — Cards");
+  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "cards" }), "Fossil Card Market");
+  assert.equal(assetContextLabel({ label: "Fossil", market_type: "set", asset: "sealed" }), "Fossil Sealed Market");
+  assert.equal(assetContextLabel({ label: "Base Set 2", scope_kind: "set", asset: "cards" }), "Base Set 2 Card Market");
   assert.equal(assetContextLabel({ label: "Base/WOTC", market_type: "era", asset: "sealed" }), "Base/WOTC — Sealed");
   assert.equal(assetContextLabel({ label: "Total Sealed", market_type: "parent", asset: "sealed" }), "Total Sealed");
   assert.equal(assetContextLabel({ label: "Sealed Base Set", market_type: "set", asset: "sealed" }), "Sealed Base Set");
   const [series] = buildPreparedSeries([{ market_key: "sealed-set:x", market_type: "set", label: "Fossil", asset: "sealed", comparison_as_of: "2026-09-22" }], []);
-  assert.equal(series.shortLabel, "Fossil — Sealed");
+  assert.equal(series.shortLabel, "Fossil Sealed Market");
   assert.equal(series.label, "Fossil"); // identity label is untouched
 });
 

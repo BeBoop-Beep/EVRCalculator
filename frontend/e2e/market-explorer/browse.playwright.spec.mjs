@@ -56,7 +56,7 @@ test("Sealed V2 fixture: Search, Sets, Eras, Quick Markets, Sealed Types, Screen
 
   await pickRow(page, "sets", "Fossil");
   await expect(chip(page, "sealed-set:set-fossil")).toHaveCount(1, { timeout: 30000 });
-  await expect(chip(page, "sealed-set:set-fossil")).toContainText("Fossil — Sealed");
+  await expect(chip(page, "sealed-set:set-fossil")).toContainText("Fossil Sealed Market");
   await pickRow(page, "eras", "Base");
   await expect(chip(page, "sealed-era:era-base")).toHaveCount(1, { timeout: 30000 });
   await expect(chip(page, "sealed-era:era-base")).toContainText("— Sealed");
@@ -89,13 +89,13 @@ test("asset labels: Cards / Sealed context on Set and Era chips (published asset
   await openExplorer(page, URLS.v2);
   await clearDefaults(page);
   await pickRow(page, "sets", "Fossil");
-  await expect(chip(page, "set:set-fossil")).toContainText("Fossil — Cards", { timeout: 30000 });
+  await expect(chip(page, "set:set-fossil")).toContainText("Fossil Card Market", { timeout: 30000 });
   await layer(page, "sealed").click();
   await pickRow(page, "sets", "Fossil");
-  await expect(chip(page, "sealed-set:set-fossil")).toContainText("Fossil — Sealed", { timeout: 30000 });
+  await expect(chip(page, "sealed-set:set-fossil")).toContainText("Fossil Sealed Market", { timeout: 30000 });
   await layer(page, "cards").click();
   await pickRow(page, "sets", "Base Set 2");
-  await expect(chip(page, "set:set-bs2")).toContainText("Base Set 2 — Cards", { timeout: 30000 });
+  await expect(chip(page, "set:set-bs2")).toContainText("Base Set 2 Card Market", { timeout: 30000 });
   await pickRow(page, "eras", "Base");
   await expect(chip(page, "era:era-base")).toContainText("— Cards", { timeout: 30000 });
   await shot(page, "v2-fixture-asset-labels");

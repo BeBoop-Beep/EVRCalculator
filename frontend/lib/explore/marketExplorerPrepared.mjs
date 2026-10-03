@@ -32,6 +32,11 @@ function resolveChanges(row) {
 export function assetContextLabel(row) {
   const label = row?.label;
   if (!label) return label;
+  if (row.market_type === "set" || row.scope_kind === "set") {
+    const suffix = row.asset === "sealed" ? "Sealed Market" : "Card Market";
+    const base = label.replace(/\s+(?:—|-)?\s*(?:Cards?|Sealed)(?:\s+Market)?$/i, "").trim();
+    return `${base} ${suffix}`;
+  }
   // Sets, Eras, Rarity markets and Sealed Types share names across assets ("Fossil",
   // "Booster Boxes" vs a Cards rarity), so each is qualified from its published asset.
   const scoped = ["set", "era", "prepared_rarity", "prepared_format"].includes(row.market_type)

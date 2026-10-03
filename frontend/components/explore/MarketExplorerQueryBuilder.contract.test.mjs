@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
 
-test("filtered and explicit builders have one accepted owner each", async () => {
+test("the visible Builder is exact-only while the internal filtered builder contract remains intact", async () => {
   const [client, builder] = await Promise.all([read("./MarketExplorerClient.jsx"), read("./MarketExplorerQueryBuilder.jsx")]);
-  assert.equal(client.match(/<MarketExplorerQueryBuilder/g)?.length, 1);
+  assert.equal(client.match(/<MarketExplorerQueryBuilder/g)?.length || 0, 0);
   assert.equal(client.match(/<MarketExplorerExactBasket/g)?.length, 1);
   assert.match(client, /data-market-explorer-zone="build"/);
   for (const obsolete of ['id="buildAMarket"', "scopeHandoff", "handOffToBuilder", "Use in Build a Market", "<MarketExplorerFilters"]) assert.ok(!client.includes(obsolete));

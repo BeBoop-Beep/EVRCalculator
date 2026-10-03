@@ -15,7 +15,7 @@ export default function OpeningEconomicsDistribution({ scope, overview, financia
   return <section data-opening-economics-distribution>
     <div className="set-glass-surface overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5" data-opening-summary-context>
       <div className="border-b border-[var(--border-subtle)] pb-4">
-        <p className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Overall Financial RIP <InfoPopover text="Absolute Pokémon-wide Financial RIP reference for the certified publication." /></p>
+        <div className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Overall Financial RIP <InfoPopover text="Absolute Pokémon-wide Financial RIP reference for the certified publication." /></div>
         <p className="mt-1 text-3xl font-semibold tabular-nums">{Number.isFinite(Number(financial)) ? Number(financial).toFixed(2) : <Dash />}</p>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">Pokémon Overall benchmark reference</p>
       </div>
