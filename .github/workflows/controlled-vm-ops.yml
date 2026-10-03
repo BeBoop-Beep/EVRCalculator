@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   issues: write
 
 concurrency:
@@ -36,7 +37,7 @@ jobs:
 
           message = os.environ.get("VM_REQUEST_MESSAGE", "").strip()
           match = re.fullmatch(
-              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-shadow-ops-tests|fv-shadow-ops-install-cron|fv-shadow-ops-status|fv-forward-bindings-dry-run|fv-forward-bindings-backfill|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-panel-recovery-v2)"
+              r"vm-op:\s*(status|fv-shadow-publish-dry-run|fv-shadow-publish-once|fv-shadow-foundation-tests|fv-shadow-ops-tests|fv-shadow-ops-install-cron|fv-shadow-ops-status|fv-forward-bindings-dry-run|fv-forward-bindings-backfill|fv-core-panel-activation-tests|fv-core-panel-plan|fv-core-panel-preflight|fv-core-panel-install-cron|fv-core-panel-run-now|fv-core-panel-status|vm-cleanup-stale-tmp|db-safety-empty-hold-repair|fv-canary-empty-diagnose|sync-main-reviewed|code-red-db-load-shed|code-red-db-load-restore-audit|code-red-db-load-restore-merge|code-red-db-load-restore|db-safety-guard-repair|sentinel-reliability-tests|sentinel-explorer-convergence-dry-run|market-explorer-cutover-status|market-explorer-direct-worker-test|market-explorer-install-db-env|market-explorer-worker-cutover|market-explorer-db-diagnose|market-explorer-sync-db-password|market-explorer-cron-audit|market-explorer-cron-observe|market-explorer-cache-cron-disable|market-explorer-projection-audit|market-explorer-currency-source-audit|market-explorer-manual-one-shot|market-explorer-coverage-rpc-tests|market-explorer-durable-tests|market-explorer-coverage-rpc-smoke|market-explorer-coverage-direct-smoke|market-explorer-currency-tests|market-explorer-currency-cutover|market-explorer-pipeline-runtime-cutover|market-explorer-v2-repair|market-explorer-coverage-rpc-cutover|sync-main|wait-sync-main-after-publication|sync-main-preserve-payload-debug|sync-main-preserve-untracked-artifacts|pytest-cards-market|pytest-cards-market-pr239|pytest-post-scrape-watchdog-pr363|pytest-publication-detach-fix|pytest-global-market-deferred-segments-fix|pytest-refresh-target-fastpath-pr368|pytest-projection-gate-pr369|post-scrape-recovery-now|rip-benchmark-publish|market-vintage-db-migrate|market-vintage-cutover|supabase-project-restart|set-market-snapshot|sealed-market-snapshots-all|explorer-prewarm-one|explorer-prewarm-five|market-dashboard-set|repair-cards-market-errors|refresh-explorer-and-audit|repair-sep22-base-publication|repair-sep22-market-publication-direct|sep22-publication-status|publication-live-debug|scrape-cycle-status|scrape-catalog-set-refresh|scrape-set-refresh|scrape-create-missing-batch|scrape-kill-stuck-dispatcher|scrape-hard-kill-stuck-dispatcher|scrape-hard-kill-live-stale-dispatcher|stop-stale-sep22-publisher|stop-sep24-global-card-segment-publisher|restart-sep24-publisher-optimized|sync-launch-sep24-publisher-optimized|run-sep24-publisher-optimized|treatment-panel-preflight|treatment-panel-pilot|pricing-status|pricing-health|pricing-install-cron|pricing-run-controlled|pricing-replay-verify|pricing-runtime-preflight|pricing-deploy-runtime|pricing-credential-status|pricing-install-credentials|pkmnprices-credential-status|pkmnprices-install-credential|pkmnprices-probe|pkmnprices-migration-scaffold|pricing-sync-main|pricing-run-full-now|sentinel-status|sentinel-audit-now|sentinel-enable-recovery|treatment-set-relative-v2|treatment-panel-recovery-v2)"
               r"(?:\s+market_date=(\d{4}-\d{2}-\d{2}))?"
               r"(?:\s+set_id=([A-Za-z0-9._:-]{1,128}))?"
               r"(?:\s+request_id=([A-Za-z0-9._:-]{1,128}))?",
@@ -58,12 +59,14 @@ jobs:
               raise SystemExit("scrape-catalog-set-refresh requires set_id=<canonical_key>")
           if op == "scrape-set-refresh" and not set_id:
               raise SystemExit("scrape-set-refresh requires set_id=<canonical_key>")
-          if (op.startswith("pricing-") or op.startswith("pkmnprices-") or op == "treatment-panel-recovery-v2") and (market_date or set_id):
+          if (op.startswith("pricing-") or op.startswith("pkmnprices-") or op in {"treatment-panel-recovery-v2", "treatment-set-relative-v2"}) and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
           if op.startswith("fv-") and (market_date or set_id):
               raise SystemExit(f"{op} accepts no market_date or set_id")
           if op == "treatment-panel-recovery-v2" and (not request_id or not request_id.isdigit()):
               raise SystemExit("treatment-panel-recovery-v2 requires numeric request_id=<issue number>")
+          if op == "treatment-set-relative-v2" and request_id != "20261003":
+              raise SystemExit("treatment-set-relative-v2 requires request_id=20261003")
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write(f"VM_OPERATION={op}\n")
@@ -4997,6 +5000,127 @@ jobs:
               if grep -qx 'runtime_provenance_configured=false' <<<"$PROV"; then echo "RUNTIME_PROVENANCE_PROFILE_NOT_CONFIGURED"; fi
               ;;
 
+            treatment-set-relative-v2)
+              set -euo pipefail
+              RESEARCH_SHA="4fcded68a59aebee95eeb5a0e7c002f76f1858e3"
+              RESEARCH_BRANCH="research/treatment-panel-recovery-v2-current-20261001"
+              TARGET_FINGERPRINT="28b344ca8ea95ba8fbc9fa947cdb28a1a3d83408482572084ee83e1cf992563d"
+              PRIOR_ARTIFACT_ID="11211877714"
+              PRIOR_ARTIFACT_SHA256="f38d7ac419cc7ac4272c813636d42fbf4254834eb3345be4f346c8e136e41a64"
+              WT="/tmp/EVRCalculator-treatment-set-relative-v2-$GITHUB_RUN_ID"
+              OUT="/tmp/treatment-set-relative-v2-$GITHUB_RUN_ID"
+              HOLD="/home/ubuntu/state/db-safety/hold.json"
+              ENV_REPO="/home/ubuntu/repos/EVRCalculator"
+              PY="$ENV_REPO/.venv/bin/python"
+
+              cleanup_treatment_v2() {
+                if [ -e "$WT" ]; then
+                  git -C "$ENV_REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"
+                fi
+                git -C "$ENV_REPO" worktree prune >/dev/null 2>&1 || true
+              }
+              trap cleanup_treatment_v2 EXIT
+
+              [ -x "$PY" ] || { echo "TREATMENT_V2_PYTHON_MISSING"; exit 2; }
+              [ "$(date -u +%F)" = "2026-10-03" ] || { echo "TREATMENT_V2_WRONG_CREDIT_DAY"; exit 76; }
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "TREATMENT_V2_DB_SAFETY_HOLD"; exit 75; }
+
+              cd "$ENV_REPO"
+              git fetch origin "$RESEARCH_BRANCH" --quiet
+              git cat-file -e "$RESEARCH_SHA^{commit}"
+              [ "$(git rev-parse "origin/$RESEARCH_BRANCH")" = "$RESEARCH_SHA" ] || {
+                echo "TREATMENT_V2_RESEARCH_SHA_DRIFT_REFUSED"
+                exit 20
+              }
+
+              rm -rf "$OUT"
+              mkdir -p "$OUT"
+              cleanup_treatment_v2
+              git worktree add --detach "$WT" "$RESEARCH_SHA" >/dev/null
+              [ "$(git -C "$WT" rev-parse HEAD)" = "$RESEARCH_SHA" ] || exit 21
+
+              set -a
+              . "$ENV_REPO/backend/.env"
+              set +a
+              export PYTHONPATH="$WT"
+
+              echo "== estimator unit tests =="
+              "$PY" -m pytest -q "$WT/backend/tests/unit/scripts/test_research_treatment_set_relative_hierarchy_v2.py"
+
+              echo "== frozen zero-provider preflight =="
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py                 --market-date 2026-09-29                 --period 180d                 --output "$OUT/preflight.json")
+
+              TREATMENT_PREFLIGHT="$OUT/preflight.json" TARGET_FINGERPRINT="$TARGET_FINGERPRINT" "$PY" - <<'PY'
+          import json, os
+          p=json.load(open(os.environ["TREATMENT_PREFLIGHT"],encoding="utf-8"))
+          t=p["target"]
+          assert p["status"]=="PREFLIGHT_OK"
+          assert p["production_writes"]==0
+          assert t["triad_count"]==56
+          assert t["card_count"]==168
+          assert t["fingerprint"]==os.environ["TARGET_FINGERPRINT"]
+          print("TREATMENT_V2_FROZEN_PREFLIGHT=PASS provider_calls=0 production_writes=0")
+          PY
+
+              echo "== reserve shared provider window =="
+              exec 6>/tmp/active-supply-panel.lock
+              /usr/bin/flock -w 600 6 || { echo "TREATMENT_V2_ACTIVE_SUPPLY_LOCK_TIMEOUT"; exit 75; }
+
+              /usr/bin/flock -n /tmp/pokemon-scrape-dispatcher.lock -c true || {
+                echo "TREATMENT_V2_SCRAPE_DISPATCHER_BUSY"; exit 75;
+              }
+
+              exec 8>/tmp/pkmnprices-api.lock
+              /usr/bin/flock -w 600 8 || { echo "TREATMENT_V2_PROVIDER_LOCK_TIMEOUT"; exit 75; }
+
+              exec 9>/tmp/pokemon-post-scrape-publication.lock
+              /usr/bin/flock -n 9 || { echo "TREATMENT_V2_HEAVY_PUBLISHER_BUSY"; exit 75; }
+
+              [ ! -e "$HOLD" ] && [ ! -L "$HOLD" ] || { echo "TREATMENT_V2_DB_SAFETY_HOLD_AFTER_LOCK"; exit 75; }
+              echo "TREATMENT_V2_PROVIDER_WINDOW=RESERVED credit_day=$(date -u +%F)"
+
+              set +e
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_expansion_panel_v2.py                 --market-date 2026-09-29                 --period 180d                 --credit-cap 22000                 --capture                 --capture-authorization SET_RELATIVE_V2_FROZEN_CAPTURE_20261002                 --output "$OUT/capture.json")
+              CAPTURE_CODE=$?
+              set -e
+
+              /usr/bin/flock -u 9 || true
+              /usr/bin/flock -u 8 || true
+              /usr/bin/flock -u 6 || true
+
+              if [ "$CAPTURE_CODE" -ne 0 ]; then
+                echo "TREATMENT_V2_CAPTURE_EXIT_CODE=$CAPTURE_CODE"
+                exit "$CAPTURE_CODE"
+              fi
+
+              echo "== fetch frozen prior independent panel =="
+              PRIOR_ZIP="$OUT/prior.zip"
+              curl -fsSL                 -H "Authorization: Bearer $VM_GITHUB_TOKEN"                 -H "Accept: application/vnd.github+json"                 -H "X-GitHub-Api-Version: 2022-11-28"                 "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$PRIOR_ARTIFACT_ID/zip"                 -o "$PRIOR_ZIP"
+
+              PRIOR_ZIP="$PRIOR_ZIP" PRIOR_SHA="$PRIOR_ARTIFACT_SHA256" PRIOR_OUT="$OUT/prior" "$PY" - <<'PY'
+          import hashlib, os, pathlib, zipfile
+          z=pathlib.Path(os.environ["PRIOR_ZIP"])
+          digest=hashlib.sha256(z.read_bytes()).hexdigest()
+          if digest != os.environ["PRIOR_SHA"]:
+              raise SystemExit(f"PRIOR_ARTIFACT_DIGEST_MISMATCH got={digest}")
+          out=pathlib.Path(os.environ["PRIOR_OUT"])
+          out.mkdir(parents=True,exist_ok=True)
+          with zipfile.ZipFile(z) as archive:
+              archive.extractall(out)
+          panel=out/"panel.json"
+          if not panel.is_file():
+              raise SystemExit("PRIOR_PANEL_MISSING")
+          print(f"PRIOR_PANEL_VERIFIED sha256={digest}")
+          PY
+
+              echo "== fit preregistered Set-relative Treatment V2 =="
+              (cd "$WT" && "$PY" backend/scripts/research_treatment_set_relative_hierarchy_v2.py                 --prior-panel "$OUT/prior/panel.json"                 --fresh-panel "$OUT/capture.json"                 --output "$OUT/result.json"                 --report "$OUT/FINAL_REPORT.md")
+
+              echo "== final Treatment V2 report =="
+              cat "$OUT/FINAL_REPORT.md"
+              echo "TREATMENT_SET_RELATIVE_V2=PASS"
+              ;;
+
             treatment-panel-recovery-v2)
               set -euo pipefail
               RESEARCH_SHA="33445b6b12b5c168361ffc1a82beb72e72623101"
@@ -5648,3 +5772,12 @@ jobs:
               exit 4
               ;;
           esac
+
+      - name: Upload Treatment Set-Relative V2 artifacts
+        if: ${{ always() && env.VM_OPERATION == 'treatment-set-relative-v2' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: treatment-set-relative-v2-controlled-${{ github.run_id }}
+          path: /tmp/treatment-set-relative-v2-${{ github.run_id }}
+          if-no-files-found: warn
+
