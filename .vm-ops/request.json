@@ -1,4 +1,4 @@
 {
-  "operation": "fv-core-panel-status",
-  "request_id": "fv-core-panel-status-20261002-post-reset"
+  "operation": "treatment-set-relative-v2",
+  "request_id": "20261003"
 }
