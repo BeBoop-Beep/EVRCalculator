@@ -378,3 +378,104 @@ def test_multiple_existing_daily_cutoffs_fail_closed():
             evaluation_date=__import__("datetime").date(2026, 10, 2),
             panel=panel,
         )
+
+
+def _existing_publications_fixture():
+    panel = s2.load_panel()
+    tables = _tables()
+    db = FakeDB(tables)
+    provider_by_card, evidence_by_card = publisher.fetch_anchor_inputs(db, panel)
+    cutoff = datetime(2026, 10, 2, 16, 4, 53, 916879, tzinfo=timezone.utc)
+    publications = publisher.build_publications(
+        panel=panel,
+        provider_by_card=provider_by_card,
+        evidence_by_card=evidence_by_card,
+        evaluation_date=__import__("datetime").date(2026, 10, 2),
+        information_cutoff=cutoff,
+        generated_at=cutoff,
+        source_commit="abc1234",
+    )
+    return panel, tables, publications
+
+
+def test_complete_existing_daily_cohort_is_reused_without_rebuilding_or_price_reads():
+    panel, tables, publications = _existing_publications_fixture()
+    tables["fair_value_shadow_anchor_publications_v1"] = publications
+    tables["fair_value_shadow_component_observations_v1"] = [
+        {"publication_id": p["publication_id"]} for p in publications
+    ]
+    tables["fair_value_shadow_evaluation_outcomes_v1"] = [
+        {
+            "publication_id": p["publication_id"],
+            "horizon_days": 0,
+            "comparison_market_price_usd": 100.0,
+            "outcome_status": "COMPLETE",
+        }
+        for p in publications
+    ]
+
+    # Simulate evidence arriving after the frozen cohort was already published.
+    first = publications[0]
+    tables["pkmnprices_ebay_sold_evidence_v1"].append({
+        "provider_listing_id": 999999999,
+        "provider_card_id": 50001,
+        "canonical_card_id": first["canonical_card_id"],
+        "title": "late evidence",
+        "price": "999.99",
+        "currency": "USD",
+        "grader": None,
+        "grade": None,
+        "graded": False,
+        "provider_variant": None,
+        "attribution": "exact",
+        "sold_at": "2026-10-02",
+        "ingested_at": "2026-10-03T00:40:00+00:00",
+        "collected_at": "2026-10-03T00:40:00+00:00",
+        "identity_state": "EXACT",
+        "fair_value_signal_eligible": True,
+        "exclusion_reason": None,
+        "run_id": "00000000-0000-0000-0000-000000000002",
+    })
+
+    db = FakeDB(tables)
+    ledger = RecordingLedger(db.events)
+    out = publisher.publish(
+        db=db,
+        ledger=ledger,
+        source_commit="def5678",
+        now=datetime(2026, 10, 3, 1, 0, tzinfo=timezone.utc),
+        dry_run=False,
+    )
+
+    price_tables = {"pokemon_canonical_card_market_prices_latest", "card_variant_price_observations"}
+    assert not [e for e in db.events if e[0] == "append_publication"]
+    assert not [e for e in db.events if e[0] == "select" and e[1] in price_tables]
+    assert out["panel_count"] == len(panel["rows"]) == 207
+    assert out["anchor_write_statuses"] == {"EXISTING_IMMUTABLE": 207}
+    assert out["component_write_statuses"] == {"EXISTING_IMMUTABLE": 207}
+    assert out["outcome_write_statuses"] == {"EXISTING_IMMUTABLE": 207}
+    assert out["market_available_h0"] == 207
+    assert out["cutoff_resolution"] == "REUSED_EXISTING_DAILY_CUTOFF"
+
+
+def test_partial_existing_cohort_from_different_release_fails_closed():
+    _panel, tables, publications = _existing_publications_fixture()
+    tables["fair_value_shadow_anchor_publications_v1"] = publications[:1]
+    db = FakeDB(tables)
+    ledger = RecordingLedger(db.events)
+
+    with pytest.raises(
+        publisher.ProspectiveShadowError,
+        match="PARTIAL_EXISTING_DAILY_COHORT_RELEASE_MISMATCH",
+    ):
+        publisher.publish(
+            db=db,
+            ledger=ledger,
+            source_commit="def5678",
+            now=datetime(2026, 10, 3, 1, 0, tzinfo=timezone.utc),
+            dry_run=False,
+        )
+
+    price_tables = {"pokemon_canonical_card_market_prices_latest", "card_variant_price_observations"}
+    assert not [e for e in db.events if e[0] == "append_publication"]
+    assert not [e for e in db.events if e[0] == "select" and e[1] in price_tables]

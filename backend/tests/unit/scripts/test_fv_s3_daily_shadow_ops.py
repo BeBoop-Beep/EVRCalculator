@@ -10,7 +10,7 @@ def test_fv_shadow_ops_cron_has_fixed_cutoff_and_bounded_retry_windows():
     cron = (ROOT / "infra/oracle/fair-value-shadow-ops.crontab").read_text(encoding="utf-8")
     live = [l for l in cron.splitlines() if l.strip() and not l.lstrip().startswith("#") and not l.startswith("CRON_TZ")]
     assert len(live) == 2
-    assert live[0].startswith("10,25,40,55 18 * * * ")
+    assert live[0].startswith("5,20,35,50 18 * * * ")
     assert "run_fair_value_shadow_daily_guarded.sh" in live[0]
     assert live[1].startswith("12 5,7,9 * * * ")
     assert "run_fair_value_forward_outcomes_guarded.sh" in live[1]
