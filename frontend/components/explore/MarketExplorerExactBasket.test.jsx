@@ -48,3 +48,17 @@ test("duplicate outcome remains open and reports the existing market", async () 
   assert.equal(closed, false);
   assert.equal(picker.props.buildMessage, "This market is already active.");
 });
+
+test("a failed build keeps the modal and the complete basket available for retry", async () => {
+  const items = [card, { asset: "cards", instrumentId: "c2", name: "Two" }, { asset: "cards", instrumentId: "c3", name: "Three" }, product, { asset: "sealed", instrumentId: "s2", name: "Two Products" }];
+  const events = [];
+  let renderer;
+  await act(async () => { renderer = TestRenderer.create(<MarketExplorerExactBasket currentPlan="premium" onAddQuery={async () => { throw new Error("Build unavailable"); }} onClose={() => events.push("close")} />); });
+  await act(async () => renderer.root.findByType(MarketExplorerExactItemPicker).props.onChange(items));
+  await act(async () => renderer.root.findByType(MarketExplorerExactItemPicker).props.onBuild());
+  const picker = renderer.root.findByType(MarketExplorerExactItemPicker);
+  assert.equal(picker.props.selectedItems.length, 5);
+  assert.equal(picker.props.buildStatus, "error");
+  assert.match(picker.props.buildMessage, /Build unavailable/);
+  assert.deepEqual(events, []);
+});

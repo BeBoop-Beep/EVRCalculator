@@ -279,6 +279,18 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
         const asResult = (row) => ({ result_kind: row.market_type === "era" ? "era" : row.market_type === "set" ? "set" : "prepared_market", market_key: row.market_key, label: row.label, subtitle: row.asset, asset: row.asset, availability: "AVAILABLE", metadata: {} });
         return reply(200, { results: [...all.map(asResult), ...matchedInstruments].slice(0, 8), nextCursor: null, context: "name", generationId: GEN.v2 });
       }
+      if (route === "/market/explorer/instruments/search") {
+        const q = String(url.searchParams.get("q") || "").trim();
+        const asset = url.searchParams.get("asset") || "all";
+        const normalized = q.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        const itemAsset = asset === "sealed" || /skies|booster|bundle/.test(q.toLowerCase()) ? "sealed" : "cards";
+        return reply(200, { items: [{ asset: itemAsset, instrumentId: `fixture-${normalized}`, name: q, setName: itemAsset === "sealed" ? "Evolving Skies" : "Fixture Set", ...(itemAsset === "sealed" ? { productFamily: "Booster Bundle" } : { cardNumber: "1", rarity: "Rare" }) }] });
+      }
+      if (route === "/market/explorer/prepared-screen") {
+        const screen = url.searchParams.get("screen") || "screen";
+        const asset = url.searchParams.get("asset") || "cards";
+        return reply(200, { results: [{ rank: 1, market_key: asset === "sealed" ? "sealedMarket" : "raw", label: `${screen} fixture`, asset, metric_value: 1.25 }] });
+      }
       if (route === "/market/explorer/query/options") return reply(404, { message: "fixture: not modelled" });
       return reply(404, { message: `fixture: ${route} not modelled` });
     });

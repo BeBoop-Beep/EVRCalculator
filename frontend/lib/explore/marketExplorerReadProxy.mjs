@@ -3,6 +3,7 @@ export const EXPLORER_PROXY_BOUNDS_MS = Object.freeze({
   constituents: 11000,
   assetOptions: 6500,
   catalogSearch: 6500,
+  exactSearch: 6500,
 });
 
 const TRANSIENT_CODES = new Set([
@@ -16,6 +17,8 @@ const TRANSIENT_CODES = new Set([
   "ASSET_OPTIONS_PROXY_UNAVAILABLE",
   "CATALOG_SEARCH_FAILED",
   "CATALOG_SEARCH_PROXY_UNAVAILABLE",
+  "EXACT_SEARCH_FAILED",
+  "EXACT_SEARCH_PROXY_UNAVAILABLE",
 ]);
 
 export function isRetryableExplorerRead({ status, code, error } = {}) {

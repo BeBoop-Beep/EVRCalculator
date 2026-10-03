@@ -43,7 +43,16 @@ export const metadata = buildRouteMetadata({
   ogTitle: "Market Explorer — Compare Pokémon Market Segments",
 });
 
+async function timedRouteRead(stage, operation) {
+  const started = performance.now();
+  try { return await operation(); }
+  finally {
+    console.info("market_explorer_route_read", { stage, elapsedMs: Math.round((performance.now() - started) * 10) / 10 });
+  }
+}
+
 export default async function MarketExplorerPage({ searchParams }) {
+  const routeStarted = performance.now();
   const activityFixtureMode = process.env.MARKET_ACTIVITY_FIXTURE_MODE === "1";
   const activityFixturePayload = activityFixtureMode
     ? await import("@/lib/explore/marketActivityFixtures.mjs").then(
@@ -53,15 +62,15 @@ export default async function MarketExplorerPage({ searchParams }) {
     : null;
   const [resolvedSearchParams, payload, auth, preparedDirectoryResult] =
     await Promise.all([
-      Promise.resolve(searchParams).catch(() => null),
-      getExploreSetValueMarket().catch(() => null),
+      timedRouteRead("search_params", () => Promise.resolve(searchParams).catch(() => null)),
+      timedRouteRead("overview", () => getExploreSetValueMarket().catch(() => null)),
       // PLAN, NOT LOGIN, decides what this workspace offers. Resolved here so the
       // first paint is already correct; a failure or timeout yields no user,
       // which is basic access — the gate fails CLOSED.
-      getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({
+      timedRouteRead("auth", () => getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({
         user: null,
-      })),
-      getMarketExplorerPreparedDirectory(),
+      }))),
+      timedRouteRead("prepared_directory", () => getMarketExplorerPreparedDirectory()),
     ]);
   const preparedDirectory = preparedDirectoryResult.markets;
   const user = auth?.user || null;
@@ -105,6 +114,8 @@ export default async function MarketExplorerPage({ searchParams }) {
       )
     : [];
   const coverageSummary = buildCoverageSummary(overview);
+  console.info("market_explorer_route_ready", { elapsedMs: Math.round((performance.now() - routeStarted) * 10) / 10,
+    initialPreparedKeys, directoryCount: preparedDirectory.length });
 
   return (
     // WIDER THAN THE REST OF THE APP, DELIBERATELY AND ONLY HERE.

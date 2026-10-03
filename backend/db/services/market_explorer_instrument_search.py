@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 MIN_QUERY_LENGTH = 2
 MAX_RESULTS = 50
@@ -89,9 +93,12 @@ def search_market_explorer_instruments(client: Any, *, q: str, asset: str = "all
     if asset not in ("all", "cards", "sealed"):
         raise ValueError("asset must be all, cards, or sealed")
     cap = max(1, min(int(limit), MAX_RESULTS))
+    started = time.perf_counter()
     rows = list((client.rpc(LEGACY_SEARCH_RPC, {
         "p_query": needle, "p_asset": asset, "p_limit": cap,
     }).execute()).data or [])
+    logger.info("market_explorer_exact_search_read", extra={"stage": "instrument_rpc", "asset": asset,
+        "result_count": len(rows), "elapsed_ms": round((time.perf_counter() - started) * 1000, 2)})
     # Preserve SQL order: the database owns normalization, relevance, fuzzy
     # matching, cross-asset ranking, and the cap.
     results = [item for row in rows if (item := _canonical_item(dict(row)))]

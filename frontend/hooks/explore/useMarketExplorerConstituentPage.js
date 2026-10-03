@@ -44,6 +44,7 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
   const [errorSpecKey, setErrorSpecKey] = useState(null);
   const sequenceRef = useRef(0);
   const lastAttemptRef = useRef({ afterRank: 0, appending: false });
+  const requestControllerRef = useRef(null);
 
   const specKey = spec ? JSON.stringify(spec) : null;
   // GENERATION-PINNED CACHE KEY (generationId + marketKey for prepared markets).
@@ -54,6 +55,9 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
 
   const load = useCallback(async (afterRank, { appending }) => {
     if (!spec) return;
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
     const sequence = ++sequenceRef.current;
     lastAttemptRef.current = { afterRank, appending };
     setStatus(appending ? "loadingMore" : "loading");
@@ -61,8 +65,8 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
     setErrorCode(null);
     try {
       const page = spec.marketKey
-        ? await fetchPreparedConstituentPage(spec, { limit, afterRank })
-        : await fetchConstituentPage(spec, { limit, afterRank });
+        ? await fetchPreparedConstituentPage(spec, { limit, afterRank, signal: controller.signal })
+        : await fetchConstituentPage(spec, { limit, afterRank, signal: controller.signal });
       // A newer request (or a different market) owns the state now.
       if (sequenceRef.current !== sequence) return;
       setState((current) => ({
@@ -78,13 +82,14 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
       setStatus("ready");
     } catch (exc) {
       if (sequenceRef.current !== sequence) return;
+      if (exc?.aborted || exc?.code === "QUERY_ABORTED") return;
       if (exc?.code === "GENERATION_MISMATCH") {
         // Invalidate ONLY the affected generation/target; other targets keep their pages.
         setState(IDLE);
         cache?.delete(cacheKey);
       }
       setError(exc instanceof Error ? exc.message : "Unable to load constituents");
-      setErrorCode(exc?.code || null);
+      setErrorCode(String(exc?.code || "").includes("TIMEOUT") ? "TIMEOUT" : exc?.code || null);
       setErrorSpecKey(specKey);
       setStatus("error");
     }
@@ -94,6 +99,7 @@ export default function useMarketExplorerConstituentPage(spec, { limit = CONSTIT
   useEffect(() => {
     // Invalidate anything still in flight for the previous identity.
     sequenceRef.current += 1;
+    requestControllerRef.current?.abort();
     setState(IDLE);
     setError(null);
     setErrorCode(null);

@@ -1,6 +1,32 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MAX_EXPLICIT_INSTRUMENTS } from "@/lib/explore/marketExplorerQuery.mjs";
+import { boundedFetch, EXPLORER_REQUEST_BOUNDS_MS } from "@/lib/explore/marketExplorerBoundedRequest.mjs";
+
+export const EXACT_SEARCH_DEBOUNCE_MS = 225;
+const EXACT_SEARCH_CACHE_TTL_MS = 60_000;
+const exactSearchCache = new Map();
+const exactSearchKey = (scope, query) => `${scope}:${query.trim().toLocaleLowerCase()}`;
+
+async function fetchExactItems({ scope, query, signal }) {
+  const key = exactSearchKey(scope, query);
+  const cached = exactSearchCache.get(key);
+  if (cached && Date.now() - cached.storedAt < EXACT_SEARCH_CACHE_TTL_MS) return cached.items;
+  const { response, payload } = await boundedFetch(
+    `/api/market/explorer/instruments/search?q=${encodeURIComponent(query)}&asset=${scope}&limit=20`,
+    { credentials: "include", cache: "no-store" },
+    { signal, timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.exactSearch,
+      timeoutCode: "EXACT_SEARCH_TIMEOUT", timeoutMessage: "Search took too long. Please try again.",
+      read: (result) => result.json().catch(() => null) },
+  );
+  if (!response.ok) {
+    const error = new Error(payload?.detail?.message || payload?.message || "Unable to search Cards and Products.");
+    error.status = response.status; error.code = payload?.code || "EXACT_SEARCH_FAILED"; throw error;
+  }
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  exactSearchCache.set(key, { storedAt: Date.now(), items });
+  return items;
+}
 
 const identity = (item) => `${item.asset}:${item.instrumentId}`;
 export const exactItemLabel = (item) =>
@@ -109,28 +135,18 @@ export default function MarketExplorerExactItemPicker({
       setStatus("loading");
       setMessage("");
       try {
-        const response = await fetch(
-          `/api/market/explorer/instruments/search?q=${encodeURIComponent(needle)}&asset=${scope}&limit=20`,
-          { signal: controller.signal, credentials: "include" },
-        );
-        const payload = await response.json().catch(() => null);
+        const items = await fetchExactItems({ scope, query: needle, signal: controller.signal });
         if (token !== requestId.current) return;
-        if (!response.ok)
-          throw new Error(
-            payload?.detail?.message ||
-              payload?.message ||
-              "Unable to search Cards and Products.",
-          );
-        setResults(payload?.items || []);
+        setResults(items);
         setStatus("ready");
       } catch (error) {
-        if (error?.name !== "AbortError" && token === requestId.current) {
+        if (!error?.aborted && error?.name !== "AbortError" && token === requestId.current) {
           setResults([]);
           setStatus("error");
           setMessage(error?.message || "Unable to search Cards and Products.");
         }
       }
-    }, 300);
+    }, EXACT_SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       controller.abort();

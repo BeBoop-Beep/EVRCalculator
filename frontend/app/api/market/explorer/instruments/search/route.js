@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { EXPLORER_PROXY_BOUNDS_MS, fetchExplorerRead } from "@/lib/explore/marketExplorerReadProxy.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,13 @@ export async function GET(request) {
   if (cookie) headers.cookie = cookie;
   if (authorization) headers.authorization = authorization;
   try {
-    const response = await fetch(url, { headers, cache: "no-store", signal: request.signal });
-    const payload = await response.json().catch(() => ({ message: "Unable to search exact items." }));
-    return NextResponse.json(payload, { status: response.status, headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return NextResponse.json({ message: "Exact-item search is temporarily unavailable." }, { status: 502 });
+    const result = await fetchExplorerRead({ url, init: { headers }, requestSignal: request.signal,
+      timeoutMs: EXPLORER_PROXY_BOUNDS_MS.exactSearch, operation: "exact_item_search" });
+    const { response, payload } = result;
+    console.info("market_explorer_proxy_read", { operation: "exact_item_search", elapsedMs: result.elapsedMs, attempts: result.attempts, status: response.status });
+    return NextResponse.json(payload || { message: "Unable to search exact items." }, { status: response.status, headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    const timedOut = error?.proxyTimedOut === true;
+    return NextResponse.json({ message: timedOut ? "Exact-item search took too long. Please try again." : "Exact-item search is temporarily unavailable.", code: timedOut ? "EXACT_SEARCH_PROXY_TIMEOUT" : "EXACT_SEARCH_PROXY_UNAVAILABLE" }, { status: timedOut ? 504 : 503, headers: { "Cache-Control": "no-store" } });
   }
 }

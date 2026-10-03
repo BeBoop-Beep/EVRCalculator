@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
-import MarketExplorerExactItemPicker, { exactItemLabel } from "./MarketExplorerExactItemPicker.jsx";
+import MarketExplorerExactItemPicker, { EXACT_SEARCH_DEBOUNCE_MS, exactItemLabel } from "./MarketExplorerExactItemPicker.jsx";
 
 test("physical labels distinguish card and product variants", () => {
   assert.match(exactItemLabel({ asset: "cards", name: "Charizard", setName: "Base Set", cardNumber: "4", rarity: "Rare Holo", edition: "1st Edition", printingType: "Holo" }), /Base Set · #4 · Rare Holo · 1st Edition · Holo/);
@@ -70,6 +70,7 @@ test("execution lock leaves selection removable and locks only execution", async
 });
 
 test("search is debounced and Products maps to sealed", async () => {
+  assert.ok(EXACT_SEARCH_DEBOUNCE_MS >= 200 && EXACT_SEARCH_DEBOUNCE_MS <= 250);
   const originalFetch = global.fetch;
   const calls = [];
   global.fetch = async (url) => { calls.push(url); return { ok: true, json: async () => ({ items: [] }) }; };

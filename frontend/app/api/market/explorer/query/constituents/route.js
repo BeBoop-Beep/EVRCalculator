@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { EXPLORER_PROXY_BOUNDS_MS, fetchExplorerRead } from "@/lib/explore/marketExplorerReadProxy.mjs";
 
 function forwardedAuthHeaders(request) {
   const headers = { Accept: "application/json" };
@@ -11,18 +12,18 @@ function forwardedAuthHeaders(request) {
 }
 
 async function proxy(request, path, init = {}) {
-  const response = await fetch(`${getBackendApiBaseUrl()}${path}`, {
-    ...init,
-    headers: { ...forwardedAuthHeaders(request), ...(init.headers || {}) },
-    cache: "no-store",
-  });
-  return new NextResponse(await response.text(), {
-    status: response.status,
-    headers: {
-      "content-type": response.headers.get("content-type") || "application/json",
-      "Cache-Control": "private, no-store",
-    },
-  });
+  try {
+    const result = await fetchExplorerRead({ url: `${getBackendApiBaseUrl()}${path}`,
+      init: { ...init, headers: { ...forwardedAuthHeaders(request), ...(init.headers || {}) } },
+      requestSignal: request.signal, timeoutMs: EXPLORER_PROXY_BOUNDS_MS.constituents,
+      operation: "query_constituents" });
+    console.info("market_explorer_proxy_read", { operation: "query_constituents", elapsedMs: result.elapsedMs, attempts: result.attempts, status: result.response.status });
+    return new NextResponse(result.text, { status: result.response.status, headers: {
+      "content-type": result.response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    const timedOut = error?.proxyTimedOut === true;
+    return NextResponse.json({ message: timedOut ? "Constituents took too long to load. Please try again." : "Constituents are temporarily unavailable.", code: timedOut ? "QUERY_CONSTITUENTS_TIMEOUT" : "QUERY_CONSTITUENTS_UNAVAILABLE" }, { status: timedOut ? 504 : 503, headers: { "Cache-Control": "private, no-store" } });
+  }
 }
 
 // A thin, unopinionated proxy — identical shape to the sibling `query` route —

@@ -88,21 +88,23 @@ export async function fetchPreparedConstituentPage(identity, { limit = 100, afte
  *  requests to separate endpoints and must be allowed to resolve out of
  *  order. */
 export async function fetchConstituentPage(spec, options) {
-  const response = await fetch(CONSTITUENT_PAGE_ENDPOINT, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildConstituentPageRequest(spec, options)),
-  });
-  const payload = await response.json().catch(() => null);
+  const { signal, ...pageOptions } = options || {};
+  const { response, payload } = await boundedFetch(CONSTITUENT_PAGE_ENDPOINT, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildConstituentPageRequest(spec, pageOptions)),
+  }, { signal, timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.constituents,
+    timeoutCode: "QUERY_CONSTITUENTS_TIMEOUT", timeoutMessage: "Constituents took too long to load. Please try again.",
+    read: (result) => result.json().catch(() => null) });
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      throw new Error("Sign in to view this market's constituents.");
-    }
-    if (response.status === 404) {
-      throw new Error(payload?.message || "This market has not been built yet.");
-    }
-    throw new Error(payload?.message || payload?.detail || "Unable to load constituents");
+    const upper = String(payload?.code || payload?.detail?.code || "").toUpperCase();
+    const code = response.status === 401 ? CONSTITUENT_ERROR.auth
+      : response.status === 403 ? CONSTITUENT_ERROR.entitlement
+        : response.status === 504 || upper.includes("TIMEOUT") ? CONSTITUENT_ERROR.timeout
+          : CONSTITUENT_ERROR.unavailable;
+    const message = response.status === 401 || response.status === 403 ? "Sign in to view this market's constituents."
+      : response.status === 404 ? payload?.message || "This market has not been built yet."
+        : payload?.message || payload?.detail?.message || "Unable to load constituents";
+    throw new ConstituentPageError(message, { code, status: response.status });
   }
   return parseConstituentPageResponse(payload);
 }

@@ -1,0 +1,499 @@
+{
+  "mode": "dev",
+  "base": "http://127.0.0.1:3202",
+  "cycles": 10,
+  "navigation": [
+    {
+      "cycle": 1,
+      "elapsedMs": 530.4,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 2,
+      "elapsedMs": 863.7,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 3,
+      "elapsedMs": 510.7,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 4,
+      "elapsedMs": 817.2,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 5,
+      "elapsedMs": 821.4,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 6,
+      "elapsedMs": 822.6,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 7,
+      "elapsedMs": 927.3,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 8,
+      "elapsedMs": 467.3,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 9,
+      "elapsedMs": 817,
+      "activeSeries": 2
+    },
+    {
+      "cycle": 10,
+      "elapsedMs": 799.9,
+      "activeSeries": 2
+    }
+  ],
+  "screens": [
+    {
+      "screen": "top-performers-sealed",
+      "status": 200,
+      "elapsedMs": 68.9
+    },
+    {
+      "screen": "worst-performers-sealed",
+      "status": 200,
+      "elapsedMs": 137.3
+    },
+    {
+      "screen": "rarity-leaders",
+      "status": 200,
+      "elapsedMs": 50.4
+    },
+    {
+      "screen": "sealed-format-leaders",
+      "status": 200,
+      "elapsedMs": 47.7
+    }
+  ],
+  "exactSearch": [
+    {
+      "query": "Dragonite",
+      "status": 200,
+      "elapsedMs": 266.3,
+      "resultCount": 1
+    },
+    {
+      "query": "Dragonite ex",
+      "status": 200,
+      "elapsedMs": 265.8,
+      "resultCount": 1
+    },
+    {
+      "query": "Umbreon",
+      "status": 200,
+      "elapsedMs": 259.1,
+      "resultCount": 1
+    },
+    {
+      "query": "Evolving Skies",
+      "status": 200,
+      "elapsedMs": 265.8,
+      "resultCount": 1
+    },
+    {
+      "query": "booster bundle",
+      "status": 200,
+      "elapsedMs": 267.5,
+      "resultCount": 1
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 40.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 52.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 60.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 60.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=constituents&marketKey=raw&generationId=fixture-gen-v2&limit=100&afterRank=0",
+      "status": 200,
+      "elapsedMs": 40.9
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/activity/capabilities",
+      "status": 200,
+      "elapsedMs": 47.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 33.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 44.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 65.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 77.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 30.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 40.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 54.1
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 66.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=constituents&marketKey=raw&generationId=fixture-gen-v2&limit=100&afterRank=0",
+      "status": 200,
+      "elapsedMs": 31.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/activity/capabilities",
+      "status": 200,
+      "elapsedMs": 37.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 42.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 52.5
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 65.8
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 65.8
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=constituents&marketKey=raw&generationId=fixture-gen-v2&limit=100&afterRank=0",
+      "status": 200,
+      "elapsedMs": 40.9
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/activity/capabilities",
+      "status": 200,
+      "elapsedMs": 47.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 42.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 57.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 66.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 78.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=constituents&marketKey=raw&generationId=fixture-gen-v2&limit=100&afterRank=0",
+      "status": 200,
+      "elapsedMs": 40.4
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/activity/capabilities",
+      "status": 200,
+      "elapsedMs": 38.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 32.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 51.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 62.2
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 74.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=constituents&marketKey=raw&generationId=fixture-gen-v2&limit=100&afterRank=0",
+      "status": 200,
+      "elapsedMs": 32.8
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/activity/capabilities",
+      "status": 200,
+      "elapsedMs": 36.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 44.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 64.5
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 141.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 41.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 50.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 63.2
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 63.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=constituents&marketKey=raw&generationId=fixture-gen-v2&limit=100&afterRank=0",
+      "status": 200,
+      "elapsedMs": 39.3
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/activity/capabilities",
+      "status": 200,
+      "elapsedMs": 49.3
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 35.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/query",
+      "status": 404,
+      "elapsedMs": 44.8
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 58.7
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 70.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=constituents&marketKey=raw&generationId=fixture-gen-v2&limit=100&afterRank=0",
+      "status": 200,
+      "elapsedMs": 39.5
+    },
+    {
+      "method": "POST",
+      "path": "/api/market/explorer/activity/capabilities",
+      "status": 200,
+      "elapsedMs": 37.9
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=screen&screen=top-performers&limit=10&asset=sealed",
+      "status": 200,
+      "elapsedMs": 21.2
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=screen&screen=worst-performers&limit=10&asset=sealed",
+      "status": 200,
+      "elapsedMs": 17.5
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=screen&screen=rarity-leaders&limit=10&asset=cards",
+      "status": 200,
+      "elapsedMs": 20.7
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/prepared?kind=screen&screen=sealed-format-leaders&limit=10&asset=sealed",
+      "status": 200,
+      "elapsedMs": 17.4
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/instruments/search?q=Dragonite&asset=all&limit=20",
+      "status": 200,
+      "elapsedMs": 23.9
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/instruments/search?q=Dragonite%20ex&asset=all&limit=20",
+      "status": 200,
+      "elapsedMs": 21.1
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/instruments/search?q=Umbreon&asset=all&limit=20",
+      "status": 200,
+      "elapsedMs": 24.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/instruments/search?q=Evolving%20Skies&asset=all&limit=20",
+      "status": 200,
+      "elapsedMs": 20.6
+    },
+    {
+      "method": "GET",
+      "path": "/api/market/explorer/instruments/search?q=booster%20bundle&asset=all&limit=20",
+      "status": 200,
+      "elapsedMs": 29.3
+    }
+  ],
+  "failures": [],
+  "navigationAborts": [
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "path": "/api/market/explorer/activity/capabilities",
+      "error": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleErrors": [],
+  "unexpected5xx": [],
+  "timeoutBanners": 0
+}

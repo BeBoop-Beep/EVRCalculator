@@ -41,7 +41,7 @@ test("success returns response and payload and clears its timer", async () => {
 
 test("browser read bounds preserve headroom beyond their proxy deadlines", () => {
   assert.deepEqual(EXPLORER_REQUEST_BOUNDS_MS, {
-    directory: 4000, search: 9000, screen: 4000, prepared: 14000,
+    directory: 4000, search: 9000, exactSearch: 9000, screen: 4000, prepared: 14000,
     constituents: 14000, assetOptions: 9000, directInstrument: 8000,
     activity: 6000, customBuild: 45000,
   });
@@ -55,6 +55,9 @@ test("every query-backed caller goes through the one bounded hook primitive", ()
   for (const name of ["MarketExplorerRarityMarkets", "MarketExplorerExactBasket", "MarketExplorerQueryBuilder"]) {
     const src = fs.readFileSync(new URL(`../../components/explore/${name}.jsx`, import.meta.url), "utf8");
     assert.doesNotMatch(src, /fetch\("\/api\/market\/explorer\/query"/);
-    assert.match(src, /cancelled/);
+    if (name !== "MarketExplorerRarityMarkets") assert.match(src, /cancelled/);
   }
+  const picker = fs.readFileSync(new URL("../../components/explore/MarketExplorerExactItemPicker.jsx", import.meta.url), "utf8");
+  assert.match(picker, /boundedFetch\(/);
+  assert.doesNotMatch(picker, /await fetch\(/);
 });

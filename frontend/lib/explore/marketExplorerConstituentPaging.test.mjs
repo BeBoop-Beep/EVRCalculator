@@ -6,7 +6,23 @@ import {
   CONSTITUENT_PAGE_MAX_LIMIT,
   parseConstituentPageResponse,
   fetchPreparedConstituentPage,
+  fetchConstituentPage,
+  CONSTITUENT_ERROR,
 } from "./marketExplorerConstituentPaging.mjs";
+
+test("query-built paging preserves structured auth, entitlement, timeout, and unavailable errors", async () => {
+  const original = globalThis.fetch;
+  try {
+    for (const [status, payload, expected] of [
+      [401, {}, CONSTITUENT_ERROR.auth], [403, {}, CONSTITUENT_ERROR.entitlement],
+      [504, { code: "QUERY_CONSTITUENTS_TIMEOUT" }, CONSTITUENT_ERROR.timeout],
+      [503, { code: "QUERY_CONSTITUENTS_UNAVAILABLE" }, CONSTITUENT_ERROR.unavailable],
+    ]) {
+      globalThis.fetch = async () => ({ ok: false, status, json: async () => payload });
+      await assert.rejects(fetchConstituentPage({ asset: "cards" }, {}), (error) => error.code === expected && error.status === status);
+    }
+  } finally { globalThis.fetch = original; }
+});
 
 test("prepared page uses published market and generation identity, then preserves the cursor", async () => {
   const original = globalThis.fetch;
