@@ -410,11 +410,12 @@ def _era_benchmark_client():
                 "benchmark_score": score, "rank": rank, "cohort_size": size, "benchmark_status": "available"}
     rows = []
     # Live Sep-30 values: Scarlet & Violet (rank 1) and Mega Evolution (rank 2).
-    for entity, overall, financial, chase, collector, rank in (
-        ("sv", 5.149, 5.148, 5.260, 5.004, 1), ("mega", 4.602, 4.604, 4.306, 4.989, 2),
+    for entity, overall, financial, chase, collector, chase_raw, rank in (
+        ("sv", 5.149, 5.148, 5.260, 5.004, 50.15, 1), ("mega", 4.602, 4.604, 4.306, 4.989, 40.58, 2),
     ):
         rows += [row("era", entity, "overall", overall, rank), row("era", entity, "financial", financial, rank),
-                 row("era", entity, "chase", chase, rank), row("era", entity, "collector", collector, rank)]
+                 {**row("era", entity, "chase", chase, rank), "raw_model_value": chase_raw},
+                 row("era", entity, "collector", collector, rank)]
     rows += [row("set", "s-sv", "financial", 6, 1, 22), row("set", "s-mega-1", "financial", 4, 2, 22),
              row("set", "s-mega-2", "financial", 4, 3, 22)]
     # Collector and Chase public scores are presentation-only projections of
@@ -445,11 +446,41 @@ def test_paid_era_scorecards_carry_all_four_metrics_with_benchmark_tiers():
     for key in ("overall", "financial", "collector", "chase"):
         assert mega[key]["score"] is not None and mega[key]["rank"] == 2 and mega[key]["cohortSize"] == 2
     assert (mega["overall"]["score"], mega["financial"]["score"], mega["collector"]["score"]) == (4.602, 4.604, 5.0)
-    assert abs(mega["chase"]["score"] - 8.85) < 1e-9
+    assert mega["chase"]["score"] == 8.1 and sv["chase"]["score"] == 10.0
     assert [sv[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["C", "C", "S", "S"]
     assert [mega[key]["tier"] for key in ("overall", "financial", "collector", "chase")] == ["D", "D", "F", "F"]
     assert all(mega[key]["presentationKind"] == "cohort-relative" and mega[key]["benchmarkReferenceScore"] is None for key in ("collector", "chase"))
     assert mega["modeledSetCount"] == 2 and sv["modeledSetCount"] == 1
+
+
+def test_set_chase_uses_leader_normalization_without_changing_canonical_rank_semantics():
+    def metric(entity, key, raw, rank):
+        return {"publication_id": "pub", "entity_type": "set", "entity_id": entity,
+                "metric_key": key, "raw_model_value": raw, "benchmark_score": 5,
+                "rank": rank, "cohort_size": 3, "benchmark_status": "available"}
+    rows = []
+    for entity, raw, rank in (("leader", 73.5, 1), ("second", 69.97, 2), ("last", 27.13, 3)):
+        rows.extend(metric(entity, key, raw if key == "chase" else 50, rank)
+                    for key in ("overall", "financial", "collector", "chase"))
+    client = Client({
+        "pokemon_rip_benchmark_publications_v1": [{"id": "pub", "market_date": "2026-10-01",
+            "benchmark_key": "pokemon", "calibration_version": "v1", "publication_status": "published"}],
+        "pokemon_rip_benchmark_rows_v1": rows,
+        "sets": [{"id": entity, "name": entity, "canonical_key": entity, "era_id": "era"}
+                 for entity in ("leader", "second", "last")],
+        "eras": [{"id": "era", "name": "Era", "canonical_key": "era"}],
+    })
+    result = read_scorecards(client, entity_type="set", benchmark_key="pokemon", calibration_version="v1")
+    chase = {row["entityId"]: row["chase"] for row in result["rows"]}
+    assert [chase[key]["score"] for key in ("leader", "second", "last")] == [10.0, 9.5, 3.7]
+    assert [chase[key]["rank"] for key in ("leader", "second", "last")] == [1, 2, 3]
+    assert all(value["cohortSize"] == 3 for value in chase.values())
+    assert [chase[key]["tier"] for key in ("leader", "second", "last")] == ["S", "D", "F"]
+
+
+def test_chase_without_a_positive_leader_remains_unavailable():
+    assert rankings_service._relative_public_score("chase", 25, chase_leader=None) is None
+    assert rankings_service._relative_public_score("chase", 25, chase_leader=0) is None
 
 
 def test_public_era_headlines_stay_overall_only():

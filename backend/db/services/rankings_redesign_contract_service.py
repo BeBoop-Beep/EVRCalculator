@@ -9,7 +9,6 @@ from datetime import date
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
 from backend.rankings.public_relative import absolute_rank_percentile_tier, benchmark_relative_tier
-from backend.desirability.chase_accessibility_overall_score import chase_accessibility_overall_score
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
 
 
@@ -64,12 +63,18 @@ def benchmark_reference() -> dict[str, Any]:
     return {"label": "Pokémon Overall Average", "score": BENCHMARK_REFERENCE_SCORE, "iconKey": "pokemon"}
 
 
-def _relative_public_score(metric_key: str, raw_value: Any) -> Optional[float]:
+def _relative_public_score(metric_key: str, raw_value: Any, *, chase_leader: Any = None) -> Optional[float]:
     """Presentation-only 0-10 projection for cohort-relative components."""
     raw = _number(raw_value)
     if raw is None:
         return None
-    public_100 = raw if metric_key == "collector" else chase_accessibility_overall_score(raw)
+    if metric_key == "chase":
+        leader = _number(chase_leader)
+        if leader is None or leader <= 0:
+            return None
+        public_100 = 100.0 * raw / leader
+    else:
+        public_100 = raw
     return None if public_100 is None else round(float(public_100) / 10.0, 1)
 
 
@@ -510,6 +515,8 @@ def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,
         "entity_id,metric_key,raw_model_value,benchmark_score,rank,cohort_size,benchmark_status"
     ).eq("publication_id", publications[0]["id"]).eq("entity_type", entity_type)
                  .in_("metric_key", ["overall", "financial", "collector", "chase"]).execute())
+    chase_values = [_number(row.get("raw_model_value")) for row in rows if row.get("metric_key") == "chase"]
+    chase_leader = max((value for value in chase_values if value is not None), default=None)
     ids = sorted({str(row["entity_id"]) for row in rows})
     identities = _rows(client.table("sets" if entity_type == "set" else "eras")
                        .select("id,name,canonical_key" + (",era_id,logo_image_url,symbol_image_url" if entity_type == "set" else ""))
@@ -560,8 +567,10 @@ def read_scorecards(client: Any, *, entity_type: str, benchmark_key: str,
         item = grouped.setdefault(entity_id, base)
         metric_key = row["metric_key"]
         if metric_key in {"collector", "chase"}:
-            display = (era_relative.get((entity_id, metric_key)) if entity_type == "era"
-                       else _relative_public_score(metric_key, row.get("raw_model_value")))
+            # Collector retains its equal-Set Era presentation. Chase uses the
+            # canonical raw Set/Era model value normalized to that cohort leader.
+            display = (era_relative.get((entity_id, metric_key)) if entity_type == "era" and metric_key == "collector"
+                       else _relative_public_score(metric_key, row.get("raw_model_value"), chase_leader=chase_leader))
             item[metric_key] = relative_presentation(display, rank=row.get("rank"), cohort_size=row.get("cohort_size"))
         else:
             item[metric_key] = benchmark_presentation(row.get("benchmark_score"), rank=row.get("rank"),

@@ -1,7 +1,12 @@
 import { canonicalCardQueryKey } from "./rankingsSessionCache.mjs";
 
-async function readJson(response, fallback) {
-  const payload = await response.json();
+export async function readJson(response, fallback) {
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("Card Rankings backend returned an invalid response.");
+  }
   if (!response.ok) {
     throw new Error(payload?.detail?.message || payload?.message || fallback);
   }

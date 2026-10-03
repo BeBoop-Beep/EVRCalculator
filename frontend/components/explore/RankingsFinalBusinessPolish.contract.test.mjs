@@ -44,11 +44,12 @@ test("Product Economics page one and Premium Chase are idle/intent prewarmed", (
   assert.match(lazy, /canViewCardChaseEfficiency/);
 });
 
-test("Overview is one summary context and Trend has four locally switchable metrics", () => {
+test("Overview is one summary context and Trend has one local metric dropdown", () => {
   assert.doesNotMatch(overall, /<h2[^>]*>Pokémon Opening Economics/);
   assert.match(distribution, /data-opening-summary-context/);
-  for (const label of ["Overall Financial RIP", "Overall Expected Value / Pack", "Average Pack Cost / Pack", "Chance to Recover Cost", "Entertainment Cost / Pack"]) assert.ok(distribution.includes(label));
+  for (const label of ["Overall Financial RIP", "Overall Expected Value / Pack", "Average Pack Cost / Pack", "Modeled Return", "Chance to Recover Cost", "Entertainment Cost / Pack"]) assert.ok(distribution.includes(label));
   for (const label of ["Financial RIP", "Expected Value / Pack", "Chance to Beat Pack", "Chance to Recover Cost"]) assert.ok(trendModel.includes(label));
+  assert.match(chart, /<DarkSelect ariaLabel="Trend metric" eyebrow="Metric"/);
   assert.doesNotMatch(chart, /\[[^\]]*metricKey[^\]]*\]\s*\);\s*\/\/ request/);
   assert.match(chart, /Previous certified observation unavailable/);
 });

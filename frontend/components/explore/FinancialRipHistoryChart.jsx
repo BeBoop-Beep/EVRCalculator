@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ChartFrame from "./ChartFrame";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
+import DarkSelect from "@/components/ui/DarkSelect";
 import { peekFinancialHistory, readFinancialHistoryCached } from "@/lib/rankings/financialHistoryCache.mjs";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import { INDEX_PLAN_PLUS } from "@/lib/access/indexPlanAccess.mjs";
@@ -49,8 +50,8 @@ function WindowControls({ value, onChange, disabled = false }) {
 }
 
 function MetricControls({ value, onChange, disabled = false }) {
-  return <div role="radiogroup" aria-label="Trend metric" className="flex min-w-max gap-1">
-    {TREND_METRICS.map((item) => <button key={item.key} type="button" role="radio" aria-checked={value === item.key} disabled={disabled} onClick={() => onChange(item.key)} className={`min-h-9 rounded-md border px-2 text-[10px] font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 ${value === item.key ? RANKINGS_SELECTED_BORDERED_SURFACE : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>)}
+  return <div className={`w-52 ${disabled ? "pointer-events-none opacity-60" : ""}`} aria-disabled={disabled}>
+    <DarkSelect ariaLabel="Trend metric" eyebrow="Metric" value={value} onChange={onChange} options={TREND_METRICS.map((item) => ({ value: item.key, label: item.label, disabled }))} />
   </div>;
 }
 
@@ -235,7 +236,7 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
             ...current,
             status: "error",
             pendingKey: null,
-            error: error?.message || "Financial RIP history is temporarily unavailable.",
+            error: error?.message || "Trend history is temporarily unavailable.",
           }));
       });
     return () => {
@@ -369,7 +370,7 @@ export default function FinancialRipHistoryChart({ targets = [], financialCohort
               </div>
             ) : !display && request.status === "error" ? (
               <div className="mt-4 flex h-[20rem] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] px-4 text-center sm:h-[24rem] desk:h-[28rem]">
-                <p className="text-sm text-[var(--text-secondary)]">Financial RIP history is temporarily unavailable.</p>
+                <p className="text-sm text-[var(--text-secondary)]">Trend history is temporarily unavailable.</p>
                 <button type="button" onClick={() => setRetryNonce((value) => value + 1)} className="mt-3 min-h-10 rounded-md border border-[var(--border-subtle)] px-4 text-sm font-semibold">
                   Retry
                 </button>

@@ -8,6 +8,7 @@ export default function OpeningEconomicsDistribution({ scope, overview, financia
   const metrics = [
     ["Overall Expected Value / Pack", money(published.overallExpectedValuePerPack ?? scope.averageModelBreakEvenPerPack)],
     ["Average Pack Cost / Pack", money(published.averagePackCostPerPack ?? scope.averageCostPerPack)],
+    ["Modeled Return", ratioAsPercent(published.modeledReturnOnSpend), "Expected modeled card value divided by the average modeled pack-equivalent purchase cost."],
     ["Chance to Recover Cost", ratioAsPercent(published.chanceToRecoverCost ?? scope.chanceToRecoverCost)],
     ["Entertainment Cost / Pack", money(published.entertainmentCostPerPack ?? scope.averageEntertainmentCostPerPack)],
   ];
@@ -19,8 +20,8 @@ export default function OpeningEconomicsDistribution({ scope, overview, financia
         <p className="mt-1 text-3xl font-semibold tabular-nums">{Number.isFinite(Number(financial)) ? Number(financial).toFixed(2) : <Dash />}</p>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">Pokémon Overall benchmark reference</p>
       </div>
-      <div className="grid grid-cols-2 gap-4 py-4 lg:grid-cols-4">
-      {metrics.map(([label, value]) => <div key={label}><p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{value ?? <Dash />}</p></div>)}
+      <div className="grid grid-cols-2 gap-4 py-4 lg:grid-cols-5">
+      {metrics.map(([label, value, tooltip]) => <div key={label}><p className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}{tooltip ? <InfoPopover text={tooltip} /> : null}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{value ?? <Dash />}</p></div>)}
       </div>
       <div className="flex flex-wrap gap-x-2 gap-y-1 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--text-secondary)]" data-opening-summary-metadata>
         <span>{scope.setCount} modeled sets</span><span aria-hidden="true">·</span><span>{scope.productFamilyCount} represented product families</span><span aria-hidden="true">·</span><span>{scope.productSkuCount} modeled products</span>{marketDate ? <><span aria-hidden="true">·</span><span>Opening data as of {marketDate}</span></> : null}

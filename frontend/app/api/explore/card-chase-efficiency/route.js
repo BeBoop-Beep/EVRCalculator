@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { cardProxyResponse } from "@/lib/rankings/cardProxyResponse";
 
 export async function GET(request) {
   const target = new URL(`${getBackendApiBaseUrl()}/explore/card-chase-efficiency`);
@@ -9,9 +9,5 @@ export async function GET(request) {
   const cookie = request.headers.get("cookie");
   if (authorization) headers.Authorization = authorization;
   if (cookie) headers.Cookie = cookie;
-  const response = await fetch(target, { headers, cache: "no-store" });
-  return new NextResponse(await response.text(), {
-    status: response.status,
-    headers: { "content-type": response.headers.get("content-type") || "application/json", "Cache-Control": "private, no-store", Vary: "Cookie, Authorization" },
-  });
+  return cardProxyResponse(() => fetch(target, { headers, cache: "no-store" }));
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultCollectorRequest, prewarmDefaultChase, prewarmDefaultCollector } from "./cardRankingsClient.mjs";
+import { defaultCollectorRequest, prewarmDefaultChase, prewarmDefaultCollector, readJson } from "./cardRankingsClient.mjs";
 import { createRankingsSessionCache } from "./rankingsSessionCache.mjs";
 
 test("default Collector request uses the mounted component's exact canonical keys", () => {
@@ -34,4 +34,11 @@ test("Collector prewarm is entitlement/save-data gated and mount joins its reque
     await prewarmDefaultCollector({ sessionCache: cache, entitled: true, authStatus: "resolved" });
     assert.equal(calls, 2);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test("non-JSON backend responses become a controlled Card Rankings error", async () => {
+  const response = { ok: false, json: async () => { throw new SyntaxError("Unexpected token '<'"); } };
+  await assert.rejects(() => readJson(response, "fallback"), {
+    message: "Card Rankings backend returned an invalid response.",
+  });
 });

@@ -68,6 +68,8 @@ test("refresh and failure preserve the last successful certified chart", () => {
   assert.ok(source.includes("request.view?.mode === mode ? request.view : null"));
   assert.ok(source.includes("The latest refresh failed, so the last successful history remains visible."));
   assert.ok(legend.includes("Updating history"));
+  assert.ok(source.includes("Trend history is temporarily unavailable."));
+  assert.ok(!source.includes("Financial RIP history is temporarily unavailable."));
 });
 
 test("the retired Financial Return chart cannot return as a second authority", () => {
