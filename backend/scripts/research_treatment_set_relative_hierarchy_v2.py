@@ -164,6 +164,59 @@ def _ready_triads(panel: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def control_eligible_fresh_triads(
+    panel: dict[str, Any],
+    controls: dict[str, dict[str, float]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Apply the preregistered exact Subject/Playability match rule to ready fresh triads.
+
+    This is an eligibility gate, not a fitted outcome: no price direction or
+    magnitude is consulted. Artist remains an allowed nuisance delta.
+    """
+    eligible: list[dict[str, Any]] = []
+    exclusions: list[dict[str, Any]] = []
+    for triad in _ready_triads(panel):
+        by_rarity = {str(card["rarity"]): card for card in triad["cards"]}
+        if set(by_rarity) != {DOUBLE, ULTRA, SIR}:
+            raise RuntimeError(
+                f"unexpected fresh triad treatments {triad['set_name']} {triad['subject_key']}"
+            )
+        card_ids = [str(by_rarity[rarity]["canonical_card_id"]) for rarity in (DOUBLE, ULTRA, SIR)]
+        missing = [cid for cid in card_ids if cid not in controls]
+        if missing:
+            raise RuntimeError(
+                f"fresh control coverage mismatch {triad['set_name']} "
+                f"{triad['subject_key']} missing={missing}"
+            )
+
+        subject_values = [controls[cid]["subject"] for cid in card_ids]
+        playability_values = [controls[cid]["playability"] for cid in card_ids]
+        reasons: list[str] = []
+        if max(subject_values) - min(subject_values) > 1e-9:
+            reasons.append("SUBJECT_CONTROL_MISMATCH")
+        if max(playability_values) - min(playability_values) > 1e-9:
+            reasons.append("PLAYABILITY_CONTROL_MISMATCH")
+
+        if reasons:
+            exclusions.append({
+                "set_name": str(triad["set_name"]),
+                "era_name": str(triad["era_name"]),
+                "subject_key": str(triad["subject_key"]),
+                "reasons": reasons,
+                "controls_by_treatment": {
+                    rarity: {
+                        "card_id": str(by_rarity[rarity]["canonical_card_id"]),
+                        "subject": controls[str(by_rarity[rarity]["canonical_card_id"])]["subject"],
+                        "playability": controls[str(by_rarity[rarity]["canonical_card_id"])]["playability"],
+                    }
+                    for rarity in (DOUBLE, ULTRA, SIR)
+                },
+            })
+        else:
+            eligible.append(triad)
+    return eligible, exclusions
+
+
 def validate_prior_panel(panel: dict[str, Any]) -> list[dict[str, Any]]:
     if panel.get("status") not in {"COMPLETE", "PARTIAL"}:
         raise RuntimeError("prior replication panel status invalid")
@@ -183,7 +236,10 @@ def validate_prior_panel(panel: dict[str, Any]) -> list[dict[str, Any]]:
     return triads
 
 
-def fresh_coverage(panel: dict[str, Any]) -> dict[str, Any]:
+def fresh_coverage(
+    panel: dict[str, Any],
+    controls: dict[str, dict[str, float]] | None = None,
+) -> dict[str, Any]:
     target = panel.get("target") or {}
     if int(panel.get("production_writes") or 0) != 0:
         return {"pass": False, "reason": "production_writes_nonzero"}
@@ -194,7 +250,13 @@ def fresh_coverage(panel: dict[str, Any]) -> dict[str, Any]:
     if dict(target.get("by_set") or {}) != FRESH_EXPECTED_BY_SET:
         return {"pass": False, "reason": "fresh_target_set_counts_drift"}
 
-    ready = _ready_triads(panel)
+    history_ready = _ready_triads(panel)
+    if controls is None:
+        ready = history_ready
+        control_exclusions: list[dict[str, Any]] = []
+    else:
+        ready, control_exclusions = control_eligible_fresh_triads(panel, controls)
+
     ready_by_set: dict[str, int] = defaultdict(int)
     for triad in ready:
         ready_by_set[str(triad["set_name"])] += 1
@@ -211,7 +273,10 @@ def fresh_coverage(panel: dict[str, Any]) -> dict[str, Any]:
         if EXPECTED_ERA_BY_SET[set_name] == "Scarlet and Violet"
     )
     computed = {
+        "history_ready_triads": len(history_ready),
         "ready_triads": len(ready),
+        "control_eligible_ready_triads": len(ready),
+        "control_exclusions": control_exclusions,
         "ready_by_set": dict(ready_by_set),
         "pitch_black_ready": ready_by_set.get("Pitch Black", 0),
         "qualifying_sv_sets": qualifying_sv_sets,
@@ -293,7 +358,7 @@ def build_combined_edges(
     controls: dict[str, dict[str, float]],
 ) -> tuple[list[dict[str, Any]], list[str], dict[str, str], dict[str, int]]:
     prior_triads = validate_prior_panel(prior_panel)
-    fresh_triads = _ready_triads(fresh_panel)
+    fresh_triads, _ = control_eligible_fresh_triads(fresh_panel, controls)
 
     combined: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
         ("prior", prior_panel, triad) for triad in prior_triads
@@ -471,7 +536,17 @@ def estimate(
     fresh_panel: dict[str, Any],
     controls: dict[str, dict[str, float]],
 ) -> dict[str, Any]:
-    coverage = fresh_coverage(fresh_panel)
+    history_coverage = fresh_coverage(fresh_panel)
+    if not history_coverage["pass"]:
+        return {
+            "study_id": "set_relative_treatment_hierarchy_v2_broad_expansion",
+            "decision_token": "SET_RELATIVE_TREATMENT_V2_INSUFFICIENT_EXPANSION_COVERAGE",
+            "status": "research_only",
+            "fresh_coverage": history_coverage,
+            "production_writes": 0,
+        }
+
+    coverage = fresh_coverage(fresh_panel, controls)
     if not coverage["pass"]:
         return {
             "study_id": "set_relative_treatment_hierarchy_v2_broad_expansion",
