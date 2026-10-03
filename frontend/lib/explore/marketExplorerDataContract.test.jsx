@@ -218,5 +218,21 @@ test("failure is retryable and clear resets", async () => {
   h.controller.retry();
   assert.equal(h.controller.getSnapshot().status, "loading");
   h.controller.clear();
-  assert.deepEqual(h.controller.getSnapshot(), { status: "idle", query: "", asset: "cards", results: [], error: null });
+  assert.deepEqual(h.controller.getSnapshot(), { status: "idle", query: "", asset: "cards", results: [], error: null, nextCursor: null, loadingMore: false });
+});
+
+test("catalog continuation appends a bounded page without rebuilding page one", async () => {
+  const h = harness();
+  h.controller.search("prismatic", "cards");
+  await h.fire(0);
+  h.calls[0].resolve({ results: [{ marketKey: "set:prismatic", label: "Prismatic Evolutions" }, { instrumentId: "p1", label: "Card 1" }], nextCursor: "12" });
+  await new Promise((r) => setImmediate(r));
+  const firstPage = h.controller.getSnapshot().results;
+  const pending = h.controller.loadMore();
+  assert.equal(h.calls[1].args.cursor, "12");
+  h.calls[1].resolve({ results: [{ instrumentId: "p2", label: "Card 2" }], nextCursor: "24" });
+  await pending;
+  assert.equal(h.controller.getSnapshot().results[0], firstPage[0]);
+  assert.deepEqual(h.controller.getSnapshot().results.map((r) => r.label), ["Prismatic Evolutions", "Card 1", "Card 2"]);
+  assert.equal(h.controller.getSnapshot().nextCursor, "24");
 });

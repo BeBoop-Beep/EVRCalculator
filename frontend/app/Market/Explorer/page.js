@@ -78,12 +78,7 @@ export default async function MarketExplorerPage({ searchParams }) {
   const cardReconciliation = resolveCardSegmentReconciliation(payload);
   const topChaseSegmentStatus = resolveTopChaseSegmentStatus(payload);
   // ONE parser owns the URL contract; no component reads searchParams itself.
-  const initialState = resolveInitialExplorerState(
-    overview,
-    resolvedSearchParams,
-    sealedSegments,
-    cardSegments,
-  );
+  const initialState = resolveInitialExplorerState(overview, resolvedSearchParams, sealedSegments, cardSegments);
   const requestedPreparedKey =
     typeof resolvedSearchParams?.prepared === "string"
       ? resolvedSearchParams.prepared.trim()
@@ -97,9 +92,18 @@ export default async function MarketExplorerPage({ searchParams }) {
           (market.legacy_aliases || []).includes(requestedPreparedKey),
       )
     : null;
-  const initialPreparedKey = requestedPreparedRow
-    ? requestedPreparedRow.market_key
-    : null;
+  const initialPreparedKey = requestedPreparedRow?.market_key || null;
+  // The default Asset Market workspace is the published Raw + Sealed pair.
+  // Resolve the legacy overview twins through these V2 rows so Inspect receives
+  // enumerable composition metadata. The client fetches each baseline parent
+  // independently; adding any further market keeps the normal entitlement.
+  const initialPreparedKeys = !requestedPreparedKey
+    ? ["raw", "sealedMarket"].filter((key) =>
+        preparedDirectory.some(
+          (market) => market.market_key === key && market.surface_version === "v2",
+        ),
+      )
+    : [];
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
@@ -138,6 +142,7 @@ export default async function MarketExplorerPage({ searchParams }) {
           preparedDirectory={preparedDirectory}
           preparedDirectoryStatus={preparedDirectoryResult.status}
           initialPreparedKey={initialPreparedKey}
+          initialPreparedKeys={initialPreparedKeys}
           marketCapabilities={
             activityFixtureMode ? FMA3_FIXTURE_CAPABILITIES : undefined
           }

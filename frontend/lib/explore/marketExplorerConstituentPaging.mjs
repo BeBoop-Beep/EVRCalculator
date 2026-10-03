@@ -1,3 +1,5 @@
+import { boundedFetch, EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
+
 // ---------------------------------------------------------------------------
 // Market Explorer — paginated constituents for a QUERY-BUILT market.
 //
@@ -55,8 +57,14 @@ export class ConstituentPageError extends Error {
 export async function fetchPreparedConstituentPage(identity, { limit = 100, afterRank = 0, signal } = {}) {
   const query = new URLSearchParams({ kind: "constituents", marketKey: identity.marketKey,
     generationId: identity.generationId, limit: String(limit), afterRank: String(afterRank) });
-  const response = await fetch(`/api/market/explorer/prepared?${query}`, { credentials: "include", signal });
-  const payload = await response.json().catch(() => null);
+  const { response, payload } = await boundedFetch(
+    `/api/market/explorer/prepared?${query}`,
+    { credentials: "include" },
+    { signal, timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.constituents,
+      timeoutCode: "PREPARED_CONSTITUENTS_TIMEOUT",
+      timeoutMessage: "Constituents took too long to load. Please try again.",
+      read: (result) => result.json().catch(() => null) },
+  );
   if (!response.ok) {
     const upper = String(payload?.code || "").toUpperCase();
     const code = response.status === 409 || upper === "GENERATION_MISMATCH" ? CONSTITUENT_ERROR.generationMismatch

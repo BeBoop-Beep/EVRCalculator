@@ -303,6 +303,19 @@ test("ADD (real comparison) still sends the workspace as context", async () => {
   assert.deepEqual(h.calls.find((c) => c.key === "set:jungle").contextKeys, ["set:fossil"]);
 });
 
+test("canonical opening parents load independently without creating comparison context", async () => {
+  const h = harness();
+  const raw = h.loader.addIndependent("raw");
+  const sealed = h.loader.addIndependent("sealedMarket");
+  await h.tick();
+  assert.deepEqual(h.calls.map(({ key, contextKeys }) => ({ key, contextKeys })), [
+    { key: "raw", contextKeys: [] },
+    { key: "sealedMarket", contextKeys: [] },
+  ]);
+  h.ok("raw"); h.ok("sealedMarket");
+  await Promise.all([raw, sealed]);
+});
+
 // Wire-level: loader + the real fetchPreparedMarket + the real request body.
 test("wire: a replacement POST carries contextMarketKeys=[] (what the backend counts)", async () => {
   const { fetchPreparedMarket } = await import("./marketExplorerPrepared.mjs");

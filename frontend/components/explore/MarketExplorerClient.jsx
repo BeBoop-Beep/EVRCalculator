@@ -135,6 +135,7 @@ export default function MarketExplorerClient({
   preparedDirectory = [],
   preparedDirectoryStatus = "ready",
   initialPreparedKey = null,
+  initialPreparedKeys = [],
   /** Server-published focus-tool authority. Product default is fail-closed. */
   marketCapabilities = NO_BACKEND_CAPABILITIES,
   /** Explicit injectable transport seam for tests and FMA-4. */
@@ -179,7 +180,7 @@ export default function MarketExplorerClient({
     sealedSegments,
     cardSegments,
     initialState,
-    hasExternalSeries: Boolean(initialPreparedKey),
+    hasExternalSeries: Boolean(initialPreparedKey) || initialPreparedKeys.length > 0,
   });
   const [requestedTimeframe, setRequestedTimeframe] = useState(
     () => initialState?.timeframe || null,
@@ -597,6 +598,24 @@ export default function MarketExplorerClient({
     preparedLoader.replace(initialPreparedKey);
   }, [clearAllQueries, clearAllSelection, initialPreparedKey, preparedLoader]);
 
+  // Resolve the canonical opening Raw + Sealed parents as independent public
+  // reads. They are the baseline Asset Market workspace, not a user-added
+  // prepared comparison, so neither read carries the other as entitlement
+  // context. Subsequent additions still use the normal comparison contract.
+  useEffect(() => {
+    if (initialPreparedKey || !initialPreparedKeys.length) return;
+    clearAllSelection();
+    clearAllQueries();
+    dispatchView({ type: WORKSPACE_VIEW_ACTIONS.reset });
+    initialPreparedKeys.forEach((key) => preparedLoader.addIndependent(key));
+  }, [
+    clearAllQueries,
+    clearAllSelection,
+    initialPreparedKey,
+    initialPreparedKeys,
+    preparedLoader,
+  ]);
+
   // A hand-authored legacy URL can contain several prepared selections. The
   // Basic contract still resolves to one workspace market on first paint.
   useEffect(() => {
@@ -736,8 +755,8 @@ export default function MarketExplorerClient({
       : null;
   const focusedSeries =
     selectedSeries.find((series) => series.key === focusedSeriesKey) || null;
-  const constituentPrefetchSeries = focusedSeries && isEnumerableSeries(focusedSeries)
-    ? focusedSeries
+  const constituentPrefetchSeries = isAuthenticated && canComparePreparedMarkets && activeDetailMarket && isEnumerableSeries(activeDetailMarket)
+    ? activeDetailMarket
     : null;
   const activityFocusKey = focusedSeries?.asset === "cards" ? focusedSeriesKey : null;
   useEffect(() => {
@@ -811,7 +830,11 @@ export default function MarketExplorerClient({
     : null;
   const activityOn = chartViewMode === MARKET_CHART_VIEW_ACTIVITY;
   useEffect(() => {
-    if (!focusedSeries || focusedSeries.asset !== "cards") setChartViewMode(MARKET_CHART_VIEW_INDEX);
+    if (!focusedSeries || focusedSeries.asset !== "cards") {
+      setChartViewMode((current) => current === MARKET_CHART_VIEW_ACTIVITY
+        ? MARKET_CHART_VIEW_INDEX
+        : current);
+    }
     else if (activityFixtureMode || discoveredActivity.status === "ready") setChartViewMode((current) => reconcileActivityView(current, focusedSeries, activityCapability));
   }, [focusedSeries, activityCapability, activityFixtureMode, discoveredActivity.status]);
   const changeChartView = useCallback((next) => {

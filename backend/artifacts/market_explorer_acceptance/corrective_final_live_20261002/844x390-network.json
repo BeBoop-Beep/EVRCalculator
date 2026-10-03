@@ -1,0 +1,46 @@
+{
+  "explorerRoutes": [
+    {
+      "route": "/api/market/explorer/asset-options?asset=cards",
+      "status": 200,
+      "elapsedMs": 78
+    },
+    {
+      "route": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 272
+    },
+    {
+      "route": "/api/market/explorer/prepared",
+      "status": 200,
+      "elapsedMs": 296
+    },
+    {
+      "route": "/api/market/explorer/catalog-search?asset=cards&q=prismatic&limit=12",
+      "status": 200,
+      "elapsedMs": 78
+    },
+    {
+      "route": "/api/market/explorer/catalog-search?asset=cards&q=prismatic&limit=12&after=12",
+      "status": 200,
+      "elapsedMs": 77
+    },
+    {
+      "route": "/api/market/explorer/asset-options?asset=sealed",
+      "status": 200,
+      "elapsedMs": 72
+    },
+    {
+      "route": "/api/market/explorer/catalog-search?asset=sealed&q=prismatic&limit=12",
+      "status": 200,
+      "elapsedMs": 76
+    },
+    {
+      "route": "/api/market/explorer/catalog-search?asset=sealed&q=prismatic&limit=12&after=12",
+      "status": 200,
+      "elapsedMs": 100
+    }
+  ],
+  "expectedAnonymousAuthProbe": true,
+  "unexpectedConsoleErrors": []
+}

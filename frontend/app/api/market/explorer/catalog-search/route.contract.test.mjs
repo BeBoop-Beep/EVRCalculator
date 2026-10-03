@@ -15,19 +15,20 @@ const withFetch = async (impl, fn) => {
   try { return await fn(calls); } finally { globalThis.fetch = original; }
 };
 
-test("forwards cookie + authorization, bounds limit, never caches", async () => {
-  await withFetch(async () => ({ ok: true, status: 200, json: async () => ({ results: [{ label: "Fossil" }] }) }), async (calls) => {
-    const response = await GET(request("asset=cards&q=fossil&limit=500"));
+test("forwards cursor + credentials, bounds limit, and preserves the paged envelope", async () => {
+  await withFetch(async () => ({ ok: true, status: 200, json: async () => ({ results: [{ label: "Fossil" }], nextCursor: "50", context: "set", generationId: "g1" }) }), async (calls) => {
+    const response = await GET(request("asset=cards&q=fossil&limit=500&after=25"));
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
     const url = new URL(calls[0].url);
     assert.equal(url.pathname, "/market/explorer/catalog/search");
     assert.equal(url.searchParams.get("limit"), "50");
     assert.equal(url.searchParams.get("asset"), "cards");
+    assert.equal(url.searchParams.get("after"), "25");
     assert.equal(calls[0].init.headers.cookie, "token=t");
     assert.equal(calls[0].init.headers.authorization, "Bearer x");
     assert.equal(calls[0].init.cache, "no-store");
-    assert.deepEqual((await response.json()).results, [{ label: "Fossil" }]);
+    assert.deepEqual(await response.json(), { results: [{ label: "Fossil" }], nextCursor: "50", context: "set", generationId: "g1" });
   });
 });
 
@@ -35,6 +36,7 @@ test("validates q min length and asset without touching the backend", async () =
   await withFetch(async () => { throw new Error("must not fetch"); }, async (calls) => {
     assert.equal((await GET(request("asset=cards&q=g"))).status, 400);
     assert.equal((await GET(request("asset=weapons&q=gengar"))).status, 400);
+    assert.equal((await GET(request("asset=cards&q=gengar&after=-1"))).status, 400);
     assert.equal(calls.length, 0);
   });
 });

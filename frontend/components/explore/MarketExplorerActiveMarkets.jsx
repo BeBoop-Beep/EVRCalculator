@@ -135,7 +135,6 @@ export default function MarketExplorerActiveMarkets({
                 data-market-explorer-active-chip-dimmed={isDimmed ? "true" : "false"}
                 data-market-explorer-active-chip-asset={entry.asset || undefined}
                 data-market-explorer-active-chip-source={entry.queryKey ? "query" : "prepared"}
-                onClick={() => { onFocus?.(entry.key); onInspect?.(entry.key); }}
                 className={[
                   "group flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2 py-1 transition-colors",
                   isFocused ? "ring-2 ring-sky-400/80 font-semibold" : "",
@@ -193,7 +192,7 @@ export default function MarketExplorerActiveMarkets({
                 ) : null}
                 <span data-market-explorer-active-return={entry.key} className="flex-none text-[10px] tabular-nums" style={{ color: returnColor(periodChange) }}>{formatChangePercent(periodChange)}</span>
                 {entry.instanceId ? (
-                  <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${displayLabel}`} onClick={() => onEdit?.(entry)} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
+                  <button type="button" data-market-explorer-active-edit={entry.key} aria-label={`Edit ${displayLabel}`} onClick={(event) => { event?.stopPropagation?.(); onEdit?.(entry); }} className="flex-none rounded-full px-1 text-[10px] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Edit</button>
                 ) : null}
                 <button
                   type="button"

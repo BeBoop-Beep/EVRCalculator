@@ -30,7 +30,7 @@ const AS_OF = "2026-09-28";
 let ART_ORIGIN = "http://127.0.0.1:8201";
 const GEN = { v1: "fixture-gen-v1", v2: "fixture-gen-v2" };
 const ERA = { base: "era-base", neo: "era-neo", hgss: "era-hgss" };
-const SET = { fossil: "set-fossil", jungle: "set-jungle", bs2: "set-bs2", hgss: "set-hgss", neoGenesis: "set-neo-genesis", neoDiscovery: "set-neo-discovery", neoRevelation: "set-neo-revelation", neoDestiny: "set-neo-destiny" };
+const SET = { fossil: "set-fossil", jungle: "set-jungle", bs2: "set-bs2", hgss: "set-hgss", prismatic: "set-prismatic", neoGenesis: "set-neo-genesis", neoDiscovery: "set-neo-discovery", neoRevelation: "set-neo-revelation", neoDestiny: "set-neo-destiny" };
 // FIXTURE-ONLY commercial limits, mirroring backend MARKET_EXPLORER_ACTIVE_MARKET_LIMIT.
 const PLAN_LIMIT = { plus: 3, premium: 10 };
 
@@ -72,7 +72,7 @@ function directoryV2() {
   const rows = [];
   for (const asset of ["cards", "sealed"]) {
     rows.push(v2Scoped("era", asset, ERA.base, "Base/WOTC"), v2Scoped("era", asset, ERA.neo, "Neo"), v2Scoped("era", asset, ERA.hgss, "HeartGold & SoulSilver"));
-    rows.push(v2Scoped("set", asset, SET.fossil, "Fossil", ERA.base), v2Scoped("set", asset, SET.jungle, "Jungle", ERA.base), v2Scoped("set", asset, SET.bs2, "Base Set 2", ERA.base), v2Scoped("set", asset, SET.hgss, "HeartGold & SoulSilver", ERA.hgss));
+    rows.push(v2Scoped("set", asset, SET.fossil, "Fossil", ERA.base), v2Scoped("set", asset, SET.jungle, "Jungle", ERA.base), v2Scoped("set", asset, SET.bs2, "Base Set 2", ERA.base), v2Scoped("set", asset, SET.hgss, "HeartGold & SoulSilver", ERA.hgss), v2Scoped("set", asset, SET.prismatic, "Prismatic Evolutions", ERA.base));
     rows.push(...[["neoGenesis", "Neo Genesis"], ["neoDiscovery", "Neo Discovery"], ["neoRevelation", "Neo Revelation"], ["neoDestiny", "Neo Destiny"]].map(([id, label]) => v2Scoped("set", asset, SET[id], label, ERA.neo)));
     rows.push(...Array.from({ length: 20 }, (_, index) => v2Scoped("set", asset, `fixture-set-${String(index + 1).padStart(2, "0")}`, `Fixture Set ${String(index + 1).padStart(2, "0")}`, index % 2 ? ERA.neo : ERA.base)));
   }
@@ -252,17 +252,32 @@ export function startFixtureBackend({ port = 8201, mode = "v2" } = {}) {
       if (route === "/market/explorer/catalog/search") {
         const q = String(url.searchParams.get("q") || "").toLowerCase();
         const asset = url.searchParams.get("asset");
-        if (q.startsWith("slow")) return setTimeout(() => reply(200, { results: [{ result_kind: "prepared_market", market_key: "stale:marker", label: "STALE RESULT", subtitle: asset, asset, availability: "AVAILABLE", metadata: {} }] }), 1500);
+        const after = Number(url.searchParams.get("after") || 0);
+        const limit = Math.min(25, Number(url.searchParams.get("limit") || 12));
+        if (q.startsWith("slow")) return setTimeout(() => reply(200, { results: [{ result_kind: "prepared_market", market_key: "stale:marker", label: "STALE RESULT", subtitle: asset, asset, availability: "AVAILABLE", metadata: {} }], nextCursor: null, context: "name" }), 1500);
+        if (q === "prismatic" && (asset === "cards" || asset === "sealed")) {
+          const market = { result_kind: "set", market_key: `${asset === "sealed" ? "sealed-" : ""}set:${SET.prismatic}`, label: "Prismatic Evolutions", subtitle: asset === "sealed" ? "Sealed Set market" : "Set market", asset, availability: "AVAILABLE", metadata: { setName: "Prismatic Evolutions" } };
+          const total = asset === "cards" ? 37 : 19;
+          const leaves = Array.from({ length: Math.min(limit, total - after) }, (_, index) => {
+            const rank = after + index + 1;
+            return { result_kind: "instrument", instrument_id: `${asset}-prismatic-${rank}`, label: `${asset === "sealed" ? "Prismatic Product" : "Prismatic Card"} ${rank}`, subtitle: `Prismatic Evolutions · ${asset === "sealed" ? "Booster Box" : `${rank} Rare`}`, asset, availability: "AVAILABLE", metadata: { setName: "Prismatic Evolutions", marketPrice: 500 - rank, ...(asset === "sealed" ? { sealedProductId: `sealed-prismatic-${rank}`, productFamily: "Booster Box" } : { cardVariantId: `cards-prismatic-${rank}`, cardNumber: String(rank), rarity: "Rare" }) } };
+          });
+          return reply(200, { results: [...(after === 0 ? [market] : []), ...leaves], nextCursor: after + leaves.length < total ? String(after + leaves.length) : null, context: "set", generationId: GEN.v2 });
+        }
         const instruments = asset === "sealed"
           ? [{ result_kind: "instrument", instrument_id: "sealed-prod-1", label: "Fixture Booster Box", subtitle: "Fossil · Booster Box", asset: "sealed", availability: "AVAILABLE", metadata: { sealedProductId: "sealed-prod-1", setName: "Fossil", productFamily: "Booster Box" } }]
           : asset === "cards"
-            ? [{ result_kind: "instrument", instrument_id: "var-gengar", label: "Fixture Gengar", subtitle: "Fossil · 5 Rare Holo", asset: "cards", set_id: SET.fossil, availability: "AVAILABLE", metadata: { cardVariantId: "var-gengar", cardNumber: "5", rarity: "Rare Holo" } }]
+            ? [
+              { result_kind: "instrument", instrument_id: "var-gengar", label: "Fixture Gengar", subtitle: "Fossil - 5 Rare Holo", asset: "cards", set_id: SET.fossil, availability: "AVAILABLE", metadata: { cardVariantId: "var-gengar", cardNumber: "5", rarity: "Rare Holo" } },
+              { result_kind: "instrument", instrument_id: "var-charizard", label: "Charizard", subtitle: "Base Set - 4 Rare Holo", asset: "cards", set_id: SET.bs2, availability: "AVAILABLE", relevance: 1000, metadata: { cardVariantId: "var-charizard", cardNumber: "4", rarity: "Rare Holo" } },
+              { result_kind: "instrument", instrument_id: "var-pikachu", label: "Pikachu", subtitle: "Base Set - 58 Common", asset: "cards", set_id: SET.bs2, availability: "AVAILABLE", relevance: 1000, metadata: { cardVariantId: "var-pikachu", cardNumber: "58", rarity: "Common" } },
+            ]
             : [];
         const all = [...directory(mode), ...candidateRows(mode)].filter((row) => row.asset === asset && row.label.toLowerCase().includes(q));
         const matchedInstruments = instruments.filter((item) => item.label.toLowerCase().includes(q) || q.includes("gengar") && item.label.includes("Gengar") || q.includes("product") && item.asset === "sealed");
         if (asset === "graded") return reply(200, { results: [{ result_kind: "instrument", label: "Graded cards", subtitle: "Graded markets are not available yet.", asset: "graded", availability: "INSUFFICIENT_AUTHORITY", metadata: {} }] });
         const asResult = (row) => ({ result_kind: row.market_type === "era" ? "era" : row.market_type === "set" ? "set" : "prepared_market", market_key: row.market_key, label: row.label, subtitle: row.asset, asset: row.asset, availability: "AVAILABLE", metadata: {} });
-        return reply(200, { results: [...all.map(asResult), ...matchedInstruments].slice(0, 8) });
+        return reply(200, { results: [...all.map(asResult), ...matchedInstruments].slice(0, 8), nextCursor: null, context: "name", generationId: GEN.v2 });
       }
       if (route === "/market/explorer/query/options") return reply(404, { message: "fixture: not modelled" });
       return reply(404, { message: `fixture: ${route} not modelled` });

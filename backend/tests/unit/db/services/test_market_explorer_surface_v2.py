@@ -295,12 +295,12 @@ def test_search_validation_and_passthrough():
     class C(Client):
         def rpc(self, name, args):
             self.calls.append((name, args))
-            return Resp([{"asset": "graded", "result_kind": "graded_instrument",
-                          "availability": "INSUFFICIENT_AUTHORITY"}])
+            return Resp({"results": [{"asset": "graded", "result_kind": "graded_instrument",
+                         "availability": "INSUFFICIENT_AUTHORITY"}], "nextCursor": None, "context": "name"})
 
     c = C()
-    assert v2.search_catalog(c, "graded", "psa", 5)[0]["availability"] == "INSUFFICIENT_AUTHORITY"
-    assert c.calls[0][1] == {"p_asset": "graded", "p_query": "psa", "p_limit": 5}
+    assert v2.search_catalog(c, "graded", "psa", 5)["results"][0]["availability"] == "INSUFFICIENT_AUTHORITY"
+    assert c.calls[0][1] == {"p_asset": "graded", "p_query": "psa", "p_limit": 5, "p_after": 0}
 
 
 def test_asset_options_missing_authority_is_explicit():
@@ -462,9 +462,19 @@ def test_unknown_alias_is_missing_not_invented():
 
 def test_active_v2_search_and_options_errors_do_not_invent_legacy_results():
     with pytest.raises(v2.SurfaceV2Error):
-        v2.search_catalog(Client(fail={v2.SEARCH_RPC_V1: RuntimeError("x")}), "cards", "gengar", 5)
+        v2.search_catalog(Client(fail={v2.SEARCH_RPC_V2: RuntimeError("x")}), "cards", "gengar", 5)
     with pytest.raises(v2.SurfaceV2Error):
         v2.read_asset_options(Client(fail={v2.ASSET_OPTIONS_RPC_V2: RuntimeError("x")}), "sealed")
+
+
+def test_v2_read_receipts_identify_stage_elapsed_time_and_outcome(caplog):
+    with caplog.at_level("INFO", logger=v2.__name__):
+        assert v2._timed_read("history", lambda: [1], generation_id=GEN) == [1]
+    record = next(record for record in caplog.records if record.message == "market_explorer_v2_read")
+    assert record.stage == "history"
+    assert record.generation_id == GEN
+    assert record.outcome == "ok"
+    assert record.elapsed_ms >= 0
 
 
 # ---- Raw: no after-the-fact reconstruction ----

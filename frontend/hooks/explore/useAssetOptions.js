@@ -9,15 +9,21 @@ import { fetchAssetOptions } from "@/lib/explore/marketExplorerAssetOptions.mjs"
  * legacy-mode signal: callers fall back to their existing behavior.
  */
 export default function useAssetOptions(asset, { enabled = true, fetcher = fetchAssetOptions } = {}) {
-  const [state, setState] = useState({ status: "idle", data: null });
+  const [state, setState] = useState({ status: "idle", data: null, asset: null });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!enabled || !asset) return undefined;
     const controller = new AbortController();
-    setState((current) => ({ status: "loading", data: current.data }));
+    setState((current) => ({ status: "loading", data: current.asset === asset ? current.data : null, asset }));
     fetcher(asset, { signal: controller.signal })
-      .then((data) => { if (!controller.signal.aborted) setState({ status: "ready", data }); })
-      .catch((error) => { if (error?.name !== "AbortError" && !controller.signal.aborted) setState({ status: "unavailable", data: null }); });
+      .then((data) => { if (!controller.signal.aborted) setState({ status: "ready", data, asset }); })
+      .catch((error) => {
+        if (error?.name !== "AbortError" && !controller.signal.aborted) {
+          setState((current) => current.asset === asset && current.data
+            ? { status: "ready", data: current.data, asset, refreshError: true }
+            : { status: "unavailable", data: null, asset });
+        }
+      });
     return () => controller.abort();
   }, [asset, enabled, fetcher, attempt]);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);

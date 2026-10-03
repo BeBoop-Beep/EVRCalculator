@@ -41,6 +41,14 @@ test("the route exists at /Market/Explorer without redundant product chrome", ()
   assert.match(explorerPage, /path: "\/Market\/Explorer"/);
 });
 
+test("default workspace preserves Raw and Sealed as independent public V2 parent reads", () => {
+  assert.match(explorerPage, /const initialPreparedKeys = !requestedPreparedKey/);
+  assert.match(explorerPage, /\["raw", "sealedMarket"\]\.filter/);
+  assert.match(explorerPage, /initialPreparedKeys=\{initialPreparedKeys\}/);
+  assert.match(client, /hasExternalSeries: Boolean\(initialPreparedKey\) \|\| initialPreparedKeys\.length > 0/);
+  assert.match(client, /initialPreparedKeys\.forEach\(\(key\) => preparedLoader\.addIndependent\(key\)\)/);
+});
+
 test("the page reuses the existing Market layout conventions rather than a new identity", () => {
   for (const shared of ["styles.dashboard", "explore-glass-scope", "index-environment", "max-w-7xl", "PageArtworkAtmosphere"]) {
     assert.ok(explorerPage.includes(shared), shared);

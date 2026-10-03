@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { EXPLORER_PROXY_BOUNDS_MS, fetchExplorerRead } from "@/lib/explore/marketExplorerReadProxy.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -14,26 +15,38 @@ export async function GET(request) {
   const q = (incoming.searchParams.get("q") || "").trim();
   const asset = (incoming.searchParams.get("asset") || "cards").toLowerCase();
   const limit = Math.min(Math.max(Number.parseInt(incoming.searchParams.get("limit") || "20", 10) || 20, 1), 50);
+  const afterRaw = incoming.searchParams.get("after");
+  const after = afterRaw == null ? 0 : Number.parseInt(afterRaw, 10);
   if (!ASSETS.has(asset)) return NextResponse.json({ message: "Unsupported search asset.", code: "CATALOG_SEARCH_INVALID" }, { status: 400, headers: NO_STORE });
   if (q.length < 2) return NextResponse.json({ message: "Enter at least 2 characters.", code: "CATALOG_SEARCH_INVALID" }, { status: 400, headers: NO_STORE });
+  if (!Number.isInteger(after) || after < 0 || after > 5000) return NextResponse.json({ message: "Invalid search cursor.", code: "CATALOG_SEARCH_INVALID" }, { status: 400, headers: NO_STORE });
   const url = new URL("/market/explorer/catalog/search", getBackendApiBaseUrl());
   url.searchParams.set("asset", asset);
   url.searchParams.set("q", q);
   url.searchParams.set("limit", String(limit));
+  url.searchParams.set("after", String(after));
   const headers = {};
   const cookie = request.headers.get("cookie");
   const authorization = request.headers.get("authorization");
   if (cookie) headers.cookie = cookie;
   if (authorization) headers.authorization = authorization;
   try {
-    const response = await fetch(url, { headers, cache: "no-store", signal: request.signal });
-    const payload = await response.json().catch(() => null);
+    const result = await fetchExplorerRead({ url, init: { headers }, requestSignal: request.signal,
+      timeoutMs: EXPLORER_PROXY_BOUNDS_MS.catalogSearch, operation: "catalog_search" });
+    const { response, payload } = result;
+    console.info("market_explorer_proxy_read", { operation: "catalog_search", elapsedMs: result.elapsedMs, attempts: result.attempts, status: response.status });
     if (!response.ok) {
       const code = typeof payload?.code === "string" ? payload.code : "CATALOG_SEARCH_FAILED";
       return NextResponse.json({ message: "Search is temporarily unavailable.", code }, { status: response.status === 400 ? 400 : response.status === 429 ? 429 : 503, headers: NO_STORE });
     }
-    return NextResponse.json({ results: Array.isArray(payload?.results) ? payload.results : [] }, { status: 200, headers: NO_STORE });
-  } catch {
-    return NextResponse.json({ message: "Search is temporarily unavailable.", code: "CATALOG_SEARCH_PROXY_UNAVAILABLE" }, { status: 503, headers: NO_STORE });
+    return NextResponse.json({
+      results: Array.isArray(payload?.results) ? payload.results : [],
+      nextCursor: typeof payload?.nextCursor === "string" ? payload.nextCursor : null,
+      context: payload?.context === "set" ? "set" : "name",
+      generationId: payload?.generationId || null,
+    }, { status: 200, headers: NO_STORE });
+  } catch (error) {
+    const timedOut = error?.proxyTimedOut === true;
+    return NextResponse.json({ message: timedOut ? "Search took too long. Please try again." : "Search is temporarily unavailable.", code: timedOut ? "CATALOG_SEARCH_PROXY_TIMEOUT" : "CATALOG_SEARCH_PROXY_UNAVAILABLE" }, { status: timedOut ? 504 : 503, headers: NO_STORE });
   }
 }

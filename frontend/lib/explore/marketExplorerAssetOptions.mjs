@@ -1,3 +1,5 @@
+import { boundedFetch, EXPLORER_REQUEST_BOUNDS_MS } from "./marketExplorerBoundedRequest.mjs";
+
 // ---------------------------------------------------------------------------
 // Market Explorer — truthful availability of rarity / sealed-type options.
 //
@@ -109,7 +111,13 @@ export const NO_APPROVED_SEALED_QUICK_COPY = "Sealed Quick Markets are awaiting 
 export const ASSET_OPTIONS_ENDPOINT = "/api/market/explorer/asset-options";
 
 export async function fetchAssetOptions(asset, { signal } = {}) {
-  const response = await fetch(`${ASSET_OPTIONS_ENDPOINT}?asset=${encodeURIComponent(asset)}`, { credentials: "include", cache: "no-store", signal });
+  const response = await boundedFetch(
+    `${ASSET_OPTIONS_ENDPOINT}?asset=${encodeURIComponent(asset)}`,
+    { credentials: "include", cache: "no-store" },
+    { signal, timeoutMs: EXPLORER_REQUEST_BOUNDS_MS.assetOptions,
+      timeoutCode: "ASSET_OPTIONS_TIMEOUT",
+      timeoutMessage: "Market options took too long to load. Please try again." },
+  );
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const error = new Error("Options are temporarily unavailable");

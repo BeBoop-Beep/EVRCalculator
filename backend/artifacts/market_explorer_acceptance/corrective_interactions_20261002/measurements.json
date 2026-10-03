@@ -1,0 +1,18 @@
+{
+  "desktop": {
+    "trailingGapPx": 3,
+    "oneYear": {
+      "firstX": 2,
+      "lastX": 98,
+      "viewWidth": 100
+    }
+  },
+  "mobile": {
+    "trailingGapPx": 3,
+    "oneYear": {
+      "firstX": 2,
+      "lastX": 98,
+      "viewWidth": 100
+    }
+  }
+}
