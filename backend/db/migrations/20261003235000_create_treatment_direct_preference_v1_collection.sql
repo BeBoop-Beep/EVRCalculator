@@ -18,7 +18,11 @@ create table if not exists public.pokemon_treatment_preference_v1_block_claims (
     primary key (study_version, schedule_fingerprint, block_index),
     check ((session_hash is null) = (claim_token is null)),
     check ((session_hash is null) = (claimed_at is null)),
-    check ((session_hash is null) = (expires_at is null))
+    check (
+        session_hash is null
+        or expires_at is not null
+        or completed_at is not null
+    )
 );
 
 create unique index if not exists uq_pokemon_treatment_preference_v1_session
