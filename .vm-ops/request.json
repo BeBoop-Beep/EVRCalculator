@@ -1,4 +1,4 @@
 {
-  "operation": "fv-core-panel-status",
-  "request_id": "fv-core-panel-status-20261002-post-reset"
+  "operation": "fv-shadow-ops-status",
+  "request_id": "fv-shadow-ops-status-20261002-2210-log-audit"
 }
