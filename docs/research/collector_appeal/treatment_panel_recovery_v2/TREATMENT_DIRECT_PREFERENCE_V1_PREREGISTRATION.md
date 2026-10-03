@@ -72,6 +72,36 @@ A pair is eligible when:
 
 Price, pull rate, rarity market ranking, and V2 market effect are not pair-selection variables.
 
+## Frozen study subset
+
+The complete price-independent candidate pool contains 103 eligible matched triads / 309 pair comparisons.
+
+The primary V1 collection subset is frozen **before human outcomes** at:
+
+- **45 matched triads**
+- **135 pair comparisons**
+- exactly 45 comparisons per Treatment edge
+
+Selection rule:
+
+1. include **all 21 eligible Mega Evolution triads**;
+2. for Scarlet & Violet, include the stable-hash-min triad from every eligible Set;
+3. allocate one additional triad to the ten Scarlet & Violet Sets with the largest eligible triad pools;
+4. break eligible-pool ties by Set name;
+5. within each selected Set, use the second stable-hash-min triad for the additional slot.
+
+The stable hash is computed only from Set name + Subject key.
+
+No price, pull-rate magnitude, V2 effect, rarity-market rank, image aesthetics, or future preference outcome is used to select the study subset.
+
+Expected composition:
+
+- Mega Evolution: **21 triads / 63 comparisons**
+- Scarlet & Violet: **24 triads / 72 comparisons**
+- total: **45 triads / 135 comparisons**
+
+The generated subset must pass the preregistered <=10% Subject-concentration gate before collection starts.
+
 ## Visual masking
 
 The experiment must remove or conceal information that directly reveals the experimental label where feasible without destroying the visual Treatment itself.
@@ -113,10 +143,19 @@ To reduce fatigue and repeated-subject anchoring:
 Primary minimum:
 
 - **40 independent evaluable responses per underlying pair**
+- at least **20 non-tie responses per underlying pair**
 
 Preferred target:
 
 - **60 independent evaluable responses per underlying pair**
+
+Primary collection coverage gate:
+
+- at least 90% of the 45 frozen triads must have all three pair edges reach the primary minimum,
+- both eras must retain at least 80% of their frozen triads,
+- no pair may be removed because its observed preference direction is weak or inconvenient.
+
+If the coverage gate fails, the confirmatory preference fit is not promoted; collection may continue on the same frozen manifest.
 
 A response is evaluable if the respondent selects Left, Right, or Tie and the client records the randomized orientation.
 
