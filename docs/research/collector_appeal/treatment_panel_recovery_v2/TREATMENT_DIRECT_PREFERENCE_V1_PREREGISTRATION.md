@@ -112,11 +112,11 @@ To reduce fatigue and repeated-subject anchoring:
 
 Primary minimum:
 
-- **60 independent evaluable responses per underlying pair**
+- **40 independent evaluable responses per underlying pair**
 
 Preferred target:
 
-- **100 independent evaluable responses per underlying pair**
+- **60 independent evaluable responses per underlying pair**
 
 A response is evaluable if the respondent selects Left, Right, or Tie and the client records the randomized orientation.
 
@@ -130,32 +130,50 @@ Do not require personally identifying information.
 
 Repeated submissions from the same study session for the same pair count once.
 
-## Primary model
+## Primary estimator
 
-For non-tie responses, fit a Bradley-Terry-style Treatment model with pair/Subject blocking.
+The primary analysis is **equal-weight across underlying matched card pairs**, not pooled across raw responses.
 
-Primary conceptual model:
+For each underlying pair `i` on one Treatment edge, exclude ties and compute continuity-corrected pair log-odds:
 
-`logit(P(high treatment chosen)) = alpha_pair + theta_treatment(high) - theta_treatment(low)`
+`l_i = log((wins_high_i + 0.5) / (wins_low_i + 0.5))`
 
-where:
+The primary edge effect is:
 
-- Double Rare is the reference `theta_DR = 0`,
-- Ultra Rare and SIR receive estimated preference levels,
-- pair/Subject structure prevents one popular Pokémon from defining the Treatment result.
+`L_edge = mean_i(l_i)`
 
-Implementation may use conditional pair aggregation or an equivalent identifiable paired-comparison likelihood, but the Treatment contrast definition must remain unchanged.
+with multiplier-style preference odds:
+
+`PreferenceOdds_edge = exp(L_edge)`
+
+Each underlying same-Subject / same-Set pair receives equal weight regardless of how many usable responses it receives above the minimum gate.
+
+This prevents:
+
+- high-traffic pairs from dominating,
+- one popular Subject from defining the Treatment result,
+- respondent-count imbalance from masquerading as Treatment strength.
+
+The three primary edges are estimated directly:
+
+- SIR vs Double Rare
+- SIR vs Ultra Rare
+- Ultra Rare vs Double Rare
+
+A secondary connected three-node Bradley-Terry summary may be reported from the three frozen edge estimates, with Double Rare anchored at zero, but it is **not** the primary decision authority.
+
+Raw pooled respondent preference shares are descriptive only.
 
 ## Tie handling
 
 Primary analysis:
 
-- ties are excluded from the binary Bradley-Terry likelihood,
-- tie rate is reported independently by edge and Treatment pair.
+- ties are excluded from each pair's primary log-odds calculation,
+- tie rate is reported independently by pair and Treatment edge.
 
 Sensitivity analysis:
 
-- split each tie as 0.5 / 0.5 preference weight.
+- split each tie as 0.5 / 0.5 preference weight and recompute equal-weight pair log-odds.
 
 The primary decision may not be changed based on the sensitivity result.
 
@@ -171,16 +189,17 @@ Also report intuitive preference probabilities on a neutral matched pair.
 
 ## Bootstrap
 
-Use whole-underlying-pair resampling, not individual vote resampling alone.
+Use whole-underlying-pair resampling.
 
 - 2,000 deterministic bootstrap draws
 - seed: `20261003`
-- resample matched underlying pairs with replacement
-- retain all responses for a sampled pair
+- resample matched underlying pairs with replacement **within each Treatment edge**
+- retain each sampled pair's frozen pair-level log-odds
+- recompute the equal-weight edge mean
 
 This measures transport across card identities rather than only respondent sampling noise.
 
-Respondent-level uncertainty may be reported separately.
+A secondary nested bootstrap may additionally resample respondents within sampled pairs, but it cannot replace the whole-pair primary bootstrap.
 
 ## Primary support gates
 
