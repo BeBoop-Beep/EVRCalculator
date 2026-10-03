@@ -1,5 +1,4 @@
 {
-  "operation": "treatment-set-relative-v2",
-  "request_id": "20261003",
-  "retry_reason": "pytest-cwd-fix"
+  "operation": "treatment-set-relative-v2-estimate",
+  "request_id": "20261003-estimate"
 }
