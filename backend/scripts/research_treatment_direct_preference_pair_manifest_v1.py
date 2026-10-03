@@ -317,7 +317,7 @@ def build_manifest(db: Any, market_date: str) -> dict[str, Any]:
     )
     study_era_counts = Counter(p["era_name"] for p in study_pairs)
     study_set_counts = Counter(p["set_name"] for p in study_pairs)
-    study_subject_counts = Counter(p["subject_key"] for p in study_pairs)
+    study_subject_counts = Counter(t["subject_key"] for t in study_triads)
     study_max_subject_share = (
         max(study_subject_counts.values()) / len(study_triads)
         if study_subject_counts else 0.0
