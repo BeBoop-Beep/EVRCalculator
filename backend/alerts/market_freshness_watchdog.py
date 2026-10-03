@@ -52,6 +52,19 @@ def evaluate_watchdog_state(state: Mapping[str, Any], *, now: datetime) -> List[
     publication_deadline = _clock(os.getenv("MARKET_PUBLICATION_DEADLINE_AZ", "07:00"))
     batch = state.get("batch")
 
+    activity = dict(state.get("activity_coherence") or {})
+    mismatches = list(activity.get("mismatches") or [])
+    if mismatches:
+        failures.append({
+            "alert_type": "market_activity_generation_mismatch",
+            "failure_class": "activity_surface_generation_mismatch",
+            "message": (
+                f"{len(mismatches)} serving Activity market(s) are not coherent with "
+                f"Explorer surface {activity.get('surface_generation_id') or 'missing'}."
+            ),
+            "activity_coherence": activity,
+        })
+
     if local_now.time() >= batch_deadline and not batch:
         failures.append({"alert_type": "batch_not_created", "failure_class": "missing_batch",
                          "message": f"No daily scrape batch exists after {batch_deadline} America/Phoenix."})
@@ -206,12 +219,25 @@ def _explorer_v2_serving_date(client: Any) -> Optional[str]:
     return str(value)[:10] if value else None
 
 
+def _activity_coherence(client: Any) -> Dict[str, Any]:
+    from backend.scripts.run_market_activity_post_publication import activity_coherence
+    receipt = activity_coherence(client)
+    mismatches = [row["marketKey"] for row in receipt["markets"] if not row["coherent"]]
+    return {
+        "surface_generation_id": receipt["surfaceGenerationId"],
+        "supported_market_count": receipt["supportedMarketCount"],
+        "coherent_market_count": receipt["coherentMarketCount"],
+        "mismatches": mismatches,
+    }
+
+
 def load_watchdog_state(client: Any, market_date: str) -> Dict[str, Any]:
     batches = list((client.table("pokemon_scrape_batches")
                     .select("id,market_date,status,created_at,started_at,updated_at,completed_at")
                     .eq("market_date", market_date).limit(1).execute()).data or [])
     return {
         "batch": batches[0] if batches else None,
+        "activity_coherence": _activity_coherence(client),
         "explore_card_movers_contract": _explore_card_movers_contract(client),
         "authority_dates": {
             "accepted_market_quality": _latest_date(client, "pokemon_market_date_quality", "market_date", status="READY"),

@@ -118,6 +118,10 @@ class _ContractClient:
         },
         "pokemon_market_explorer_surface_serving_v2": {"singleton", "generation_id"},
         "pokemon_market_explorer_surface_generations_v2": {"generation_id", "market_date", "state"},
+        "market_activity_market_serving_v1": {"market_key", "activity_generation_id"},
+        "market_activity_generations_v1": {
+            "activity_generation_id", "surface_generation_id", "state", "serving_state", "as_of",
+        },
         "card_market_usd_latest": {"captured_at"},
         "sealed_product_market_usd_latest": {"captured_at"},
     }
@@ -195,6 +199,8 @@ class _ContractClient:
             "pokemon_market_explorer_surface_generations_v2": [
                 {"generation_id": "gen-current", "market_date": "2026-08-30", "state": "VALIDATED"},
             ],
+            "market_activity_market_serving_v1": [],
+            "market_activity_generations_v1": [],
             "card_market_usd_latest": [
                 {"captured_at": "2026-08-30"},
             ],
@@ -270,6 +276,19 @@ def test_missing_required_authority_date_fails_closed_after_publication_deadline
 
 def test_fresh_healthy_state_has_no_failures():
     assert watchdog.evaluate_watchdog_state(_state({"status": "complete"}), now=NOW) == []
+
+
+def test_activity_surface_generation_mismatch_is_detected_immediately():
+    state = _state({"status": "complete"})
+    state["activity_coherence"] = {
+        "surface_generation_id": "surface-current",
+        "supported_market_count": 1,
+        "coherent_market_count": 0,
+        "mismatches": ["set:prismatic"],
+    }
+    failures = watchdog.evaluate_watchdog_state(state, now=NOW)
+    failure = next(row for row in failures if row["alert_type"] == "market_activity_generation_mismatch")
+    assert failure["failure_class"] == "activity_surface_generation_mismatch"
 
 
 def test_current_by_date_but_cards_only_or_thirty_item_movers_fail_semantics():

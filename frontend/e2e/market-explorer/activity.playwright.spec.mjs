@@ -59,6 +59,30 @@ test("fixture-backed Activity desktop views and synchronized inspection", async 
   await context.close();
 });
 
+test("coherent Prismatic Activity enter and exit preserves the Index workspace", async ({ browser }) => {
+  const { context, page } = await newSession(browser, { base: URLS.v2, plan: "plus", viewport: { width: 1440, height: 900 } });
+  await openExplorer(page, URLS.v2);
+  await page.locator('[data-market-directory-category="sets"]').click();
+  const prismatic = page.locator('[data-prepared-market="set:set-prismatic"]');
+  await expect(prismatic).toBeVisible();
+  await prismatic.click();
+  const chip = page.locator('[data-market-explorer-active-chip="set:set-prismatic"]');
+  await expect(chip).toBeVisible();
+  await chip.locator('[data-market-explorer-active-focus]').click();
+  await expect(chip.locator('[data-market-explorer-active-focus]')).toHaveAttribute("aria-pressed", "true");
+  const keysBefore = await page.locator("[data-market-explorer-active-chip]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-market-explorer-active-chip")));
+  const activity = page.locator('[data-market-chart-view="activity"]');
+  await expect(activity).toHaveAttribute("data-market-chart-view-state", "available");
+  await activity.click();
+  await expect(page.locator("[data-market-activity-chart]")).toBeVisible();
+  await page.locator('[data-market-chart-view="performance"]').click();
+  await expect(page.locator("[data-market-performance-chart]")).toBeVisible();
+  expect(await page.locator("[data-market-explorer-active-chip]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-market-explorer-active-chip")))).toEqual(keysBefore);
+  await expect(chip.locator('[data-market-explorer-active-focus]')).toHaveAttribute("aria-pressed", "true");
+  await capture(page, "1440x900-prismatic-activity-exit-retains-workspace");
+  await context.close();
+});
+
 test("fixture-backed Activity remains readable at laptop and mobile widths", async ({ browser }) => {
   for (const viewport of [{ width: 1728, height: 1000 }, { width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 834, height: 1194 }, { width: 768, height: 1024 }, { width: 412, height: 915 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
     const mobile = viewport.width <= 412;

@@ -1,0 +1,50 @@
+{
+  "candidateGenerationId": "e6b6c276-edba-48f5-9326-7c462796d0aa",
+  "marketKey": "set:7a3dd188-4375-41af-94de-c5247fe0b1a6",
+  "asOf": "2026-10-02",
+  "surfaceGenerationId": "5caf929a-4962-4334-84a0-c75d3635135b",
+  "plan": {
+    "state": "VALIDATED",
+    "elapsedSeconds": 59.522063,
+    "queryCount": 175,
+    "rowsRead": 6119,
+    "rowsWritten": 0,
+    "batches": 4,
+    "rosterFingerprint": "53cb1dc85a1de229426c1bb27dba121d16ff220ccdf2ca635e71b0806684def2",
+    "errors": []
+  },
+  "stage": {
+    "state": "VALIDATED",
+    "servingState": "RETAINED",
+    "promoted": false,
+    "providerCalls": 0,
+    "elapsedSeconds": 61.44079,
+    "queryCount": 175,
+    "rowsRead": 6119,
+    "rowsWritten": 2306,
+    "batches": 4,
+    "reconciliation": {
+      "valid": true,
+      "memberCount": 174,
+      "payloadCount": 174,
+      "seriesMetaCount": 174,
+      "windowCount": 696,
+      "errors": []
+    }
+  },
+  "persistedValidation": {
+    "rosterCount": 174,
+    "rosterDenominator": 174,
+    "payloadCount": 174,
+    "seriesMetaCount": 174,
+    "groupWindows": [7, 30, 90, 180],
+    "dailyHistoryRows": 868,
+    "capabilityEligibleAfterPromotion": true,
+    "errors": []
+  },
+  "currentServingCoherence": {
+    "supportedMarketCount": 1,
+    "coherentMarketCount": 0,
+    "status": "unavailable_pending_refresh"
+  }
+}

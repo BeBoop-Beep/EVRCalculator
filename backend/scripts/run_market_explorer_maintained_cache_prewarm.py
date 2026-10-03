@@ -66,6 +66,7 @@ from backend.db.services.market_explorer_direct_publisher import (
 from backend.scripts.run_market_explorer_daily_publication import (
     resolve_latest_approved_market_date,
 )
+from backend.scripts.run_market_activity_post_publication import run_post_publication
 
 LOG = logging.getLogger("market_explorer_maintained_cache_prewarm")
 
@@ -491,6 +492,16 @@ def refresh_prepared_if_current(client: Any, *, target_market_date: str, commit:
                     "status": "blocked",
                     "error": _prepared_db_error(exc),
                 }
+            if result["v2Surface"].get("status") in {
+                "promoted", "promoted_existing_validated", "already_current"
+            }:
+                try:
+                    result["activityRefresh"] = run_post_publication(client, commit=True)
+                except Exception as exc:  # Activity stays fail-closed through capability discovery.
+                    result["activityRefresh"] = {
+                        "status": "blocked", "error": f"{type(exc).__name__}: {str(exc)[:300]}",
+                        "providerCalls": 0,
+                    }
         return result
     except Exception as exc:  # noqa: BLE001 - fail closed, caller records failure
         return {

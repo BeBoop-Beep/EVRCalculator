@@ -754,11 +754,15 @@ def test_committed_v1_refresh_triggers_v2_publication():
     with patch.object(worker, "_run_guarded_prepared_db",
                       return_value={"status": "refreshed", "result": {"ok": True}}), \
          patch.object(worker, "_run_current_v2_surface_db",
-                      return_value={"status": "already_current", "generationId": "v2-a"}) as publish_v2:
+                      return_value={"status": "already_current", "generationId": "v2-a"}) as publish_v2, \
+         patch.object(worker, "run_post_publication",
+                      return_value={"mode": "commit", "reports": []}) as refresh_activity:
         result = worker.refresh_prepared_if_current(
             Client(), target_market_date="2026-09-26", commit=True
         )
     publish_v2.assert_called_once_with()
+    refresh_activity.assert_called_once()
+    assert refresh_activity.call_args.kwargs == {"commit": True}
     assert result["status"] == "refreshed"
     assert result["v2Surface"]["status"] == "already_current"
 
@@ -767,11 +771,14 @@ def test_committed_v1_already_current_still_checks_v2_publication():
     with patch.object(worker, "_run_guarded_prepared_db",
                       return_value={"status": "already_current", "generationId": "v1-a"}), \
          patch.object(worker, "_run_current_v2_surface_db",
-                      return_value={"status": "promoted", "generationId": "v2-b"}) as publish_v2:
+                      return_value={"status": "promoted", "generationId": "v2-b"}) as publish_v2, \
+         patch.object(worker, "run_post_publication",
+                      return_value={"mode": "commit", "reports": [{"status": "promoted"}]}) as refresh_activity:
         result = worker.refresh_prepared_if_current(
             Client(), target_market_date="2026-09-26", commit=True
         )
     publish_v2.assert_called_once_with()
+    refresh_activity.assert_called_once()
     assert result["status"] == "already_current"
     assert result["v2Surface"]["status"] == "promoted"
 
@@ -780,13 +787,15 @@ def test_v2_failure_is_blocked_without_reclassifying_successful_v1():
     with patch.object(worker, "_run_guarded_prepared_db",
                       return_value={"status": "refreshed", "result": {"ok": True}}), \
          patch.object(worker, "_run_current_v2_surface_db",
-                      side_effect=RuntimeError("do not leak this")):
+                      side_effect=RuntimeError("do not leak this")), \
+         patch.object(worker, "run_post_publication") as refresh_activity:
         result = worker.refresh_prepared_if_current(
             Client(), target_market_date="2026-09-26", commit=True
         )
     assert result["status"] == "refreshed"
     assert result["v2Surface"]["status"] == "blocked"
     assert result["v2Surface"]["error"] == "direct_db_RuntimeError"
+    refresh_activity.assert_not_called()
     assert "do not leak this" not in str(result)
 
 
