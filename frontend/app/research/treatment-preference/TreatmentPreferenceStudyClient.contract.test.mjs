@@ -34,3 +34,11 @@ test("Treatment preference surface never requests aggregate study endpoints", ()
     /\/api\/research\/treatment-preference-v1\/(results|summary|leaderboard|scores)/,
   );
 });
+
+
+
+test("Treatment preference page requires an explicit start before a new block claim", () => {
+  assert.match(clientSource, />Start study</);
+  assert.match(clientSource, /if \(window\.localStorage\.getItem\(DRAFT_KEY\)\)/);
+  assert.match(clientSource, /onClick=\{\(\) => sessionId && loadBlock\(sessionId\)\}/);
+});
