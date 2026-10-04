@@ -8,6 +8,7 @@ only blinded image comparisons to callers.
 from __future__ import annotations
 
 import hashlib
+import random
 import threading
 from collections import defaultdict
 from typing import Any
@@ -40,6 +41,7 @@ EXPECTED_TRIADS = 45
 EXPECTED_PAIRS = 135
 EXPECTED_BLOCKS = 450
 QUESTIONS_PER_BLOCK = 12
+QUESTION_ORDER_VERSION = "treatment_direct_preference_v1_question_order_v1"
 
 _AUTHORITY_LOCK = threading.Lock()
 _AUTHORITY_CACHE: dict[str, Any] | None = None
@@ -69,6 +71,29 @@ def _session_hash(session_id: str) -> str:
         ) from exc
     canonical = str(parsed)
     return hashlib.sha256(f"{STUDY_VERSION}|{canonical}".encode()).hexdigest()
+
+
+def _ordered_questions(block: dict[str, Any], session_hash: str) -> list[dict[str, Any]]:
+    """Deterministically randomize question order per anonymous respondent.
+
+    The frozen schedule controls which 12 comparisons and orientations a block
+    contains. Order is a separate preregistered randomization dimension, so it
+    is derived from the anonymous session hash without changing the frozen
+    manifest or assignment fingerprint. A resumed session receives the same
+    order.
+    """
+    questions = [dict(row) for row in block.get("questions") or []]
+    seed = int(
+        hashlib.sha256(
+            (
+                f"{QUESTION_ORDER_VERSION}|{session_hash}|"
+                f"{block.get('block_id') or ''}"
+            ).encode()
+        ).hexdigest()[:16],
+        16,
+    )
+    random.Random(seed).shuffle(questions)
+    return questions
 
 
 def _fast_frozen_manifest(db: Any) -> dict[str, Any]:
@@ -464,6 +489,7 @@ def claim_block(db: Any, session_id: str) -> dict[str, Any]:
             status_code=503,
         )
     block = blocks[block_index]
+    ordered_questions = _ordered_questions(block, session_hash)
     return {
         "studyVersion": STUDY_VERSION,
         "status": "ready",
@@ -477,7 +503,7 @@ def claim_block(db: Any, session_id: str) -> dict[str, Any]:
                 "leftImageUrl": q["left_image_url"],
                 "rightImageUrl": q["right_image_url"],
             }
-            for q in block["questions"]
+            for q in ordered_questions
         ],
     }
 
