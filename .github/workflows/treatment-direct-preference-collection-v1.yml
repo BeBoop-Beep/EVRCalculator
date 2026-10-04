@@ -15,6 +15,8 @@ on:
       - 'supabase/migrations/20261003235000_create_treatment_direct_preference_v1_collection.sql'
       - 'backend/db/migrations/20261003235500_tighten_treatment_preference_service_role_privileges.sql'
       - 'supabase/migrations/20261003235500_tighten_treatment_preference_service_role_privileges.sql'
+      - 'backend/db/migrations/20261003235900_index_treatment_preference_foreign_keys.sql'
+      - 'supabase/migrations/20261003235900_index_treatment_preference_foreign_keys.sql'
       - 'frontend/app/research/treatment-preference/**'
       - 'frontend/app/api/research/treatment-preference-v1/**'
       - '.github/workflows/treatment-direct-preference-collection-v1.yml'
