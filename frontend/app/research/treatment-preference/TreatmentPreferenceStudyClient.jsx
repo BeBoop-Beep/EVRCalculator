@@ -33,7 +33,7 @@ export default function TreatmentPreferenceStudyClient() {
   const [answers, setAnswers] = useState({});
   const [index, setIndex] = useState(0);
   const [reviewing, setReviewing] = useState(false);
-  const [status, setStatus] = useState("loading");
+  const [status, setStatus] = useState("intro");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -78,7 +78,11 @@ export default function TreatmentPreferenceStudyClient() {
   useEffect(() => {
     const sid = getOrCreateSessionId();
     setSessionId(sid);
-    loadBlock(sid);
+    if (window.localStorage.getItem(DRAFT_KEY)) {
+      loadBlock(sid);
+    } else {
+      setStatus("intro");
+    }
   }, [loadBlock]);
 
   const questions = block?.questions || [];
@@ -146,6 +150,28 @@ export default function TreatmentPreferenceStudyClient() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (status === "intro") {
+    return (
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-8 text-center">
+        <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
+          12 blinded comparisons
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-[var(--text-secondary)]">
+          Starting reserves one balanced research block for this anonymous browser session.
+          Complete all 12 comparisons and submit them together.
+        </p>
+        <button
+          type="button"
+          disabled={!sessionId}
+          onClick={() => sessionId && loadBlock(sessionId)}
+          className="mt-6 rounded-lg bg-[var(--accent)] px-6 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Start study
+        </button>
+      </div>
+    );
   }
 
   if (status === "loading") {
