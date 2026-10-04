@@ -147,3 +147,26 @@ def test_frozen_authority_constants():
     assert tp.EXPECTED_TRIADS == 45
     assert tp.EXPECTED_PAIRS == 135
     assert tp.EXPECTED_BLOCKS == 450
+
+
+
+def test_question_order_is_session_randomized_and_resumable():
+    authority = _authority()
+    block = authority["schedule"]["blocks"][0]
+    hash_a = "a" * 64
+    hash_b = "b" * 64
+
+    first = tp._ordered_questions(block, hash_a)
+    resumed = tp._ordered_questions(block, hash_a)
+    other = tp._ordered_questions(block, hash_b)
+
+    original_ids = {q["underlying_pair_id"] for q in block["questions"]}
+    assert [q["underlying_pair_id"] for q in first] == [
+        q["underlying_pair_id"] for q in resumed
+    ]
+    assert {q["underlying_pair_id"] for q in first} == original_ids
+    assert {q["underlying_pair_id"] for q in other} == original_ids
+    assert [q["underlying_pair_id"] for q in first] != [
+        q["underlying_pair_id"] for q in other
+    ]
+    assert tp.QUESTION_ORDER_VERSION == "treatment_direct_preference_v1_question_order_v1"
